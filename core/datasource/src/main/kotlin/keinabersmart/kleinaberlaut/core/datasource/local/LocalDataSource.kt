@@ -1,0 +1,164 @@
+package keinabersmart.kleinaberlaut.core.datasource.local
+
+import android.content.ContentUris
+import android.content.Context
+import android.database.Cursor
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
+import android.os.Build
+import android.provider.MediaStore
+import android.util.Size
+import dagger.hilt.android.qualifiers.ApplicationContext
+import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
+import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
+import keinabersmart.kleinaberlaut.core.datasource.R
+import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
+import keinabersmart.kleinaberlaut.core.model.SourceType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
+import java.io.IOException
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/** Musik auf dem Gerät, gelesen über MediaStore (Konzept 6.2). */
+@Singleton
+class LocalDataSource @Inject constructor(
+    @param:ApplicationContext private val context: Context,
+) : MusicDataSource {
+
+    override val sourceId: String = SOURCE_ID
+    override val type: SourceType = SourceType.LOCAL
+    override val displayName: String get() = context.getString(R.string.local_source_name)
+
+    override fun fullScan(): Flow<SourceBatch> = flow {
+        // Ohne Berechtigung liefert MediaStore eine leere Liste statt eines Fehlers – der
+        // Abgleich würde dann die ganze Bibliothek löschen.
+        if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} fehlt")
+        val rows = queryRows()
+        val names = FallbackNames(
+            unknownTitle = context.getString(R.string.unknown_title),
+            unknownArtist = context.getString(R.string.unknown_artist),
+            unknownAlbum = context.getString(R.string.unknown_album),
+            variousArtists = context.getString(R.string.various_artists),
+        )
+        MediaStoreTrackMapper.map(rows, names)
+            .chunked(BATCH_SIZE)
+            .forEach { emit(SourceBatch(it)) }
+    }.flowOn(Dispatchers.IO)
+
+    override suspend fun resolvePlayback(remoteId: String): PlaybackLocation =
+        PlaybackLocation.LocalFile(contentUri(remoteId))
+
+    override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = withContext(Dispatchers.IO) {
+        val uri = contentUri(remoteId)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                context.contentResolver.loadThumbnail(uri, Size(sizePx, sizePx), null)
+            } else {
+                MediaMetadataRetriever().run {
+                    try {
+                        setDataSource(context, uri)
+                        embeddedPicture?.let { decodeSampled(it, sizePx) }
+                    } finally {
+                        release()
+                    }
+                }
+            }
+        } catch (_: IOException) {
+            null
+        } catch (_: RuntimeException) {
+            // MediaMetadataRetriever wirft bei defekten Dateien IllegalArgumentException/RuntimeException.
+            null
+        }
+    }
+
+    private fun contentUri(remoteId: String) =
+        ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, remoteId.toLong())
+
+    private fun queryRows(): List<MediaStoreRow> {
+        val columns = buildList {
+            add(MediaStore.Audio.Media._ID)
+            add(MediaStore.Audio.Media.TITLE)
+            add(MediaStore.Audio.Media.ARTIST)
+            add(MediaStore.Audio.Media.ALBUM)
+            add(MediaStore.Audio.Media.ALBUM_ID)
+            add(MediaStore.Audio.Media.DURATION)
+            add(MediaStore.Audio.Media.TRACK)
+            add(MediaStore.Audio.Media.YEAR)
+            add(MediaStore.Audio.Media.MIME_TYPE)
+            add(MediaStore.Audio.Media.SIZE)
+            add(MediaStore.Audio.Media.DATE_ADDED)
+            add(MediaStore.Audio.Media.DATE_MODIFIED)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                add(MediaStore.Audio.Media.ALBUM_ARTIST)
+                add(MediaStore.Audio.Media.COMPILATION)
+                add(MediaStore.Audio.Media.GENRE)
+                add(MediaStore.Audio.Media.BITRATE)
+            }
+        }
+        val cursor = context.contentResolver.query(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            columns.toTypedArray(),
+            "${MediaStore.Audio.Media.IS_MUSIC} != 0",
+            null,
+            null,
+        ) ?: throw IOException("MediaStore-Abfrage lieferte keinen Cursor")
+
+        return cursor.use { c ->
+            buildList(c.count) {
+                while (c.moveToNext()) {
+                    add(
+                        MediaStoreRow(
+                            id = c.long(MediaStore.Audio.Media._ID) ?: continue,
+                            title = c.string(MediaStore.Audio.Media.TITLE),
+                            artist = c.string(MediaStore.Audio.Media.ARTIST),
+                            album = c.string(MediaStore.Audio.Media.ALBUM),
+                            albumId = c.long(MediaStore.Audio.Media.ALBUM_ID) ?: 0,
+                            albumArtist = c.string("album_artist"),
+                            isCompilation = c.string("compilation") == "1",
+                            durationMs = c.long(MediaStore.Audio.Media.DURATION) ?: 0,
+                            track = c.long(MediaStore.Audio.Media.TRACK)?.toInt() ?: 0,
+                            year = c.long(MediaStore.Audio.Media.YEAR)?.toInt() ?: 0,
+                            genre = c.string("genre"),
+                            mimeType = c.string(MediaStore.Audio.Media.MIME_TYPE),
+                            bitRate = c.long("bitrate")?.toInt(),
+                            sizeBytes = c.long(MediaStore.Audio.Media.SIZE) ?: 0,
+                            dateAddedSec = c.long(MediaStore.Audio.Media.DATE_ADDED) ?: 0,
+                            dateModifiedSec = c.long(MediaStore.Audio.Media.DATE_MODIFIED) ?: 0,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun Cursor.string(column: String): String? {
+        val index = getColumnIndex(column)
+        return if (index < 0 || isNull(index)) null else getString(index)
+    }
+
+    private fun Cursor.long(column: String): Long? {
+        val index = getColumnIndex(column)
+        return if (index < 0 || isNull(index)) null else getLong(index)
+    }
+
+    private fun decodeSampled(bytes: ByteArray, sizePx: Int): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        var sampleSize = 1
+        while (bounds.outWidth / (sampleSize * 2) >= sizePx && bounds.outHeight / (sampleSize * 2) >= sizePx) {
+            sampleSize *= 2
+        }
+        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+    }
+
+    companion object {
+        const val SOURCE_ID = "local"
+        private const val BATCH_SIZE = 500
+    }
+}

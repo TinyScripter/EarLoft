@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kleinaberlaut.android.library)
+    alias(libs.plugins.kleinaberlaut.hilt)
 }
 
 android {
@@ -7,7 +8,10 @@ android {
 }
 
 dependencies {
-    implementation(projects.core.model)
+    api(projects.core.model)
     implementation(projects.core.common)
     implementation(projects.core.network)
+
+    api(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
 }

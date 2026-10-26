@@ -1,0 +1,7 @@
+<resources>
+    <string name="unknown_title">Unbekannter Titel</string>
+    <string name="unknown_artist">Unbekannter Künstler</string>
+    <string name="unknown_album">Unbekanntes Album</string>
+    <string name="various_artists">Verschiedene Künstler</string>
+    <string name="local_source_name">Dieses Gerät</string>
+</resources>

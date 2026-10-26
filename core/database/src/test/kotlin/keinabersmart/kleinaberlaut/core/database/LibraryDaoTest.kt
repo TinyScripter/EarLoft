@@ -92,6 +92,39 @@ class LibraryDaoTest {
         libraryDao.insertSongSource(songSource(songId, NAVIDROME, "x").copy(uid = "other"))
     }
 
+    @Test
+    fun `full text search ignores case and diacritics`() = runTest {
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        val artistId = libraryDao.insertArtist(
+            ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"),
+        )
+        val albumId = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(albumId, artistId, position = 0))
+        val songId = libraryDao.insertSong(song(albumId, "Hoppípolla", track = 3))
+        libraryDao.insertSongSource(songSource(songId, LOCAL, "7"))
+
+        assertEquals(listOf("Hoppípolla"), libraryDao.searchSongRows("HOPPI*", 10).map { it.title })
+        assertEquals(listOf("Takk..."), libraryDao.searchAlbumRows("takk*", 10).map { it.title })
+        assertEquals(listOf("Sigur Rós"), libraryDao.searchArtistRows("sigur* ros*", 10).map { it.name })
+        assertTrue(libraryDao.searchSongRows("glosoli*", 10).isEmpty())
+    }
+
+    @Test
+    fun `album rows count songs and queue skips unknown songs`() = runTest {
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        val albumId = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val first = libraryDao.insertSong(song(albumId, "Glósóli", track = 2))
+        val second = libraryDao.insertSong(song(albumId, "Hoppípolla", track = 3))
+        libraryDao.insertSongSource(songSource(first, LOCAL, "1"))
+        libraryDao.insertSongSource(songSource(second, LOCAL, "2"))
+
+        assertEquals(2, libraryDao.observeAlbumRows().first().single().songCount)
+
+        val playbackDao = db.playbackDao()
+        playbackDao.replaceQueue(listOf(second, 999L, first))
+        assertEquals(listOf(second, first), playbackDao.getQueueSongIds())
+    }
+
     private fun album(title: String, artist: String) = AlbumEntity(
         title = title,
         sortTitle = title,

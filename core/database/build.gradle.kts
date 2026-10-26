@@ -6,13 +6,6 @@ plugins {
 
 android {
     namespace = "keinabersmart.kleinaberlaut.core.database"
-    testOptions.unitTests {
-        isIncludeAndroidResources = true
-        all {
-            // Robolectric braucht auf JDK 25 Zugriff auf interne JDK-Klassen.
-            it.jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED")
-        }
-    }
 }
 
 dependencies {

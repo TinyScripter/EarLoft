@@ -51,6 +51,6 @@ fun PlaceholderScreen(
 @Composable
 private fun PlaceholderScreenPreview() {
     KleinaberlautTheme {
-        PlaceholderScreen(R.string.nav_library, R.string.placeholder_library)
+        PlaceholderScreen(R.string.nav_downloads, R.string.placeholder_downloads)
     }
 }

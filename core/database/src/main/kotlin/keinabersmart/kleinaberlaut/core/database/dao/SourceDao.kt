@@ -1,6 +1,8 @@
 package keinabersmart.kleinaberlaut.core.database.dao
 
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
@@ -11,11 +13,18 @@ interface SourceDao {
     @Upsert
     suspend fun upsert(source: SourceEntity)
 
+    /** Legt die Quelle an, ohne Sync-Zustand einer vorhandenen Quelle zu überschreiben. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(source: SourceEntity)
+
     @Query("SELECT * FROM sources ORDER BY priority DESC, name")
     fun observeAll(): Flow<List<SourceEntity>>
 
     @Query("SELECT * FROM sources WHERE sourceId = :sourceId")
     suspend fun get(sourceId: String): SourceEntity?
+
+    @Query("UPDATE sources SET syncGeneration = :generation, lastFullSyncAt = :syncedAt WHERE sourceId = :sourceId")
+    suspend fun setSyncGeneration(sourceId: String, generation: Long, syncedAt: Long)
 
     /** Entfernt per CASCADE auch alle `song_sources`; danach [LibraryDao.cleanupOrphans] aufrufen. */
     @Query("DELETE FROM sources WHERE sourceId = :sourceId")

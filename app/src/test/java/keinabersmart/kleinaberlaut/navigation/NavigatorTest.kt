@@ -4,6 +4,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -61,5 +63,23 @@ class NavigatorTest {
         navigator.navigate(LibraryRoute)
 
         assertEquals(listOf(LibraryRoute, AlbumDetail), state.backStacks.getValue(LibraryRoute).toList())
+    }
+
+    @Test
+    fun `current route is the top of the selected tab`() {
+        assertEquals(HomeRoute, navigator.currentRoute)
+
+        navigator.navigate(LibraryRoute)
+        navigator.navigate(NowPlayingRoute)
+        assertEquals(NowPlayingRoute, navigator.currentRoute)
+        assertTrue(navigator.currentRoute.isFullScreenPlayer)
+
+        navigator.goBack()
+        assertEquals(LibraryRoute, navigator.currentRoute)
+    }
+
+    @Test
+    fun `the same album opened twice gets distinct routes`() {
+        assertNotEquals(AlbumRoute(albumId = 5), AlbumRoute(albumId = 5))
     }
 }

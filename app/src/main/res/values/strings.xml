@@ -6,8 +6,67 @@
     <string name="nav_search">Suche</string>
     <string name="nav_downloads">Downloads</string>
 
-    <string name="placeholder_home">Zuletzt gehört und neue Alben erscheinen hier.</string>
-    <string name="placeholder_library">Alben, Künstler, Songs und Playlists erscheinen hier.</string>
-    <string name="placeholder_search">Die Suche kommt in Phase 1.</string>
     <string name="placeholder_downloads">Heruntergeladene Musik erscheint hier.</string>
+
+    <!-- Berechtigungen -->
+    <string name="permission_title">Zugriff auf deine Musik</string>
+    <string name="permission_text">kleinaberlaut braucht die Erlaubnis, die Musik auf diesem Gerät zu lesen.</string>
+    <string name="permission_denied_text">Der Zugriff wurde abgelehnt. Du kannst ihn in den App-Einstellungen unter „Berechtigungen“ erlauben.</string>
+    <string name="permission_grant">Zugriff erlauben</string>
+    <string name="permission_open_settings">Einstellungen öffnen</string>
+
+    <!-- Allgemeine Aktionen -->
+    <string name="action_back">Zurück</string>
+    <string name="action_more">Weitere Optionen</string>
+    <string name="action_play">Abspielen</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_shuffle">Zufällig</string>
+    <string name="action_next">Nächster Titel</string>
+    <string name="action_previous">Vorheriger Titel</string>
+    <string name="action_play_next">Als Nächstes spielen</string>
+    <string name="action_add_to_queue">Zur Warteschlange hinzufügen</string>
+    <string name="action_remove_from_queue">Aus der Warteschlange entfernen</string>
+    <string name="action_clear_search">Suche löschen</string>
+
+    <!-- Bibliothek -->
+    <string name="library_albums">Alben</string>
+    <string name="library_artists">Künstler</string>
+    <string name="library_songs">Songs</string>
+    <string name="library_empty">Keine Musik gefunden. Neue Dateien erscheinen automatisch.</string>
+    <string name="library_syncing">Bibliothek wird aktualisiert …</string>
+    <string name="item_missing">Nicht mehr in der Bibliothek.</string>
+    <string name="disc_number">CD %1$d</string>
+    <plurals name="album_count">
+        <item quantity="one">%1$d Album</item>
+        <item quantity="other">%1$d Alben</item>
+    </plurals>
+    <plurals name="song_count">
+        <item quantity="one">%1$d Song</item>
+        <item quantity="other">%1$d Songs</item>
+    </plurals>
+
+    <!-- Start -->
+    <string name="home_recently_played">Zuletzt gehört</string>
+    <string name="home_recently_added">Neu hinzugefügt</string>
+
+    <!-- Suche -->
+    <string name="search_hint">Songs, Alben, Künstler</string>
+    <string name="search_no_results">Nichts gefunden für „%1$s“.</string>
+
+    <!-- Player -->
+    <string name="player_now_playing">Wird gespielt</string>
+    <string name="player_queue">Warteschlange</string>
+    <string name="player_open_queue">Warteschlange öffnen</string>
+    <string name="player_close">Player schließen</string>
+    <string name="player_shuffle_on">Zufallswiedergabe an</string>
+    <string name="player_shuffle_off">Zufallswiedergabe aus</string>
+    <string name="player_repeat_off">Wiederholen aus</string>
+    <string name="player_repeat_all">Alle wiederholen</string>
+    <string name="player_repeat_one">Titel wiederholen</string>
+    <string name="player_seek">Wiedergabeposition</string>
+
+    <!-- Widget -->
+    <string name="widget_name">Wiedergabe</string>
+    <string name="widget_description">Zeigt den aktuellen Titel mit Steuerung.</string>
+    <string name="player_nothing_playing">Nichts wird gespielt</string>
 </resources>

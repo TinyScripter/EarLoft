@@ -9,6 +9,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
+import keinabersmart.kleinaberlaut.core.database.dao.MergeDao
+import keinabersmart.kleinaberlaut.core.database.dao.PlaybackDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import javax.inject.Singleton
 
@@ -26,4 +28,10 @@ internal object DatabaseModule {
 
     @Provides
     fun provideLibraryDao(database: KleinaberlautDatabase): LibraryDao = database.libraryDao()
+
+    @Provides
+    fun provideMergeDao(database: KleinaberlautDatabase): MergeDao = database.mergeDao()
+
+    @Provides
+    fun providePlaybackDao(database: KleinaberlautDatabase): PlaybackDao = database.playbackDao()
 }

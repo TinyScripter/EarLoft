@@ -23,6 +23,10 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                     sourceCompatibility = BuildConfig.JAVA_VERSION
                     targetCompatibility = BuildConfig.JAVA_VERSION
                 }
+                testOptions.unitTests {
+                    isIncludeAndroidResources = true
+                    all { it.jvmArgs(BuildConfig.ROBOLECTRIC_JVM_ARGS) }
+                }
             }
 
             dependencies {

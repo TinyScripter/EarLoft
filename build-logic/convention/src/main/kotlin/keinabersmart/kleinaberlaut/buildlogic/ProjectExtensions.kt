@@ -15,6 +15,9 @@ object BuildConfig {
     const val MIN_SDK = 26
     const val MIN_SDK_WEAR = 30
     val JAVA_VERSION = JavaVersion.VERSION_17
+
+    /** Robolectric braucht auf JDK 25 Zugriff auf interne JDK-Klassen. */
+    const val ROBOLECTRIC_JVM_ARGS = "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED"
 }
 
 val Project.libs: VersionCatalog
