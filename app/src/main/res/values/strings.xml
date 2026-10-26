@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">kleinaberlaut</string>
+
+    <string name="nav_home">Start</string>
+    <string name="nav_library">Bibliothek</string>
+    <string name="nav_search">Suche</string>
+    <string name="nav_downloads">Downloads</string>
+
+    <string name="placeholder_home">Zuletzt gehört und neue Alben erscheinen hier.</string>
+    <string name="placeholder_library">Alben, Künstler, Songs und Playlists erscheinen hier.</string>
+    <string name="placeholder_search">Die Suche kommt in Phase 1.</string>
+    <string name="placeholder_downloads">Heruntergeladene Musik erscheint hier.</string>
+</resources>
