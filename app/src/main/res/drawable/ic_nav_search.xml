@@ -1,9 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Subtile äußere Welle (Resonanz) -->
     <path
-        android:fillColor="@android:color/white"
-        android:pathData="M15.5,14h-0.79l-0.28,-0.27C15.41,12.59 16,11.11 16,9.5 16,5.91 13.09,3 9.5,3S3,5.91 3,9.5 5.91,16 9.5,16c1.61,0 3.09,-0.59 4.23,-1.57l0.27,0.28v0.79l5,4.99L20.49,19l-4.99,-5zM9.5,14C7.01,14 5,11.99 5,9.5S7.01,5 9.5,5 14,7.01 14,9.5 11.99,14 9.5,14z" />
+        android:pathData="M 225,85 C 310,85 365,145 365,225 C 365,305 310,365 225,365 C 140,365 85,305 85,225 C 85,145 140,85 225,85 Z"
+        android:strokeWidth="4"
+        android:strokeAlpha="0.25">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:startX="85" android:startY="85" android:endX="365" android:endY="365" android:type="linear">
+                <item android:offset="0.0" android:color="#FF00F5D4" />
+                <item android:offset="1.0" android:color="#FFFF0055" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Innere Welle im Linsenglas -->
+    <path
+        android:pathData="M 225,145 C 275,140 295,175 295,225 C 295,275 265,295 225,295 C 175,295 155,265 155,225 C 155,175 185,150 225,145 Z"
+        android:strokeWidth="5"
+        android:strokeAlpha="0.5">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:startX="155" android:startY="145" android:endX="295" android:endY="295" android:type="linear">
+                <item android:offset="0.0" android:color="#FF00F5D4" />
+                <item android:offset="1.0" android:color="#FF7B2CBF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Haupt-Linsenring -->
+    <path
+        android:pathData="M 225,115 A 110,110 0 1,0 225,335 A 110,110 0 1,0 225,115 Z"
+        android:strokeWidth="14">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:startX="115" android:startY="115" android:endX="335" android:endY="335" android:type="linear">
+                <item android:offset="0.0" android:color="#FF00F5D4" />
+                <item android:offset="0.45" android:color="#FF7B2CBF" />
+                <item android:offset="1.0" android:color="#FFFF0055" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Doppelstieliger Lupengriff mit abgerundeter Endkappe -->
+    <path
+        android:pathData="M 305,305 L 405,405 A 12,12 0 0,0 422,388 L 322,288"
+        android:strokeWidth="10"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:startX="305" android:startY="288" android:endX="422" android:endY="405" android:type="linear">
+                <item android:offset="0.0" android:color="#FFFF0055" />
+                <item android:offset="1.0" android:color="#FFFF7A00" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Zentrums-Impuls ("klein") -->
+    <path
+        android:pathData="M 225,213 A 12,12 0 1,0 225,237 A 12,12 0 1,0 225,213 Z"
+        android:fillColor="#FFFFFFFF" />
 </vector>
