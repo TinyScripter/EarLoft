@@ -50,6 +50,8 @@ interface SongActions {
     fun playNext(song: Song)
     fun addToQueue(song: Song)
 
+    fun toggleFavorite(song: Song) = Unit
+
     /** Nur angeboten, wo der Offline-Zustand bekannt ist (siehe [SongListItem]). */
     fun download(song: Song) = Unit
     fun removeDownload(song: Song) = Unit
@@ -111,6 +113,21 @@ fun SongListItem(
                             onClick = {
                                 menuOpen = false
                                 actions.addToQueue(song)
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(stringResource(if (song.isFavorite) R.string.action_remove_favorite else R.string.action_add_favorite))
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    painterResource(if (song.isFavorite) DesignR.drawable.ic_favorite else DesignR.drawable.ic_favorite_border),
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                menuOpen = false
+                                actions.toggleFavorite(song)
                             },
                         )
                         when (offline?.state) {

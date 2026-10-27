@@ -21,6 +21,8 @@ internal class PlayTracker(
     private var durationMs: Long = 0
     private var listenedMs: Long = 0
     private var playingSince: Long? = null
+    /** Wanduhrzeit, zu der zuletzt gehört wurde – Ende des Hörens, auch wenn erst später abgeschlossen wird. */
+    private var lastHeardAt: Long = 0
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         if (isPlaying) {
@@ -28,6 +30,12 @@ internal class PlayTracker(
         } else {
             accumulate()
         }
+    }
+
+    override fun onPlaybackStateChanged(playbackState: Int) {
+        // Ende der Warteschlange: Es folgt kein Titelwechsel, der den Titel abschließen würde.
+        // Der Titel bleibt gesetzt – „Abspielen“ startet ihn ohne Titelwechsel neu.
+        if (playbackState == Player.STATE_ENDED) recordCurrent()
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -39,19 +47,26 @@ internal class PlayTracker(
 
     /** Beim Beenden des Service aufrufen, damit der letzte Titel nicht verloren geht. */
     fun finishCurrent() {
+        recordCurrent()
+        songId = null
+    }
+
+    private fun recordCurrent() {
         accumulate()
         val id = songId
         val listened = listenedMs
         if (id != null && listened >= threshold()) {
-            val playedAt = System.currentTimeMillis()
+            val playedAt = lastHeardAt
             scope.launch { repository.recordPlay(id, playedAt, listened) }
         }
-        songId = null
         listenedMs = 0
     }
 
     private fun accumulate() {
-        playingSince?.let { listenedMs += SystemClock.elapsedRealtime() - it }
+        playingSince?.let {
+            listenedMs += SystemClock.elapsedRealtime() - it
+            lastHeardAt = System.currentTimeMillis()
+        }
         playingSince = null
     }
 

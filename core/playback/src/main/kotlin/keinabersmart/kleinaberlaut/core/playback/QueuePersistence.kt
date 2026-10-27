@@ -53,7 +53,8 @@ class QueuePersistence @Inject constructor(
 
     fun savePosition(player: Player, scope: CoroutineScope) {
         val index = player.currentMediaItemIndex
-        val position = player.currentPosition
+        // Zu Ende gespielt: Am Titelende wiederhergestellt würde „Abspielen“ sofort wieder enden.
+        val position = if (player.playbackState == Player.STATE_ENDED) 0L else player.currentPosition
         val shuffle = player.shuffleModeEnabled
         val repeat = player.repeatMode
         scope.launch {

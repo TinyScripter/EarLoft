@@ -6,6 +6,7 @@ import androidx.core.net.toUri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
+import keinabersmart.kleinaberlaut.core.datasource.RemoteLibraryActions
 import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
 import keinabersmart.kleinaberlaut.core.datasource.decodeSampled
 import keinabersmart.kleinaberlaut.core.datasource.local.FallbackNames
@@ -26,7 +27,7 @@ class SubsonicDataSource internal constructor(
     override val displayName: String,
     private val api: SubsonicApi,
     private val names: FallbackNames,
-) : MusicDataSource {
+) : MusicDataSource, RemoteLibraryActions {
 
     override val sourceId: String get() = server.sourceId
     override val type: SourceType = SourceType.SUBSONIC
@@ -70,6 +71,12 @@ class SubsonicDataSource internal constructor(
         val bytes = api.coverArt(server, remoteId, sizePx) ?: return null
         return withContext(Dispatchers.Default) { decodeSampled(bytes, sizePx) }
     }
+
+    override suspend fun setFavorite(remoteId: String, favorite: Boolean) {
+        if (favorite) api.star(server, remoteId) else api.unstar(server, remoteId)
+    }
+
+    override suspend fun scrobble(remoteId: String, playedAt: Long) = api.scrobble(server, remoteId, playedAt)
 
     private suspend fun loadAllAlbums(): Map<String, AlbumDto> {
         val albums = LinkedHashMap<String, AlbumDto>()

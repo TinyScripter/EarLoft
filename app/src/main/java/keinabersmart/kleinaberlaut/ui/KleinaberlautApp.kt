@@ -22,6 +22,7 @@ import keinabersmart.kleinaberlaut.navigation.AddServerRoute
 import keinabersmart.kleinaberlaut.navigation.AlbumRoute
 import keinabersmart.kleinaberlaut.navigation.ArtistRoute
 import keinabersmart.kleinaberlaut.navigation.DownloadsRoute
+import keinabersmart.kleinaberlaut.navigation.FavoritesRoute
 import keinabersmart.kleinaberlaut.navigation.HomeRoute
 import keinabersmart.kleinaberlaut.navigation.LibraryRoute
 import keinabersmart.kleinaberlaut.navigation.Navigator
@@ -37,6 +38,7 @@ import keinabersmart.kleinaberlaut.ui.downloads.DownloadsScreen
 import keinabersmart.kleinaberlaut.ui.home.HomeScreen
 import keinabersmart.kleinaberlaut.ui.library.AlbumScreen
 import keinabersmart.kleinaberlaut.ui.library.ArtistScreen
+import keinabersmart.kleinaberlaut.ui.library.FavoritesScreen
 import keinabersmart.kleinaberlaut.ui.library.LibraryScreen
 import keinabersmart.kleinaberlaut.ui.player.MiniPlayer
 import keinabersmart.kleinaberlaut.ui.player.NowPlayingScreen
@@ -62,7 +64,14 @@ fun KleinaberlautApp(
 
     val entryProvider = entryProvider {
         entry<HomeRoute> { HomeScreen(onAlbumClick = openAlbum, onOpenSettings = { navigator.navigate(SettingsRoute) }) }
-        entry<LibraryRoute> { LibraryScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) }
+        entry<LibraryRoute> {
+            LibraryScreen(
+                onAlbumClick = openAlbum,
+                onArtistClick = openArtist,
+                onFavoritesClick = { navigator.navigate(FavoritesRoute) },
+            )
+        }
+        entry<FavoritesRoute> { FavoritesScreen(onBack = navigator::goBack) }
         entry<SearchRoute> { SearchScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) }
         entry<DownloadsRoute> { DownloadsScreen(onAlbumClick = openAlbum) }
         entry<AlbumRoute> { route -> AlbumScreen(albumId = route.albumId, onBack = navigator::goBack) }

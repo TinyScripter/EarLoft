@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.core.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -122,6 +123,8 @@ data class SongSourceEntity(
     val rgAlbumGainDb: Float? = null,
     val rgAlbumPeak: Float? = null,
     val seenInGeneration: Long,
+    /** Zeitpunkt, zu dem der Server den Song favorisiert hat; `null` = nicht favorisiert (lokale Quellen immer). */
+    @ColumnInfo(defaultValue = "NULL") val starredAt: Long? = null,
 )
 
 @Entity(

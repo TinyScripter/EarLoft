@@ -9,6 +9,7 @@ import dagger.hilt.android.HiltAndroidApp
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
+import keinabersmart.kleinaberlaut.core.data.sync.SyncQueueStarter
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.ui.image.AlbumCoverFetcher
 import kotlinx.coroutines.CoroutineScope
@@ -21,12 +22,16 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var libraryRefresher: LibraryRefresher
     @Inject lateinit var artworkRepository: ArtworkRepository
     @Inject lateinit var downloadRepository: DownloadRepository
+    @Inject lateinit var syncQueueStarter: SyncQueueStarter
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onCreate() {
         super.onCreate()
         libraryRefresher.start()
-        applicationScope.launch { downloadRepository.resumePending() }
+        applicationScope.launch {
+            downloadRepository.resumePending()
+            syncQueueStarter.startIfPending()
+        }
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

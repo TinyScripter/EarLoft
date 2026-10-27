@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
 import keinabersmart.kleinaberlaut.core.database.dao.MergeDao
 import keinabersmart.kleinaberlaut.core.database.dao.PlaybackDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
+import keinabersmart.kleinaberlaut.core.database.dao.SyncDao
 import javax.inject.Singleton
 
 @Module
@@ -38,4 +39,7 @@ internal object DatabaseModule {
 
     @Provides
     fun provideDownloadDao(database: KleinaberlautDatabase): DownloadDao = database.downloadDao()
+
+    @Provides
+    fun provideSyncDao(database: KleinaberlautDatabase): SyncDao = database.syncDao()
 }

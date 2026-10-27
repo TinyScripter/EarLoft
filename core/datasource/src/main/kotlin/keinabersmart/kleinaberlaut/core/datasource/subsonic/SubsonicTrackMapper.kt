@@ -67,12 +67,14 @@ internal object SubsonicTrackMapper {
             sizeBytes = song.size,
             lastModified = changeKey(song, album),
             dateAdded = song.created?.toEpochMillis(),
+            starredAt = song.starred?.let { it.toEpochMillis() ?: 0L },
         )
     }
 
     /**
      * Subsonic liefert kein Änderungsdatum. Stattdessen dient ein Hash über alle übernommenen Felder
      * als `lastModified`: Gleicher Wert ⇒ nichts geändert, der Abgleich kann den Song überspringen.
+     * Der Stern gehört nicht dazu – ihn setzt auch die App selbst (Sync-Queue), der Abgleich prüft ihn getrennt.
      */
     private fun changeKey(song: SongDto, album: AlbumDto?): Long {
         val fingerprint = listOf(

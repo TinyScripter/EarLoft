@@ -9,6 +9,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
+import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,7 @@ class LibrarySyncer @Inject constructor(
     private val mergeResolver: MergeResolver,
     private val registry: MusicDataSources,
     private val cleanupListeners: Set<@JvmSuppressWildcards LibraryCleanupListener>,
+    private val syncQueue: SyncQueueStarter,
 ) {
     private val mutex = Mutex()
     private val runningSyncs = MutableStateFlow(0)
@@ -69,10 +71,11 @@ class LibrarySyncer @Inject constructor(
                 SourceEntity(sourceId = source.sourceId, type = source.type, name = source.displayName),
             )
             val generation = (sourceDao.get(source.sourceId)?.syncGeneration ?: 0) + 1
+            val syncsFavorites = source.type == SourceType.SUBSONIC
 
             source.fullScan().collect { batch ->
                 database.withTransaction {
-                    batch.tracks.forEach { mergeResolver.merge(source.sourceId, it, generation) }
+                    batch.tracks.forEach { mergeResolver.merge(source.sourceId, it, generation, syncsFavorites) }
                 }
             }
 
@@ -84,6 +87,8 @@ class LibrarySyncer @Inject constructor(
                 removed
             }
             if (removed > 0) cleanupListeners.forEach { it.onSongSourcesRemoved() }
+            // Der Abgleich kann Favoriten für neue Server-Quellen eingereiht haben.
+            syncQueue.startIfPending()
         } finally {
             runningSyncs.update { it - 1 }
         }

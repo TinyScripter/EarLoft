@@ -40,9 +40,10 @@ class LibrarySyncTest {
             sourceDao = db.sourceDao(),
             mergeDao = db.mergeDao(),
             libraryDao = db.libraryDao(),
-            mergeResolver = MergeResolver(db.mergeDao()),
+            mergeResolver = MergeResolver(db.mergeDao(), db.syncDao()),
             registry = NoSources,
             cleanupListeners = emptySet(),
+            syncQueue = SyncQueueStarter(db.syncDao(), NoScheduler),
         )
     }
 
@@ -163,6 +164,10 @@ class LibrarySyncTest {
         override suspend fun resolvePlayback(remoteId: String) = PlaybackLocation.LocalFile(Uri.EMPTY)
 
         override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = null
+    }
+
+    private object NoScheduler : SyncScheduler {
+        override suspend fun enqueue() = Unit
     }
 
     private object NoSources : MusicDataSources {

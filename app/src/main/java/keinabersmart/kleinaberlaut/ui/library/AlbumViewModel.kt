@@ -6,6 +6,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.model.AlbumDetails
@@ -27,6 +28,7 @@ class AlbumViewModel @AssistedInject constructor(
     libraryRepository: LibraryRepository,
     private val downloadRepository: DownloadRepository,
     private val playbackConnection: PlaybackConnection,
+    private val favoritesRepository: FavoritesRepository,
 ) : ViewModel(), SongActions {
 
     val album: StateFlow<LoadState<AlbumDetails>> = libraryRepository.album(albumId)
@@ -55,6 +57,10 @@ class AlbumViewModel @AssistedInject constructor(
     override fun playNext(song: Song) = playbackConnection.playNext(listOf(song))
 
     override fun addToQueue(song: Song) = playbackConnection.addToQueue(listOf(song))
+
+    override fun toggleFavorite(song: Song) {
+        viewModelScope.launch { favoritesRepository.setFavorite(song.id, !song.isFavorite) }
+    }
 
     override fun download(song: Song) {
         viewModelScope.launch { downloadRepository.downloadSongs(listOf(song.id)) }

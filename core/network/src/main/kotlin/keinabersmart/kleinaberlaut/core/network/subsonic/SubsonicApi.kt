@@ -53,6 +53,23 @@ class SubsonicApi @Inject constructor(
         get(server, "getAlbum") { addQueryParameter("id", albumId) }.album
             ?: throw NotSubsonicException("getAlbum ohne album")
 
+    suspend fun star(server: SubsonicServer, songId: String) {
+        get(server, "star") { addQueryParameter("id", songId) }
+    }
+
+    suspend fun unstar(server: SubsonicServer, songId: String) {
+        get(server, "unstar") { addQueryParameter("id", songId) }
+    }
+
+    /** Meldet eine Wiedergabe; [playedAt] ist der Beginn des Hörens (ms seit Epoche). */
+    suspend fun scrobble(server: SubsonicServer, songId: String, playedAt: Long) {
+        get(server, "scrobble") {
+            addQueryParameter("id", songId)
+            addQueryParameter("time", playedAt.toString())
+            addQueryParameter("submission", "true")
+        }
+    }
+
     /** Original-Datei ohne Transcoding (Gapless, Klangtreue). */
     fun streamUrl(server: SubsonicServer, songId: String): HttpUrl =
         server.endpoint("stream")

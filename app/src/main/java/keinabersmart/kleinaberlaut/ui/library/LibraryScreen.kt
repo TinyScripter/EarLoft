@@ -1,10 +1,12 @@
 package keinabersmart.kleinaberlaut.ui.library
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -15,6 +17,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -27,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -46,6 +51,7 @@ private enum class LibraryTab(val label: Int) {
     ALBUMS(R.string.library_albums),
     ARTISTS(R.string.library_artists),
     SONGS(R.string.library_songs),
+    PLAYLISTS(R.string.library_playlists),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,12 +59,14 @@ private enum class LibraryTab(val label: Int) {
 fun LibraryScreen(
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
+    onFavoritesClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val albums by viewModel.albums.collectAsStateWithLifecycle()
     val artists by viewModel.artists.collectAsStateWithLifecycle()
     val songs by viewModel.songs.collectAsStateWithLifecycle()
+    val favoriteCount by viewModel.favoriteCount.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     Column(modifier.fillMaxSize()) {
@@ -83,6 +91,29 @@ fun LibraryScreen(
                     actions = viewModel,
                 )
             }
+            LibraryTab.PLAYLISTS -> PlaylistList(favoriteCount = favoriteCount, onFavoritesClick = onFavoritesClick)
+        }
+    }
+}
+
+@Composable
+private fun PlaylistList(favoriteCount: Int, onFavoritesClick: () -> Unit) {
+    LazyColumn(Modifier.fillMaxSize()) {
+        item(key = "favorites") {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.favorites_title)) },
+                supportingContent = { Text(pluralStringResource(R.plurals.song_count, favoriteCount, favoriteCount)) },
+                leadingContent = {
+                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                        Icon(
+                            painterResource(DesignR.drawable.ic_favorite),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                },
+                modifier = Modifier.clickable(onClick = onFavoritesClick),
+            )
         }
     }
 }
@@ -122,8 +153,9 @@ private fun ArtistList(artists: List<Artist>, onArtistClick: (Long) -> Unit) {
     }
 }
 
+/** Songs mit „Zufällig“-Knopf oben; auch für Favoriten und Playlists. */
 @Composable
-private fun SongList(
+fun SongList(
     songs: List<Song>,
     onSongClick: (Int) -> Unit,
     onShuffle: () -> Unit,

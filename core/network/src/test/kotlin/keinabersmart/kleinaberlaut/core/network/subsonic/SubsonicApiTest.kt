@@ -168,6 +168,23 @@ class SubsonicApiTest {
         assertEquals(5000L, lyrics.line[1].start)
     }
 
+    @Test
+    fun `star and scrobble send the song id`() = runTest {
+        mockServer.enqueue(json("ping"))
+        mockServer.enqueue(json("ping"))
+
+        api.star(server, "s1")
+        api.scrobble(server, "s1", playedAt = 1_793_000_000_000)
+
+        val star = mockServer.takeRequest().url
+        assertEquals("/navidrome/rest/star", star.encodedPath)
+        assertEquals("s1", star.queryParameter("id"))
+        val scrobble = mockServer.takeRequest().url
+        assertEquals("/navidrome/rest/scrobble", scrobble.encodedPath)
+        assertEquals("1793000000000", scrobble.queryParameter("time"))
+        assertEquals("true", scrobble.queryParameter("submission"))
+    }
+
     private fun json(name: String) =
         MockResponse.Builder().addHeader("Content-Type", "application/json").body(fixture(name)).build()
 

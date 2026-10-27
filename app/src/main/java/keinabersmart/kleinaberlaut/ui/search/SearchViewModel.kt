@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.model.SearchResults
 import keinabersmart.kleinaberlaut.core.model.Song
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SearchUiState(
@@ -30,6 +32,7 @@ class SearchViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val libraryRepository: LibraryRepository,
     private val playbackConnection: PlaybackConnection,
+    private val favoritesRepository: FavoritesRepository,
 ) : ViewModel(), SongActions {
 
     val query: StateFlow<String> = savedStateHandle.getStateFlow(KEY_QUERY, "")
@@ -53,6 +56,10 @@ class SearchViewModel @Inject constructor(
     override fun playNext(song: Song) = playbackConnection.playNext(listOf(song))
 
     override fun addToQueue(song: Song) = playbackConnection.addToQueue(listOf(song))
+
+    override fun toggleFavorite(song: Song) {
+        viewModelScope.launch { favoritesRepository.setFavorite(song.id, !song.isFavorite) }
+    }
 
     private companion object {
         const val KEY_QUERY = "query"

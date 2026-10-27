@@ -1,7 +1,9 @@
 package keinabersmart.kleinaberlaut.core.data.sync
 
 import keinabersmart.kleinaberlaut.core.common.normalizeForMerge
+import keinabersmart.kleinaberlaut.core.data.repository.pushFavoriteToServers
 import keinabersmart.kleinaberlaut.core.database.dao.MergeDao
+import keinabersmart.kleinaberlaut.core.database.dao.SyncDao
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumArtistCrossRef
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumEntity
 import keinabersmart.kleinaberlaut.core.database.entity.ArtistEntity
@@ -20,10 +22,14 @@ import kotlin.math.abs
  */
 class MergeResolver @Inject constructor(
     private val mergeDao: MergeDao,
+    private val syncDao: SyncDao,
 ) {
 
-    /** @return die `songId`, der die Quelle zugeordnet wurde. */
-    suspend fun merge(sourceId: String, track: RawTrack, generation: Long): Long {
+    /**
+     * @param syncsFavorites `true` für Server: Deren Stern wird mit dem Favoriten des Songs abgeglichen.
+     * @return die `songId`, der die Quelle zugeordnet wurde.
+     */
+    suspend fun merge(sourceId: String, track: RawTrack, generation: Long, syncsFavorites: Boolean = false): Long {
         val uid = "$sourceId:${track.remoteId}"
         val existing = mergeDao.getSongSource(uid)
 
@@ -31,11 +37,16 @@ class MergeResolver @Inject constructor(
             val songId = resolveSong(resolveAlbum(track), track)
             mergeDao.insertSongSource(track.toSongSource(uid, songId, sourceId, generation))
             mergeDao.setAlbumCoverIfMissing(mergeDao.getSong(songId)!!.albumId, uid)
+            if (syncsFavorites) mergeFavorite(songId, uid, track, previousStarredAt = null, isNewSource = true)
             return songId
         }
 
         if (existing.lastModified != null && existing.lastModified == track.lastModified) {
             mergeDao.markSeen(uid, generation)
+            if (syncsFavorites && (existing.starredAt != null) != (track.starredAt != null)) {
+                syncDao.setStarredAt(uid, track.starredAt)
+                mergeFavorite(existing.songId, uid, track, existing.starredAt, isNewSource = false)
+            }
             return existing.songId
         }
 
@@ -53,7 +64,29 @@ class MergeResolver @Inject constructor(
         }
         mergeDao.updateSongSource(track.toSongSource(uid, songId, sourceId, generation))
         mergeDao.setAlbumCoverIfMissing(albumId, uid)
+        if (syncsFavorites) mergeFavorite(songId, uid, track, existing.starredAt, isNewSource = false)
         return songId
+    }
+
+    /**
+     * Favoriten zwischen Server und Song abgleichen (Konzept 6.4). Reagiert nur auf Änderungen:
+     * - Server hat (ent)sternt → Song übernimmt das, andere Server folgen.
+     * - Neue Server-Quelle für einen schon favorisierten Song → Stern wird an den Server gesendet,
+     *   statt den lokalen Favoriten zu verlieren.
+     * Hat der Song noch ungesendete lokale Änderungen, gewinnen diese.
+     */
+    private suspend fun mergeFavorite(songId: Long, uid: String, track: RawTrack, previousStarredAt: Long?, isNewSource: Boolean) {
+        if (syncDao.hasPendingFavorite(songId)) return
+        val isFavorite = mergeDao.getSong(songId)?.isFavorite ?: return
+        val starred = track.starredAt != null
+        val serverChanged = if (isNewSource) starred else starred != (previousStarredAt != null)
+        when {
+            serverChanged && starred != isFavorite -> {
+                syncDao.setSongFavorite(songId, starred, track.starredAt ?: System.currentTimeMillis())
+                syncDao.pushFavoriteToServers(songId, starred, exceptUid = uid)
+            }
+            isNewSource && isFavorite && !starred -> syncDao.pushFavoriteToServers(songId, favorite = true)
+        }
     }
 
     private suspend fun resolveArtist(raw: RawArtist): Long {
@@ -164,6 +197,7 @@ class MergeResolver @Inject constructor(
             rgAlbumGainDb = rgAlbumGainDb,
             rgAlbumPeak = rgAlbumPeak,
             seenInGeneration = generation,
+            starredAt = starredAt,
         )
 
     /** Zwei unterschiedliche MBIDs bedeuten bewusst verschiedene Einträge. */

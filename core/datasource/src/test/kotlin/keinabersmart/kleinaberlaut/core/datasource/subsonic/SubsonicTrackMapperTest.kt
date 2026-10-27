@@ -98,4 +98,14 @@ class SubsonicTrackMapperTest {
         assertFalse(SubsonicTrackMapper.isMusic(song.copy(type = "podcast")))
         assertFalse(SubsonicTrackMapper.isMusic(song.copy(isDir = true)))
     }
+
+    @Test
+    fun `star time is parsed but does not count as a change`() {
+        val unstarred = SubsonicTrackMapper.map(song, album, names)
+        val starred = SubsonicTrackMapper.map(song.copy(starred = "2026-10-27T07:56:33.043757485+01:00"), album, names)
+
+        assertNull(unstarred.starredAt)
+        assertEquals(1_793_084_193_043L, starred.starredAt)
+        assertEquals(unstarred.lastModified, starred.lastModified)
+    }
 }

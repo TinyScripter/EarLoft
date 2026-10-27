@@ -54,9 +54,11 @@ fun NowPlayingScreen(
     viewModel: PlayerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val isFavorite by viewModel.isCurrentFavorite.collectAsStateWithLifecycle()
     val position by rememberPlaybackPosition { viewModel.currentPositionMs }
     NowPlayingContent(
         state = state,
+        isFavorite = isFavorite,
         positionMs = position,
         onClose = onClose,
         onOpenQueue = onOpenQueue,
@@ -66,6 +68,7 @@ fun NowPlayingScreen(
         onSeek = viewModel::seekTo,
         onToggleShuffle = viewModel::toggleShuffle,
         onCycleRepeat = viewModel::cycleRepeatMode,
+        onToggleFavorite = viewModel::toggleFavorite,
         modifier = modifier,
     )
 }
@@ -73,6 +76,7 @@ fun NowPlayingScreen(
 @Composable
 private fun NowPlayingContent(
     state: PlayerState,
+    isFavorite: Boolean,
     positionMs: Long,
     onClose: () -> Unit,
     onOpenQueue: () -> Unit,
@@ -82,6 +86,7 @@ private fun NowPlayingContent(
     onSeek: (Long) -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
+    onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -101,6 +106,14 @@ private fun NowPlayingContent(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.weight(1f),
             )
+            if (state.current != null) {
+                ToggleIconButton(
+                    icon = if (isFavorite) DesignR.drawable.ic_favorite else DesignR.drawable.ic_favorite_border,
+                    active = isFavorite,
+                    label = stringResource(if (isFavorite) R.string.action_remove_favorite else R.string.action_add_favorite),
+                    onClick = onToggleFavorite,
+                )
+            }
             IconButton(onClick = onOpenQueue) {
                 Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = stringResource(R.string.player_open_queue))
             }
@@ -242,6 +255,7 @@ private fun NowPlayingContentPreview() {
                 shuffle = true,
                 repeatMode = Player.REPEAT_MODE_ALL,
             ),
+            isFavorite = true,
             positionMs = 80_000,
             onClose = {},
             onOpenQueue = {},
@@ -251,6 +265,7 @@ private fun NowPlayingContentPreview() {
             onSeek = {},
             onToggleShuffle = {},
             onCycleRepeat = {},
+            onToggleFavorite = {},
         )
     }
 }

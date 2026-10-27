@@ -97,6 +97,8 @@ class PlaybackConnection @Inject constructor(
             pause()
         } else {
             if (playbackState == Player.STATE_IDLE) prepare()
+            // Ende der Warteschlange: Ohne Zurücksetzen würde play() nichts tun.
+            if (playbackState == Player.STATE_ENDED) seekToDefaultPosition()
             play()
         }
     }

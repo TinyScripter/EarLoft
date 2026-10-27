@@ -27,6 +27,9 @@ data class ArtistRoute(
 ) : NavKey
 
 @Serializable
+data object FavoritesRoute : NavKey
+
+@Serializable
 data object NowPlayingRoute : NavKey
 
 @Serializable

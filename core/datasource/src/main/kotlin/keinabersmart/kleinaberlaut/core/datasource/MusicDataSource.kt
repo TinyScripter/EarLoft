@@ -25,6 +25,17 @@ interface MusicDataSource {
     suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap?
 }
 
+/**
+ * Änderungen, die eine Server-Quelle entgegennimmt (Favoriten, Scrobbles). Fehler werden als
+ * Ausnahmen gemeldet: `IOException` = später erneut versuchen.
+ */
+interface RemoteLibraryActions {
+    suspend fun setFavorite(remoteId: String, favorite: Boolean)
+
+    /** [playedAt] = Beginn des Hörens in ms seit Epoche. */
+    suspend fun scrobble(remoteId: String, playedAt: Long)
+}
+
 data class SourceBatch(val tracks: List<RawTrack>)
 
 sealed interface PlaybackLocation {
@@ -64,4 +75,6 @@ data class RawTrack(
     val sizeBytes: Long? = null,
     val lastModified: Long? = null,
     val dateAdded: Long? = null,
+    /** Vom Server favorisiert seit (ms); lokale Quellen kennen keine Favoriten. */
+    val starredAt: Long? = null,
 )

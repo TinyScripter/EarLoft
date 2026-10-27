@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
+import keinabersmart.kleinaberlaut.core.data.sync.SyncSettings
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadSettings
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
@@ -26,6 +27,7 @@ data class SettingsUiState(
     val servers: List<ServerItem> = emptyList(),
     val isSyncing: Boolean = false,
     val downloadWifiOnly: Boolean = true,
+    val scrobble: Boolean = true,
 )
 
 @HiltViewModel
@@ -34,6 +36,7 @@ class SettingsViewModel @Inject constructor(
     private val refresher: LibraryRefresher,
     private val downloadSettings: DownloadSettings,
     private val downloadRepository: DownloadRepository,
+    private val syncSettings: SyncSettings,
     syncer: LibrarySyncer,
 ) : ViewModel() {
 
@@ -42,11 +45,13 @@ class SettingsViewModel @Inject constructor(
         syncer.failures,
         syncer.activeSyncs,
         downloadSettings.wifiOnly,
-    ) { servers, failures, syncs, wifiOnly ->
+        syncSettings.scrobble,
+    ) { servers, failures, syncs, wifiOnly, scrobble ->
         SettingsUiState(
             servers = servers.map { ServerItem(it, failures[it.sourceId]?.let { e -> e.message ?: e.javaClass.simpleName }) },
             isSyncing = syncs > 0,
             downloadWifiOnly = wifiOnly,
+            scrobble = scrobble,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
@@ -59,6 +64,10 @@ class SettingsViewModel @Inject constructor(
             downloadSettings.setWifiOnly(wifiOnly)
             downloadRepository.rescheduleAfterSettingsChange()
         }
+    }
+
+    fun setScrobble(enabled: Boolean) {
+        viewModelScope.launch { syncSettings.setScrobble(enabled) }
     }
 
     fun remove(sourceId: String) {

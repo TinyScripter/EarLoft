@@ -61,6 +61,7 @@ fun SettingsScreen(
         onRemove = viewModel::remove,
         onRefreshAll = viewModel::refreshAll,
         onWifiOnlyChange = viewModel::setDownloadWifiOnly,
+        onScrobbleChange = viewModel::setScrobble,
         modifier = modifier,
     )
 }
@@ -75,6 +76,7 @@ private fun SettingsContent(
     onRemove: (String) -> Unit,
     onRefreshAll: () -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit,
+    onScrobbleChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var serverToRemove by rememberSaveable { mutableStateOf<String?>(null) }
@@ -112,18 +114,23 @@ private fun SettingsContent(
                     modifier = Modifier.clickable(onClick = onRefreshAll),
                 )
             }
+            item(key = "scrobble") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_scrobble),
+                    summary = stringResource(R.string.settings_scrobble_summary),
+                    icon = DesignR.drawable.ic_cloud,
+                    checked = state.scrobble,
+                    onCheckedChange = onScrobbleChange,
+                )
+            }
             item(key = "downloads") { SectionHeader(stringResource(R.string.settings_downloads)) }
             item(key = "wifi-only") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_wifi_only)) },
-                    supportingContent = { Text(stringResource(R.string.settings_wifi_only_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                    trailingContent = { Switch(checked = state.downloadWifiOnly, onCheckedChange = null) },
-                    modifier = Modifier.toggleable(
-                        value = state.downloadWifiOnly,
-                        role = Role.Switch,
-                        onValueChange = onWifiOnlyChange,
-                    ),
+                SwitchRow(
+                    title = stringResource(R.string.settings_wifi_only),
+                    summary = stringResource(R.string.settings_wifi_only_summary),
+                    icon = DesignR.drawable.ic_download,
+                    checked = state.downloadWifiOnly,
+                    onCheckedChange = onWifiOnlyChange,
                 )
             }
         }
@@ -146,6 +153,18 @@ private fun SettingsContent(
             },
         )
     }
+}
+
+/** Ganze Zeile schaltet (größere Tippfläche, ein Element für Screenreader). */
+@Composable
+private fun SwitchRow(title: String, summary: String, icon: Int, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(summary) },
+        leadingContent = { Icon(painterResource(icon), contentDescription = null) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
+        modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+    )
 }
 
 @Composable
@@ -209,6 +228,7 @@ private fun SettingsContentPreview() {
             onRemove = {},
             onRefreshAll = {},
             onWifiOnlyChange = {},
+            onScrobbleChange = {},
         )
     }
 }
