@@ -7,7 +7,9 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
+import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.model.AlbumDetails
+import keinabersmart.kleinaberlaut.core.model.AlbumOfflineStatus
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.ui.LoadState
@@ -17,17 +19,22 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 @HiltViewModel(assistedFactory = AlbumViewModel.Factory::class)
 class AlbumViewModel @AssistedInject constructor(
-    @Assisted albumId: Long,
+    @Assisted private val albumId: Long,
     libraryRepository: LibraryRepository,
+    private val downloadRepository: DownloadRepository,
     private val playbackConnection: PlaybackConnection,
 ) : ViewModel(), SongActions {
 
     val album: StateFlow<LoadState<AlbumDetails>> = libraryRepository.album(albumId)
         .map { it.toLoadState() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
+
+    val offline: StateFlow<AlbumOfflineStatus> = downloadRepository.albumStatus(albumId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AlbumOfflineStatus.EMPTY)
 
     fun play(startIndex: Int = 0) {
         songs()?.let { playbackConnection.play(it, startIndex) }
@@ -37,9 +44,25 @@ class AlbumViewModel @AssistedInject constructor(
         songs()?.let { playbackConnection.play(it, shuffle = true) }
     }
 
+    fun downloadAlbum() {
+        viewModelScope.launch { downloadRepository.downloadAlbum(albumId) }
+    }
+
+    fun removeAlbumDownload() {
+        viewModelScope.launch { downloadRepository.removeAlbum(albumId) }
+    }
+
     override fun playNext(song: Song) = playbackConnection.playNext(listOf(song))
 
     override fun addToQueue(song: Song) = playbackConnection.addToQueue(listOf(song))
+
+    override fun download(song: Song) {
+        viewModelScope.launch { downloadRepository.downloadSongs(listOf(song.id)) }
+    }
+
+    override fun removeDownload(song: Song) {
+        viewModelScope.launch { downloadRepository.removeSongs(listOf(song.id)) }
+    }
 
     private fun songs(): List<Song>? = (album.value as? LoadState.Ready)?.value?.songs
 

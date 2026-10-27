@@ -31,6 +31,7 @@ class LibrarySyncer @Inject constructor(
     private val libraryDao: LibraryDao,
     private val mergeResolver: MergeResolver,
     private val registry: MusicDataSources,
+    private val cleanupListeners: Set<@JvmSuppressWildcards LibraryCleanupListener>,
 ) {
     private val mutex = Mutex()
     private val runningSyncs = MutableStateFlow(0)
@@ -76,11 +77,13 @@ class LibrarySyncer @Inject constructor(
             }
 
             // Erst nach vollständigem Scan aufräumen – ein abgebrochener Scan darf nichts löschen.
-            database.withTransaction {
-                mergeDao.deleteStaleSongSources(source.sourceId, generation)
+            val removed = database.withTransaction {
+                val removed = mergeDao.deleteStaleSongSources(source.sourceId, generation)
                 libraryDao.cleanupOrphans()
                 sourceDao.setSyncGeneration(source.sourceId, generation, System.currentTimeMillis())
+                removed
             }
+            if (removed > 0) cleanupListeners.forEach { it.onSongSourcesRemoved() }
         } finally {
             runningSyncs.update { it - 1 }
         }

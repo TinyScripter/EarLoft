@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
+import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
 import keinabersmart.kleinaberlaut.core.database.dao.MergeDao
 import keinabersmart.kleinaberlaut.core.database.dao.PlaybackDao
@@ -34,4 +35,7 @@ internal object DatabaseModule {
 
     @Provides
     fun providePlaybackDao(database: KleinaberlautDatabase): PlaybackDao = database.playbackDao()
+
+    @Provides
+    fun provideDownloadDao(database: KleinaberlautDatabase): DownloadDao = database.downloadDao()
 }

@@ -3,6 +3,7 @@
     Auto Backup bis API 30. Nicht gesichert werden (Konzept 10, Sicherheit):
     - die Datenbank – sie wird aus den Quellen neu aufgebaut;
     - die verschlüsselten Zugangsdaten – der Schlüssel liegt im Keystore dieses Geräts.
+    Downloads liegen in noBackupFilesDir und sind dadurch ohnehin ausgenommen.
 -->
 <full-backup-content>
     <exclude domain="database" path="." />

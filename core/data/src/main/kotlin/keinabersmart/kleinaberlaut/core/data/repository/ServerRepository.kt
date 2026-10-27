@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.core.data.repository
 import androidx.room.withTransaction
 import keinabersmart.kleinaberlaut.core.data.security.SecretStore
 import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
+import keinabersmart.kleinaberlaut.core.data.sync.LibraryCleanupListener
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
@@ -44,6 +45,7 @@ class ServerRepository @Inject constructor(
     private val registry: DataSourceRegistry,
     private val api: SubsonicApi,
     private val refresher: LibraryRefresher,
+    private val cleanupListeners: Set<@JvmSuppressWildcards LibraryCleanupListener>,
 ) {
     fun servers(): Flow<List<ServerInfo>> =
         sourceDao.observeByType(SourceType.SUBSONIC).map { sources ->
@@ -117,6 +119,7 @@ class ServerRepository @Inject constructor(
         }
         secretStore.remove(DataSourceRegistry.passwordKey(sourceId))
         registry.reload()
+        cleanupListeners.forEach { it.onSongSourcesRemoved() }
     }
 
     fun syncNow(sourceId: String) = refresher.refreshSource(sourceId)

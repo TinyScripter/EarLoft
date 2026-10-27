@@ -1,0 +1,133 @@
+package keinabersmart.kleinaberlaut.core.download
+
+import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
+import keinabersmart.kleinaberlaut.core.model.DownloadState
+import keinabersmart.kleinaberlaut.core.model.SongOfflineState
+import keinabersmart.kleinaberlaut.core.model.SourceType
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@RunWith(RobolectricTestRunner::class)
+class DownloadRepositoryTest {
+
+    @get:Rule
+    val tempFolder = TemporaryFolder()
+
+    private lateinit var library: TestLibrary
+    private lateinit var storage: DownloadStorage
+    private lateinit var scheduler: RecordingScheduler
+    private lateinit var repository: DownloadRepository
+
+    @Before
+    fun setUp() = runTest {
+        library = TestLibrary()
+        storage = DownloadStorage(tempFolder.newFolder("downloads"))
+        scheduler = RecordingScheduler()
+        repository = DownloadRepository(
+            database = library.db,
+            downloadDao = library.db.downloadDao(),
+            libraryDao = library.db.libraryDao(),
+            storage = storage,
+            scheduler = scheduler,
+        )
+        library.source("local", SourceType.LOCAL)
+        library.source("home", priority = 0)
+        library.source("office", priority = 5)
+    }
+
+    @After
+    fun tearDown() {
+        library.close()
+    }
+
+    @Test
+    fun `album download skips local songs and prefers the higher priority server`() = runTest {
+        val albumId = library.album("Takk")
+        val local = library.song(albumId, "Glósóli", "local" to "1", "home" to "a")
+        val remote = library.song(albumId, "Hoppípolla", "home" to "b", "office" to "x")
+
+        assertEquals(1, repository.downloadAlbum(albumId))
+
+        val downloads = library.db.downloadDao().getAll()
+        assertEquals(listOf("office:x"), downloads.map { it.sourceUid })
+        assertEquals("album:$albumId", downloads.single().pinnedBy)
+        assertEquals(1, scheduler.calls)
+
+        val status = repository.albumStatus(albumId).first()
+        assertEquals(SongOfflineState.LOCAL, status.songs.getValue(local).state)
+        assertEquals(SongOfflineState.QUEUED, status.songs.getValue(remote).state)
+        assertEquals(1, status.downloadableCount)
+    }
+
+    @Test
+    fun `downloading again does not duplicate but retries failed songs`() = runTest {
+        val albumId = library.album("Takk")
+        val songId = library.song(albumId, "Sæglópur", "home" to "c")
+        library.db.downloadDao().insertIfAbsent(listOf(DownloadEntity("home:c", songId, DownloadState.FAILED)))
+
+        assertEquals(1, repository.downloadAlbum(albumId))
+        assertEquals(DownloadState.QUEUED, library.db.downloadDao().get("home:c")!!.state)
+
+        assertEquals(0, repository.downloadAlbum(albumId))
+        assertEquals(1, library.db.downloadDao().getAll().size)
+    }
+
+    @Test
+    fun `fully local album needs no download`() = runTest {
+        val albumId = library.album("Ágætis byrjun")
+        library.song(albumId, "Svefn-g-englar", "local" to "7")
+
+        assertEquals(0, repository.downloadAlbum(albumId))
+        assertEquals(0, scheduler.calls)
+        assertTrue(repository.albumStatus(albumId).first().isFullyOffline)
+    }
+
+    @Test
+    fun `removing an album deletes entries and files`() = runTest {
+        val albumId = library.album("Takk")
+        val songId = library.song(albumId, "Milanó", "home" to "d")
+        val file = storage.fileFor("home:d", "audio/flac").apply {
+            parentFile!!.mkdirs()
+            writeBytes(ByteArray(10))
+        }
+        library.db.downloadDao().insertIfAbsent(
+            listOf(DownloadEntity("home:d", songId, DownloadState.DONE, filePath = file.absolutePath, bytesTotal = 10)),
+        )
+        assertTrue(repository.albumStatus(albumId).first().isFullyOffline)
+
+        repository.removeAlbum(albumId)
+
+        assertFalse(file.exists())
+        assertTrue(library.db.downloadDao().getAll().isEmpty())
+        assertEquals(SongOfflineState.NONE, repository.albumStatus(albumId).first().songs.getValue(songId).state)
+    }
+
+    @Test
+    fun `files of removed song sources are cleaned up`() = runTest {
+        val albumId = library.album("Takk")
+        val songId = library.song(albumId, "Gong", "home" to "e")
+        val file = storage.fileFor("home:e", "audio/flac").apply {
+            parentFile!!.mkdirs()
+            writeBytes(ByteArray(10))
+        }
+        library.db.downloadDao().insertIfAbsent(
+            listOf(DownloadEntity("home:e", songId, DownloadState.DONE, filePath = file.absolutePath)),
+        )
+
+        library.db.sourceDao().delete("home")
+        DownloadFileJanitor(library.db.downloadDao(), storage).onSongSourcesRemoved()
+
+        assertTrue(library.db.downloadDao().getAll().isEmpty())
+        assertFalse(file.exists())
+    }
+}

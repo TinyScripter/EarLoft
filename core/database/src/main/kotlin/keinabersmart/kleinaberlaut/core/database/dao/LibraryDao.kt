@@ -166,7 +166,7 @@ abstract class LibraryDao {
 
     @Query(
         """
-        SELECT ss.uid, ss.sourceId, ss.remoteId, ss.coverRemoteId, src.type AS sourceType,
+        SELECT ss.uid, ss.songId, ss.sourceId, ss.remoteId, ss.coverRemoteId, src.type AS sourceType,
                src.priority AS sourcePriority, ss.mimeType, ss.bitRate
         FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId
         WHERE ss.songId = :songId
@@ -174,10 +174,24 @@ abstract class LibraryDao {
     )
     abstract suspend fun getPlayableSources(songId: Long): List<PlayableSourceRow>
 
+    @Query(
+        """
+        SELECT ss.uid, ss.songId, ss.sourceId, ss.remoteId, ss.coverRemoteId, src.type AS sourceType,
+               src.priority AS sourcePriority, ss.mimeType, ss.bitRate
+        FROM song_sources ss
+        JOIN sources src ON src.sourceId = ss.sourceId
+        WHERE ss.songId IN (:songIds)
+        """,
+    )
+    abstract suspend fun getPlayableSourcesOfSongs(songIds: List<Long>): List<PlayableSourceRow>
+
+    @Query("SELECT songId FROM songs WHERE albumId = :albumId")
+    abstract suspend fun getSongIdsOfAlbum(albumId: Long): List<Long>
+
     /** Bevorzugt die Cover-Quelle des Albums, sonst irgendeine Quelle eines Album-Songs. */
     @Query(
         """
-        SELECT ss.uid, ss.sourceId, ss.remoteId, ss.coverRemoteId, src.type AS sourceType,
+        SELECT ss.uid, ss.songId, ss.sourceId, ss.remoteId, ss.coverRemoteId, src.type AS sourceType,
                src.priority AS sourcePriority, ss.mimeType, ss.bitRate
         FROM song_sources ss
         JOIN songs s ON s.songId = ss.songId

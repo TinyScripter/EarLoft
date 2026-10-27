@@ -3,12 +3,14 @@ package keinabersmart.kleinaberlaut.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -25,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -37,17 +41,24 @@ import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.Album
 import keinabersmart.kleinaberlaut.core.model.Artist
 import keinabersmart.kleinaberlaut.core.model.Song
+import keinabersmart.kleinaberlaut.core.model.SongOfflineState
+import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 /** Aktionen, die auf jeden Song in einer Liste angewendet werden können. */
 interface SongActions {
     fun playNext(song: Song)
     fun addToQueue(song: Song)
+
+    /** Nur angeboten, wo der Offline-Zustand bekannt ist (siehe [SongListItem]). */
+    fun download(song: Song) = Unit
+    fun removeDownload(song: Song) = Unit
 }
 
 /**
  * Eine Song-Zeile. Mit [trackNumber] wird statt des Covers die Titelnummer gezeigt
- * (Album-Ansicht).
+ * (Album-Ansicht). Ist [offline] bekannt, zeigt die Zeile den Download-Zustand und das Menü
+ * „Herunterladen“ bzw. „Download entfernen“.
  */
 @Composable
 fun SongListItem(
@@ -56,6 +67,7 @@ fun SongListItem(
     actions: SongActions,
     modifier: Modifier = Modifier,
     trackNumber: Int? = null,
+    offline: SongOfflineStatus? = null,
 ) {
     ListItem(
         headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -77,33 +89,86 @@ fun SongListItem(
             }
         },
         trailingContent = {
-            Box {
-                var menuOpen by remember { mutableStateOf(false) }
-                IconButton(onClick = { menuOpen = true }) {
-                    Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
-                }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_play_next)) },
-                        leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_play), contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            actions.playNext(song)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_add_to_queue)) },
-                        leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            actions.addToQueue(song)
-                        },
-                    )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (offline != null) OfflineIndicator(offline)
+                Box {
+                    var menuOpen by remember { mutableStateOf(false) }
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_play_next)) },
+                            leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_play), contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                actions.playNext(song)
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_add_to_queue)) },
+                            leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                actions.addToQueue(song)
+                            },
+                        )
+                        when (offline?.state) {
+                            null, SongOfflineState.LOCAL -> Unit
+                            SongOfflineState.NONE, SongOfflineState.FAILED -> DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_download)) },
+                                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    actions.download(song)
+                                },
+                            )
+                            SongOfflineState.DOWNLOADED, SongOfflineState.QUEUED, SongOfflineState.DOWNLOADING -> DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_remove_download)) },
+                                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    actions.removeDownload(song)
+                                },
+                            )
+                        }
+                    }
                 }
             }
         },
         modifier = modifier.clickable(onClick = onClick),
     )
+}
+
+/** Kleines Symbol für den Download-Zustand eines Songs; lokale und reine Stream-Songs zeigen nichts. */
+@Composable
+private fun OfflineIndicator(offline: SongOfflineStatus) {
+    val iconModifier = Modifier.size(18.dp)
+    when (offline.state) {
+        SongOfflineState.DOWNLOADED -> Icon(
+            painterResource(DesignR.drawable.ic_download_done),
+            contentDescription = stringResource(R.string.download_state_downloaded),
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = iconModifier,
+        )
+        SongOfflineState.QUEUED, SongOfflineState.DOWNLOADING -> {
+            val description = stringResource(R.string.download_state_pending)
+            val progressModifier = iconModifier.semantics { contentDescription = description }
+            val progress = offline.progress
+            if (progress != null) {
+                CircularProgressIndicator(progress = { progress }, modifier = progressModifier, strokeWidth = 2.dp)
+            } else {
+                CircularProgressIndicator(modifier = progressModifier, strokeWidth = 2.dp)
+            }
+        }
+        SongOfflineState.FAILED -> Icon(
+            painterResource(DesignR.drawable.ic_error),
+            contentDescription = stringResource(R.string.download_state_failed),
+            tint = MaterialTheme.colorScheme.error,
+            modifier = iconModifier,
+        )
+        SongOfflineState.LOCAL, SongOfflineState.NONE -> Unit
+    }
 }
 
 @Composable
@@ -236,6 +301,20 @@ private fun SongListItemPreview() {
         Column {
             SongListItem(song = PreviewSong, onClick = {}, actions = NoSongActions)
             SongListItem(song = PreviewSong, onClick = {}, actions = NoSongActions, trackNumber = 3)
+            SongListItem(
+                song = PreviewSong,
+                onClick = {},
+                actions = NoSongActions,
+                trackNumber = 4,
+                offline = SongOfflineStatus(SongOfflineState.DOWNLOADED),
+            )
+            SongListItem(
+                song = PreviewSong,
+                onClick = {},
+                actions = NoSongActions,
+                trackNumber = 5,
+                offline = SongOfflineStatus(SongOfflineState.DOWNLOADING, progress = 0.4f),
+            )
             ArtistListItem(artist = Artist(id = 1, name = "Eine Band", albumCount = 2), onClick = {})
             AlbumCard(album = PreviewAlbum, onClick = {}, width = 160.dp)
         }

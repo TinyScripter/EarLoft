@@ -42,6 +42,7 @@ class LibrarySyncTest {
             libraryDao = db.libraryDao(),
             mergeResolver = MergeResolver(db.mergeDao()),
             registry = NoSources,
+            cleanupListeners = emptySet(),
         )
     }
 

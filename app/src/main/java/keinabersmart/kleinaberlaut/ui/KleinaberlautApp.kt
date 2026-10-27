@@ -18,7 +18,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
-import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.navigation.AddServerRoute
 import keinabersmart.kleinaberlaut.navigation.AlbumRoute
 import keinabersmart.kleinaberlaut.navigation.ArtistRoute
@@ -34,6 +33,7 @@ import keinabersmart.kleinaberlaut.navigation.TOP_LEVEL_ROUTES
 import keinabersmart.kleinaberlaut.navigation.TopLevelDestination
 import keinabersmart.kleinaberlaut.navigation.isFullScreenPlayer
 import keinabersmart.kleinaberlaut.navigation.rememberNavigationState
+import keinabersmart.kleinaberlaut.ui.downloads.DownloadsScreen
 import keinabersmart.kleinaberlaut.ui.home.HomeScreen
 import keinabersmart.kleinaberlaut.ui.library.AlbumScreen
 import keinabersmart.kleinaberlaut.ui.library.ArtistScreen
@@ -64,7 +64,7 @@ fun KleinaberlautApp(
         entry<HomeRoute> { HomeScreen(onAlbumClick = openAlbum, onOpenSettings = { navigator.navigate(SettingsRoute) }) }
         entry<LibraryRoute> { LibraryScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) }
         entry<SearchRoute> { SearchScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) }
-        entry<DownloadsRoute> { PlaceholderScreen(R.string.nav_downloads, R.string.placeholder_downloads) }
+        entry<DownloadsRoute> { DownloadsScreen(onAlbumClick = openAlbum) }
         entry<AlbumRoute> { route -> AlbumScreen(albumId = route.albumId, onBack = navigator::goBack) }
         entry<ArtistRoute> { route ->
             ArtistScreen(artistId = route.artistId, onBack = navigator::goBack, onAlbumClick = openAlbum)

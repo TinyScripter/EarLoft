@@ -2,6 +2,7 @@ package keinabersmart.kleinaberlaut.ui.settings
 
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +19,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -29,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -57,6 +60,7 @@ fun SettingsScreen(
         onSyncNow = viewModel::syncNow,
         onRemove = viewModel::remove,
         onRefreshAll = viewModel::refreshAll,
+        onWifiOnlyChange = viewModel::setDownloadWifiOnly,
         modifier = modifier,
     )
 }
@@ -70,6 +74,7 @@ private fun SettingsContent(
     onSyncNow: (String) -> Unit,
     onRemove: (String) -> Unit,
     onRefreshAll: () -> Unit,
+    onWifiOnlyChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var serverToRemove by rememberSaveable { mutableStateOf<String?>(null) }
@@ -105,6 +110,20 @@ private fun SettingsContent(
                     headlineContent = { Text(stringResource(R.string.settings_refresh_all)) },
                     leadingContent = { Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = null) },
                     modifier = Modifier.clickable(onClick = onRefreshAll),
+                )
+            }
+            item(key = "downloads") { SectionHeader(stringResource(R.string.settings_downloads)) }
+            item(key = "wifi-only") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_wifi_only)) },
+                    supportingContent = { Text(stringResource(R.string.settings_wifi_only_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                    trailingContent = { Switch(checked = state.downloadWifiOnly, onCheckedChange = null) },
+                    modifier = Modifier.toggleable(
+                        value = state.downloadWifiOnly,
+                        role = Role.Switch,
+                        onValueChange = onWifiOnlyChange,
+                    ),
                 )
             }
         }
@@ -189,6 +208,7 @@ private fun SettingsContentPreview() {
             onSyncNow = {},
             onRemove = {},
             onRefreshAll = {},
+            onWifiOnlyChange = {},
         )
     }
 }

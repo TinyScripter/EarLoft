@@ -6,8 +6,6 @@
     <string name="nav_search">Suche</string>
     <string name="nav_downloads">Downloads</string>
 
-    <string name="placeholder_downloads">Heruntergeladene Musik erscheint hier.</string>
-
     <!-- Berechtigungen -->
     <string name="permission_title">Zugriff auf deine Musik</string>
     <string name="permission_text">kleinaberlaut braucht die Erlaubnis, die Musik auf diesem Gerät zu lesen.</string>
@@ -99,6 +97,38 @@
     <string name="add_server_not_subsonic">Unter dieser Adresse antwortet kein Subsonic-Server.</string>
     <string name="add_server_unreachable">Server nicht erreichbar (%1$s).</string>
     <string name="add_server_server_error">Der Server meldet Fehler %1$d: %2$s</string>
+
+    <!-- Downloads -->
+    <string name="action_download">Herunterladen</string>
+    <string name="action_remove_download">Download entfernen</string>
+    <string name="action_cancel_download">Download abbrechen</string>
+    <string name="download_album_done">Heruntergeladen – Download entfernen</string>
+    <string name="download_album_running">Wird heruntergeladen – abbrechen</string>
+    <string name="download_album_remove_title">Download entfernen?</string>
+    <string name="download_album_remove_text">Die heruntergeladenen Dateien von „%1$s“ werden gelöscht. Das Album bleibt in der Bibliothek und lässt sich weiter streamen.</string>
+    <string name="download_album_progress">Wird heruntergeladen: %1$d von %2$d</string>
+    <plurals name="download_album_failed">
+        <item quantity="one">%1$d Download fehlgeschlagen</item>
+        <item quantity="other">%1$d Downloads fehlgeschlagen</item>
+    </plurals>
+    <string name="download_state_downloaded">Heruntergeladen</string>
+    <string name="download_state_pending">Wartet auf Download</string>
+    <string name="download_state_failed">Download fehlgeschlagen</string>
+    <string name="downloads_empty">Noch nichts heruntergeladen. Öffne ein Album vom Server und tippe auf den Download-Pfeil, um es ohne Netz zu hören.</string>
+    <string name="downloads_storage">%1$s belegt · %2$s frei</string>
+    <plurals name="downloads_pending">
+        <item quantity="one">Noch %1$d Titel</item>
+        <item quantity="other">Noch %1$d Titel</item>
+    </plurals>
+    <string name="downloads_waiting_hint">Downloads starten, sobald ein passendes Netz verfügbar ist.</string>
+    <string name="downloads_retry">Erneut versuchen</string>
+    <string name="downloads_remove_all">Alle Downloads entfernen</string>
+    <string name="downloads_remove_all_title">Alle Downloads entfernen?</string>
+    <string name="downloads_remove_all_text">Alle heruntergeladenen Dateien werden gelöscht. Die Bibliothek bleibt erhalten.</string>
+    <string name="downloads_album_summary">%1$d von %2$d Songs · %3$s</string>
+    <string name="settings_downloads">Downloads</string>
+    <string name="settings_wifi_only">Nur über WLAN herunterladen</string>
+    <string name="settings_wifi_only_summary">Über mobile Daten wird nichts heruntergeladen.</string>
 
     <!-- Widget -->
     <string name="widget_name">Wiedergabe</string>

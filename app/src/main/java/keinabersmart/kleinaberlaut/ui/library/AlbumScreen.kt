@@ -13,17 +13,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -37,6 +43,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.AlbumDetails
+import keinabersmart.kleinaberlaut.core.model.AlbumOfflineStatus
+import keinabersmart.kleinaberlaut.core.model.SongOfflineState
+import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
 import keinabersmart.kleinaberlaut.ui.LoadState
 import keinabersmart.kleinaberlaut.ui.components.AlbumArt
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
@@ -57,11 +66,15 @@ fun AlbumScreen(
     viewModel: AlbumViewModel = hiltViewModel<AlbumViewModel, AlbumViewModel.Factory> { it.create(albumId) },
 ) {
     val album by viewModel.album.collectAsStateWithLifecycle()
+    val offline by viewModel.offline.collectAsStateWithLifecycle()
     AlbumContent(
         state = album,
+        offline = offline,
         onBack = onBack,
         onPlay = viewModel::play,
         onShuffle = viewModel::shuffle,
+        onDownload = viewModel::downloadAlbum,
+        onRemoveDownload = viewModel::removeAlbumDownload,
         actions = viewModel,
         modifier = modifier,
     )
@@ -71,9 +84,12 @@ fun AlbumScreen(
 @Composable
 private fun AlbumContent(
     state: LoadState<AlbumDetails>,
+    offline: AlbumOfflineStatus,
     onBack: () -> Unit,
     onPlay: (Int) -> Unit,
     onShuffle: () -> Unit,
+    onDownload: () -> Unit,
+    onRemoveDownload: () -> Unit,
     actions: SongActions,
     modifier: Modifier = Modifier,
 ) {
@@ -85,7 +101,7 @@ private fun AlbumContent(
         when (state) {
             LoadState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             LoadState.Missing -> EmptyHint(stringResource(R.string.item_missing))
-            is LoadState.Ready -> AlbumSongs(state.value, onPlay, onShuffle, actions)
+            is LoadState.Ready -> AlbumSongs(state.value, offline, onPlay, onShuffle, onDownload, onRemoveDownload, actions)
         }
     }
 }
@@ -93,8 +109,11 @@ private fun AlbumContent(
 @Composable
 private fun AlbumSongs(
     details: AlbumDetails,
+    offline: AlbumOfflineStatus,
     onPlay: (Int) -> Unit,
     onShuffle: () -> Unit,
+    onDownload: () -> Unit,
+    onRemoveDownload: () -> Unit,
     actions: SongActions,
 ) {
     val songs = details.songs
@@ -102,7 +121,14 @@ private fun AlbumSongs(
 
     LazyColumn(Modifier.fillMaxSize()) {
         item(key = "header") {
-            AlbumHeader(details, onPlay = { onPlay(0) }, onShuffle = onShuffle)
+            AlbumHeader(
+                details = details,
+                offline = offline,
+                onPlay = { onPlay(0) },
+                onShuffle = onShuffle,
+                onDownload = onDownload,
+                onRemoveDownload = onRemoveDownload,
+            )
         }
         songs.forEachIndexed { index, song ->
             if (multiDisc && (index == 0 || songs[index - 1].discNumber != song.discNumber)) {
@@ -116,6 +142,7 @@ private fun AlbumSongs(
                     onClick = { onPlay(index) },
                     actions = actions,
                     trackNumber = song.trackNumber,
+                    offline = offline.songs[song.id],
                 )
             }
         }
@@ -125,8 +152,11 @@ private fun AlbumSongs(
 @Composable
 private fun AlbumHeader(
     details: AlbumDetails,
+    offline: AlbumOfflineStatus,
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
+    onDownload: () -> Unit,
+    onRemoveDownload: () -> Unit,
 ) {
     val album = details.album
     Column(
@@ -152,7 +182,7 @@ private fun AlbumHeader(
         ).joinToString(" · ")
         Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Button(onClick = onPlay) {
                 Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
@@ -163,9 +193,84 @@ private fun AlbumHeader(
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.action_shuffle))
             }
+            // Rein lokale Alben brauchen keinen Download.
+            if (offline.downloadableCount > 0) {
+                AlbumDownloadButton(album.title, offline, onDownload, onRemoveDownload)
+            }
         }
+        DownloadStatusLine(offline)
         Spacer(Modifier.height(8.dp))
     }
+}
+
+@Composable
+private fun AlbumDownloadButton(
+    albumTitle: String,
+    offline: AlbumOfflineStatus,
+    onDownload: () -> Unit,
+    onRemoveDownload: () -> Unit,
+) {
+    var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    when {
+        offline.pendingCount > 0 -> {
+            val finished = offline.downloadedCount
+            val total = finished + offline.pendingCount
+            IconButton(onClick = { confirmRemove = true }) {
+                CircularProgressIndicator(
+                    progress = { if (total > 0) finished.toFloat() / total else 0f },
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 3.dp,
+                )
+                Icon(
+                    painterResource(DesignR.drawable.ic_close),
+                    contentDescription = stringResource(R.string.download_album_running),
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+        offline.isFullyOffline -> FilledTonalIconButton(onClick = { confirmRemove = true }) {
+            Icon(painterResource(DesignR.drawable.ic_download_done), contentDescription = stringResource(R.string.download_album_done))
+        }
+        else -> IconButton(onClick = onDownload) {
+            Icon(painterResource(DesignR.drawable.ic_download), contentDescription = stringResource(R.string.action_download))
+        }
+    }
+
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text(stringResource(R.string.download_album_remove_title)) },
+            text = { Text(stringResource(R.string.download_album_remove_text, albumTitle)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRemove = false
+                    onRemoveDownload()
+                }) { Text(stringResource(R.string.action_remove)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+}
+
+@Composable
+private fun DownloadStatusLine(offline: AlbumOfflineStatus) {
+    val text = when {
+        offline.pendingCount > 0 -> stringResource(
+            R.string.download_album_progress,
+            offline.downloadedCount,
+            offline.downloadedCount + offline.pendingCount,
+        )
+        offline.failedCount > 0 -> pluralStringResource(R.plurals.download_album_failed, offline.failedCount, offline.failedCount)
+        else -> return
+    }
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = if (offline.pendingCount == 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 8.dp),
+    )
 }
 
 @Composable
@@ -178,17 +283,23 @@ fun BackButton(onBack: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 private fun AlbumContentPreview() {
+    val songs = List(4) { PreviewSong.copy(id = it.toLong(), trackNumber = it + 1) }
     KleinaberlautTheme {
         AlbumContent(
-            state = LoadState.Ready(
-                AlbumDetails(
-                    album = PreviewAlbum,
-                    songs = List(4) { PreviewSong.copy(id = it.toLong(), trackNumber = it + 1) },
+            state = LoadState.Ready(AlbumDetails(album = PreviewAlbum, songs = songs)),
+            offline = AlbumOfflineStatus(
+                mapOf(
+                    0L to SongOfflineStatus(SongOfflineState.DOWNLOADED),
+                    1L to SongOfflineStatus(SongOfflineState.DOWNLOADING, progress = 0.3f),
+                    2L to SongOfflineStatus(SongOfflineState.QUEUED),
+                    3L to SongOfflineStatus(SongOfflineState.NONE),
                 ),
             ),
             onBack = {},
             onPlay = {},
             onShuffle = {},
+            onDownload = {},
+            onRemoveDownload = {},
             actions = NoSongActions,
         )
     }
