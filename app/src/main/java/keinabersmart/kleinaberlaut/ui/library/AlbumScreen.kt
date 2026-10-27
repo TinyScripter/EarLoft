@@ -56,6 +56,7 @@ import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
 import keinabersmart.kleinaberlaut.ui.components.formatDuration
+import keinabersmart.kleinaberlaut.ui.playlists.AddToPlaylistDialog
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @Composable
@@ -97,6 +98,9 @@ private fun AlbumContent(
         TopAppBar(
             title = {},
             navigationIcon = { BackButton(onBack) },
+            actions = {
+                if (state is LoadState.Ready) AddAlbumToPlaylistButton(state.value.songs.map { it.id })
+            },
         )
         when (state) {
             LoadState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -271,6 +275,15 @@ private fun DownloadStatusLine(offline: AlbumOfflineStatus) {
         color = if (offline.pendingCount == 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 8.dp),
     )
+}
+
+@Composable
+private fun AddAlbumToPlaylistButton(songIds: List<Long>) {
+    var choosing by rememberSaveable { mutableStateOf(false) }
+    IconButton(onClick = { choosing = true }) {
+        Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = stringResource(R.string.action_add_to_playlist))
+    }
+    if (choosing) AddToPlaylistDialog(songIds = songIds, onDismiss = { choosing = false })
 }
 
 @Composable

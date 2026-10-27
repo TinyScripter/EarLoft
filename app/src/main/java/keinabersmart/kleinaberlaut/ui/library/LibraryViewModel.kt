@@ -5,8 +5,12 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
+import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
+import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
 import keinabersmart.kleinaberlaut.core.model.Album
 import keinabersmart.kleinaberlaut.core.model.Artist
+import keinabersmart.kleinaberlaut.core.model.Playlist
+import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.ui.components.SongActions
@@ -21,6 +25,8 @@ import javax.inject.Inject
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     libraryRepository: LibraryRepository,
+    serverRepository: ServerRepository,
+    private val playlistRepository: PlaylistRepository,
     private val playbackConnection: PlaybackConnection,
     private val favoritesRepository: FavoritesRepository,
 ) : ViewModel(), SongActions {
@@ -31,6 +37,12 @@ class LibraryViewModel @Inject constructor(
     val songs: StateFlow<List<Song>?> = libraryRepository.songs().stateInViewModel()
     val favoriteCount: StateFlow<Int> = favoritesRepository.favorites().map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), 0)
+    val playlists: StateFlow<List<Playlist>?> = playlistRepository.playlists().stateInViewModel()
+    val servers: StateFlow<List<ServerInfo>?> = serverRepository.servers().stateInViewModel()
+
+    fun createPlaylist(name: String, serverSourceId: String?, onCreated: (Long) -> Unit) {
+        viewModelScope.launch { onCreated(playlistRepository.create(name, serverSourceId)) }
+    }
 
     fun playSongs(startIndex: Int) {
         songs.value?.let { playbackConnection.play(it, startIndex) }

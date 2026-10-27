@@ -9,6 +9,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
 import keinabersmart.kleinaberlaut.core.database.dao.MergeDao
 import keinabersmart.kleinaberlaut.core.database.dao.PlaybackDao
+import keinabersmart.kleinaberlaut.core.database.dao.PlaylistDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.dao.SyncDao
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumArtistCrossRef
@@ -63,6 +64,7 @@ abstract class KleinaberlautDatabase : RoomDatabase() {
     abstract fun playbackDao(): PlaybackDao
     abstract fun downloadDao(): DownloadDao
     abstract fun syncDao(): SyncDao
+    abstract fun playlistDao(): PlaylistDao
 
     /** v1 → v2: FTS-Tabellen kommen hinzu und werden aus den vorhandenen Daten befüllt. */
     class AddSearchIndex : AutoMigrationSpec {

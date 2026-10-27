@@ -1,23 +1,14 @@
 package keinabersmart.kleinaberlaut.core.data.sync
 
-import android.graphics.Bitmap
-import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
-import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
-import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.datasource.RawArtist
 import keinabersmart.kleinaberlaut.core.datasource.RawTrack
-import keinabersmart.kleinaberlaut.core.datasource.RemoteLibraryActions
-import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
-import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.model.SyncActionType
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -41,16 +32,7 @@ class FavoritesSyncTest {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KleinaberlautDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        syncer = LibrarySyncer(
-            database = db,
-            sourceDao = db.sourceDao(),
-            mergeDao = db.mergeDao(),
-            libraryDao = db.libraryDao(),
-            mergeResolver = MergeResolver(db.mergeDao(), db.syncDao()),
-            registry = NoSources,
-            cleanupListeners = emptySet(),
-            syncQueue = SyncQueueStarter(db.syncDao(), scheduler),
-        )
+        syncer = db.librarySyncer(scheduler)
         favorites = FavoritesRepository(db, db.libraryDao(), db.syncDao(), scheduler)
     }
 
@@ -73,7 +55,7 @@ class FavoritesSyncTest {
         val nd = source("nd", track("a"))
         syncer.sync(nd)
         favorites.setFavorite(song().songId, true)
-        assertTrue(processor(nd).process())
+        assertTrue(db.syncQueueProcessor(nd).process())
         assertEquals(0, db.syncDao().countActions())
 
         // Auf dem Server wieder entsternt: Er liefert denselben Track wie beim ersten Abgleich.
@@ -160,24 +142,8 @@ class FavoritesSyncTest {
         starredAt = starredAt,
     )
 
-    private fun processor(source: MusicDataSource) = SyncQueueProcessor(
-        db.syncDao(),
-        object : MusicDataSources {
-            override suspend fun all() = listOf(source)
-            override suspend fun get(sourceId: String) = source.takeIf { it.sourceId == sourceId }
-        },
-    )
-
-    private fun source(sourceId: String, vararg tracks: RawTrack) = object : MusicDataSource, RemoteLibraryActions {
-        override val sourceId = sourceId
-        override val type = if (sourceId == "local") SourceType.LOCAL else SourceType.SUBSONIC
-        override val displayName = sourceId
-        override fun fullScan(): Flow<SourceBatch> = flowOf(SourceBatch(tracks.toList()))
-        override suspend fun resolvePlayback(remoteId: String) = PlaybackLocation.LocalFile(Uri.EMPTY)
-        override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = null
-        override suspend fun setFavorite(remoteId: String, favorite: Boolean) = Unit
-        override suspend fun scrobble(remoteId: String, playedAt: Long) = Unit
-    }
+    private fun source(sourceId: String, vararg tracks: RawTrack): MusicDataSource =
+        if (sourceId == "local") FakeLocalSource(tracks.toList()) else FakeServer(sourceId, tracks.toList())
 
     private class CountingScheduler : SyncScheduler {
         var calls = 0
@@ -186,8 +152,4 @@ class FavoritesSyncTest {
         }
     }
 
-    private object NoSources : MusicDataSources {
-        override suspend fun all(): List<MusicDataSource> = emptyList()
-        override suspend fun get(sourceId: String): MusicDataSource? = null
-    }
 }

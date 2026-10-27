@@ -136,6 +136,8 @@ data class PlaylistDto(
     /** ISO-8601. */
     val changed: String? = null,
     val owner: String? = null,
+    /** OpenSubsonic: z. B. Navidromes Smart-Playlists lassen sich nicht ändern. */
+    val readonly: Boolean = false,
     val entry: List<SongDto> = emptyList(),
 )
 

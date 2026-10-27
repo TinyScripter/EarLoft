@@ -21,6 +21,8 @@ data class SubsonicServer(
     val sourceId: String,
     val baseUrl: HttpUrl,
     val credentials: SubsonicCredentials,
+    /** OpenSubsonic-Extension `formPost`: Parameter dürfen im POST-Body stehen (lange Song-Listen). */
+    val supportsFormPost: Boolean = false,
 ) {
     fun endpoint(name: String): HttpUrl.Builder = baseUrl.newBuilder().addPathSegments("rest/$name")
 

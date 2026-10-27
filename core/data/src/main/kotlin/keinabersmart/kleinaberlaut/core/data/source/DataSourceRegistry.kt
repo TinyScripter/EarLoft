@@ -72,7 +72,13 @@ class DataSourceRegistry @Inject constructor(
             Log.w(TAG, "Server ${entity.name} ist unvollständig eingerichtet und wird übersprungen")
             return null
         }
-        return SubsonicServer(entity.sourceId, baseUrl, SubsonicCredentials.Password(username, password))
+        return SubsonicServer(
+            sourceId = entity.sourceId,
+            baseUrl = baseUrl,
+            credentials = SubsonicCredentials.Password(username, password),
+            // JSON-Liste der OpenSubsonic-Extensions, siehe ServerRepository.addServer.
+            supportsFormPost = entity.serverCapabilities?.contains("\"formPost\"") == true,
+        )
     }
 
     companion object {

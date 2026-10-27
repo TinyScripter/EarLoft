@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.room.withTransaction
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -23,6 +24,8 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
+import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
+import keinabersmart.kleinaberlaut.core.database.dao.PlaylistDao
 import keinabersmart.kleinaberlaut.core.database.dao.SyncDao
 import keinabersmart.kleinaberlaut.core.database.entity.SyncActionEntity
 import keinabersmart.kleinaberlaut.core.datasource.RemoteLibraryActions
@@ -84,7 +87,10 @@ class SyncSettings @Inject constructor(
  * (z. B. Song gelöscht), oder die zu oft gescheitert sind, werden verworfen.
  */
 class SyncQueueProcessor @Inject constructor(
+    private val database: KleinaberlautDatabase,
     private val syncDao: SyncDao,
+    private val playlistDao: PlaylistDao,
+    private val playlistSyncer: PlaylistSyncer,
     private val sources: MusicDataSources,
 ) {
     /** @return `true`, wenn nichts mehr aussteht, das später erneut versucht werden sollte. */
@@ -118,17 +124,46 @@ class SyncQueueProcessor @Inject constructor(
     }
 
     private suspend fun execute(action: SyncActionEntity, remote: RemoteLibraryActions) {
-        // Song-Quelle inzwischen gelöscht (Abgleich) – nichts mehr zu tun.
-        val songSource = syncDao.getSongSource(action.targetKey) ?: return
         when (action.actionType) {
             SyncActionType.SET_FAVORITE -> {
+                // Song-Quelle inzwischen gelöscht (Abgleich) – nichts mehr zu tun.
+                val songSource = syncDao.getSongSource(action.targetKey) ?: return
                 val favorite = action.payloadJson.toBoolean()
                 remote.setFavorite(songSource.remoteId, favorite)
                 syncDao.setStarredAt(songSource.uid, if (favorite) System.currentTimeMillis() else null)
             }
-            SyncActionType.SCROBBLE -> remote.scrobble(songSource.remoteId, action.payloadJson!!.toLong())
-            SyncActionType.UPSERT_PLAYLIST, SyncActionType.DELETE_PLAYLIST ->
-                error("${action.actionType} wird noch nicht unterstützt")
+            SyncActionType.SCROBBLE -> {
+                val songSource = syncDao.getSongSource(action.targetKey) ?: return
+                remote.scrobble(songSource.remoteId, action.payloadJson!!.toLong())
+            }
+            SyncActionType.UPSERT_PLAYLIST -> upsertPlaylist(action.sourceId, action.targetKey.toLong(), remote)
+            // Die lokale Playlist ist schon gelöscht, die Remote-ID steht deshalb im Payload.
+            SyncActionType.DELETE_PLAYLIST -> remote.deletePlaylist(action.payloadJson!!)
+        }
+    }
+
+    /**
+     * Sendet Name und Songs; Songs ohne Quelle auf diesem Server fehlen dort. Wurde die Playlist auf dem
+     * Server seit dem letzten Abgleich geändert, gewinnt der Server (Konzept 6.4) und nichts wird gesendet.
+     */
+    private suspend fun upsertPlaylist(sourceId: String, playlistId: Long, remote: RemoteLibraryActions) {
+        val local = playlistDao.getPlaylist(playlistId) ?: return
+        val songs = playlistDao.getRemoteSongIds(playlistId, sourceId).filterNotNull()
+        val remoteId = local.remotePlaylistId
+        val info = if (remoteId == null) {
+            remote.createPlaylist(local.name, songs)
+        } else {
+            val current = remote.playlist(remoteId)
+            if (current.info.changedAt != local.remoteUpdatedAt) {
+                Log.i(TAG, "Playlist ${local.name} wurde auf dem Server geändert – Server gewinnt")
+                database.withTransaction { playlistSyncer.applyRemote(sourceId, playlistId, current) }
+                return
+            }
+            remote.replacePlaylist(current, local.name, songs)
+        }
+        if (playlistDao.setRemoteState(playlistId, info.remoteId, info.changedAt) == 0 && remoteId == null) {
+            // Während des Anlegens lokal gelöscht: sonst käme sie beim nächsten Abgleich zurück.
+            remote.deletePlaylist(info.remoteId)
         }
     }
 

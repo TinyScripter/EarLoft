@@ -143,4 +143,22 @@
     <string name="widget_name">Wiedergabe</string>
     <string name="widget_description">Zeigt den aktuellen Titel mit Steuerung.</string>
     <string name="player_nothing_playing">Nichts wird gespielt</string>
+
+    <!-- Playlists -->
+    <string name="playlist_new">Neue Playlist</string>
+    <string name="playlist_name">Name</string>
+    <string name="playlist_location_device">Nur auf diesem Gerät</string>
+    <string name="playlist_location_server">Auf %1$s</string>
+    <string name="playlist_create">Anlegen</string>
+    <string name="playlist_save">Speichern</string>
+    <string name="playlist_rename">Umbenennen</string>
+    <string name="playlist_delete">Löschen</string>
+    <string name="playlist_delete_title">Playlist löschen?</string>
+    <string name="playlist_delete_text">„%1$s“ wird gelöscht.</string>
+    <string name="playlist_delete_text_server">„%1$s“ wird auch auf %2$s gelöscht.</string>
+    <string name="playlist_empty">Noch keine Songs. Füge welche über das Song-Menü hinzu.</string>
+    <string name="playlist_missing_on_server">Nicht auf %1$s</string>
+    <string name="playlist_added">Zu „%1$s“ hinzugefügt</string>
+    <string name="action_add_to_playlist">Zur Playlist hinzufügen</string>
+    <string name="action_remove_from_playlist">Aus Playlist entfernen</string>
 </resources>

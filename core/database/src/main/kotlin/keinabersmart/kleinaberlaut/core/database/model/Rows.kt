@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.core.database.model
 
+import androidx.room.Embedded
 import keinabersmart.kleinaberlaut.core.model.DownloadState
 import keinabersmart.kleinaberlaut.core.model.SourceType
 
@@ -73,4 +74,19 @@ data class DownloadTotalsRow(
     val doneBytes: Long,
     val runningBytesDone: Long,
     val runningBytesTotal: Long,
+)
+
+data class PlaylistRow(
+    val playlistId: Long,
+    val name: String,
+    val boundSourceId: String?,
+    val serverName: String?,
+    val songCount: Int,
+    val durationMs: Long,
+)
+
+data class PlaylistEntryRow(
+    val entryId: Long,
+    @Embedded val song: SongRow,
+    val missingOnServer: Boolean,
 )

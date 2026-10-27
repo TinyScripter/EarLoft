@@ -1,0 +1,152 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.64.2 (10114574)",
+    "openSubsonic": true,
+    "playlist": {
+      "id": "4tx6KdiaoIvpgJnq7C6s5D",
+      "name": "Fixture",
+      "songCount": 2,
+      "duration": 80,
+      "owner": "kal",
+      "created": "2026-10-27T17:05:11.512368429+01:00",
+      "changed": "2026-10-27T17:05:11.517185304+01:00",
+      "coverArt": "pl-4tx6KdiaoIvpgJnq7C6s5D",
+      "readonly": false,
+      "entry": [
+        {
+          "id": "4bWaStIPjLMFPJktfSGgYg",
+          "parent": "7nj57Q3y2CM8CVC3tNHfSD",
+          "isDir": false,
+          "title": "Leise",
+          "album": "Mondlicht",
+          "artist": "Nachtfalter",
+          "track": 2,
+          "year": 2022,
+          "genre": "Ambient",
+          "coverArt": "mf-4bWaStIPjLMFPJktfSGgYg",
+          "size": 499288,
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 40,
+          "bitRate": 97,
+          "path": "Nachtfalter/Mondlicht/02 - Leise.flac",
+          "playCount": 1,
+          "created": "2026-10-27T00:05:15.942679501+01:00",
+          "albumId": "7nj57Q3y2CM8CVC3tNHfSD",
+          "artistId": "1eAMLBqetG0V4eHD2uDMSH",
+          "type": "music",
+          "played": "2026-10-27T08:07:12.906+01:00",
+          "bpm": 0,
+          "comment": "",
+          "sortName": "leise",
+          "mediaType": "song",
+          "musicBrainzId": "00000002-1111-4111-8111-111111111111",
+          "isrc": [],
+          "genres": [
+            {
+              "name": "Ambient"
+            }
+          ],
+          "replayGain": {
+            "trackGain": 2,
+            "albumGain": -4,
+            "trackPeak": 0.3,
+            "albumPeak": 0.98
+          },
+          "channelCount": 1,
+          "samplingRate": 44100,
+          "bitDepth": 24,
+          "moods": [],
+          "artists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayArtist": "Nachtfalter",
+          "albumArtists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayAlbumArtist": "Nachtfalter",
+          "contributors": [],
+          "displayComposer": "",
+          "explicitStatus": "",
+          "groupings": [],
+          "works": [],
+          "movements": []
+        },
+        {
+          "id": "5O1Rm7FKvERywyPMKOhuVw",
+          "parent": "7nj57Q3y2CM8CVC3tNHfSD",
+          "isDir": false,
+          "title": "Morgengrau",
+          "album": "Mondlicht",
+          "artist": "Nachtfalter",
+          "track": 4,
+          "year": 2022,
+          "genre": "Ambient",
+          "coverArt": "mf-5O1Rm7FKvERywyPMKOhuVw",
+          "size": 1829192,
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 40,
+          "bitRate": 363,
+          "path": "Nachtfalter/Mondlicht/04 - Morgengrau.flac",
+          "playCount": 1,
+          "created": "2026-10-27T00:05:15.939299732+01:00",
+          "albumId": "7nj57Q3y2CM8CVC3tNHfSD",
+          "artistId": "1eAMLBqetG0V4eHD2uDMSH",
+          "type": "music",
+          "played": "2026-10-27T16:50:09.788+01:00",
+          "bpm": 0,
+          "comment": "",
+          "sortName": "morgengrau",
+          "mediaType": "song",
+          "musicBrainzId": "00000004-1111-4111-8111-111111111111",
+          "isrc": [],
+          "genres": [
+            {
+              "name": "Ambient"
+            }
+          ],
+          "replayGain": {
+            "trackGain": -1,
+            "albumGain": -4,
+            "trackPeak": 0.5,
+            "albumPeak": 0.98
+          },
+          "channelCount": 1,
+          "samplingRate": 44100,
+          "bitDepth": 24,
+          "moods": [],
+          "artists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayArtist": "Nachtfalter",
+          "albumArtists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayAlbumArtist": "Nachtfalter",
+          "contributors": [],
+          "displayComposer": "",
+          "explicitStatus": "",
+          "groupings": [],
+          "works": [],
+          "movements": []
+        }
+      ]
+    }
+  }
+}

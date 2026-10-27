@@ -26,7 +26,7 @@ interface MusicDataSource {
 }
 
 /**
- * Änderungen, die eine Server-Quelle entgegennimmt (Favoriten, Scrobbles). Fehler werden als
+ * Nutzerdaten, die eine Server-Quelle hält (Favoriten, Scrobbles, Playlists). Fehler werden als
  * Ausnahmen gemeldet: `IOException` = später erneut versuchen.
  */
 interface RemoteLibraryActions {
@@ -34,7 +34,33 @@ interface RemoteLibraryActions {
 
     /** [playedAt] = Beginn des Hörens in ms seit Epoche. */
     suspend fun scrobble(remoteId: String, playedAt: Long)
+
+    /** Eigene, änderbare Playlists des Kontos, ohne Songs. */
+    suspend fun playlists(): List<RemotePlaylistInfo>
+
+    suspend fun playlist(remoteId: String): RemotePlaylist
+
+    /** @return der Stand danach. */
+    suspend fun createPlaylist(name: String, songRemoteIds: List<String>): RemotePlaylistInfo
+
+    /** Ersetzt Name und Songs von [current]. @return der Stand danach. */
+    suspend fun replacePlaylist(current: RemotePlaylist, name: String, songRemoteIds: List<String>): RemotePlaylistInfo
+
+    suspend fun deletePlaylist(remoteId: String)
 }
+
+/** [changedAt] = letzte Änderung auf dem Server (ms) – dient der Konflikterkennung. */
+data class RemotePlaylistInfo(
+    val remoteId: String,
+    val name: String,
+    val changedAt: Long,
+)
+
+/** [songRemoteIds] in Reihenfolge, Duplikate möglich. */
+data class RemotePlaylist(
+    val info: RemotePlaylistInfo,
+    val songRemoteIds: List<String>,
+)
 
 data class SourceBatch(val tracks: List<RawTrack>)
 

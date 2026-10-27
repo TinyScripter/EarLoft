@@ -185,6 +185,48 @@ class SubsonicApiTest {
         assertEquals("true", scrobble.queryParameter("submission"))
     }
 
+    @Test
+    fun `playlists are parsed from real responses`() = runTest {
+        mockServer.enqueue(json("playlists"))
+        mockServer.enqueue(json("playlist"))
+
+        val summary = api.playlists(server).single()
+        val playlist = api.playlist(server, summary.id)
+
+        assertEquals("Fixture", summary.name)
+        assertEquals("kal", summary.owner)
+        assertTrue(summary.changed != null && !summary.readonly)
+        assertEquals(listOf("Leise", "Morgengrau"), playlist.entry.map { it.title })
+    }
+
+    @Test
+    fun `playlist update is posted as a form when the server supports formPost`() = runTest {
+        mockServer.enqueue(json("ping"))
+
+        api.updatePlaylist(server.copy(supportsFormPost = true), "pl1", "Mix", listOf(1, 0), listOf("a", "b"))
+
+        val request = mockServer.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("kal", request.url.queryParameter("u"))
+        assertNull(request.url.queryParameter("songIdToAdd"))
+        assertEquals(
+            "playlistId=pl1&name=Mix&songIndexToRemove=1&songIndexToRemove=0&songIdToAdd=a&songIdToAdd=b",
+            request.body!!.utf8(),
+        )
+    }
+
+    @Test
+    fun `playlist update without formPost uses query parameters`() = runTest {
+        mockServer.enqueue(json("ping"))
+
+        api.updatePlaylist(server, "pl1", null, emptyList(), listOf("a", "b"))
+
+        val request = mockServer.takeRequest()
+        assertEquals("GET", request.method)
+        assertEquals(listOf("a", "b"), request.url.queryParameterValues("songIdToAdd"))
+        assertNull(request.url.queryParameter("name"))
+    }
+
     private fun json(name: String) =
         MockResponse.Builder().addHeader("Content-Type", "application/json").body(fixture(name)).build()
 

@@ -2,9 +2,11 @@ package keinabersmart.kleinaberlaut.core.datasource.subsonic
 
 import keinabersmart.kleinaberlaut.core.datasource.RawArtist
 import keinabersmart.kleinaberlaut.core.datasource.RawTrack
+import keinabersmart.kleinaberlaut.core.datasource.RemotePlaylistInfo
 import keinabersmart.kleinaberlaut.core.datasource.local.FallbackNames
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.AlbumDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.ArtistRefDto
+import keinabersmart.kleinaberlaut.core.network.subsonic.dto.PlaylistDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.SongDto
 import java.nio.ByteBuffer
 import java.security.MessageDigest
@@ -93,6 +95,14 @@ internal object SubsonicTrackMapper {
         filter { it.name.isNotBlank() }.map { RawArtist(name = it.name, mbid = it.musicBrainzId.orBlankNull()) }
 
     private fun String?.orBlankNull(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
+
+    /** Fehlt `changed`, gilt 0 – dann lässt sich nur keine Server-Änderung erkennen. */
+    fun playlistInfo(playlist: PlaylistDto): RemotePlaylistInfo =
+        RemotePlaylistInfo(
+            remoteId = playlist.id,
+            name = playlist.name,
+            changedAt = playlist.changed?.toEpochMillis() ?: 0L,
+        )
 
     private fun String.toEpochMillis(): Long? =
         try {

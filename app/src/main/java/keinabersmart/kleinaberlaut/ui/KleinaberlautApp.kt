@@ -27,6 +27,7 @@ import keinabersmart.kleinaberlaut.navigation.HomeRoute
 import keinabersmart.kleinaberlaut.navigation.LibraryRoute
 import keinabersmart.kleinaberlaut.navigation.Navigator
 import keinabersmart.kleinaberlaut.navigation.NowPlayingRoute
+import keinabersmart.kleinaberlaut.navigation.PlaylistRoute
 import keinabersmart.kleinaberlaut.navigation.QueueRoute
 import keinabersmart.kleinaberlaut.navigation.SearchRoute
 import keinabersmart.kleinaberlaut.navigation.SettingsRoute
@@ -44,6 +45,7 @@ import keinabersmart.kleinaberlaut.ui.player.MiniPlayer
 import keinabersmart.kleinaberlaut.ui.player.NowPlayingScreen
 import keinabersmart.kleinaberlaut.ui.player.PlayerViewModel
 import keinabersmart.kleinaberlaut.ui.player.QueueScreen
+import keinabersmart.kleinaberlaut.ui.playlists.PlaylistScreen
 import keinabersmart.kleinaberlaut.ui.search.SearchScreen
 import keinabersmart.kleinaberlaut.ui.settings.AddServerScreen
 import keinabersmart.kleinaberlaut.ui.settings.SettingsScreen
@@ -69,9 +71,11 @@ fun KleinaberlautApp(
                 onAlbumClick = openAlbum,
                 onArtistClick = openArtist,
                 onFavoritesClick = { navigator.navigate(FavoritesRoute) },
+                onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
             )
         }
         entry<FavoritesRoute> { FavoritesScreen(onBack = navigator::goBack) }
+        entry<PlaylistRoute> { route -> PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack) }
         entry<SearchRoute> { SearchScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) }
         entry<DownloadsRoute> { DownloadsScreen(onAlbumClick = openAlbum) }
         entry<AlbumRoute> { route -> AlbumScreen(albumId = route.albumId, onBack = navigator::goBack) }

@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +44,7 @@ import keinabersmart.kleinaberlaut.core.model.Artist
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
+import keinabersmart.kleinaberlaut.ui.playlists.AddToPlaylistDialog
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 /** Aktionen, die auf jeden Song in einer Liste angewendet werden können. */
@@ -60,7 +62,8 @@ interface SongActions {
 /**
  * Eine Song-Zeile. Mit [trackNumber] wird statt des Covers die Titelnummer gezeigt
  * (Album-Ansicht). Ist [offline] bekannt, zeigt die Zeile den Download-Zustand und das Menü
- * „Herunterladen“ bzw. „Download entfernen“.
+ * „Herunterladen“ bzw. „Download entfernen“. [onRemoveFromPlaylist] ergänzt das Menü in
+ * Playlists, [warning] erscheint als zweite Zeile (z. B. „Nicht auf …“).
  */
 @Composable
 fun SongListItem(
@@ -70,12 +73,20 @@ fun SongListItem(
     modifier: Modifier = Modifier,
     trackNumber: Int? = null,
     offline: SongOfflineStatus? = null,
+    onRemoveFromPlaylist: (() -> Unit)? = null,
+    warning: String? = null,
 ) {
+    var addToPlaylist by rememberSaveable { mutableStateOf(false) }
+    if (addToPlaylist) AddToPlaylistDialog(songIds = listOf(song.id), onDismiss = { addToPlaylist = false })
+
     ListItem(
         headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             val text = if (trackNumber != null) song.artist else "${song.artist} · ${song.albumTitle}"
-            Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column {
+                Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (warning != null) Text(warning, color = MaterialTheme.colorScheme.error, maxLines = 1)
+            }
         },
         leadingContent = {
             if (trackNumber != null) {
@@ -130,6 +141,24 @@ fun SongListItem(
                                 actions.toggleFavorite(song)
                             },
                         )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_add_to_playlist)) },
+                            leadingIcon = { Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                addToPlaylist = true
+                            },
+                        )
+                        if (onRemoveFromPlaylist != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_remove_from_playlist)) },
+                                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_close), contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    onRemoveFromPlaylist()
+                                },
+                            )
+                        }
                         when (offline?.state) {
                             null, SongOfflineState.LOCAL -> Unit
                             SongOfflineState.NONE, SongOfflineState.FAILED -> DropdownMenuItem(

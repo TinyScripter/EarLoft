@@ -26,6 +26,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -33,18 +34,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.model.Album
 import keinabersmart.kleinaberlaut.core.model.Artist
+import keinabersmart.kleinaberlaut.core.model.Playlist
+import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.ui.components.AlbumCard
 import keinabersmart.kleinaberlaut.ui.components.ArtistListItem
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
+import keinabersmart.kleinaberlaut.ui.playlists.PlaylistIcon
+import keinabersmart.kleinaberlaut.ui.playlists.PlaylistNameDialog
+import keinabersmart.kleinaberlaut.ui.playlists.playlistLocation
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 private enum class LibraryTab(val label: Int) {
@@ -60,6 +67,7 @@ fun LibraryScreen(
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
     onFavoritesClick: () -> Unit,
+    onPlaylistClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -67,6 +75,8 @@ fun LibraryScreen(
     val artists by viewModel.artists.collectAsStateWithLifecycle()
     val songs by viewModel.songs.collectAsStateWithLifecycle()
     val favoriteCount by viewModel.favoriteCount.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val servers by viewModel.servers.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     Column(modifier.fillMaxSize()) {
@@ -91,14 +101,53 @@ fun LibraryScreen(
                     actions = viewModel,
                 )
             }
-            LibraryTab.PLAYLISTS -> PlaylistList(favoriteCount = favoriteCount, onFavoritesClick = onFavoritesClick)
+            LibraryTab.PLAYLISTS -> PlaylistList(
+                favoriteCount = favoriteCount,
+                playlists = playlists.orEmpty(),
+                servers = servers,
+                onFavoritesClick = onFavoritesClick,
+                onPlaylistClick = onPlaylistClick,
+                onCreate = { name, serverSourceId -> viewModel.createPlaylist(name, serverSourceId, onPlaylistClick) },
+            )
         }
     }
 }
 
 @Composable
-private fun PlaylistList(favoriteCount: Int, onFavoritesClick: () -> Unit) {
+private fun PlaylistList(
+    favoriteCount: Int,
+    playlists: List<Playlist>,
+    servers: List<ServerInfo>?,
+    onFavoritesClick: () -> Unit,
+    onPlaylistClick: (Long) -> Unit,
+    onCreate: (name: String, serverSourceId: String?) -> Unit,
+) {
+    var creating by rememberSaveable { mutableStateOf(false) }
+    if (creating && servers != null) {
+        PlaylistNameDialog(
+            title = stringResource(R.string.playlist_new),
+            confirmLabel = stringResource(R.string.playlist_create),
+            servers = servers,
+            onConfirm = { name, serverSourceId ->
+                creating = false
+                onCreate(name, serverSourceId)
+            },
+            onDismiss = { creating = false },
+        )
+    }
+
     LazyColumn(Modifier.fillMaxSize()) {
+        item(key = "new") {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.playlist_new)) },
+                leadingContent = {
+                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                        Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
+                    }
+                },
+                modifier = Modifier.clickable { creating = true },
+            )
+        }
         item(key = "favorites") {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.favorites_title)) },
@@ -113,6 +162,17 @@ private fun PlaylistList(favoriteCount: Int, onFavoritesClick: () -> Unit) {
                     }
                 },
                 modifier = Modifier.clickable(onClick = onFavoritesClick),
+            )
+        }
+        items(playlists, key = { it.id }) { playlist ->
+            ListItem(
+                headlineContent = { Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                supportingContent = {
+                    val songs = pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount)
+                    Text("$songs · ${playlistLocation(playlist.serverName)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
+                leadingContent = { PlaylistIcon() },
+                modifier = Modifier.clickable { onPlaylistClick(playlist.id) },
             )
         }
     }

@@ -9,6 +9,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
+import keinabersmart.kleinaberlaut.core.datasource.RemoteLibraryActions
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +35,7 @@ class LibrarySyncer @Inject constructor(
     private val registry: MusicDataSources,
     private val cleanupListeners: Set<@JvmSuppressWildcards LibraryCleanupListener>,
     private val syncQueue: SyncQueueStarter,
+    private val playlistSyncer: PlaylistSyncer,
 ) {
     private val mutex = Mutex()
     private val runningSyncs = MutableStateFlow(0)
@@ -87,6 +89,8 @@ class LibrarySyncer @Inject constructor(
                 removed
             }
             if (removed > 0) cleanupListeners.forEach { it.onSongSourcesRemoved() }
+            // Playlists erst jetzt: Ihre Einträge verweisen auf die gerade abgeglichenen Songs.
+            if (source is RemoteLibraryActions) playlistSyncer.sync(source.sourceId, source)
             // Der Abgleich kann Favoriten für neue Server-Quellen eingereiht haben.
             syncQueue.startIfPending()
         } finally {

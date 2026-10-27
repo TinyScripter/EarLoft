@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.core.network.subsonic
 import keinabersmart.kleinaberlaut.core.network.await
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.AlbumDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.OpenSubsonicExtensionDto
+import keinabersmart.kleinaberlaut.core.network.subsonic.dto.PlaylistDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.SongDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.SubsonicEnvelope
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.SubsonicResponse
@@ -10,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import okhttp3.FormBody
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -70,6 +72,43 @@ class SubsonicApi @Inject constructor(
         }
     }
 
+    /** Playlists des Kontos ohne Songs (eigene und öffentliche anderer Nutzer). */
+    suspend fun playlists(server: SubsonicServer): List<PlaylistDto> =
+        get(server, "getPlaylists").playlists?.playlist.orEmpty()
+
+    suspend fun playlist(server: SubsonicServer, playlistId: String): PlaylistDto =
+        get(server, "getPlaylist") { addQueryParameter("id", playlistId) }.playlist
+            ?: throw NotSubsonicException("getPlaylist ohne playlist")
+
+    /** @return die ID der neuen Playlist (Subsonic ≥ 1.14 liefert die Playlist zurück). */
+    suspend fun createPlaylist(server: SubsonicServer, name: String, songIds: List<String>): String =
+        send(server, "createPlaylist", listOf("name" to name) + songIds.map { "songId" to it }).playlist?.id
+            ?: throw NotSubsonicException("createPlaylist ohne playlist")
+
+    /** Entfernt erst die Einträge an [removeIndices] (bezogen auf den Stand vorher), hängt dann [addSongIds] an. */
+    suspend fun updatePlaylist(
+        server: SubsonicServer,
+        playlistId: String,
+        name: String?,
+        removeIndices: List<Int>,
+        addSongIds: List<String>,
+    ) {
+        send(
+            server,
+            "updatePlaylist",
+            buildList {
+                add("playlistId" to playlistId)
+                if (name != null) add("name" to name)
+                removeIndices.forEach { add("songIndexToRemove" to it.toString()) }
+                addSongIds.forEach { add("songIdToAdd" to it) }
+            },
+        )
+    }
+
+    suspend fun deletePlaylist(server: SubsonicServer, playlistId: String) {
+        get(server, "deletePlaylist") { addQueryParameter("id", playlistId) }
+    }
+
     /** Original-Datei ohne Transcoding (Gapless, Klangtreue). */
     fun streamUrl(server: SubsonicServer, songId: String): HttpUrl =
         server.endpoint("stream")
@@ -100,9 +139,23 @@ class SubsonicApi @Inject constructor(
         server: SubsonicServer,
         endpoint: String,
         params: HttpUrl.Builder.() -> Unit = {},
-    ): SubsonicResponse = withContext(Dispatchers.IO) {
-        val url = server.endpoint(endpoint).apply(params).build()
-        client.newCall(request(server, url)).await().use { response ->
+    ): SubsonicResponse = execute(endpoint, request(server, server.endpoint(endpoint).apply(params).build()))
+
+    /**
+     * Für Aufrufe mit vielen Parametern: als Formular-POST, wenn der Server `formPost` kann, sonst als GET.
+     * Aufrufer müssen lange Listen ohne `formPost` selbst aufteilen.
+     */
+    private suspend fun send(server: SubsonicServer, endpoint: String, params: List<Pair<String, String>>): SubsonicResponse {
+        if (!server.supportsFormPost) {
+            return get(server, endpoint) { params.forEach { (name, value) -> addQueryParameter(name, value) } }
+        }
+        val body = FormBody.Builder().apply { params.forEach { (name, value) -> add(name, value) } }.build()
+        val request = request(server, server.endpoint(endpoint).build()).newBuilder().post(body).build()
+        return execute(endpoint, request)
+    }
+
+    private suspend fun execute(endpoint: String, request: Request): SubsonicResponse = withContext(Dispatchers.IO) {
+        client.newCall(request).await().use { response ->
             val body = response.body.string()
             val envelope = try {
                 json.decodeFromString<SubsonicEnvelope>(body)

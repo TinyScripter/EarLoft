@@ -5,6 +5,20 @@
     "type": "navidrome",
     "serverVersion": "0.64.2 (10114574)",
     "openSubsonic": true,
-    "playlists": {}
+    "playlists": {
+      "playlist": [
+        {
+          "id": "4tx6KdiaoIvpgJnq7C6s5D",
+          "name": "Fixture",
+          "songCount": 2,
+          "duration": 80,
+          "owner": "kal",
+          "created": "2026-10-27T17:05:11.512368429+01:00",
+          "changed": "2026-10-27T17:05:11.517185304+01:00",
+          "coverArt": "pl-4tx6KdiaoIvpgJnq7C6s5D",
+          "readonly": false
+        }
+      ]
+    }
   }
 }

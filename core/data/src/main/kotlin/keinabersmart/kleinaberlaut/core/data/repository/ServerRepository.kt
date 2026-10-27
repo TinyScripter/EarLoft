@@ -7,6 +7,7 @@ import keinabersmart.kleinaberlaut.core.data.sync.LibraryCleanupListener
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
+import keinabersmart.kleinaberlaut.core.database.dao.PlaylistDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
@@ -41,6 +42,7 @@ class ServerRepository @Inject constructor(
     private val database: KleinaberlautDatabase,
     private val sourceDao: SourceDao,
     private val libraryDao: LibraryDao,
+    private val playlistDao: PlaylistDao,
     private val secretStore: SecretStore,
     private val registry: DataSourceRegistry,
     private val api: SubsonicApi,
@@ -115,6 +117,8 @@ class ServerRepository @Inject constructor(
     suspend fun removeServer(sourceId: String) {
         database.withTransaction {
             sourceDao.delete(sourceId)
+            // Die Playlists des Servers liegen weiter dort; lokal verschwinden sie mit ihm.
+            playlistDao.deleteBoundTo(sourceId)
             libraryDao.cleanupOrphans()
         }
         secretStore.remove(DataSourceRegistry.passwordKey(sourceId))
