@@ -50,6 +50,18 @@ interface RemoteLibraryActions {
     suspend fun deletePlaylist(remoteId: String)
 }
 
+/**
+ * Billiger Zwischenabgleich für Server (statt des Vollabgleichs): erfasst neu hinzugekommene Alben und den
+ * Favoriten-Stand, den andere Clients geändert haben. Gelöschte oder geänderte Songs findet nur der Vollabgleich.
+ */
+interface RemoteQuickSync {
+    /** Songs der Alben, die nach [since] (ms seit Epoche) auf den Server kamen. */
+    suspend fun tracksAddedSince(since: Long): List<RawTrack>
+
+    /** Alle favorisierten Songs: `remoteId` → Zeitpunkt des Sterns (ms; 0 = unbekannt). */
+    suspend fun starredSongs(): Map<String, Long>
+}
+
 /** Quellen, die Songtexte liefern. Fehler wie bei [RemoteLibraryActions]; `IOException` = später erneut versuchen. */
 interface RemoteLyrics {
     /** [artist] und [title] dienen Servern ohne OpenSubsonic als Suchbegriff. [Lyrics.None], wenn es keinen Text gibt. */

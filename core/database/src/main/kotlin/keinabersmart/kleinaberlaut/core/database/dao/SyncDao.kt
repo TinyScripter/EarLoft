@@ -7,6 +7,9 @@ import keinabersmart.kleinaberlaut.core.database.entity.SongSourceEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SyncActionEntity
 import keinabersmart.kleinaberlaut.core.model.SyncActionType
 
+/** Stern einer Song-Quelle, wie der Server ihn zuletzt gemeldet bzw. die App gesendet hat. */
+data class SourceStarState(val uid: String, val remoteId: String, val songId: Long, val starredAt: Long?)
+
 /** Offline-Änderungen für Server (Konzept 6.4) und der Favoriten-Zustand je Quelle. */
 @Dao
 interface SyncDao {
@@ -48,6 +51,9 @@ interface SyncDao {
 
     @Query("SELECT * FROM song_sources WHERE uid = :uid")
     suspend fun getSongSource(uid: String): SongSourceEntity?
+
+    @Query("SELECT uid, remoteId, songId, starredAt FROM song_sources WHERE sourceId = :sourceId")
+    suspend fun getStarStates(sourceId: String): List<SourceStarState>
 
     @Query("UPDATE song_sources SET starredAt = :starredAt WHERE uid = :uid")
     suspend fun setStarredAt(uid: String, starredAt: Long?)

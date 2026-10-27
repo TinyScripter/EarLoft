@@ -11,6 +11,7 @@ import keinabersmart.kleinaberlaut.core.datasource.RemoteLibraryActions
 import keinabersmart.kleinaberlaut.core.datasource.RemoteLyrics
 import keinabersmart.kleinaberlaut.core.datasource.RemotePlaylist
 import keinabersmart.kleinaberlaut.core.datasource.RemotePlaylistInfo
+import keinabersmart.kleinaberlaut.core.datasource.RemoteQuickSync
 import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
 import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.model.SourceType
@@ -22,13 +23,17 @@ import kotlinx.coroutines.flow.flowOf
 internal class FakeServer(
     override val sourceId: String,
     var tracks: List<RawTrack> = emptyList(),
-) : MusicDataSource, RemoteLibraryActions, RemoteLyrics {
+) : MusicDataSource, RemoteLibraryActions, RemoteLyrics, RemoteQuickSync {
     override val type = SourceType.SUBSONIC
     override val displayName = sourceId
     val calls = mutableListOf<String>()
     var failure: Exception? = null
     val playlists = LinkedHashMap<String, RemotePlaylist>()
     val lyrics = HashMap<String, Lyrics>()
+    /** Für den Zwischenabgleich: neue Alben und Favoriten (`remoteId` → Zeitpunkt). */
+    var newTracks: List<RawTrack> = emptyList()
+    var starred: Map<String, Long> = emptyMap()
+    var lastSince = -1L
     private var clock = 1_000L
     private var nextId = 1
 
@@ -73,6 +78,17 @@ internal class FakeServer(
         val remoteId = current.info.remoteId
         calls += "replace $remoteId $name $songRemoteIds"
         return playlists.getValue(putPlaylist(name, songRemoteIds, remoteId)).info
+    }
+
+    override suspend fun tracksAddedSince(since: Long): List<RawTrack> {
+        failure?.let { throw it }
+        lastSince = since
+        return newTracks
+    }
+
+    override suspend fun starredSongs(): Map<String, Long> {
+        failure?.let { throw it }
+        return starred
     }
 
     override suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics {

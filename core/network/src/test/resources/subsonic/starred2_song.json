@@ -1,0 +1,67 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.64.2 (10114574)",
+    "openSubsonic": true,
+    "starred2": {
+      "song": [
+        {
+          "id": "3gVhj1Cuu8LaLzpA1LnBua",
+          "parent": "0h5f62UwnT2x3yLtXInK38",
+          "isDir": false,
+          "title": "Dritter Song",
+          "album": "Blaues Album",
+          "artist": "Testband",
+          "track": 3,
+          "year": 2024,
+          "coverArt": "mf-3gVhj1Cuu8LaLzpA1LnBua",
+          "size": 647553,
+          "contentType": "audio/mpeg",
+          "suffix": "mp3",
+          "starred": "2026-10-27T20:27:35.10825678+01:00",
+          "duration": 40,
+          "bitRate": 128,
+          "path": "Testband/Blaues Album/03 - Dritter Song.mp3",
+          "created": "2026-10-27T00:05:15.926111936+01:00",
+          "albumId": "0h5f62UwnT2x3yLtXInK38",
+          "artistId": "0hewMG78met2HzbLHKGjcI",
+          "type": "music",
+          "bpm": 0,
+          "comment": "",
+          "sortName": "dritter song",
+          "mediaType": "song",
+          "musicBrainzId": "",
+          "isrc": [],
+          "genres": [],
+          "replayGain": {},
+          "channelCount": 1,
+          "samplingRate": 44100,
+          "bitDepth": 0,
+          "moods": [],
+          "artists": [
+            {
+              "id": "0hewMG78met2HzbLHKGjcI",
+              "name": "Testband"
+            }
+          ],
+          "displayArtist": "Testband",
+          "albumArtists": [
+            {
+              "id": "0hewMG78met2HzbLHKGjcI",
+              "name": "Testband"
+            }
+          ],
+          "displayAlbumArtist": "Testband",
+          "contributors": [],
+          "displayComposer": "",
+          "explicitStatus": "",
+          "groupings": [],
+          "works": [],
+          "movements": []
+        }
+      ]
+    }
+  }
+}

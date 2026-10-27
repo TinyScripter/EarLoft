@@ -10,6 +10,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.RemoteLibraryActions
+import keinabersmart.kleinaberlaut.core.datasource.RemoteQuickSync
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +42,9 @@ class LibrarySyncer @Inject constructor(
     private val runningSyncs = MutableStateFlow(0)
     private val failedSyncs = MutableStateFlow<Map<String, Exception>>(emptyMap())
 
+    /** Nur im Speicher: nach einem Neustart genügt `lastFullSyncAt` als Grenze. Zugriff nur unter [mutex]. */
+    private val lastQuickSyncAt = HashMap<String, Long>()
+
     /** Anzahl laufender Abgleiche; > 0 bedeutet „Bibliothek wird aktualisiert“. */
     val activeSyncs: StateFlow<Int> = runningSyncs.asStateFlow()
 
@@ -65,6 +69,43 @@ class LibrarySyncer @Inject constructor(
             failedSyncs.update { it + (source.sourceId to e) }
             false
         }
+
+    /**
+     * Billiger Zwischenabgleich eines Servers (nur [RemoteQuickSync]-Quellen, die schon einmal voll abgeglichen
+     * wurden): neue Alben, Favoriten und Playlists. Löscht nie etwas und lässt die Generation unverändert.
+     * Läuft gerade ein Abgleich, entfällt er. Fehler werden nur geloggt – ein Zwischenabgleich ist optional.
+     * @return `true`, wenn er gelaufen ist.
+     */
+    suspend fun quickSync(source: MusicDataSource): Boolean {
+        if (source !is RemoteQuickSync) return false
+        if (!mutex.tryLock()) return false
+        try {
+            val entity = sourceDao.get(source.sourceId)
+            if (entity == null || entity.lastFullSyncAt == 0L) return false
+            try {
+                // Mit Reserve für abweichende Uhren; Merge erkennt bereits Bekanntes.
+                val since = maxOf(entity.lastFullSyncAt, lastQuickSyncAt[source.sourceId] ?: 0L) - CLOCK_SLACK_MS
+                val added = source.tracksAddedSince(since)
+                val starred = source.starredSongs()
+                database.withTransaction {
+                    added.forEach { mergeResolver.merge(source.sourceId, it, entity.syncGeneration, syncsFavorites = true) }
+                    mergeResolver.mergeStarred(source.sourceId, starred)
+                }
+                if (source is RemoteLibraryActions) playlistSyncer.sync(source.sourceId, source)
+                syncQueue.startIfPending()
+                if (added.isNotEmpty()) changeListeners.forEach { it.onSyncFinished() }
+                lastQuickSyncAt[source.sourceId] = System.currentTimeMillis()
+                return true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Zwischenabgleich von ${source.sourceId} fehlgeschlagen", e)
+                return false
+            }
+        } finally {
+            mutex.unlock()
+        }
+    }
 
     suspend fun sync(source: MusicDataSource) = mutex.withLock {
         runningSyncs.update { it + 1 }
@@ -101,5 +142,6 @@ class LibrarySyncer @Inject constructor(
 
     private companion object {
         const val TAG = "LibrarySyncer"
+        const val CLOCK_SLACK_MS = 60 * 60 * 1000L
     }
 }

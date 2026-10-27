@@ -16,6 +16,11 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var libraryRefresher: LibraryRefresher
 
+    override fun onStart() {
+        super.onStart()
+        libraryRefresher.refreshQuick()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

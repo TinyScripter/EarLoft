@@ -37,7 +37,7 @@ class MergeResolver @Inject constructor(
             val songId = resolveSong(resolveAlbum(track), track)
             mergeDao.insertSongSource(track.toSongSource(uid, songId, sourceId, generation))
             mergeDao.setAlbumCoverIfMissing(mergeDao.getSong(songId)!!.albumId, uid)
-            if (syncsFavorites) mergeFavorite(songId, uid, track, previousStarredAt = null, isNewSource = true)
+            if (syncsFavorites) mergeFavorite(songId, uid, track.starredAt, previousStarredAt = null, isNewSource = true)
             return songId
         }
 
@@ -45,7 +45,7 @@ class MergeResolver @Inject constructor(
             mergeDao.markSeen(uid, generation)
             if (syncsFavorites && (existing.starredAt != null) != (track.starredAt != null)) {
                 syncDao.setStarredAt(uid, track.starredAt)
-                mergeFavorite(existing.songId, uid, track, existing.starredAt, isNewSource = false)
+                mergeFavorite(existing.songId, uid, track.starredAt, existing.starredAt, isNewSource = false)
             }
             return existing.songId
         }
@@ -67,7 +67,7 @@ class MergeResolver @Inject constructor(
         // (z. B. Album-Cover) zählen nicht – angezeigt wird ohnehin, was in der Datenbank steht.
         if (existing.sizeBytes != track.sizeBytes || existing.mimeType != track.mimeType) mergeDao.requeueDownload(uid)
         mergeDao.setAlbumCoverIfMissing(albumId, uid)
-        if (syncsFavorites) mergeFavorite(songId, uid, track, existing.starredAt, isNewSource = false)
+        if (syncsFavorites) mergeFavorite(songId, uid, track.starredAt, existing.starredAt, isNewSource = false)
         return songId
     }
 
@@ -78,17 +78,31 @@ class MergeResolver @Inject constructor(
      *   statt den lokalen Favoriten zu verlieren.
      * Hat der Song noch ungesendete lokale Änderungen, gewinnen diese.
      */
-    private suspend fun mergeFavorite(songId: Long, uid: String, track: RawTrack, previousStarredAt: Long?, isNewSource: Boolean) {
+    private suspend fun mergeFavorite(songId: Long, uid: String, starredAt: Long?, previousStarredAt: Long?, isNewSource: Boolean) {
         if (syncDao.hasPendingFavorite(songId)) return
         val isFavorite = mergeDao.getSong(songId)?.isFavorite ?: return
-        val starred = track.starredAt != null
+        val starred = starredAt != null
         val serverChanged = if (isNewSource) starred else starred != (previousStarredAt != null)
         when {
             serverChanged && starred != isFavorite -> {
-                syncDao.setSongFavorite(songId, starred, track.starredAt ?: System.currentTimeMillis())
+                syncDao.setSongFavorite(songId, starred, starredAt ?: System.currentTimeMillis())
                 syncDao.pushFavoriteToServers(songId, starred, exceptUid = uid)
             }
             isNewSource && isFavorite && !starred -> syncDao.pushFavoriteToServers(songId, favorite = true)
+        }
+    }
+
+    /**
+     * Übernimmt den vollständigen Favoriten-Stand eines Servers ([starred]: `remoteId` → Zeitpunkt), ohne die
+     * Songs selbst abzugleichen. Quellen, die der Server nicht (mehr) als favorisiert führt, gelten als entsternt.
+     * Wie bei [merge] zählt nur, was sich gegenüber dem zuletzt bekannten Stand geändert hat.
+     */
+    suspend fun mergeStarred(sourceId: String, starred: Map<String, Long>) {
+        for (state in syncDao.getStarStates(sourceId)) {
+            val starredAt = starred[state.remoteId]
+            if ((state.starredAt != null) == (starredAt != null)) continue
+            syncDao.setStarredAt(state.uid, starredAt)
+            mergeFavorite(state.songId, state.uid, starredAt, state.starredAt, isNewSource = false)
         }
     }
 

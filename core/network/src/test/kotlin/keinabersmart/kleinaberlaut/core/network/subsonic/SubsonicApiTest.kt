@@ -158,6 +158,17 @@ class SubsonicApiTest {
     }
 
     @Test
+    fun `starred songs carry the star time`() = runTest {
+        mockServer.enqueue(json("starred2_song"))
+        mockServer.enqueue(json("starred2"))
+
+        val starred = api.starredSongs(server).single()
+        assertEquals("Dritter Song", starred.title)
+        assertEquals("2026-10-27T20:27:35.10825678+01:00", starred.starred)
+        assertEquals(emptyList<Any>(), api.starredSongs(server))
+    }
+
+    @Test
     fun `structured lyrics keep the synced flag`() {
         val response = SubsonicApi.json.decodeFromString<keinabersmart.kleinaberlaut.core.network.subsonic.dto.SubsonicEnvelope>(
             fixture("lyrics_by_song_id"),

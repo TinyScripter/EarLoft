@@ -8,11 +8,14 @@ import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.datasource.RemoteLibraryActions
 import keinabersmart.kleinaberlaut.core.datasource.RemoteLyrics
+import keinabersmart.kleinaberlaut.core.datasource.RawTrack
 import keinabersmart.kleinaberlaut.core.datasource.RemotePlaylist
 import keinabersmart.kleinaberlaut.core.datasource.RemotePlaylistInfo
+import keinabersmart.kleinaberlaut.core.datasource.RemoteQuickSync
 import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
 import keinabersmart.kleinaberlaut.core.datasource.decodeSampled
 import keinabersmart.kleinaberlaut.core.datasource.local.FallbackNames
+import keinabersmart.kleinaberlaut.core.datasource.subsonic.SubsonicTrackMapper.toEpochMillis
 import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicApi
@@ -33,7 +36,7 @@ class SubsonicDataSource internal constructor(
     override val displayName: String,
     private val api: SubsonicApi,
     private val names: FallbackNames,
-) : MusicDataSource, RemoteLibraryActions, RemoteLyrics {
+) : MusicDataSource, RemoteLibraryActions, RemoteLyrics, RemoteQuickSync {
 
     override val sourceId: String get() = server.sourceId
     override val type: SourceType = SourceType.SUBSONIC
@@ -66,6 +69,27 @@ class SubsonicDataSource internal constructor(
             }
         }
     }
+
+    /** `getAlbumList2?type=newest` ist nach Anlage-Zeitpunkt absteigend sortiert: Bei einem älteren Album ist Schluss. */
+    override suspend fun tracksAddedSince(since: Long): List<RawTrack> {
+        val tracks = mutableListOf<RawTrack>()
+        var offset = 0
+        while (offset < MAX_NEW_ALBUMS) {
+            val page = api.albumList(server, "newest", offset, NEWEST_PAGE_SIZE)
+            // Ohne Zeitstempel lieber laden (der Merge erkennt Unverändertes).
+            val fresh = page.takeWhile { album -> album.created?.toEpochMillis()?.let { it > since } ?: true }
+            fresh.forEach { summary ->
+                val album = api.album(server, summary.id)
+                album.song.filter(SubsonicTrackMapper::isMusic).mapTo(tracks) { SubsonicTrackMapper.map(it, album, names) }
+            }
+            if (fresh.size < page.size || page.size < NEWEST_PAGE_SIZE) break
+            offset += page.size
+        }
+        return tracks
+    }
+
+    override suspend fun starredSongs(): Map<String, Long> =
+        api.starredSongs(server).associate { it.id to (it.starred?.toEpochMillis() ?: 0L) }
 
     override suspend fun resolvePlayback(remoteId: String): PlaybackLocation =
         PlaybackLocation.Remote(
@@ -151,6 +175,8 @@ class SubsonicDataSource internal constructor(
     private companion object {
         const val PAGE_SIZE = 500
         const val GET_CHUNK_SIZE = 200
+        const val NEWEST_PAGE_SIZE = 20
+        const val MAX_NEW_ALBUMS = 100
     }
 }
 

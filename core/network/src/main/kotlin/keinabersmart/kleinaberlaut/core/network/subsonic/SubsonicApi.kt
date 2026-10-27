@@ -56,6 +56,10 @@ class SubsonicApi @Inject constructor(
         get(server, "getAlbum") { addQueryParameter("id", albumId) }.album
             ?: throw NotSubsonicException("getAlbum ohne album")
 
+    /** Alle favorisierten Songs des Kontos. */
+    suspend fun starredSongs(server: SubsonicServer): List<SongDto> =
+        get(server, "getStarred2").starred2?.song.orEmpty()
+
     suspend fun star(server: SubsonicServer, songId: String) {
         get(server, "star") { addQueryParameter("id", songId) }
     }

@@ -128,7 +128,7 @@ internal object SubsonicTrackMapper {
         return Lyrics.None
     }
 
-    private fun String.toEpochMillis(): Long? =
+    fun String.toEpochMillis(): Long? =
         try {
             OffsetDateTime.parse(this).toInstant().toEpochMilli()
         } catch (_: DateTimeParseException) {

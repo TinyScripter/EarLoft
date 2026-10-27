@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,7 +28,8 @@ import javax.inject.Singleton
  * - **Lokal:** beim Start, auf Anforderung (z. B. nach Erteilen der Berechtigung) und gebündelt
  *   nach Änderungen im MediaStore.
  * - **Server:** beim Start, wenn der letzte Vollabgleich länger als [SERVER_SYNC_INTERVAL_MS] her
- *   ist, täglich per [ServerSyncWorker] und auf Anforderung.
+ *   ist, täglich per [ServerSyncWorker] und auf Anforderung; sonst beim Öffnen der App ein
+ *   Zwischenabgleich ([refreshQuick]).
  */
 @Singleton
 class LibraryRefresher @Inject constructor(
@@ -40,6 +42,7 @@ class LibraryRefresher @Inject constructor(
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val started = AtomicBoolean(false)
+    private val lastQuickAttempt = AtomicLong(0)
     private val localRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     @OptIn(FlowPreview::class)
@@ -65,6 +68,21 @@ class LibraryRefresher @Inject constructor(
         localRequests.tryEmit(Unit)
     }
 
+    /**
+     * Zwischenabgleich aller Server, deren Vollabgleich nicht ohnehin ansteht (neue Alben, Favoriten und
+     * Playlists anderer Clients). Für den Start der App gedacht; höchstens alle [QUICK_SYNC_INTERVAL_MS].
+     */
+    fun refreshQuick() {
+        val now = System.currentTimeMillis()
+        val last = lastQuickAttempt.get()
+        if (now - last < QUICK_SYNC_INTERVAL_MS || !lastQuickAttempt.compareAndSet(last, now)) return
+        scope.launch {
+            registry.servers()
+                .filter { now - (sourceDao.get(it.sourceId)?.lastFullSyncAt ?: 0) <= SERVER_SYNC_INTERVAL_MS }
+                .forEach { syncer.quickSync(it) }
+        }
+    }
+
     /** Eine einzelne Quelle sofort abgleichen. */
     fun refreshSource(sourceId: String) {
         scope.launch { registry[sourceId]?.let { syncer.syncSafely(it) } }
@@ -78,5 +96,6 @@ class LibraryRefresher @Inject constructor(
     private companion object {
         const val DEBOUNCE_MS = 1_500L
         const val SERVER_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000L
+        const val QUICK_SYNC_INTERVAL_MS = 10 * 60 * 1000L
     }
 }
