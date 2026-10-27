@@ -10,7 +10,7 @@ android {
 dependencies {
     api(projects.core.model)
     implementation(projects.core.common)
-    implementation(projects.core.network)
+    api(projects.core.network)
 
     api(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)

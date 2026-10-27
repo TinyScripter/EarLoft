@@ -10,12 +10,15 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -31,10 +34,12 @@ import keinabersmart.kleinaberlaut.ui.components.PreviewSong
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
+import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @Composable
 fun HomeScreen(
     onAlbumClick: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -42,6 +47,7 @@ fun HomeScreen(
     HomeContent(
         state = state,
         onAlbumClick = onAlbumClick,
+        onOpenSettings = onOpenSettings,
         onSongClick = viewModel::playRecentlyPlayed,
         actions = viewModel,
         modifier = modifier,
@@ -53,12 +59,20 @@ fun HomeScreen(
 private fun HomeContent(
     state: HomeUiState,
     onAlbumClick: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
     onSongClick: (Int) -> Unit,
     actions: SongActions,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
-        TopAppBar(title = { Text(stringResource(R.string.app_name)) })
+        TopAppBar(
+            title = { Text(stringResource(R.string.app_name)) },
+            actions = {
+                IconButton(onClick = onOpenSettings) {
+                    Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.settings_title))
+                }
+            },
+        )
         if (state.isSyncing) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
         }
@@ -101,6 +115,7 @@ private fun HomeContentPreview() {
                 isLoading = false,
             ),
             onAlbumClick = {},
+            onOpenSettings = {},
             onSongClick = {},
             actions = NoSongActions,
         )

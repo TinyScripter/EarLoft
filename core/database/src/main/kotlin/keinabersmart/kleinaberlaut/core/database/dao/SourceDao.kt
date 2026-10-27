@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
+import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -22,6 +23,12 @@ interface SourceDao {
 
     @Query("SELECT * FROM sources WHERE sourceId = :sourceId")
     suspend fun get(sourceId: String): SourceEntity?
+
+    @Query("SELECT * FROM sources WHERE type = :type")
+    suspend fun getByType(type: SourceType): List<SourceEntity>
+
+    @Query("SELECT * FROM sources WHERE type = :type ORDER BY priority DESC, name")
+    fun observeByType(type: SourceType): Flow<List<SourceEntity>>
 
     @Query("UPDATE sources SET syncGeneration = :generation, lastFullSyncAt = :syncedAt WHERE sourceId = :sourceId")
     suspend fun setSyncGeneration(sourceId: String, generation: Long, syncedAt: Long)

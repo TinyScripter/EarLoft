@@ -1,0 +1,80 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.64.2 (10114574)",
+    "openSubsonic": true,
+    "albumList2": {
+      "album": [
+        {
+          "id": "7nj57Q3y2CM8CVC3tNHfSD",
+          "name": "Mondlicht",
+          "artist": "Nachtfalter",
+          "artistId": "1eAMLBqetG0V4eHD2uDMSH",
+          "coverArt": "al-7nj57Q3y2CM8CVC3tNHfSD_e642b2a0f7d68a66",
+          "songCount": 4,
+          "duration": 160,
+          "created": "2026-10-27T00:05:03.494710848+01:00",
+          "year": 2022,
+          "genre": "Ambient",
+          "userRating": 0,
+          "genres": [
+            {
+              "name": "Ambient"
+            }
+          ],
+          "musicBrainzId": "22222222-2222-4222-8222-222222222222",
+          "isCompilation": false,
+          "sortName": "mondlicht",
+          "discTitles": [],
+          "originalReleaseDate": {},
+          "releaseDate": {},
+          "releaseTypes": [],
+          "recordLabels": [],
+          "moods": [],
+          "artists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayArtist": "Nachtfalter",
+          "explicitStatus": "",
+          "version": ""
+        },
+        {
+          "id": "0h5f62UwnT2x3yLtXInK38",
+          "name": "Blaues Album",
+          "artist": "Testband",
+          "artistId": "0hewMG78met2HzbLHKGjcI",
+          "coverArt": "al-0h5f62UwnT2x3yLtXInK38_a645c9392a7e23e0",
+          "songCount": 3,
+          "duration": 120,
+          "created": "2026-10-27T00:05:02.97171161+01:00",
+          "year": 2024,
+          "userRating": 0,
+          "genres": [],
+          "musicBrainzId": "",
+          "isCompilation": false,
+          "sortName": "blaues album",
+          "discTitles": [],
+          "originalReleaseDate": {},
+          "releaseDate": {},
+          "releaseTypes": [],
+          "recordLabels": [],
+          "moods": [],
+          "artists": [
+            {
+              "id": "0hewMG78met2HzbLHKGjcI",
+              "name": "Testband"
+            }
+          ],
+          "displayArtist": "Testband",
+          "explicitStatus": "",
+          "version": ""
+        }
+      ]
+    }
+  }
+}

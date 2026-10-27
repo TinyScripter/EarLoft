@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Heimserver laufen oft per HTTP oder mit selbst signiertem Zertifikat (Konzept 10, Sicherheit):
+    HTTP ist erlaubt, wird im Server-Dialog aber erst nach ausdrücklicher Bestätigung gespeichert;
+    eigene Zertifikate funktionieren über vom Nutzer installierte CAs.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

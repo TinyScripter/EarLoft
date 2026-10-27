@@ -32,6 +32,12 @@ data object NowPlayingRoute : NavKey
 @Serializable
 data object QueueRoute : NavKey
 
+@Serializable
+data object SettingsRoute : NavKey
+
+@Serializable
+data object AddServerRoute : NavKey
+
 /** Bildschirme, auf denen Bottom-Bar und Mini-Player ausgeblendet werden. */
 val NavKey.isFullScreenPlayer: Boolean
     get() = this == NowPlayingRoute || this == QueueRoute

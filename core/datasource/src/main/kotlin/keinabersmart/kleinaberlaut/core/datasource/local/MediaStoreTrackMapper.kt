@@ -1,5 +1,7 @@
 package keinabersmart.kleinaberlaut.core.datasource.local
 
+import android.content.Context
+import keinabersmart.kleinaberlaut.core.datasource.R
 import keinabersmart.kleinaberlaut.core.datasource.RawArtist
 import keinabersmart.kleinaberlaut.core.datasource.RawTrack
 
@@ -29,7 +31,16 @@ internal data class FallbackNames(
     val unknownArtist: String,
     val unknownAlbum: String,
     val variousArtists: String,
-)
+) {
+    companion object {
+        fun from(context: Context) = FallbackNames(
+            unknownTitle = context.getString(R.string.unknown_title),
+            unknownArtist = context.getString(R.string.unknown_artist),
+            unknownAlbum = context.getString(R.string.unknown_album),
+            variousArtists = context.getString(R.string.various_artists),
+        )
+    }
+}
 
 /**
  * Wandelt MediaStore-Zeilen in [RawTrack]s um.

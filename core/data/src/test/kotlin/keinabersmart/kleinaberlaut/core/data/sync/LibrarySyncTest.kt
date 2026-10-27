@@ -5,13 +5,12 @@ import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
-import keinabersmart.kleinaberlaut.core.datasource.DataSourceRegistry
+import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.datasource.RawArtist
 import keinabersmart.kleinaberlaut.core.datasource.RawTrack
 import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
-import keinabersmart.kleinaberlaut.core.datasource.local.LocalDataSource
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -42,7 +41,7 @@ class LibrarySyncTest {
             mergeDao = db.mergeDao(),
             libraryDao = db.libraryDao(),
             mergeResolver = MergeResolver(db.mergeDao()),
-            registry = DataSourceRegistry(LocalDataSource(ApplicationProvider.getApplicationContext())),
+            registry = NoSources,
         )
     }
 
@@ -163,5 +162,10 @@ class LibrarySyncTest {
         override suspend fun resolvePlayback(remoteId: String) = PlaybackLocation.LocalFile(Uri.EMPTY)
 
         override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = null
+    }
+
+    private object NoSources : MusicDataSources {
+        override suspend fun all(): List<MusicDataSource> = emptyList()
+        override suspend fun get(sourceId: String): MusicDataSource? = null
     }
 }

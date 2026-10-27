@@ -2,7 +2,7 @@ package keinabersmart.kleinaberlaut.core.data.repository
 
 import android.graphics.Bitmap
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
-import keinabersmart.kleinaberlaut.core.datasource.DataSourceRegistry
+import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -10,10 +10,10 @@ import javax.inject.Singleton
 @Singleton
 class ArtworkRepository @Inject constructor(
     private val libraryDao: LibraryDao,
-    private val registry: DataSourceRegistry,
+    private val registry: MusicDataSources,
 ) {
     suspend fun albumCover(albumId: Long, sizePx: Int): Bitmap? {
         val source = libraryDao.getCoverSource(albumId) ?: return null
-        return registry[source.sourceId]?.loadArtwork(source.remoteId, sizePx)
+        return registry[source.sourceId]?.loadArtwork(source.coverRemoteId ?: source.remoteId, sizePx)
     }
 }

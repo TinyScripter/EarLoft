@@ -1,0 +1,41 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.64.2 (10114574)",
+    "openSubsonic": true,
+    "lyricsList": {
+      "structuredLyrics": [
+        {
+          "displayArtist": "Nachtfalter",
+          "displayTitle": "Mondlicht",
+          "lang": "xxx",
+          "line": [
+            {
+              "start": 0,
+              "value": "Mondlicht f\u00e4llt aufs Dach"
+            },
+            {
+              "start": 5000,
+              "value": "Nachtfalter tanzen leis"
+            },
+            {
+              "start": 10000,
+              "value": "Die Stadt h\u00e4lt still"
+            },
+            {
+              "start": 15000,
+              "value": "und wir sind wach"
+            },
+            {
+              "start": 20000,
+              "value": "(Instrumental)"
+            }
+          ],
+          "synced": true
+        }
+      ]
+    }
+  }
+}

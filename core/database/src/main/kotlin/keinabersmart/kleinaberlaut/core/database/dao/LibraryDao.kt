@@ -166,7 +166,7 @@ abstract class LibraryDao {
 
     @Query(
         """
-        SELECT ss.uid, ss.sourceId, ss.remoteId, src.type AS sourceType,
+        SELECT ss.uid, ss.sourceId, ss.remoteId, ss.coverRemoteId, src.type AS sourceType,
                src.priority AS sourcePriority, ss.mimeType, ss.bitRate
         FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId
         WHERE ss.songId = :songId
@@ -177,7 +177,7 @@ abstract class LibraryDao {
     /** Bevorzugt die Cover-Quelle des Albums, sonst irgendeine Quelle eines Album-Songs. */
     @Query(
         """
-        SELECT ss.uid, ss.sourceId, ss.remoteId, src.type AS sourceType,
+        SELECT ss.uid, ss.sourceId, ss.remoteId, ss.coverRemoteId, src.type AS sourceType,
                src.priority AS sourcePriority, ss.mimeType, ss.bitRate
         FROM song_sources ss
         JOIN songs s ON s.songId = ss.songId

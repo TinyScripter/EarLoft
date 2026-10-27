@@ -34,6 +34,7 @@ data class PlayableSourceRow(
     val uid: String,
     val sourceId: String,
     val remoteId: String,
+    val coverRemoteId: String?,
     val sourceType: SourceType,
     val sourcePriority: Int,
     val mimeType: String?,

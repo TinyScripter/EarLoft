@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.navigation.AddServerRoute
 import keinabersmart.kleinaberlaut.navigation.AlbumRoute
 import keinabersmart.kleinaberlaut.navigation.ArtistRoute
 import keinabersmart.kleinaberlaut.navigation.DownloadsRoute
@@ -28,6 +29,7 @@ import keinabersmart.kleinaberlaut.navigation.Navigator
 import keinabersmart.kleinaberlaut.navigation.NowPlayingRoute
 import keinabersmart.kleinaberlaut.navigation.QueueRoute
 import keinabersmart.kleinaberlaut.navigation.SearchRoute
+import keinabersmart.kleinaberlaut.navigation.SettingsRoute
 import keinabersmart.kleinaberlaut.navigation.TOP_LEVEL_ROUTES
 import keinabersmart.kleinaberlaut.navigation.TopLevelDestination
 import keinabersmart.kleinaberlaut.navigation.isFullScreenPlayer
@@ -41,6 +43,8 @@ import keinabersmart.kleinaberlaut.ui.player.NowPlayingScreen
 import keinabersmart.kleinaberlaut.ui.player.PlayerViewModel
 import keinabersmart.kleinaberlaut.ui.player.QueueScreen
 import keinabersmart.kleinaberlaut.ui.search.SearchScreen
+import keinabersmart.kleinaberlaut.ui.settings.AddServerScreen
+import keinabersmart.kleinaberlaut.ui.settings.SettingsScreen
 
 @Composable
 fun KleinaberlautApp(
@@ -57,7 +61,7 @@ fun KleinaberlautApp(
     val openArtist: (Long) -> Unit = { navigator.navigate(ArtistRoute(it)) }
 
     val entryProvider = entryProvider {
-        entry<HomeRoute> { HomeScreen(onAlbumClick = openAlbum) }
+        entry<HomeRoute> { HomeScreen(onAlbumClick = openAlbum, onOpenSettings = { navigator.navigate(SettingsRoute) }) }
         entry<LibraryRoute> { LibraryScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) }
         entry<SearchRoute> { SearchScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) }
         entry<DownloadsRoute> { PlaceholderScreen(R.string.nav_downloads, R.string.placeholder_downloads) }
@@ -69,6 +73,10 @@ fun KleinaberlautApp(
             NowPlayingScreen(onClose = navigator::goBack, onOpenQueue = { navigator.navigate(QueueRoute) })
         }
         entry<QueueRoute> { QueueScreen(onBack = navigator::goBack) }
+        entry<SettingsRoute> {
+            SettingsScreen(onBack = navigator::goBack, onAddServer = { navigator.navigate(AddServerRoute) })
+        }
+        entry<AddServerRoute> { AddServerScreen(onDone = navigator::goBack) }
     }
 
     val showChrome = !navigator.currentRoute.isFullScreenPlayer

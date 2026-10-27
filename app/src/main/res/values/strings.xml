@@ -65,6 +65,41 @@
     <string name="player_repeat_one">Titel wiederholen</string>
     <string name="player_seek">Wiedergabeposition</string>
 
+    <!-- Einstellungen & Server -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_servers">Server</string>
+    <string name="settings_no_servers">Noch kein Server eingerichtet. Navidrome und andere Subsonic-Server werden unterstützt.</string>
+    <string name="settings_add_server">Server hinzufügen</string>
+    <string name="settings_library">Bibliothek</string>
+    <string name="settings_refresh_all">Alle Quellen jetzt abgleichen</string>
+    <string name="server_never_synced">Noch nicht abgeglichen</string>
+    <string name="server_last_sync">Abgeglichen %1$s</string>
+    <string name="server_synced_just_now">Gerade abgeglichen</string>
+    <string name="server_sync_failed">Abgleich fehlgeschlagen: %1$s</string>
+    <string name="server_sync_now">Jetzt abgleichen</string>
+    <string name="server_remove">Server entfernen</string>
+    <string name="server_remove_title">„%1$s“ entfernen?</string>
+    <string name="server_remove_text">Songs, die nur auf diesem Server liegen, verschwinden aus der Bibliothek. Favoriten und Playlists auf dem Server bleiben unberührt.</string>
+    <string name="action_cancel">Abbrechen</string>
+    <string name="action_remove">Entfernen</string>
+
+    <string name="add_server_title">Server hinzufügen</string>
+    <string name="add_server_name">Name (optional)</string>
+    <string name="add_server_url">Adresse</string>
+    <string name="add_server_url_hint">https://musik.example.de</string>
+    <string name="add_server_username">Benutzername</string>
+    <string name="add_server_password">Passwort</string>
+    <string name="add_server_http_warning">Unverschlüsselte Verbindung: Benutzername und Musik werden lesbar übertragen. Nur im eigenen Heimnetz verwenden.</string>
+    <string name="add_server_allow_http">Trotzdem unverschlüsselt verbinden</string>
+    <string name="add_server_test">Verbindung testen</string>
+    <string name="add_server_save">Speichern</string>
+    <string name="add_server_success">Verbunden mit %1$s %2$s</string>
+    <string name="add_server_invalid_url">Die Adresse ist ungültig.</string>
+    <string name="add_server_wrong_credentials">Benutzername oder Passwort falsch.</string>
+    <string name="add_server_not_subsonic">Unter dieser Adresse antwortet kein Subsonic-Server.</string>
+    <string name="add_server_unreachable">Server nicht erreichbar (%1$s).</string>
+    <string name="add_server_server_error">Der Server meldet Fehler %1$d: %2$s</string>
+
     <!-- Widget -->
     <string name="widget_name">Wiedergabe</string>
     <string name="widget_description">Zeigt den aktuellen Titel mit Steuerung.</string>

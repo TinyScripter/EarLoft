@@ -4,7 +4,6 @@ import android.content.ContentUris
 import android.content.Context
 import android.database.Cursor
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.provider.MediaStore
@@ -14,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.datasource.R
 import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
+import keinabersmart.kleinaberlaut.core.datasource.decodeSampled
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -39,13 +39,7 @@ class LocalDataSource @Inject constructor(
         // Abgleich würde dann die ganze Bibliothek löschen.
         if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} fehlt")
         val rows = queryRows()
-        val names = FallbackNames(
-            unknownTitle = context.getString(R.string.unknown_title),
-            unknownArtist = context.getString(R.string.unknown_artist),
-            unknownAlbum = context.getString(R.string.unknown_album),
-            variousArtists = context.getString(R.string.various_artists),
-        )
-        MediaStoreTrackMapper.map(rows, names)
+        MediaStoreTrackMapper.map(rows, FallbackNames.from(context))
             .chunked(BATCH_SIZE)
             .forEach { emit(SourceBatch(it)) }
     }.flowOn(Dispatchers.IO)
@@ -144,17 +138,6 @@ class LocalDataSource @Inject constructor(
     private fun Cursor.long(column: String): Long? {
         val index = getColumnIndex(column)
         return if (index < 0 || isNull(index)) null else getLong(index)
-    }
-
-    private fun decodeSampled(bytes: ByteArray, sizePx: Int): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        var sampleSize = 1
-        while (bounds.outWidth / (sampleSize * 2) >= sizePx && bounds.outHeight / (sampleSize * 2) >= sizePx) {
-            sampleSize *= 2
-        }
-        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
     }
 
     companion object {

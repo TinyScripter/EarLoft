@@ -12,9 +12,12 @@ dependencies {
     api(projects.core.datasource)
     implementation(projects.core.common)
     implementation(projects.core.database)
+    implementation(projects.core.network)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.work.runtime)
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.androidx.test.core)

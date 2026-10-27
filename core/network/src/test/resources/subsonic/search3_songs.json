@@ -1,0 +1,424 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.64.2 (10114574)",
+    "openSubsonic": true,
+    "searchResult3": {
+      "song": [
+        {
+          "id": "3gVhj1Cuu8LaLzpA1LnBua",
+          "parent": "0h5f62UwnT2x3yLtXInK38",
+          "isDir": false,
+          "title": "Dritter Song",
+          "album": "Blaues Album",
+          "artist": "Testband",
+          "track": 3,
+          "year": 2024,
+          "coverArt": "mf-3gVhj1Cuu8LaLzpA1LnBua",
+          "size": 647553,
+          "contentType": "audio/mpeg",
+          "suffix": "mp3",
+          "duration": 40,
+          "bitRate": 128,
+          "path": "Testband/Blaues Album/03 - Dritter Song.mp3",
+          "created": "2026-10-27T00:05:15.926111936+01:00",
+          "albumId": "0h5f62UwnT2x3yLtXInK38",
+          "artistId": "0hewMG78met2HzbLHKGjcI",
+          "type": "music",
+          "bpm": 0,
+          "comment": "",
+          "sortName": "dritter song",
+          "mediaType": "song",
+          "musicBrainzId": "",
+          "isrc": [],
+          "genres": [],
+          "replayGain": {},
+          "channelCount": 1,
+          "samplingRate": 44100,
+          "bitDepth": 0,
+          "moods": [],
+          "artists": [
+            {
+              "id": "0hewMG78met2HzbLHKGjcI",
+              "name": "Testband"
+            }
+          ],
+          "displayArtist": "Testband",
+          "albumArtists": [
+            {
+              "id": "0hewMG78met2HzbLHKGjcI",
+              "name": "Testband"
+            }
+          ],
+          "displayAlbumArtist": "Testband",
+          "contributors": [],
+          "displayComposer": "",
+          "explicitStatus": "",
+          "groupings": [],
+          "works": [],
+          "movements": []
+        },
+        {
+          "id": "0aqGcVbECWuzVegxAaLGEo",
+          "parent": "0h5f62UwnT2x3yLtXInK38",
+          "isDir": false,
+          "title": "Erster Song",
+          "album": "Blaues Album",
+          "artist": "Testband",
+          "track": 1,
+          "year": 2024,
+          "coverArt": "mf-0aqGcVbECWuzVegxAaLGEo",
+          "size": 647552,
+          "contentType": "audio/mpeg",
+          "suffix": "mp3",
+          "duration": 40,
+          "bitRate": 128,
+          "path": "Testband/Blaues Album/01 - Erster Song.mp3",
+          "created": "2026-10-27T00:05:15.928354691+01:00",
+          "albumId": "0h5f62UwnT2x3yLtXInK38",
+          "artistId": "0hewMG78met2HzbLHKGjcI",
+          "type": "music",
+          "bpm": 0,
+          "comment": "",
+          "sortName": "erster song",
+          "mediaType": "song",
+          "musicBrainzId": "",
+          "isrc": [],
+          "genres": [],
+          "replayGain": {},
+          "channelCount": 1,
+          "samplingRate": 44100,
+          "bitDepth": 0,
+          "moods": [],
+          "artists": [
+            {
+              "id": "0hewMG78met2HzbLHKGjcI",
+              "name": "Testband"
+            }
+          ],
+          "displayArtist": "Testband",
+          "albumArtists": [
+            {
+              "id": "0hewMG78met2HzbLHKGjcI",
+              "name": "Testband"
+            }
+          ],
+          "displayAlbumArtist": "Testband",
+          "contributors": [],
+          "displayComposer": "",
+          "explicitStatus": "",
+          "groupings": [],
+          "works": [],
+          "movements": []
+        },
+        {
+          "id": "4kixcxbGOPK5S0zVfQCTGm",
+          "parent": "0h5f62UwnT2x3yLtXInK38",
+          "isDir": false,
+          "title": "\u00c4rger im Paradies",
+          "album": "Blaues Album",
+          "artist": "Testband",
+          "track": 2,
+          "year": 2024,
+          "coverArt": "mf-4kixcxbGOPK5S0zVfQCTGm",
+          "size": 647578,
+          "contentType": "audio/mpeg",
+          "suffix": "mp3",
+          "duration": 40,
+          "bitRate": 128,
+          "path": "Testband/Blaues Album/02 - \u00c4rger im Paradies.mp3",
+          "created": "2026-10-27T00:05:15.930076529+01:00",
+          "albumId": "0h5f62UwnT2x3yLtXInK38",
+          "artistId": "0hewMG78met2HzbLHKGjcI",
+          "type": "music",
+          "bpm": 0,
+          "comment": "",
+          "sortName": "arger im paradies",
+          "mediaType": "song",
+          "musicBrainzId": "",
+          "isrc": [],
+          "genres": [],
+          "replayGain": {},
+          "channelCount": 1,
+          "samplingRate": 44100,
+          "bitDepth": 0,
+          "moods": [],
+          "artists": [
+            {
+              "id": "0hewMG78met2HzbLHKGjcI",
+              "name": "Testband"
+            }
+          ],
+          "displayArtist": "Testband",
+          "albumArtists": [
+            {
+              "id": "0hewMG78met2HzbLHKGjcI",
+              "name": "Testband"
+            }
+          ],
+          "displayAlbumArtist": "Testband",
+          "contributors": [],
+          "displayComposer": "",
+          "explicitStatus": "",
+          "groupings": [],
+          "works": [],
+          "movements": []
+        },
+        {
+          "id": "7r5nKsc6efhwvB7KAee9Ez",
+          "parent": "7nj57Q3y2CM8CVC3tNHfSD",
+          "isDir": false,
+          "title": "Dachkante",
+          "album": "Mondlicht",
+          "artist": "Nachtfalter",
+          "track": 3,
+          "year": 2022,
+          "genre": "Ambient",
+          "coverArt": "mf-7r5nKsc6efhwvB7KAee9Ez",
+          "size": 1936418,
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 40,
+          "bitRate": 384,
+          "path": "Nachtfalter/Mondlicht/03 - Dachkante.flac",
+          "created": "2026-10-27T00:05:15.937570453+01:00",
+          "albumId": "7nj57Q3y2CM8CVC3tNHfSD",
+          "artistId": "1eAMLBqetG0V4eHD2uDMSH",
+          "type": "music",
+          "bpm": 0,
+          "comment": "",
+          "sortName": "dachkante",
+          "mediaType": "song",
+          "musicBrainzId": "00000003-1111-4111-8111-111111111111",
+          "isrc": [],
+          "genres": [
+            {
+              "name": "Ambient"
+            }
+          ],
+          "replayGain": {
+            "trackGain": -3,
+            "albumGain": -4,
+            "trackPeak": 0.7,
+            "albumPeak": 0.98
+          },
+          "channelCount": 1,
+          "samplingRate": 44100,
+          "bitDepth": 24,
+          "moods": [],
+          "artists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayArtist": "Nachtfalter",
+          "albumArtists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayAlbumArtist": "Nachtfalter",
+          "contributors": [],
+          "displayComposer": "",
+          "explicitStatus": "",
+          "groupings": [],
+          "works": [],
+          "movements": []
+        },
+        {
+          "id": "5O1Rm7FKvERywyPMKOhuVw",
+          "parent": "7nj57Q3y2CM8CVC3tNHfSD",
+          "isDir": false,
+          "title": "Morgengrau",
+          "album": "Mondlicht",
+          "artist": "Nachtfalter",
+          "track": 4,
+          "year": 2022,
+          "genre": "Ambient",
+          "coverArt": "mf-5O1Rm7FKvERywyPMKOhuVw",
+          "size": 1829192,
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 40,
+          "bitRate": 363,
+          "path": "Nachtfalter/Mondlicht/04 - Morgengrau.flac",
+          "created": "2026-10-27T00:05:15.939299732+01:00",
+          "albumId": "7nj57Q3y2CM8CVC3tNHfSD",
+          "artistId": "1eAMLBqetG0V4eHD2uDMSH",
+          "type": "music",
+          "bpm": 0,
+          "comment": "",
+          "sortName": "morgengrau",
+          "mediaType": "song",
+          "musicBrainzId": "00000004-1111-4111-8111-111111111111",
+          "isrc": [],
+          "genres": [
+            {
+              "name": "Ambient"
+            }
+          ],
+          "replayGain": {
+            "trackGain": -1,
+            "albumGain": -4,
+            "trackPeak": 0.5,
+            "albumPeak": 0.98
+          },
+          "channelCount": 1,
+          "samplingRate": 44100,
+          "bitDepth": 24,
+          "moods": [],
+          "artists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayArtist": "Nachtfalter",
+          "albumArtists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayAlbumArtist": "Nachtfalter",
+          "contributors": [],
+          "displayComposer": "",
+          "explicitStatus": "",
+          "groupings": [],
+          "works": [],
+          "movements": []
+        },
+        {
+          "id": "3pTIMg3ossQj0IrKXkVnI3",
+          "parent": "7nj57Q3y2CM8CVC3tNHfSD",
+          "isDir": false,
+          "title": "Mondlicht",
+          "album": "Mondlicht",
+          "artist": "Nachtfalter",
+          "track": 1,
+          "year": 2022,
+          "genre": "Ambient",
+          "coverArt": "mf-3pTIMg3ossQj0IrKXkVnI3",
+          "size": 2036391,
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 40,
+          "bitRate": 404,
+          "path": "Nachtfalter/Mondlicht/01 - Mondlicht.flac",
+          "created": "2026-10-27T00:05:15.941029244+01:00",
+          "albumId": "7nj57Q3y2CM8CVC3tNHfSD",
+          "artistId": "1eAMLBqetG0V4eHD2uDMSH",
+          "type": "music",
+          "bpm": 0,
+          "comment": "",
+          "sortName": "mondlicht",
+          "mediaType": "song",
+          "musicBrainzId": "00000001-1111-4111-8111-111111111111",
+          "isrc": [],
+          "genres": [
+            {
+              "name": "Ambient"
+            }
+          ],
+          "replayGain": {
+            "trackGain": -6.5,
+            "albumGain": -4,
+            "trackPeak": 0.98,
+            "albumPeak": 0.98
+          },
+          "channelCount": 1,
+          "samplingRate": 44100,
+          "bitDepth": 24,
+          "moods": [],
+          "artists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayArtist": "Nachtfalter",
+          "albumArtists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayAlbumArtist": "Nachtfalter",
+          "contributors": [],
+          "displayComposer": "",
+          "explicitStatus": "",
+          "groupings": [],
+          "works": [],
+          "movements": []
+        },
+        {
+          "id": "4bWaStIPjLMFPJktfSGgYg",
+          "parent": "7nj57Q3y2CM8CVC3tNHfSD",
+          "isDir": false,
+          "title": "Leise",
+          "album": "Mondlicht",
+          "artist": "Nachtfalter",
+          "track": 2,
+          "year": 2022,
+          "genre": "Ambient",
+          "coverArt": "mf-4bWaStIPjLMFPJktfSGgYg",
+          "size": 499288,
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 40,
+          "bitRate": 97,
+          "path": "Nachtfalter/Mondlicht/02 - Leise.flac",
+          "created": "2026-10-27T00:05:15.942679501+01:00",
+          "albumId": "7nj57Q3y2CM8CVC3tNHfSD",
+          "artistId": "1eAMLBqetG0V4eHD2uDMSH",
+          "type": "music",
+          "bpm": 0,
+          "comment": "",
+          "sortName": "leise",
+          "mediaType": "song",
+          "musicBrainzId": "00000002-1111-4111-8111-111111111111",
+          "isrc": [],
+          "genres": [
+            {
+              "name": "Ambient"
+            }
+          ],
+          "replayGain": {
+            "trackGain": 2,
+            "albumGain": -4,
+            "trackPeak": 0.3,
+            "albumPeak": 0.98
+          },
+          "channelCount": 1,
+          "samplingRate": 44100,
+          "bitDepth": 24,
+          "moods": [],
+          "artists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayArtist": "Nachtfalter",
+          "albumArtists": [
+            {
+              "id": "1eAMLBqetG0V4eHD2uDMSH",
+              "name": "Nachtfalter"
+            }
+          ],
+          "displayAlbumArtist": "Nachtfalter",
+          "contributors": [],
+          "displayComposer": "",
+          "explicitStatus": "",
+          "groupings": [],
+          "works": [],
+          "movements": []
+        }
+      ]
+    }
+  }
+}

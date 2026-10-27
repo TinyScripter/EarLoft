@@ -11,6 +11,9 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CacheBitmapLoader
@@ -27,6 +30,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 import javax.inject.Inject
 
 /** Wiedergabe-Service mit Media3-Session (Konzept 7.1). */
@@ -40,6 +44,8 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var playbackStateRepository: PlaybackStateRepository
     @Inject lateinit var queuePersistence: QueuePersistence
     @Inject lateinit var nowPlayingObservers: Set<@JvmSuppressWildcards NowPlayingObserver>
+    @Inject lateinit var okHttpClient: OkHttpClient
+    @Inject lateinit var streamCache: SimpleCache
 
     /** Für Player-Zugriffe (Main-Thread). */
     private val mainScope = MainScope()
@@ -52,8 +58,14 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
+        // kal://song/<id> → Datei, content:// oder Stream (Konzept 7.2). Streams laufen über den
+        // gemeinsamen OkHttpClient (Auth) und einen LRU-Cache, dessen Schlüssel die sourceUid ist.
+        val streamFactory = CacheDataSource.Factory()
+            .setCache(streamCache)
+            .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(okHttpClient))
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         val dataSourceFactory = ResolvingDataSource.Factory(
-            DefaultDataSource.Factory(this),
+            DefaultDataSource.Factory(this, streamFactory),
             SongDataSourceResolver(sourceResolver),
         )
         val player = ExoPlayer.Builder(this)
@@ -66,7 +78,7 @@ class PlaybackService : MediaLibraryService() {
                 /* handleAudioFocus = */ true,
             )
             .setHandleAudioBecomingNoisy(true)
-            .setWakeMode(C.WAKE_MODE_LOCAL)
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
 
         playTracker = PlayTracker(player, playbackStateRepository, ioScope)

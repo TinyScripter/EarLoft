@@ -7,7 +7,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
 import keinabersmart.kleinaberlaut.core.database.dao.MergeDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
-import keinabersmart.kleinaberlaut.core.datasource.DataSourceRegistry
+import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,26 +30,36 @@ class LibrarySyncer @Inject constructor(
     private val mergeDao: MergeDao,
     private val libraryDao: LibraryDao,
     private val mergeResolver: MergeResolver,
-    private val registry: DataSourceRegistry,
+    private val registry: MusicDataSources,
 ) {
     private val mutex = Mutex()
     private val runningSyncs = MutableStateFlow(0)
+    private val failedSyncs = MutableStateFlow<Map<String, Exception>>(emptyMap())
 
     /** Anzahl laufender Abgleiche; > 0 bedeutet „Bibliothek wird aktualisiert“. */
     val activeSyncs: StateFlow<Int> = runningSyncs.asStateFlow()
 
+    /** Fehler des jeweils letzten Abgleichs je `sourceId`; ein erfolgreicher Abgleich entfernt den Eintrag. */
+    val failures: StateFlow<Map<String, Exception>> = failedSyncs.asStateFlow()
+
     /** Gleicht alle Quellen ab; Fehler einer Quelle brechen die anderen nicht ab. */
     suspend fun syncAll() {
-        registry.all().forEach { source ->
-            try {
-                sync(source)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.w(TAG, "Abgleich von ${source.sourceId} fehlgeschlagen", e)
-            }
-        }
+        registry.all().forEach { syncSafely(it) }
     }
+
+    /** Wie [sync], fängt aber Fehler ab und merkt sie sich in [failures]. @return `true` bei Erfolg. */
+    suspend fun syncSafely(source: MusicDataSource): Boolean =
+        try {
+            sync(source)
+            failedSyncs.update { it - source.sourceId }
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Abgleich von ${source.sourceId} fehlgeschlagen", e)
+            failedSyncs.update { it + (source.sourceId to e) }
+            false
+        }
 
     suspend fun sync(source: MusicDataSource) = mutex.withLock {
         runningSyncs.update { it + 1 }
