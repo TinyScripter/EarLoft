@@ -161,7 +161,11 @@ class MergeResolver @Inject constructor(
             ?: mergeDao.findSongsByTitle(albumId, normTitle).firstOrNull {
                 !conflicts(it.mbid, track.mbidTrack) && abs(it.durationMs - track.durationMs) < DURATION_TOLERANCE_MS
             }
-        if (match != null) return match.songId
+        if (match != null) {
+            // Wie bei Künstler und Album: Eine Quelle, die die MBID kennt, ergänzt sie für alle.
+            if (match.mbid == null && track.mbidTrack != null) mergeDao.updateSong(match.copy(mbid = track.mbidTrack))
+            return match.songId
+        }
 
         val songId = mergeDao.insertSong(track.applyTo(null, albumId))
         linkSongArtists(songId, track.artists, replace = false)

@@ -116,7 +116,10 @@ class LibrarySyncer @Inject constructor(
             val generation = (sourceDao.get(source.sourceId)?.syncGeneration ?: 0) + 1
             val syncsFavorites = source.type == SourceType.SUBSONIC
 
-            source.fullScan().collect { batch ->
+            val isUnchanged: suspend (String, Long) -> Boolean = { remoteId, lastModified ->
+                mergeDao.getSongSource("${source.sourceId}:$remoteId")?.lastModified == lastModified
+            }
+            source.fullScan(isUnchanged).collect { batch ->
                 database.withTransaction {
                     batch.tracks.forEach { mergeResolver.merge(source.sourceId, it, generation, syncsFavorites) }
                 }

@@ -20,6 +20,12 @@ interface MusicDataSource {
      */
     fun fullScan(): Flow<SourceBatch>
 
+    /**
+     * Wie [fullScan]; [isUnchanged] sagt, ob die Quelle einen Track mit genau diesem `lastModified` schon kennt.
+     * Quellen, die für neue Tracks aufwendig nachlesen müssen (lokale Tags), sparen sich das für bekannte.
+     */
+    fun fullScan(isUnchanged: suspend (remoteId: String, lastModified: Long) -> Boolean): Flow<SourceBatch> = fullScan()
+
     /** Wird zur Ladezeit vom Player aufgerufen. */
     suspend fun resolvePlayback(remoteId: String): PlaybackLocation
 
@@ -66,6 +72,11 @@ interface RemoteQuickSync {
 interface RemoteLyrics {
     /** [artist] und [title] dienen Servern ohne OpenSubsonic als Suchbegriff. [Lyrics.None], wenn es keinen Text gibt. */
     suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics
+}
+
+/** Quellen, deren Dateien Songtexte einbetten. Fehler beim Lesen gelten als „kein Text“. */
+interface LocalLyrics {
+    suspend fun embeddedLyrics(remoteId: String): Lyrics
 }
 
 /** [changedAt] = letzte Änderung auf dem Server (ms) – dient der Konflikterkennung. */

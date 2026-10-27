@@ -5,6 +5,7 @@ import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import keinabersmart.kleinaberlaut.core.database.dao.LyricsDao
 import keinabersmart.kleinaberlaut.core.database.dao.MergeDao
 import keinabersmart.kleinaberlaut.core.database.entity.LyricsEntity
+import keinabersmart.kleinaberlaut.core.datasource.LocalLyrics
 import keinabersmart.kleinaberlaut.core.datasource.RemoteLyrics
 import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.model.LyricsCodec
@@ -15,8 +16,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Songtexte aus den Server-Quellen eines Songs (Konzept 6.3: eingebettete lokale Lyrics folgen mit dem
- * Tag-Lesen). Gefundene Texte bleiben gespeichert; „kein Text“ wird nur [NO_LYRICS_TTL_MS] gemerkt,
+ * Songtexte: zuerst eingebettete Texte lokaler Dateien, dann die Server-Quellen eines Songs (Konzept 6.3). Gefundene Texte bleiben gespeichert; „kein Text“ wird nur [NO_LYRICS_TTL_MS] gemerkt,
  * damit ein später ergänzter Text auftaucht. Ist keine Quelle erreichbar, wird nichts gespeichert.
  */
 @Singleton
@@ -32,8 +32,18 @@ class LyricsRepository @Inject constructor(
         }
 
         val song = mergeDao.getSong(songId) ?: return Lyrics.None
+        val embedded = embeddedLyrics(songId)
+        if (embedded != Lyrics.None) {
+            val (kind, content) = LyricsCodec.encode(embedded)
+            lyricsDao.upsert(LyricsEntity(songId, kind, content, EMBEDDED, System.currentTimeMillis()))
+            return embedded
+        }
+
         val serverSources = lyricsDao.getServerSources(songId)
-        if (serverSources.isEmpty()) return Lyrics.None
+        if (serverSources.isEmpty()) {
+            lyricsDao.upsert(LyricsEntity(songId, LyricsKind.NONE, "", origin = "", fetchedAt = System.currentTimeMillis()))
+            return Lyrics.None
+        }
 
         var best: Lyrics = Lyrics.None
         var origin = ""
@@ -68,8 +78,19 @@ class LyricsRepository @Inject constructor(
         return best
     }
 
+    /** In der Datei eingebettete Texte lokaler Quellen; sie haben Vorrang vor denen der Server. */
+    private suspend fun embeddedLyrics(songId: Long): Lyrics {
+        for (source in lyricsDao.getLocalSources(songId)) {
+            val provider = sources[source.sourceId] as? LocalLyrics ?: continue
+            val found = provider.embeddedLyrics(source.remoteId)
+            if (found != Lyrics.None) return found
+        }
+        return Lyrics.None
+    }
+
     private companion object {
         const val TAG = "LyricsRepository"
+        const val EMBEDDED = "embedded"
         val NO_LYRICS_TTL_MS = TimeUnit.DAYS.toMillis(7)
     }
 }

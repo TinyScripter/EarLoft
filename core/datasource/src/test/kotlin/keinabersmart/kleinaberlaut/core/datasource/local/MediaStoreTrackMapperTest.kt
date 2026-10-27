@@ -66,7 +66,23 @@ class MediaStoreTrackMapperTest {
     fun `timestamps are converted to milliseconds`() {
         val track = MediaStoreTrackMapper.map(listOf(row(id = 1)), names).single()
 
-        assertEquals(1_700_000_000_000, track.lastModified)
+        // Die Millisekunden-Stellen tragen die Version des Tag-Lesens.
+        assertEquals(1_700_000_000_000 + MediaStoreTrackMapper.TAGS_VERSION, track.lastModified)
+    }
+
+    @Test
+    fun `tags add mbids to track and its single artists`() {
+        val track = MediaStoreTrackMapper.map(listOf(row(id = 1)), names).single()
+
+        val tagged = MediaStoreTrackMapper.applyTags(
+            track,
+            EmbeddedTags(recordingMbid = "rec", releaseMbid = "rel", artistMbid = "art", albumArtistMbid = null),
+        )
+
+        assertEquals("rec", tagged.mbidTrack)
+        assertEquals("rel", tagged.mbidAlbum)
+        assertEquals("art", tagged.artists.single().mbid)
+        assertNull(tagged.albumArtists.single().mbid)
     }
 
     private fun row(

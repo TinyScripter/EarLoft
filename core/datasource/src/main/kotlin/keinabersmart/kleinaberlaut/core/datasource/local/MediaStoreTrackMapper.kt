@@ -53,6 +53,21 @@ internal object MediaStoreTrackMapper {
 
     private const val UNKNOWN = "<unknown>"
 
+    /**
+     * `lastModified` hat nur Sekundenauflösung; die letzten Stellen kennzeichnen den Stand des Tag-Lesens.
+     * Wer mehr aus den Tags übernimmt, erhöht die Zahl – dann werden alle Dateien einmal neu gelesen.
+     */
+    const val TAGS_VERSION = 1L
+
+    /** Ergänzt [track] um das, was nur die Datei selbst weiß. */
+    fun applyTags(track: RawTrack, tags: EmbeddedTags): RawTrack = track.copy(
+        mbidTrack = tags.recordingMbid,
+        mbidAlbum = tags.releaseMbid,
+        artists = track.artists.singleOrNull()?.copy(mbid = tags.artistMbid)?.let(::listOf) ?: track.artists,
+        albumArtists = track.albumArtists.singleOrNull()?.copy(mbid = tags.albumArtistMbid)?.let(::listOf)
+            ?: track.albumArtists,
+    )
+
     fun map(rows: List<MediaStoreRow>, names: FallbackNames): List<RawTrack> {
         val artistsPerAlbum = rows.groupBy { it.albumId }
             .mapValues { (_, albumRows) -> albumRows.map { it.artist.orUnknown(names.unknownArtist) }.toSet() }
@@ -84,7 +99,7 @@ internal object MediaStoreTrackMapper {
                 mimeType = row.mimeType,
                 bitRate = row.bitRate,
                 sizeBytes = row.sizeBytes,
-                lastModified = row.dateModifiedSec * 1000,
+                lastModified = row.dateModifiedSec * 1000 + TAGS_VERSION,
                 dateAdded = row.dateAddedSec * 1000,
             )
         }

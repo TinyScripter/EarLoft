@@ -19,6 +19,14 @@ interface LyricsDao {
     @Query(
         """
         SELECT ss.* FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId
+        WHERE ss.songId = :songId AND src.type = 'LOCAL'
+        """,
+    )
+    suspend fun getLocalSources(songId: Long): List<SongSourceEntity>
+
+    @Query(
+        """
+        SELECT ss.* FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId
         WHERE ss.songId = :songId AND src.type = 'SUBSONIC'
         ORDER BY src.priority DESC
         """,

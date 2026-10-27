@@ -14,4 +14,6 @@ dependencies {
 
     api(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.guava)
+    implementation(libs.androidx.media3.inspector)
 }

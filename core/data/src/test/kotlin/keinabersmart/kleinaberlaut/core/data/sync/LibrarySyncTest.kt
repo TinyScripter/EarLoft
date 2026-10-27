@@ -88,6 +88,14 @@ class LibrarySyncTest {
     }
 
     @Test
+    fun `second source fills in a missing song musicbrainz id`() = runTest {
+        syncer.sync(FakeSource("navidrome", listOf(track("x", "Glósóli", track = 2))))
+        syncer.sync(FakeSource("local", listOf(track("1", "Glósóli", track = 2, mbidTrack = "recording-a"))))
+
+        assertEquals("recording-a", db.mergeDao().getSong(db.libraryDao().observeSongRows().first().single().songId)!!.mbid)
+    }
+
+    @Test
     fun `tracks removed from a source disappear after the next full sync`() = runTest {
         syncer.sync(FakeSource("local", listOf(track("1", "Glósóli", track = 2), track("2", "Hoppípolla", track = 3))))
         syncer.sync(FakeSource("local", listOf(track("2", "Hoppípolla", track = 3))))
@@ -138,6 +146,7 @@ class LibrarySyncTest {
         artist: String = "Sigur Rós",
         year: Int? = 2005,
         mbidAlbum: String? = null,
+        mbidTrack: String? = null,
         lastModified: Long = 1,
         sizeBytes: Long? = null,
     ) = RawTrack(
@@ -152,6 +161,7 @@ class LibrarySyncTest {
         durationMs = 300_000,
         year = year,
         mbidAlbum = mbidAlbum,
+        mbidTrack = mbidTrack,
         lastModified = lastModified,
         sizeBytes = sizeBytes,
     )
