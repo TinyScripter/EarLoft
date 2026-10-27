@@ -7,6 +7,7 @@ import androidx.media3.datasource.ResolvingDataSource
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackSourceResolver
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.model.AppUris
+import keinabersmart.kleinaberlaut.core.model.ReplayGain
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 
@@ -17,13 +18,16 @@ import java.io.IOException
 @OptIn(UnstableApi::class)
 internal class SongDataSourceResolver(
     private val sourceResolver: PlaybackSourceResolver,
+    /** ReplayGain der gewählten Quelle; wird vor dem Abspielen der Samples gemeldet. */
+    private val onResolved: (songId: Long, replayGain: ReplayGain?) -> Unit,
 ) : ResolvingDataSource.Resolver {
 
     override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
         val songId = AppUris.parseSongId(dataSpec.uri.toString()) ?: return dataSpec
-        val location = runBlocking { sourceResolver.resolve(songId) }
+        val resolved = runBlocking { sourceResolver.resolve(songId) }
             ?: throw IOException("Keine abspielbare Quelle für Song $songId")
-        return when (location) {
+        onResolved(songId, resolved.replayGain)
+        return when (val location = resolved.location) {
             is PlaybackLocation.LocalFile -> dataSpec.withUri(location.uri)
             is PlaybackLocation.Remote -> dataSpec.buildUpon().setUri(location.uri).setKey(location.cacheKey).build()
         }

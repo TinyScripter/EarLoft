@@ -2,6 +2,8 @@ package keinabersmart.kleinaberlaut.ui.settings
 
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +20,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -25,10 +30,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -39,7 +47,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
+import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
+import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.library.BackButton
@@ -62,6 +72,8 @@ fun SettingsScreen(
         onRefreshAll = viewModel::refreshAll,
         onWifiOnlyChange = viewModel::setDownloadWifiOnly,
         onScrobbleChange = viewModel::setScrobble,
+        onReplayGainModeChange = viewModel::setReplayGainMode,
+        onPreAmpChange = viewModel::setPreAmpDb,
         modifier = modifier,
     )
 }
@@ -77,9 +89,12 @@ private fun SettingsContent(
     onRefreshAll: () -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit,
     onScrobbleChange: (Boolean) -> Unit,
+    onReplayGainModeChange: (ReplayGainMode) -> Unit,
+    onPreAmpChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var serverToRemove by rememberSaveable { mutableStateOf<String?>(null) }
+    var choosingReplayGain by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier.fillMaxSize()) {
         TopAppBar(
@@ -123,6 +138,22 @@ private fun SettingsContent(
                     onCheckedChange = onScrobbleChange,
                 )
             }
+            item(key = "playback") { SectionHeader(stringResource(R.string.settings_playback)) }
+            item(key = "replay-gain") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_replay_gain)) },
+                    supportingContent = { Text(stringResource(state.replayGainMode.label)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_volume_up), contentDescription = null) },
+                    modifier = Modifier.clickable { choosingReplayGain = true },
+                )
+            }
+            item(key = "pre-amp") {
+                PreAmpRow(
+                    preAmpDb = state.preAmpDb,
+                    enabled = state.replayGainMode != ReplayGainMode.OFF,
+                    onPreAmpChange = onPreAmpChange,
+                )
+            }
             item(key = "downloads") { SectionHeader(stringResource(R.string.settings_downloads)) }
             item(key = "wifi-only") {
                 SwitchRow(
@@ -134,6 +165,17 @@ private fun SettingsContent(
                 )
             }
         }
+    }
+
+    if (choosingReplayGain) {
+        ReplayGainModeDialog(
+            selected = state.replayGainMode,
+            onSelect = {
+                onReplayGainModeChange(it)
+                choosingReplayGain = false
+            },
+            onDismiss = { choosingReplayGain = false },
+        )
     }
 
     val removing = state.servers.firstOrNull { it.server.sourceId == serverToRemove }?.server
@@ -164,6 +206,66 @@ private fun SwitchRow(title: String, summary: String, icon: Int, checked: Boolea
         leadingContent = { Icon(painterResource(icon), contentDescription = null) },
         trailingContent = { Switch(checked = checked, onCheckedChange = null) },
         modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+    )
+}
+
+private val ReplayGainMode.label: Int
+    get() = when (this) {
+        ReplayGainMode.OFF -> R.string.replay_gain_off
+        ReplayGainMode.TRACK -> R.string.replay_gain_track
+        ReplayGainMode.ALBUM -> R.string.replay_gain_album
+        ReplayGainMode.AUTO -> R.string.replay_gain_auto
+    }
+
+@Composable
+private fun ReplayGainModeDialog(selected: ReplayGainMode, onSelect: (ReplayGainMode) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_replay_gain)) },
+        text = {
+            Column(Modifier.selectableGroup()) {
+                ReplayGainMode.entries.forEach { mode ->
+                    ListItem(
+                        headlineContent = { Text(stringResource(mode.label)) },
+                        supportingContent = if (mode == ReplayGainMode.AUTO) {
+                            { Text(stringResource(R.string.replay_gain_auto_summary)) }
+                        } else {
+                            null
+                        },
+                        leadingContent = { RadioButton(selected = mode == selected, onClick = null) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.selectable(selected = mode == selected, role = Role.RadioButton) { onSelect(mode) },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
+}
+
+/** Der Wert wird erst beim Loslassen gespeichert. */
+@Composable
+private fun PreAmpRow(preAmpDb: Float, enabled: Boolean, onPreAmpChange: (Float) -> Unit) {
+    var value by remember(preAmpDb) { mutableFloatStateOf(preAmpDb) }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_pre_amp)) },
+        supportingContent = {
+            Column {
+                Text(stringResource(R.string.settings_pre_amp_summary))
+                Slider(
+                    value = value,
+                    onValueChange = { value = it },
+                    onValueChangeFinished = { onPreAmpChange(value) },
+                    valueRange = ReplayGainSettings.MIN_PRE_AMP_DB..ReplayGainSettings.MAX_PRE_AMP_DB,
+                    steps = (ReplayGainSettings.MAX_PRE_AMP_DB - ReplayGainSettings.MIN_PRE_AMP_DB).toInt() - 1,
+                    enabled = enabled,
+                )
+            }
+        },
+        leadingContent = { Icon(painterResource(DesignR.drawable.ic_volume_up), contentDescription = null) },
+        trailingContent = { Text(stringResource(R.string.settings_pre_amp_value, value)) },
     )
 }
 
@@ -229,6 +331,8 @@ private fun SettingsContentPreview() {
             onRefreshAll = {},
             onWifiOnlyChange = {},
             onScrobbleChange = {},
+            onReplayGainModeChange = {},
+            onPreAmpChange = {},
         )
     }
 }

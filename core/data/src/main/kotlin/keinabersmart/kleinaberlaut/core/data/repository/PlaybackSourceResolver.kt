@@ -6,6 +6,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
 import keinabersmart.kleinaberlaut.core.database.model.PlayableSourceRow
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
+import keinabersmart.kleinaberlaut.core.model.ReplayGain
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import java.io.File
 import javax.inject.Inject
@@ -21,19 +22,28 @@ class PlaybackSourceResolver @Inject constructor(
     private val downloadDao: DownloadDao,
     private val registry: MusicDataSources,
 ) {
-    suspend fun resolve(songId: Long): PlaybackLocation? {
+    suspend fun resolve(songId: Long): ResolvedPlayback? {
         val sources = libraryDao.getPlayableSources(songId).sortedWith(SourcePreference)
         val best = sources.firstOrNull() ?: return null
-        if (best.sourceType != SourceType.LOCAL) {
-            downloadedFile(songId)?.let { return PlaybackLocation.LocalFile(Uri.fromFile(it)) }
-        }
-        return registry[best.sourceId]?.resolvePlayback(best.remoteId)
+        val location = best.takeIf { it.sourceType != SourceType.LOCAL }
+            ?.let { downloadedFile(songId) }
+            ?.let { PlaybackLocation.LocalFile(Uri.fromFile(it)) }
+            ?: registry[best.sourceId]?.resolvePlayback(best.remoteId)
+            ?: return null
+        // Ein Download ist eine Kopie der Server-Datei, die Werte der Quelle gelten also auch für ihn.
+        val replayGain = libraryDao.getReplayGain(best.uid)
+            ?.let { ReplayGain(it.rgTrackGainDb, it.rgTrackPeak, it.rgAlbumGainDb, it.rgAlbumPeak) }
+            ?.takeUnless { it.isEmpty }
+        return ResolvedPlayback(location, replayGain)
     }
 
     /** Fehlt die Datei (z. B. vom System gelöscht), wird gestreamt. */
     private suspend fun downloadedFile(songId: Long): File? =
         downloadDao.getDoneFilePaths(songId).map(::File).firstOrNull { it.isFile }
 }
+
+/** Wo ein Song gespielt wird; [replayGain] ist `null`, wenn die Quelle keine Werte kennt. */
+data class ResolvedPlayback(val location: PlaybackLocation, val replayGain: ReplayGain?)
 
 /** Reihenfolge der Quellen eines Songs: lokal, Server-Priorität, verlustfrei, Bitrate. */
 object SourcePreference : Comparator<PlayableSourceRow> {

@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.core.playback
 
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -14,7 +15,10 @@ import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.MediaLibraryService
@@ -29,6 +33,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import javax.inject.Inject
@@ -46,6 +51,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var nowPlayingObservers: Set<@JvmSuppressWildcards NowPlayingObserver>
     @Inject lateinit var okHttpClient: OkHttpClient
     @Inject lateinit var streamCache: SimpleCache
+    @Inject lateinit var replayGainSettings: ReplayGainSettings
 
     /** Für Player-Zugriffe (Main-Thread). */
     private val mainScope = MainScope()
@@ -55,6 +61,7 @@ class PlaybackService : MediaLibraryService() {
 
     private var session: MediaLibrarySession? = null
     private lateinit var playTracker: PlayTracker
+    private val replayGain = ReplayGainProcessor()
 
     override fun onCreate() {
         super.onCreate()
@@ -66,9 +73,23 @@ class PlaybackService : MediaLibraryService() {
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         val dataSourceFactory = ResolvingDataSource.Factory(
             DefaultDataSource.Factory(this, streamFactory),
-            SongDataSourceResolver(sourceResolver),
+            SongDataSourceResolver(sourceResolver, replayGain::onSourceResolved),
         )
-        val player = ExoPlayer.Builder(this)
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioOutputPlaybackParams: Boolean,
+            ): AudioSink = ReplayGainAudioSink(
+                DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
+                    .setAudioProcessors(arrayOf(replayGain))
+                    .build(),
+                replayGain,
+            )
+        }
+        val player = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -84,6 +105,15 @@ class PlaybackService : MediaLibraryService() {
         playTracker = PlayTracker(player, playbackStateRepository, ioScope)
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
+        player.addListener(object : Player.Listener {
+            override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+                replayGain.shuffleEnabled = shuffleModeEnabled
+            }
+        })
+        mainScope.launch {
+            combine(replayGainSettings.mode, replayGainSettings.preAmpDb, ::Pair)
+                .collect { (mode, preAmpDb) -> replayGain.setSettings(mode, preAmpDb) }
+        }
 
         session = MediaLibrarySession.Builder(
             this,

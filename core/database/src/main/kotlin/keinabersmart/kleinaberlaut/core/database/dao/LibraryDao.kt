@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.SongSourceEntity
 import keinabersmart.kleinaberlaut.core.database.model.AlbumRow
 import keinabersmart.kleinaberlaut.core.database.model.ArtistRow
 import keinabersmart.kleinaberlaut.core.database.model.PlayableSourceRow
+import keinabersmart.kleinaberlaut.core.database.model.ReplayGainRow
 import keinabersmart.kleinaberlaut.core.database.model.SongRow
 import kotlinx.coroutines.flow.Flow
 
@@ -190,6 +191,9 @@ abstract class LibraryDao {
         """,
     )
     abstract suspend fun getPlayableSourcesOfSongs(songIds: List<Long>): List<PlayableSourceRow>
+
+    @Query("SELECT rgTrackGainDb, rgTrackPeak, rgAlbumGainDb, rgAlbumPeak FROM song_sources WHERE uid = :uid")
+    abstract suspend fun getReplayGain(uid: String): ReplayGainRow?
 
     @Query("SELECT songId FROM songs WHERE albumId = :albumId")
     abstract suspend fun getSongIdsOfAlbum(albumId: Long): List<Long>

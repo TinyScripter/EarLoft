@@ -9,7 +9,9 @@ import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
 import keinabersmart.kleinaberlaut.core.data.sync.SyncSettings
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadSettings
+import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
+import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -28,6 +30,8 @@ data class SettingsUiState(
     val isSyncing: Boolean = false,
     val downloadWifiOnly: Boolean = true,
     val scrobble: Boolean = true,
+    val replayGainMode: ReplayGainMode = ReplayGainMode.AUTO,
+    val preAmpDb: Float = 0f,
 )
 
 @HiltViewModel
@@ -37,6 +41,7 @@ class SettingsViewModel @Inject constructor(
     private val downloadSettings: DownloadSettings,
     private val downloadRepository: DownloadRepository,
     private val syncSettings: SyncSettings,
+    private val replayGainSettings: ReplayGainSettings,
     syncer: LibrarySyncer,
 ) : ViewModel() {
 
@@ -53,6 +58,8 @@ class SettingsViewModel @Inject constructor(
             downloadWifiOnly = wifiOnly,
             scrobble = scrobble,
         )
+    }.combine(combine(replayGainSettings.mode, replayGainSettings.preAmpDb, ::Pair)) { state, (mode, preAmpDb) ->
+        state.copy(replayGainMode = mode, preAmpDb = preAmpDb)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     fun syncNow(sourceId: String) = serverRepository.syncNow(sourceId)
@@ -68,6 +75,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setScrobble(enabled: Boolean) {
         viewModelScope.launch { syncSettings.setScrobble(enabled) }
+    }
+
+    fun setReplayGainMode(mode: ReplayGainMode) {
+        viewModelScope.launch { replayGainSettings.setMode(mode) }
+    }
+
+    fun setPreAmpDb(preAmpDb: Float) {
+        viewModelScope.launch { replayGainSettings.setPreAmpDb(preAmpDb) }
     }
 
     fun remove(sourceId: String) {

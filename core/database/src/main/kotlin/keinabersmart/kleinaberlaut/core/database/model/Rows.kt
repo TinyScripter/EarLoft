@@ -44,6 +44,14 @@ data class PlayableSourceRow(
     val bitRate: Int?,
 )
 
+/** ReplayGain-Werte einer Song-Quelle. */
+data class ReplayGainRow(
+    val rgTrackGainDb: Float?,
+    val rgTrackPeak: Float?,
+    val rgAlbumGainDb: Float?,
+    val rgAlbumPeak: Float?,
+)
+
 /** Offline-Verfügbarkeit eines Songs: lokale Quelle und ggf. Download (`state == null`: keiner). */
 data class SongOfflineRow(
     val songId: Long,

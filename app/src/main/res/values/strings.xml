@@ -144,6 +144,18 @@
     <string name="settings_wifi_only">Nur über WLAN herunterladen</string>
     <string name="settings_wifi_only_summary">Über mobile Daten wird nichts heruntergeladen.</string>
 
+    <!-- Einstellungen: Wiedergabe -->
+    <string name="settings_playback">Wiedergabe</string>
+    <string name="settings_replay_gain">Lautstärke angleichen (ReplayGain)</string>
+    <string name="replay_gain_off">Aus</string>
+    <string name="replay_gain_track">Je Titel</string>
+    <string name="replay_gain_album">Je Album</string>
+    <string name="replay_gain_auto">Automatisch</string>
+    <string name="replay_gain_auto_summary">Je Album, wenn ein Album in Reihenfolge läuft, sonst je Titel</string>
+    <string name="settings_pre_amp">Vorverstärkung</string>
+    <string name="settings_pre_amp_summary">Gilt für Titel mit ReplayGain-Werten; übersteuert nicht.</string>
+    <string name="settings_pre_amp_value">%1$+.0f dB</string>
+
     <!-- Widget -->
     <string name="widget_name">Wiedergabe</string>
     <string name="widget_description">Zeigt den aktuellen Titel mit Steuerung.</string>

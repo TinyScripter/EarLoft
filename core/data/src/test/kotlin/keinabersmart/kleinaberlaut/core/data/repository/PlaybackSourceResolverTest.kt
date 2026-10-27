@@ -15,12 +15,14 @@ import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
 import keinabersmart.kleinaberlaut.core.model.DownloadState
+import keinabersmart.kleinaberlaut.core.model.ReplayGain
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -60,7 +62,7 @@ class PlaybackSourceResolverTest {
         val file = tempFolder.newFile("nd_1.flac")
         db.downloadDao().insertIfAbsent(listOf(DownloadEntity("nd:1", songId, DownloadState.DONE, filePath = file.path)))
 
-        assertEquals(PlaybackLocation.LocalFile(Uri.fromFile(file)), resolver.resolve(songId))
+        assertEquals(PlaybackLocation.LocalFile(Uri.fromFile(file)), resolver.resolve(songId)?.location)
     }
 
     @Test
@@ -70,7 +72,7 @@ class PlaybackSourceResolverTest {
             listOf(DownloadEntity("nd:1", songId, DownloadState.DONE, filePath = "/gibt/es/nicht.flac")),
         )
 
-        assertEquals(Sources.stream("nd", "1"), resolver.resolve(songId))
+        assertEquals(Sources.stream("nd", "1"), resolver.resolve(songId)?.location)
     }
 
     @Test
@@ -79,23 +81,39 @@ class PlaybackSourceResolverTest {
         val file = tempFolder.newFile("nd_1.part")
         db.downloadDao().insertIfAbsent(listOf(DownloadEntity("nd:1", songId, DownloadState.RUNNING, filePath = file.path)))
 
-        assertEquals(Sources.stream("nd", "1"), resolver.resolve(songId))
+        assertEquals(Sources.stream("nd", "1"), resolver.resolve(songId)?.location)
     }
 
     @Test
     fun `local file beats everything`() = runTest {
         val songId = song("nd" to "1", "local" to "9")
 
-        assertEquals(Sources.local("9"), resolver.resolve(songId))
+        assertEquals(Sources.local("9"), resolver.resolve(songId)?.location)
     }
 
-    private suspend fun song(vararg sources: Pair<String, String>): Long {
+    @Test
+    fun `replay gain comes from the chosen source`() = runTest {
+        val serverValues = ReplayGain(trackGainDb = -6.5f, albumPeak = 0.9f)
+        // Die lokale Datei gewinnt; ihre Werte kennt die Datenbank (noch) nicht.
+        val local = song("nd" to "1", "local" to "9", replayGain = mapOf("nd" to serverValues))
+        assertNull(resolver.resolve(local)?.replayGain)
+
+        val streamed = song("nd" to "2", replayGain = mapOf("nd" to serverValues))
+        assertEquals(serverValues, resolver.resolve(streamed)?.replayGain)
+    }
+
+    private suspend fun song(vararg sources: Pair<String, String>, replayGain: Map<String, ReplayGain> = emptyMap()): Long {
         val songId = db.libraryDao().insertSong(
             SongEntity(albumId = albumId, title = "S", normTitle = "s", artistDisplay = "B", durationMs = 1, dateAdded = 0),
         )
         sources.forEach { (sourceId, remoteId) ->
+            val rg = replayGain[sourceId]
             db.libraryDao().insertSongSource(
-                SongSourceEntity(uid = "$sourceId:$remoteId", songId = songId, sourceId = sourceId, remoteId = remoteId, seenInGeneration = 1),
+                SongSourceEntity(
+                    uid = "$sourceId:$remoteId", songId = songId, sourceId = sourceId, remoteId = remoteId, seenInGeneration = 1,
+                    rgTrackGainDb = rg?.trackGainDb, rgTrackPeak = rg?.trackPeak,
+                    rgAlbumGainDb = rg?.albumGainDb, rgAlbumPeak = rg?.albumPeak,
+                ),
             )
         }
         return songId
