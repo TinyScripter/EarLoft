@@ -195,6 +195,9 @@ abstract class LibraryDao {
     @Query("SELECT rgTrackGainDb, rgTrackPeak, rgAlbumGainDb, rgAlbumPeak FROM song_sources WHERE uid = :uid")
     abstract suspend fun getReplayGain(uid: String): ReplayGainRow?
 
+    @Query("SELECT uid FROM song_sources WHERE uid IN (:uids)")
+    abstract suspend fun getExistingSourceUids(uids: List<String>): List<String>
+
     @Query("SELECT songId FROM songs WHERE albumId = :albumId")
     abstract suspend fun getSongIdsOfAlbum(albumId: Long): List<Long>
 

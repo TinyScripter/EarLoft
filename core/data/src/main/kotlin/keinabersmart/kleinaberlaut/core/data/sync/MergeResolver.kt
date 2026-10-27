@@ -63,6 +63,9 @@ class MergeResolver @Inject constructor(
             resolveSong(albumId, track)
         }
         mergeDao.updateSongSource(track.toSongSource(uid, songId, sourceId, generation))
+        // Ist die Datei selbst eine andere, wird ein Download neu geladen. Reine Metadaten-Änderungen
+        // (z. B. Album-Cover) zählen nicht – angezeigt wird ohnehin, was in der Datenbank steht.
+        if (existing.sizeBytes != track.sizeBytes || existing.mimeType != track.mimeType) mergeDao.requeueDownload(uid)
         mergeDao.setAlbumCoverIfMissing(albumId, uid)
         if (syncsFavorites) mergeFavorite(songId, uid, track, existing.starredAt, isNewSource = false)
         return songId

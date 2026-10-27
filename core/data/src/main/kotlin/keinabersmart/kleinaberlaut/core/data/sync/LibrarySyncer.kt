@@ -33,7 +33,7 @@ class LibrarySyncer @Inject constructor(
     private val libraryDao: LibraryDao,
     private val mergeResolver: MergeResolver,
     private val registry: MusicDataSources,
-    private val cleanupListeners: Set<@JvmSuppressWildcards LibraryCleanupListener>,
+    private val changeListeners: Set<@JvmSuppressWildcards LibraryChangeListener>,
     private val syncQueue: SyncQueueStarter,
     private val playlistSyncer: PlaylistSyncer,
 ) {
@@ -88,11 +88,12 @@ class LibrarySyncer @Inject constructor(
                 sourceDao.setSyncGeneration(source.sourceId, generation, System.currentTimeMillis())
                 removed
             }
-            if (removed > 0) cleanupListeners.forEach { it.onSongSourcesRemoved() }
+            if (removed > 0) changeListeners.forEach { it.onSongSourcesRemoved() }
             // Playlists erst jetzt: Ihre Einträge verweisen auf die gerade abgeglichenen Songs.
             if (source is RemoteLibraryActions) playlistSyncer.sync(source.sourceId, source)
             // Der Abgleich kann Favoriten für neue Server-Quellen eingereiht haben.
             syncQueue.startIfPending()
+            changeListeners.forEach { it.onSyncFinished() }
         } finally {
             runningSyncs.update { it - 1 }
         }

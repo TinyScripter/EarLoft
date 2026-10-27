@@ -3,15 +3,16 @@ package keinabersmart.kleinaberlaut.core.playback
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -52,6 +53,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var okHttpClient: OkHttpClient
     @Inject lateinit var streamCache: SimpleCache
     @Inject lateinit var replayGainSettings: ReplayGainSettings
+    @Inject internal lateinit var libraryRemovals: LibraryRemovals
 
     /** Für Player-Zugriffe (Main-Thread). */
     private val mainScope = MainScope()
@@ -71,9 +73,11 @@ class PlaybackService : MediaLibraryService() {
             .setCache(streamCache)
             .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(okHttpClient))
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-        val dataSourceFactory = ResolvingDataSource.Factory(
+        val dataSourceFactory = SongDataSource.Factory(
             DefaultDataSource.Factory(this, streamFactory),
-            SongDataSourceResolver(sourceResolver, replayGain::onSourceResolved),
+            sourceResolver,
+            SourceHealth(),
+            replayGain::onSourceResolved,
         )
         val renderersFactory = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
@@ -105,11 +109,15 @@ class PlaybackService : MediaLibraryService() {
         playTracker = PlayTracker(player, playbackStateRepository, ioScope)
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
+        player.addListener(SourceErrorRecovery(player))
         player.addListener(object : Player.Listener {
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
                 replayGain.shuffleEnabled = shuffleModeEnabled
             }
         })
+        mainScope.launch {
+            libraryRemovals.removals.collect { removeMissingSongs(player) }
+        }
         mainScope.launch {
             combine(replayGainSettings.mode, replayGainSettings.preAmpDb, ::Pair)
                 .collect { (mode, preAmpDb) -> replayGain.setSettings(mode, preAmpDb) }
@@ -139,6 +147,17 @@ class PlaybackService : MediaLibraryService() {
             player.shuffleModeEnabled = restored.shuffle
             player.repeatMode = restored.repeatMode
             player.setMediaItems(restored.items, restored.startIndex, restored.startPositionMs)
+        }
+    }
+
+    /** Nimmt Titel aus der Warteschlange, deren Song es nicht mehr gibt (z. B. Server entfernt). */
+    private suspend fun removeMissingSongs(player: Player) {
+        val songIds = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).songId }.distinct()
+        if (songIds.isEmpty()) return
+        val existing = libraryRepository.songs(songIds).mapTo(HashSet()) { it.id }
+        for (index in player.mediaItemCount - 1 downTo 0) {
+            val songId = player.getMediaItemAt(index).songId ?: continue
+            if (songId !in existing) player.removeMediaItem(index)
         }
     }
 
@@ -173,6 +192,33 @@ class PlaybackService : MediaLibraryService() {
 
     private fun notifyObservers(nowPlaying: NowPlaying?) {
         nowPlayingObservers.forEach { it.onNowPlayingChanged(nowPlaying) }
+    }
+
+    /**
+     * Bricht eine Quelle mitten im Titel weg, meldet ExoPlayer nach eigenen Wiederholungen einen
+     * Fehler. Ein erneutes `prepare()` lädt den Titel von vorn an der aktuellen Position, und
+     * [SongDataSource] kann dabei auf eine andere Quelle ausweichen. Einmal je Titel, damit es bei
+     * ganz fehlendem Netz keine Endlosschleife gibt.
+     */
+    private class SourceErrorRecovery(private val player: Player) : Player.Listener {
+        private var retriedItem: Int? = null
+
+        override fun onPlayerError(error: PlaybackException) {
+            val isSourceError = error.errorCode in IO_ERROR_CODES
+            if (!isSourceError || retriedItem == player.currentMediaItemIndex) return
+            retriedItem = player.currentMediaItemIndex
+            Log.w(TAG, "Quelle ausgefallen, neuer Versuch", error)
+            player.prepare()
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) retriedItem = null
+        }
+
+        private companion object {
+            const val TAG = "PlaybackService"
+            val IO_ERROR_CODES = PlaybackException.ERROR_CODE_IO_UNSPECIFIED..PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE
+        }
     }
 
     /** Hält Warteschlange, Position und Beobachter (Widget) aktuell. */

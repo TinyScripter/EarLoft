@@ -125,7 +125,7 @@ class DownloadRepositoryTest {
         )
 
         library.db.sourceDao().delete("home")
-        DownloadFileJanitor(library.db.downloadDao(), storage).onSongSourcesRemoved()
+        DownloadFileJanitor(library.db.downloadDao(), storage, scheduler).onSongSourcesRemoved()
 
         assertTrue(library.db.downloadDao().getAll().isEmpty())
         assertFalse(file.exists())

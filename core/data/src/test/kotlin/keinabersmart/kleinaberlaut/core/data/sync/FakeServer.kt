@@ -124,7 +124,7 @@ internal fun KleinaberlautDatabase.librarySyncer(scheduler: SyncScheduler = NoSc
     libraryDao = libraryDao(),
     mergeResolver = MergeResolver(mergeDao(), syncDao()),
     registry = FixedSources(),
-    cleanupListeners = emptySet(),
+    changeListeners = emptySet(),
     syncQueue = SyncQueueStarter(syncDao(), scheduler),
     playlistSyncer = playlistSyncer(),
 )

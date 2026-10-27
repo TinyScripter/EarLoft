@@ -62,7 +62,7 @@ class PlaybackSourceResolverTest {
         val file = tempFolder.newFile("nd_1.flac")
         db.downloadDao().insertIfAbsent(listOf(DownloadEntity("nd:1", songId, DownloadState.DONE, filePath = file.path)))
 
-        assertEquals(PlaybackLocation.LocalFile(Uri.fromFile(file)), resolver.resolve(songId)?.location)
+        assertEquals(PlaybackLocation.LocalFile(Uri.fromFile(file)), resolver.candidates(songId).firstOrNull()?.location)
     }
 
     @Test
@@ -72,7 +72,7 @@ class PlaybackSourceResolverTest {
             listOf(DownloadEntity("nd:1", songId, DownloadState.DONE, filePath = "/gibt/es/nicht.flac")),
         )
 
-        assertEquals(Sources.stream("nd", "1"), resolver.resolve(songId)?.location)
+        assertEquals(Sources.stream("nd", "1"), resolver.candidates(songId).firstOrNull()?.location)
     }
 
     @Test
@@ -81,14 +81,28 @@ class PlaybackSourceResolverTest {
         val file = tempFolder.newFile("nd_1.part")
         db.downloadDao().insertIfAbsent(listOf(DownloadEntity("nd:1", songId, DownloadState.RUNNING, filePath = file.path)))
 
-        assertEquals(Sources.stream("nd", "1"), resolver.resolve(songId)?.location)
+        assertEquals(Sources.stream("nd", "1"), resolver.candidates(songId).firstOrNull()?.location)
     }
 
     @Test
     fun `local file beats everything`() = runTest {
         val songId = song("nd" to "1", "local" to "9")
 
-        assertEquals(Sources.local("9"), resolver.resolve(songId)?.location)
+        assertEquals(Sources.local("9"), resolver.candidates(songId).firstOrNull()?.location)
+    }
+
+    @Test
+    fun `all candidates are listed for fallback, best first`() = runTest {
+        val songId = song("nd" to "1", "local" to "9")
+        val file = tempFolder.newFile("nd_1.flac")
+        db.downloadDao().insertIfAbsent(listOf(DownloadEntity("nd:1", songId, DownloadState.DONE, filePath = file.path)))
+
+        val candidates = resolver.candidates(songId)
+        assertEquals(
+            listOf(Sources.local("9"), PlaybackLocation.LocalFile(Uri.fromFile(file)), Sources.stream("nd", "1")),
+            candidates.map { it.location },
+        )
+        assertEquals(listOf("local", null, "nd"), candidates.map { it.sourceId })
     }
 
     @Test
@@ -96,10 +110,10 @@ class PlaybackSourceResolverTest {
         val serverValues = ReplayGain(trackGainDb = -6.5f, albumPeak = 0.9f)
         // Die lokale Datei gewinnt; ihre Werte kennt die Datenbank (noch) nicht.
         val local = song("nd" to "1", "local" to "9", replayGain = mapOf("nd" to serverValues))
-        assertNull(resolver.resolve(local)?.replayGain)
+        assertNull(resolver.candidates(local).firstOrNull()?.replayGain)
 
         val streamed = song("nd" to "2", replayGain = mapOf("nd" to serverValues))
-        assertEquals(serverValues, resolver.resolve(streamed)?.replayGain)
+        assertEquals(serverValues, resolver.candidates(streamed).firstOrNull()?.replayGain)
     }
 
     private suspend fun song(vararg sources: Pair<String, String>, replayGain: Map<String, ReplayGain> = emptyMap()): Long {

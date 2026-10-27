@@ -31,7 +31,7 @@ val MediaMetadata.albumIdExtra: Long? get() = extras?.getLong(EXTRA_ALBUM_ID, -1
 
 /**
  * Die URI zeigt nur auf `kal://song/<id>` – welche Datei bzw. welcher Stream gespielt wird,
- * entscheidet [SongDataSourceResolver] erst beim Laden.
+ * entscheidet [SongDataSource] erst beim Laden.
  */
 fun Song.toMediaItem(): MediaItem {
     val extras = Bundle().apply { putLong(EXTRA_ALBUM_ID, albumId) }

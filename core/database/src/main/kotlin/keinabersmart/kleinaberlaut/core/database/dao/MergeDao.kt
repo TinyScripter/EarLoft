@@ -97,6 +97,13 @@ interface MergeDao {
     @Update
     suspend fun updateSongSource(songSource: SongSourceEntity)
 
+    /**
+     * Die Datei auf dem Server hat sich geändert: fertigen Download neu laden. Bis dahin wird
+     * gestreamt; die alte Datei wird beim Fertigstellen ersetzt.
+     */
+    @Query("UPDATE downloads SET state = 'QUEUED', bytesDone = 0 WHERE sourceUid = :uid AND state = 'DONE'")
+    suspend fun requeueDownload(uid: String)
+
     @Query("UPDATE song_sources SET seenInGeneration = :generation WHERE uid = :uid")
     suspend fun markSeen(uid: String, generation: Long)
 

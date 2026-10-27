@@ -48,6 +48,10 @@ class LibraryRepository @Inject constructor(
         return songIds.mapNotNull { byId[it] }
     }
 
+    /** Welche der Song-Quellen (`sourceUid`) es noch gibt. */
+    suspend fun existingSourceUids(uids: Collection<String>): Set<String> =
+        uids.chunked(SQLITE_MAX_VARIABLES).flatMapTo(HashSet()) { libraryDao.getExistingSourceUids(it) }
+
     suspend fun search(query: String, limit: Int = 50): SearchResults {
         val match = FtsQuery.build(query) ?: return SearchResults.EMPTY
         return SearchResults(

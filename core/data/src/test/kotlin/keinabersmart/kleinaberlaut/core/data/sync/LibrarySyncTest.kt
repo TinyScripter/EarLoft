@@ -5,11 +5,13 @@ import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
+import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.datasource.RawArtist
 import keinabersmart.kleinaberlaut.core.datasource.RawTrack
 import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
+import keinabersmart.kleinaberlaut.core.model.DownloadState
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -114,6 +116,20 @@ class LibrarySyncTest {
         assertEquals("Glósóli", after.title)
     }
 
+    @Test
+    fun `download is fetched again only when the server file itself changed`() = runTest {
+        syncer.sync(FakeSource("nd", listOf(track("x", "Gong", lastModified = 1, sizeBytes = 100))))
+        val songId = db.libraryDao().observeSongRows().first().single().songId
+        db.downloadDao().insertIfAbsent(listOf(DownloadEntity("nd:x", songId, DownloadState.DONE, filePath = "/dl/x.flac")))
+
+        // Nur Metadaten (z. B. Album-Cover) geändert: Download bleibt.
+        syncer.sync(FakeSource("nd", listOf(track("x", "Gong", lastModified = 2, sizeBytes = 100))))
+        assertEquals(DownloadState.DONE, db.downloadDao().get("nd:x")!!.state)
+
+        syncer.sync(FakeSource("nd", listOf(track("x", "Gong", lastModified = 3, sizeBytes = 120))))
+        assertEquals(DownloadState.QUEUED, db.downloadDao().get("nd:x")!!.state)
+    }
+
     private fun track(
         remoteId: String,
         title: String,
@@ -123,6 +139,7 @@ class LibrarySyncTest {
         year: Int? = 2005,
         mbidAlbum: String? = null,
         lastModified: Long = 1,
+        sizeBytes: Long? = null,
     ) = RawTrack(
         remoteId = remoteId,
         title = title,
@@ -136,6 +153,7 @@ class LibrarySyncTest {
         year = year,
         mbidAlbum = mbidAlbum,
         lastModified = lastModified,
+        sizeBytes = sizeBytes,
     )
 
     private class FakeSource(
