@@ -1,6 +1,5 @@
 package keinabersmart.kleinaberlaut.ui.settings
 
-import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -38,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -281,19 +281,23 @@ private fun ServerRow(item: ServerItem, onSyncNow: () -> Unit, onRemove: () -> U
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                val isError = item.passwordLost || item.error != null
                 val status = when {
+                    item.passwordLost -> stringResource(R.string.server_password_lost)
                     item.error != null -> stringResource(R.string.server_sync_failed, item.error)
                     server.lastFullSyncAt == 0L -> stringResource(R.string.server_never_synced)
-                    System.currentTimeMillis() - server.lastFullSyncAt < DateUtils.MINUTE_IN_MILLIS ->
-                        stringResource(R.string.server_synced_just_now)
-                    else -> stringResource(
-                        R.string.server_last_sync,
-                        DateUtils.getRelativeTimeSpanString(server.lastFullSyncAt).toString(),
-                    )
+                    else -> {
+                        val ageMs = System.currentTimeMillis() - server.lastFullSyncAt
+                        if (ageMs < MINUTE_MS) {
+                            stringResource(R.string.server_synced_just_now)
+                        } else {
+                            stringResource(R.string.server_last_sync, relativeAge(ageMs))
+                        }
+                    }
                 }
                 Text(
                     status,
-                    color = if (item.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -311,6 +315,18 @@ private fun ServerRow(item: ServerItem, onSyncNow: () -> Unit, onRemove: () -> U
             }
         },
     )
+}
+
+private const val MINUTE_MS = 60_000L
+private const val HOUR_MS = 60 * MINUTE_MS
+private const val DAY_MS = 24 * HOUR_MS
+
+/** „vor 5 Minuten“ – eigene Texte statt `DateUtils`, das der System-Sprache folgt. */
+@Composable
+private fun relativeAge(ageMs: Long): String = when {
+    ageMs < HOUR_MS -> (ageMs / MINUTE_MS).toInt().let { pluralStringResource(R.plurals.age_minutes, it, it) }
+    ageMs < DAY_MS -> (ageMs / HOUR_MS).toInt().let { pluralStringResource(R.plurals.age_hours, it, it) }
+    else -> (ageMs / DAY_MS).toInt().let { pluralStringResource(R.plurals.age_days, it, it) }
 }
 
 @Preview(showBackground = true)

@@ -80,6 +80,22 @@
     <string name="server_synced_just_now">Gerade abgeglichen</string>
     <string name="server_sync_failed">Abgleich fehlgeschlagen: %1$s</string>
     <string name="server_sync_now">Jetzt abgleichen</string>
+    <string name="server_password_lost">Das gespeicherte Passwort lässt sich nicht mehr lesen (z. B. nach einer Wiederherstellung auf einem anderen Gerät). Entferne den Server und richte ihn neu ein.</string>
+    <plurals name="age_minutes">
+        <item quantity="one">vor %1$d Minute</item>
+        <item quantity="other">vor %1$d Minuten</item>
+    </plurals>
+    <plurals name="age_hours">
+        <item quantity="one">vor %1$d Stunde</item>
+        <item quantity="other">vor %1$d Stunden</item>
+    </plurals>
+    <plurals name="age_days">
+        <item quantity="one">vor %1$d Tag</item>
+        <item quantity="other">vor %1$d Tagen</item>
+    </plurals>
+    <string name="sync_notice_playlist_replaced">„%1$s“ wurde auch auf dem Server geändert. Deren Fassung gilt, deine Änderung ging verloren.</string>
+    <string name="sync_notice_favorite_dropped">Ein Favorit konnte nicht an den Server übertragen werden.</string>
+    <string name="sync_notice_playlist_dropped">Eine Playlist-Änderung konnte nicht an den Server übertragen werden.</string>
     <string name="server_remove">Server entfernen</string>
     <string name="server_remove_title">„%1$s“ entfernen?</string>
     <string name="server_remove_text">Songs, die nur auf diesem Server liegen, verschwinden aus der Bibliothek. Favoriten und Playlists auf dem Server bleiben unberührt.</string>

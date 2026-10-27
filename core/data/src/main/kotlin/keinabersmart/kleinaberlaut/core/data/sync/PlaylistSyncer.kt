@@ -20,6 +20,7 @@ class PlaylistSyncer @Inject constructor(
     private val database: KleinaberlautDatabase,
     private val playlistDao: PlaylistDao,
     private val syncDao: SyncDao,
+    private val notices: SyncNotices,
 ) {
     suspend fun sync(sourceId: String, remote: RemoteLibraryActions) {
         val infos = remote.playlists()
@@ -66,7 +67,8 @@ class PlaylistSyncer @Inject constructor(
         }
         val songIds = playlist.songRemoteIds.mapNotNull { syncDao.getSongSource("$sourceId:$it")?.songId }
         playlistDao.insertEntries(songIds.mapIndexed { index, songId -> PlaylistEntryEntity(playlistId = id, songId = songId, position = index) })
-        syncDao.deleteActions(sourceId, SyncActionType.UPSERT_PLAYLIST, id.toString())
+        val discarded = syncDao.deleteActions(sourceId, SyncActionType.UPSERT_PLAYLIST, id.toString())
+        if (discarded > 0) notices.post(SyncNotice.PlaylistReplacedByServer(info.name))
         return id
     }
 }

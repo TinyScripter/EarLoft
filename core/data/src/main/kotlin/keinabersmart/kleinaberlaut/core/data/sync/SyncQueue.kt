@@ -92,6 +92,7 @@ class SyncQueueProcessor @Inject constructor(
     private val playlistDao: PlaylistDao,
     private val playlistSyncer: PlaylistSyncer,
     private val sources: MusicDataSources,
+    private val notices: SyncNotices,
 ) {
     /** @return `true`, wenn nichts mehr aussteht, das später erneut versucht werden sollte. */
     suspend fun process(): Boolean {
@@ -117,6 +118,7 @@ class SyncQueueProcessor @Inject constructor(
                 } else {
                     Log.w(TAG, "${action.actionType} an ${action.sourceId} verworfen", e)
                     syncDao.deleteAction(action.actionId)
+                    noticeKind(action.actionType)?.let { notices.post(SyncNotice.ChangeDropped(it)) }
                 }
             }
         }
@@ -165,6 +167,13 @@ class SyncQueueProcessor @Inject constructor(
             // Während des Anlegens lokal gelöscht: sonst käme sie beim nächsten Abgleich zurück.
             remote.deletePlaylist(info.remoteId)
         }
+    }
+
+    /** Scrobbles und Löschen einer Playlist, die es dort nicht gibt, sind für den Nutzer keine Meldung wert. */
+    private fun noticeKind(type: SyncActionType): SyncNotice.ChangeDropped.Kind? = when (type) {
+        SyncActionType.SET_FAVORITE -> SyncNotice.ChangeDropped.Kind.FAVORITE
+        SyncActionType.UPSERT_PLAYLIST -> SyncNotice.ChangeDropped.Kind.PLAYLIST
+        SyncActionType.SCROBBLE, SyncActionType.DELETE_PLAYLIST -> null
     }
 
     /** Spezielle Fälle zuerst: Alle Subsonic- und HTTP-Fehler sind ebenfalls `IOException`s. */

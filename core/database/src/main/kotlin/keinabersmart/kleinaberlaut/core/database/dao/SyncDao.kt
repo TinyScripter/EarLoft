@@ -16,7 +16,7 @@ interface SyncDao {
 
     /** Zusammenfassen: Pro `(sourceId, actionType, targetKey)` gilt nur die letzte Aktion. */
     @Query("DELETE FROM sync_actions WHERE sourceId = :sourceId AND actionType = :actionType AND targetKey = :targetKey")
-    suspend fun deleteActions(sourceId: String, actionType: SyncActionType, targetKey: String)
+    suspend fun deleteActions(sourceId: String, actionType: SyncActionType, targetKey: String): Int
 
     @Query("SELECT * FROM sync_actions ORDER BY createdAt, actionId")
     suspend fun getActions(): List<SyncActionEntity>

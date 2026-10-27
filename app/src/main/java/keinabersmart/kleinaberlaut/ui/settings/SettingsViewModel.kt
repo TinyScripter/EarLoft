@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
+import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
 import keinabersmart.kleinaberlaut.core.data.sync.SyncSettings
@@ -23,6 +24,8 @@ data class ServerItem(
     val server: ServerInfo,
     /** Meldung des letzten fehlgeschlagenen Abgleichs. */
     val error: String?,
+    /** Das gespeicherte Passwort ist nicht mehr lesbar; der Server muss neu eingerichtet werden. */
+    val passwordLost: Boolean = false,
 )
 
 data class SettingsUiState(
@@ -42,18 +45,37 @@ class SettingsViewModel @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val syncSettings: SyncSettings,
     private val replayGainSettings: ReplayGainSettings,
+    private val registry: DataSourceRegistry,
     syncer: LibrarySyncer,
 ) : ViewModel() {
 
-    val state: StateFlow<SettingsUiState> = combine(
+    init {
+        // Die Server werden sonst erst beim ersten Zugriff geladen; ohne das fehlte der Hinweis auf verlorene Passwörter.
+        viewModelScope.launch { registry.servers() }
+    }
+
+    private val serverItems = combine(
         serverRepository.servers(),
         syncer.failures,
+        registry.unusableServers,
+    ) { servers, failures, unusable ->
+        servers.map {
+            ServerItem(
+                server = it,
+                error = failures[it.sourceId]?.let { e -> e.message ?: e.javaClass.simpleName },
+                passwordLost = it.sourceId in unusable,
+            )
+        }
+    }
+
+    val state: StateFlow<SettingsUiState> = combine(
+        serverItems,
         syncer.activeSyncs,
         downloadSettings.wifiOnly,
         syncSettings.scrobble,
-    ) { servers, failures, syncs, wifiOnly, scrobble ->
+    ) { servers, syncs, wifiOnly, scrobble ->
         SettingsUiState(
-            servers = servers.map { ServerItem(it, failures[it.sourceId]?.let { e -> e.message ?: e.javaClass.simpleName }) },
+            servers = servers,
             isSyncing = syncs > 0,
             downloadWifiOnly = wifiOnly,
             scrobble = scrobble,

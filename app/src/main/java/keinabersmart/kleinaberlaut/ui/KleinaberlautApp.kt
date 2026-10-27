@@ -94,6 +94,8 @@ fun KleinaberlautApp(
 
     val showChrome = !navigator.currentRoute.isFullScreenPlayer
 
+    SyncNoticeEffect()
+
     Scaffold(
         // Die Bildschirme kümmern sich selbst um Statusleiste und – ohne Bottom-Bar – die Navigationsleiste.
         contentWindowInsets = WindowInsets(0),

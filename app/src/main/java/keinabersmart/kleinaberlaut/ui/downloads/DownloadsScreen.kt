@@ -1,6 +1,5 @@
 package keinabersmart.kleinaberlaut.ui.downloads
 
-import android.text.format.Formatter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,7 +30,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -47,6 +45,7 @@ import keinabersmart.kleinaberlaut.core.model.DownloadedAlbum
 import keinabersmart.kleinaberlaut.ui.components.AlbumArt
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
+import keinabersmart.kleinaberlaut.ui.formatBytes
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @Composable
@@ -228,9 +227,6 @@ private fun ConfirmDialog(title: String, text: String, onConfirm: () -> Unit, on
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
-
-@Composable
-private fun formatBytes(bytes: Long): String = Formatter.formatShortFileSize(LocalContext.current, bytes)
 
 @Preview(showBackground = true)
 @Composable

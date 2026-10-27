@@ -11,6 +11,9 @@ import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicCredentials
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicServer
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicServerRegistry
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -43,6 +46,15 @@ class DataSourceRegistry @Inject constructor(
     @Volatile
     private var servers: Map<String, MusicDataSource>? = null
 
+    private val unusable = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * Server, die sich nicht nutzen lassen, weil das gespeicherte Passwort fehlt oder sich nicht mehr
+     * entschlüsseln lässt (z. B. nach Wiederherstellung auf einem anderen Gerät). Sie werden beim Abgleich
+     * übersprungen; der Nutzer muss sie neu einrichten.
+     */
+    val unusableServers: StateFlow<Set<String>> = unusable.asStateFlow()
+
     override suspend fun all(): List<MusicDataSource> = listOf(localDataSource) + loadedServers().values
 
     override suspend fun get(sourceId: String): MusicDataSource? =
@@ -59,7 +71,9 @@ class DataSourceRegistry @Inject constructor(
         servers ?: mutex.withLock { servers ?: load().also { servers = it } }
 
     private suspend fun load(): Map<String, MusicDataSource> {
-        val loaded = sourceDao.getByType(SourceType.SUBSONIC).mapNotNull { entity -> toServer(entity)?.let { it to entity.name } }
+        val entities = sourceDao.getByType(SourceType.SUBSONIC)
+        val loaded = entities.mapNotNull { entity -> toServer(entity)?.let { it to entity.name } }
+        unusable.value = entities.mapTo(HashSet()) { it.sourceId } - loaded.mapTo(HashSet()) { it.first.sourceId }
         serverRegistry.replaceAll(loaded.map { it.first })
         return loaded.associate { (server, name) -> server.sourceId to subsonicFactory.create(server, name) }
     }

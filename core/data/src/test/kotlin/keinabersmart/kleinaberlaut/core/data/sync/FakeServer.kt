@@ -107,17 +107,25 @@ internal object NoScheduler : SyncScheduler {
     override suspend fun enqueue() = Unit
 }
 
-internal fun KleinaberlautDatabase.syncQueueProcessor(vararg sources: MusicDataSource) = SyncQueueProcessor(
+internal fun KleinaberlautDatabase.syncQueueProcessor(
+    vararg sources: MusicDataSource,
+    notices: SyncNotices = SyncNotices(),
+) = SyncQueueProcessor(
     database = this,
     syncDao = syncDao(),
     playlistDao = playlistDao(),
-    playlistSyncer = playlistSyncer(),
+    playlistSyncer = playlistSyncer(notices),
     sources = FixedSources(*sources),
+    notices = notices,
 )
 
-internal fun KleinaberlautDatabase.playlistSyncer() = PlaylistSyncer(this, playlistDao(), syncDao())
+internal fun KleinaberlautDatabase.playlistSyncer(notices: SyncNotices = SyncNotices()) =
+    PlaylistSyncer(this, playlistDao(), syncDao(), notices)
 
-internal fun KleinaberlautDatabase.librarySyncer(scheduler: SyncScheduler = NoScheduler) = LibrarySyncer(
+internal fun KleinaberlautDatabase.librarySyncer(
+    scheduler: SyncScheduler = NoScheduler,
+    notices: SyncNotices = SyncNotices(),
+) = LibrarySyncer(
     database = this,
     sourceDao = sourceDao(),
     mergeDao = mergeDao(),
@@ -126,5 +134,5 @@ internal fun KleinaberlautDatabase.librarySyncer(scheduler: SyncScheduler = NoSc
     registry = FixedSources(),
     changeListeners = emptySet(),
     syncQueue = SyncQueueStarter(syncDao(), scheduler),
-    playlistSyncer = playlistSyncer(),
+    playlistSyncer = playlistSyncer(notices),
 )

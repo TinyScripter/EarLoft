@@ -7,6 +7,9 @@ import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.datasource.RawArtist
 import keinabersmart.kleinaberlaut.core.datasource.RawTrack
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -22,6 +25,7 @@ class PlaylistSyncTest {
     private lateinit var db: KleinaberlautDatabase
     private lateinit var syncer: LibrarySyncer
     private lateinit var playlists: PlaylistRepository
+    private val notices = SyncNotices()
     private val nd = FakeServer("nd", listOf(track("a", "A", 1), track("b", "B", 2), track("c", "C", 3)))
 
     @Before
@@ -29,7 +33,7 @@ class PlaylistSyncTest {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KleinaberlautDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        syncer = db.librarySyncer()
+        syncer = db.librarySyncer(notices = notices)
         playlists = PlaylistRepository(db, db.playlistDao(), db.syncDao(), NoScheduler)
         syncer.sync(nd)
     }
@@ -86,6 +90,27 @@ class PlaylistSyncTest {
         assertEquals("Vom Nachbarn", playlists.playlists().first().single().name)
         assertEquals(listOf("C"), titles(id))
         assertEquals(0, db.syncDao().countActions())
+    }
+
+    @Test
+    fun `server change over an unsent local change is announced`() = runTest {
+        val remoteId = nd.putPlaylist("Mix", listOf("a"))
+        syncer.sync(nd)
+        val id = playlists.playlists().first().single().id
+        val received = mutableListOf<SyncNotice>()
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { notices.notices.toList(received) }
+
+        // Ohne ausstehende Änderung gibt es nichts zu melden.
+        nd.putPlaylist("Vom Nachbarn", listOf("b"), remoteId)
+        syncer.sync(nd)
+        assertTrue(received.isEmpty())
+
+        playlists.addSongs(id, listOf(songId("c")))
+        nd.putPlaylist("Noch einmal", listOf("a"), remoteId)
+        syncer.sync(nd)
+
+        assertEquals(listOf<SyncNotice>(SyncNotice.PlaylistReplacedByServer("Noch einmal")), received)
+        job.cancel()
     }
 
     @Test
@@ -160,7 +185,7 @@ class PlaylistSyncTest {
         assertEquals(listOf("create Neu [a]"), nd.calls)
     }
 
-    private fun processor() = db.syncQueueProcessor(nd)
+    private fun processor() = db.syncQueueProcessor(nd, notices = notices)
 
     private suspend fun songId(remoteId: String) = db.syncDao().getSongSource("nd:$remoteId")!!.songId
 

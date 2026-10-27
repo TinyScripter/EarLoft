@@ -11,6 +11,9 @@ import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.model.SyncActionType
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicException
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -89,6 +92,21 @@ class SyncQueueProcessorTest {
 
         assertTrue(processor().process())
         assertEquals(0, db.syncDao().countActions())
+    }
+
+    @Test
+    fun `dropped favorite is announced but a dropped scrobble is not`() = runTest {
+        home.failure = SubsonicException(SubsonicException.NOT_FOUND, "Song not found")
+        db.syncDao().replaceAction("home", SyncActionType.SCROBBLE, "home:h", "1")
+        db.syncDao().replaceAction("home", SyncActionType.SET_FAVORITE, "home:h", "true")
+        val notices = SyncNotices()
+        val received = mutableListOf<SyncNotice>()
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { notices.notices.toList(received) }
+
+        assertTrue(db.syncQueueProcessor(home, office, notices = notices).process())
+
+        assertEquals(listOf<SyncNotice>(SyncNotice.ChangeDropped(SyncNotice.ChangeDropped.Kind.FAVORITE)), received)
+        job.cancel()
     }
 
     @Test
