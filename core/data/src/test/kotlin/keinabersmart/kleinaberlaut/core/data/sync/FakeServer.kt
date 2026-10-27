@@ -8,9 +8,11 @@ import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.datasource.RawTrack
 import keinabersmart.kleinaberlaut.core.datasource.RemoteLibraryActions
+import keinabersmart.kleinaberlaut.core.datasource.RemoteLyrics
 import keinabersmart.kleinaberlaut.core.datasource.RemotePlaylist
 import keinabersmart.kleinaberlaut.core.datasource.RemotePlaylistInfo
 import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
+import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicException
 import kotlinx.coroutines.flow.Flow
@@ -20,12 +22,13 @@ import kotlinx.coroutines.flow.flowOf
 internal class FakeServer(
     override val sourceId: String,
     var tracks: List<RawTrack> = emptyList(),
-) : MusicDataSource, RemoteLibraryActions {
+) : MusicDataSource, RemoteLibraryActions, RemoteLyrics {
     override val type = SourceType.SUBSONIC
     override val displayName = sourceId
     val calls = mutableListOf<String>()
     var failure: Exception? = null
     val playlists = LinkedHashMap<String, RemotePlaylist>()
+    val lyrics = HashMap<String, Lyrics>()
     private var clock = 1_000L
     private var nextId = 1
 
@@ -70,6 +73,12 @@ internal class FakeServer(
         val remoteId = current.info.remoteId
         calls += "replace $remoteId $name $songRemoteIds"
         return playlists.getValue(putPlaylist(name, songRemoteIds, remoteId)).info
+    }
+
+    override suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics {
+        failure?.let { throw it }
+        calls += "lyrics $remoteId"
+        return lyrics[remoteId] ?: Lyrics.None
     }
 
     override suspend fun deletePlaylist(remoteId: String) {

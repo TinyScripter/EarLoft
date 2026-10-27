@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
+import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import keinabersmart.kleinaberlaut.core.playback.QueueEntry
 import keinabersmart.kleinaberlaut.ui.components.AlbumArt
@@ -56,10 +57,16 @@ fun NowPlayingScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isCurrentFavorite.collectAsStateWithLifecycle()
     val position by rememberPlaybackPosition { viewModel.currentPositionMs }
+    val lyricsVisible by viewModel.lyricsVisible.collectAsStateWithLifecycle()
+    val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     NowPlayingContent(
         state = state,
         isFavorite = isFavorite,
         positionMs = position,
+        lyricsVisible = lyricsVisible,
+        lyrics = lyrics,
+        onToggleLyrics = viewModel::toggleLyrics,
+        onRetryLyrics = viewModel::retryLyrics,
         onClose = onClose,
         onOpenQueue = onOpenQueue,
         onTogglePlayPause = viewModel::togglePlayPause,
@@ -78,6 +85,10 @@ private fun NowPlayingContent(
     state: PlayerState,
     isFavorite: Boolean,
     positionMs: Long,
+    lyricsVisible: Boolean,
+    lyrics: Lyrics?,
+    onToggleLyrics: () -> Unit,
+    onRetryLyrics: () -> Unit,
     onClose: () -> Unit,
     onOpenQueue: () -> Unit,
     onTogglePlayPause: () -> Unit,
@@ -114,6 +125,14 @@ private fun NowPlayingContent(
                     onClick = onToggleFavorite,
                 )
             }
+            if (state.current != null) {
+                ToggleIconButton(
+                    icon = DesignR.drawable.ic_lyrics,
+                    active = lyricsVisible,
+                    label = stringResource(if (lyricsVisible) R.string.player_hide_lyrics else R.string.player_show_lyrics),
+                    onClick = onToggleLyrics,
+                )
+            }
             IconButton(onClick = onOpenQueue) {
                 Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = stringResource(R.string.player_open_queue))
             }
@@ -131,13 +150,17 @@ private fun NowPlayingContent(
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            AlbumArt(
-                albumId = current.albumId,
-                modifier = Modifier
-                    .widthIn(max = 420.dp)
-                    .fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
-            )
+            if (lyricsVisible) {
+                LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
+            } else {
+                AlbumArt(
+                    albumId = current.albumId,
+                    modifier = Modifier
+                        .widthIn(max = 420.dp)
+                        .fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                )
+            }
         }
         Spacer(Modifier.height(24.dp))
         Text(
@@ -257,6 +280,10 @@ private fun NowPlayingContentPreview() {
             ),
             isFavorite = true,
             positionMs = 80_000,
+            lyricsVisible = false,
+            lyrics = null,
+            onToggleLyrics = {},
+            onRetryLyrics = {},
             onClose = {},
             onOpenQueue = {},
             onTogglePlayPause = {},

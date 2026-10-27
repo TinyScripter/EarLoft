@@ -4,10 +4,13 @@ import keinabersmart.kleinaberlaut.core.datasource.RawArtist
 import keinabersmart.kleinaberlaut.core.datasource.RawTrack
 import keinabersmart.kleinaberlaut.core.datasource.RemotePlaylistInfo
 import keinabersmart.kleinaberlaut.core.datasource.local.FallbackNames
+import keinabersmart.kleinaberlaut.core.model.LyricLine
+import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.AlbumDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.ArtistRefDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.PlaylistDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.SongDto
+import keinabersmart.kleinaberlaut.core.network.subsonic.dto.StructuredLyricsDto
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.time.OffsetDateTime
@@ -103,6 +106,27 @@ internal object SubsonicTrackMapper {
             name = playlist.name,
             changedAt = playlist.changed?.toEpochMillis() ?: 0L,
         )
+
+    /**
+     * Bevorzugt synchronisierte Lyrics. `synced` entscheidet, nicht das Vorhandensein von `start`;
+     * `offset` wird ignoriert (Vorzeichen-Konvention uneinheitlich, in der Praxis meist 0).
+     */
+    fun lyrics(structured: List<StructuredLyricsDto>): Lyrics {
+        structured.firstOrNull { it.synced && it.line.any { line -> line.start != null } }?.let { entry ->
+            val lines = entry.line.mapNotNull { line -> line.start?.let { LyricLine(it, line.value) } }.sortedBy { it.startMs }
+            if (lines.any { it.text.isNotBlank() }) return Lyrics.Synced(lines)
+        }
+        structured.firstOrNull { !it.synced }?.let { entry ->
+            val text = entry.line.joinToString("\n") { it.value }.trim()
+            if (text.isNotEmpty()) return Lyrics.Plain(text)
+        }
+        // Nur synchronisierte Lyrics ohne verwertbare Zeitstempel: als Text anzeigen.
+        structured.firstOrNull()?.let { entry ->
+            val text = entry.line.joinToString("\n") { it.value }.trim()
+            if (text.isNotEmpty()) return Lyrics.Plain(text)
+        }
+        return Lyrics.None
+    }
 
     private fun String.toEpochMillis(): Long? =
         try {

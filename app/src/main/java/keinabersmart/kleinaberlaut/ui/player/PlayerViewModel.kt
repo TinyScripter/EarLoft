@@ -4,13 +4,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
+import keinabersmart.kleinaberlaut.core.data.repository.LyricsRepository
+import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -22,6 +28,7 @@ import javax.inject.Inject
 class PlayerViewModel @Inject constructor(
     private val playbackConnection: PlaybackConnection,
     private val favoritesRepository: FavoritesRepository,
+    private val lyricsRepository: LyricsRepository,
 ) : ViewModel() {
 
     val state: StateFlow<PlayerState> = playbackConnection.state
@@ -32,6 +39,31 @@ class PlayerViewModel @Inject constructor(
         .distinctUntilChanged()
         .flatMapLatest { songId -> songId?.let(favoritesRepository::isFavorite) ?: flowOf(false) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    private val _lyricsVisible = MutableStateFlow(false)
+    val lyricsVisible: StateFlow<Boolean> = _lyricsVisible.asStateFlow()
+    private val lyricsRetry = MutableStateFlow(0)
+
+    /** Songtext des aktuellen Titels; `null` während des Ladens. Geladen wird erst, wenn er angezeigt wird. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val lyrics: StateFlow<Lyrics?> = combine(_lyricsVisible, state.map { it.current?.songId }.distinctUntilChanged(), lyricsRetry) { visible, songId, _ ->
+        songId.takeIf { visible }
+    }
+        .flatMapLatest { songId ->
+            if (songId == null) flowOf<Lyrics?>(null) else flow<Lyrics?> {
+                emit(null)
+                emit(lyricsRepository.lyrics(songId))
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun toggleLyrics() {
+        _lyricsVisible.value = !_lyricsVisible.value
+    }
+
+    fun retryLyrics() {
+        lyricsRetry.value++
+    }
 
     val currentPositionMs: Long get() = playbackConnection.currentPositionMs
 

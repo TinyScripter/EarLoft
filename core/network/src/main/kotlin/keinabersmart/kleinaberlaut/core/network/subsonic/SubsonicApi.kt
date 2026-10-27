@@ -5,6 +5,7 @@ import keinabersmart.kleinaberlaut.core.network.subsonic.dto.AlbumDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.OpenSubsonicExtensionDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.PlaylistDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.SongDto
+import keinabersmart.kleinaberlaut.core.network.subsonic.dto.StructuredLyricsDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.SubsonicEnvelope
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.SubsonicResponse
 import kotlinx.coroutines.Dispatchers
@@ -108,6 +109,22 @@ class SubsonicApi @Inject constructor(
     suspend fun deletePlaylist(server: SubsonicServer, playlistId: String) {
         get(server, "deletePlaylist") { addQueryParameter("id", playlistId) }
     }
+
+    /** OpenSubsonic `getLyricsBySongId`; leer, wenn der Server den Aufruf nicht kennt. */
+    suspend fun lyricsBySongId(server: SubsonicServer, songId: String): List<StructuredLyricsDto> =
+        try {
+            get(server, "getLyricsBySongId") { addQueryParameter("id", songId) }.lyricsList?.structuredLyrics.orEmpty()
+        } catch (e: SubsonicException) {
+            if (e.isAuthError) throw e
+            emptyList()
+        }
+
+    /** Klassisches `getLyrics` (reiner Text), `null` wenn nichts gefunden wurde. */
+    suspend fun lyrics(server: SubsonicServer, artist: String, title: String): String? =
+        get(server, "getLyrics") {
+            addQueryParameter("artist", artist)
+            addQueryParameter("title", title)
+        }.lyrics?.value?.takeIf { it.isNotBlank() }
 
     /** Original-Datei ohne Transcoding (Gapless, Klangtreue). */
     fun streamUrl(server: SubsonicServer, songId: String): HttpUrl =

@@ -2,6 +2,7 @@ package keinabersmart.kleinaberlaut.core.datasource
 
 import android.graphics.Bitmap
 import android.net.Uri
+import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 
@@ -47,6 +48,12 @@ interface RemoteLibraryActions {
     suspend fun replacePlaylist(current: RemotePlaylist, name: String, songRemoteIds: List<String>): RemotePlaylistInfo
 
     suspend fun deletePlaylist(remoteId: String)
+}
+
+/** Quellen, die Songtexte liefern. Fehler wie bei [RemoteLibraryActions]; `IOException` = später erneut versuchen. */
+interface RemoteLyrics {
+    /** [artist] und [title] dienen Servern ohne OpenSubsonic als Suchbegriff. [Lyrics.None], wenn es keinen Text gibt. */
+    suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics
 }
 
 /** [changedAt] = letzte Änderung auf dem Server (ms) – dient der Konflikterkennung. */

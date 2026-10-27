@@ -1,10 +1,14 @@
 package keinabersmart.kleinaberlaut.core.datasource.subsonic
 
 import keinabersmart.kleinaberlaut.core.datasource.local.FallbackNames
+import keinabersmart.kleinaberlaut.core.model.LyricLine
+import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.AlbumDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.ArtistRefDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.ReplayGainDto
+import keinabersmart.kleinaberlaut.core.network.subsonic.dto.LyricLineDto
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.SongDto
+import keinabersmart.kleinaberlaut.core.network.subsonic.dto.StructuredLyricsDto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -107,5 +111,33 @@ class SubsonicTrackMapperTest {
         assertNull(unstarred.starredAt)
         assertEquals(1_793_084_193_043L, starred.starredAt)
         assertEquals(unstarred.lastModified, starred.lastModified)
+    }
+
+    @Test
+    fun `synced lyrics are preferred and sorted`() {
+        val lyrics = SubsonicTrackMapper.lyrics(
+            listOf(
+                StructuredLyricsDto(synced = false, line = listOf(LyricLineDto(value = "statisch"))),
+                StructuredLyricsDto(synced = true, line = listOf(LyricLineDto(5_000, "zwei"), LyricLineDto(0, "eins"))),
+            ),
+        )
+
+        assertEquals(Lyrics.Synced(listOf(LyricLine(0, "eins"), LyricLine(5_000, "zwei"))), lyrics)
+    }
+
+    @Test
+    fun `plain lyrics are joined and empty ones are none`() {
+        val plain = StructuredLyricsDto(synced = false, line = listOf(LyricLineDto(value = "a"), LyricLineDto(value = "b")))
+
+        assertEquals(Lyrics.Plain("a\nb"), SubsonicTrackMapper.lyrics(listOf(plain)))
+        assertEquals(Lyrics.None, SubsonicTrackMapper.lyrics(listOf(plain.copy(line = listOf(LyricLineDto(value = " "))))))
+        assertEquals(Lyrics.None, SubsonicTrackMapper.lyrics(emptyList()))
+    }
+
+    @Test
+    fun `synced lyrics without timestamps fall back to text`() {
+        val broken = StructuredLyricsDto(synced = true, line = listOf(LyricLineDto(value = "x"), LyricLineDto(value = "y")))
+
+        assertEquals(Lyrics.Plain("x\ny"), SubsonicTrackMapper.lyrics(listOf(broken)))
     }
 }

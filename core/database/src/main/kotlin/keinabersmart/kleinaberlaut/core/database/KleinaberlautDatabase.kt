@@ -7,6 +7,7 @@ import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
+import keinabersmart.kleinaberlaut.core.database.dao.LyricsDao
 import keinabersmart.kleinaberlaut.core.database.dao.MergeDao
 import keinabersmart.kleinaberlaut.core.database.dao.PlaybackDao
 import keinabersmart.kleinaberlaut.core.database.dao.PlaylistDao
@@ -65,6 +66,7 @@ abstract class KleinaberlautDatabase : RoomDatabase() {
     abstract fun downloadDao(): DownloadDao
     abstract fun syncDao(): SyncDao
     abstract fun playlistDao(): PlaylistDao
+    abstract fun lyricsDao(): LyricsDao
 
     /** v1 → v2: FTS-Tabellen kommen hinzu und werden aus den vorhandenen Daten befüllt. */
     class AddSearchIndex : AutoMigrationSpec {

@@ -7,14 +7,17 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.datasource.RemoteLibraryActions
+import keinabersmart.kleinaberlaut.core.datasource.RemoteLyrics
 import keinabersmart.kleinaberlaut.core.datasource.RemotePlaylist
 import keinabersmart.kleinaberlaut.core.datasource.RemotePlaylistInfo
 import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
 import keinabersmart.kleinaberlaut.core.datasource.decodeSampled
 import keinabersmart.kleinaberlaut.core.datasource.local.FallbackNames
+import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicApi
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicCredentials
+import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicException
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicServer
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.AlbumDto
 import kotlinx.coroutines.Dispatchers
@@ -30,7 +33,7 @@ class SubsonicDataSource internal constructor(
     override val displayName: String,
     private val api: SubsonicApi,
     private val names: FallbackNames,
-) : MusicDataSource, RemoteLibraryActions {
+) : MusicDataSource, RemoteLibraryActions, RemoteLyrics {
 
     override val sourceId: String get() = server.sourceId
     override val type: SourceType = SourceType.SUBSONIC
@@ -118,6 +121,18 @@ class SubsonicDataSource internal constructor(
     }
 
     override suspend fun deletePlaylist(remoteId: String) = api.deletePlaylist(server, remoteId)
+
+    /** OpenSubsonic zuerst, dann der klassische `getLyrics`-Aufruf (nur Text). */
+    override suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics {
+        SubsonicTrackMapper.lyrics(api.lyricsBySongId(server, remoteId)).let { if (it != Lyrics.None) return it }
+        val text = try {
+            api.lyrics(server, artist, title)
+        } catch (e: SubsonicException) {
+            if (e.isAuthError) throw e
+            null
+        }
+        return if (text == null) Lyrics.None else Lyrics.Plain(text)
+    }
 
     /** Ohne `formPost` stehen die Song-IDs in der URL – dann in Blöcken senden. */
     private val chunkSize: Int get() = if (server.supportsFormPost) Int.MAX_VALUE else GET_CHUNK_SIZE
