@@ -41,6 +41,29 @@ data class AlbumOfflineStatus(val songs: Map<Long, SongOfflineStatus>) {
     }
 }
 
+/**
+ * Offline-Zustand beliebiger Songs: Lokale Songs und Songs mit Download sind bekannt, alle anderen
+ * sind [SongOfflineState.NONE].
+ */
+class SongOfflineLookup(
+    private val downloads: Map<Long, SongOfflineStatus>,
+    private val local: Set<Long>,
+) {
+    operator fun get(songId: Long): SongOfflineStatus = when {
+        songId in local -> LOCAL
+        else -> downloads[songId] ?: NONE
+    }
+
+    fun statusOf(songIds: Collection<Long>): AlbumOfflineStatus =
+        AlbumOfflineStatus(songIds.distinct().associateWith { get(it) })
+
+    companion object {
+        private val LOCAL = SongOfflineStatus(SongOfflineState.LOCAL)
+        private val NONE = SongOfflineStatus(SongOfflineState.NONE)
+        val EMPTY = SongOfflineLookup(emptyMap(), emptySet())
+    }
+}
+
 /** Ein Album mit mindestens einem Download – für die Downloads-Übersicht. */
 data class DownloadedAlbum(
     val album: Album,

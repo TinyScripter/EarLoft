@@ -53,16 +53,12 @@ interface SongActions {
     fun addToQueue(song: Song)
 
     fun toggleFavorite(song: Song) = Unit
-
-    /** Nur angeboten, wo der Offline-Zustand bekannt ist (siehe [SongListItem]). */
-    fun download(song: Song) = Unit
-    fun removeDownload(song: Song) = Unit
 }
 
 /**
  * Eine Song-Zeile. Mit [trackNumber] wird statt des Covers die Titelnummer gezeigt
- * (Album-Ansicht). Ist [offline] bekannt, zeigt die Zeile den Download-Zustand und das Menü
- * „Herunterladen“ bzw. „Download entfernen“. [onRemoveFromPlaylist] ergänzt das Menü in
+ * (Album-Ansicht). Die Zeile zeigt den Download-Zustand und das Menü „Herunterladen“ bzw.
+ * „Download entfernen“, sofern ein [LocalOfflineController] bereitsteht; [offline] überschreibt den Zustand (Vorschau). [onRemoveFromPlaylist] ergänzt das Menü in
  * Playlists, [warning] erscheint als zweite Zeile (z. B. „Nicht auf …“).
  */
 @Composable
@@ -76,6 +72,8 @@ fun SongListItem(
     onRemoveFromPlaylist: (() -> Unit)? = null,
     warning: String? = null,
 ) {
+    val offlineController = LocalOfflineController.current
+    val status = offline ?: offlineController?.statusOf(song.id)
     var addToPlaylist by rememberSaveable { mutableStateOf(false) }
     if (addToPlaylist) AddToPlaylistDialog(songIds = listOf(song.id), onDismiss = { addToPlaylist = false })
 
@@ -103,7 +101,7 @@ fun SongListItem(
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (offline != null) OfflineIndicator(offline)
+                if (status != null) OfflineIndicator(status)
                 Box {
                     var menuOpen by remember { mutableStateOf(false) }
                     IconButton(onClick = { menuOpen = true }) {
@@ -159,14 +157,14 @@ fun SongListItem(
                                 },
                             )
                         }
-                        when (offline?.state) {
+                        when (status?.state) {
                             null, SongOfflineState.LOCAL -> Unit
                             SongOfflineState.NONE, SongOfflineState.FAILED -> DropdownMenuItem(
                                 text = { Text(stringResource(R.string.action_download)) },
                                 leadingIcon = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
-                                    actions.download(song)
+                                    offlineController?.download?.invoke(song.id)
                                 },
                             )
                             SongOfflineState.DOWNLOADED, SongOfflineState.QUEUED, SongOfflineState.DOWNLOADING -> DropdownMenuItem(
@@ -174,7 +172,7 @@ fun SongListItem(
                                 leadingIcon = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
-                                    actions.removeDownload(song)
+                                    offlineController?.removeDownload?.invoke(song.id)
                                 },
                             )
                         }

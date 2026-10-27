@@ -52,6 +52,8 @@ import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
+import keinabersmart.kleinaberlaut.core.download.DownloadRepository
+import keinabersmart.kleinaberlaut.core.model.AlbumOfflineStatus
 import keinabersmart.kleinaberlaut.core.model.Playlist
 import keinabersmart.kleinaberlaut.core.model.PlaylistDetails
 import keinabersmart.kleinaberlaut.core.model.PlaylistEntry
@@ -65,9 +67,12 @@ import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
 import keinabersmart.kleinaberlaut.ui.components.formatDuration
 import keinabersmart.kleinaberlaut.ui.library.BackButton
+import keinabersmart.kleinaberlaut.ui.library.DownloadButton
+import keinabersmart.kleinaberlaut.ui.library.DownloadStatusLine
 import keinabersmart.kleinaberlaut.ui.toLoadState
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -79,11 +84,26 @@ class PlaylistViewModel @AssistedInject constructor(
     private val playlistRepository: PlaylistRepository,
     private val favoritesRepository: FavoritesRepository,
     private val playbackConnection: PlaybackConnection,
+    private val downloadRepository: DownloadRepository,
 ) : ViewModel(), SongActions {
 
     val playlist: StateFlow<LoadState<PlaylistDetails>> = playlistRepository.playlist(playlistId)
         .map { it.toLoadState() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
+
+    val offline: StateFlow<AlbumOfflineStatus> = combine(
+        playlistRepository.playlist(playlistId),
+        downloadRepository.songStatuses(),
+    ) { details, lookup -> lookup.statusOf(details?.entries?.map { it.song.id }.orEmpty()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AlbumOfflineStatus.EMPTY)
+
+    fun downloadPlaylist() {
+        viewModelScope.launch { downloadRepository.downloadPlaylist(playlistId) }
+    }
+
+    fun removePlaylistDownload() {
+        viewModelScope.launch { downloadRepository.removePlaylist(playlistId) }
+    }
 
     fun play(startIndex: Int = 0) {
         songs()?.let { playbackConnection.play(it, startIndex) }
@@ -133,8 +153,12 @@ fun PlaylistScreen(
     viewModel: PlaylistViewModel = hiltViewModel<PlaylistViewModel, PlaylistViewModel.Factory> { it.create(playlistId) },
 ) {
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
+    val offline by viewModel.offline.collectAsStateWithLifecycle()
     PlaylistContent(
         state = playlist,
+        offline = offline,
+        onDownload = viewModel::downloadPlaylist,
+        onRemoveDownload = viewModel::removePlaylistDownload,
         onBack = onBack,
         onPlay = viewModel::play,
         onShuffle = viewModel::shuffle,
@@ -150,6 +174,9 @@ fun PlaylistScreen(
 @Composable
 private fun PlaylistContent(
     state: LoadState<PlaylistDetails>,
+    offline: AlbumOfflineStatus,
+    onDownload: () -> Unit,
+    onRemoveDownload: () -> Unit,
     onBack: () -> Unit,
     onPlay: (Int) -> Unit,
     onShuffle: () -> Unit,
@@ -172,7 +199,7 @@ private fun PlaylistContent(
         when (state) {
             LoadState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             LoadState.Missing -> EmptyHint(stringResource(R.string.item_missing))
-            is LoadState.Ready -> PlaylistEntries(state.value, onPlay, onShuffle, onRemoveEntry, actions)
+            is LoadState.Ready -> PlaylistEntries(state.value, offline, onPlay, onShuffle, onDownload, onRemoveDownload, onRemoveEntry, actions)
         }
     }
 }
@@ -180,8 +207,11 @@ private fun PlaylistContent(
 @Composable
 private fun PlaylistEntries(
     details: PlaylistDetails,
+    offline: AlbumOfflineStatus,
     onPlay: (Int) -> Unit,
     onShuffle: () -> Unit,
+    onDownload: () -> Unit,
+    onRemoveDownload: () -> Unit,
     onRemoveEntry: (Long) -> Unit,
     actions: SongActions,
 ) {
@@ -197,7 +227,7 @@ private fun PlaylistEntries(
                 Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 if (details.entries.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Button(onClick = { onPlay(0) }) {
                             Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
@@ -208,7 +238,18 @@ private fun PlaylistEntries(
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.action_shuffle))
                         }
+                        // Rein lokale Playlists brauchen keinen Download.
+                        if (offline.downloadableCount > 0) {
+                            DownloadButton(
+                                removeTitle = stringResource(R.string.download_album_remove_title),
+                                removeText = stringResource(R.string.download_playlist_remove_text, playlist.name),
+                                offline = offline,
+                                onDownload = onDownload,
+                                onRemoveDownload = onRemoveDownload,
+                            )
+                        }
                     }
+                    DownloadStatusLine(offline)
                     Spacer(Modifier.height(8.dp))
                 }
             }
@@ -311,6 +352,9 @@ private fun PlaylistContentPreview() {
             state = LoadState.Ready(
                 PlaylistDetails(Playlist(1, "Sommer", 3, 645_000, serverName = "Navidrome"), entries),
             ),
+            offline = AlbumOfflineStatus.EMPTY,
+            onDownload = {},
+            onRemoveDownload = {},
             onBack = {},
             onPlay = {},
             onShuffle = {},

@@ -5,6 +5,7 @@ import keinabersmart.kleinaberlaut.core.data.repository.SourcePreference
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
+import keinabersmart.kleinaberlaut.core.database.dao.PlaylistDao
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
 import keinabersmart.kleinaberlaut.core.database.model.SongOfflineRow
 import keinabersmart.kleinaberlaut.core.model.Album
@@ -12,11 +13,13 @@ import keinabersmart.kleinaberlaut.core.model.AlbumOfflineStatus
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.model.DownloadState
 import keinabersmart.kleinaberlaut.core.model.DownloadedAlbum
+import keinabersmart.kleinaberlaut.core.model.SongOfflineLookup
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -30,6 +33,7 @@ class DownloadRepository @Inject constructor(
     private val database: KleinaberlautDatabase,
     private val downloadDao: DownloadDao,
     private val libraryDao: LibraryDao,
+    private val playlistDao: PlaylistDao,
     private val storage: DownloadStorage,
     private val scheduler: DownloadScheduler,
 ) {
@@ -38,15 +42,22 @@ class DownloadRepository @Inject constructor(
 
     suspend fun downloadSongs(songIds: List<Long>): Int = enqueue(songIds, pinnedBy = PINNED_MANUAL)
 
+    suspend fun downloadPlaylist(playlistId: Long): Int =
+        enqueue(playlistDao.getSongIds(playlistId), pinnedBy = "playlist:$playlistId")
+
     /**
      * Reiht für jeden Song die beste Server-Quelle ein. Songs mit lokaler Datei oder vorhandenem
      * Download werden übersprungen; fehlgeschlagene Downloads dieser Songs neu versucht.
      * @return Anzahl neu eingereihter oder neu versuchter Songs.
      */
-    private suspend fun enqueue(songIds: List<Long>, pinnedBy: String): Int {
+    private suspend fun enqueue(songIds: List<Long>, pinnedBy: String, retryFailed: Boolean = true): Int {
         if (songIds.isEmpty()) return 0
         val count = database.withTransaction {
             val chunks = songIds.distinct().chunked(SQLITE_MAX_VARIABLES)
+            // Wer einen automatisch geladenen Song selbst anfordert, behält ihn auch ohne Favorit.
+            if (pinnedBy != PINNED_FAVORITES) {
+                chunks.forEach { downloadDao.repinForSongs(PINNED_FAVORITES, pinnedBy, it) }
+            }
             val sourcesBySong = chunks.flatMap { libraryDao.getPlayableSourcesOfSongs(it) }.groupBy { it.songId }
             val alreadyDownloaded = chunks.flatMapTo(HashSet()) { downloadDao.getSongIdsWithDownload(it) }
 
@@ -63,9 +74,11 @@ class DownloadRepository @Inject constructor(
                     )
                 }
             downloadDao.insertIfAbsent(newDownloads)
-            val failed = chunks.flatMap { downloadDao.getForSongs(it) }
-                .filter { it.state == DownloadState.FAILED }
-                .map { it.sourceUid }
+            val failed = if (retryFailed) {
+                chunks.flatMap { downloadDao.getForSongs(it) }.filter { it.state == DownloadState.FAILED }.map { it.sourceUid }
+            } else {
+                emptyList()
+            }
             val retried = failed.chunked(SQLITE_MAX_VARIABLES).sumOf { downloadDao.retryFailed(it) }
             newDownloads.size + retried
         }
@@ -77,6 +90,32 @@ class DownloadRepository @Inject constructor(
 
     suspend fun removeSongs(songIds: List<Long>) =
         remove(songIds.distinct().chunked(SQLITE_MAX_VARIABLES).flatMap { downloadDao.getForSongs(it) })
+
+    suspend fun removePlaylist(playlistId: Long) = removeSongs(playlistDao.getSongIds(playlistId))
+
+    /**
+     * Gleicht die automatischen Downloads mit den Favoriten ab ([enabled] = Einstellung): Favoriten werden geladen,
+     * Downloads entsternter Songs entfernt. Ist die Automatik aus, behalten ihre Downloads (nun als manuell).
+     * Wer einen automatisch geladenen Song danach selbst entfernt, bekommt ihn bei eingeschalteter Automatik
+     * beim nächsten Abgleich wieder.
+     */
+    suspend fun reconcileFavoriteDownloads(enabled: Boolean) {
+        if (!enabled) {
+            downloadDao.repinAll(PINNED_FAVORITES, PINNED_MANUAL)
+            return
+        }
+        remove(downloadDao.getPinnedByWithoutFavorite(PINNED_FAVORITES))
+        // Fehlgeschlagene nicht bei jeder Änderung neu versuchen: Sonst bremst ein kaputter Song jeden Abgleich.
+        enqueue(downloadDao.getFavoriteSongIds(), PINNED_FAVORITES, retryFailed = false)
+    }
+
+    fun favoriteSongIds(): Flow<List<Long>> = downloadDao.observeFavoriteSongIds()
+
+    /** Offline-Zustand beliebiger Songs, für alle Listen. */
+    fun songStatuses(): Flow<SongOfflineLookup> =
+        combine(downloadDao.observeDownloadRows(), downloadDao.observeLocalSongIds()) { rows, local ->
+            SongOfflineLookup(rows.associate { it.songId to it.toStatus() }, local.toHashSet())
+        }
 
     suspend fun removeAll() {
         val all = downloadDao.getAll()
@@ -158,6 +197,7 @@ class DownloadRepository @Inject constructor(
 
     private companion object {
         const val PINNED_MANUAL = "manual"
+        const val PINNED_FAVORITES = "favorites"
         const val SQLITE_MAX_VARIABLES = 900
     }
 }

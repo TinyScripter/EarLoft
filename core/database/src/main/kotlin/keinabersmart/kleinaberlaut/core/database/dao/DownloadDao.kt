@@ -107,6 +107,37 @@ interface DownloadDao {
     @Query("DELETE FROM downloads")
     suspend fun deleteAll()
 
+    // --- Favoriten-Downloads (Smart-Downloads) ---
+
+    @Query("SELECT songId FROM songs WHERE isFavorite = 1")
+    suspend fun getFavoriteSongIds(): List<Long>
+
+    @Query("SELECT songId FROM songs WHERE isFavorite = 1")
+    fun observeFavoriteSongIds(): Flow<List<Long>>
+
+    /** Automatisch (wegen eines Favoriten) geladene Downloads, deren Song kein Favorit mehr ist. */
+    @Query(
+        """
+        SELECT d.* FROM downloads d
+        JOIN song_sources ss ON ss.uid = d.sourceUid
+        JOIN songs s ON s.songId = ss.songId
+        WHERE d.pinnedBy = :pinnedBy AND s.isFavorite = 0
+        """,
+    )
+    suspend fun getPinnedByWithoutFavorite(pinnedBy: String): List<DownloadEntity>
+
+    /** Ein Download, den der Nutzer nun selbst angefordert hat, gehört nicht mehr der Automatik. */
+    @Query(
+        """
+        UPDATE downloads SET pinnedBy = :to
+        WHERE pinnedBy = :from AND sourceUid IN (SELECT uid FROM song_sources WHERE songId IN (:songIds))
+        """,
+    )
+    suspend fun repinForSongs(from: String, to: String, songIds: List<Long>)
+
+    @Query("UPDATE downloads SET pinnedBy = :to WHERE pinnedBy = :from")
+    suspend fun repinAll(from: String, to: String)
+
     // --- Wiedergabe ---
 
     /** Fertig geladene Dateien eines Songs (meist höchstens eine). */
@@ -140,6 +171,27 @@ interface DownloadDao {
         """,
     )
     fun observeOfflineRowsOfAlbum(albumId: Long): Flow<List<SongOfflineRow>>
+
+    /**
+     * Download-Zustand aller Songs mit Download (einer je Song); lokale Songs liefert [observeLocalSongIds].
+     * Zusammen ergibt das den Offline-Zustand jedes Songs, ohne die ganze Bibliothek zu laden.
+     */
+    @Query(
+        """
+        SELECT ss.songId AS songId, 0 AS isLocal, d.state, d.bytesDone, d.bytesTotal
+        FROM downloads d JOIN song_sources ss ON ss.uid = d.sourceUid
+        GROUP BY ss.songId
+        """,
+    )
+    fun observeDownloadRows(): Flow<List<SongOfflineRow>>
+
+    @Query(
+        """
+        SELECT DISTINCT ss.songId FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId
+        WHERE src.type = 'LOCAL'
+        """,
+    )
+    fun observeLocalSongIds(): Flow<List<Long>>
 
     /** Alben mit mindestens einem Download; Songs ohne Download zählen in `songCount` mit. */
     @Query(

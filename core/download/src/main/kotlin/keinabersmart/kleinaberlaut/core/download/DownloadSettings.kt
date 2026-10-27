@@ -25,7 +25,16 @@ class DownloadSettings @Inject constructor(
         context.downloadSettingsDataStore.edit { it[KEY_WIFI_ONLY] = wifiOnly }
     }
 
+    /** Favoriten automatisch herunterladen (Standard: aus – es kann viel Speicher kosten). */
+    val autoDownloadFavorites: Flow<Boolean> =
+        context.downloadSettingsDataStore.data.map { it[KEY_AUTO_FAVORITES] ?: false }
+
+    suspend fun setAutoDownloadFavorites(enabled: Boolean) {
+        context.downloadSettingsDataStore.edit { it[KEY_AUTO_FAVORITES] = enabled }
+    }
+
     private companion object {
         val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only")
+        val KEY_AUTO_FAVORITES = booleanPreferencesKey("auto_download_favorites")
     }
 }

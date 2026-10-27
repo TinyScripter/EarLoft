@@ -136,6 +136,7 @@
     <string name="download_album_running">Wird heruntergeladen – abbrechen</string>
     <string name="download_album_remove_title">Download entfernen?</string>
     <string name="download_album_remove_text">Die heruntergeladenen Dateien von „%1$s“ werden gelöscht. Das Album bleibt in der Bibliothek und lässt sich weiter streamen.</string>
+    <string name="download_playlist_remove_text">Die heruntergeladenen Dateien der Songs aus „%1$s“ werden gelöscht – auch, wenn sie in anderen Alben oder Playlists vorkommen. Die Songs bleiben in der Bibliothek und lassen sich weiter streamen.</string>
     <string name="download_album_progress">Wird heruntergeladen: %1$d von %2$d</string>
     <plurals name="download_album_failed">
         <item quantity="one">%1$d Download fehlgeschlagen</item>
@@ -159,6 +160,8 @@
     <string name="settings_downloads">Downloads</string>
     <string name="settings_wifi_only">Nur über WLAN herunterladen</string>
     <string name="settings_wifi_only_summary">Über mobile Daten wird nichts heruntergeladen.</string>
+    <string name="settings_auto_download_favorites">Favoriten automatisch herunterladen</string>
+    <string name="settings_auto_download_favorites_summary">Neue Favoriten werden geladen, entfernte Favoriten wieder gelöscht. Kann viel Speicher belegen.</string>
 
     <!-- Einstellungen: Wiedergabe -->
     <string name="settings_playback">Wiedergabe</string>

@@ -9,6 +9,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -35,6 +36,8 @@ import keinabersmart.kleinaberlaut.navigation.TOP_LEVEL_ROUTES
 import keinabersmart.kleinaberlaut.navigation.TopLevelDestination
 import keinabersmart.kleinaberlaut.navigation.isFullScreenPlayer
 import keinabersmart.kleinaberlaut.navigation.rememberNavigationState
+import keinabersmart.kleinaberlaut.ui.components.LocalOfflineController
+import keinabersmart.kleinaberlaut.ui.components.rememberOfflineController
 import keinabersmart.kleinaberlaut.ui.downloads.DownloadsScreen
 import keinabersmart.kleinaberlaut.ui.home.HomeScreen
 import keinabersmart.kleinaberlaut.ui.library.AlbumScreen
@@ -96,39 +99,41 @@ fun KleinaberlautApp(
 
     SyncNoticeEffect()
 
-    Scaffold(
-        // Die Bildschirme kümmern sich selbst um Statusleiste und – ohne Bottom-Bar – die Navigationsleiste.
-        contentWindowInsets = WindowInsets(0),
-        bottomBar = {
-            if (showChrome) {
-                Column {
-                    if (playerState.hasMedia) {
-                        MiniPlayer(
-                            state = playerState,
-                            positionProvider = { playerViewModel.currentPositionMs },
-                            onClick = { navigator.navigate(NowPlayingRoute) },
-                            onTogglePlayPause = playerViewModel::togglePlayPause,
-                            onNext = playerViewModel::next,
-                        )
-                    }
-                    NavigationBar {
-                        TopLevelDestination.entries.forEach { destination ->
-                            NavigationBarItem(
-                                selected = destination.route == navigationState.topLevelRoute,
-                                onClick = { navigator.navigate(destination.route) },
-                                icon = { Icon(painterResource(destination.icon), contentDescription = null) },
-                                label = { Text(stringResource(destination.label)) },
+    CompositionLocalProvider(LocalOfflineController provides rememberOfflineController()) {
+        Scaffold(
+            // Die Bildschirme kümmern sich selbst um Statusleiste und – ohne Bottom-Bar – die Navigationsleiste.
+            contentWindowInsets = WindowInsets(0),
+            bottomBar = {
+                if (showChrome) {
+                    Column {
+                        if (playerState.hasMedia) {
+                            MiniPlayer(
+                                state = playerState,
+                                positionProvider = { playerViewModel.currentPositionMs },
+                                onClick = { navigator.navigate(NowPlayingRoute) },
+                                onTogglePlayPause = playerViewModel::togglePlayPause,
+                                onNext = playerViewModel::next,
                             )
+                        }
+                        NavigationBar {
+                            TopLevelDestination.entries.forEach { destination ->
+                                NavigationBarItem(
+                                    selected = destination.route == navigationState.topLevelRoute,
+                                    onClick = { navigator.navigate(destination.route) },
+                                    icon = { Icon(painterResource(destination.icon), contentDescription = null) },
+                                    label = { Text(stringResource(destination.label)) },
+                                )
+                            }
                         }
                     }
                 }
-            }
-        },
-    ) { innerPadding ->
-        NavDisplay(
-            entries = navigationState.toDecoratedEntries(entryProvider),
-            onBack = { navigator.goBack() },
-            modifier = Modifier.padding(innerPadding),
-        )
+            },
+        ) { innerPadding ->
+            NavDisplay(
+                entries = navigationState.toDecoratedEntries(entryProvider),
+                onBack = { navigator.goBack() },
+                modifier = Modifier.padding(innerPadding),
+            )
+        }
     }
 }

@@ -146,7 +146,6 @@ private fun AlbumSongs(
                     onClick = { onPlay(index) },
                     actions = actions,
                     trackNumber = song.trackNumber,
-                    offline = offline.songs[song.id],
                 )
             }
         }
@@ -199,7 +198,13 @@ private fun AlbumHeader(
             }
             // Rein lokale Alben brauchen keinen Download.
             if (offline.downloadableCount > 0) {
-                AlbumDownloadButton(album.title, offline, onDownload, onRemoveDownload)
+                DownloadButton(
+                    removeTitle = stringResource(R.string.download_album_remove_title),
+                    removeText = stringResource(R.string.download_album_remove_text, album.title),
+                    offline = offline,
+                    onDownload = onDownload,
+                    onRemoveDownload = onRemoveDownload,
+                )
             }
         }
         DownloadStatusLine(offline)
@@ -208,8 +213,9 @@ private fun AlbumHeader(
 }
 
 @Composable
-private fun AlbumDownloadButton(
-    albumTitle: String,
+fun DownloadButton(
+    removeTitle: String,
+    removeText: String,
     offline: AlbumOfflineStatus,
     onDownload: () -> Unit,
     onRemoveDownload: () -> Unit,
@@ -243,8 +249,8 @@ private fun AlbumDownloadButton(
     if (confirmRemove) {
         AlertDialog(
             onDismissRequest = { confirmRemove = false },
-            title = { Text(stringResource(R.string.download_album_remove_title)) },
-            text = { Text(stringResource(R.string.download_album_remove_text, albumTitle)) },
+            title = { Text(removeTitle) },
+            text = { Text(removeText) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmRemove = false
@@ -259,7 +265,7 @@ private fun AlbumDownloadButton(
 }
 
 @Composable
-private fun DownloadStatusLine(offline: AlbumOfflineStatus) {
+fun DownloadStatusLine(offline: AlbumOfflineStatus) {
     val text = when {
         offline.pendingCount > 0 -> stringResource(
             R.string.download_album_progress,

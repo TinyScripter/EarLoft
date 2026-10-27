@@ -32,6 +32,7 @@ data class SettingsUiState(
     val servers: List<ServerItem> = emptyList(),
     val isSyncing: Boolean = false,
     val downloadWifiOnly: Boolean = true,
+    val autoDownloadFavorites: Boolean = false,
     val scrobble: Boolean = true,
     val replayGainMode: ReplayGainMode = ReplayGainMode.AUTO,
     val preAmpDb: Float = 0f,
@@ -71,13 +72,14 @@ class SettingsViewModel @Inject constructor(
     val state: StateFlow<SettingsUiState> = combine(
         serverItems,
         syncer.activeSyncs,
-        downloadSettings.wifiOnly,
+        combine(downloadSettings.wifiOnly, downloadSettings.autoDownloadFavorites, ::Pair),
         syncSettings.scrobble,
-    ) { servers, syncs, wifiOnly, scrobble ->
+    ) { servers, syncs, (wifiOnly, autoFavorites), scrobble ->
         SettingsUiState(
             servers = servers,
             isSyncing = syncs > 0,
             downloadWifiOnly = wifiOnly,
+            autoDownloadFavorites = autoFavorites,
             scrobble = scrobble,
         )
     }.combine(combine(replayGainSettings.mode, replayGainSettings.preAmpDb, ::Pair)) { state, (mode, preAmpDb) ->
@@ -93,6 +95,11 @@ class SettingsViewModel @Inject constructor(
             downloadSettings.setWifiOnly(wifiOnly)
             downloadRepository.rescheduleAfterSettingsChange()
         }
+    }
+
+    /** Die Downloads selbst stößt [keinabersmart.kleinaberlaut.core.download.AutoDownloads] an. */
+    fun setAutoDownloadFavorites(enabled: Boolean) {
+        viewModelScope.launch { downloadSettings.setAutoDownloadFavorites(enabled) }
     }
 
     fun setScrobble(enabled: Boolean) {

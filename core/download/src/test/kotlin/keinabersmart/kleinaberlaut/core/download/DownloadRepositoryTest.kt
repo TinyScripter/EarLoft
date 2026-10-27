@@ -1,6 +1,8 @@
 package keinabersmart.kleinaberlaut.core.download
 
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
+import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntity
+import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntryEntity
 import keinabersmart.kleinaberlaut.core.model.DownloadState
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.SourceType
@@ -37,6 +39,7 @@ class DownloadRepositoryTest {
             database = library.db,
             downloadDao = library.db.downloadDao(),
             libraryDao = library.db.libraryDao(),
+            playlistDao = library.db.playlistDao(),
             storage = storage,
             scheduler = scheduler,
         )
@@ -110,6 +113,103 @@ class DownloadRepositoryTest {
         assertFalse(file.exists())
         assertTrue(library.db.downloadDao().getAll().isEmpty())
         assertEquals(SongOfflineState.NONE, repository.albumStatus(albumId).first().songs.getValue(songId).state)
+    }
+
+    @Test
+    fun `playlist download queues each song once and removing it deletes them`() = runTest {
+        val albumId = library.album("Takk")
+        val a = library.song(albumId, "A", "home" to "a")
+        val b = library.song(albumId, "B", "home" to "b")
+        val local = library.song(albumId, "C", "local" to "c")
+        val playlistId = library.db.playlistDao().insertPlaylist(PlaylistEntity(name = "Mix", updatedAt = 0))
+        library.db.playlistDao().insertEntries(
+            listOf(a, b, a, local).mapIndexed { i, id -> PlaylistEntryEntity(playlistId = playlistId, songId = id, position = i) },
+        )
+
+        assertEquals(2, repository.downloadPlaylist(playlistId))
+        assertEquals(setOf("home:a", "home:b"), library.db.downloadDao().getAll().map { it.sourceUid }.toSet())
+        assertEquals("playlist:$playlistId", library.db.downloadDao().get("home:a")!!.pinnedBy)
+
+        repository.removePlaylist(playlistId)
+        assertTrue(library.db.downloadDao().getAll().isEmpty())
+    }
+
+    @Test
+    fun `song statuses combine local songs and downloads`() = runTest {
+        val albumId = library.album("Takk")
+        val local = library.song(albumId, "A", "local" to "a", "home" to "a")
+        val queued = library.song(albumId, "B", "home" to "b")
+        val streamOnly = library.song(albumId, "C", "home" to "c")
+        repository.downloadSongs(listOf(queued))
+
+        val lookup = repository.songStatuses().first()
+
+        assertEquals(SongOfflineState.LOCAL, lookup[local].state)
+        assertEquals(SongOfflineState.QUEUED, lookup[queued].state)
+        assertEquals(SongOfflineState.NONE, lookup[streamOnly].state)
+        assertEquals(1, lookup.statusOf(listOf(local, queued, streamOnly, queued)).pendingCount)
+    }
+
+    @Test
+    fun `favorites are downloaded automatically and dropped when unstarred`() = runTest {
+        val albumId = library.album("Takk")
+        val liked = library.song(albumId, "A", "home" to "a")
+        library.song(albumId, "B", "home" to "b")
+        library.db.syncDao().setSongFavorite(liked, true, 1)
+
+        repository.reconcileFavoriteDownloads(enabled = true)
+        assertEquals("favorites", library.db.downloadDao().get("home:a")!!.pinnedBy)
+        assertEquals(1, library.db.downloadDao().getAll().size)
+        assertEquals(1, scheduler.calls)
+
+        // Unverändert: nichts Neues, kein erneuter Auftrag.
+        repository.reconcileFavoriteDownloads(enabled = true)
+        assertEquals(1, scheduler.calls)
+
+        library.db.syncDao().setSongFavorite(liked, false, 2)
+        repository.reconcileFavoriteDownloads(enabled = true)
+        assertTrue(library.db.downloadDao().getAll().isEmpty())
+    }
+
+    @Test
+    fun `a manual download keeps a song that was fetched as favorite`() = runTest {
+        val albumId = library.album("Takk")
+        val liked = library.song(albumId, "A", "home" to "a")
+        library.db.syncDao().setSongFavorite(liked, true, 1)
+        repository.reconcileFavoriteDownloads(enabled = true)
+
+        repository.downloadAlbum(albumId)
+        library.db.syncDao().setSongFavorite(liked, false, 2)
+        repository.reconcileFavoriteDownloads(enabled = true)
+
+        assertEquals("album:$albumId", library.db.downloadDao().get("home:a")!!.pinnedBy)
+    }
+
+    @Test
+    fun `switching the automatic downloads off keeps the files`() = runTest {
+        val albumId = library.album("Takk")
+        val liked = library.song(albumId, "A", "home" to "a")
+        library.db.syncDao().setSongFavorite(liked, true, 1)
+        repository.reconcileFavoriteDownloads(enabled = true)
+
+        repository.reconcileFavoriteDownloads(enabled = false)
+        library.db.syncDao().setSongFavorite(liked, false, 2)
+        repository.reconcileFavoriteDownloads(enabled = false)
+
+        assertEquals("manual", library.db.downloadDao().get("home:a")!!.pinnedBy)
+    }
+
+    @Test
+    fun `failed favorite downloads are not retried on every reconcile`() = runTest {
+        val albumId = library.album("Takk")
+        val liked = library.song(albumId, "A", "home" to "a")
+        library.db.syncDao().setSongFavorite(liked, true, 1)
+        library.db.downloadDao().insertIfAbsent(listOf(DownloadEntity("home:a", liked, DownloadState.FAILED, pinnedBy = "favorites")))
+
+        repository.reconcileFavoriteDownloads(enabled = true)
+
+        assertEquals(DownloadState.FAILED, library.db.downloadDao().get("home:a")!!.state)
+        assertEquals(0, scheduler.calls)
     }
 
     @Test

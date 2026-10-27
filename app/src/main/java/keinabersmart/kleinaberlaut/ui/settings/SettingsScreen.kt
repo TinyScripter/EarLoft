@@ -71,6 +71,7 @@ fun SettingsScreen(
         onRemove = viewModel::remove,
         onRefreshAll = viewModel::refreshAll,
         onWifiOnlyChange = viewModel::setDownloadWifiOnly,
+        onAutoDownloadFavoritesChange = viewModel::setAutoDownloadFavorites,
         onScrobbleChange = viewModel::setScrobble,
         onReplayGainModeChange = viewModel::setReplayGainMode,
         onPreAmpChange = viewModel::setPreAmpDb,
@@ -88,6 +89,7 @@ private fun SettingsContent(
     onRemove: (String) -> Unit,
     onRefreshAll: () -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit,
+    onAutoDownloadFavoritesChange: (Boolean) -> Unit,
     onScrobbleChange: (Boolean) -> Unit,
     onReplayGainModeChange: (ReplayGainMode) -> Unit,
     onPreAmpChange: (Float) -> Unit,
@@ -162,6 +164,15 @@ private fun SettingsContent(
                     icon = DesignR.drawable.ic_download,
                     checked = state.downloadWifiOnly,
                     onCheckedChange = onWifiOnlyChange,
+                )
+            }
+            item(key = "auto-favorites") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_auto_download_favorites),
+                    summary = stringResource(R.string.settings_auto_download_favorites_summary),
+                    icon = DesignR.drawable.ic_favorite,
+                    checked = state.autoDownloadFavorites,
+                    onCheckedChange = onAutoDownloadFavoritesChange,
                 )
             }
         }
@@ -346,6 +357,7 @@ private fun SettingsContentPreview() {
             onRemove = {},
             onRefreshAll = {},
             onWifiOnlyChange = {},
+            onAutoDownloadFavoritesChange = {},
             onScrobbleChange = {},
             onReplayGainModeChange = {},
             onPreAmpChange = {},

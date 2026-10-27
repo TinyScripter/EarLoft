@@ -62,14 +62,6 @@ class AlbumViewModel @AssistedInject constructor(
         viewModelScope.launch { favoritesRepository.setFavorite(song.id, !song.isFavorite) }
     }
 
-    override fun download(song: Song) {
-        viewModelScope.launch { downloadRepository.downloadSongs(listOf(song.id)) }
-    }
-
-    override fun removeDownload(song: Song) {
-        viewModelScope.launch { downloadRepository.removeSongs(listOf(song.id)) }
-    }
-
     private fun songs(): List<Song>? = (album.value as? LoadState.Ready)?.value?.songs
 
     @AssistedFactory
