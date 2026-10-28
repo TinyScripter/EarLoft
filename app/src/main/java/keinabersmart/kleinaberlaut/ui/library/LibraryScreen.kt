@@ -12,8 +12,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.core.common.sortKey
 import keinabersmart.kleinaberlaut.core.model.Album
 import keinabersmart.kleinaberlaut.core.model.Artist
 import keinabersmart.kleinaberlaut.core.model.Playlist
@@ -50,6 +53,9 @@ import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.ui.components.AlbumCard
 import keinabersmart.kleinaberlaut.ui.components.ArtistListItem
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.LazyGridFastScroller
+import keinabersmart.kleinaberlaut.ui.components.LazyListFastScroller
+import keinabersmart.kleinaberlaut.ui.components.letterOf
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
 import keinabersmart.kleinaberlaut.ui.playlists.PlaylistIcon
@@ -102,7 +108,7 @@ fun LibraryScreen(
             key = { it },
         ) { page ->
             when (LibraryTab.entries[page]) {
-                LibraryTab.ALBUMS -> Loadable(albums) { AlbumGrid(it, onAlbumClick) }
+                LibraryTab.ALBUMS -> Loadable(albums) { AlbumGrid(it, onAlbumClick, fastScroll = true) }
                 LibraryTab.ARTISTS -> Loadable(artists) { ArtistList(it, onArtistClick) }
                 LibraryTab.SONGS -> Loadable(songs) {
                     SongList(
@@ -110,6 +116,7 @@ fun LibraryScreen(
                         onSongClick = viewModel::playSongs,
                         onShuffle = viewModel::shuffleSongs,
                         actions = viewModel,
+                        fastScroll = true,
                     )
                 }
                 LibraryTab.PLAYLISTS -> PlaylistList(
@@ -204,24 +211,37 @@ fun AlbumGrid(
     albums: List<Album>,
     onAlbumClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    /** Mit Schnellscroller, wenn die Liste nach Titel sortiert ist. */
+    fastScroll: Boolean = false,
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 150.dp),
-        contentPadding = PaddingValues(12.dp),
-        modifier = modifier.fillMaxSize(),
-    ) {
-        items(albums, key = { it.id }) { album ->
-            AlbumCard(album = album, onClick = { onAlbumClick(album.id) })
+    val state = rememberLazyGridState()
+    Box(modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 150.dp),
+            state = state,
+            contentPadding = PaddingValues(12.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            items(albums, key = { it.id }) { album ->
+                AlbumCard(album = album, onClick = { onAlbumClick(album.id) })
+            }
+        }
+        if (fastScroll) {
+            LazyGridFastScroller(state, labelAt = { index -> letterOf(albums.getOrNull(index)?.title.orEmpty().sortKey()) })
         }
     }
 }
 
 @Composable
 private fun ArtistList(artists: List<Artist>, onArtistClick: (Long) -> Unit) {
-    LazyColumn(Modifier.fillMaxSize()) {
-        items(artists, key = { it.id }) { artist ->
-            ArtistListItem(artist = artist, onClick = { onArtistClick(artist.id) })
+    val state = rememberLazyListState()
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), state = state) {
+            items(artists, key = { it.id }) { artist ->
+                ArtistListItem(artist = artist, onClick = { onArtistClick(artist.id) })
+            }
         }
+        LazyListFastScroller(state, labelAt = { index -> letterOf(artists.getOrNull(index)?.name.orEmpty().sortKey()) })
     }
 }
 
@@ -232,16 +252,25 @@ fun SongList(
     onSongClick: (Int) -> Unit,
     onShuffle: () -> Unit,
     actions: SongActions,
+    /** Mit Schnellscroller, wenn die Songs nach Titel sortiert sind. */
+    fastScroll: Boolean = false,
 ) {
-    LazyColumn(Modifier.fillMaxSize()) {
-        item(key = "shuffle") {
-            FilledTonalButton(onClick = onShuffle, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = null)
-                Text(stringResource(R.string.action_shuffle), modifier = Modifier.padding(start = 8.dp))
+    val state = rememberLazyListState()
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), state = state) {
+            item(key = "shuffle") {
+                FilledTonalButton(onClick = onShuffle, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = null)
+                    Text(stringResource(R.string.action_shuffle), modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+            itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
+                SongListItem(song = song, onClick = { onSongClick(index) }, actions = actions)
             }
         }
-        itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-            SongListItem(song = song, onClick = { onSongClick(index) }, actions = actions)
+        if (fastScroll) {
+            // Index 0 ist der „Zufällig“-Knopf.
+            LazyListFastScroller(state, labelAt = { index -> letterOf(songs.getOrNull(index - 1)?.title.orEmpty()) })
         }
     }
 }

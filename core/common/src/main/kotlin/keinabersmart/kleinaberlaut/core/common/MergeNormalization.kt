@@ -16,3 +16,6 @@ fun String.normalizeForMerge(): String =
     Normalizer.normalize(trim().lowercase(Locale.ROOT), Normalizer.Form.NFKD)
         .replace(COMBINING_MARKS, "")
         .replace(NON_ALNUM, "")
+
+/** Sortierschlüssel ohne führenden englischen Artikel („The Beatles“ → „Beatles“). */
+fun String.sortKey(): String = trim().removePrefix("The ").removePrefix("the ")

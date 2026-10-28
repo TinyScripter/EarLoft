@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.core.data.sync
 
 import keinabersmart.kleinaberlaut.core.common.normalizeForMerge
+import keinabersmart.kleinaberlaut.core.common.sortKey
 import keinabersmart.kleinaberlaut.core.data.repository.pushFavoriteToServers
 import keinabersmart.kleinaberlaut.core.database.dao.MergeDao
 import keinabersmart.kleinaberlaut.core.database.dao.SyncDao
@@ -229,8 +230,5 @@ class MergeResolver @Inject constructor(
 
         /** Fällt auf den Rohtext zurück, falls ein Name nur aus Satzzeichen besteht (z. B. „!!!“). */
         fun String.mergeKey(): String = normalizeForMerge().ifEmpty { trim().lowercase() }
-
-        /** Sortierschlüssel ohne führenden englischen Artikel („The Beatles“ → „Beatles“). */
-        fun String.sortKey(): String = trim().removePrefix("The ").removePrefix("the ")
     }
 }
