@@ -99,6 +99,9 @@ data class PlaylistEntryRow(
     val missingOnServer: Boolean,
 )
 
+/** Angaben, mit denen ein Album-Cover im Internet gesucht wird. */
+data class AlbumLookupRow(val albumId: Long, val title: String, val artist: String, val mbid: String?)
+
 // --- Uhr (Wear-Konzept 4.1/5) ---
 
 /** Ein Song mit den Album-Angaben, die das Manifest für die Uhr braucht. */

@@ -8,14 +8,19 @@ object AppUris {
     const val SCHEME = "kal"
     private const val SONG_PREFIX = "$SCHEME://song/"
     private const val ALBUM_COVER_PREFIX = "$SCHEME://cover/album/"
+    private const val ARTIST_IMAGE_PREFIX = "$SCHEME://cover/artist/"
 
     fun song(songId: Long): String = "$SONG_PREFIX$songId"
 
     fun albumCover(albumId: Long): String = "$ALBUM_COVER_PREFIX$albumId"
 
+    fun artistImage(artistId: Long): String = "$ARTIST_IMAGE_PREFIX$artistId"
+
     fun parseSongId(uri: String): Long? = uri.removePrefixOrNull(SONG_PREFIX)?.toLongOrNull()
 
     fun parseAlbumCoverId(uri: String): Long? = uri.removePrefixOrNull(ALBUM_COVER_PREFIX)?.toLongOrNull()
+
+    fun parseArtistImageId(uri: String): Long? = uri.removePrefixOrNull(ARTIST_IMAGE_PREFIX)?.toLongOrNull()
 
     private fun String.removePrefixOrNull(prefix: String): String? =
         if (startsWith(prefix)) removePrefix(prefix) else null

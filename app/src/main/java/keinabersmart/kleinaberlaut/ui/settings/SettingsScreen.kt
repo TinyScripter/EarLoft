@@ -77,6 +77,8 @@ fun SettingsScreen(
         state = state,
         watchAvailable = LocalWatchController.current?.isAvailable == true,
         onThemeModeChange = viewModel::setThemeMode,
+        onArtistImagesChange = viewModel::setArtistImages,
+        onAlbumCoversChange = viewModel::setAlbumCovers,
         onUseLocalMediaChange = { enabled ->
             if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
         },
@@ -104,6 +106,8 @@ private fun SettingsContent(
     state: SettingsUiState,
     watchAvailable: Boolean,
     onThemeModeChange: (ThemeMode) -> Unit,
+    onArtistImagesChange: (Boolean) -> Unit,
+    onAlbumCoversChange: (Boolean) -> Unit,
     onUseLocalMediaChange: (Boolean) -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
@@ -143,14 +147,21 @@ private fun SettingsContent(
                 )
             }
             item(key = "artist-images") {
-                // Platzhalter: Interpretenbilder gibt es noch nicht.
                 SwitchRow(
                     title = stringResource(R.string.settings_artist_images),
                     summary = stringResource(R.string.settings_artist_images_summary),
                     icon = DesignR.drawable.ic_person,
-                    checked = false,
-                    onCheckedChange = {},
-                    enabled = false,
+                    checked = state.artistImages,
+                    onCheckedChange = onArtistImagesChange,
+                )
+            }
+            item(key = "album-covers") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_album_covers),
+                    summary = stringResource(R.string.settings_album_covers_summary),
+                    icon = DesignR.drawable.ic_music_note,
+                    checked = state.albumCovers,
+                    onCheckedChange = onAlbumCoversChange,
                 )
             }
 
@@ -506,6 +517,8 @@ private fun SettingsContentPreview() {
             ),
             watchAvailable = true,
             onThemeModeChange = {},
+            onArtistImagesChange = {},
+            onAlbumCoversChange = {},
             onUseLocalMediaChange = {},
             onAddServer = {},
             onEditServer = {},

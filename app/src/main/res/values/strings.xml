@@ -97,7 +97,9 @@
     <string name="theme_light">Hell</string>
     <string name="theme_dark">Dunkel</string>
     <string name="settings_artist_images">Bilder von Interpreten herunterladen</string>
-    <string name="settings_artist_images_summary">Noch nicht verfügbar</string>
+    <string name="settings_artist_images_summary">Sucht Fotos bei Deezer. Dafür werden Namen von Interpreten an Deezer gesendet.</string>
+    <string name="settings_album_covers">Fehlende Album-Cover herunterladen</string>
+    <string name="settings_album_covers_summary">Sucht Cover bei MusicBrainz und im Cover Art Archive. Dafür werden Albumtitel und Interpret gesendet.</string>
     <string name="settings_local_media">Musik auf diesem Gerät nutzen</string>
     <string name="settings_local_media_summary">Aus: Die Bibliothek zeigt nur Musik von Servern.</string>
     <string name="settings_about">Über</string>

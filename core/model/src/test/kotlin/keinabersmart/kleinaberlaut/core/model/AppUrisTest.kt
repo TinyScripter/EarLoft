@@ -17,6 +17,13 @@ class AppUrisTest {
     }
 
     @Test
+    fun `artist image uri round trips and is not an album cover`() {
+        assertEquals(5L, AppUris.parseArtistImageId(AppUris.artistImage(5)))
+        assertNull(AppUris.parseAlbumCoverId(AppUris.artistImage(5)))
+        assertNull(AppUris.parseArtistImageId(AppUris.albumCover(5)))
+    }
+
+    @Test
     fun `foreign uris are rejected`() {
         assertNull(AppUris.parseSongId("content://media/external/audio/media/42"))
         assertNull(AppUris.parseSongId(AppUris.albumCover(42)))

@@ -16,6 +16,7 @@ import keinabersmart.kleinaberlaut.core.data.sync.SyncQueueStarter
 import keinabersmart.kleinaberlaut.core.download.AutoDownloads
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.ui.image.AlbumCoverFetcher
+import keinabersmart.kleinaberlaut.ui.image.ArtistImageFetcher
 import keinabersmart.kleinaberlaut.wear.PhoneInfoPublisher
 import keinabersmart.kleinaberlaut.wear.WearPublisher
 import kotlinx.coroutines.CoroutineScope
@@ -54,6 +55,7 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
             .components {
                 add(AlbumCoverFetcher.Keyer)
                 add(AlbumCoverFetcher.Factory(artworkRepository))
+                add(ArtistImageFetcher.Factory(artworkRepository))
             }
             .crossfade(true)
             .build()

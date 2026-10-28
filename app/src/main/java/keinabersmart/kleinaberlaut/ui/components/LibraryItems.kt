@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -38,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import keinabersmart.kleinaberlaut.R
@@ -49,6 +51,8 @@ import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
 import keinabersmart.kleinaberlaut.ui.playlists.AddToPlaylistDialog
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
+import coil3.compose.AsyncImage
+import keinabersmart.kleinaberlaut.core.model.AppUris
 
 /** Aktionen, die auf jeden Song in einer Liste angewendet werden können. */
 interface SongActions {
@@ -228,13 +232,7 @@ fun ArtistListItem(
         headlineContent = { Text(artist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(pluralStringResource(R.plurals.album_count, artist.albumCount, artist.albumCount)) },
         leadingContent = {
-            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                Icon(
-                    painter = painterResource(DesignR.drawable.ic_person),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            ArtistAvatar(artistId = artist.id, modifier = Modifier.size(48.dp), iconSize = 24.dp)
         },
         modifier = modifier.clickable(onClick = onClick),
     )
@@ -305,21 +303,7 @@ fun ArtistCard(
             .padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(DesignR.drawable.ic_person),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(48.dp),
-            )
-        }
+        ArtistAvatar(artistId = artist.id, modifier = Modifier.fillMaxWidth(), iconSize = 48.dp)
         Spacer(Modifier.height(8.dp))
         Text(
             text = artist.name,
@@ -414,5 +398,34 @@ private fun SongListItemPreview() {
             ArtistListItem(artist = Artist(id = 1, name = "Eine Band", albumCount = 2), onClick = {})
             AlbumCard(album = PreviewAlbum, onClick = {}, width = 160.dp)
         }
+    }
+}
+
+/** Runder Interpreten-Platzhalter; mit eingeschalteter Option liegt das Bild aus dem Internet darüber. */
+@Composable
+fun ArtistAvatar(
+    artistId: Long,
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 48.dp,
+) {
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(DesignR.drawable.ic_person),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(iconSize),
+        )
+        AsyncImage(
+            model = AppUris.artistImage(artistId),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }

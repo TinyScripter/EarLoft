@@ -10,6 +10,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.ArtistEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SongArtistCrossRef
 import keinabersmart.kleinaberlaut.core.database.entity.SongEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SongSourceEntity
+import keinabersmart.kleinaberlaut.core.database.model.AlbumLookupRow
 import keinabersmart.kleinaberlaut.core.database.model.AlbumRow
 import keinabersmart.kleinaberlaut.core.database.model.ArtistRow
 import keinabersmart.kleinaberlaut.core.database.model.PlayableSourceRow
@@ -234,6 +235,12 @@ abstract class LibraryDao {
         """,
     )
     abstract suspend fun getCoverSource(albumId: Long): PlayableSourceRow?
+
+    @Query("SELECT albumId, title, albumArtistDisplay AS artist, mbid FROM albums WHERE albumId = :albumId")
+    abstract suspend fun getAlbumLookup(albumId: Long): AlbumLookupRow?
+
+    @Query("SELECT name FROM artists WHERE artistId = :artistId")
+    abstract suspend fun getArtistName(artistId: Long): String?
 
     @Query("SELECT seedColor FROM albums WHERE albumId = :albumId")
     abstract fun observeSeedColor(albumId: Long): Flow<Int?>

@@ -6,6 +6,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
 import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
+import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
+import keinabersmart.kleinaberlaut.core.data.repository.ArtworkSettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
 import keinabersmart.kleinaberlaut.core.data.sync.SyncSettings
@@ -43,6 +45,15 @@ data class SettingsUiState(
     val scrobble: Boolean = true,
     val replayGainMode: ReplayGainMode = ReplayGainMode.AUTO,
     val preAmpDb: Float = 0f,
+    val artistImages: Boolean = false,
+    val albumCovers: Boolean = false,
+)
+
+private data class GeneralSettings(
+    val themeMode: ThemeMode,
+    val useLocalMedia: Boolean,
+    val artistImages: Boolean,
+    val albumCovers: Boolean,
 )
 
 @HiltViewModel
@@ -55,6 +66,8 @@ class SettingsViewModel @Inject constructor(
     private val replayGainSettings: ReplayGainSettings,
     private val themeSettings: ThemeSettings,
     private val librarySettings: LibrarySettings,
+    private val artworkSettings: ArtworkSettings,
+    private val artworkRepository: ArtworkRepository,
     private val registry: DataSourceRegistry,
     syncer: LibrarySyncer,
 ) : ViewModel() {
@@ -80,7 +93,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private val generalSettings = combine(themeSettings.mode, librarySettings.useLocalMedia, ::Pair)
+    private val generalSettings = combine(themeSettings.mode, librarySettings.useLocalMedia, artworkSettings.artistImages, artworkSettings.albumCovers) { theme, local, artists, albums ->
+        GeneralSettings(theme, local, artists, albums)
+    }
 
     val state: StateFlow<SettingsUiState> = combine(
         serverItems,
@@ -97,8 +112,13 @@ class SettingsViewModel @Inject constructor(
         )
     }.combine(combine(replayGainSettings.mode, replayGainSettings.preAmpDb, ::Pair)) { state, (mode, preAmpDb) ->
         state.copy(replayGainMode = mode, preAmpDb = preAmpDb)
-    }.combine(generalSettings) { state, (themeMode, useLocalMedia) ->
-        state.copy(themeMode = themeMode, useLocalMedia = useLocalMedia)
+    }.combine(generalSettings) { state, general ->
+        state.copy(
+            themeMode = general.themeMode,
+            useLocalMedia = general.useLocalMedia,
+            artistImages = general.artistImages,
+            albumCovers = general.albumCovers,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     fun setThemeMode(mode: ThemeMode) {
@@ -108,6 +128,21 @@ class SettingsViewModel @Inject constructor(
     /** Einlesen bzw. Entfernen der lokalen Songs übernimmt der [LibraryRefresher]. */
     fun setUseLocalMedia(enabled: Boolean) {
         viewModelScope.launch { librarySettings.setUseLocalMedia(enabled) }
+    }
+
+    /** Beim Ausschalten werden die schon geladenen Bilder gelöscht. */
+    fun setArtistImages(enabled: Boolean) {
+        viewModelScope.launch {
+            artworkSettings.setArtistImages(enabled)
+            artworkRepository.clearDisabledOnlineImages()
+        }
+    }
+
+    fun setAlbumCovers(enabled: Boolean) {
+        viewModelScope.launch {
+            artworkSettings.setAlbumCovers(enabled)
+            artworkRepository.clearDisabledOnlineImages()
+        }
     }
 
     fun syncNow(sourceId: String) = serverRepository.syncNow(sourceId)
