@@ -24,6 +24,7 @@ import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SongActions
+import keinabersmart.kleinaberlaut.ui.components.WatchStatusText
 import keinabersmart.kleinaberlaut.ui.components.WatchToggleButton
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -68,7 +69,12 @@ fun FavoritesScreen(
     val songs by viewModel.songs.collectAsStateWithLifecycle()
     Column(modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(stringResource(R.string.favorites_title)) },
+            title = {
+                Column {
+                    Text(stringResource(R.string.favorites_title))
+                    WatchStatusText(WearSelectionKind.FAVORITES, refId = null)
+                }
+            },
             navigationIcon = { BackButton(onBack) },
             actions = { WatchToggleButton(WearSelectionKind.FAVORITES, refId = null) },
         )

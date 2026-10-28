@@ -76,4 +76,12 @@ class DownloadPlanTest {
         assertEquals(3_200_000, estimateBytes(withBitRate, WearQuality.ORIGINAL))
         assertEquals(4_000_000, estimateBytes(unknown, WearQuality.ORIGINAL))
     }
+
+    @Test
+    fun `phone transfer estimate rounds up and is at least one minute`() {
+        assertEquals(1, estimatePhoneTransferMinutes(1))
+        assertEquals(1, estimatePhoneTransferMinutes(6_144_000))
+        assertEquals(2, estimatePhoneTransferMinutes(6_144_001))
+        assertEquals(10, estimatePhoneTransferMinutes(60_000_000))
+    }
 }

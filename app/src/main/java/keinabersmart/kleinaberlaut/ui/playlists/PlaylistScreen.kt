@@ -66,6 +66,7 @@ import keinabersmart.kleinaberlaut.ui.components.NoSongActions
 import keinabersmart.kleinaberlaut.ui.components.PreviewSong
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
+import keinabersmart.kleinaberlaut.ui.components.WatchStatusText
 import keinabersmart.kleinaberlaut.ui.components.WatchToggleButton
 import keinabersmart.kleinaberlaut.ui.components.formatDuration
 import keinabersmart.kleinaberlaut.ui.library.BackButton
@@ -191,7 +192,12 @@ private fun PlaylistContent(
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = {
-                if (state is LoadState.Ready) Text(state.value.playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (state is LoadState.Ready) {
+                    Column {
+                        Text(state.value.playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        WatchStatusText(WearSelectionKind.PLAYLIST, state.value.playlist.id)
+                    }
+                }
             },
             navigationIcon = { BackButton(onBack) },
             actions = {

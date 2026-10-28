@@ -207,6 +207,10 @@
     <string name="watch_remove">Von Uhr entfernen</string>
     <string name="watch_added">Kommt auf die Uhr</string>
     <string name="watch_removed">Wird von der Uhr entfernt</string>
+    <string name="watch_status_progress">Auf der Uhr: %1$d von %2$d</string>
+    <string name="watch_status_done">Auf der Uhr: alle %1$d Titel</string>
+    <string name="watch_status_failed">Auf der Uhr: %1$d von %2$d, %3$d fehlgeschlagen</string>
+    <string name="watch_status_full">Speicher der Uhr voll</string>
     <string name="settings_watch">Uhr</string>
     <string name="settings_watch_open">Musik auf der Uhr</string>
     <string name="settings_watch_open_summary">Auswahl, Qualität, Speicher</string>

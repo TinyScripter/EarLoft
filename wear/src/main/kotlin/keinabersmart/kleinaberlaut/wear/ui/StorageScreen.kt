@@ -33,6 +33,7 @@ import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.ui.tooling.preview.WearPreviewFontScales
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.wear.R
+import keinabersmart.kleinaberlaut.wear.download.estimatePhoneTransferMinutes
 
 /** Speicher & Downloads (Wear-Konzept 11): belegt/frei/Grenze, Fortschritt, Hinweise und „Erneut versuchen“. */
 @Composable
@@ -83,6 +84,16 @@ private fun StorageContent(
                         pluralStringResource(R.plurals.storage_pending, overview.pendingSongs, overview.pendingSongs)
                     else -> stringResource(R.string.storage_idle)
                 }
+            }
+            if (state.phoneBacklogBytes > 0) {
+                line(transformationSpec) {
+                    stringResource(
+                        R.string.storage_phone_transfer,
+                        Formatter.formatFileSize(context, state.phoneBacklogBytes),
+                        estimatePhoneTransferMinutes(state.phoneBacklogBytes),
+                    )
+                }
+                line(transformationSpec) { stringResource(R.string.storage_phone_charger_hint) }
             }
             if (state.missingForStorage > 0) {
                 line(transformationSpec) {

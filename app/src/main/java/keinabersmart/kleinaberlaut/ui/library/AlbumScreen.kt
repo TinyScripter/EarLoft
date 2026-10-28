@@ -56,6 +56,7 @@ import keinabersmart.kleinaberlaut.ui.components.PreviewSong
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
+import keinabersmart.kleinaberlaut.ui.components.WatchStatusText
 import keinabersmart.kleinaberlaut.ui.components.WatchToggleButton
 import keinabersmart.kleinaberlaut.ui.components.formatDuration
 import keinabersmart.kleinaberlaut.ui.playlists.AddToPlaylistDialog
@@ -98,7 +99,7 @@ private fun AlbumContent(
 ) {
     Column(modifier.fillMaxSize()) {
         TopAppBar(
-            title = {},
+            title = { if (state is LoadState.Ready) WatchStatusText(WearSelectionKind.ALBUM, state.value.album.id) },
             navigationIcon = { BackButton(onBack) },
             actions = {
                 if (state is LoadState.Ready) {

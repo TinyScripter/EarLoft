@@ -59,6 +59,8 @@
         <item quantity="one">%d Titel fehlgeschlagen</item>
         <item quantity="other">%d Titel fehlgeschlagen</item>
     </plurals>
+    <string name="storage_phone_transfer">Über das Handy: %1$s, ca. %2$d Min.</string>
+    <string name="storage_phone_charger_hint">Am besten am Ladegerät.</string>
     <string name="storage_retry">Erneut versuchen</string>
     <string name="storage_last_error">Letzter Fehler: %s</string>
     <string name="storage_clear_all">Alles entfernen</string>
