@@ -40,6 +40,7 @@ dependencies {
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.coil.compose)
     implementation(libs.androidx.glance.appwidget)
 

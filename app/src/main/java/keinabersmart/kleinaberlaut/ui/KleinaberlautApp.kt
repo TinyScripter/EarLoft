@@ -33,12 +33,15 @@ import keinabersmart.kleinaberlaut.navigation.PlaylistRoute
 import keinabersmart.kleinaberlaut.navigation.QueueRoute
 import keinabersmart.kleinaberlaut.navigation.SearchRoute
 import keinabersmart.kleinaberlaut.navigation.SettingsRoute
+import keinabersmart.kleinaberlaut.navigation.WatchSettingsRoute
 import keinabersmart.kleinaberlaut.navigation.TOP_LEVEL_ROUTES
 import keinabersmart.kleinaberlaut.navigation.TopLevelDestination
 import keinabersmart.kleinaberlaut.navigation.isFullScreenPlayer
 import keinabersmart.kleinaberlaut.navigation.rememberNavigationState
 import keinabersmart.kleinaberlaut.ui.components.LocalOfflineController
+import keinabersmart.kleinaberlaut.ui.components.LocalWatchController
 import keinabersmart.kleinaberlaut.ui.components.rememberOfflineController
+import keinabersmart.kleinaberlaut.ui.components.rememberWatchController
 import keinabersmart.kleinaberlaut.ui.downloads.DownloadsScreen
 import keinabersmart.kleinaberlaut.ui.home.HomeScreen
 import keinabersmart.kleinaberlaut.ui.library.AlbumScreen
@@ -53,6 +56,7 @@ import keinabersmart.kleinaberlaut.ui.playlists.PlaylistScreen
 import keinabersmart.kleinaberlaut.ui.search.SearchScreen
 import keinabersmart.kleinaberlaut.ui.settings.ServerFormScreen
 import keinabersmart.kleinaberlaut.ui.settings.SettingsScreen
+import keinabersmart.kleinaberlaut.ui.settings.WatchSettingsScreen
 
 @Composable
 fun KleinaberlautApp(
@@ -95,8 +99,10 @@ fun KleinaberlautApp(
                 onBack = navigator::goBack,
                 onAddServer = { navigator.navigate(AddServerRoute) },
                 onEditServer = { navigator.navigate(EditServerRoute(it)) },
+                onOpenWatch = { navigator.navigate(WatchSettingsRoute) },
             )
         }
+        entry<WatchSettingsRoute> { WatchSettingsScreen(onBack = navigator::goBack) }
         entry<AddServerRoute> { ServerFormScreen(sourceId = null, onDone = navigator::goBack) }
         entry<EditServerRoute> { route -> ServerFormScreen(sourceId = route.sourceId, onDone = navigator::goBack) }
     }
@@ -105,7 +111,10 @@ fun KleinaberlautApp(
 
     SyncNoticeEffect()
 
-    CompositionLocalProvider(LocalOfflineController provides rememberOfflineController()) {
+    CompositionLocalProvider(
+        LocalOfflineController provides rememberOfflineController(),
+        LocalWatchController provides rememberWatchController(),
+    ) {
         Scaffold(
             // Die Bildschirme kümmern sich selbst um Statusleiste und – ohne Bottom-Bar – die Navigationsleiste.
             contentWindowInsets = WindowInsets(0),

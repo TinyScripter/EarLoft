@@ -51,6 +51,7 @@ import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.LocalWatchController
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
@@ -60,15 +61,18 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (sourceId: String) -> Unit,
+    onOpenWatch: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     SettingsContent(
         state = state,
+        watchAvailable = LocalWatchController.current?.isAvailable == true,
         onBack = onBack,
         onAddServer = onAddServer,
         onEditServer = onEditServer,
+        onOpenWatch = onOpenWatch,
         onSyncNow = viewModel::syncNow,
         onRemove = viewModel::remove,
         onRefreshAll = viewModel::refreshAll,
@@ -85,9 +89,11 @@ fun SettingsScreen(
 @Composable
 private fun SettingsContent(
     state: SettingsUiState,
+    watchAvailable: Boolean,
     onBack: () -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
+    onOpenWatch: () -> Unit,
     onSyncNow: (String) -> Unit,
     onRemove: (String) -> Unit,
     onRefreshAll: () -> Unit,
@@ -179,6 +185,18 @@ private fun SettingsContent(
                     onCheckedChange = onAutoDownloadFavoritesChange,
                 )
             }
+            // Nur mit gekoppelter Uhr, auf der kleinaberlaut installiert ist (Wear-Konzept 5).
+            if (watchAvailable) {
+                item(key = "watch") { SectionHeader(stringResource(R.string.settings_watch)) }
+                item(key = "watch-open") {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.settings_watch_open)) },
+                        supportingContent = { Text(stringResource(R.string.settings_watch_open_summary)) },
+                        leadingContent = { Icon(painterResource(DesignR.drawable.ic_watch), contentDescription = null) },
+                        modifier = Modifier.clickable(onClick = onOpenWatch),
+                    )
+                }
+            }
         }
     }
 
@@ -214,7 +232,7 @@ private fun SettingsContent(
 
 /** Ganze Zeile schaltet (größere Tippfläche, ein Element für Screenreader). */
 @Composable
-private fun SwitchRow(title: String, summary: String, icon: Int, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+internal fun SwitchRow(title: String, summary: String, icon: Int, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = { Text(summary) },
@@ -356,9 +374,11 @@ private fun SettingsContentPreview() {
                     ServerItem(ServerInfo("2", "Büro", "http://10.0.0.5:4533/", "kal", 0), error = "timeout"),
                 ),
             ),
+            watchAvailable = true,
             onBack = {},
             onAddServer = {},
             onEditServer = {},
+            onOpenWatch = {},
             onSyncNow = {},
             onRemove = {},
             onRefreshAll = {},

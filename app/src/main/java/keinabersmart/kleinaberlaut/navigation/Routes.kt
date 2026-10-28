@@ -51,6 +51,9 @@ data object AddServerRoute : NavKey
 @Serializable
 data class EditServerRoute(val sourceId: String) : NavKey
 
+@Serializable
+data object WatchSettingsRoute : NavKey
+
 /** Bildschirme, auf denen Bottom-Bar und Mini-Player ausgeblendet werden. */
 val NavKey.isFullScreenPlayer: Boolean
     get() = this == NowPlayingRoute || this == QueueRoute

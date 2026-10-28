@@ -13,6 +13,9 @@ object WearPaths {
      */
     const val PHONE_INFO = "/kal/phone"
 
+    /** DataItem, Uhr → Handy: [WearWatchInfoDto] – Gegenstück zu [PHONE_INFO], damit das Handy die Uhr-App erkennt. */
+    const val WATCH_INFO = "/kal/watch"
+
     /** DataItem, Handy → Uhr: [WearServersDto] (ohne Passwörter). */
     const val SERVERS = "/kal/servers"
 

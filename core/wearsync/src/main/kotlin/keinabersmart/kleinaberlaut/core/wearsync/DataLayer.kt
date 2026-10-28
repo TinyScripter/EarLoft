@@ -3,9 +3,11 @@ package keinabersmart.kleinaberlaut.core.wearsync
 import android.net.Uri
 import android.util.Log
 import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.DataMapItem
+import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.NodeClient
 import com.google.android.gms.wearable.PutDataMapRequest
@@ -38,9 +40,14 @@ fun CapabilityClient.capabilityChanges(capability: String): Flow<Unit> = callbac
  * Erreichbare Geräte mit [capability]. Ohne Data Layer (z. B. Handy ohne Wear-OS-App, keine
  * Play-Dienste) leer, statt zu werfen.
  */
-suspend fun CapabilityClient.reachableNodes(capability: String): Set<Node> =
+suspend fun CapabilityClient.reachableNodes(capability: String): Set<Node> = nodesWith(capability, CapabilityClient.FILTER_REACHABLE)
+
+/** Alle gekoppelten Geräte mit [capability], auch wenn sie gerade nicht verbunden sind. */
+suspend fun CapabilityClient.pairedNodes(capability: String): Set<Node> = nodesWith(capability, CapabilityClient.FILTER_ALL)
+
+private suspend fun CapabilityClient.nodesWith(capability: String, filter: Int): Set<Node> =
     runCatchingApi("Capability $capability abfragen") {
-        getCapability(capability, CapabilityClient.FILTER_REACHABLE).await().nodes.toSet()
+        getCapability(capability, filter).await().nodes.toSet()
     }.orEmpty()
 
 /**
@@ -55,6 +62,70 @@ suspend fun DataClient.putPayload(path: String, payload: ByteArray, urgent: Bool
     if (urgent) request.setUrgent()
     return runCatchingApi("$path schreiben") { putDataItem(request).await() } != null
 }
+
+/**
+ * Wie [putPayload], aber als Asset (für Nutzlasten über der 100-KB-Grenze eines DataItems) und mit
+ * [hash] des Inhalts, damit der Absender Unverändertes nicht neu schreibt (siehe [hashesAt]).
+ */
+suspend fun DataClient.putAssetPayload(path: String, payload: ByteArray, hash: String): Boolean {
+    val request = PutDataMapRequest.create(path).apply {
+        dataMap.putInt(WearDataKeys.PROTOCOL, WearProtocol.VERSION)
+        dataMap.putAsset(WearDataKeys.PAYLOAD, Asset.createFromBytes(payload))
+        dataMap.putString(WearDataKeys.HASH, hash)
+    }.asPutDataRequest().setUrgent()
+    return runCatchingApi("$path schreiben") { putDataItem(request).await() } != null
+}
+
+/** [WearDataKeys.HASH] der DataItems unter [path]: `nodeId → hash`. */
+suspend fun DataClient.hashesAt(path: String): Map<String, String> =
+    runCatchingApi("$path lesen") {
+        val buffer = getDataItems(allNodesUri(path)).await()
+        try {
+            buffer.mapNotNull { item ->
+                val hash = DataMapItem.fromDataItem(item).dataMap.getString(WearDataKeys.HASH)
+                val nodeId = item.uri.host
+                if (hash == null || nodeId == null) null else nodeId to hash
+            }.toMap()
+        } finally {
+            buffer.release()
+        }
+    }.orEmpty()
+
+/**
+ * Asset-Nutzlasten (siehe [putAssetPayload]) unter [path]: `nodeId → payload`. Nutzlasten eines
+ * anderen [WearProtocol.VERSION] werden übergangen.
+ */
+suspend fun DataClient.assetPayloadsAt(path: String): Map<String, ByteArray> {
+    val assets = runCatchingApi("$path lesen") {
+        val buffer = getDataItems(allNodesUri(path)).await()
+        try {
+            buffer.mapNotNull { item ->
+                val dataMap = DataMapItem.fromDataItem(item).dataMap
+                val nodeId = item.uri.host
+                val asset = dataMap.getAsset(WearDataKeys.PAYLOAD)
+                when {
+                    nodeId == null || asset == null -> null
+                    dataMap.getInt(WearDataKeys.PROTOCOL) != WearProtocol.VERSION -> {
+                        Log.w(TAG, "$path von $nodeId: Protokoll ${dataMap.getInt(WearDataKeys.PROTOCOL)} wird nicht unterstützt")
+                        null
+                    }
+                    else -> nodeId to asset
+                }
+            }
+        } finally {
+            buffer.release()
+        }
+    }.orEmpty()
+    return assets.mapNotNull { (nodeId, asset) ->
+        runCatchingApi("Asset $path lesen") {
+            getFdForAsset(asset).await().inputStream.use { nodeId to it.readBytes() }
+        }
+    }.toMap()
+}
+
+/** Schickt eine Message; nur zugestellt, wenn [nodeId] gerade erreichbar ist. @return `false` bei Fehler. */
+suspend fun MessageClient.sendPayload(nodeId: String, path: String, payload: ByteArray): Boolean =
+    runCatchingApi("Message $path an $nodeId senden") { sendMessage(nodeId, path, payload).await() } != null
 
 /** Nutzlasten der DataItems unter [path] von allen Geräten (auch dem eigenen): `nodeId → payload`. */
 suspend fun DataClient.payloadsAt(path: String): Map<String, ByteArray> =

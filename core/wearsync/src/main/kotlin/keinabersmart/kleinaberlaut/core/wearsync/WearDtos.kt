@@ -87,6 +87,13 @@ data class WearPhoneInfoDto(
     val appVersion: String? = null,
 )
 
+/** Die Uhr-App ist installiert und spricht [protocol] (siehe [WearPaths.WATCH_INFO]). */
+@Serializable
+data class WearWatchInfoDto(
+    val protocol: Int = WearProtocol.VERSION,
+    val appVersion: String? = null,
+)
+
 /** Server ohne Secrets; das Passwort kommt nur per [WearCredentialsDto] auf Anfrage. */
 @Serializable
 data class WearServersDto(val servers: List<WearServerDto> = emptyList())

@@ -20,9 +20,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.model.Song
+import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SongActions
+import keinabersmart.kleinaberlaut.ui.components.WatchToggleButton
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -68,6 +70,7 @@ fun FavoritesScreen(
         TopAppBar(
             title = { Text(stringResource(R.string.favorites_title)) },
             navigationIcon = { BackButton(onBack) },
+            actions = { WatchToggleButton(WearSelectionKind.FAVORITES, refId = null) },
         )
         val current = songs
         when {

@@ -6,14 +6,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope
+import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.CircularProgressIndicator
@@ -28,23 +31,34 @@ import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.ui.tooling.preview.WearPreviewFontScales
+import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.wear.R
 import keinabersmart.kleinaberlaut.wear.sync.PhoneStatus
 
 /**
- * Startbildschirm. Solange vom Handy nichts ausgewählt ist, erklärt er die Einrichtung
- * (Wear-Konzept 11: Handy fehlt, App fehlt, noch nichts übertragen).
+ * Startbildschirm: die Auswahlen vom Handy (Wear-Konzept 11). Solange es keine gibt, erklärt er die
+ * Einrichtung (Handy fehlt, App fehlt, noch nichts übertragen).
  */
 @Composable
-fun StartScreen(viewModel: StartViewModel = hiltViewModel()) {
+fun StartScreen(onSelectionClick: (playlistId: Long) -> Unit, viewModel: StartViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Ob ein Handy verbunden ist, meldet die API nicht als Ereignis.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
-    StartContent(state = state, onOpenOnPhone = viewModel::openStoreOnPhone, onRetry = viewModel::refresh)
+    StartContent(
+        state = state,
+        onSelectionClick = onSelectionClick,
+        onOpenOnPhone = viewModel::openStoreOnPhone,
+        onRetry = viewModel::refresh,
+    )
 }
 
 @Composable
-private fun StartContent(state: StartUiState, onOpenOnPhone: (nodeId: String) -> Unit, onRetry: () -> Unit) {
+private fun StartContent(
+    state: StartUiState,
+    onSelectionClick: (Long) -> Unit,
+    onOpenOnPhone: (nodeId: String) -> Unit,
+    onRetry: () -> Unit,
+) {
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(scrollState = columnState) { contentPadding ->
@@ -54,13 +68,23 @@ private fun StartContent(state: StartUiState, onOpenOnPhone: (nodeId: String) ->
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = contentPadding,
         ) {
-            when {
-                // Bibliothek folgt in Etappe 3b.
-                state.hasSelections -> {
-                    header(R.string.app_name, transformationSpec)
-                    message(R.string.no_downloads, transformationSpec)
+            if (state.hasSelections) {
+                header(R.string.app_name, transformationSpec)
+                items(state.selections, key = { it.playlistId }) { selection ->
+                    Button(
+                        onClick = { onSelectionClick(selection.playlistId) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                        label = { Text(selection.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                        secondaryLabel = {
+                            Text(pluralStringResource(R.plurals.song_count, selection.songCount, selection.songCount))
+                        },
+                    )
                 }
-                else -> setup(state, transformationSpec, onOpenOnPhone, onRetry)
+            } else {
+                setup(state, transformationSpec, onOpenOnPhone, onRetry)
             }
         }
     }
@@ -140,7 +164,7 @@ private fun TransformingLazyColumnScope.action(textRes: Int, transformationSpec:
 @Composable
 private fun StartAppMissingPreview() {
     MaterialTheme {
-        StartContent(state = StartUiState(phone = PhoneStatus.AppMissing("phone")), onOpenOnPhone = {}, onRetry = {})
+        StartContent(state = StartUiState(phone = PhoneStatus.AppMissing("phone")), onSelectionClick = {}, onOpenOnPhone = {}, onRetry = {})
     }
 }
 
@@ -148,6 +172,27 @@ private fun StartAppMissingPreview() {
 @Composable
 private fun StartWaitingPreview() {
     MaterialTheme {
-        StartContent(state = StartUiState(phone = PhoneStatus.Connected("phone")), onOpenOnPhone = {}, onRetry = {})
+        StartContent(state = StartUiState(phone = PhoneStatus.Connected("phone")), onSelectionClick = {}, onOpenOnPhone = {}, onRetry = {})
+    }
+}
+
+@WearPreviewDevices
+@WearPreviewFontScales
+@Composable
+private fun StartSelectionsPreview() {
+    MaterialTheme {
+        StartContent(
+            state = StartUiState(
+                phone = PhoneStatus.Connected("phone"),
+                selections = listOf(
+                    SelectionItem(1, WearSelectionKind.FAVORITES, "Favoriten", 42),
+                    SelectionItem(2, WearSelectionKind.ALBUM, "Mondlicht", 4),
+                    SelectionItem(3, WearSelectionKind.PLAYLIST, "Laufen am Morgen mit sehr langem Namen", 1),
+                ),
+            ),
+            onSelectionClick = {},
+            onOpenOnPhone = {},
+            onRetry = {},
+        )
     }
 }

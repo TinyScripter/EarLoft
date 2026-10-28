@@ -46,6 +46,7 @@ import keinabersmart.kleinaberlaut.core.model.AlbumDetails
 import keinabersmart.kleinaberlaut.core.model.AlbumOfflineStatus
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
+import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.ui.LoadState
 import keinabersmart.kleinaberlaut.ui.components.AlbumArt
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
@@ -55,6 +56,7 @@ import keinabersmart.kleinaberlaut.ui.components.PreviewSong
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
+import keinabersmart.kleinaberlaut.ui.components.WatchToggleButton
 import keinabersmart.kleinaberlaut.ui.components.formatDuration
 import keinabersmart.kleinaberlaut.ui.playlists.AddToPlaylistDialog
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
@@ -99,7 +101,10 @@ private fun AlbumContent(
             title = {},
             navigationIcon = { BackButton(onBack) },
             actions = {
-                if (state is LoadState.Ready) AddAlbumToPlaylistButton(state.value.songs.map { it.id })
+                if (state is LoadState.Ready) {
+                    WatchToggleButton(WearSelectionKind.ALBUM, state.value.album.id)
+                    AddAlbumToPlaylistButton(state.value.songs.map { it.id })
+                }
             },
         )
         when (state) {

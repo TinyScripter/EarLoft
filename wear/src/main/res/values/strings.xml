@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">kleinaberlaut</string>
-    <string name="no_downloads">Noch keine Musik auf der Uhr</string>
+    <plurals name="song_count">
+        <item quantity="one">%d Titel</item>
+        <item quantity="other">%d Titel</item>
+    </plurals>
+    <string name="selection_missing">Nicht mehr auf der Uhr</string>
+    <string name="selection_not_loaded">Noch nicht geladen</string>
 
     <!-- Einrichtung -->
     <string name="setup_checking">Suche Handy …</string>

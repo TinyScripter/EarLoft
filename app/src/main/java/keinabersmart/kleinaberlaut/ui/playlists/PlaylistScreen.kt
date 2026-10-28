@@ -58,6 +58,7 @@ import keinabersmart.kleinaberlaut.core.model.Playlist
 import keinabersmart.kleinaberlaut.core.model.PlaylistDetails
 import keinabersmart.kleinaberlaut.core.model.PlaylistEntry
 import keinabersmart.kleinaberlaut.core.model.Song
+import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.ui.LoadState
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
@@ -65,6 +66,7 @@ import keinabersmart.kleinaberlaut.ui.components.NoSongActions
 import keinabersmart.kleinaberlaut.ui.components.PreviewSong
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
+import keinabersmart.kleinaberlaut.ui.components.WatchToggleButton
 import keinabersmart.kleinaberlaut.ui.components.formatDuration
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.library.DownloadButton
@@ -193,7 +195,10 @@ private fun PlaylistContent(
             },
             navigationIcon = { BackButton(onBack) },
             actions = {
-                if (state is LoadState.Ready) PlaylistMenu(state.value.playlist, onRename, onDelete)
+                if (state is LoadState.Ready) {
+                    WatchToggleButton(WearSelectionKind.PLAYLIST, state.value.playlist.id)
+                    PlaylistMenu(state.value.playlist, onRename, onDelete)
+                }
             },
         )
         when (state) {

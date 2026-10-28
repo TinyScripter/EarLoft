@@ -98,3 +98,46 @@ data class PlaylistEntryRow(
     @Embedded val song: SongRow,
     val missingOnServer: Boolean,
 )
+
+// --- Uhr (Wear-Konzept 4.1/5) ---
+
+/** Ein Song mit den Album-Angaben, die das Manifest für die Uhr braucht. */
+data class WearSongRow(
+    val songId: Long,
+    val title: String,
+    val artistDisplay: String,
+    val discNumber: Int,
+    val trackNumber: Int,
+    val durationMs: Long,
+    val year: Int?,
+    val genre: String?,
+    val mbid: String?,
+    val albumTitle: String,
+    val albumArtistDisplay: String,
+    val isCompilation: Boolean,
+    val albumMbid: String?,
+)
+
+data class WearSongArtistRow(val songId: Long, val name: String)
+
+/** Eine Song-Quelle; [downloadPath] ist gesetzt, wenn sie fertig heruntergeladen ist. */
+data class WearSourceRow(
+    val uid: String,
+    val songId: Long,
+    val sourceId: String,
+    val remoteId: String,
+    val coverRemoteId: String?,
+    val sourceType: SourceType,
+    val sourcePriority: Int,
+    val mimeType: String?,
+    val bitRate: Int?,
+    val sizeBytes: Long?,
+    val rgTrackGainDb: Float?,
+    val rgTrackPeak: Float?,
+    val rgAlbumGainDb: Float?,
+    val rgAlbumPeak: Float?,
+    val downloadPath: String?,
+    val downloadBytes: Long?,
+)
+
+data class SourceSongIdRow(val uid: String, val songId: Long)
