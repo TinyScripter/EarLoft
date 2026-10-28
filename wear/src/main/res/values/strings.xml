@@ -31,6 +31,9 @@
         <item quantity="other">Noch %d Titel</item>
     </plurals>
     <string name="download_error_server">Server nicht erreichbar</string>
+    <string name="download_error_server_no_phone_copy">Server nicht erreichbar, Handy hat keine Kopie</string>
+    <string name="download_error_phone_no_copy">Handy hat keine Kopie</string>
+    <string name="download_error_phone_unreachable">Handy nicht erreichbar</string>
 
     <!-- Speicher & Downloads -->
     <string name="storage_title">Speicher &amp; Downloads</string>

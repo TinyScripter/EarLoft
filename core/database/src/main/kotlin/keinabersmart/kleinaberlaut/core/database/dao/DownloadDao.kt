@@ -43,6 +43,39 @@ interface DownloadDao {
     @Query("SELECT * FROM downloads WHERE state = 'QUEUED' ORDER BY rowid LIMIT 1")
     suspend fun nextQueued(): DownloadEntity?
 
+    /** Wie [nextQueued], aber nur Quellen vom Typ `PHONE` (Uhr: Songs, die nur das Handy schicken kann). */
+    @Query(
+        """
+        SELECT d.* FROM downloads d
+        JOIN song_sources ss ON ss.uid = d.sourceUid
+        JOIN sources src ON src.sourceId = ss.sourceId
+        WHERE d.state = 'QUEUED' AND src.type = 'PHONE'
+        ORDER BY d.rowid LIMIT 1
+        """,
+    )
+    suspend fun nextQueuedFromPhone(): DownloadEntity?
+
+    /** Die wartenden Downloads aus [sourceId]. */
+    @Query(
+        """
+        SELECT d.sourceUid FROM downloads d JOIN song_sources ss ON ss.uid = d.sourceUid
+        WHERE d.state = 'QUEUED' AND ss.sourceId = :sourceId
+        """,
+    )
+    suspend fun queuedUidsOfSource(sourceId: String): List<String>
+
+    /** Wie [nextQueued], aber ohne Quellen vom Typ `PHONE`. */
+    @Query(
+        """
+        SELECT d.* FROM downloads d
+        JOIN song_sources ss ON ss.uid = d.sourceUid
+        JOIN sources src ON src.sourceId = ss.sourceId
+        WHERE d.state = 'QUEUED' AND src.type != 'PHONE'
+        ORDER BY d.rowid LIMIT 1
+        """,
+    )
+    suspend fun nextQueuedFromServers(): DownloadEntity?
+
     @Query("UPDATE downloads SET state = 'RUNNING', bytesDone = 0 WHERE sourceUid = :sourceUid AND state = 'QUEUED'")
     suspend fun markRunning(sourceUid: String): Int
 

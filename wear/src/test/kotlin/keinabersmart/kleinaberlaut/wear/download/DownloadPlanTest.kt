@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.wear.download
 
 import keinabersmart.kleinaberlaut.core.database.model.WearCandidateRow
+import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
 import org.junit.Assert.assertEquals
@@ -53,7 +54,7 @@ class DownloadPlanTest {
 
     @Test
     fun `opus estimate is duration times 128 kbit plus overhead`() {
-        val candidate = WearCandidateRow("nd:1", 1, 0, bitRate = 900, sizeBytes = 30_000_000, durationMs = 200_000)
+        val candidate = WearCandidateRow("nd:1", 1, SourceType.SUBSONIC, 0, bitRate = 900, sizeBytes = 30_000_000, durationMs = 200_000)
 
         // 200 s * 16 000 B/s = 3,2 MB, +3 %
         assertEquals(3_296_000, estimateBytes(candidate, WearQuality.OPUS_128))
@@ -61,9 +62,16 @@ class DownloadPlanTest {
     }
 
     @Test
+    fun `phone files are never transcoded`() {
+        val candidate = WearCandidateRow("phone:local:1", 1, SourceType.PHONE, 0, bitRate = 900, sizeBytes = 30_000_000, durationMs = 200_000)
+
+        assertEquals(30_000_000, estimateBytes(candidate, WearQuality.OPUS_128))
+    }
+
+    @Test
     fun `original estimate falls back to the bit rate`() {
-        val withBitRate = WearCandidateRow("nd:1", 1, 0, bitRate = 256, sizeBytes = null, durationMs = 100_000)
-        val unknown = WearCandidateRow("nd:2", 2, 0, bitRate = null, sizeBytes = null, durationMs = 100_000)
+        val withBitRate = WearCandidateRow("nd:1", 1, SourceType.SUBSONIC, 0, bitRate = 256, sizeBytes = null, durationMs = 100_000)
+        val unknown = WearCandidateRow("nd:2", 2, SourceType.SUBSONIC, 0, bitRate = null, sizeBytes = null, durationMs = 100_000)
 
         assertEquals(3_200_000, estimateBytes(withBitRate, WearQuality.ORIGINAL))
         assertEquals(4_000_000, estimateBytes(unknown, WearQuality.ORIGINAL))

@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.wear.download
 
 import keinabersmart.kleinaberlaut.core.database.model.WearCandidateRow
+import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
 
@@ -38,9 +39,11 @@ fun downloadBudget(settings: WearSettingsDto, freeBytes: Long, doneBytes: Long, 
  * Geschätzte Größe der Datei. Opus: Dauer × 128 kbit/s + 3 % Container; Original: die Größe der Quelle,
  * sonst aus der Bitrate (Standard 320 kbit/s).
  */
-fun estimateBytes(candidate: WearCandidateRow, quality: WearQuality): Long = when (quality) {
-    WearQuality.OPUS_128 -> (candidate.durationMs * OPUS_BYTES_PER_MS * OPUS_OVERHEAD).toLong()
-    WearQuality.ORIGINAL -> candidate.sizeBytes ?: (candidate.durationMs * (candidate.bitRate ?: DEFAULT_KBIT) / BITS_PER_BYTE)
+fun estimateBytes(candidate: WearCandidateRow, quality: WearQuality): Long = when {
+    // Das Handy schickt immer das Original (Wear-Konzept 8.4).
+    candidate.sourceType == SourceType.PHONE || quality == WearQuality.ORIGINAL ->
+        candidate.sizeBytes ?: (candidate.durationMs * (candidate.bitRate ?: DEFAULT_KBIT) / BITS_PER_BYTE)
+    else -> (candidate.durationMs * OPUS_BYTES_PER_MS * OPUS_OVERHEAD).toLong()
 }
 
 private const val OPUS_BYTES_PER_MS = 128.0 / 8 // 128 kbit/s = 16 Byte je Millisekunde

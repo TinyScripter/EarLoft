@@ -102,7 +102,7 @@ interface WearDao {
     /** Server-Quellen, von denen die Uhr direkt laden kann (nicht die Pseudo-Quelle `phone`). Max. ~900 IDs. */
     @Query(
         """
-        SELECT ss.uid, ss.songId, src.priority AS sourcePriority, ss.bitRate, ss.sizeBytes, s.durationMs
+        SELECT ss.uid, ss.songId, src.type AS sourceType, src.priority AS sourcePriority, ss.bitRate, ss.sizeBytes, s.durationMs
         FROM song_sources ss
         JOIN sources src ON src.sourceId = ss.sourceId
         JOIN songs s ON s.songId = ss.songId
@@ -111,10 +111,22 @@ interface WearDao {
     )
     suspend fun getServerCandidates(songIds: List<Long>): List<WearCandidateRow>
 
+    /** Die Pseudo-Quelle `phone` (Typ `PHONE`): Songs, die nur das Handy schicken kann (Fallback, Wear-Konzept 8.4). Max. ~900 IDs. */
+    @Query(
+        """
+        SELECT ss.uid, ss.songId, src.type AS sourceType, src.priority AS sourcePriority, ss.bitRate, ss.sizeBytes, s.durationMs
+        FROM song_sources ss
+        JOIN sources src ON src.sourceId = ss.sourceId
+        JOIN songs s ON s.songId = ss.songId
+        WHERE ss.songId IN (:songIds) AND src.type = 'PHONE'
+        """,
+    )
+    suspend fun getPhoneCandidates(songIds: List<Long>): List<WearCandidateRow>
+
     /** Die Quellen der wartenden und laufenden Downloads: Ihr Platz ist schon eingeplant. */
     @Query(
         """
-        SELECT ss.uid, ss.songId, src.priority AS sourcePriority, ss.bitRate, ss.sizeBytes, s.durationMs
+        SELECT ss.uid, ss.songId, src.type AS sourceType, src.priority AS sourcePriority, ss.bitRate, ss.sizeBytes, s.durationMs
         FROM downloads d
         JOIN song_sources ss ON ss.uid = d.sourceUid
         JOIN sources src ON src.sourceId = ss.sourceId

@@ -111,15 +111,29 @@ class WearDownloadPlannerTest {
     }
 
     @Test
-    fun `songs that only the phone has are left for the phone fallback`() = runTest {
+    fun `songs that only the phone has are queued from the phone source`() = runTest {
         val onServer = song("nd:t1")
         val onlyPhone = song("phone:local:9", sourceId = "phone")
         select("playlist:2", listOf(onServer, onlyPhone))
 
         planner.plan()
 
-        assertEquals(listOf("nd:t1"), db.downloadDao().getAll().map { it.sourceUid })
+        assertEquals(listOf("nd:t1", "phone:local:9"), db.downloadDao().getAll().map { it.sourceUid }.sorted())
+        assertEquals("phone:local:9", db.downloadDao().nextQueuedFromPhone()?.sourceUid)
+        assertEquals("nd:t1", db.downloadDao().nextQueuedFromServers()?.sourceUid)
         assertEquals(0, state.missingForStorage.value)
+    }
+
+    @Test
+    fun `phone songs are estimated as original even with opus quality`() = runTest {
+        // Opus wäre 3,296 MB je Titel. Das Handy schickt das Original: 5 MB.
+        state.updateSettings(WearSettingsDto(minFreeBytes = 0, storageLimitBytes = 7_000_000))
+        select("album:1", listOf(song("phone:local:1", sourceId = "phone", sizeBytes = 5_000_000), song("phone:local:2", sourceId = "phone", sizeBytes = 5_000_000)))
+
+        planner.plan()
+
+        assertEquals(listOf("phone:local:1"), db.downloadDao().getAll().map { it.sourceUid })
+        assertEquals(1, state.missingForStorage.value)
     }
 
     @Test
@@ -143,7 +157,7 @@ class WearDownloadPlannerTest {
     private var songCounter = 0
 
     /** Ein 200 s langer Song mit einer Quelle [uid] (`<sourceId>:<remoteId>`); liefert die songId. */
-    private suspend fun song(uid: String, sourceId: String = "nd"): Long {
+    private suspend fun song(uid: String, sourceId: String = "nd", sizeBytes: Long? = null): Long {
         songCounter++
         val songId = db.libraryDao().insertSong(
             SongEntity(
@@ -162,6 +176,7 @@ class WearDownloadPlannerTest {
                 sourceId = sourceId,
                 remoteId = uid.substringAfter(':'),
                 mimeType = "audio/flac",
+                sizeBytes = sizeBytes,
                 seenInGeneration = 1,
             ),
         )

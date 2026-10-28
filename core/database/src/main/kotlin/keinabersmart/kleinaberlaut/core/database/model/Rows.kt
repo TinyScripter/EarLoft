@@ -146,6 +146,7 @@ data class SourceSongIdRow(val uid: String, val songId: Long)
 data class WearCandidateRow(
     val uid: String,
     val songId: Long,
+    val sourceType: SourceType,
     val sourcePriority: Int,
     val bitRate: Int?,
     val sizeBytes: Long?,

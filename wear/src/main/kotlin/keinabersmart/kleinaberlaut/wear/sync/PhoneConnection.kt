@@ -82,6 +82,9 @@ class PhoneConnection @Inject constructor(
         return phoneStatusOf(connected, withApp = byCapability.toSet() + byPhoneInfo)
     }
 
+    /** Das verbundene Handy mit der App, sonst `null` (für Datei-Übertragungen, Wear-Konzept 8.4). */
+    suspend fun connectedPhoneNodeId(): String? = (resolve() as? PhoneStatus.Connected)?.nodeId
+
     /** Öffnet die Play-Store-Seite der App auf dem Handy. @return `false`, wenn das nicht geklappt hat. */
     suspend fun openStoreOnPhone(nodeId: String): Boolean {
         val intent = Intent(Intent.ACTION_VIEW)
