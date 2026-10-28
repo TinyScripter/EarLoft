@@ -133,6 +133,8 @@ private fun requestedPermissions(): Array<String> = buildList {
     add(AudioPermission.name)
     // Die Wiedergabe-Benachrichtigung ist davon ausgenommen, Hinweise der App aber nicht.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
+    // Damit schon vorhandene und neu eingerichtete Heimnetz-Server gleich erreichbar sind.
+    if (LocalNetworkPermission.isRequired) add(LocalNetworkPermission.name)
 }.toTypedArray()
 
 private fun Context.openAppSettings() {

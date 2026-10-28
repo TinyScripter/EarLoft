@@ -42,6 +42,7 @@ import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.repository.ConnectionResult
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.ui.library.BackButton
+import keinabersmart.kleinaberlaut.ui.permission.rememberLocalNetworkRequester
 
 /** Server anlegen ([sourceId] `null`) oder bearbeiten. */
 @Composable
@@ -63,8 +64,8 @@ fun ServerFormScreen(
         onUsernameChange = viewModel::onUsernameChange,
         onPasswordChange = viewModel::onPasswordChange,
         onAllowHttpChange = viewModel::onAllowHttpChange,
-        onTest = viewModel::test,
-        onSave = viewModel::save,
+        onTest = rememberLocalNetworkRequester(viewModel::test),
+        onSave = rememberLocalNetworkRequester(viewModel::save),
         modifier = modifier,
     )
 }

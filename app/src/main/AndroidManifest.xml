@@ -5,6 +5,9 @@
     <!-- Wiedergabe-Benachrichtigung (API 33+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Server im Heimnetz (z. B. http://192.168.x.x): ab Android 17 nur mit dieser Berechtigung erreichbar. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+
     <application
         android:name=".KleinaberlautApplication"
         android:allowBackup="true"
