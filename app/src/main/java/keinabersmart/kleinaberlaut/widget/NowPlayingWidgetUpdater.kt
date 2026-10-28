@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
+import keinabersmart.kleinaberlaut.core.data.repository.AlbumColorRepository
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.playback.NowPlaying
 import keinabersmart.kleinaberlaut.core.playback.NowPlayingObserver
@@ -27,6 +28,8 @@ import javax.inject.Singleton
 data class WidgetState(
     val nowPlaying: NowPlaying? = null,
     val cover: Bitmap? = null,
+    /** Grundfarbe des Albums (ARGB) für die Widget-Farben; `null` = Systemfarben. */
+    val seedColor: Int? = null,
 )
 
 /**
@@ -37,6 +40,7 @@ data class WidgetState(
 class NowPlayingWidgetUpdater @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val artworkRepository: ArtworkRepository,
+    private val albumColorRepository: AlbumColorRepository,
     @ApplicationScope scope: CoroutineScope,
 ) : NowPlayingObserver {
 
@@ -64,7 +68,12 @@ class NowPlayingWidgetUpdater @Inject constructor(
             albumId == previous.nowPlaying?.albumId && previous.cover != null -> previous.cover
             else -> artworkRepository.albumCover(albumId, COVER_SIZE_PX)
         }
-        _state.value = WidgetState(nowPlaying, cover)
+        val seedColor = when {
+            albumId == null -> null
+            albumId == previous.nowPlaying?.albumId && previous.seedColor != null -> previous.seedColor
+            else -> albumColorRepository.seedColorNow(albumId)
+        }
+        _state.value = WidgetState(nowPlaying, cover, seedColor)
         NowPlayingWidget().updateAll(context)
     }
 

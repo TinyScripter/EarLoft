@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.materialkolor)
 
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.robolectric)

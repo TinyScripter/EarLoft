@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.ui.player
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.core.data.repository.AlbumColorRepository
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LyricsRepository
 import keinabersmart.kleinaberlaut.core.model.Lyrics
@@ -29,9 +30,18 @@ class PlayerViewModel @Inject constructor(
     private val playbackConnection: PlaybackConnection,
     private val favoritesRepository: FavoritesRepository,
     private val lyricsRepository: LyricsRepository,
+    private val albumColorRepository: AlbumColorRepository,
 ) : ViewModel() {
 
     val state: StateFlow<PlayerState> = playbackConnection.state
+
+    /** Grundfarbe des Albums des aktuellen Titels für das Farbschema; `null` ohne Album oder Cover. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val seedColor: StateFlow<Int?> = state
+        .map { it.current?.albumId }
+        .distinctUntilChanged()
+        .flatMapLatest { albumId -> albumId?.let(albumColorRepository::seedColor) ?: flowOf(null) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val isCurrentFavorite: StateFlow<Boolean> = state

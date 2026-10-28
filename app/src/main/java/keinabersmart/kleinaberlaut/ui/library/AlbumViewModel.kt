@@ -6,6 +6,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.core.data.repository.AlbumColorRepository
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
@@ -29,7 +30,12 @@ class AlbumViewModel @AssistedInject constructor(
     private val downloadRepository: DownloadRepository,
     private val playbackConnection: PlaybackConnection,
     private val favoritesRepository: FavoritesRepository,
+    albumColorRepository: AlbumColorRepository,
 ) : ViewModel(), SongActions {
+
+    /** Grundfarbe des Covers für das Farbschema der Seite. */
+    val seedColor: StateFlow<Int?> = albumColorRepository.seedColor(albumId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val album: StateFlow<LoadState<AlbumDetails>> = libraryRepository.album(albumId)
         .map { it.toLoadState() }

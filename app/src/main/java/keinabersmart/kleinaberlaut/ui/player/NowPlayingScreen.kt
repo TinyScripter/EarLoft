@@ -18,6 +18,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,6 +39,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.core.designsystem.theme.AlbumColorTheme
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
@@ -59,25 +61,29 @@ fun NowPlayingScreen(
     val position by rememberPlaybackPosition { viewModel.currentPositionMs }
     val lyricsVisible by viewModel.lyricsVisible.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
-    NowPlayingContent(
-        state = state,
-        isFavorite = isFavorite,
-        positionMs = position,
-        lyricsVisible = lyricsVisible,
-        lyrics = lyrics,
-        onToggleLyrics = viewModel::toggleLyrics,
-        onRetryLyrics = viewModel::retryLyrics,
-        onClose = onClose,
-        onOpenQueue = onOpenQueue,
-        onTogglePlayPause = viewModel::togglePlayPause,
-        onNext = viewModel::next,
-        onPrevious = viewModel::previous,
-        onSeek = viewModel::seekTo,
-        onToggleShuffle = viewModel::toggleShuffle,
-        onCycleRepeat = viewModel::cycleRepeatMode,
-        onToggleFavorite = viewModel::toggleFavorite,
-        modifier = modifier,
-    )
+    val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
+    AlbumColorTheme(seedColor) {
+        Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            NowPlayingContent(
+                state = state,
+                isFavorite = isFavorite,
+                positionMs = position,
+                lyricsVisible = lyricsVisible,
+                lyrics = lyrics,
+                onToggleLyrics = viewModel::toggleLyrics,
+                onRetryLyrics = viewModel::retryLyrics,
+                onClose = onClose,
+                onOpenQueue = onOpenQueue,
+                onTogglePlayPause = viewModel::togglePlayPause,
+                onNext = viewModel::next,
+                onPrevious = viewModel::previous,
+                onSeek = viewModel::seekTo,
+                onToggleShuffle = viewModel::toggleShuffle,
+                onCycleRepeat = viewModel::cycleRepeatMode,
+                onToggleFavorite = viewModel::toggleFavorite,
+            )
+        }
+    }
 }
 
 @Composable

@@ -216,6 +216,12 @@ abstract class LibraryDao {
     )
     abstract suspend fun getCoverSource(albumId: Long): PlayableSourceRow?
 
+    @Query("SELECT seedColor FROM albums WHERE albumId = :albumId")
+    abstract fun observeSeedColor(albumId: Long): Flow<Int?>
+
+    @Query("UPDATE albums SET seedColor = :color WHERE albumId = :albumId")
+    abstract suspend fun setSeedColor(albumId: Long, color: Int)
+
     // --- Aufräumen ---
 
     @Query("DELETE FROM songs WHERE songId NOT IN (SELECT songId FROM song_sources)")

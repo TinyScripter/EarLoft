@@ -9,7 +9,9 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.materialkolor.rememberDynamicColorScheme
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
@@ -53,6 +55,28 @@ fun KleinaberlautTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        content = content
+    )
+}
+
+/**
+ * Färbt [content] nach der Grundfarbe eines Albums (ARGB, siehe `albums.seedColor`) um.
+ * Ohne Farbe bleibt das umgebende Theme unverändert.
+ */
+@Composable
+fun AlbumColorTheme(
+    seedColor: Int?,
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
+    if (seedColor == null) {
+        content()
+        return
+    }
+    MaterialTheme(
+        colorScheme = rememberDynamicColorScheme(seedColor = Color(seedColor), isDark = darkTheme, isAmoled = false),
+        typography = MaterialTheme.typography,
+        shapes = MaterialTheme.shapes,
         content = content
     )
 }

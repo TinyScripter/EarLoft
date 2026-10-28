@@ -17,6 +17,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import keinabersmart.kleinaberlaut.core.designsystem.theme.AlbumColorTheme
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import keinabersmart.kleinaberlaut.navigation.AddServerRoute
@@ -122,13 +123,16 @@ fun KleinaberlautApp(
                 if (showChrome) {
                     Column {
                         if (playerState.hasMedia) {
-                            MiniPlayer(
-                                state = playerState,
-                                positionProvider = { playerViewModel.currentPositionMs },
-                                onClick = { navigator.navigate(NowPlayingRoute) },
-                                onTogglePlayPause = playerViewModel::togglePlayPause,
-                                onNext = playerViewModel::next,
-                            )
+                            val seedColor by playerViewModel.seedColor.collectAsStateWithLifecycle()
+                            AlbumColorTheme(seedColor) {
+                                MiniPlayer(
+                                    state = playerState,
+                                    positionProvider = { playerViewModel.currentPositionMs },
+                                    onClick = { navigator.navigate(NowPlayingRoute) },
+                                    onTogglePlayPause = playerViewModel::togglePlayPause,
+                                    onNext = playerViewModel::next,
+                                )
+                            }
                         }
                         NavigationBar {
                             TopLevelDestination.entries.forEach { destination ->

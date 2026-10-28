@@ -22,6 +22,7 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.core.designsystem.theme.AlbumColorTheme
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.AlbumDetails
 import keinabersmart.kleinaberlaut.core.model.AlbumOfflineStatus
@@ -71,17 +73,21 @@ fun AlbumScreen(
 ) {
     val album by viewModel.album.collectAsStateWithLifecycle()
     val offline by viewModel.offline.collectAsStateWithLifecycle()
-    AlbumContent(
-        state = album,
-        offline = offline,
-        onBack = onBack,
-        onPlay = viewModel::play,
-        onShuffle = viewModel::shuffle,
-        onDownload = viewModel::downloadAlbum,
-        onRemoveDownload = viewModel::removeAlbumDownload,
-        actions = viewModel,
-        modifier = modifier,
-    )
+    val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
+    AlbumColorTheme(seedColor) {
+        Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            AlbumContent(
+                state = album,
+                offline = offline,
+                onBack = onBack,
+                onPlay = viewModel::play,
+                onShuffle = viewModel::shuffle,
+                onDownload = viewModel::downloadAlbum,
+                onRemoveDownload = viewModel::removeAlbumDownload,
+                actions = viewModel,
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

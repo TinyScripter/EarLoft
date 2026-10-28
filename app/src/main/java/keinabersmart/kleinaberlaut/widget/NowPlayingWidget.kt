@@ -8,6 +8,7 @@ import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.glance.ColorFilter
@@ -30,9 +31,12 @@ import androidx.glance.appwidget.action.actionSendBroadcast
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
+import androidx.glance.color.ColorProviders
+import androidx.glance.material3.ColorProviders as material3ColorProviders
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
@@ -47,17 +51,18 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.MainActivity
 import keinabersmart.kleinaberlaut.R
+import com.materialkolor.dynamicColorScheme
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
-/** Widget 4×1: Cover, Titel und Steuerung des aktuellen Titels. */
+/** Widget 4×2: großes Cover links; rechts Titel, Künstler und darunter die Steuerung. Farben aus dem Cover. */
 class NowPlayingWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val updater = context.widgetEntryPoint().widgetUpdater()
         provideContent {
             val state by updater.state.collectAsState()
-            GlanceTheme {
+            GlanceTheme(colors = state.seedColor?.let(::albumColorProviders) ?: GlanceTheme.colors) {
                 NowPlayingContent(state)
             }
         }
@@ -66,6 +71,14 @@ class NowPlayingWidget : GlanceAppWidget() {
 
 class NowPlayingWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = NowPlayingWidget()
+}
+
+private fun albumColorProviders(seedColor: Int): ColorProviders {
+    val seed = Color(seedColor)
+    return material3ColorProviders(
+        light = dynamicColorScheme(seed, isDark = false, isAmoled = false),
+        dark = dynamicColorScheme(seed, isDark = true, isAmoled = false),
+    )
 }
 
 @Composable
@@ -88,13 +101,15 @@ private fun NowPlayingContent(state: WidgetState) {
             contentDescription = null,
             colorFilter = if (state.cover == null) ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant) else null,
             modifier = GlanceModifier
-                .size(48.dp)
-                .cornerRadius(8.dp),
+                .size(COVER_SIZE)
+                .cornerRadius(12.dp),
         )
         Column(
             modifier = GlanceModifier
                 .defaultWeight()
-                .padding(horizontal = 12.dp),
+                .fillMaxHeight()
+                .padding(start = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = nowPlaying?.title ?: context.getString(R.string.player_nothing_playing),
@@ -108,31 +123,35 @@ private fun NowPlayingContent(state: WidgetState) {
                     style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant),
                 )
             }
-        }
-        if (nowPlaying != null) {
-            ControlButton(
-                icon = DesignR.drawable.ic_skip_previous,
-                label = context.getString(R.string.action_previous),
-                action = playerCommand(WidgetPlayerAction.PREVIOUS),
-            )
-        }
-        ControlButton(
-            icon = if (isPlaying) DesignR.drawable.ic_pause else DesignR.drawable.ic_play,
-            label = context.getString(if (isPlaying) R.string.action_pause else R.string.action_play),
-            // „Play“ geht über den MediaButtonReceiver, damit die Wiedergabe auch ohne laufenden
-            // Service fortgesetzt wird. Alles andere ignoriert dieser ab API 26 – dafür gibt es
-            // die Verbindung zum laufenden Service.
-            action = if (isPlaying) playerCommand(WidgetPlayerAction.PAUSE) else actionSendBroadcast(playIntent(context)),
-        )
-        if (nowPlaying != null) {
-            ControlButton(
-                icon = DesignR.drawable.ic_skip_next,
-                label = context.getString(R.string.action_next),
-                action = playerCommand(WidgetPlayerAction.NEXT),
-            )
+            Row(modifier = GlanceModifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (nowPlaying != null) {
+                    ControlButton(
+                        icon = DesignR.drawable.ic_skip_previous,
+                        label = context.getString(R.string.action_previous),
+                        action = playerCommand(WidgetPlayerAction.PREVIOUS),
+                    )
+                }
+                ControlButton(
+                    icon = if (isPlaying) DesignR.drawable.ic_pause else DesignR.drawable.ic_play,
+                    label = context.getString(if (isPlaying) R.string.action_pause else R.string.action_play),
+                    // „Play“ geht über den MediaButtonReceiver, damit die Wiedergabe auch ohne laufenden
+                    // Service fortgesetzt wird. Alles andere ignoriert dieser ab API 26 – dafür gibt es
+                    // die Verbindung zum laufenden Service.
+                    action = if (isPlaying) playerCommand(WidgetPlayerAction.PAUSE) else actionSendBroadcast(playIntent(context)),
+                )
+                if (nowPlaying != null) {
+                    ControlButton(
+                        icon = DesignR.drawable.ic_skip_next,
+                        label = context.getString(R.string.action_next),
+                        action = playerCommand(WidgetPlayerAction.NEXT),
+                    )
+                }
+            }
         }
     }
 }
+
+private val COVER_SIZE = 92.dp
 
 @Composable
 private fun ControlButton(icon: Int, label: String, action: Action) {
