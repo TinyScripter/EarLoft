@@ -59,6 +59,7 @@ import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 fun SettingsScreen(
     onBack: () -> Unit,
     onAddServer: () -> Unit,
+    onEditServer: (sourceId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -67,6 +68,7 @@ fun SettingsScreen(
         state = state,
         onBack = onBack,
         onAddServer = onAddServer,
+        onEditServer = onEditServer,
         onSyncNow = viewModel::syncNow,
         onRemove = viewModel::remove,
         onRefreshAll = viewModel::refreshAll,
@@ -85,6 +87,7 @@ private fun SettingsContent(
     state: SettingsUiState,
     onBack: () -> Unit,
     onAddServer: () -> Unit,
+    onEditServer: (String) -> Unit,
     onSyncNow: (String) -> Unit,
     onRemove: (String) -> Unit,
     onRefreshAll: () -> Unit,
@@ -113,6 +116,7 @@ private fun SettingsContent(
             items(state.servers, key = { it.server.sourceId }) { item ->
                 ServerRow(
                     item = item,
+                    onEdit = { onEditServer(item.server.sourceId) },
                     onSyncNow = { onSyncNow(item.server.sourceId) },
                     onRemove = { serverToRemove = item.server.sourceId },
                 )
@@ -281,9 +285,10 @@ private fun PreAmpRow(preAmpDb: Float, enabled: Boolean, onPreAmpChange: (Float)
 }
 
 @Composable
-private fun ServerRow(item: ServerItem, onSyncNow: () -> Unit, onRemove: () -> Unit) {
+private fun ServerRow(item: ServerItem, onEdit: () -> Unit, onSyncNow: () -> Unit, onRemove: () -> Unit) {
     val server = item.server
     ListItem(
+        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.server_edit), onClick = onEdit),
         headlineContent = { Text(server.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             Column {
@@ -353,6 +358,7 @@ private fun SettingsContentPreview() {
             ),
             onBack = {},
             onAddServer = {},
+            onEditServer = {},
             onSyncNow = {},
             onRemove = {},
             onRefreshAll = {},

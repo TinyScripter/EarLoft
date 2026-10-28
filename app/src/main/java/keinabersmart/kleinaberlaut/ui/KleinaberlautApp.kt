@@ -23,6 +23,7 @@ import keinabersmart.kleinaberlaut.navigation.AddServerRoute
 import keinabersmart.kleinaberlaut.navigation.AlbumRoute
 import keinabersmart.kleinaberlaut.navigation.ArtistRoute
 import keinabersmart.kleinaberlaut.navigation.DownloadsRoute
+import keinabersmart.kleinaberlaut.navigation.EditServerRoute
 import keinabersmart.kleinaberlaut.navigation.FavoritesRoute
 import keinabersmart.kleinaberlaut.navigation.HomeRoute
 import keinabersmart.kleinaberlaut.navigation.LibraryRoute
@@ -50,7 +51,7 @@ import keinabersmart.kleinaberlaut.ui.player.PlayerViewModel
 import keinabersmart.kleinaberlaut.ui.player.QueueScreen
 import keinabersmart.kleinaberlaut.ui.playlists.PlaylistScreen
 import keinabersmart.kleinaberlaut.ui.search.SearchScreen
-import keinabersmart.kleinaberlaut.ui.settings.AddServerScreen
+import keinabersmart.kleinaberlaut.ui.settings.ServerFormScreen
 import keinabersmart.kleinaberlaut.ui.settings.SettingsScreen
 
 @Composable
@@ -90,9 +91,14 @@ fun KleinaberlautApp(
         }
         entry<QueueRoute> { QueueScreen(onBack = navigator::goBack) }
         entry<SettingsRoute> {
-            SettingsScreen(onBack = navigator::goBack, onAddServer = { navigator.navigate(AddServerRoute) })
+            SettingsScreen(
+                onBack = navigator::goBack,
+                onAddServer = { navigator.navigate(AddServerRoute) },
+                onEditServer = { navigator.navigate(EditServerRoute(it)) },
+            )
         }
-        entry<AddServerRoute> { AddServerScreen(onDone = navigator::goBack) }
+        entry<AddServerRoute> { ServerFormScreen(sourceId = null, onDone = navigator::goBack) }
+        entry<EditServerRoute> { route -> ServerFormScreen(sourceId = route.sourceId, onDone = navigator::goBack) }
     }
 
     val showChrome = !navigator.currentRoute.isFullScreenPlayer

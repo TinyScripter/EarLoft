@@ -2,6 +2,9 @@ package keinabersmart.kleinaberlaut.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.ConnectionResult
 import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
@@ -10,31 +13,67 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-data class AddServerUiState(
+data class ServerFormUiState(
+    /** `true` = vorhandenen Server bearbeiten, sonst neuen anlegen. */
+    val isEditing: Boolean = false,
+    val isLoading: Boolean = false,
     val name: String = "",
     val url: String = "",
     val username: String = "",
+    /** Beim Bearbeiten: leer = gespeichertes Passwort behalten. */
     val password: String = "",
+    /** Beim Bearbeiten: Es gibt ein lesbares gespeichertes Passwort. */
+    val hasStoredPassword: Boolean = false,
     val allowHttp: Boolean = false,
     val isBusy: Boolean = false,
     val result: ConnectionResult? = null,
-    val saved: Boolean = false,
+    /** Gespeichert oder der Server existiert nicht mehr → Formular schließen. */
+    val done: Boolean = false,
 ) {
     val isHttp: Boolean get() = url.trim().startsWith("http://", ignoreCase = true)
 
+    val keepsStoredPassword: Boolean get() = isEditing && hasStoredPassword && password.isEmpty()
+
     val canSubmit: Boolean
-        get() = !isBusy && url.isNotBlank() && username.isNotBlank() && password.isNotEmpty() && (!isHttp || allowHttp)
+        get() = !isBusy && !isLoading && url.isNotBlank() && username.isNotBlank() &&
+            (password.isNotEmpty() || keepsStoredPassword) && (!isHttp || allowHttp)
 }
 
-@HiltViewModel
-class AddServerViewModel @Inject constructor(
+/** Formular zum Anlegen ([sourceId] `null`) oder Bearbeiten eines Servers. */
+@HiltViewModel(assistedFactory = ServerFormViewModel.Factory::class)
+class ServerFormViewModel @AssistedInject constructor(
     private val serverRepository: ServerRepository,
+    @Assisted private val sourceId: String?,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(AddServerUiState())
-    val state: StateFlow<AddServerUiState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(ServerFormUiState(isEditing = sourceId != null, isLoading = sourceId != null))
+    val state: StateFlow<ServerFormUiState> = _state.asStateFlow()
+
+    init {
+        if (sourceId != null) load(sourceId)
+    }
+
+    private fun load(sourceId: String) {
+        viewModelScope.launch {
+            val server = serverRepository.editableServer(sourceId)
+            if (server == null) {
+                _state.update { it.copy(isLoading = false, done = true) }
+                return@launch
+            }
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    name = server.info.name,
+                    url = server.info.baseUrl,
+                    username = server.info.username.orEmpty(),
+                    hasStoredPassword = server.hasPassword,
+                    // Die unverschlüsselte Verbindung wurde beim Einrichten schon bestätigt.
+                    allowHttp = server.info.baseUrl.startsWith("http://", ignoreCase = true),
+                )
+            }
+        }
+    }
 
     fun onNameChange(value: String) = _state.update { it.copy(name = value) }
     fun onUrlChange(value: String) = _state.update { it.copy(url = value, result = null) }
@@ -42,15 +81,26 @@ class AddServerViewModel @Inject constructor(
     fun onPasswordChange(value: String) = _state.update { it.copy(password = value, result = null) }
     fun onAllowHttpChange(value: Boolean) = _state.update { it.copy(allowHttp = value) }
 
-    fun test() = submit { s -> serverRepository.testConnection(s.url, s.username, s.password) }
-
-    fun save() = submit { s ->
-        serverRepository.addServer(s.name, s.url, s.username, s.password).also { result ->
-            if (result is ConnectionResult.Success) _state.update { it.copy(saved = true) }
+    fun test() = submit { s ->
+        if (sourceId == null) {
+            serverRepository.testConnection(s.url, s.username, s.password)
+        } else {
+            serverRepository.testConnection(sourceId, s.url, s.username, s.newPassword)
         }
     }
 
-    private fun submit(action: suspend (AddServerUiState) -> ConnectionResult) {
+    fun save() = submit { s ->
+        val result = if (sourceId == null) {
+            serverRepository.addServer(s.name, s.url, s.username, s.password)
+        } else {
+            serverRepository.updateServer(sourceId, s.name, s.url, s.username, s.newPassword)
+        }
+        result.also { if (it is ConnectionResult.Success) _state.update { s -> s.copy(done = true) } }
+    }
+
+    private val ServerFormUiState.newPassword: String? get() = password.ifEmpty { null }
+
+    private fun submit(action: suspend (ServerFormUiState) -> ConnectionResult) {
         val current = _state.value
         if (!current.canSubmit) return
         _state.update { it.copy(isBusy = true, result = null) }
@@ -58,5 +108,10 @@ class AddServerViewModel @Inject constructor(
             val result = action(current)
             _state.update { it.copy(isBusy = false, result = result) }
         }
+    }
+
+    @AssistedFactory
+    interface Factory {
+        fun create(sourceId: String?): ServerFormViewModel
     }
 }

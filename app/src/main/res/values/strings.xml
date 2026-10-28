@@ -80,7 +80,7 @@
     <string name="server_synced_just_now">Gerade abgeglichen</string>
     <string name="server_sync_failed">Abgleich fehlgeschlagen: %1$s</string>
     <string name="server_sync_now">Jetzt abgleichen</string>
-    <string name="server_password_lost">Das gespeicherte Passwort lässt sich nicht mehr lesen (z. B. nach einer Wiederherstellung auf einem anderen Gerät). Entferne den Server und richte ihn neu ein.</string>
+    <string name="server_password_lost">Das gespeicherte Passwort lässt sich nicht mehr lesen (z. B. nach einer Wiederherstellung auf einem anderen Gerät). Tippe auf den Server und gib das Passwort neu ein.</string>
     <plurals name="age_minutes">
         <item quantity="one">vor %1$d Minute</item>
         <item quantity="other">vor %1$d Minuten</item>
@@ -97,6 +97,7 @@
     <string name="sync_notice_favorite_dropped">Ein Favorit konnte nicht an den Server übertragen werden.</string>
     <string name="sync_notice_playlist_dropped">Eine Playlist-Änderung konnte nicht an den Server übertragen werden.</string>
     <string name="server_remove">Server entfernen</string>
+    <string name="server_edit">Bearbeiten</string>
     <string name="server_remove_title">„%1$s“ entfernen?</string>
     <string name="server_remove_text">Songs, die nur auf diesem Server liegen, verschwinden aus der Bibliothek. Favoriten und Playlists auf dem Server bleiben unberührt.</string>
     <string name="action_cancel">Abbrechen</string>
@@ -118,6 +119,9 @@
     <string name="add_server_not_subsonic">Unter dieser Adresse antwortet kein Subsonic-Server.</string>
     <string name="add_server_unreachable">Server nicht erreichbar (%1$s).</string>
     <string name="add_server_server_error">Der Server meldet Fehler %1$d: %2$s</string>
+    <string name="edit_server_title">Server bearbeiten</string>
+    <string name="edit_server_password_keep">Leer lassen, um das gespeicherte Passwort zu behalten.</string>
+    <string name="edit_server_password_required">Das gespeicherte Passwort ist nicht lesbar. Bitte neu eingeben.</string>
 
     <!-- Favoriten & Playlists -->
     <string name="action_add_favorite">Zu Favoriten hinzufügen</string>

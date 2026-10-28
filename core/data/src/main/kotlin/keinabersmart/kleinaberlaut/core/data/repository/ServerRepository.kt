@@ -36,7 +36,10 @@ sealed interface ConnectionResult {
     data class ServerError(val code: Int, val message: String?) : ConnectionResult
 }
 
-/** Einrichten, Prüfen und Entfernen von Navidrome-/Subsonic-Servern. */
+/** Ein Server zum Bearbeiten; das Passwort selbst verlässt das Repository nicht. */
+data class EditableServer(val info: ServerInfo, val hasPassword: Boolean)
+
+/** Einrichten, Prüfen, Bearbeiten und Entfernen von Navidrome-/Subsonic-Servern. */
 @Singleton
 class ServerRepository @Inject constructor(
     private val database: KleinaberlautDatabase,
@@ -50,17 +53,22 @@ class ServerRepository @Inject constructor(
     private val changeListeners: Set<@JvmSuppressWildcards LibraryChangeListener>,
 ) {
     fun servers(): Flow<List<ServerInfo>> =
-        sourceDao.observeByType(SourceType.SUBSONIC).map { sources ->
-            sources.map {
-                ServerInfo(
-                    sourceId = it.sourceId,
-                    name = it.name,
-                    baseUrl = it.baseUrl.orEmpty(),
-                    username = it.username,
-                    lastFullSyncAt = it.lastFullSyncAt,
-                )
-            }
-        }
+        sourceDao.observeByType(SourceType.SUBSONIC).map { sources -> sources.map { it.toServerInfo() } }
+
+    /** @return `null`, wenn es den Server nicht (mehr) gibt. */
+    suspend fun editableServer(sourceId: String): EditableServer? {
+        val entity = sourceDao.get(sourceId)?.takeIf { it.type == SourceType.SUBSONIC } ?: return null
+        return EditableServer(entity.toServerInfo(), hasPassword = storedPassword(sourceId) != null)
+    }
+
+    /**
+     * Testet die Verbindung eines vorhandenen Servers mit geänderten Angaben. [newPassword] `null`
+     * = das gespeicherte Passwort verwenden.
+     */
+    suspend fun testConnection(sourceId: String, url: String, username: String, newPassword: String?): ConnectionResult {
+        val password = newPassword ?: storedPassword(sourceId) ?: return ConnectionResult.WrongCredentials
+        return testConnection(url, username, password)
+    }
 
     suspend fun testConnection(url: String, username: String, password: String): ConnectionResult {
         val baseUrl = SubsonicServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
@@ -95,7 +103,6 @@ class ServerRepository @Inject constructor(
         val baseUrl = SubsonicServer.normalizeBaseUrl(url)!!
         val sourceId = UUID.randomUUID().toString()
         val server = SubsonicServer(sourceId, baseUrl, SubsonicCredentials.Password(username, password))
-        val extensions = api.openSubsonicExtensions(server).map { it.name }
 
         secretStore.put(DataSourceRegistry.passwordKey(sourceId), password)
         sourceDao.upsert(
@@ -105,7 +112,44 @@ class ServerRepository @Inject constructor(
                 name = name.trim().ifEmpty { baseUrl.host },
                 baseUrl = baseUrl.toString(),
                 username = username,
-                serverCapabilities = extensions.joinToString(",", prefix = "[", postfix = "]") { "\"$it\"" },
+                serverCapabilities = capabilities(server),
+            ),
+        )
+        registry.reload()
+        refresher.refreshSource(sourceId)
+        return result
+    }
+
+    /**
+     * Ändert Name, Adresse, Benutzer oder Passwort eines Servers, nur wenn die Verbindung mit den
+     * neuen Angaben klappt. Die `sourceId` bleibt, damit Songs, Downloads, Favoriten und Playlists
+     * erhalten bleiben (und die Uhr nichts neu laden muss). [newPassword] `null` = unverändert.
+     *
+     * Danach folgt ein Vollabgleich: Zeigt die Adresse jetzt auf eine andere Bibliothek, räumt der
+     * Mark-and-Sweep die alten Songs ab.
+     */
+    suspend fun updateServer(
+        sourceId: String,
+        name: String,
+        url: String,
+        username: String,
+        newPassword: String?,
+    ): ConnectionResult {
+        val existing = sourceDao.get(sourceId) ?: return ConnectionResult.InvalidUrl
+        val password = newPassword ?: storedPassword(sourceId) ?: return ConnectionResult.WrongCredentials
+        val result = testConnection(url, username, password)
+        if (result !is ConnectionResult.Success) return result
+
+        val baseUrl = SubsonicServer.normalizeBaseUrl(url)!!
+        val server = SubsonicServer(sourceId, baseUrl, SubsonicCredentials.Password(username, password))
+        if (newPassword != null) secretStore.put(DataSourceRegistry.passwordKey(sourceId), newPassword)
+        // Sync-Generation und Zeitpunkt bleiben, sonst hielte der Mark-and-Sweep alles für neu.
+        sourceDao.upsert(
+            existing.copy(
+                name = name.trim().ifEmpty { baseUrl.host },
+                baseUrl = baseUrl.toString(),
+                username = username,
+                serverCapabilities = capabilities(server),
             ),
         )
         registry.reload()
@@ -127,6 +171,21 @@ class ServerRepository @Inject constructor(
     }
 
     fun syncNow(sourceId: String) = refresher.refreshSource(sourceId)
+
+    private suspend fun storedPassword(sourceId: String): String? =
+        secretStore.get(DataSourceRegistry.passwordKey(sourceId))
+
+    /** OpenSubsonic-Extensions als JSON-Liste, siehe [DataSourceRegistry]. */
+    private suspend fun capabilities(server: SubsonicServer): String =
+        api.openSubsonicExtensions(server).joinToString(",", prefix = "[", postfix = "]") { "\"${it.name}\"" }
+
+    private fun SourceEntity.toServerInfo() = ServerInfo(
+        sourceId = sourceId,
+        name = name,
+        baseUrl = baseUrl.orEmpty(),
+        username = username,
+        lastFullSyncAt = lastFullSyncAt,
+    )
 
     private companion object {
         const val TEST_SOURCE_ID = "connection-test"

@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -42,17 +43,19 @@ import keinabersmart.kleinaberlaut.core.data.repository.ConnectionResult
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 
+/** Server anlegen ([sourceId] `null`) oder bearbeiten. */
 @Composable
-fun AddServerScreen(
+fun ServerFormScreen(
+    sourceId: String?,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: AddServerViewModel = hiltViewModel(),
+    viewModel: ServerFormViewModel = hiltViewModel<ServerFormViewModel, ServerFormViewModel.Factory> { it.create(sourceId) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(state.saved) {
-        if (state.saved) onDone()
+    LaunchedEffect(state.done) {
+        if (state.done) onDone()
     }
-    AddServerContent(
+    ServerFormContent(
         state = state,
         onBack = onDone,
         onNameChange = viewModel::onNameChange,
@@ -68,8 +71,8 @@ fun AddServerScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddServerContent(
-    state: AddServerUiState,
+private fun ServerFormContent(
+    state: ServerFormUiState,
     onBack: () -> Unit,
     onNameChange: (String) -> Unit,
     onUrlChange: (String) -> Unit,
@@ -82,9 +85,15 @@ private fun AddServerContent(
 ) {
     Column(modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(stringResource(R.string.add_server_title)) },
+            title = {
+                Text(stringResource(if (state.isEditing) R.string.edit_server_title else R.string.add_server_title))
+            },
             navigationIcon = { BackButton(onBack) },
         )
+        if (state.isLoading) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            return@Column
+        }
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
@@ -131,6 +140,15 @@ private fun AddServerContent(
                 value = state.password,
                 onValueChange = onPasswordChange,
                 label = { Text(stringResource(R.string.add_server_password)) },
+                supportingText = when {
+                    !state.isEditing -> null
+                    state.hasStoredPassword -> {
+                        { Text(stringResource(R.string.edit_server_password_keep)) }
+                    }
+                    else -> {
+                        { Text(stringResource(R.string.edit_server_password_required)) }
+                    }
+                },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
@@ -182,14 +200,38 @@ private fun ResultText(result: ConnectionResult) {
 
 @Preview(showBackground = true)
 @Composable
-private fun AddServerContentPreview() {
+private fun ServerFormContentPreview() {
     KleinaberlautTheme {
-        AddServerContent(
-            state = AddServerUiState(
+        ServerFormContent(
+            state = ServerFormUiState(
                 url = "http://10.0.2.2:4533",
                 username = "kal",
                 password = "x",
                 result = ConnectionResult.Success("navidrome", "0.64.2"),
+            ),
+            onBack = {},
+            onNameChange = {},
+            onUrlChange = {},
+            onUsernameChange = {},
+            onPasswordChange = {},
+            onAllowHttpChange = {},
+            onTest = {},
+            onSave = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ServerFormEditPreview() {
+    KleinaberlautTheme {
+        ServerFormContent(
+            state = ServerFormUiState(
+                isEditing = true,
+                name = "Navidrome",
+                url = "https://musik.example.de/",
+                username = "kal",
+                hasStoredPassword = true,
             ),
             onBack = {},
             onNameChange = {},

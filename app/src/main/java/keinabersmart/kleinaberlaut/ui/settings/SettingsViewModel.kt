@@ -24,7 +24,7 @@ data class ServerItem(
     val server: ServerInfo,
     /** Meldung des letzten fehlgeschlagenen Abgleichs. */
     val error: String?,
-    /** Das gespeicherte Passwort ist nicht mehr lesbar; der Server muss neu eingerichtet werden. */
+    /** Das gespeicherte Passwort ist nicht mehr lesbar; der Nutzer muss es beim Bearbeiten neu eingeben. */
     val passwordLost: Boolean = false,
 )
 
