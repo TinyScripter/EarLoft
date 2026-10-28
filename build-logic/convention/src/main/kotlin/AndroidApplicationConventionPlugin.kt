@@ -6,6 +6,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
+import java.util.Properties
 
 class AndroidApplicationConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -26,6 +27,22 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 testOptions.unitTests {
                     isIncludeAndroidResources = true
                     all { it.jvmArgs(BuildConfig.ROBOLECTRIC_JVM_ARGS) }
+                }
+
+                // keystore.properties im Projektroot (nicht eingecheckt): storeFile, storePassword, keyAlias, keyPassword.
+                // Fehlt die Datei, bleibt release unsigniert, damit der Build trotzdem läuft.
+                val keystoreFile = rootProject.file("keystore.properties")
+                if (keystoreFile.exists()) {
+                    val props = Properties().apply { keystoreFile.inputStream().use(::load) }
+                    signingConfigs {
+                        create("release") {
+                            storeFile = rootProject.file(props.getProperty("storeFile"))
+                            storePassword = props.getProperty("storePassword")
+                            keyAlias = props.getProperty("keyAlias")
+                            keyPassword = props.getProperty("keyPassword")
+                        }
+                    }
+                    buildTypes.getByName("release").signingConfig = signingConfigs.getByName("release")
                 }
             }
 
