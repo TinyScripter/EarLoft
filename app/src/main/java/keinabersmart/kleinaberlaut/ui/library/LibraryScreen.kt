@@ -155,45 +155,50 @@ private fun PlaylistList(
         )
     }
 
-    LazyColumn(Modifier.fillMaxSize()) {
-        item(key = "new") {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.playlist_new)) },
-                leadingContent = {
-                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                        Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
-                    }
-                },
-                modifier = Modifier.clickable { creating = true },
-            )
+    val state = rememberLazyListState()
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), state = state) {
+            item(key = "new") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.playlist_new)) },
+                    leadingContent = {
+                        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                            Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
+                        }
+                    },
+                    modifier = Modifier.clickable { creating = true },
+                )
+            }
+            item(key = "favorites") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.favorites_title)) },
+                    supportingContent = { Text(pluralStringResource(R.plurals.song_count, favoriteCount, favoriteCount)) },
+                    leadingContent = {
+                        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                            Icon(
+                                painterResource(DesignR.drawable.ic_favorite),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    },
+                    modifier = Modifier.clickable(onClick = onFavoritesClick),
+                )
+            }
+            items(playlists, key = { it.id }) { playlist ->
+                ListItem(
+                    headlineContent = { Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    supportingContent = {
+                        val songs = pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount)
+                        Text("$songs · ${playlistLocation(playlist.serverName)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    },
+                    leadingContent = { PlaylistIcon() },
+                    modifier = Modifier.clickable { onPlaylistClick(playlist.id) },
+                )
+            }
         }
-        item(key = "favorites") {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.favorites_title)) },
-                supportingContent = { Text(pluralStringResource(R.plurals.song_count, favoriteCount, favoriteCount)) },
-                leadingContent = {
-                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                        Icon(
-                            painterResource(DesignR.drawable.ic_favorite),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                },
-                modifier = Modifier.clickable(onClick = onFavoritesClick),
-            )
-        }
-        items(playlists, key = { it.id }) { playlist ->
-            ListItem(
-                headlineContent = { Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                supportingContent = {
-                    val songs = pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount)
-                    Text("$songs · ${playlistLocation(playlist.serverName)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                },
-                leadingContent = { PlaylistIcon() },
-                modifier = Modifier.clickable { onPlaylistClick(playlist.id) },
-            )
-        }
+        // Die ersten beiden Zeilen sind „Neue Playlist“ und „Favoriten“.
+        LazyListFastScroller(state, labelAt = { index -> letterOf(playlists.getOrNull((index - 2).coerceAtLeast(0))?.name.orEmpty()) })
     }
 }
 
