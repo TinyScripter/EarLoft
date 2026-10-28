@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Wie am Handy (app/.../network_security_config.xml): Heimserver laufen oft per HTTP oder mit selbst signiertem
+    Zertifikat. Der Server-Dialog am Handy lässt HTTP nur nach ausdrücklicher Bestätigung zu; die Uhr übernimmt
+    die dort eingerichteten Server (Wear-Konzept 6).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
