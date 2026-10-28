@@ -46,10 +46,12 @@ import keinabersmart.kleinaberlaut.ui.components.AlbumArt
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
 import keinabersmart.kleinaberlaut.ui.formatBytes
+import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @Composable
 fun DownloadsScreen(
+    onBack: () -> Unit,
     onAlbumClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DownloadsViewModel = hiltViewModel(),
@@ -57,6 +59,7 @@ fun DownloadsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     DownloadsContent(
         state = state,
+        onBack = onBack,
         onAlbumClick = onAlbumClick,
         onRetryFailed = viewModel::retryFailed,
         onRemoveAlbum = viewModel::removeAlbum,
@@ -69,6 +72,7 @@ fun DownloadsScreen(
 @Composable
 private fun DownloadsContent(
     state: DownloadsUiState,
+    onBack: () -> Unit,
     onAlbumClick: (Long) -> Unit,
     onRetryFailed: () -> Unit,
     onRemoveAlbum: (Long) -> Unit,
@@ -82,6 +86,7 @@ private fun DownloadsContent(
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text(stringResource(R.string.nav_downloads)) },
+            navigationIcon = { BackButton(onBack) },
             actions = {
                 if (state.albums.isNotEmpty()) {
                     Box {
@@ -247,6 +252,7 @@ private fun DownloadsContentPreview() {
                 ),
                 isLoading = false,
             ),
+            onBack = {},
             onAlbumClick = {},
             onRetryFailed = {},
             onRemoveAlbum = {},

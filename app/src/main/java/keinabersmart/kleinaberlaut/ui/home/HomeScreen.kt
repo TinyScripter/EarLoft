@@ -13,8 +13,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -35,13 +33,11 @@ import keinabersmart.kleinaberlaut.ui.components.ArtistCard
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
-import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @Composable
 fun HomeScreen(
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
-    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -50,7 +46,6 @@ fun HomeScreen(
         state = state,
         onAlbumClick = onAlbumClick,
         onArtistClick = onArtistClick,
-        onOpenSettings = onOpenSettings,
         modifier = modifier,
     )
 }
@@ -61,7 +56,6 @@ private fun HomeContent(
     state: HomeUiState,
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
-    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
@@ -72,11 +66,6 @@ private fun HomeContent(
                     contentDescription = stringResource(R.string.app_name),
                     modifier = Modifier.height(40.dp),
                 )
-            },
-            actions = {
-                IconButton(onClick = onOpenSettings) {
-                    Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.settings_title))
-                }
             },
         )
         if (state.isSyncing) {
@@ -144,7 +133,6 @@ private fun HomeContentPreview() {
             ),
             onAlbumClick = {},
             onArtistClick = {},
-            onOpenSettings = {},
         )
     }
 }

@@ -89,7 +89,6 @@ fun KleinaberlautApp(
             HomeScreen(
                 onAlbumClick = openAlbum,
                 onArtistClick = openArtist,
-                onOpenSettings = { navigator.navigate(SettingsRoute) },
             )
         }
         entry<LibraryRoute> {
@@ -103,7 +102,7 @@ fun KleinaberlautApp(
         entry<FavoritesRoute> { FavoritesScreen(onBack = navigator::goBack) }
         entry<PlaylistRoute> { route -> PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack) }
         entry<SearchRoute> { SearchScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) }
-        entry<DownloadsRoute> { DownloadsScreen(onAlbumClick = openAlbum) }
+        entry<DownloadsRoute> { DownloadsScreen(onBack = navigator::goBack, onAlbumClick = openAlbum) }
         entry<AlbumRoute> { route -> AlbumScreen(albumId = route.albumId, onBack = navigator::goBack) }
         entry<ArtistRoute> { route ->
             ArtistScreen(artistId = route.artistId, onBack = navigator::goBack, onAlbumClick = openAlbum)
@@ -114,9 +113,9 @@ fun KleinaberlautApp(
         entry<QueueRoute> { QueueScreen(onBack = navigator::goBack) }
         entry<SettingsRoute> {
             SettingsScreen(
-                onBack = navigator::goBack,
                 onAddServer = { navigator.navigate(AddServerRoute) },
                 onEditServer = { navigator.navigate(EditServerRoute(it)) },
+                onOpenDownloads = { navigator.navigate(DownloadsRoute) },
                 onOpenWatch = { navigator.navigate(WatchSettingsRoute) },
                 onOpenAbout = { navigator.navigate(AboutRoute) },
                 onOpenLicenses = { navigator.navigate(LicensesRoute) },

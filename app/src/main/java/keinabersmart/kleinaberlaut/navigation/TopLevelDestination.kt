@@ -27,7 +27,7 @@ enum class TopLevelDestination(
     HOME(HomeRoute, R.drawable.ic_nav_home, R.string.nav_home),
     LIBRARY(LibraryRoute, R.drawable.ic_nav_library, R.string.nav_library),
     SEARCH(SearchRoute, R.drawable.ic_nav_search, R.string.nav_search),
-    DOWNLOADS(DownloadsRoute, R.drawable.ic_nav_downloads, R.string.nav_downloads),
+    SETTINGS(SettingsRoute, R.drawable.ic_nav_settings, R.string.nav_settings),
 }
 
 val TOP_LEVEL_ROUTES: Set<NavKey> = TopLevelDestination.entries.map { it.route }.toSet()

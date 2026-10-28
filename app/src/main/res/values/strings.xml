@@ -4,6 +4,7 @@
     <string name="nav_home">Start</string>
     <string name="nav_library">Bibliothek</string>
     <string name="nav_search">Suche</string>
+    <string name="nav_settings">Einstellungen</string>
     <string name="nav_downloads">Downloads</string>
 
     <!-- Berechtigungen -->
@@ -203,6 +204,7 @@
     <string name="settings_auto_download_favorites_summary">Neue Favoriten werden geladen, entfernte Favoriten wieder gelöscht. Gilt für Server, von denen nicht ohnehin alles geladen wird.</string>
 
     <!-- Einstellungen: Wiedergabe -->
+    <string name="settings_downloads_summary">Heruntergeladene Alben verwalten und Speicher prüfen</string>
     <string name="settings_playback">Wiedergabe</string>
     <string name="settings_replay_gain">Lautstärke angleichen (ReplayGain)</string>
     <string name="replay_gain_off">Aus</string>

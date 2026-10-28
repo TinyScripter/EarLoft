@@ -53,16 +53,15 @@ import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.LocalWatchController
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
-import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.permission.rememberAudioPermissionRequester
 import keinabersmart.kleinaberlaut.ui.theme.ThemeMode
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @Composable
 fun SettingsScreen(
-    onBack: () -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (sourceId: String) -> Unit,
+    onOpenDownloads: () -> Unit,
     onOpenWatch: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenLicenses: () -> Unit,
@@ -77,13 +76,13 @@ fun SettingsScreen(
     SettingsContent(
         state = state,
         watchAvailable = LocalWatchController.current?.isAvailable == true,
-        onBack = onBack,
         onThemeModeChange = viewModel::setThemeMode,
         onUseLocalMediaChange = { enabled ->
             if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
         },
         onAddServer = onAddServer,
         onEditServer = onEditServer,
+        onOpenDownloads = onOpenDownloads,
         onOpenWatch = onOpenWatch,
         onOpenAbout = onOpenAbout,
         onOpenLicenses = onOpenLicenses,
@@ -104,11 +103,11 @@ fun SettingsScreen(
 private fun SettingsContent(
     state: SettingsUiState,
     watchAvailable: Boolean,
-    onBack: () -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
     onUseLocalMediaChange: (Boolean) -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
+    onOpenDownloads: () -> Unit,
     onOpenWatch: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenLicenses: () -> Unit,
@@ -129,7 +128,6 @@ private fun SettingsContent(
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text(stringResource(R.string.settings_title)) },
-            navigationIcon = { BackButton(onBack) },
         )
         if (state.isSyncing) LinearProgressIndicator(Modifier.fillMaxWidth())
 
@@ -216,6 +214,16 @@ private fun SettingsContent(
                     icon = DesignR.drawable.ic_favorite,
                     checked = state.autoDownloadFavorites,
                     onCheckedChange = onAutoDownloadFavoritesChange,
+                )
+            }
+
+            // --- Downloads ---
+            item(key = "downloads") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.nav_downloads)) },
+                    supportingContent = { Text(stringResource(R.string.settings_downloads_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                    modifier = Modifier.clickable(onClick = onOpenDownloads),
                 )
             }
 
@@ -497,11 +505,11 @@ private fun SettingsContentPreview() {
                 ),
             ),
             watchAvailable = true,
-            onBack = {},
             onThemeModeChange = {},
             onUseLocalMediaChange = {},
             onAddServer = {},
             onEditServer = {},
+            onOpenDownloads = {},
             onOpenWatch = {},
             onOpenAbout = {},
             onOpenLicenses = {},
