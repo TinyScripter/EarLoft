@@ -4,6 +4,11 @@
 
     <uses-feature android:name="android.hardware.type.watch" />
 
+    <!-- WLAN für Downloads ausdrücklich anfordern (Wear-Konzept 8.2); Vordergrund-Rechte kommen aus :core:download. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <!-- Kommen aus :core:datasource; die Uhr scannt keine eigene Musik (Wear-Konzept 7.3). -->
     <uses-permission
         android:name="android.permission.READ_MEDIA_AUDIO"

@@ -16,6 +16,7 @@ import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
 import dagger.hilt.android.AndroidEntryPoint
 import keinabersmart.kleinaberlaut.wear.ui.SelectionScreen
 import keinabersmart.kleinaberlaut.wear.ui.StartScreen
+import keinabersmart.kleinaberlaut.wear.ui.StorageScreen
 import kotlinx.serialization.Serializable
 
 @AndroidEntryPoint
@@ -35,6 +36,10 @@ data object StartRoute : NavKey
 @Serializable
 data class SelectionRoute(val playlistId: Long) : NavKey
 
+/** Speicher & Downloads (Wear-Konzept 11). */
+@Serializable
+data object StorageRoute : NavKey
+
 @Composable
 fun WearApp() {
     MaterialTheme {
@@ -48,7 +53,13 @@ fun WearApp() {
                     rememberViewModelStoreNavEntryDecorator(),
                 ),
                 entryProvider = entryProvider {
-                    entry<StartRoute> { StartScreen(onSelectionClick = { backStack.add(SelectionRoute(it)) }) }
+                    entry<StartRoute> {
+                        StartScreen(
+                            onSelectionClick = { backStack.add(SelectionRoute(it)) },
+                            onStorageClick = { backStack.add(StorageRoute) },
+                        )
+                    }
+                    entry<StorageRoute> { StorageScreen() }
                     entry<SelectionRoute> { route -> SelectionScreen(playlistId = route.playlistId) }
                 },
             )

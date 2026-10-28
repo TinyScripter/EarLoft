@@ -228,6 +228,15 @@
     <string name="watch_require_charging_summary">Die Uhr lädt per WLAN, während sie lädt. Aus: auch ohne Ladegerät.</string>
     <string name="watch_clear">Alles von der Uhr entfernen</string>
     <string name="watch_clear_text">Die Auswahl wird geleert; die Uhr löscht die geladene Musik.</string>
+    <string name="watch_status_storage">Speicher der Uhr: %1$s belegt, %2$s frei</string>
+    <string name="watch_status_limit">Grenze: %s</string>
+    <string name="watch_status_none">Noch kein Bericht der Uhr</string>
+    <string name="watch_status_error">Letzter Fehler: %s</string>
+    <string name="watch_selection_progress">%1$s · %2$d von %3$d geladen</string>
+    <plurals name="watch_status_missing">
+        <item quantity="one">Speicher der Uhr voll – %d Titel fehlt</item>
+        <item quantity="other">Speicher der Uhr voll – %d Titel fehlen</item>
+    </plurals>
     <plurals name="watch_selection_songs">
         <item quantity="one">%1$s · %2$d Titel</item>
         <item quantity="other">%1$s · %2$d Titel</item>

@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.core.download
 
+import android.net.Network
 import android.util.Log
 import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
@@ -13,13 +14,14 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import okhttp3.CacheControl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
 import javax.inject.Inject
 
 /** Ergebnis eines einzelnen Downloads. */
-internal sealed interface DownloadOutcome {
+sealed interface DownloadOutcome {
     data object Done : DownloadOutcome
 
     /** Dauerhaft fehlgeschlagen (z. B. Datei auf dem Server weg, Speicher voll). */
@@ -40,7 +42,7 @@ internal sealed interface DownloadOutcome {
  * Auth übernimmt der gemeinsame OkHttpClient anhand der Stream-URL. `no-store` hält die Datei
  * aus dem HTTP-Cache heraus.
  */
-internal class Downloader @Inject constructor(
+class Downloader @Inject constructor(
     private val downloadDao: DownloadDao,
     private val sources: MusicDataSources,
     private val client: OkHttpClient,
@@ -49,16 +51,21 @@ internal class Downloader @Inject constructor(
     /**
      * Lädt [download] herunter. Bei [DownloadOutcome.Retry] bleibt der Eintrag auf `RUNNING` – der
      * Aufrufer entscheidet, ob er ihn neu einreiht oder als fehlgeschlagen markiert.
+     *
+     * Mit [network] läuft die Verbindung über genau dieses Netz (die Uhr lädt über WLAN, nie über den
+     * Bluetooth-Proxy des Handys).
      */
     suspend fun download(
         download: DownloadEntity,
+        profile: DownloadProfile = DownloadProfile.ORIGINAL,
+        network: Network? = null,
         onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit = { _, _ -> },
     ): DownloadOutcome {
         val uid = download.sourceUid
         if (downloadDao.markRunning(uid) == 0) return DownloadOutcome.Cancelled
         val part = storage.partFileFor(uid)
         return try {
-            fetch(uid, onProgress).also { outcome ->
+            fetch(uid, profile, network, onProgress).also { outcome ->
                 if (outcome is DownloadOutcome.Failed) downloadDao.markFailed(uid)
                 if (outcome !is DownloadOutcome.Done) part.delete()
             }
@@ -72,18 +79,25 @@ internal class Downloader @Inject constructor(
         }
     }
 
-    private suspend fun fetch(uid: String, onProgress: suspend (Long, Long?) -> Unit): DownloadOutcome {
+    private suspend fun fetch(
+        uid: String,
+        profile: DownloadProfile,
+        network: Network?,
+        onProgress: suspend (Long, Long?) -> Unit,
+    ): DownloadOutcome {
         val songSource = downloadDao.getSongSource(uid) ?: return DownloadOutcome.Cancelled
         val source = sources[songSource.sourceId]
             ?: return DownloadOutcome.Failed("Quelle ${songSource.sourceId} nicht verfügbar")
         val location = source.resolvePlayback(songSource.remoteId) as? PlaybackLocation.Remote
             ?: return DownloadOutcome.Failed("Keine Server-Quelle")
 
+        val url = location.uri.toString().toHttpUrlOrNull()
+            ?: return DownloadOutcome.Failed("Ungültige Adresse")
         val request = Request.Builder()
-            .url(location.uri.toString())
+            .url(profile.apply(url))
             .cacheControl(CacheControl.Builder().noStore().build())
             .build()
-        val call = client.newCall(request)
+        val call = clientFor(network, url.host).newCall(request)
         val cancelCall = currentCoroutineContext().job.invokeOnCompletion { call.cancel() }
         try {
             return withContext(Dispatchers.IO) {
@@ -102,13 +116,29 @@ internal class Downloader @Inject constructor(
                     }
                     writeToPart(uid, response.body.byteStream(), total, onProgress)
                         ?: return@withContext DownloadOutcome.Cancelled
-                    finish(uid, songSource.mimeType ?: contentType.substringBefore(';').ifEmpty { null }, total)
+                    // Die Endung folgt der Antwort: Eine transkodierte Datei hat einen anderen Typ als die Quelle.
+                    val responseType = contentType.substringBefore(';').trim().lowercase()
+                    val mimeType = responseType.takeIf { it.startsWith("audio/") }
+                        ?: songSource.mimeType
+                        ?: responseType.ifEmpty { null }
+                    finish(uid, mimeType, total)
                 }
             }
         } finally {
             cancelCall.dispose()
         }
     }
+
+    /** Loopback (z. B. `adb reverse` im Emulator) verlässt das Gerät nie und lässt sich an kein Netz binden. */
+    private fun clientFor(network: Network?, host: String): OkHttpClient =
+        if (network == null || host == "localhost" || host == "127.0.0.1" || host == "[::1]") {
+            client
+        } else {
+            client.newBuilder()
+                .socketFactory(network.socketFactory)
+                .dns { host -> network.getAllByName(host).toList() }
+                .build()
+        }
 
     /** @return geschriebene Bytes oder `null`, wenn der Download zwischendurch entfernt wurde. */
     private suspend fun writeToPart(

@@ -73,6 +73,40 @@ class DownloaderTest {
     }
 
     @Test
+    fun `opus profile asks the server to transcode and names the file after the response`() = runTest {
+        // Ohne Content-Length (Navidrome kennt die Größe der transkodierten Datei vorher nicht).
+        val audio = ByteArray(50_000) { (it * 7).toByte() }
+        mockServer.enqueue(
+            MockResponse.Builder()
+                .addHeader("Content-Type", "audio/ogg")
+                .chunkedBody(Buffer().write(audio), 4_096)
+                .build(),
+        )
+
+        val outcome = downloader.download(queued(), DownloadProfile.OPUS_128)
+
+        assertEquals(DownloadOutcome.Done, outcome)
+        val url = mockServer.takeRequest().url
+        assertEquals("opus", url.queryParameter("format"))
+        assertEquals("128", url.queryParameter("maxBitRate"))
+        val entry = library.db.downloadDao().get(uid)!!
+        assertEquals("nd_t1.ogg", File(entry.filePath!!).name)
+        assertArrayEquals(audio, File(entry.filePath!!).readBytes())
+        assertEquals(audio.size.toLong(), entry.bytesTotal)
+    }
+
+    @Test
+    fun `original profile leaves the stream url unchanged`() = runTest {
+        mockServer.enqueue(audio(ByteArray(1_000)))
+
+        downloader.download(queued(), DownloadProfile.ORIGINAL)
+
+        val url = mockServer.takeRequest().url
+        assertNull(url.queryParameter("format"))
+        assertNull(url.queryParameter("maxBitRate"))
+    }
+
+    @Test
     fun `missing file on the server fails permanently`() = runTest {
         mockServer.enqueue(MockResponse.Builder().code(404).build())
 

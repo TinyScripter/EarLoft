@@ -26,6 +26,8 @@ data class SelectionItem(
     val kind: WearSelectionKind,
     val title: String,
     val songCount: Int,
+    /** Geladene Songs der Auswahl; `songCount` sind alle. */
+    val downloadedCount: Int = songCount,
 )
 
 data class StartUiState(
@@ -46,11 +48,17 @@ class StartViewModel @Inject constructor(
 
     private val openOnPhone = MutableStateFlow<OpenOnPhoneResult?>(null)
 
-    private val selections = combine(wearDao.observeSelections(), playlistRepository.playlists()) { selections, playlists ->
+    private val selections = combine(
+        wearDao.observeSelections(),
+        playlistRepository.playlists(),
+        wearDao.observeSelectionProgress(),
+    ) { selections, playlists, progress ->
         val byId = playlists.associateBy { it.id }
+        val progressByKey = progress.associateBy { it.key }
         selections.mapNotNull { selection ->
             val playlist = selection.refId?.let { byId[it] } ?: return@mapNotNull null
-            SelectionItem(playlist.id, selection.kind, playlist.name, playlist.songCount)
+            val done = progressByKey[selection.key]?.done ?: 0
+            SelectionItem(playlist.id, selection.kind, playlist.name, playlist.songCount, downloadedCount = done)
         }
     }
 

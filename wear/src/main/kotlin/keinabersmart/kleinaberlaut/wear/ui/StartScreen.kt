@@ -40,13 +40,18 @@ import keinabersmart.kleinaberlaut.wear.sync.PhoneStatus
  * Einrichtung (Handy fehlt, App fehlt, noch nichts übertragen).
  */
 @Composable
-fun StartScreen(onSelectionClick: (playlistId: Long) -> Unit, viewModel: StartViewModel = hiltViewModel()) {
+fun StartScreen(
+    onSelectionClick: (playlistId: Long) -> Unit,
+    onStorageClick: () -> Unit,
+    viewModel: StartViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Ob ein Handy verbunden ist, meldet die API nicht als Ereignis.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
     StartContent(
         state = state,
         onSelectionClick = onSelectionClick,
+        onStorageClick = onStorageClick,
         onOpenOnPhone = viewModel::openStoreOnPhone,
         onRetry = viewModel::refresh,
     )
@@ -56,6 +61,7 @@ fun StartScreen(onSelectionClick: (playlistId: Long) -> Unit, viewModel: StartVi
 private fun StartContent(
     state: StartUiState,
     onSelectionClick: (Long) -> Unit,
+    onStorageClick: () -> Unit,
     onOpenOnPhone: (nodeId: String) -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -79,10 +85,17 @@ private fun StartContent(
                         transformation = SurfaceTransformation(transformationSpec),
                         label = { Text(selection.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                         secondaryLabel = {
-                            Text(pluralStringResource(R.plurals.song_count, selection.songCount, selection.songCount))
+                            Text(
+                                if (selection.downloadedCount >= selection.songCount) {
+                                    pluralStringResource(R.plurals.song_count, selection.songCount, selection.songCount)
+                                } else {
+                                    stringResource(R.string.selection_progress, selection.downloadedCount, selection.songCount)
+                                },
+                            )
                         },
                     )
                 }
+                action(R.string.storage_title, transformationSpec, onStorageClick)
             } else {
                 setup(state, transformationSpec, onOpenOnPhone, onRetry)
             }
@@ -164,7 +177,13 @@ private fun TransformingLazyColumnScope.action(textRes: Int, transformationSpec:
 @Composable
 private fun StartAppMissingPreview() {
     MaterialTheme {
-        StartContent(state = StartUiState(phone = PhoneStatus.AppMissing("phone")), onSelectionClick = {}, onOpenOnPhone = {}, onRetry = {})
+        StartContent(
+            state = StartUiState(phone = PhoneStatus.AppMissing("phone")),
+            onSelectionClick = {},
+            onStorageClick = {},
+            onOpenOnPhone = {},
+            onRetry = {},
+        )
     }
 }
 
@@ -172,7 +191,13 @@ private fun StartAppMissingPreview() {
 @Composable
 private fun StartWaitingPreview() {
     MaterialTheme {
-        StartContent(state = StartUiState(phone = PhoneStatus.Connected("phone")), onSelectionClick = {}, onOpenOnPhone = {}, onRetry = {})
+        StartContent(
+            state = StartUiState(phone = PhoneStatus.Connected("phone")),
+            onSelectionClick = {},
+            onStorageClick = {},
+            onOpenOnPhone = {},
+            onRetry = {},
+        )
     }
 }
 
@@ -186,11 +211,12 @@ private fun StartSelectionsPreview() {
                 phone = PhoneStatus.Connected("phone"),
                 selections = listOf(
                     SelectionItem(1, WearSelectionKind.FAVORITES, "Favoriten", 42),
-                    SelectionItem(2, WearSelectionKind.ALBUM, "Mondlicht", 4),
+                    SelectionItem(2, WearSelectionKind.ALBUM, "Mondlicht", 4, downloadedCount = 1),
                     SelectionItem(3, WearSelectionKind.PLAYLIST, "Laufen am Morgen mit sehr langem Namen", 1),
                 ),
             ),
             onSelectionClick = {},
+            onStorageClick = {},
             onOpenOnPhone = {},
             onRetry = {},
         )

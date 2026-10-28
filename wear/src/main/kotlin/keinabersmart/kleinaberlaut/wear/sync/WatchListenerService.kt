@@ -28,7 +28,7 @@ class WatchListenerService : WearableListenerService() {
     override fun onDataChanged(events: DataEventBuffer) {
         // Die Ereignisse nur hier lesen; der Puffer wird danach freigegeben.
         val paths = events.mapNotNull { it.dataItem.uri.path }
-        if (paths.any { it == WearPaths.SERVERS || it == WearPaths.MANIFEST }) PhoneSyncWorker.enqueue(this)
+        if (paths.any { it == WearPaths.SERVERS || it == WearPaths.MANIFEST || it == WearPaths.SETTINGS }) PhoneSyncWorker.enqueue(this)
     }
 
     override fun onMessageReceived(event: MessageEvent) {

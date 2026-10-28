@@ -32,14 +32,18 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
+import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.model.Playlist
 import keinabersmart.kleinaberlaut.core.model.PlaylistDetails
 import keinabersmart.kleinaberlaut.core.model.PlaylistEntry
 import keinabersmart.kleinaberlaut.core.model.Song
+import keinabersmart.kleinaberlaut.core.model.SongOfflineLookup
+import keinabersmart.kleinaberlaut.core.model.SongOfflineState
+import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
 import keinabersmart.kleinaberlaut.wear.R
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
 /** `Loading` vor dem ersten Wert; `Missing`, wenn die Auswahl inzwischen entfernt wurde. */
@@ -48,17 +52,23 @@ sealed interface SelectionUiState {
 
     data object Missing : SelectionUiState
 
-    data class Ready(val details: PlaylistDetails) : SelectionUiState
+    data class Ready(val details: PlaylistDetails, val offline: SongOfflineLookup) : SelectionUiState {
+        val downloadedCount: Int get() = details.entries.map { it.song.id }.distinct().count { isLoaded(it) }
+
+        fun isLoaded(songId: Long) = offline[songId].state == SongOfflineState.DOWNLOADED
+    }
 }
 
 @HiltViewModel(assistedFactory = SelectionViewModel.Factory::class)
 class SelectionViewModel @AssistedInject constructor(
     @Assisted playlistId: Long,
     playlistRepository: PlaylistRepository,
+    downloadRepository: DownloadRepository,
 ) : ViewModel() {
 
-    val state: StateFlow<SelectionUiState> = playlistRepository.playlist(playlistId)
-        .map { details -> details?.let { SelectionUiState.Ready(it) } ?: SelectionUiState.Missing }
+    val state: StateFlow<SelectionUiState> = combine(playlistRepository.playlist(playlistId), downloadRepository.songStatuses()) { details, offline ->
+        details?.let { SelectionUiState.Ready(it, offline) } ?: SelectionUiState.Missing
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SelectionUiState.Loading)
 
     @AssistedFactory
@@ -68,8 +78,8 @@ class SelectionViewModel @AssistedInject constructor(
 }
 
 /**
- * Eine Auswahl mit ihren Songs (Wear-Konzept 11). Bis Etappe 3c liegen noch keine Dateien auf der Uhr;
- * nicht geladene Songs sind ausgegraut und nicht antippbar.
+ * Eine Auswahl mit ihren Songs (Wear-Konzept 11). Nicht geladene Songs sind ausgegraut und nicht antippbar;
+ * das Abspielen kommt mit Etappe 3d.
  */
 @Composable
 fun SelectionScreen(
@@ -114,8 +124,11 @@ private fun SelectionContent(state: SelectionUiState) {
                     }
                     item {
                         Text(
-                            pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount) + " · " +
-                                stringResource(R.string.selection_not_loaded),
+                            if (state.downloadedCount >= playlist.songCount) {
+                                pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount)
+                            } else {
+                                stringResource(R.string.selection_progress, state.downloadedCount, playlist.songCount)
+                            },
                             modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.bodySmall,
@@ -124,11 +137,14 @@ private fun SelectionContent(state: SelectionUiState) {
                     items(state.details.entries, key = { it.entryId }) { entry ->
                         Button(
                             onClick = {},
-                            enabled = false,
+                            enabled = state.isLoaded(entry.song.id),
                             modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
                             transformation = SurfaceTransformation(transformationSpec),
                             label = { Text(entry.song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            secondaryLabel = { Text(entry.song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            secondaryLabel = {
+                                val text = if (state.isLoaded(entry.song.id)) entry.song.artist else stringResource(R.string.selection_not_loaded)
+                                Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            },
                         )
                     }
                 }
@@ -144,6 +160,7 @@ private fun SelectionPreview() {
         PlaylistEntry(index.toLong(), Song(index.toLong(), title, "Nachtfalter", 1, "Mondlicht", 200_000, 1, index + 1, false), false)
     }
     MaterialTheme {
-        SelectionContent(SelectionUiState.Ready(PlaylistDetails(Playlist(1, "Mondlicht", songs.size, 600_000, null), songs)))
+        val offline = SongOfflineLookup(mapOf(0L to SongOfflineStatus(SongOfflineState.DOWNLOADED)), emptySet())
+        SelectionContent(SelectionUiState.Ready(PlaylistDetails(Playlist(1, "Mondlicht", songs.size, 600_000, null), songs), offline))
     }
 }

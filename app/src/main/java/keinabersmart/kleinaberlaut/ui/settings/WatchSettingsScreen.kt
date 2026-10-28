@@ -26,12 +26,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import android.text.format.Formatter
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,11 +44,13 @@ import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
+import keinabersmart.kleinaberlaut.core.wearsync.WearStatusDto
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.wear.WatchSettings
 import keinabersmart.kleinaberlaut.wear.WatchSettingsRepository
+import keinabersmart.kleinaberlaut.wear.WatchStatusRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -66,18 +70,26 @@ data class WatchSettingsUiState(
     val settings: WatchSettings = WatchSettings(),
     /** `null` = wird geladen. */
     val selections: List<WatchSelectionItem>? = null,
+    /** Letzter Bericht der Uhr; `null`, solange sie nichts gemeldet hat. */
+    val status: WearStatusDto? = null,
 )
 
 @HiltViewModel
 class WatchSettingsViewModel @Inject constructor(
     private val watchSettings: WatchSettingsRepository,
     private val selections: WearSelectionRepository,
+    watchStatus: WatchStatusRepository,
 ) : ViewModel() {
 
-    val state: StateFlow<WatchSettingsUiState> = combine(watchSettings.settings, selections.content()) { settings, content ->
+    val state: StateFlow<WatchSettingsUiState> = combine(
+        watchSettings.settings,
+        selections.content(),
+        watchStatus.status,
+    ) { settings, content, status ->
         WatchSettingsUiState(
             settings = settings,
             selections = content.selections.map { WatchSelectionItem(it.kind, it.refId, it.title, it.songIds.size) },
+            status = status,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WatchSettingsUiState())
 
@@ -138,6 +150,7 @@ private fun WatchSettingsContent(
             navigationIcon = { BackButton(onBack) },
         )
         LazyColumn(Modifier.navigationBarsPadding()) {
+            item(key = "status") { WatchStatusRows(state.status) }
             item(key = "selections") { SectionHeader(stringResource(R.string.watch_selections)) }
             val selections = state.selections
             if (selections != null && selections.isEmpty()) {
@@ -153,7 +166,12 @@ private fun WatchSettingsContent(
                         )
                     },
                     supportingContent = {
-                        Text(pluralStringResource(R.plurals.watch_selection_songs, item.songCount, stringResource(item.kind.label), item.songCount))
+                        val progress = state.status?.selections?.firstOrNull { it.key == item.kind.key(item.refId) }
+                        if (progress != null && progress.done < progress.total) {
+                            Text(stringResource(R.string.watch_selection_progress, stringResource(item.kind.label), progress.done, progress.total))
+                        } else {
+                            Text(pluralStringResource(R.plurals.watch_selection_songs, item.songCount, stringResource(item.kind.label), item.songCount))
+                        }
                     },
                     trailingContent = {
                         IconButton(onClick = { onRemove(item) }) {
@@ -239,6 +257,45 @@ private fun WatchSettingsContent(
                 TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
+    }
+}
+
+/** Speicher der Uhr und Hinweise aus ihrem letzten Bericht. */
+@Composable
+private fun WatchStatusRows(status: WearStatusDto?) {
+    val context = LocalContext.current
+    Column {
+        if (status == null) {
+            ListItem(headlineContent = { Text(stringResource(R.string.watch_status_none)) })
+            return
+        }
+        ListItem(
+            headlineContent = {
+                Text(
+                    stringResource(
+                        R.string.watch_status_storage,
+                        Formatter.formatFileSize(context, status.usedBytes),
+                        Formatter.formatFileSize(context, status.freeBytes),
+                    ),
+                )
+            },
+            supportingContent = status.limitBytes?.let { limit ->
+                { Text(stringResource(R.string.watch_status_limit, Formatter.formatFileSize(context, limit))) }
+            },
+        )
+        if (status.missingForStorage > 0) {
+            ListItem(
+                headlineContent = {
+                    Text(
+                        pluralStringResource(R.plurals.watch_status_missing, status.missingForStorage, status.missingForStorage),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                },
+            )
+        }
+        status.lastError?.let { error ->
+            ListItem(headlineContent = { Text(stringResource(R.string.watch_status_error, error)) })
+        }
     }
 }
 

@@ -5,6 +5,7 @@ import dagger.hilt.android.HiltAndroidApp
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.wear.sync.PhoneSyncWorker
 import keinabersmart.kleinaberlaut.wear.sync.WatchInfoPublisher
+import keinabersmart.kleinaberlaut.wear.sync.WatchStatusPublisher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -17,11 +18,13 @@ import javax.inject.Inject
 class WearApplication : Application() {
 
     @Inject lateinit var watchInfoPublisher: WatchInfoPublisher
+    @Inject lateinit var watchStatusPublisher: WatchStatusPublisher
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onCreate() {
         super.onCreate()
         applicationScope.launch { watchInfoPublisher.publish() }
+        watchStatusPublisher.start(applicationScope)
         // Holt nach, was ankam, während die App nicht lief bzw. der Listener nichts gemeldet hat.
         PhoneSyncWorker.enqueue(this)
     }

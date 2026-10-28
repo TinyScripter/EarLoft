@@ -46,7 +46,4 @@ internal interface DownloadBindings {
     @Binds
     @IntoSet
     fun bindJanitor(janitor: DownloadFileJanitor): LibraryChangeListener
-
-    @Binds
-    fun bindScheduler(scheduler: WorkManagerDownloadScheduler): DownloadScheduler
 }

@@ -21,9 +21,12 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearManifest
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearServersDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
 import keinabersmart.kleinaberlaut.core.wearsync.assetPayloadsAt
 import keinabersmart.kleinaberlaut.core.wearsync.payloadsAt
 import keinabersmart.kleinaberlaut.core.wearsync.sendPayload
+import keinabersmart.kleinaberlaut.wear.download.WatchState
+import keinabersmart.kleinaberlaut.wear.download.WearDownloadPlanner
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -39,18 +42,24 @@ class PhoneLibrarySync @Inject constructor(
     private val messageClient: MessageClient,
     private val serverMirror: WearServerMirror,
     private val manifestApplier: ManifestApplier,
+    private val state: WatchState,
+    private val planner: WearDownloadPlanner,
 ) {
     private val mutex = Mutex()
 
     suspend fun sync() = mutex.withLock {
+        // Zuerst die Einstellungen: Qualität und Speichergrenze bestimmen, was der Planer einreiht.
+        val settingsChanged = dataClient.payloadsAt(WearPaths.SETTINGS).values.firstOrNull()
+            ?.let { state.updateSettings(WearCodec.decode<WearSettingsDto>(it)) } == true
         val servers = dataClient.payloadsAt(WearPaths.SERVERS).entries.firstOrNull()
         if (servers != null) {
             val dto = WearCodec.decode<WearServersDto>(servers.value)
             serverMirror.apply(dto.servers.map { MirroredServer(it.sourceId, it.name, it.baseUrl, it.username, it.priority, it.formPost) })
             requestMissingPasswords(phoneNodeId = servers.key)
         }
-        val manifest = dataClient.assetPayloadsAt(WearPaths.MANIFEST).values.firstOrNull() ?: return@withLock
-        manifestApplier.apply(WearCodec.decodeManifest(manifest))
+        dataClient.assetPayloadsAt(WearPaths.MANIFEST).values.firstOrNull()
+            ?.let { manifestApplier.apply(WearCodec.decodeManifest(it)) }
+        planner.plan(replaceSchedule = settingsChanged)
     }
 
     /**

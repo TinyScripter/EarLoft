@@ -5,6 +5,8 @@ import androidx.room.Query
 import androidx.room.Upsert
 import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
 import keinabersmart.kleinaberlaut.core.database.model.SourceSongIdRow
+import keinabersmart.kleinaberlaut.core.database.model.WearCandidateRow
+import keinabersmart.kleinaberlaut.core.database.model.WearSelectionProgressRow
 import keinabersmart.kleinaberlaut.core.database.model.WearSongArtistRow
 import keinabersmart.kleinaberlaut.core.database.model.WearSongRow
 import keinabersmart.kleinaberlaut.core.database.model.WearSourceRow
@@ -96,4 +98,49 @@ interface WearDao {
 
     @Query("SELECT uid, songId FROM song_sources WHERE uid IN (:uids)")
     suspend fun getSongIdsOfSources(uids: List<String>): List<SourceSongIdRow>
+
+    /** Server-Quellen, von denen die Uhr direkt laden kann (nicht die Pseudo-Quelle `phone`). Max. ~900 IDs. */
+    @Query(
+        """
+        SELECT ss.uid, ss.songId, src.priority AS sourcePriority, ss.bitRate, ss.sizeBytes, s.durationMs
+        FROM song_sources ss
+        JOIN sources src ON src.sourceId = ss.sourceId
+        JOIN songs s ON s.songId = ss.songId
+        WHERE ss.songId IN (:songIds) AND src.type = 'SUBSONIC'
+        """,
+    )
+    suspend fun getServerCandidates(songIds: List<Long>): List<WearCandidateRow>
+
+    /** Die Quellen der wartenden und laufenden Downloads: Ihr Platz ist schon eingeplant. */
+    @Query(
+        """
+        SELECT ss.uid, ss.songId, src.priority AS sourcePriority, ss.bitRate, ss.sizeBytes, s.durationMs
+        FROM downloads d
+        JOIN song_sources ss ON ss.uid = d.sourceUid
+        JOIN sources src ON src.sourceId = ss.sourceId
+        JOIN songs s ON s.songId = ss.songId
+        WHERE d.state IN ('QUEUED', 'RUNNING')
+        """,
+    )
+    suspend fun getPendingCandidates(): List<WearCandidateRow>
+
+    @Query("SELECT COALESCE(SUM(bytesTotal), 0) FROM downloads WHERE state = 'DONE'")
+    suspend fun getDoneBytes(): Long
+
+    /** Fertig/gesamt/fehlgeschlagen je Auswahl, in deren Reihenfolge (auf der Uhr zeigt `refId` auf die Geräte-Playlist). */
+    @Query(
+        """
+        SELECT w.`key` AS `key`,
+               COUNT(DISTINCT e.songId) AS total,
+               COUNT(DISTINCT CASE WHEN d.state = 'DONE' THEN e.songId END) AS done,
+               COUNT(DISTINCT CASE WHEN d.state = 'FAILED' THEN e.songId END) AS failed
+        FROM wear_selections w
+        LEFT JOIN playlist_entries e ON e.playlistId = w.refId
+        LEFT JOIN song_sources ss ON ss.songId = e.songId
+        LEFT JOIN downloads d ON d.sourceUid = ss.uid
+        GROUP BY w.`key`
+        ORDER BY w.addedAt, w.`key`
+        """,
+    )
+    fun observeSelectionProgress(): Flow<List<WearSelectionProgressRow>>
 }

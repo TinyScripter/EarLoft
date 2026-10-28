@@ -141,3 +141,21 @@ data class WearSourceRow(
 )
 
 data class SourceSongIdRow(val uid: String, val songId: Long)
+
+/** Eine Server-Quelle eines Songs mit dem, was der Planer der Uhr für die Speicherschätzung braucht. */
+data class WearCandidateRow(
+    val uid: String,
+    val songId: Long,
+    val sourcePriority: Int,
+    val bitRate: Int?,
+    val sizeBytes: Long?,
+    val durationMs: Long,
+)
+
+/** Fortschritt einer Auswahl auf der Uhr; jeder Song zählt einmal, auch bei Duplikaten in der Playlist. */
+data class WearSelectionProgressRow(
+    val key: String,
+    val total: Int,
+    val done: Int,
+    val failed: Int,
+)

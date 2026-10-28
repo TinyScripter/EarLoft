@@ -23,9 +23,12 @@ interface DownloadScheduler {
     suspend fun enqueue(replace: Boolean = false)
 }
 
-/** Startet den [DownloadWorker]; es läuft immer höchstens einer. */
+/**
+ * Startet den [DownloadWorker]; es läuft immer höchstens einer. Die Handy-App bindet ihn als
+ * [DownloadScheduler], die Uhr hat einen eigenen.
+ */
 @Singleton
-internal class WorkManagerDownloadScheduler @Inject constructor(
+class WorkManagerDownloadScheduler @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val settings: DownloadSettings,
 ) : DownloadScheduler {

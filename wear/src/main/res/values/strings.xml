@@ -6,6 +6,38 @@
     </plurals>
     <string name="selection_missing">Nicht mehr auf der Uhr</string>
     <string name="selection_not_loaded">Noch nicht geladen</string>
+    <string name="selection_progress">%1$d von %2$d geladen</string>
+
+    <!-- Downloads -->
+    <string name="download_channel_name">Downloads</string>
+    <string name="download_notification_title">Musik wird geladen</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">Noch %d Titel</item>
+        <item quantity="other">Noch %d Titel</item>
+    </plurals>
+    <string name="download_error_server">Server nicht erreichbar</string>
+
+    <!-- Speicher & Downloads -->
+    <string name="storage_title">Speicher &amp; Downloads</string>
+    <string name="storage_used">Belegt: %s</string>
+    <string name="storage_free">Frei: %s</string>
+    <string name="storage_limit">Grenze: %s</string>
+    <string name="storage_loading">Lädt …</string>
+    <string name="storage_idle">Alles geladen</string>
+    <plurals name="storage_pending">
+        <item quantity="one">Noch %d Titel</item>
+        <item quantity="other">Noch %d Titel</item>
+    </plurals>
+    <plurals name="storage_missing">
+        <item quantity="one">Speicher voll – %d Titel fehlt</item>
+        <item quantity="other">Speicher voll – %d Titel fehlen</item>
+    </plurals>
+    <plurals name="storage_failed">
+        <item quantity="one">%d Titel fehlgeschlagen</item>
+        <item quantity="other">%d Titel fehlgeschlagen</item>
+    </plurals>
+    <string name="storage_retry">Erneut versuchen</string>
+    <string name="storage_last_error">Letzter Fehler: %s</string>
 
     <!-- Einrichtung -->
     <string name="setup_checking">Suche Handy …</string>
