@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -25,7 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -52,6 +55,7 @@ import keinabersmart.kleinaberlaut.ui.components.SongListItem
 import keinabersmart.kleinaberlaut.ui.playlists.PlaylistIcon
 import keinabersmart.kleinaberlaut.ui.playlists.PlaylistNameDialog
 import keinabersmart.kleinaberlaut.ui.playlists.playlistLocation
+import kotlinx.coroutines.launch
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 private enum class LibraryTab(val label: Int) {
@@ -77,38 +81,46 @@ fun LibraryScreen(
     val favoriteCount by viewModel.favoriteCount.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val servers by viewModel.servers.collectAsStateWithLifecycle()
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    // Tabs und Seiten teilen sich den Pager-Zustand: Antippen und Wischen führen zum selben Ergebnis.
+    val pagerState = rememberPagerState { LibraryTab.entries.size }
+    val scope = rememberCoroutineScope()
 
     Column(modifier.fillMaxSize()) {
         TopAppBar(title = { Text(stringResource(R.string.nav_library)) })
-        PrimaryTabRow(selectedTabIndex = selectedTab) {
+        PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
             LibraryTab.entries.forEachIndexed { index, tab ->
                 Tab(
-                    selected = selectedTab == index,
-                    onClick = { selectedTab = index },
+                    selected = pagerState.currentPage == index,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
                     text = { Text(stringResource(tab.label)) },
                 )
             }
         }
-        when (LibraryTab.entries[selectedTab]) {
-            LibraryTab.ALBUMS -> Loadable(albums) { AlbumGrid(it, onAlbumClick) }
-            LibraryTab.ARTISTS -> Loadable(artists) { ArtistList(it, onArtistClick) }
-            LibraryTab.SONGS -> Loadable(songs) {
-                SongList(
-                    songs = it,
-                    onSongClick = viewModel::playSongs,
-                    onShuffle = viewModel::shuffleSongs,
-                    actions = viewModel,
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            key = { it },
+        ) { page ->
+            when (LibraryTab.entries[page]) {
+                LibraryTab.ALBUMS -> Loadable(albums) { AlbumGrid(it, onAlbumClick) }
+                LibraryTab.ARTISTS -> Loadable(artists) { ArtistList(it, onArtistClick) }
+                LibraryTab.SONGS -> Loadable(songs) {
+                    SongList(
+                        songs = it,
+                        onSongClick = viewModel::playSongs,
+                        onShuffle = viewModel::shuffleSongs,
+                        actions = viewModel,
+                    )
+                }
+                LibraryTab.PLAYLISTS -> PlaylistList(
+                    favoriteCount = favoriteCount,
+                    playlists = playlists.orEmpty(),
+                    servers = servers,
+                    onFavoritesClick = onFavoritesClick,
+                    onPlaylistClick = onPlaylistClick,
+                    onCreate = { name, serverSourceId -> viewModel.createPlaylist(name, serverSourceId, onPlaylistClick) },
                 )
             }
-            LibraryTab.PLAYLISTS -> PlaylistList(
-                favoriteCount = favoriteCount,
-                playlists = playlists.orEmpty(),
-                servers = servers,
-                onFavoritesClick = onFavoritesClick,
-                onPlaylistClick = onPlaylistClick,
-                onCreate = { name, serverSourceId -> viewModel.createPlaylist(name, serverSourceId, onPlaylistClick) },
-            )
         }
     }
 }
