@@ -34,6 +34,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -143,7 +145,7 @@ private fun NowPlayingContent(
                     ControlButton(R.drawable.ic_skip_next, R.string.player_next, onNext)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    ControlButton(R.drawable.ic_shuffle, R.string.player_shuffle, onShuffle, active = state.shuffle)
+                    ControlButton(R.drawable.ic_shuffle, R.string.player_shuffle, onShuffle, active = state.shuffle, toggle = true)
                     ControlButton(R.drawable.ic_bluetooth, R.string.player_output, onOutput, active = state.outputSuppressed)
                 }
             }
@@ -173,10 +175,11 @@ private const val RING_START_ANGLE = 295f
 private const val RING_SWEEP = 310f
 
 @Composable
-private fun ControlButton(iconRes: Int, descriptionRes: Int, onClick: () -> Unit, active: Boolean = false) {
+private fun ControlButton(iconRes: Int, descriptionRes: Int, onClick: () -> Unit, active: Boolean = false, toggle: Boolean = false) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier.size(IconButtonDefaults.SmallButtonSize),
+        // Der aktive Zustand ist sonst nur an der Farbe zu erkennen; Screenreader bekommen ihn als „ausgewählt“.
+        modifier = Modifier.size(IconButtonDefaults.SmallButtonSize).then(if (toggle) Modifier.semantics { selected = active } else Modifier),
         colors = if (active) IconButtonDefaults.filledIconButtonColors() else IconButtonDefaults.iconButtonColors(),
     ) {
         Icon(painterResource(iconRes), contentDescription = stringResource(descriptionRes))
