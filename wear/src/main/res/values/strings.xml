@@ -8,6 +8,21 @@
     <string name="selection_not_loaded">Noch nicht geladen</string>
     <string name="selection_progress">%1$d von %2$d geladen</string>
 
+    <string name="selection_play">Abspielen</string>
+    <string name="selection_shuffle">Zufällig</string>
+    <string name="start_shuffle_all">Alles zufällig</string>
+    <string name="start_now_playing">Läuft gerade</string>
+
+    <!-- Wiedergabe -->
+    <string name="player_nothing">Keine Wiedergabe</string>
+    <string name="player_no_output">Kopfhörer verbinden</string>
+    <string name="player_previous">Zurück</string>
+    <string name="player_play">Wiedergabe</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_next">Weiter</string>
+    <string name="player_shuffle">Zufällige Reihenfolge</string>
+    <string name="player_output">Bluetooth-Ausgabe</string>
+
     <!-- Downloads -->
     <string name="download_channel_name">Downloads</string>
     <string name="download_notification_title">Musik wird geladen</string>

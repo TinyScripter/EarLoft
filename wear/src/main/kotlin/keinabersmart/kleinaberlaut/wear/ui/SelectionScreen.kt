@@ -34,6 +34,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.model.Playlist
+import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.model.PlaylistDetails
 import keinabersmart.kleinaberlaut.core.model.PlaylistEntry
 import keinabersmart.kleinaberlaut.core.model.Song
@@ -64,12 +65,22 @@ class SelectionViewModel @AssistedInject constructor(
     @Assisted playlistId: Long,
     playlistRepository: PlaylistRepository,
     downloadRepository: DownloadRepository,
+    private val playback: PlaybackConnection,
 ) : ViewModel() {
 
     val state: StateFlow<SelectionUiState> = combine(playlistRepository.playlist(playlistId), downloadRepository.songStatuses()) { details, offline ->
         details?.let { SelectionUiState.Ready(it, offline) } ?: SelectionUiState.Missing
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SelectionUiState.Loading)
+
+    /** Spielt die geladenen Songs der Auswahl; ab [entryId] (Duplikate in Playlists bleiben unterscheidbar) oder von vorn. */
+    fun play(entryId: Long? = null, shuffle: Boolean = false) {
+        val ready = state.value as? SelectionUiState.Ready ?: return
+        val entries = ready.details.entries.filter { ready.isLoaded(it.song.id) }
+        if (entries.isEmpty()) return
+        val startIndex = entryId?.let { id -> entries.indexOfFirst { it.entryId == id } }?.coerceAtLeast(0) ?: 0
+        playback.play(entries.map { it.song }, startIndex, shuffle)
+    }
 
     @AssistedFactory
     interface Factory {
@@ -79,19 +90,26 @@ class SelectionViewModel @AssistedInject constructor(
 
 /**
  * Eine Auswahl mit ihren Songs (Wear-Konzept 11). Nicht geladene Songs sind ausgegraut und nicht antippbar;
- * das Abspielen kommt mit Etappe 3d.
+ * [onPlayed] wird nach dem Start der Wiedergabe aufgerufen (Wechsel zur Wiedergabe-Ansicht).
  */
 @Composable
 fun SelectionScreen(
     playlistId: Long,
+    onPlayed: () -> Unit,
     viewModel: SelectionViewModel = hiltViewModel<SelectionViewModel, SelectionViewModel.Factory> { it.create(playlistId) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    SelectionContent(state)
+    SelectionContent(
+        state = state,
+        onPlay = { entryId, shuffle ->
+            viewModel.play(entryId, shuffle)
+            onPlayed()
+        },
+    )
 }
 
 @Composable
-private fun SelectionContent(state: SelectionUiState) {
+private fun SelectionContent(state: SelectionUiState, onPlay: (entryId: Long?, shuffle: Boolean) -> Unit) {
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(scrollState = columnState) { contentPadding ->
@@ -134,9 +152,27 @@ private fun SelectionContent(state: SelectionUiState) {
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
+                    if (state.downloadedCount > 0) {
+                        item {
+                            Button(
+                                onClick = { onPlay(null, false) },
+                                modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                                transformation = SurfaceTransformation(transformationSpec),
+                                label = { Text(stringResource(R.string.selection_play)) },
+                            )
+                        }
+                        item {
+                            Button(
+                                onClick = { onPlay(null, true) },
+                                modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                                transformation = SurfaceTransformation(transformationSpec),
+                                label = { Text(stringResource(R.string.selection_shuffle)) },
+                            )
+                        }
+                    }
                     items(state.details.entries, key = { it.entryId }) { entry ->
                         Button(
-                            onClick = {},
+                            onClick = { onPlay(entry.entryId, false) },
                             enabled = state.isLoaded(entry.song.id),
                             modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
                             transformation = SurfaceTransformation(transformationSpec),
@@ -161,6 +197,9 @@ private fun SelectionPreview() {
     }
     MaterialTheme {
         val offline = SongOfflineLookup(mapOf(0L to SongOfflineStatus(SongOfflineState.DOWNLOADED)), emptySet())
-        SelectionContent(SelectionUiState.Ready(PlaylistDetails(Playlist(1, "Mondlicht", songs.size, 600_000, null), songs), offline))
+        SelectionContent(
+            state = SelectionUiState.Ready(PlaylistDetails(Playlist(1, "Mondlicht", songs.size, 600_000, null), songs), offline),
+            onPlay = { _, _ -> },
+        )
     }
 }

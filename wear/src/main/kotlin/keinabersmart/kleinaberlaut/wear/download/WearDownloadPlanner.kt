@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.wear.download
 import android.util.Log
 import androidx.room.withTransaction
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
+import keinabersmart.kleinaberlaut.core.data.repository.CoverFiles
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.PlaylistDao
 import keinabersmart.kleinaberlaut.core.database.dao.WearDao
@@ -33,6 +34,7 @@ class WearDownloadPlanner @Inject constructor(
     private val storage: DownloadStorage,
     private val state: WatchState,
     private val scheduler: DownloadScheduler,
+    private val coverFiles: CoverFiles,
 ) {
     private val mutex = Mutex()
 
@@ -65,7 +67,9 @@ class WearDownloadPlanner @Inject constructor(
             plan.toQueue.size
         }
         if (queued > 0) Log.d(TAG, "$queued Downloads eingereiht")
-        if (downloadDao.countPending() > 0) scheduler.enqueue(replace = replaceSchedule)
+        // Auch wenn nichts mehr zu laden ist: Fehlende Cover holt derselbe Auftrag nach.
+        val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
+        if (downloadDao.countPending() > 0 || coversMissing) scheduler.enqueue(replace = replaceSchedule)
     }
 
     /** Alle Songs der Auswahlen in Reihenfolge, jeder einmal, mit dem Schlüssel der ersten Auswahl, die ihn enthält. */

@@ -23,6 +23,7 @@ class PlaybackSourceResolver @Inject constructor(
     private val libraryDao: LibraryDao,
     private val downloadDao: DownloadDao,
     private val registry: MusicDataSources,
+    private val policy: PlaybackPolicy,
 ) {
     /**
      * Alle abspielbaren Orte eines Songs, der beste zuerst. Ist einer nicht erreichbar, nimmt die
@@ -40,7 +41,7 @@ class PlaybackSourceResolver @Inject constructor(
                 result += ResolvedPlayback(PlaybackLocation.LocalFile(Uri.fromFile(it)), replayGain(remote.first().uid), sourceId = null)
             }
         }
-        remote.mapNotNullTo(result) { resolveSource(it) }
+        if (policy.allowStreaming) remote.mapNotNullTo(result) { resolveSource(it) }
         return result
     }
 

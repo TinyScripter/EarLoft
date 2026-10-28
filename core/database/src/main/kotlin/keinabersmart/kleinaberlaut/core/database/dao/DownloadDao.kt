@@ -149,6 +149,26 @@ interface DownloadDao {
     )
     suspend fun getDoneFilePaths(songId: Long): List<String>
 
+    /** Alle Songs mit fertiger Datei (Uhr: „Alles zufällig“). */
+    @Query(
+        """
+        SELECT DISTINCT ss.songId FROM downloads d JOIN song_sources ss ON ss.uid = d.sourceUid
+        WHERE d.state = 'DONE' AND d.filePath IS NOT NULL
+        """,
+    )
+    suspend fun getDoneSongIds(): List<Long>
+
+    /** Alben, von denen mindestens ein Song fertig geladen ist (Cover-Dateien der Uhr). */
+    @Query(
+        """
+        SELECT DISTINCT s.albumId FROM downloads d
+        JOIN song_sources ss ON ss.uid = d.sourceUid
+        JOIN songs s ON s.songId = ss.songId
+        WHERE d.state = 'DONE'
+        """,
+    )
+    suspend fun getAlbumIdsWithDoneDownload(): List<Long>
+
     // --- Anzeige ---
 
     /**

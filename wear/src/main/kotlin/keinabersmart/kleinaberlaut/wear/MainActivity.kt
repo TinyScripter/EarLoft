@@ -14,6 +14,7 @@ import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
 import dagger.hilt.android.AndroidEntryPoint
+import keinabersmart.kleinaberlaut.wear.ui.NowPlayingScreen
 import keinabersmart.kleinaberlaut.wear.ui.SelectionScreen
 import keinabersmart.kleinaberlaut.wear.ui.StartScreen
 import keinabersmart.kleinaberlaut.wear.ui.StorageScreen
@@ -40,6 +41,14 @@ data class SelectionRoute(val playlistId: Long) : NavKey
 @Serializable
 data object StorageRoute : NavKey
 
+@Serializable
+data object NowPlayingRoute : NavKey
+
+/** Öffnet die Wiedergabe-Ansicht höchstens einmal; sonst stapeln sich Kopien, wenn man mehrfach etwas startet. */
+private fun MutableList<NavKey>.openNowPlaying() {
+    if (lastOrNull() != NowPlayingRoute) add(NowPlayingRoute)
+}
+
 @Composable
 fun WearApp() {
     MaterialTheme {
@@ -57,10 +66,12 @@ fun WearApp() {
                         StartScreen(
                             onSelectionClick = { backStack.add(SelectionRoute(it)) },
                             onStorageClick = { backStack.add(StorageRoute) },
+                            onNowPlayingClick = { backStack.openNowPlaying() },
                         )
                     }
+                    entry<NowPlayingRoute> { NowPlayingScreen() }
                     entry<StorageRoute> { StorageScreen() }
-                    entry<SelectionRoute> { route -> SelectionScreen(playlistId = route.playlistId) }
+                    entry<SelectionRoute> { route -> SelectionScreen(playlistId = route.playlistId, onPlayed = { backStack.openNowPlaying() }) }
                 },
             )
         }

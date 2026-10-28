@@ -43,6 +43,7 @@ import keinabersmart.kleinaberlaut.wear.sync.PhoneStatus
 fun StartScreen(
     onSelectionClick: (playlistId: Long) -> Unit,
     onStorageClick: () -> Unit,
+    onNowPlayingClick: () -> Unit,
     viewModel: StartViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -52,6 +53,8 @@ fun StartScreen(
         state = state,
         onSelectionClick = onSelectionClick,
         onStorageClick = onStorageClick,
+        onNowPlayingClick = onNowPlayingClick,
+        onShuffleAll = { viewModel.shuffleAll(onNowPlayingClick) },
         onOpenOnPhone = viewModel::openStoreOnPhone,
         onRetry = viewModel::refresh,
     )
@@ -62,6 +65,8 @@ private fun StartContent(
     state: StartUiState,
     onSelectionClick: (Long) -> Unit,
     onStorageClick: () -> Unit,
+    onNowPlayingClick: () -> Unit,
+    onShuffleAll: () -> Unit,
     onOpenOnPhone: (nodeId: String) -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -76,6 +81,17 @@ private fun StartContent(
         ) {
             if (state.hasSelections) {
                 header(R.string.app_name, transformationSpec)
+                state.nowPlaying?.let { playing ->
+                    item {
+                        Button(
+                            onClick = onNowPlayingClick,
+                            modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                            transformation = SurfaceTransformation(transformationSpec),
+                            label = { Text(playing.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            secondaryLabel = { Text(stringResource(R.string.start_now_playing)) },
+                        )
+                    }
+                }
                 items(state.selections, key = { it.playlistId }) { selection ->
                     Button(
                         onClick = { onSelectionClick(selection.playlistId) },
@@ -95,6 +111,7 @@ private fun StartContent(
                         },
                     )
                 }
+                if (state.canShuffleAll) action(R.string.start_shuffle_all, transformationSpec, onShuffleAll)
                 action(R.string.storage_title, transformationSpec, onStorageClick)
             } else {
                 setup(state, transformationSpec, onOpenOnPhone, onRetry)
@@ -181,6 +198,8 @@ private fun StartAppMissingPreview() {
             state = StartUiState(phone = PhoneStatus.AppMissing("phone")),
             onSelectionClick = {},
             onStorageClick = {},
+            onNowPlayingClick = {},
+            onShuffleAll = {},
             onOpenOnPhone = {},
             onRetry = {},
         )
@@ -195,6 +214,8 @@ private fun StartWaitingPreview() {
             state = StartUiState(phone = PhoneStatus.Connected("phone")),
             onSelectionClick = {},
             onStorageClick = {},
+            onNowPlayingClick = {},
+            onShuffleAll = {},
             onOpenOnPhone = {},
             onRetry = {},
         )
@@ -217,6 +238,8 @@ private fun StartSelectionsPreview() {
             ),
             onSelectionClick = {},
             onStorageClick = {},
+            onNowPlayingClick = {},
+            onShuffleAll = {},
             onOpenOnPhone = {},
             onRetry = {},
         )

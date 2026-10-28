@@ -38,6 +38,7 @@ class PlaybackSourceResolverTest {
 
     private lateinit var db: KleinaberlautDatabase
     private lateinit var resolver: PlaybackSourceResolver
+    private val policy = PlaybackPolicy()
     private var albumId = 0L
 
     @Before
@@ -45,7 +46,7 @@ class PlaybackSourceResolverTest {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KleinaberlautDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        resolver = PlaybackSourceResolver(db.libraryDao(), db.downloadDao(), Sources)
+        resolver = PlaybackSourceResolver(db.libraryDao(), db.downloadDao(), Sources, policy)
         db.sourceDao().upsert(SourceEntity("local", SourceType.LOCAL, "local"))
         db.sourceDao().upsert(SourceEntity("nd", SourceType.SUBSONIC, "nd"))
         albumId = db.libraryDao().insertAlbum(AlbumEntity(title = "A", sortTitle = "A", normTitle = "a", albumArtistDisplay = "B", normAlbumArtist = "b"))
@@ -82,6 +83,21 @@ class PlaybackSourceResolverTest {
         db.downloadDao().insertIfAbsent(listOf(DownloadEntity("nd:1", songId, DownloadState.RUNNING, filePath = file.path)))
 
         assertEquals(Sources.stream("nd", "1"), resolver.candidates(songId).firstOrNull()?.location)
+    }
+
+    @Test
+    fun `without streaming only finished downloads are played`() = runTest {
+        policy.allowStreaming = false
+        val streamOnly = song("nd" to "1")
+        assertEquals(emptyList<ResolvedPlayback>(), resolver.candidates(streamOnly))
+
+        val downloaded = song("nd" to "2")
+        val file = tempFolder.newFile("nd_2.ogg")
+        db.downloadDao().insertIfAbsent(listOf(DownloadEntity("nd:2", downloaded, DownloadState.DONE, filePath = file.path)))
+        assertEquals(
+            listOf<PlaybackLocation>(PlaybackLocation.LocalFile(Uri.fromFile(file))),
+            resolver.candidates(downloaded).map { it.location },
+        )
     }
 
     @Test

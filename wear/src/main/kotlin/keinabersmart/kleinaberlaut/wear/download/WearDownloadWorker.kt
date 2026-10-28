@@ -14,6 +14,8 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
+import keinabersmart.kleinaberlaut.core.data.repository.CoverFiles
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.download.DownloadOutcome
 import keinabersmart.kleinaberlaut.core.download.DownloadProfile
@@ -21,6 +23,7 @@ import keinabersmart.kleinaberlaut.core.download.DownloadStorage
 import keinabersmart.kleinaberlaut.core.download.Downloader
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
 import keinabersmart.kleinaberlaut.wear.R
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Lädt die eingereihten Songs der Auswahlen vom Server (Wear-Konzept 8.2): nur über ein ausdrücklich
@@ -37,10 +40,13 @@ class WearDownloadWorker(
     private val downloader = entryPoint.downloader()
     private val storage = entryPoint.storage()
     private val state = entryPoint.state()
+    private val artwork = entryPoint.artwork()
+    private val coverFiles = entryPoint.coverFiles()
 
     override suspend fun doWork(): Result {
         downloadDao.requeueRunning()
-        if (downloadDao.countPending() == 0) return finish()
+        val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
+        if (downloadDao.countPending() == 0 && !coversMissing) return finish()
         startForeground()
 
         val lease = entryPoint.wifi().acquire()
@@ -78,12 +84,27 @@ class WearDownloadWorker(
                     DownloadOutcome.Cancelled -> Unit
                 }
             }
+            cacheCovers()
         }
         return finish()
     }
 
+    /** Je Album mit geladenen Songs einmal das Cover als Datei (Wear-Konzept 8.2). Fehlt es, geht die Wiedergabe trotzdem. */
+    private suspend fun cacheCovers() {
+        for (albumId in downloadDao.getAlbumIdsWithDoneDownload()) {
+            try {
+                artwork.cacheAlbumCover(albumId, COVER_SIZE_PX)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Cover für Album $albumId nicht ladbar", e)
+            }
+        }
+    }
+
     private suspend fun finish(): Result {
         storage.deleteOrphans(downloadDao.getAll())
+        coverFiles.retainOnly(downloadDao.getAlbumIdsWithDoneDownload().toSet())
         return Result.success()
     }
 
@@ -134,6 +155,8 @@ class WearDownloadWorker(
         fun storage(): DownloadStorage
         fun wifi(): WifiNetwork
         fun state(): WatchState
+        fun artwork(): ArtworkRepository
+        fun coverFiles(): CoverFiles
     }
 
     private companion object {
@@ -141,6 +164,7 @@ class WearDownloadWorker(
         const val CHANNEL_ID = "wear-downloads"
         const val NOTIFICATION_ID = 2002
         const val MAX_ATTEMPTS = 5
+        const val COVER_SIZE_PX = 400
     }
 }
 

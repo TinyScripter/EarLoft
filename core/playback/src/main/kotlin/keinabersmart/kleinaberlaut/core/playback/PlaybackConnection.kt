@@ -33,6 +33,8 @@ data class PlayerState(
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val queue: List<QueueEntry> = emptyList(),
     val currentIndex: Int = -1,
+    /** Wiedergabe angehalten, weil die Ausgabe nicht passt (Uhr ohne Kopfhörer, Wear-Konzept 9). */
+    val outputSuppressed: Boolean = false,
 ) {
     val hasMedia: Boolean get() = current != null
 }
@@ -144,6 +146,7 @@ class PlaybackConnection @Inject constructor(
             repeatMode = repeatMode,
             queue = queue,
             currentIndex = currentMediaItemIndex,
+            outputSuppressed = playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT,
         )
     }
 

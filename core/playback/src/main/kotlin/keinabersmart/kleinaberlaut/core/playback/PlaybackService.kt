@@ -27,6 +27,7 @@ import androidx.media3.session.MediaSession
 import dagger.hilt.android.AndroidEntryPoint
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
+import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackSourceResolver
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackStateRepository
 import kotlinx.coroutines.CoroutineScope
@@ -50,6 +51,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var playbackStateRepository: PlaybackStateRepository
     @Inject lateinit var queuePersistence: QueuePersistence
     @Inject lateinit var nowPlayingObservers: Set<@JvmSuppressWildcards NowPlayingObserver>
+    @Inject lateinit var playbackPolicy: PlaybackPolicy
     @Inject lateinit var okHttpClient: OkHttpClient
     @Inject lateinit var streamCache: SimpleCache
     @Inject lateinit var replayGainSettings: ReplayGainSettings
@@ -103,6 +105,8 @@ class PlaybackService : MediaLibraryService() {
                 /* handleAudioFocus = */ true,
             )
             .setHandleAudioBecomingNoisy(true)
+            // Uhr: nicht über den Lautsprecher; Wear OS bietet stattdessen die Bluetooth-Ausgabe an (Wear-Konzept 9).
+            .setSuppressPlaybackOnUnsuitableOutput(playbackPolicy.requireSuitableOutput)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
 

@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.wear.download
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import keinabersmart.kleinaberlaut.core.data.repository.CoverFiles
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumEntity
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
@@ -54,6 +55,7 @@ class WearDownloadPlannerTest {
             storage = DownloadStorage(ApplicationProvider.getApplicationContext()),
             state = state,
             scheduler = scheduler,
+            coverFiles = CoverFiles(ApplicationProvider.getApplicationContext()),
         )
         db.sourceDao().upsert(SourceEntity("nd", SourceType.SUBSONIC, "Navidrome"))
         db.sourceDao().upsert(SourceEntity("phone", SourceType.PHONE, "Handy"))
