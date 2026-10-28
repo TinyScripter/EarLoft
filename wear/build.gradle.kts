@@ -17,6 +17,13 @@ android {
         versionCode = 1
         versionName = "1.0"
     }
+
+    buildTypes {
+        debug {
+            // Wie bei der Phone-App: Debug neben Release installierbar, applicationId beider Debug-Apps gleich.
+            applicationIdSuffix = ".debug"
+        }
+    }
 }
 
 dependencies {

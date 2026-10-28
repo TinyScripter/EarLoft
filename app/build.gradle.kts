@@ -15,6 +15,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Debug und Release lassen sich parallel installieren. Die Uhr bekommt dasselbe Suffix,
+            // damit sich die Debug-Apps auf Handy und Uhr weiter finden (gleiche applicationId, Data Layer).
+            applicationIdSuffix = ".debug"
+        }
         release {
             optimization {
                 enable = true

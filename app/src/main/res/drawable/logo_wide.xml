@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="280dp"
+    android:height="56dp"
+    android:viewportWidth="560"
+    android:viewportHeight="112">
+
+    <!-- ==================== ICON LINKS ==================== -->
+    <group
+        android:translateX="12"
+        android:translateY="6"
+        android:scaleX="0.195"
+        android:scaleY="0.195">
+
+        <!-- Ring 1: Feine Oszillation innen -->
+        <path
+            android:pathData="M 256,200 C 264,196 273,204 281,204 C 290,204 298,212 303,219 C 309,227 312,236 312,246 C 312,256 307,265 305,275 C 302,284 292,291 283,297 C 274,302 265,312 256,312 C 246,312 237,302 229,297 C 219,291 210,284 207,275 C 204,265 200,256 200,246 C 200,236 203,227 209,219 C 214,212 222,204 231,204 C 239,204 248,196 256,200 Z"
+            android:strokeWidth="5"
+            android:strokeAlpha="0.5">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:startX="0" android:startY="0" android:endX="512" android:endY="512"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FF00F5D4" />
+                    <item android:offset="0.5" android:color="#FF7B2CBF" />
+                    <item android:offset="1.0" android:color="#FFFF0055" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Ring 2: 6 runde Wellenberge -->
+        <path
+            android:pathData="M 256,146 C 285,146 302,174 326,186 C 350,198 366,225 366,256 C 366,286 348,314 326,326 C 304,338 285,366 256,366 C 227,366 208,338 186,326 C 164,314 146,286 146,256 C 146,225 162,198 186,186 C 210,174 227,146 256,146 Z"
+            android:strokeWidth="8"
+            android:strokeAlpha="0.7">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:startX="0" android:startY="0" android:endX="512" android:endY="512"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FF00F5D4" />
+                    <item android:offset="0.5" android:color="#FF7B2CBF" />
+                    <item android:offset="1.0" android:color="#FFFF0055" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Ring 3: 4 Druckbögen -->
+        <path
+            android:pathData="M 256,90 C 310,90 348,142 388,178 C 424,212 422,256 422,256 C 422,308 372,358 334,388 C 298,418 256,422 256,422 C 202,422 160,372 124,334 C 90,298 90,256 90,256 C 90,204 140,154 178,124 C 212,90 256,90 256,90 Z"
+            android:strokeWidth="13"
+            android:strokeAlpha="0.9">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:startX="0" android:startY="0" android:endX="512" android:endY="512"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FF00F5D4" />
+                    <item android:offset="0.5" android:color="#FF7B2CBF" />
+                    <item android:offset="1.0" android:color="#FFFF0055" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Ring 4: Sub-Bass-Schwünge außen -->
+        <path
+            android:pathData="M 256,24 C 340,24 430,110 460,190 C 488,266 436,348 396,404 C 350,468 260,488 190,472 C 120,454 44,388 32,308 C 20,220 92,124 164,68 C 202,38 230,24 256,24 Z"
+            android:strokeWidth="18"
+            android:strokeLineCap="round">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:startX="0" android:startY="0" android:endX="512" android:endY="512"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FF00F5D4" />
+                    <item android:offset="0.5" android:color="#FF7B2CBF" />
+                    <item android:offset="1.0" android:color="#FFFF0055" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Ring um das Zentrum -->
+        <path
+            android:pathData="M 256,233 a 23,23 0 1,0 0,46 a 23,23 0 1,0 0,-46 Z"
+            android:strokeColor="#FF00F5D4"
+            android:strokeWidth="4" />
+
+        <!-- Weißer Kern -->
+        <path
+            android:pathData="M 256,242 a 14,14 0 1,0 0,28 a 14,14 0 1,0 0,-28 Z"
+            android:fillColor="#FFFFFFFF" />
+    </group>
+
+    <!-- ==================== WORTMARKE RECHTS ==================== -->
+    <!-- "kleinaber" in deutlichem Weiß mit Kontur -->
+    <group
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round">
+
+        <!-- k -->
+        <path android:pathData="M 125,32 V 72 M 125,56 L 145,36 M 130,51 L 147,72" />
+        <!-- l -->
+        <path android:pathData="M 157,32 V 72" />
+        <!-- e -->
+        <path android:pathData="M 183,56 H 168 C 168,45 183,45 183,56 C 183,72 168,72 168,62" />
+        <!-- i -->
+        <path android:pathData="M 194,48 V 72 M 194,36 V 38" />
+        <!-- n -->
+        <path android:pathData="M 205,48 V 72 M 205,54 C 205,46 220,46 220,54 V 72" />
+        <!-- a -->
+        <path android:pathData="M 243,48 V 72 M 243,58 C 243,48 230,48 230,58 C 230,72 243,72 243,62" />
+        <!-- b -->
+        <path android:pathData="M 254,32 V 72 M 254,58 C 254,48 268,48 268,58 C 268,72 254,72 254,62" />
+        <!-- e -->
+        <path android:pathData="M 292,56 H 277 C 277,45 292,45 292,56 C 292,72 277,72 277,62" />
+        <!-- r -->
+        <path android:pathData="M 302,48 V 72 M 302,54 C 302,46 314,46 314,52" />
+    </group>
+
+    <!-- "laut" leuchtend und präsenter (Türkis-Gradient + dickere Linienstärke) -->
+    <group
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="325" android:startY="32" android:endX="430" android:endY="72"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF00F5D4" />
+                <item android:offset="1.0" android:color="#FFFF0055" />
+            </gradient>
+        </aapt:attr>
+
+        <!-- l -->
+        <path android:pathData="M 330,32 V 72" />
+        <!-- a -->
+        <path android:pathData="M 358,48 V 72 M 358,58 C 358,48 344,48 344,58 C 344,72 358,72 358,62" />
+        <!-- u -->
+        <path android:pathData="M 370,48 V 64 C 370,72 384,72 384,64 V 48" />
+        <!-- t -->
+        <path android:pathData="M 400,38 V 66 C 400,72 408,72 408,68 M 394,48 H 406" />
+    </group>
+</vector>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Überschreibt den Text aus main, damit sich die Debug-App neben der Release-App unterscheiden lässt. -->
+    <string name="app_name">kleinaberlaut Debug</string>
+</resources>

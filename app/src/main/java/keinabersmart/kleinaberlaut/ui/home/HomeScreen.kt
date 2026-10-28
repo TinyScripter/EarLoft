@@ -1,10 +1,12 @@
 package keinabersmart.kleinaberlaut.ui.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -13,7 +15,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -66,7 +67,13 @@ private fun HomeContent(
 ) {
     Column(modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(stringResource(R.string.app_name)) },
+            title = {
+                Image(
+                    painter = painterResource(R.drawable.logo_wide),
+                    contentDescription = stringResource(R.string.app_name),
+                    modifier = Modifier.height(40.dp),
+                )
+            },
             actions = {
                 IconButton(onClick = onOpenSettings) {
                     Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.settings_title))

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gelbes Warnschild („Baustelle“) für das Debug-Icon, unten rechts im sichtbaren Bereich des adaptiven Icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#FFC107"
+        android:pathData="M70,50 L90,70 L70,90 L50,70 Z"
+        android:strokeColor="#212121"
+        android:strokeLineJoin="round"
+        android:strokeWidth="3.5" />
+    <path
+        android:fillColor="#212121"
+        android:pathData="M68.3,59 L71.7,59 L71.1,73 L68.9,73 Z" />
+    <path
+        android:fillColor="#212121"
+        android:pathData="M70,75.2 m-2.3,0 a2.3,2.3 0 1,0 4.6,0 a2.3,2.3 0 1,0 -4.6,0" />
+</vector>

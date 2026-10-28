@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("keinabersmart.kleinaberlaut", appContext.packageName)
+        assertEquals("keinabersmart.kleinaberlaut.debug", appContext.packageName)
     }
 }
