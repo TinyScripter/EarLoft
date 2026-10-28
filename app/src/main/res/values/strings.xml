@@ -71,6 +71,18 @@
     <string name="player_repeat_one">Titel wiederholen</string>
     <string name="player_seek">Wiedergabeposition</string>
 
+    <!-- Chromecast -->
+    <string name="cast_playing_on">Wird auf %1$s gespielt</string>
+    <string name="cast_queue_limited">Beim Casten passen höchstens %1$d von %2$d Titeln in die Warteschlange.</string>
+    <plurals name="cast_nothing_castable">
+        <item quantity="one">Dieser Titel liegt nur auf dem Handy und lässt sich nicht casten.</item>
+        <item quantity="other">Diese Titel liegen nur auf dem Handy und lassen sich nicht casten.</item>
+    </plurals>
+    <plurals name="cast_skipped_local">
+        <item quantity="one">%d Titel liegt nur auf dem Handy und wird beim Casten übersprungen.</item>
+        <item quantity="other">%d Titel liegen nur auf dem Handy und werden beim Casten übersprungen.</item>
+    </plurals>
+
     <!-- Einstellungen & Server -->
     <string name="settings_title">Einstellungen</string>
     <string name="settings_servers">Server</string>

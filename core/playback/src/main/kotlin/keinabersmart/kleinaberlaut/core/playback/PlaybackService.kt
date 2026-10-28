@@ -38,6 +38,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import java.util.Optional
 import javax.inject.Inject
 
 /** Wiedergabe-Service mit Media3-Session (Konzept 7.1). */
@@ -56,6 +57,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var streamCache: SimpleCache
     @Inject lateinit var replayGainSettings: ReplayGainSettings
     @Inject internal lateinit var libraryRemovals: LibraryRemovals
+    @Inject lateinit var sessionPlayerFactory: Optional<SessionPlayerFactory>
 
     /** Für Player-Zugriffe (Main-Thread). */
     private val mainScope = MainScope()
@@ -95,7 +97,7 @@ class PlaybackService : MediaLibraryService() {
                 replayGain,
             )
         }
-        val player = ExoPlayer.Builder(this, renderersFactory)
+        val localPlayer = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -109,16 +111,19 @@ class PlaybackService : MediaLibraryService() {
             .setSuppressPlaybackOnUnsuitableOutput(playbackPolicy.requireSuitableOutput)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
-
-        playTracker = PlayTracker(player, playbackStateRepository, ioScope)
-        player.addListener(playTracker)
-        player.addListener(PersistenceListener(player))
-        player.addListener(SourceErrorRecovery(player))
-        player.addListener(object : Player.Listener {
+        localPlayer.addListener(SourceErrorRecovery(localPlayer))
+        localPlayer.addListener(object : Player.Listener {
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
                 replayGain.shuffleEnabled = shuffleModeEnabled
             }
         })
+
+        // Handy: Cast-fähiger Player um den ExoPlayer; Hörverlauf und Warteschlange folgen dem jeweils aktiven Player.
+        val factory = sessionPlayerFactory.orElse(null)
+        val player = factory?.create(this, localPlayer) ?: localPlayer
+        playTracker = PlayTracker(player, playbackStateRepository, ioScope)
+        player.addListener(playTracker)
+        player.addListener(PersistenceListener(player))
         mainScope.launch {
             libraryRemovals.removals.collect { removeMissingSongs(player) }
         }
@@ -130,7 +135,7 @@ class PlaybackService : MediaLibraryService() {
         session = MediaLibrarySession.Builder(
             this,
             player,
-            LibrarySessionCallback(this, libraryRepository, queuePersistence, mainScope),
+            LibrarySessionCallback(this, libraryRepository, queuePersistence, factory, mainScope),
         )
             .setBitmapLoader(CacheBitmapLoader(ArtworkBitmapLoader(this, artworkRepository, mainScope)))
             .apply { sessionActivity()?.let { setSessionActivity(it) } }

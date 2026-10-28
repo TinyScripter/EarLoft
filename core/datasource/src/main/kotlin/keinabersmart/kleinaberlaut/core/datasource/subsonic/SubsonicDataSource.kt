@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.net.toUri
 import dagger.hilt.android.qualifiers.ApplicationContext
+import keinabersmart.kleinaberlaut.core.datasource.ExternalPlayback
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.datasource.RemoteLibraryActions
@@ -22,6 +23,7 @@ import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicApi
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicCredentials
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicException
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicServer
+import keinabersmart.kleinaberlaut.core.network.subsonic.authenticatedUrl
 import keinabersmart.kleinaberlaut.core.network.subsonic.dto.AlbumDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -36,7 +38,7 @@ class SubsonicDataSource internal constructor(
     override val displayName: String,
     private val api: SubsonicApi,
     private val names: FallbackNames,
-) : MusicDataSource, RemoteLibraryActions, RemoteLyrics, RemoteQuickSync {
+) : MusicDataSource, RemoteLibraryActions, RemoteLyrics, RemoteQuickSync, ExternalPlayback {
 
     override val sourceId: String get() = server.sourceId
     override val type: SourceType = SourceType.SUBSONIC
@@ -96,6 +98,18 @@ class SubsonicDataSource internal constructor(
             uri = api.streamUrl(server, remoteId).toString().toUri(),
             cacheKey = "$sourceId:$remoteId",
         )
+
+    override fun externalStreamUrl(remoteId: String, transcodeTo: Pair<String, Int>?): String {
+        val url = if (transcodeTo == null) {
+            api.streamUrl(server, remoteId)
+        } else {
+            api.transcodedStreamUrl(server, remoteId, transcodeTo.first, transcodeTo.second)
+        }
+        return server.authenticatedUrl(url).toString()
+    }
+
+    override fun externalCoverUrl(coverRemoteId: String, sizePx: Int): String =
+        server.authenticatedUrl(api.coverArtUrl(server, coverRemoteId, sizePx)).toString()
 
     override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? {
         val bytes = api.coverArt(server, remoteId, sizePx) ?: return null

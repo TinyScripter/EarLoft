@@ -2,6 +2,7 @@ package keinabersmart.kleinaberlaut.core.playback
 
 import android.content.ComponentName
 import android.content.Context
+import androidx.media3.common.DeviceInfo
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -35,6 +36,8 @@ data class PlayerState(
     val currentIndex: Int = -1,
     /** Wiedergabe angehalten, weil die Ausgabe nicht passt (Uhr ohne Kopfhörer, Wear-Konzept 9). */
     val outputSuppressed: Boolean = false,
+    /** Wiedergabe auf einem anderen Gerät (Chromecast). */
+    val isRemote: Boolean = false,
 ) {
     val hasMedia: Boolean get() = current != null
 }
@@ -147,6 +150,7 @@ class PlaybackConnection @Inject constructor(
             queue = queue,
             currentIndex = currentMediaItemIndex,
             outputSuppressed = playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT,
+            isRemote = deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE,
         )
     }
 

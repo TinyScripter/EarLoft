@@ -39,6 +39,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.cast.CastButton
+import keinabersmart.kleinaberlaut.cast.rememberCastDeviceName
 import keinabersmart.kleinaberlaut.core.designsystem.theme.AlbumColorTheme
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.Lyrics
@@ -81,6 +83,8 @@ fun NowPlayingScreen(
                 onToggleShuffle = viewModel::toggleShuffle,
                 onCycleRepeat = viewModel::cycleRepeatMode,
                 onToggleFavorite = viewModel::toggleFavorite,
+                castDeviceName = rememberCastDeviceName(state.isRemote),
+                castButton = { CastButton() },
             )
         }
     }
@@ -105,6 +109,8 @@ private fun NowPlayingContent(
     onCycleRepeat: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
+    castDeviceName: String? = null,
+    castButton: @Composable () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -121,8 +127,11 @@ private fun NowPlayingContent(
                 stringResource(R.string.player_now_playing),
                 style = MaterialTheme.typography.titleSmall,
                 textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            castButton()
             if (state.current != null) {
                 ToggleIconButton(
                     icon = if (isFavorite) DesignR.drawable.ic_favorite else DesignR.drawable.ic_favorite_border,
@@ -183,6 +192,16 @@ private fun NowPlayingContent(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (castDeviceName != null) {
+            Text(
+                stringResource(R.string.cast_playing_on, castDeviceName),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         Spacer(Modifier.height(16.dp))
         SeekBar(durationMs = state.durationMs, positionMs = positionMs, onSeek = onSeek)
         Spacer(Modifier.height(8.dp))

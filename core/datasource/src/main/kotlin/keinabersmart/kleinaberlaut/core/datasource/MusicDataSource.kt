@@ -79,6 +79,17 @@ interface LocalLyrics {
     suspend fun embeddedLyrics(remoteId: String): Lyrics
 }
 
+/**
+ * Quellen, deren Songs ein anderes Gerät im Netz selbst abrufen kann (Chromecast). Die URLs enthalten
+ * Zugangsdaten und dürfen weder gespeichert noch geloggt werden.
+ */
+interface ExternalPlayback {
+    /** Original-Datei bzw. mit [transcodeTo] (Format, Bitrate in kbit/s) vom Server umgewandelt. */
+    fun externalStreamUrl(remoteId: String, transcodeTo: Pair<String, Int>? = null): String
+
+    fun externalCoverUrl(coverRemoteId: String, sizePx: Int): String
+}
+
 /** [changedAt] = letzte Änderung auf dem Server (ms) – dient der Konflikterkennung. */
 data class RemotePlaylistInfo(
     val remoteId: String,

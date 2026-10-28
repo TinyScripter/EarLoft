@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.core.network.subsonic
 
+import okhttp3.HttpUrl
 import okhttp3.Interceptor
 import okhttp3.Response
 import java.security.MessageDigest
@@ -20,8 +21,6 @@ class SubsonicAuthInterceptor @Inject constructor(
     private val registry: SubsonicServerRegistry,
 ) : Interceptor {
 
-    private val random = SecureRandom()
-
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
         val credentials = original.tag(SubsonicCredentials::class.java)
@@ -31,7 +30,20 @@ class SubsonicAuthInterceptor @Inject constructor(
             return chain.proceed(original)
         }
 
-        val url = original.url.newBuilder().apply {
+        val response = chain.proceed(original.newBuilder().url(original.url.withAuth(credentials)).build())
+        return response.newBuilder().request(original).build()
+    }
+
+    internal companion object {
+        const val API_VERSION = "1.16.1"
+        const val CLIENT_NAME = "kleinaberlaut"
+        private const val SALT_BYTES = 8
+        private val random = SecureRandom()
+
+        fun md5Hex(input: String): String =
+            MessageDigest.getInstance("MD5").digest(input.toByteArray(Charsets.UTF_8)).toHex()
+
+        fun HttpUrl.withAuth(credentials: SubsonicCredentials): HttpUrl = newBuilder().apply {
             when (credentials) {
                 is SubsonicCredentials.ApiKey -> addQueryParameter("apiKey", credentials.key)
                 is SubsonicCredentials.Password -> {
@@ -41,28 +53,20 @@ class SubsonicAuthInterceptor @Inject constructor(
                     addQueryParameter("s", salt)
                 }
             }
-            if (original.url.queryParameter("v") == null) addQueryParameter("v", API_VERSION)
-            if (original.url.queryParameter("c") == null) addQueryParameter("c", CLIENT_NAME)
-            if (original.url.queryParameter("f") == null) addQueryParameter("f", "json")
+            if (queryParameter("v") == null) addQueryParameter("v", API_VERSION)
+            if (queryParameter("c") == null) addQueryParameter("c", CLIENT_NAME)
+            if (queryParameter("f") == null) addQueryParameter("f", "json")
         }.build()
 
-        val response = chain.proceed(original.newBuilder().url(url).build())
-        return response.newBuilder().request(original).build()
-    }
-
-    private fun randomSalt(): String {
-        val bytes = ByteArray(SALT_BYTES).also(random::nextBytes)
-        return bytes.toHex()
-    }
-
-    internal companion object {
-        const val API_VERSION = "1.16.1"
-        const val CLIENT_NAME = "kleinaberlaut"
-        private const val SALT_BYTES = 8
-
-        fun md5Hex(input: String): String =
-            MessageDigest.getInstance("MD5").digest(input.toByteArray(Charsets.UTF_8)).toHex()
+        private fun randomSalt(): String = ByteArray(SALT_BYTES).also(random::nextBytes).toHex()
 
         private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
     }
 }
+
+/**
+ * [url] mit eingebetteten Zugangsdaten – nur für Empfänger, die nicht über unseren OkHttpClient
+ * laden (Chromecast). Solche URLs nie speichern oder loggen: Token und Salt gelten unbegrenzt.
+ */
+fun SubsonicServer.authenticatedUrl(url: HttpUrl): HttpUrl =
+    with(SubsonicAuthInterceptor) { url.withAuth(credentials) }

@@ -49,6 +49,8 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
+    // Chromecast nur auf dem Handy; :core:playback (auch von :wear genutzt) kennt nur PlayerFactory.
+    implementation(libs.androidx.media3.cast)
 
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -1,6 +1,9 @@
 package keinabersmart.kleinaberlaut
 
 import android.app.Application
+import androidx.annotation.OptIn
+import androidx.media3.cast.Cast
+import androidx.media3.common.util.UnstableApi
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -31,8 +34,11 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var wearPublisher: WearPublisher
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
+    @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
+        // Vor dem Wiedergabe-Service und dem Cast-Knopf; lädt im Hintergrund, ohne Play-Dienste bleibt Cast aus.
+        Cast.getSingletonInstance(this).initialize()
         libraryRefresher.start()
         autoDownloads.start(applicationScope)
         applicationScope.launch {

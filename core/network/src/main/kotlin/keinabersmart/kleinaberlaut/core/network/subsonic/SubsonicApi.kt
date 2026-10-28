@@ -137,6 +137,14 @@ class SubsonicApi @Inject constructor(
             .addQueryParameter("format", "raw")
             .build()
 
+    /** Vom Server umgewandelt, z. B. für Empfänger, die das Originalformat nicht kennen. */
+    fun transcodedStreamUrl(server: SubsonicServer, songId: String, format: String, maxBitRateKbps: Int): HttpUrl =
+        server.endpoint("stream")
+            .addQueryParameter("id", songId)
+            .addQueryParameter("format", format)
+            .addQueryParameter("maxBitRate", maxBitRateKbps.toString())
+            .build()
+
     fun coverArtUrl(server: SubsonicServer, coverArtId: String, sizePx: Int): HttpUrl =
         server.endpoint("getCoverArt")
             .addQueryParameter("id", coverArtId)
