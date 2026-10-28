@@ -43,6 +43,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Der Worker startet einen dataSync-Vordergrunddienst; :core:download deklariert ihn auch, aber Lint prüft nur dieses Manifest. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
         <!-- Änderungen und Nachrichten vom Handy (Wear-Konzept 4); die Play-Dienste starten den Dienst bei Bedarf. -->
         <service
             android:name=".sync.WatchListenerService"

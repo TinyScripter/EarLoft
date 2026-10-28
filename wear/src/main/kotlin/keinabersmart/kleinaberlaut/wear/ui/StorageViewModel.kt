@@ -7,6 +7,8 @@ import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
 import keinabersmart.kleinaberlaut.wear.download.WatchState
+import keinabersmart.kleinaberlaut.wear.sync.PhoneCatalog
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -25,8 +27,14 @@ data class StorageUiState(
 @HiltViewModel
 class StorageViewModel @Inject constructor(
     private val downloads: DownloadRepository,
+    private val catalog: PhoneCatalog,
     state: WatchState,
 ) : ViewModel() {
+
+    private val _clearFailed = MutableStateFlow(false)
+
+    /** `true`, wenn das Handy für „Alles entfernen“ nicht erreichbar war. */
+    val clearFailed: StateFlow<Boolean> = _clearFailed
 
     val state: StateFlow<StorageUiState> = combine(
         downloads.overview(),
@@ -36,6 +44,15 @@ class StorageViewModel @Inject constructor(
     ) { overview, settings: WearSettingsDto, missing, error ->
         StorageUiState(overview, settings.storageLimitBytes, missing, error)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
+
+    /** Das Handy bestimmt die Auswahl; lokal löschen würde beim nächsten Abgleich wieder geladen. */
+    fun clearAll() {
+        viewModelScope.launch { _clearFailed.value = !catalog.clearSelections() }
+    }
+
+    fun dismissClearFailed() {
+        _clearFailed.value = false
+    }
 
     fun retryFailed() {
         viewModelScope.launch { downloads.retryFailed() }

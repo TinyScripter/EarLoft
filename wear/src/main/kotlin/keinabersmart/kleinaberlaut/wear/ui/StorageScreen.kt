@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -15,7 +18,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
+import androidx.wear.compose.material3.AlertDialog
+import androidx.wear.compose.material3.AlertDialogDefaults
 import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
@@ -32,12 +38,26 @@ import keinabersmart.kleinaberlaut.wear.R
 @Composable
 fun StorageScreen(viewModel: StorageViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    StorageContent(state, onRetry = viewModel::retryFailed)
+    val clearFailed by viewModel.clearFailed.collectAsStateWithLifecycle()
+    StorageContent(
+        state,
+        clearFailed = clearFailed,
+        onRetry = viewModel::retryFailed,
+        onClearAll = viewModel::clearAll,
+        onDismissClearFailed = viewModel::dismissClearFailed,
+    )
 }
 
 @Composable
-private fun StorageContent(state: StorageUiState, onRetry: () -> Unit) {
+private fun StorageContent(
+    state: StorageUiState,
+    clearFailed: Boolean,
+    onRetry: () -> Unit,
+    onClearAll: () -> Unit,
+    onDismissClearFailed: () -> Unit,
+) {
     val context = LocalContext.current
+    var confirmClear by remember { mutableStateOf(false) }
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
     val overview = state.overview ?: DownloadOverview.EMPTY
@@ -83,8 +103,36 @@ private fun StorageContent(state: StorageUiState, onRetry: () -> Unit) {
                     )
                 }
             }
+            if (clearFailed) {
+                line(transformationSpec) { stringResource(R.string.storage_clear_no_phone) }
+            }
+            item {
+                Button(
+                    onClick = {
+                        onDismissClearFailed()
+                        confirmClear = true
+                    },
+                    modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                    transformation = SurfaceTransformation(transformationSpec),
+                    colors = ButtonDefaults.filledTonalButtonColors(),
+                    label = { Text(stringResource(R.string.storage_clear_all)) },
+                )
+            }
         }
     }
+    AlertDialog(
+        visible = confirmClear,
+        onDismissRequest = { confirmClear = false },
+        confirmButton = {
+            AlertDialogDefaults.ConfirmButton(onClick = {
+                confirmClear = false
+                onClearAll()
+            })
+        },
+        dismissButton = { AlertDialogDefaults.DismissButton(onClick = { confirmClear = false }) },
+        title = { Text(stringResource(R.string.storage_clear_all)) },
+        text = { Text(stringResource(R.string.storage_clear_confirm)) },
+    )
 }
 
 private fun androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope.line(
@@ -121,7 +169,10 @@ private fun StoragePreview() {
                 missingForStorage = 3,
                 lastError = "Server nicht erreichbar",
             ),
+            clearFailed = false,
             onRetry = {},
+            onClearAll = {},
+            onDismissClearFailed = {},
         )
     }
 }

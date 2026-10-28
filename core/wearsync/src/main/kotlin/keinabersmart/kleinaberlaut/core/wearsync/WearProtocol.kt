@@ -37,6 +37,9 @@ object WearPaths {
     /** Message, Uhr → Handy: [WearSelectRequest]. */
     const val SELECT = "/kal/select"
 
+    /** Message, Uhr → Handy, ohne Inhalt: alle Auswahlen entfernen („Alles entfernen“ auf der Uhr). */
+    const val CLEAR_SELECTIONS = "/kal/select/clear"
+
     /** Message, Uhr → Handy: [WearCredentialsRequest]. */
     const val CREDENTIALS_REQUEST = "/kal/credentials/request"
 

@@ -61,6 +61,11 @@
     </plurals>
     <string name="storage_retry">Erneut versuchen</string>
     <string name="storage_last_error">Letzter Fehler: %s</string>
+    <string name="storage_clear_all">Alles entfernen</string>
+    <string name="storage_clear_confirm">Alle Musik von der Uhr entfernen? Die Auswahl am Handy wird geleert.</string>
+    <string name="storage_clear_yes">Entfernen</string>
+    <string name="storage_clear_no">Abbrechen</string>
+    <string name="storage_clear_no_phone">Handy nicht verbunden – nichts entfernt.</string>
 
     <!-- Einrichtung -->
     <string name="setup_checking">Suche Handy …</string>

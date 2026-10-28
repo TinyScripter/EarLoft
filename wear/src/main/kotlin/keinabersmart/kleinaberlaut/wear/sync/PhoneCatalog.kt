@@ -46,6 +46,12 @@ class PhoneCatalog @Inject constructor(
         return messageClient.sendPayload(nodeId, WearPaths.SELECT, WearCodec.encode(WearSelectRequest(kind, refId, selected)))
     }
 
+    /** Entfernt alle Auswahlen am Handy; die Uhr räumt beim nächsten Manifest auf. @return `false` ohne erreichbares Handy. */
+    suspend fun clearSelections(): Boolean {
+        val nodeId = phoneConnection.connectedPhoneNodeId() ?: return false
+        return messageClient.sendPayload(nodeId, WearPaths.CLEAR_SELECTIONS, ByteArray(0))
+    }
+
     private companion object {
         const val TAG = "PhoneCatalog"
     }

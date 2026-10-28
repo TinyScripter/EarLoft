@@ -44,7 +44,8 @@ dependencies {
     implementation(libs.androidx.wear.remote.interactions)
     implementation(libs.androidx.wear.tooling.preview)
     implementation(libs.kotlinx.coroutines.guava)
-    debugImplementation(libs.androidx.wear.compose.ui.tooling)
+    // Die Preview-Annotationen (WearPreviewDevices u. a.) liegen hier und werden auch im Release-Quelltext gebraucht.
+    implementation(libs.androidx.wear.compose.ui.tooling)
 
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.robolectric)

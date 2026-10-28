@@ -60,6 +60,7 @@ class PhoneWearListenerService : WearableListenerService() {
                 if (request.kind == WearSelectionKind.ALBUM) return
                 applicationScope.launch { selections.setSelected(request.kind, request.refId, request.selected) }
             }
+            WearPaths.CLEAR_SELECTIONS -> applicationScope.launch { selections.clear() }
         }
     }
 
