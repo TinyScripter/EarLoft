@@ -10,6 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
@@ -55,7 +56,7 @@ import com.materialkolor.dynamicColorScheme
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
-/** Widget 4×2: großes Cover links; rechts Titel, Künstler und darunter die Steuerung. Farben aus dem Cover. */
+/** Widget 4×1: Cover links; rechts Titel, Künstler und darunter die Steuerung. Farben aus dem Cover. */
 class NowPlayingWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -93,7 +94,7 @@ private fun NowPlayingContent(state: WidgetState) {
             .cornerRadius(16.dp)
             .background(GlanceTheme.colors.widgetBackground)
             .clickable(actionStartActivity<MainActivity>())
-            .padding(8.dp),
+            .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Image(
@@ -102,7 +103,7 @@ private fun NowPlayingContent(state: WidgetState) {
             colorFilter = if (state.cover == null) ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant) else null,
             modifier = GlanceModifier
                 .size(COVER_SIZE)
-                .cornerRadius(12.dp),
+                .cornerRadius(10.dp),
         )
         Column(
             modifier = GlanceModifier
@@ -114,16 +115,16 @@ private fun NowPlayingContent(state: WidgetState) {
             Text(
                 text = nowPlaying?.title ?: context.getString(R.string.player_nothing_playing),
                 maxLines = 1,
-                style = TextStyle(color = GlanceTheme.colors.onSurface, fontWeight = FontWeight.Medium),
+                style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Medium),
             )
             if (nowPlaying != null) {
                 Text(
                     text = nowPlaying.artist,
                     maxLines = 1,
-                    style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant),
+                    style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp),
                 )
             }
-            Row(modifier = GlanceModifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 if (nowPlaying != null) {
                     ControlButton(
                         icon = DesignR.drawable.ic_skip_previous,
@@ -151,7 +152,7 @@ private fun NowPlayingContent(state: WidgetState) {
     }
 }
 
-private val COVER_SIZE = 92.dp
+private val COVER_SIZE = 50.dp
 
 @Composable
 private fun ControlButton(icon: Int, label: String, action: Action) {
@@ -159,11 +160,12 @@ private fun ControlButton(icon: Int, label: String, action: Action) {
         provider = ImageProvider(icon),
         contentDescription = label,
         colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurface),
+        // Flache, aber breite Trefferfläche: In einer Zellenhöhe ist kein Platz für 48 dp Höhe.
         modifier = GlanceModifier
-            .size(44.dp)
-            .cornerRadius(22.dp)
+            .size(width = 48.dp, height = 20.dp)
+            .cornerRadius(10.dp)
             .clickable(action)
-            .padding(10.dp),
+            .padding(horizontal = 16.dp, vertical = 2.dp),
     )
 }
 
