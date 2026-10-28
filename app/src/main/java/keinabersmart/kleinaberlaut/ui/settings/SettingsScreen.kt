@@ -54,6 +54,8 @@ import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.LocalWatchController
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.library.BackButton
+import keinabersmart.kleinaberlaut.ui.permission.rememberAudioPermissionRequester
+import keinabersmart.kleinaberlaut.ui.theme.ThemeMode
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @Composable
@@ -62,17 +64,29 @@ fun SettingsScreen(
     onAddServer: () -> Unit,
     onEditServer: (sourceId: String) -> Unit,
     onOpenWatch: () -> Unit,
+    onOpenAbout: () -> Unit,
+    onOpenLicenses: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Einschalten erst mit Berechtigung; sonst stünde gleich wieder die Berechtigungsseite davor.
+    val requestAudioPermission = rememberAudioPermissionRequester { granted ->
+        if (granted) viewModel.setUseLocalMedia(true)
+    }
     SettingsContent(
         state = state,
         watchAvailable = LocalWatchController.current?.isAvailable == true,
         onBack = onBack,
+        onThemeModeChange = viewModel::setThemeMode,
+        onUseLocalMediaChange = { enabled ->
+            if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
+        },
         onAddServer = onAddServer,
         onEditServer = onEditServer,
         onOpenWatch = onOpenWatch,
+        onOpenAbout = onOpenAbout,
+        onOpenLicenses = onOpenLicenses,
         onSyncNow = viewModel::syncNow,
         onRemove = viewModel::remove,
         onRefreshAll = viewModel::refreshAll,
@@ -91,9 +105,13 @@ private fun SettingsContent(
     state: SettingsUiState,
     watchAvailable: Boolean,
     onBack: () -> Unit,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    onUseLocalMediaChange: (Boolean) -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
     onOpenWatch: () -> Unit,
+    onOpenAbout: () -> Unit,
+    onOpenLicenses: () -> Unit,
     onSyncNow: (String) -> Unit,
     onRemove: (String) -> Unit,
     onRefreshAll: () -> Unit,
@@ -105,6 +123,7 @@ private fun SettingsContent(
     modifier: Modifier = Modifier,
 ) {
     var serverToRemove by rememberSaveable { mutableStateOf<String?>(null) }
+    var choosingTheme by rememberSaveable { mutableStateOf(false) }
     var choosingReplayGain by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier.fillMaxSize()) {
@@ -115,7 +134,39 @@ private fun SettingsContent(
         if (state.isSyncing) LinearProgressIndicator(Modifier.fillMaxWidth())
 
         LazyColumn(Modifier.navigationBarsPadding()) {
+            // --- Allgemein ---
+            item(key = "general") { SectionHeader(stringResource(R.string.settings_general)) }
+            item(key = "theme") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_theme)) },
+                    supportingContent = { Text(stringResource(state.themeMode.label)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_contrast), contentDescription = null) },
+                    modifier = Modifier.clickable { choosingTheme = true },
+                )
+            }
+            item(key = "artist-images") {
+                // Platzhalter: Interpretenbilder gibt es noch nicht.
+                SwitchRow(
+                    title = stringResource(R.string.settings_artist_images),
+                    summary = stringResource(R.string.settings_artist_images_summary),
+                    icon = DesignR.drawable.ic_person,
+                    checked = false,
+                    onCheckedChange = {},
+                    enabled = false,
+                )
+            }
+
+            // --- Server ---
             item(key = "servers") { SectionHeader(stringResource(R.string.settings_servers)) }
+            item(key = "local-media") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_local_media),
+                    summary = stringResource(R.string.settings_local_media_summary),
+                    icon = DesignR.drawable.ic_music_note,
+                    checked = state.useLocalMedia,
+                    onCheckedChange = onUseLocalMediaChange,
+                )
+            }
             if (state.servers.isEmpty()) {
                 item(key = "no-servers") { EmptyHint(stringResource(R.string.settings_no_servers)) }
             }
@@ -133,7 +184,6 @@ private fun SettingsContent(
                     Text(stringResource(R.string.settings_add_server), modifier = Modifier.padding(start = 8.dp))
                 }
             }
-            item(key = "library") { SectionHeader(stringResource(R.string.settings_library)) }
             item(key = "refresh") {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_refresh_all)) },
@@ -150,23 +200,6 @@ private fun SettingsContent(
                     onCheckedChange = onScrobbleChange,
                 )
             }
-            item(key = "playback") { SectionHeader(stringResource(R.string.settings_playback)) }
-            item(key = "replay-gain") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_replay_gain)) },
-                    supportingContent = { Text(stringResource(state.replayGainMode.label)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_volume_up), contentDescription = null) },
-                    modifier = Modifier.clickable { choosingReplayGain = true },
-                )
-            }
-            item(key = "pre-amp") {
-                PreAmpRow(
-                    preAmpDb = state.preAmpDb,
-                    enabled = state.replayGainMode != ReplayGainMode.OFF,
-                    onPreAmpChange = onPreAmpChange,
-                )
-            }
-            item(key = "downloads") { SectionHeader(stringResource(R.string.settings_downloads)) }
             item(key = "wifi-only") {
                 SwitchRow(
                     title = stringResource(R.string.settings_wifi_only),
@@ -185,6 +218,25 @@ private fun SettingsContent(
                     onCheckedChange = onAutoDownloadFavoritesChange,
                 )
             }
+
+            // --- Wiedergabe ---
+            item(key = "playback") { SectionHeader(stringResource(R.string.settings_playback)) }
+            item(key = "replay-gain") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_replay_gain)) },
+                    supportingContent = { Text(stringResource(state.replayGainMode.label)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_volume_up), contentDescription = null) },
+                    modifier = Modifier.clickable { choosingReplayGain = true },
+                )
+            }
+            item(key = "pre-amp") {
+                PreAmpRow(
+                    preAmpDb = state.preAmpDb,
+                    enabled = state.replayGainMode != ReplayGainMode.OFF,
+                    onPreAmpChange = onPreAmpChange,
+                )
+            }
+
             // Nur mit gekoppelter Uhr, auf der kleinaberlaut installiert ist (Wear-Konzept 5).
             if (watchAvailable) {
                 item(key = "watch") { SectionHeader(stringResource(R.string.settings_watch)) }
@@ -197,12 +249,48 @@ private fun SettingsContent(
                     )
                 }
             }
+
+            // --- Über ---
+            item(key = "about") { SectionHeader(stringResource(R.string.settings_about)) }
+            item(key = "about-app") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_about_app)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_info), contentDescription = null) },
+                    modifier = Modifier.clickable(onClick = onOpenAbout),
+                )
+            }
+            item(key = "licenses") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_licenses)) },
+                    supportingContent = { Text(stringResource(R.string.settings_licenses_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_description), contentDescription = null) },
+                    modifier = Modifier.clickable(onClick = onOpenLicenses),
+                )
+            }
         }
     }
 
+    if (choosingTheme) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_theme),
+            options = ThemeMode.entries,
+            selected = state.themeMode,
+            label = { stringResource(it.label) },
+            onSelect = {
+                onThemeModeChange(it)
+                choosingTheme = false
+            },
+            onDismiss = { choosingTheme = false },
+        )
+    }
+
     if (choosingReplayGain) {
-        ReplayGainModeDialog(
+        ChoiceDialog(
+            title = stringResource(R.string.settings_replay_gain),
+            options = ReplayGainMode.entries,
             selected = state.replayGainMode,
+            label = { stringResource(it.label) },
+            summary = { if (it == ReplayGainMode.AUTO) stringResource(R.string.replay_gain_auto_summary) else null },
             onSelect = {
                 onReplayGainModeChange(it)
                 choosingReplayGain = false
@@ -232,15 +320,40 @@ private fun SettingsContent(
 
 /** Ganze Zeile schaltet (größere Tippfläche, ein Element für Screenreader). */
 @Composable
-internal fun SwitchRow(title: String, summary: String, icon: Int, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+internal fun SwitchRow(
+    title: String,
+    summary: String,
+    icon: Int,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = { Text(summary) },
         leadingContent = { Icon(painterResource(icon), contentDescription = null) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
-        modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+        trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) },
+        colors = if (enabled) {
+            ListItemDefaults.colors()
+        } else {
+            ListItemDefaults.colors(
+                headlineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA),
+                supportingColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = DISABLED_ALPHA),
+                leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = DISABLED_ALPHA),
+            )
+        },
+        modifier = Modifier.toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
     )
 }
+
+private const val DISABLED_ALPHA = 0.38f
+
+private val ThemeMode.label: Int
+    get() = when (this) {
+        ThemeMode.SYSTEM -> R.string.theme_system
+        ThemeMode.LIGHT -> R.string.theme_light
+        ThemeMode.DARK -> R.string.theme_dark
+    }
 
 private val ReplayGainMode.label: Int
     get() = when (this) {
@@ -250,24 +363,30 @@ private val ReplayGainMode.label: Int
         ReplayGainMode.AUTO -> R.string.replay_gain_auto
     }
 
+/** Auswahl eines Werts mit Radio-Zeilen; ein Tipp wählt und schließt. */
 @Composable
-private fun ReplayGainModeDialog(selected: ReplayGainMode, onSelect: (ReplayGainMode) -> Unit, onDismiss: () -> Unit) {
+private fun <T> ChoiceDialog(
+    title: String,
+    options: List<T>,
+    selected: T,
+    label: @Composable (T) -> String,
+    onSelect: (T) -> Unit,
+    onDismiss: () -> Unit,
+    summary: @Composable (T) -> String? = { null },
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_replay_gain)) },
+        title = { Text(title) },
         text = {
             Column(Modifier.selectableGroup()) {
-                ReplayGainMode.entries.forEach { mode ->
+                options.forEach { option ->
+                    val optionSummary = summary(option)
                     ListItem(
-                        headlineContent = { Text(stringResource(mode.label)) },
-                        supportingContent = if (mode == ReplayGainMode.AUTO) {
-                            { Text(stringResource(R.string.replay_gain_auto_summary)) }
-                        } else {
-                            null
-                        },
-                        leadingContent = { RadioButton(selected = mode == selected, onClick = null) },
+                        headlineContent = { Text(label(option)) },
+                        supportingContent = optionSummary?.let { { Text(it) } },
+                        leadingContent = { RadioButton(selected = option == selected, onClick = null) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.selectable(selected = mode == selected, role = Role.RadioButton) { onSelect(mode) },
+                        modifier = Modifier.selectable(selected = option == selected, role = Role.RadioButton) { onSelect(option) },
                     )
                 }
             }
@@ -335,6 +454,9 @@ private fun ServerRow(item: ServerItem, onEdit: () -> Unit, onSyncNow: () -> Uni
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (item.autoDownload) {
+                    Text(stringResource(R.string.server_auto_download), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         },
         leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
@@ -370,15 +492,19 @@ private fun SettingsContentPreview() {
         SettingsContent(
             state = SettingsUiState(
                 servers = listOf(
-                    ServerItem(ServerInfo("1", "Navidrome", "https://musik.example.de/", "kal", 0), error = null),
+                    ServerItem(ServerInfo("1", "Navidrome", "https://musik.example.de/", "kal", 0), error = null, autoDownload = true),
                     ServerItem(ServerInfo("2", "Büro", "http://10.0.0.5:4533/", "kal", 0), error = "timeout"),
                 ),
             ),
             watchAvailable = true,
             onBack = {},
+            onThemeModeChange = {},
+            onUseLocalMediaChange = {},
             onAddServer = {},
             onEditServer = {},
             onOpenWatch = {},
+            onOpenAbout = {},
+            onOpenLicenses = {},
             onSyncNow = {},
             onRemove = {},
             onRefreshAll = {},

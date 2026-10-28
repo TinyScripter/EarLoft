@@ -32,6 +32,9 @@ okhttp = "5.5.1"
 coil = "3.6.3"
 materialKolor = "5.0.1"
 
+# Lizenzen
+aboutLibraries = "15.3.0"
+
 # Google Play Services
 playServicesWearable = "20.0.1"
 
@@ -110,6 +113,9 @@ coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref 
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 materialkolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "materialKolor" }
 
+# Lizenzen
+aboutlibraries-compose-m3 = { group = "com.mikepenz", name = "aboutlibraries-compose-m3", version.ref = "aboutLibraries" }
+
 # Google Play Services
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
 
@@ -136,6 +142,7 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 room = { id = "androidx.room", version.ref = "room" }
+aboutlibraries-android = { id = "com.mikepenz.aboutlibraries.plugin.android", version.ref = "aboutLibraries" }
 
 # Convention Plugins aus build-logic
 kleinaberlaut-android-application = { id = "kleinaberlaut.android.application" }

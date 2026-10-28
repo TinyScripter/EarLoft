@@ -171,6 +171,15 @@ interface DownloadDao {
     @Query("UPDATE downloads SET pinnedBy = :to WHERE pinnedBy = :from")
     suspend fun repinAll(from: String, to: String)
 
+    // --- Server komplett herunterladen ---
+
+    @Query("SELECT DISTINCT songId FROM song_sources WHERE sourceId = :sourceId")
+    suspend fun getSongIdsOfSource(sourceId: String): List<Long>
+
+    /** Alle vorkommenden `pinnedBy`-Werte mit diesem Anfang, z. B. `server:`. */
+    @Query("SELECT DISTINCT pinnedBy FROM downloads WHERE pinnedBy LIKE :prefix || '%'")
+    suspend fun getPinnedByWithPrefix(prefix: String): List<String>
+
     // --- Wiedergabe ---
 
     /** Fertig geladene Dateien eines Songs (meist höchstens eine). */

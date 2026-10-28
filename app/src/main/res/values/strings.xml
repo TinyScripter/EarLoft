@@ -12,6 +12,7 @@
     <string name="permission_denied_text">Der Zugriff wurde abgelehnt. Du kannst ihn in den App-Einstellungen unter „Berechtigungen“ erlauben.</string>
     <string name="permission_grant">Zugriff erlauben</string>
     <string name="permission_open_settings">Einstellungen öffnen</string>
+    <string name="permission_skip">Ohne Musik auf dem Gerät weiter</string>
 
     <!-- Allgemeine Aktionen -->
     <string name="action_back">Zurück</string>
@@ -88,8 +89,28 @@
     <string name="settings_servers">Server</string>
     <string name="settings_no_servers">Noch kein Server eingerichtet. Navidrome und andere Subsonic-Server werden unterstützt.</string>
     <string name="settings_add_server">Server hinzufügen</string>
-    <string name="settings_library">Bibliothek</string>
     <string name="settings_refresh_all">Alle Quellen jetzt abgleichen</string>
+    <string name="settings_general">Allgemein</string>
+    <string name="settings_theme">App-Darstellung</string>
+    <string name="theme_system">Systemeinstellung folgen</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+    <string name="settings_artist_images">Bilder von Interpreten herunterladen</string>
+    <string name="settings_artist_images_summary">Noch nicht verfügbar</string>
+    <string name="settings_local_media">Musik auf diesem Gerät nutzen</string>
+    <string name="settings_local_media_summary">Aus: Die Bibliothek zeigt nur Musik von Servern.</string>
+    <string name="settings_about">Über</string>
+    <string name="settings_about_app">Über die App</string>
+    <string name="settings_licenses">Lizenzen</string>
+    <string name="settings_licenses_summary">Genutzte Bibliotheken und ihre Lizenzen</string>
+    <string name="server_auto_download">Alles wird automatisch heruntergeladen</string>
+    <string name="server_form_auto_download">Alles automatisch herunterladen</string>
+    <string name="server_form_auto_download_summary">Jeder Titel dieses Servers wird auf das Gerät geladen, auch neu hinzugekommene. Braucht entsprechend viel Speicher.</string>
+    <string name="about_title">Über die App</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_text">kleinaberlaut spielt deine eigene Musiksammlung – vom Gerät und von deinen Navidrome- oder Subsonic-Servern – in einer gemeinsamen Bibliothek, auf dem Handy und auf der Uhr.</string>
+    <string name="about_placeholder">Weitere Informationen folgen.</string>
+    <string name="licenses_title">Lizenzen</string>
     <string name="server_never_synced">Noch nicht abgeglichen</string>
     <string name="server_last_sync">Abgeglichen %1$s</string>
     <string name="server_synced_just_now">Gerade abgeglichen</string>
@@ -176,11 +197,10 @@
     <string name="downloads_remove_all_title">Alle Downloads entfernen?</string>
     <string name="downloads_remove_all_text">Alle heruntergeladenen Dateien werden gelöscht. Die Bibliothek bleibt erhalten.</string>
     <string name="downloads_album_summary">%1$d von %2$d Songs · %3$s</string>
-    <string name="settings_downloads">Downloads</string>
     <string name="settings_wifi_only">Nur über WLAN herunterladen</string>
     <string name="settings_wifi_only_summary">Über mobile Daten wird nichts heruntergeladen.</string>
     <string name="settings_auto_download_favorites">Favoriten automatisch herunterladen</string>
-    <string name="settings_auto_download_favorites_summary">Neue Favoriten werden geladen, entfernte Favoriten wieder gelöscht. Kann viel Speicher belegen.</string>
+    <string name="settings_auto_download_favorites_summary">Neue Favoriten werden geladen, entfernte Favoriten wieder gelöscht. Gilt für Server, von denen nicht ohnehin alles geladen wird.</string>
 
     <!-- Einstellungen: Wiedergabe -->
     <string name="settings_playback">Wiedergabe</string>

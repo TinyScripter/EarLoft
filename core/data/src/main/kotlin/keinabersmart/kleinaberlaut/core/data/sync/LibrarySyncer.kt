@@ -143,6 +143,20 @@ class LibrarySyncer @Inject constructor(
         }
     }
 
+    /**
+     * Entfernt alles, was [sourceId] geliefert hat (z. B. lokale Musik abgeschaltet). Songs mit weiteren
+     * Quellen bleiben. Wartet auf einen laufenden Abgleich, damit dieser danach nichts neu anlegt.
+     */
+    suspend fun removeSource(sourceId: String) = mutex.withLock {
+        if (sourceDao.get(sourceId) == null) return@withLock
+        database.withTransaction {
+            sourceDao.delete(sourceId)
+            libraryDao.cleanupOrphans()
+        }
+        failedSyncs.update { it - sourceId }
+        changeListeners.forEach { it.onSongSourcesRemoved() }
+    }
+
     private companion object {
         const val TAG = "LibrarySyncer"
         const val CLOCK_SLACK_MS = 60 * 60 * 1000L

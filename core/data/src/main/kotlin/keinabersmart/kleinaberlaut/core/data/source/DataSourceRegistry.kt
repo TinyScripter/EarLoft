@@ -2,6 +2,7 @@ package keinabersmart.kleinaberlaut.core.data.source
 
 import android.util.Log
 import keinabersmart.kleinaberlaut.core.data.security.SecretStore
+import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
@@ -14,6 +15,7 @@ import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicServerRegistry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -28,7 +30,7 @@ interface MusicDataSources {
 }
 
 /**
- * Lokale Quelle plus alle eingerichteten Server. Server werden beim ersten Zugriff aus der
+ * Lokale Quelle (wenn eingeschaltet, [LibrarySettings.useLocalMedia]) plus alle eingerichteten Server. Server werden beim ersten Zugriff aus der
  * Datenbank und dem [SecretStore] geladen und zugleich in der [SubsonicServerRegistry] angemeldet,
  * damit Streams und Cover authentifiziert werden.
  */
@@ -39,6 +41,7 @@ class DataSourceRegistry @Inject constructor(
     private val secretStore: SecretStore,
     private val subsonicFactory: SubsonicDataSourceFactory,
     private val serverRegistry: SubsonicServerRegistry,
+    private val librarySettings: LibrarySettings,
 ) : MusicDataSources {
 
     private val mutex = Mutex()
@@ -55,7 +58,8 @@ class DataSourceRegistry @Inject constructor(
      */
     val unusableServers: StateFlow<Set<String>> = unusable.asStateFlow()
 
-    override suspend fun all(): List<MusicDataSource> = listOf(localDataSource) + loadedServers().values
+    override suspend fun all(): List<MusicDataSource> =
+        listOfNotNull(localDataSource.takeIf { librarySettings.useLocalMedia.first() }) + loadedServers().values
 
     override suspend fun get(sourceId: String): MusicDataSource? =
         if (sourceId == localDataSource.sourceId) localDataSource else loadedServers()[sourceId]

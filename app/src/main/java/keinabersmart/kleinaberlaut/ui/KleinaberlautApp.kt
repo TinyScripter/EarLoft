@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.core.designsystem.theme.AlbumColorTheme
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
+import keinabersmart.kleinaberlaut.navigation.AboutRoute
 import keinabersmart.kleinaberlaut.navigation.AddServerRoute
 import keinabersmart.kleinaberlaut.navigation.AlbumRoute
 import keinabersmart.kleinaberlaut.navigation.ArtistRoute
@@ -35,6 +36,7 @@ import keinabersmart.kleinaberlaut.navigation.EditServerRoute
 import keinabersmart.kleinaberlaut.navigation.FavoritesRoute
 import keinabersmart.kleinaberlaut.navigation.HomeRoute
 import keinabersmart.kleinaberlaut.navigation.LibraryRoute
+import keinabersmart.kleinaberlaut.navigation.LicensesRoute
 import keinabersmart.kleinaberlaut.navigation.Navigator
 import keinabersmart.kleinaberlaut.navigation.NowPlayingRoute
 import keinabersmart.kleinaberlaut.navigation.PlaylistRoute
@@ -62,6 +64,8 @@ import keinabersmart.kleinaberlaut.ui.player.PlayerViewModel
 import keinabersmart.kleinaberlaut.ui.player.QueueScreen
 import keinabersmart.kleinaberlaut.ui.playlists.PlaylistScreen
 import keinabersmart.kleinaberlaut.ui.search.SearchScreen
+import keinabersmart.kleinaberlaut.ui.settings.AboutScreen
+import keinabersmart.kleinaberlaut.ui.settings.LicensesScreen
 import keinabersmart.kleinaberlaut.ui.settings.ServerFormScreen
 import keinabersmart.kleinaberlaut.ui.settings.SettingsScreen
 import keinabersmart.kleinaberlaut.ui.settings.WatchSettingsScreen
@@ -114,9 +118,13 @@ fun KleinaberlautApp(
                 onAddServer = { navigator.navigate(AddServerRoute) },
                 onEditServer = { navigator.navigate(EditServerRoute(it)) },
                 onOpenWatch = { navigator.navigate(WatchSettingsRoute) },
+                onOpenAbout = { navigator.navigate(AboutRoute) },
+                onOpenLicenses = { navigator.navigate(LicensesRoute) },
             )
         }
         entry<WatchSettingsRoute> { WatchSettingsScreen(onBack = navigator::goBack) }
+        entry<AboutRoute> { AboutScreen(onBack = navigator::goBack) }
+        entry<LicensesRoute> { LicensesScreen(onBack = navigator::goBack) }
         entry<AddServerRoute> { ServerFormScreen(sourceId = null, onDone = navigator::goBack) }
         entry<EditServerRoute> { route -> ServerFormScreen(sourceId = route.sourceId, onDone = navigator::goBack) }
     }

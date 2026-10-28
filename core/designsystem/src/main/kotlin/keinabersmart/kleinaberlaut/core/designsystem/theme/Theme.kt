@@ -9,6 +9,8 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.materialkolor.rememberDynamicColorScheme
@@ -35,6 +37,9 @@ private val LightColorScheme = lightColorScheme(
     */
 )
 
+/** Ob [KleinaberlautTheme] dunkel ist – kann per Einstellung vom System abweichen. */
+val LocalDarkTheme = staticCompositionLocalOf { false }
+
 @Composable
 fun KleinaberlautTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -52,11 +57,13 @@ fun KleinaberlautTheme(
         else -> LightColorScheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(LocalDarkTheme provides darkTheme) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }
 
 /**
@@ -66,7 +73,7 @@ fun KleinaberlautTheme(
 @Composable
 fun AlbumColorTheme(
     seedColor: Int?,
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = LocalDarkTheme.current,
     content: @Composable () -> Unit
 ) {
     if (seedColor == null) {

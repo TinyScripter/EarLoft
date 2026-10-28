@@ -111,6 +111,22 @@ class DownloadRepository @Inject constructor(
 
     fun favoriteSongIds(): Flow<List<Long>> = downloadDao.observeFavoriteSongIds()
 
+    /**
+     * Gleicht die Server ab, von denen alles geladen werden soll ([sourceIds] = Einstellung): Ihre Songs
+     * werden eingereiht (auch neu hinzugekommene), Favoriten-Downloads dieser Songs gehen an den Server über.
+     * Für abgeschaltete Server bleiben die Dateien (nun als manuell), wie bei den Favoriten. Was nicht mehr
+     * auf dem Server liegt, verschwindet ohnehin mit seiner Song-Quelle.
+     */
+    suspend fun reconcileServerDownloads(sourceIds: Set<String>) {
+        downloadDao.getPinnedByWithPrefix(PINNED_SERVER_PREFIX)
+            .filter { it.removePrefix(PINNED_SERVER_PREFIX) !in sourceIds }
+            .forEach { downloadDao.repinAll(it, PINNED_MANUAL) }
+        sourceIds.forEach { sourceId ->
+            // Wie bei den Favoriten: Fehlgeschlagene nicht bei jedem Abgleich neu versuchen.
+            enqueue(downloadDao.getSongIdsOfSource(sourceId), PINNED_SERVER_PREFIX + sourceId, retryFailed = false)
+        }
+    }
+
     /** Offline-Zustand beliebiger Songs, für alle Listen. */
     fun songStatuses(): Flow<SongOfflineLookup> =
         combine(downloadDao.observeDownloadRows(), downloadDao.observeLocalSongIds()) { rows, local ->
@@ -198,6 +214,7 @@ class DownloadRepository @Inject constructor(
     private companion object {
         const val PINNED_MANUAL = "manual"
         const val PINNED_FAVORITES = "favorites"
+        const val PINNED_SERVER_PREFIX = "server:"
         const val SQLITE_MAX_VARIABLES = 900
     }
 }

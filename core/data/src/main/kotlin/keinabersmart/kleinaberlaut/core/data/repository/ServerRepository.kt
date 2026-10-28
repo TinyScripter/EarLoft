@@ -28,7 +28,8 @@ import javax.inject.Singleton
 
 /** Ergebnis eines Verbindungstests. */
 sealed interface ConnectionResult {
-    data class Success(val serverName: String, val serverVersion: String?) : ConnectionResult
+    /** [sourceId]: nur nach [ServerRepository.addServer] gesetzt – die ID des neuen Servers. */
+    data class Success(val serverName: String, val serverVersion: String?, val sourceId: String? = null) : ConnectionResult
     data object InvalidUrl : ConnectionResult
     data object WrongCredentials : ConnectionResult
     data object NotSubsonic : ConnectionResult
@@ -117,7 +118,7 @@ class ServerRepository @Inject constructor(
         )
         registry.reload()
         refresher.refreshSource(sourceId)
-        return result
+        return result.copy(sourceId = sourceId)
     }
 
     /**

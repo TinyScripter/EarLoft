@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
 import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
+import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
 import keinabersmart.kleinaberlaut.core.data.sync.SyncSettings
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
@@ -13,6 +14,8 @@ import keinabersmart.kleinaberlaut.core.download.DownloadSettings
 import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
+import keinabersmart.kleinaberlaut.ui.theme.ThemeMode
+import keinabersmart.kleinaberlaut.ui.theme.ThemeSettings
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -26,9 +29,13 @@ data class ServerItem(
     val error: String?,
     /** Das gespeicherte Passwort ist nicht mehr lesbar; der Nutzer muss es beim Bearbeiten neu eingeben. */
     val passwordLost: Boolean = false,
+    /** Von diesem Server wird alles automatisch heruntergeladen. */
+    val autoDownload: Boolean = false,
 )
 
 data class SettingsUiState(
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val useLocalMedia: Boolean = true,
     val servers: List<ServerItem> = emptyList(),
     val isSyncing: Boolean = false,
     val downloadWifiOnly: Boolean = true,
@@ -46,6 +53,8 @@ class SettingsViewModel @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val syncSettings: SyncSettings,
     private val replayGainSettings: ReplayGainSettings,
+    private val themeSettings: ThemeSettings,
+    private val librarySettings: LibrarySettings,
     private val registry: DataSourceRegistry,
     syncer: LibrarySyncer,
 ) : ViewModel() {
@@ -59,15 +68,19 @@ class SettingsViewModel @Inject constructor(
         serverRepository.servers(),
         syncer.failures,
         registry.unusableServers,
-    ) { servers, failures, unusable ->
+        downloadSettings.autoDownloadServers,
+    ) { servers, failures, unusable, autoServers ->
         servers.map {
             ServerItem(
                 server = it,
                 error = failures[it.sourceId]?.let { e -> e.message ?: e.javaClass.simpleName },
                 passwordLost = it.sourceId in unusable,
+                autoDownload = it.sourceId in autoServers,
             )
         }
     }
+
+    private val generalSettings = combine(themeSettings.mode, librarySettings.useLocalMedia, ::Pair)
 
     val state: StateFlow<SettingsUiState> = combine(
         serverItems,
@@ -84,7 +97,18 @@ class SettingsViewModel @Inject constructor(
         )
     }.combine(combine(replayGainSettings.mode, replayGainSettings.preAmpDb, ::Pair)) { state, (mode, preAmpDb) ->
         state.copy(replayGainMode = mode, preAmpDb = preAmpDb)
+    }.combine(generalSettings) { state, (themeMode, useLocalMedia) ->
+        state.copy(themeMode = themeMode, useLocalMedia = useLocalMedia)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { themeSettings.setMode(mode) }
+    }
+
+    /** Einlesen bzw. Entfernen der lokalen Songs übernimmt der [LibraryRefresher]. */
+    fun setUseLocalMedia(enabled: Boolean) {
+        viewModelScope.launch { librarySettings.setUseLocalMedia(enabled) }
+    }
 
     fun syncNow(sourceId: String) = serverRepository.syncNow(sourceId)
 
@@ -115,6 +139,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun remove(sourceId: String) {
-        viewModelScope.launch { serverRepository.removeServer(sourceId) }
+        viewModelScope.launch {
+            serverRepository.removeServer(sourceId)
+            downloadSettings.setAutoDownloadServer(sourceId, false)
+        }
     }
 }

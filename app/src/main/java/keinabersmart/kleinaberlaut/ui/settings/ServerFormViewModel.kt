@@ -8,9 +8,12 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.ConnectionResult
 import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
+import keinabersmart.kleinaberlaut.core.download.DownloadSettings
+import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -26,6 +29,8 @@ data class ServerFormUiState(
     /** Beim Bearbeiten: Es gibt ein lesbares gespeichertes Passwort. */
     val hasStoredPassword: Boolean = false,
     val allowHttp: Boolean = false,
+    /** Alles von diesem Server automatisch herunterladen. */
+    val autoDownload: Boolean = false,
     val isBusy: Boolean = false,
     val result: ConnectionResult? = null,
     /** Gespeichert oder der Server existiert nicht mehr → Formular schließen. */
@@ -44,11 +49,15 @@ data class ServerFormUiState(
 @HiltViewModel(assistedFactory = ServerFormViewModel.Factory::class)
 class ServerFormViewModel @AssistedInject constructor(
     private val serverRepository: ServerRepository,
+    private val downloadSettings: DownloadSettings,
     @Assisted private val sourceId: String?,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ServerFormUiState(isEditing = sourceId != null, isLoading = sourceId != null))
     val state: StateFlow<ServerFormUiState> = _state.asStateFlow()
+
+    /** Beim Bearbeiten: die geladenen Angaben, um reine Download-Änderungen ohne Verbindungstest zu speichern. */
+    private var loaded: ServerInfo? = null
 
     init {
         if (sourceId != null) load(sourceId)
@@ -61,6 +70,8 @@ class ServerFormViewModel @AssistedInject constructor(
                 _state.update { it.copy(isLoading = false, done = true) }
                 return@launch
             }
+            loaded = server.info
+            val autoDownload = sourceId in downloadSettings.autoDownloadServers.first()
             _state.update {
                 it.copy(
                     isLoading = false,
@@ -70,6 +81,7 @@ class ServerFormViewModel @AssistedInject constructor(
                     hasStoredPassword = server.hasPassword,
                     // Die unverschlüsselte Verbindung wurde beim Einrichten schon bestätigt.
                     allowHttp = server.info.baseUrl.startsWith("http://", ignoreCase = true),
+                    autoDownload = autoDownload,
                 )
             }
         }
@@ -80,6 +92,7 @@ class ServerFormViewModel @AssistedInject constructor(
     fun onUsernameChange(value: String) = _state.update { it.copy(username = value, result = null) }
     fun onPasswordChange(value: String) = _state.update { it.copy(password = value, result = null) }
     fun onAllowHttpChange(value: Boolean) = _state.update { it.copy(allowHttp = value) }
+    fun onAutoDownloadChange(value: Boolean) = _state.update { it.copy(autoDownload = value) }
 
     fun test() = submit { s ->
         if (sourceId == null) {
@@ -89,14 +102,35 @@ class ServerFormViewModel @AssistedInject constructor(
         }
     }
 
-    fun save() = submit { s ->
-        val result = if (sourceId == null) {
-            serverRepository.addServer(s.name, s.url, s.username, s.password)
-        } else {
-            serverRepository.updateServer(sourceId, s.name, s.url, s.username, s.newPassword)
+    /** Bei einem neuen Server wird die Download-Option erst gespeichert, wenn er angelegt ist. */
+    fun save() {
+        val current = _state.value
+        val original = loaded
+        // Nur die Download-Option geändert: kein Verbindungstest, kein erneuter Vollabgleich.
+        if (sourceId != null && original != null && current.canSubmit && current.onlyAutoDownloadDiffersFrom(original)) {
+            viewModelScope.launch {
+                downloadSettings.setAutoDownloadServer(sourceId, current.autoDownload)
+                _state.update { it.copy(done = true) }
+            }
+            return
         }
-        result.also { if (it is ConnectionResult.Success) _state.update { s -> s.copy(done = true) } }
+        submit { s ->
+            val result = if (sourceId == null) {
+                serverRepository.addServer(s.name, s.url, s.username, s.password)
+            } else {
+                serverRepository.updateServer(sourceId, s.name, s.url, s.username, s.newPassword)
+            }
+            if (result is ConnectionResult.Success) {
+                // Reihenfolge egal: Die Downloads starten bei Änderung der Einstellung und nach jedem Abgleich.
+                (sourceId ?: result.sourceId)?.let { downloadSettings.setAutoDownloadServer(it, s.autoDownload) }
+                _state.update { it.copy(done = true) }
+            }
+            result
+        }
     }
+
+    private fun ServerFormUiState.onlyAutoDownloadDiffersFrom(original: ServerInfo): Boolean =
+        name == original.name && url == original.baseUrl && username == original.username.orEmpty() && password.isEmpty()
 
     private val ServerFormUiState.newPassword: String? get() = password.ifEmpty { null }
 

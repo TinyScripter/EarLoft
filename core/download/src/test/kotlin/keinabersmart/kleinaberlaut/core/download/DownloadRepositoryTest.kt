@@ -213,6 +213,53 @@ class DownloadRepositoryTest {
     }
 
     @Test
+    fun `a fully downloaded server queues all its songs except local ones`() = runTest {
+        val albumId = library.album("Takk")
+        library.song(albumId, "A", "home" to "a")
+        library.song(albumId, "B", "local" to "b", "home" to "b")
+        library.song(albumId, "C", "office" to "c")
+
+        repository.reconcileServerDownloads(setOf("home"))
+
+        assertEquals(listOf("home:a"), library.db.downloadDao().getAll().map { it.sourceUid })
+        assertEquals("server:home", library.db.downloadDao().get("home:a")!!.pinnedBy)
+        assertEquals(1, scheduler.calls)
+
+        // Neuer Song nach einem Abgleich kommt dazu, Vorhandenes löst keinen weiteren Auftrag aus.
+        library.song(albumId, "D", "home" to "d")
+        repository.reconcileServerDownloads(setOf("home"))
+        assertEquals(setOf("home:a", "home:d"), library.db.downloadDao().getAll().map { it.sourceUid }.toSet())
+        assertEquals(2, scheduler.calls)
+    }
+
+    @Test
+    fun `a fully downloaded server takes over favorites and keeps them when unstarred`() = runTest {
+        val albumId = library.album("Takk")
+        val liked = library.song(albumId, "A", "home" to "a")
+        library.db.syncDao().setSongFavorite(liked, true, 1)
+        repository.reconcileFavoriteDownloads(enabled = true)
+
+        repository.reconcileServerDownloads(setOf("home"))
+        library.db.syncDao().setSongFavorite(liked, false, 2)
+        repository.reconcileFavoriteDownloads(enabled = true)
+
+        assertEquals("server:home", library.db.downloadDao().get("home:a")!!.pinnedBy)
+    }
+
+    @Test
+    fun `switching a server off keeps its files as manual downloads`() = runTest {
+        val albumId = library.album("Takk")
+        library.song(albumId, "A", "home" to "a")
+        library.song(albumId, "B", "office" to "b")
+        repository.reconcileServerDownloads(setOf("home", "office"))
+
+        repository.reconcileServerDownloads(setOf("office"))
+
+        assertEquals("manual", library.db.downloadDao().get("home:a")!!.pinnedBy)
+        assertEquals("server:office", library.db.downloadDao().get("office:b")!!.pinnedBy)
+    }
+
+    @Test
     fun `files of removed song sources are cleaned up`() = runTest {
         val albumId = library.album("Takk")
         val songId = library.song(albumId, "Gong", "home" to "e")

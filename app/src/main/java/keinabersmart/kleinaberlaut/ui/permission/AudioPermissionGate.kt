@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,10 +48,12 @@ import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 /**
  * Zeigt [content] erst, wenn die Musik gelesen werden darf. [onGranted] wird bei jedem Wechsel
  * auf „erteilt“ aufgerufen – auch wenn die Berechtigung in den Systemeinstellungen erteilt wurde.
+ * [onSkip]: ohne lokale Musik weiter (schaltet sie in den Einstellungen ab).
  */
 @Composable
 fun AudioPermissionGate(
     onGranted: () -> Unit,
+    onSkip: () -> Unit,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -82,7 +85,27 @@ fun AudioPermissionGate(
             permanentlyDenied = requested && permanentlyDenied,
             onRequest = { launcher.launch(requestedPermissions()) },
             onOpenSettings = { context.openAppSettings() },
+            onSkip = onSkip,
         )
+    }
+}
+
+/**
+ * Fragt die Musik-Berechtigung außerhalb des Gates an (z. B. beim Einschalten der lokalen Musik).
+ * [onResult] erhält `true`, wenn sie erteilt ist. Zeigt das System keinen Dialog mehr, öffnet sich
+ * stattdessen die App-Seite der Systemeinstellungen.
+ */
+@Composable
+fun rememberAudioPermissionRequester(onResult: (granted: Boolean) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted && context.findActivity()?.shouldShowRequestPermissionRationale(AudioPermission.name) == false) {
+            context.openAppSettings()
+        }
+        onResult(granted)
+    }
+    return {
+        if (AudioPermission.isGranted(context)) onResult(true) else launcher.launch(AudioPermission.name)
     }
 }
 
@@ -91,6 +114,7 @@ private fun PermissionRationale(
     permanentlyDenied: Boolean,
     onRequest: () -> Unit,
     onOpenSettings: () -> Unit,
+    onSkip: () -> Unit,
     modifier: Modifier = Modifier,
 ) = Surface(modifier.fillMaxSize()) {
     Column(
@@ -126,6 +150,9 @@ private fun PermissionRationale(
         } else {
             Button(onClick = onRequest) { Text(stringResource(R.string.permission_grant)) }
         }
+        TextButton(onClick = onSkip, modifier = Modifier.padding(top = 8.dp)) {
+            Text(stringResource(R.string.permission_skip))
+        }
     }
 }
 
@@ -154,6 +181,6 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 @Composable
 private fun PermissionRationalePreview() {
     KleinaberlautTheme {
-        PermissionRationale(permanentlyDenied = false, onRequest = {}, onOpenSettings = {})
+        PermissionRationale(permanentlyDenied = false, onRequest = {}, onOpenSettings = {}, onSkip = {})
     }
 }

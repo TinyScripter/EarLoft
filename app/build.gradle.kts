@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kleinaberlaut.android.compose)
     alias(libs.plugins.kleinaberlaut.hilt)
     alias(libs.plugins.kotlin.serialization)
+    // Erzeugt beim Build die Liste aller Abhängigkeiten samt Lizenz (Einstellungen → Lizenzen).
+    alias(libs.plugins.aboutlibraries.android)
 }
 
 android {
@@ -51,6 +53,7 @@ dependencies {
     implementation(libs.androidx.glance.material3)
     // Chromecast nur auf dem Handy; :core:playback (auch von :wear genutzt) kennt nur PlayerFactory.
     implementation(libs.androidx.media3.cast)
+    implementation(libs.aboutlibraries.compose.m3)
 
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

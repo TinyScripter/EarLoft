@@ -12,10 +12,12 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -26,7 +28,8 @@ import javax.inject.Singleton
  * Hält die Bibliothek aktuell.
  *
  * - **Lokal:** beim Start, auf Anforderung (z. B. nach Erteilen der Berechtigung) und gebündelt
- *   nach Änderungen im MediaStore.
+ *   nach Änderungen im MediaStore – nur mit [LibrarySettings.useLocalMedia]. Wird die Einstellung
+ *   abgeschaltet, verschwinden die lokalen Songs aus der Bibliothek.
  * - **Server:** beim Start, wenn der letzte Vollabgleich länger als [SERVER_SYNC_INTERVAL_MS] her
  *   ist, täglich per [ServerSyncWorker] und auf Anforderung; sonst beim Öffnen der App ein
  *   Zwischenabgleich ([refreshQuick]).
@@ -39,6 +42,7 @@ class LibraryRefresher @Inject constructor(
     private val registry: DataSourceRegistry,
     private val sourceDao: SourceDao,
     private val mediaStoreChanges: MediaStoreChanges,
+    private val librarySettings: LibrarySettings,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val started = AtomicBoolean(false)
@@ -48,10 +52,17 @@ class LibraryRefresher @Inject constructor(
     @OptIn(FlowPreview::class)
     fun start() {
         if (!started.compareAndSet(false, true)) return
-        merge(localRequests, mediaStoreChanges.observe())
-            .onStart { emit(Unit) }
-            .debounce(DEBOUNCE_MS)
-            .onEach { syncer.syncSafely(localDataSource) }
+        // Ein einziger Ablauf für Einstellung und Scan-Anforderungen: Ein Scan kann so nicht nach dem
+        // Abschalten noch einmal lokale Songs anlegen. Die Einstellung meldet sich beim Start sofort.
+        merge(
+            librarySettings.useLocalMedia.distinctUntilChanged(),
+            merge(localRequests, mediaStoreChanges.observe())
+                .debounce(DEBOUNCE_MS)
+                .map { librarySettings.useLocalMedia.first() },
+        )
+            .onEach { enabled ->
+                if (enabled) syncer.syncSafely(localDataSource) else syncer.removeSource(localDataSource.sourceId)
+            }
             .launchIn(scope)
 
         scope.launch {

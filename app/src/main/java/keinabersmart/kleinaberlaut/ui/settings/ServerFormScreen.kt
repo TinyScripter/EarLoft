@@ -22,6 +22,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -64,6 +65,7 @@ fun ServerFormScreen(
         onUsernameChange = viewModel::onUsernameChange,
         onPasswordChange = viewModel::onPasswordChange,
         onAllowHttpChange = viewModel::onAllowHttpChange,
+        onAutoDownloadChange = viewModel::onAutoDownloadChange,
         onTest = rememberLocalNetworkRequester(viewModel::test),
         onSave = rememberLocalNetworkRequester(viewModel::save),
         modifier = modifier,
@@ -80,6 +82,7 @@ private fun ServerFormContent(
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onAllowHttpChange: (Boolean) -> Unit,
+    onAutoDownloadChange: (Boolean) -> Unit,
     onTest: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -163,6 +166,23 @@ private fun ServerFormContent(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth(),
             )
+            // Wie die Checkbox oben: Die ganze Zeile schaltet.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(value = state.autoDownload, role = Role.Switch, onValueChange = onAutoDownloadChange),
+            ) {
+                Column(Modifier.weight(1f).padding(end = 16.dp)) {
+                    Text(stringResource(R.string.server_form_auto_download), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.server_form_auto_download_summary),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = state.autoDownload, onCheckedChange = null)
+            }
 
             state.result?.let { ResultText(it) }
 
@@ -216,6 +236,7 @@ private fun ServerFormContentPreview() {
             onUsernameChange = {},
             onPasswordChange = {},
             onAllowHttpChange = {},
+            onAutoDownloadChange = {},
             onTest = {},
             onSave = {},
         )
@@ -233,6 +254,7 @@ private fun ServerFormEditPreview() {
                 url = "https://musik.example.de/",
                 username = "kal",
                 hasStoredPassword = true,
+                autoDownload = true,
             ),
             onBack = {},
             onNameChange = {},
@@ -240,6 +262,7 @@ private fun ServerFormEditPreview() {
             onUsernameChange = {},
             onPasswordChange = {},
             onAllowHttpChange = {},
+            onAutoDownloadChange = {},
             onTest = {},
             onSave = {},
         )

@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -33,8 +34,20 @@ class DownloadSettings @Inject constructor(
         context.downloadSettingsDataStore.edit { it[KEY_AUTO_FAVORITES] = enabled }
     }
 
+    /** Server (`sourceId`), von denen alles automatisch heruntergeladen wird (Standard: keiner). */
+    val autoDownloadServers: Flow<Set<String>> =
+        context.downloadSettingsDataStore.data.map { it[KEY_AUTO_SERVERS].orEmpty() }
+
+    suspend fun setAutoDownloadServer(sourceId: String, enabled: Boolean) {
+        context.downloadSettingsDataStore.edit {
+            val current = it[KEY_AUTO_SERVERS].orEmpty()
+            it[KEY_AUTO_SERVERS] = if (enabled) current + sourceId else current - sourceId
+        }
+    }
+
     private companion object {
         val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only")
         val KEY_AUTO_FAVORITES = booleanPreferencesKey("auto_download_favorites")
+        val KEY_AUTO_SERVERS = stringSetPreferencesKey("auto_download_servers")
     }
 }
