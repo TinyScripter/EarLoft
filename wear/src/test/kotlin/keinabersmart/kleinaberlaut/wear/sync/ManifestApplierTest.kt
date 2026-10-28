@@ -3,7 +3,6 @@ package keinabersmart.kleinaberlaut.wear.sync
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
 import keinabersmart.kleinaberlaut.core.data.sync.MergeResolver
 import keinabersmart.kleinaberlaut.core.data.sync.PlaylistSyncer
@@ -12,7 +11,6 @@ import keinabersmart.kleinaberlaut.core.data.sync.SyncQueueStarter
 import keinabersmart.kleinaberlaut.core.data.sync.SyncScheduler
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
-import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.PhoneFileDto
@@ -74,7 +72,6 @@ class ManifestApplierTest {
             mergeDao = db.mergeDao(),
             libraryDao = db.libraryDao(),
             mergeResolver = MergeResolver(db.mergeDao(), db.syncDao()),
-            registry = NoSources,
             changeListeners = emptySet(),
             syncQueue = SyncQueueStarter(db.syncDao(), NoScheduler),
             playlistSyncer = PlaylistSyncer(db, db.playlistDao(), db.syncDao(), SyncNotices()),
@@ -191,11 +188,6 @@ class ManifestApplierTest {
 
     private fun server(sourceId: String, remoteId: String) =
         WearServerSourceDto("$sourceId:$remoteId", sourceId, remoteId, mimeType = "audio/flac", sizeBytes = 10_000)
-
-    private object NoSources : MusicDataSources {
-        override suspend fun all(): List<MusicDataSource> = emptyList()
-        override suspend fun get(sourceId: String): MusicDataSource? = null
-    }
 
     private object NoScheduler : SyncScheduler {
         override suspend fun enqueue() = Unit

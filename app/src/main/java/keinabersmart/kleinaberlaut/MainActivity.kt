@@ -61,14 +61,11 @@ class MainActivity : ComponentActivity() {
             }
 
             KleinaberlautTheme(darkTheme = darkTheme) {
-                if (localMedia) {
-                    AudioPermissionGate(
-                        onGranted = libraryRefresher::refreshNow,
-                        onSkip = { lifecycleScope.launch { librarySettings.setUseLocalMedia(false) } },
-                    ) {
-                        KleinaberlautApp()
-                    }
-                } else {
+                AudioPermissionGate(
+                    enabled = localMedia,
+                    onGranted = libraryRefresher::refreshNow,
+                    onSkip = { lifecycleScope.launch { librarySettings.setUseLocalMedia(false) } },
+                ) {
                     KleinaberlautApp()
                 }
             }

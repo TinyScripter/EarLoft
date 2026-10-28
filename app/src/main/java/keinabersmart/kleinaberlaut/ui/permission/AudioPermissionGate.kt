@@ -48,10 +48,13 @@ import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 /**
  * Zeigt [content] erst, wenn die Musik gelesen werden darf. [onGranted] wird bei jedem Wechsel
  * auf „erteilt“ aufgerufen – auch wenn die Berechtigung in den Systemeinstellungen erteilt wurde.
- * [onSkip]: ohne lokale Musik weiter (schaltet sie in den Einstellungen ab).
+ * [onSkip]: ohne lokale Musik weiter (schaltet sie in den Einstellungen ab). Mit [enabled] `false`
+ * (lokale Musik aus) erscheint [content] immer – an derselben Stelle, damit Navigation und Zustand
+ * beim Umschalten erhalten bleiben.
  */
 @Composable
 fun AudioPermissionGate(
+    enabled: Boolean,
     onGranted: () -> Unit,
     onSkip: () -> Unit,
     content: @Composable () -> Unit,
@@ -78,7 +81,7 @@ fun AudioPermissionGate(
         if (granted) onGranted()
     }
 
-    if (granted) {
+    if (granted || !enabled) {
         content()
     } else {
         PermissionRationale(

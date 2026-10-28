@@ -7,7 +7,6 @@ import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
 import keinabersmart.kleinaberlaut.core.database.dao.MergeDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
-import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.RemoteLibraryActions
 import keinabersmart.kleinaberlaut.core.datasource.RemoteQuickSync
@@ -33,7 +32,6 @@ class LibrarySyncer @Inject constructor(
     private val mergeDao: MergeDao,
     private val libraryDao: LibraryDao,
     private val mergeResolver: MergeResolver,
-    private val registry: MusicDataSources,
     private val changeListeners: Set<@JvmSuppressWildcards LibraryChangeListener>,
     private val syncQueue: SyncQueueStarter,
     private val playlistSyncer: PlaylistSyncer,
@@ -50,11 +48,6 @@ class LibrarySyncer @Inject constructor(
 
     /** Fehler des jeweils letzten Abgleichs je `sourceId`; ein erfolgreicher Abgleich entfernt den Eintrag. */
     val failures: StateFlow<Map<String, Exception>> = failedSyncs.asStateFlow()
-
-    /** Gleicht alle Quellen ab; Fehler einer Quelle brechen die anderen nicht ab. */
-    suspend fun syncAll() {
-        registry.all().forEach { syncSafely(it) }
-    }
 
     /** Wie [sync], fängt aber Fehler ab und merkt sie sich in [failures]. @return `true` bei Erfolg. */
     suspend fun syncSafely(source: MusicDataSource): Boolean =
@@ -144,11 +137,13 @@ class LibrarySyncer @Inject constructor(
     }
 
     /**
-     * Entfernt alles, was [sourceId] geliefert hat (z. B. lokale Musik abgeschaltet). Songs mit weiteren
-     * Quellen bleiben. Wartet auf einen laufenden Abgleich, damit dieser danach nichts neu anlegt.
+     * Entfernt alles, was [sourceId] geliefert hat (lokale Musik abgeschaltet). Songs mit weiteren Quellen
+     * bleiben. Wartet bewusst **nicht** auf [mutex]: Ein langer Server-Abgleich soll das Abschalten nicht
+     * verzögern. Der Aufrufer muss sicherstellen, dass kein Abgleich dieser Quelle mehr läuft oder startet
+     * (siehe [LibraryRefresher.start]); jede Batch-Transaktion eines anderen Abgleichs ist für sich atomar.
      */
-    suspend fun removeSource(sourceId: String) = mutex.withLock {
-        if (sourceDao.get(sourceId) == null) return@withLock
+    suspend fun removeSource(sourceId: String) {
+        if (sourceDao.get(sourceId) == null) return
         database.withTransaction {
             sourceDao.delete(sourceId)
             libraryDao.cleanupOrphans()
