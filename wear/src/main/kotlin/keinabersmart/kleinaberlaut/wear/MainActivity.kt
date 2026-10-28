@@ -14,6 +14,7 @@ import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
 import dagger.hilt.android.AndroidEntryPoint
+import keinabersmart.kleinaberlaut.wear.ui.AddMusicScreen
 import keinabersmart.kleinaberlaut.wear.ui.NowPlayingScreen
 import keinabersmart.kleinaberlaut.wear.ui.SelectionScreen
 import keinabersmart.kleinaberlaut.wear.ui.StartScreen
@@ -41,6 +42,10 @@ data class SelectionRoute(val playlistId: Long) : NavKey
 @Serializable
 data object StorageRoute : NavKey
 
+/** Musik hinzufügen: Favoriten und Playlists des Handys (Wear-Konzept 11). */
+@Serializable
+data object AddMusicRoute : NavKey
+
 @Serializable
 data object NowPlayingRoute : NavKey
 
@@ -66,11 +71,13 @@ fun WearApp() {
                         StartScreen(
                             onSelectionClick = { backStack.add(SelectionRoute(it)) },
                             onStorageClick = { backStack.add(StorageRoute) },
+                            onAddMusicClick = { backStack.add(AddMusicRoute) },
                             onNowPlayingClick = { backStack.openNowPlaying() },
                         )
                     }
                     entry<NowPlayingRoute> { NowPlayingScreen() }
                     entry<StorageRoute> { StorageScreen() }
+                    entry<AddMusicRoute> { AddMusicScreen() }
                     entry<SelectionRoute> { route -> SelectionScreen(playlistId = route.playlistId, onPlayed = { backStack.openNowPlaying() }) }
                 },
             )

@@ -43,6 +43,7 @@ import keinabersmart.kleinaberlaut.wear.sync.PhoneStatus
 fun StartScreen(
     onSelectionClick: (playlistId: Long) -> Unit,
     onStorageClick: () -> Unit,
+    onAddMusicClick: () -> Unit,
     onNowPlayingClick: () -> Unit,
     viewModel: StartViewModel = hiltViewModel(),
 ) {
@@ -53,6 +54,7 @@ fun StartScreen(
         state = state,
         onSelectionClick = onSelectionClick,
         onStorageClick = onStorageClick,
+        onAddMusicClick = onAddMusicClick,
         onNowPlayingClick = onNowPlayingClick,
         onShuffleAll = { viewModel.shuffleAll(onNowPlayingClick) },
         onOpenOnPhone = viewModel::openStoreOnPhone,
@@ -65,6 +67,7 @@ private fun StartContent(
     state: StartUiState,
     onSelectionClick: (Long) -> Unit,
     onStorageClick: () -> Unit,
+    onAddMusicClick: () -> Unit,
     onNowPlayingClick: () -> Unit,
     onShuffleAll: () -> Unit,
     onOpenOnPhone: (nodeId: String) -> Unit,
@@ -112,9 +115,10 @@ private fun StartContent(
                     )
                 }
                 if (state.canShuffleAll) action(R.string.start_shuffle_all, transformationSpec, onShuffleAll)
+                action(R.string.add_music_title, transformationSpec, onAddMusicClick)
                 action(R.string.storage_title, transformationSpec, onStorageClick)
             } else {
-                setup(state, transformationSpec, onOpenOnPhone, onRetry)
+                setup(state, transformationSpec, onOpenOnPhone, onRetry, onAddMusicClick)
             }
         }
     }
@@ -125,6 +129,7 @@ private fun TransformingLazyColumnScope.setup(
     transformationSpec: TransformationSpec,
     onOpenOnPhone: (String) -> Unit,
     onRetry: () -> Unit,
+    onAddMusicClick: () -> Unit,
 ) {
     when (val phone = state.phone) {
         PhoneStatus.Checking -> item {
@@ -148,6 +153,7 @@ private fun TransformingLazyColumnScope.setup(
         is PhoneStatus.Connected -> {
             header(R.string.setup_waiting_title, transformationSpec)
             message(R.string.setup_waiting_text, transformationSpec)
+            action(R.string.add_music_title, transformationSpec, onAddMusicClick)
         }
     }
 }
@@ -198,6 +204,7 @@ private fun StartAppMissingPreview() {
             state = StartUiState(phone = PhoneStatus.AppMissing("phone")),
             onSelectionClick = {},
             onStorageClick = {},
+            onAddMusicClick = {},
             onNowPlayingClick = {},
             onShuffleAll = {},
             onOpenOnPhone = {},
@@ -214,6 +221,7 @@ private fun StartWaitingPreview() {
             state = StartUiState(phone = PhoneStatus.Connected("phone")),
             onSelectionClick = {},
             onStorageClick = {},
+            onAddMusicClick = {},
             onNowPlayingClick = {},
             onShuffleAll = {},
             onOpenOnPhone = {},
@@ -238,6 +246,7 @@ private fun StartSelectionsPreview() {
             ),
             onSelectionClick = {},
             onStorageClick = {},
+            onAddMusicClick = {},
             onNowPlayingClick = {},
             onShuffleAll = {},
             onOpenOnPhone = {},

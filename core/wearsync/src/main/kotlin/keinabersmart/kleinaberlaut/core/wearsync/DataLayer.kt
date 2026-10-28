@@ -6,6 +6,7 @@ import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.wearable.DataItem
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.Node
@@ -122,6 +123,17 @@ suspend fun DataClient.assetPayloadsAt(path: String): Map<String, ByteArray> {
         }
     }.toMap()
 }
+
+/** Nutzlast und Protokollversion eines DataItems; `null`, wenn es keine Nutzlast hat. Nur im Ereignis-Callback aufrufen. */
+fun DataItem.payloadOrNull(): ByteArray? {
+    val dataMap = DataMapItem.fromDataItem(this).dataMap
+    return dataMap.getByteArray(WearDataKeys.PAYLOAD)
+        ?.takeIf { dataMap.getInt(WearDataKeys.PROTOCOL) == WearProtocol.VERSION }
+}
+
+/** Löscht das DataItem unter [uri] (z. B. ein importiertes Wiedergabe-Paket). @return `false` bei Fehler. */
+suspend fun DataClient.delete(uri: Uri): Boolean =
+    runCatchingApi("$uri löschen") { deleteDataItems(uri).await() } != null
 
 /** Schickt eine Message; nur zugestellt, wenn [nodeId] gerade erreichbar ist. @return `false` bei Fehler. */
 suspend fun MessageClient.sendPayload(nodeId: String, path: String, payload: ByteArray): Boolean =

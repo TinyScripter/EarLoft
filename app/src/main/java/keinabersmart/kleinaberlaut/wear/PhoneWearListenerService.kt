@@ -1,18 +1,30 @@
 package keinabersmart.kleinaberlaut.wear
 
 import android.util.Log
+import android.net.Uri
 import com.google.android.gms.wearable.ChannelClient
+import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.wearable.DataEvent
+import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import dagger.hilt.android.AndroidEntryPoint
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.data.wear.PhoneFileLocator
+import keinabersmart.kleinaberlaut.core.data.wear.WatchPlay
+import keinabersmart.kleinaberlaut.core.data.wear.WatchPlayImporter
+import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.data.wear.WearServerMirror
+import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
+import keinabersmart.kleinaberlaut.core.wearsync.WearPlaysDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearSelectRequest
+import keinabersmart.kleinaberlaut.core.wearsync.delete
+import keinabersmart.kleinaberlaut.core.wearsync.payloadOrNull
 import keinabersmart.kleinaberlaut.core.wearsync.sendFile
 import keinabersmart.kleinaberlaut.core.wearsync.sendPayload
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +43,9 @@ class PhoneWearListenerService : WearableListenerService() {
     @Inject lateinit var messageClient: MessageClient
     @Inject lateinit var channelClient: ChannelClient
     @Inject lateinit var fileLocator: PhoneFileLocator
+    @Inject lateinit var dataClient: DataClient
+    @Inject lateinit var playImporter: WatchPlayImporter
+    @Inject lateinit var selections: WearSelectionRepository
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onMessageReceived(event: MessageEvent) {
@@ -39,7 +54,35 @@ class PhoneWearListenerService : WearableListenerService() {
                 val request = decodeOrNull<WearCredentialsRequest>(event) ?: return
                 applicationScope.launch { sendPassword(event.sourceNodeId, request.sourceId) }
             }
+            WearPaths.SELECT -> {
+                val request = decodeOrNull<WearSelectRequest>(event) ?: return
+                // Nur Favoriten und Playlists lassen sich von der Uhr aus auswählen (Wear-Konzept 5).
+                if (request.kind == WearSelectionKind.ALBUM) return
+                applicationScope.launch { selections.setSelected(request.kind, request.refId, request.selected) }
+            }
         }
+    }
+
+    /** Wiedergabe-Pakete der Uhr (Wear-Konzept 10): importieren, dann das DataItem löschen. */
+    override fun onDataChanged(events: DataEventBuffer) {
+        // Die Ereignisse nur hier lesen; der Puffer wird danach freigegeben.
+        val packets = events.filter { it.type == DataEvent.TYPE_CHANGED && it.dataItem.uri.path?.startsWith(WearPaths.PLAYS_PREFIX) == true }
+            .mapNotNull { event -> event.dataItem.payloadOrNull()?.let { event.dataItem.uri to it } }
+        packets.forEach { (uri, payload) -> applicationScope.launch { importPlays(uri, payload) } }
+    }
+
+    private suspend fun importPlays(uri: Uri, payload: ByteArray) {
+        val packet = try {
+            WearCodec.decode<WearPlaysDto>(payload)
+        } catch (e: SerializationException) {
+            Log.w(TAG, "$uri nicht lesbar", e)
+            // Ein kaputtes Paket würde sonst für immer liegen bleiben.
+            dataClient.delete(uri)
+            return
+        }
+        val imported = playImporter.import(packet.packetId, packet.plays.map { WatchPlay(it.songUid, it.playedAt, it.listenedMs) })
+        Log.d(TAG, "Paket ${packet.packetId}: $imported von ${packet.plays.size} Wiedergaben übernommen")
+        dataClient.delete(uri)
     }
 
     /**

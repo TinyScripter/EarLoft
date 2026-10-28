@@ -48,6 +48,9 @@ interface WearDao {
     )
     suspend fun deleteDangling(): Int
 
+    @Query("SELECT COUNT(*) FROM songs WHERE isFavorite")
+    fun observeFavoriteCount(): Flow<Int>
+
     @Query("SELECT title FROM albums WHERE albumId = :albumId")
     suspend fun getAlbumTitle(albumId: Long): String?
 

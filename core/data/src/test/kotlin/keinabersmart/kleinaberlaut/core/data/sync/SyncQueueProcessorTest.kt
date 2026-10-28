@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.core.data.sync
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackStateRepository
+import keinabersmart.kleinaberlaut.core.data.repository.SyncQueuePlayReporter
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SongEntity
@@ -111,14 +112,14 @@ class SyncQueueProcessorTest {
 
     @Test
     fun `plays are scrobbled once to the preferred server with the start time`() = runTest {
-        val repository = PlaybackStateRepository(
+        val reporter = SyncQueuePlayReporter(
             database = db,
-            playbackDao = db.playbackDao(),
             libraryDao = db.libraryDao(),
             syncDao = db.syncDao(),
             syncSettings = SyncSettings(ApplicationProvider.getApplicationContext()),
             syncScheduler = NoScheduler,
         )
+        val repository = PlaybackStateRepository(db.playbackDao(), reporter)
 
         repository.recordPlay(songId, playedAt = 100_000, listenedMs = 40_000)
         assertTrue(processor().process())

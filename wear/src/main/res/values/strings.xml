@@ -13,6 +13,11 @@
     <string name="start_shuffle_all">Alles zufällig</string>
     <string name="start_now_playing">Läuft gerade</string>
 
+    <!-- Musik hinzufügen -->
+    <string name="add_music_title">Musik hinzufügen</string>
+    <string name="add_music_favorites">Favoriten</string>
+    <string name="add_music_no_phone">Handy nicht verbunden</string>
+
     <!-- Wiedergabe -->
     <string name="player_nothing">Keine Wiedergabe</string>
     <string name="player_no_output">Kopfhörer verbinden</string>
