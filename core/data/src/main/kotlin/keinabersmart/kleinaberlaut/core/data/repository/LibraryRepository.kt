@@ -9,6 +9,7 @@ import keinabersmart.kleinaberlaut.core.model.SearchResults
 import keinabersmart.kleinaberlaut.core.model.Song
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,8 +37,26 @@ class LibraryRepository @Inject constructor(
     fun recentlyAddedAlbums(limit: Int = 20): Flow<List<Album>> =
         libraryDao.observeRecentlyAddedAlbumRows(limit).map { rows -> rows.map { it.toAlbum() } }
 
-    fun recentlyPlayedSongs(limit: Int = 20): Flow<List<Song>> =
-        libraryDao.observeRecentlyPlayedSongRows(limit).map { rows -> rows.map { it.toSong() } }
+    fun recentlyPlayedAlbums(limit: Int = 20): Flow<List<Album>> =
+        libraryDao.observeRecentlyPlayedAlbumRows(limit).map { rows -> rows.map { it.toAlbum() } }
+
+    /** Gespielte Alben, die seit mindestens [notPlayedForMs] nicht mehr liefen; das älteste zuerst. */
+    fun rediscoverAlbums(notPlayedForMs: Long = REDISCOVER_AFTER_MS, limit: Int = 20): Flow<List<Album>> =
+        libraryDao.observeRediscoverAlbumRows(System.currentTimeMillis() - notPlayedForMs, limit)
+            .map { rows -> rows.map { it.toAlbum() } }
+
+    /**
+     * Zufällige Alben. Die Auswahl bleibt stabil und wird nur neu gewürfelt, wenn sich die Zahl
+     * der Alben ändert (z. B. nach dem ersten Scan) – nicht bei jeder Datenbankänderung.
+     */
+    fun randomAlbums(limit: Int = 20): Flow<List<Album>> =
+        libraryDao.observeAlbumCount().distinctUntilChanged()
+            .map { libraryDao.getRandomAlbumRows(limit).map { row -> row.toAlbum() } }
+
+    /** Zufällige Künstler, Verhalten wie bei [randomAlbums]. */
+    fun randomArtists(limit: Int = 20): Flow<List<Artist>> =
+        libraryDao.observeAlbumCount().distinctUntilChanged()
+            .map { libraryDao.getRandomArtistRows(limit).map { row -> row.toArtist() } }
 
     /** Liefert die Songs in der Reihenfolge von [songIds]; unbekannte IDs fallen weg. */
     suspend fun songs(songIds: List<Long>): List<Song> {
@@ -63,5 +82,6 @@ class LibraryRepository @Inject constructor(
 
     private companion object {
         const val SQLITE_MAX_VARIABLES = 900
+        const val REDISCOVER_AFTER_MS = 30L * 24 * 60 * 60 * 1000
     }
 }

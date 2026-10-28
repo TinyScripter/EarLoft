@@ -1,5 +1,12 @@
 package keinabersmart.kleinaberlaut.ui
 
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
@@ -74,7 +81,13 @@ fun KleinaberlautApp(
     val openArtist: (Long) -> Unit = { navigator.navigate(ArtistRoute(it)) }
 
     val entryProvider = entryProvider {
-        entry<HomeRoute> { HomeScreen(onAlbumClick = openAlbum, onOpenSettings = { navigator.navigate(SettingsRoute) }) }
+        entry<HomeRoute> {
+            HomeScreen(
+                onAlbumClick = openAlbum,
+                onArtistClick = openArtist,
+                onOpenSettings = { navigator.navigate(SettingsRoute) },
+            )
+        }
         entry<LibraryRoute> {
             LibraryScreen(
                 onAlbumClick = openAlbum,
@@ -151,8 +164,29 @@ fun KleinaberlautApp(
             NavDisplay(
                 entries = navigationState.toDecoratedEntries(entryProvider),
                 onBack = { navigator.goBack() },
+                transitionSpec = { fadeThrough() },
+                popTransitionSpec = { fadeThrough() },
+                predictivePopTransitionSpec = { predictiveBack() },
                 modifier = Modifier.padding(innerPadding),
             )
         }
     }
 }
+
+/**
+ * Zurück-Geste: der aktuelle Screen folgt dem Finger und schrumpft bis auf 70 %, der vorherige liegt dahinter.
+ * Am Ende der Animation (nach dem Loslassen) blendet der alte Screen aus und der neue steht im Vordergrund.
+ */
+private fun predictiveBack() = ContentTransform(
+    targetContentEnter = fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.95f),
+    initialContentExit = scaleOut(tween(300), targetScale = 0.7f) +
+        slideOutHorizontally(tween(300)) { it / 4 } +
+        fadeOut(tween(100, delayMillis = 200)),
+    targetContentZIndex = -1f,
+)
+
+/** Fade-Through (Material): alter Screen blendet kurz aus, der neue blendet verzögert ein und skaliert leicht von 0,92 auf 1. */
+private fun fadeThrough() = ContentTransform(
+    targetContentEnter = fadeIn(tween(210, delayMillis = 90)) + scaleIn(tween(210, delayMillis = 90), initialScale = 0.92f),
+    initialContentExit = fadeOut(tween(90)),
+)

@@ -65,6 +65,7 @@ class NavigationState(
                 entryDecorators = listOf(
                     rememberSaveableStateHolderNavEntryDecorator(),
                     rememberViewModelStoreNavEntryDecorator(),
+                    rememberRoundedCornerNavEntryDecorator(),
                 ),
                 entryProvider = entryProvider,
             )

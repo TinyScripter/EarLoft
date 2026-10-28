@@ -44,8 +44,11 @@
     </plurals>
 
     <!-- Start -->
-    <string name="home_recently_played">Zuletzt gehört</string>
     <string name="home_recently_added">Neu hinzugefügt</string>
+    <string name="home_rediscover">Alben wiederentdecken</string>
+    <string name="home_recently_played">Zuletzt gespielte Alben</string>
+    <string name="home_random_artists">Zufällige Interpreten</string>
+    <string name="home_random_albums">Zufällige Alben</string>
 
     <!-- Suche -->
     <string name="search_hint">Songs, Alben, Künstler</string>

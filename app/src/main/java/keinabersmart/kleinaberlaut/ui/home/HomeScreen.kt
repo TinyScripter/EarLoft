@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.ui.home
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,9 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,20 +27,20 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.core.model.Album
+import keinabersmart.kleinaberlaut.core.model.Artist
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.ui.components.AlbumCard
+import keinabersmart.kleinaberlaut.ui.components.ArtistCard
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
-import keinabersmart.kleinaberlaut.ui.components.NoSongActions
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
-import keinabersmart.kleinaberlaut.ui.components.PreviewSong
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
-import keinabersmart.kleinaberlaut.ui.components.SongActions
-import keinabersmart.kleinaberlaut.ui.components.SongListItem
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @Composable
 fun HomeScreen(
     onAlbumClick: (Long) -> Unit,
+    onArtistClick: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
@@ -48,9 +49,8 @@ fun HomeScreen(
     HomeContent(
         state = state,
         onAlbumClick = onAlbumClick,
+        onArtistClick = onArtistClick,
         onOpenSettings = onOpenSettings,
-        onSongClick = viewModel::playRecentlyPlayed,
-        actions = viewModel,
         modifier = modifier,
     )
 }
@@ -60,9 +60,8 @@ fun HomeScreen(
 private fun HomeContent(
     state: HomeUiState,
     onAlbumClick: (Long) -> Unit,
+    onArtistClick: (Long) -> Unit,
     onOpenSettings: () -> Unit,
-    onSongClick: (Int) -> Unit,
-    actions: SongActions,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
@@ -88,24 +87,43 @@ private fun HomeContent(
             return@Column
         }
         LazyColumn(Modifier.fillMaxSize()) {
-            if (state.recentlyAdded.isNotEmpty()) {
-                item(key = "added-header") { SectionHeader(stringResource(R.string.home_recently_added)) }
-                item(key = "added") {
+            albumSection("added", R.string.home_recently_added, state.recentlyAdded, onAlbumClick)
+            albumSection("rediscover", R.string.home_rediscover, state.rediscover, onAlbumClick)
+            albumSection("played", R.string.home_recently_played, state.recentlyPlayed, onAlbumClick)
+            if (state.randomArtists.isNotEmpty()) {
+                item(key = "artists-header") { SectionHeader(stringResource(R.string.home_random_artists)) }
+                item(key = "artists") {
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        items(state.recentlyAdded, key = { it.id }) { album ->
-                            AlbumCard(album = album, onClick = { onAlbumClick(album.id) }, width = 144.dp)
+                        items(state.randomArtists, key = { it.id }) { artist ->
+                            ArtistCard(artist = artist, onClick = { onArtistClick(artist.id) })
                         }
                     }
                 }
             }
-            if (state.recentlyPlayed.isNotEmpty()) {
-                item(key = "played-header") { SectionHeader(stringResource(R.string.home_recently_played)) }
-                itemsIndexed(state.recentlyPlayed, key = { _, song -> "played-${song.id}" }) { index, song ->
-                    SongListItem(song = song, onClick = { onSongClick(index) }, actions = actions)
-                }
+            albumSection("random", R.string.home_random_albums, state.randomAlbums, onAlbumClick)
+        }
+    }
+}
+
+/** Abschnitt mit Überschrift und horizontal scrollender Album-Reihe; leere Listen entfallen. */
+private fun LazyListScope.albumSection(
+    key: String,
+    @StringRes title: Int,
+    albums: List<Album>,
+    onAlbumClick: (Long) -> Unit,
+) {
+    if (albums.isEmpty()) return
+    item(key = "$key-header") { SectionHeader(stringResource(title)) }
+    item(key = key) {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            items(albums, key = { it.id }) { album ->
+                AlbumCard(album = album, onClick = { onAlbumClick(album.id) }, width = 144.dp)
             }
         }
     }
@@ -117,14 +135,16 @@ private fun HomeContentPreview() {
     KleinaberlautTheme {
         HomeContent(
             state = HomeUiState(
-                recentlyPlayed = List(3) { PreviewSong.copy(id = it.toLong()) },
                 recentlyAdded = List(4) { PreviewAlbum.copy(id = it.toLong()) },
+                rediscover = List(4) { PreviewAlbum.copy(id = 10L + it) },
+                recentlyPlayed = List(4) { PreviewAlbum.copy(id = 20L + it) },
+                randomArtists = List(4) { Artist(id = it.toLong(), name = "Eine Band", albumCount = 2) },
+                randomAlbums = List(4) { PreviewAlbum.copy(id = 30L + it) },
                 isLoading = false,
             ),
             onAlbumClick = {},
+            onArtistClick = {},
             onOpenSettings = {},
-            onSongClick = {},
-            actions = NoSongActions,
         )
     }
 }

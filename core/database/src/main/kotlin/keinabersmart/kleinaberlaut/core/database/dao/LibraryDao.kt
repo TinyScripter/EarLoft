@@ -120,17 +120,36 @@ abstract class LibraryDao {
 
     @Query(
         """
-        SELECT s.songId, s.title, s.artistDisplay, s.albumId, a.title AS albumTitle,
-               s.durationMs, s.discNumber, s.trackNumber, s.isFavorite
-        FROM play_events pe
-        JOIN songs s ON s.songId = pe.songId
-        JOIN albums a ON a.albumId = s.albumId
-        GROUP BY s.songId
+        $SELECT_ALBUM_ROWS
+        JOIN play_events pe ON pe.songId = s.songId
+        GROUP BY a.albumId
         ORDER BY MAX(pe.playedAt) DESC
         LIMIT :limit
         """,
     )
-    abstract fun observeRecentlyPlayedSongRows(limit: Int): Flow<List<SongRow>>
+    abstract fun observeRecentlyPlayedAlbumRows(limit: Int): Flow<List<AlbumRow>>
+
+    /** Alben, die schon einmal gespielt wurden, zuletzt aber vor [playedBefore]; das älteste zuerst. */
+    @Query(
+        """
+        $SELECT_ALBUM_ROWS
+        JOIN play_events pe ON pe.songId = s.songId
+        GROUP BY a.albumId
+        HAVING MAX(pe.playedAt) < :playedBefore
+        ORDER BY MAX(pe.playedAt)
+        LIMIT :limit
+        """,
+    )
+    abstract fun observeRediscoverAlbumRows(playedBefore: Long, limit: Int): Flow<List<AlbumRow>>
+
+    @Query("SELECT COUNT(*) FROM albums")
+    abstract fun observeAlbumCount(): Flow<Int>
+
+    @Query("$SELECT_ALBUM_ROWS GROUP BY a.albumId ORDER BY RANDOM() LIMIT :limit")
+    abstract suspend fun getRandomAlbumRows(limit: Int): List<AlbumRow>
+
+    @Query("$SELECT_ARTIST_ROWS GROUP BY ar.artistId ORDER BY RANDOM() LIMIT :limit")
+    abstract suspend fun getRandomArtistRows(limit: Int): List<ArtistRow>
 
     // --- Volltextsuche (FTS4-MATCH-Ausdruck, z. B. "sig* ros*") ---
 
