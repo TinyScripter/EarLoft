@@ -16,6 +16,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.PlaybackDao
 import keinabersmart.kleinaberlaut.core.database.dao.PlaylistDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.dao.SyncDao
+import keinabersmart.kleinaberlaut.core.database.dao.WearDao
 import javax.inject.Singleton
 
 @Module
@@ -50,4 +51,7 @@ internal object DatabaseModule {
 
     @Provides
     fun provideLyricsDao(database: KleinaberlautDatabase): LyricsDao = database.lyricsDao()
+
+    @Provides
+    fun provideWearDao(database: KleinaberlautDatabase): WearDao = database.wearDao()
 }

@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.PlaybackDao
 import keinabersmart.kleinaberlaut.core.database.dao.PlaylistDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.dao.SyncDao
+import keinabersmart.kleinaberlaut.core.database.dao.WearDao
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumArtistCrossRef
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumEntity
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumFtsEntity
@@ -30,6 +31,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.SongFtsEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SongSourceEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SyncActionEntity
+import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
 
 @Database(
     entities = [
@@ -50,12 +52,14 @@ import keinabersmart.kleinaberlaut.core.database.entity.SyncActionEntity
         SongFtsEntity::class,
         AlbumFtsEntity::class,
         ArtistFtsEntity::class,
+        WearSelectionEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = KleinaberlautDatabase.AddSearchIndex::class),
         AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 3, to = 4),
     ],
 )
 abstract class KleinaberlautDatabase : RoomDatabase() {
@@ -67,6 +71,7 @@ abstract class KleinaberlautDatabase : RoomDatabase() {
     abstract fun syncDao(): SyncDao
     abstract fun playlistDao(): PlaylistDao
     abstract fun lyricsDao(): LyricsDao
+    abstract fun wearDao(): WearDao
 
     /** v1 → v2: FTS-Tabellen kommen hinzu und werden aus den vorhandenen Daten befüllt. */
     class AddSearchIndex : AutoMigrationSpec {

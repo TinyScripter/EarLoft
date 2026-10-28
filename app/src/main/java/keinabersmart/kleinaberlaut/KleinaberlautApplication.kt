@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.data.sync.SyncQueueStarter
 import keinabersmart.kleinaberlaut.core.download.AutoDownloads
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.ui.image.AlbumCoverFetcher
+import keinabersmart.kleinaberlaut.wear.PhoneInfoPublisher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -25,6 +26,7 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var downloadRepository: DownloadRepository
     @Inject lateinit var autoDownloads: AutoDownloads
     @Inject lateinit var syncQueueStarter: SyncQueueStarter
+    @Inject lateinit var phoneInfoPublisher: PhoneInfoPublisher
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onCreate() {
@@ -35,6 +37,7 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
             downloadRepository.resumePending()
             syncQueueStarter.startIfPending()
         }
+        applicationScope.launch { phoneInfoPublisher.publish() }
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

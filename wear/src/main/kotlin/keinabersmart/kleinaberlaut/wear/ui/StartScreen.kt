@@ -1,0 +1,153 @@
+package keinabersmart.kleinaberlaut.wear.ui
+
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
+import androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope
+import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
+import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.CircularProgressIndicator
+import androidx.wear.compose.material3.ListHeader
+import androidx.wear.compose.material3.ListHeaderDefaults
+import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScreenScaffold
+import androidx.wear.compose.material3.SurfaceTransformation
+import androidx.wear.compose.material3.Text
+import androidx.wear.compose.material3.lazy.TransformationSpec
+import androidx.wear.compose.material3.lazy.rememberTransformationSpec
+import androidx.wear.compose.material3.lazy.transformedHeight
+import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
+import androidx.wear.compose.ui.tooling.preview.WearPreviewFontScales
+import keinabersmart.kleinaberlaut.wear.R
+import keinabersmart.kleinaberlaut.wear.sync.PhoneStatus
+
+/**
+ * Startbildschirm. Solange vom Handy nichts ausgewählt ist, erklärt er die Einrichtung
+ * (Wear-Konzept 11: Handy fehlt, App fehlt, noch nichts übertragen).
+ */
+@Composable
+fun StartScreen(viewModel: StartViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    // Ob ein Handy verbunden ist, meldet die API nicht als Ereignis.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
+    StartContent(state = state, onOpenOnPhone = viewModel::openStoreOnPhone, onRetry = viewModel::refresh)
+}
+
+@Composable
+private fun StartContent(state: StartUiState, onOpenOnPhone: (nodeId: String) -> Unit, onRetry: () -> Unit) {
+    val columnState = rememberTransformingLazyColumnState()
+    val transformationSpec = rememberTransformationSpec()
+    ScreenScaffold(scrollState = columnState) { contentPadding ->
+        TransformingLazyColumn(
+            state = columnState,
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = contentPadding,
+        ) {
+            when {
+                // Bibliothek folgt in Etappe 3b.
+                state.hasSelections -> {
+                    header(R.string.app_name, transformationSpec)
+                    message(R.string.no_downloads, transformationSpec)
+                }
+                else -> setup(state, transformationSpec, onOpenOnPhone, onRetry)
+            }
+        }
+    }
+}
+
+private fun TransformingLazyColumnScope.setup(
+    state: StartUiState,
+    transformationSpec: TransformationSpec,
+    onOpenOnPhone: (String) -> Unit,
+    onRetry: () -> Unit,
+) {
+    when (val phone = state.phone) {
+        PhoneStatus.Checking -> item {
+            CircularProgressIndicator(Modifier.transformedHeight(this, transformationSpec))
+        }
+        PhoneStatus.NotConnected -> {
+            header(R.string.setup_no_phone_title, transformationSpec)
+            message(R.string.setup_no_phone_text, transformationSpec)
+            action(R.string.setup_retry, transformationSpec, onRetry)
+        }
+        is PhoneStatus.AppMissing -> {
+            header(R.string.setup_app_missing_title, transformationSpec)
+            message(R.string.setup_app_missing_text, transformationSpec)
+            when (state.openOnPhone) {
+                OpenOnPhoneResult.OPENED -> message(R.string.setup_opened_on_phone, transformationSpec)
+                OpenOnPhoneResult.FAILED -> message(R.string.setup_open_failed, transformationSpec)
+                null -> Unit
+            }
+            action(R.string.setup_install_on_phone, transformationSpec) { onOpenOnPhone(phone.nodeId) }
+        }
+        is PhoneStatus.Connected -> {
+            header(R.string.setup_waiting_title, transformationSpec)
+            message(R.string.setup_waiting_text, transformationSpec)
+        }
+    }
+}
+
+private fun TransformingLazyColumnScope.header(textRes: Int, transformationSpec: TransformationSpec) = item {
+    ListHeader(
+        modifier = Modifier
+            .minimumVerticalContentPadding(
+                ListHeaderDefaults.minimumTopListContentPadding,
+                ListHeaderDefaults.minimumBottomListContentPadding,
+            )
+            .transformedHeight(this, transformationSpec),
+        transformation = SurfaceTransformation(transformationSpec),
+    ) {
+        Text(stringResource(textRes), textAlign = TextAlign.Center)
+    }
+}
+
+private fun TransformingLazyColumnScope.message(textRes: Int, transformationSpec: TransformationSpec) = item {
+    Text(
+        text = stringResource(textRes),
+        modifier = Modifier
+            .fillMaxWidth()
+            .transformedHeight(this, transformationSpec),
+        textAlign = TextAlign.Center,
+        style = MaterialTheme.typography.bodyMedium,
+    )
+}
+
+private fun TransformingLazyColumnScope.action(textRes: Int, transformationSpec: TransformationSpec, onClick: () -> Unit) =
+    item {
+        Button(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .transformedHeight(this, transformationSpec),
+            transformation = SurfaceTransformation(transformationSpec),
+            label = { Text(stringResource(textRes)) },
+        )
+    }
+
+@WearPreviewDevices
+@WearPreviewFontScales
+@Composable
+private fun StartAppMissingPreview() {
+    MaterialTheme {
+        StartContent(state = StartUiState(phone = PhoneStatus.AppMissing("phone")), onOpenOnPhone = {}, onRetry = {})
+    }
+}
+
+@WearPreviewDevices
+@Composable
+private fun StartWaitingPreview() {
+    MaterialTheme {
+        StartContent(state = StartUiState(phone = PhoneStatus.Connected("phone")), onOpenOnPhone = {}, onRetry = {})
+    }
+}

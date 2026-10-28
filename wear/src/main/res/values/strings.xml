@@ -1,4 +1,17 @@
 <resources>
     <string name="app_name">kleinaberlaut</string>
     <string name="no_downloads">Noch keine Musik auf der Uhr</string>
+
+    <!-- Einrichtung -->
+    <string name="setup_checking">Suche Handy …</string>
+    <string name="setup_no_phone_title">Handy nicht verbunden</string>
+    <string name="setup_no_phone_text">Zum Einrichten braucht die Uhr das gekoppelte Handy in der Nähe.</string>
+    <string name="setup_app_missing_title">App fehlt auf dem Handy</string>
+    <string name="setup_app_missing_text">Installiere kleinaberlaut auf dem Handy. Dort wählst du die Musik für die Uhr aus.</string>
+    <string name="setup_install_on_phone">Auf Handy öffnen</string>
+    <string name="setup_opened_on_phone">Weiter auf dem Handy</string>
+    <string name="setup_open_failed">Konnte nicht geöffnet werden</string>
+    <string name="setup_waiting_title">Bereit</string>
+    <string name="setup_waiting_text">Wähle in kleinaberlaut auf dem Handy Musik für die Uhr aus.</string>
+    <string name="setup_retry">Erneut prüfen</string>
 </resources>

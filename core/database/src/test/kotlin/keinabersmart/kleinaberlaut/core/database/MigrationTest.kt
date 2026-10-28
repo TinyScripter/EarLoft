@@ -39,6 +39,26 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `v3 to v4 adds an empty wear_selections table and keeps the library`() {
+        helper.createDatabase(DB_NAME, 3).use { db ->
+            db.execSQL("INSERT INTO sources (sourceId, type, name, priority, syncGeneration, lastFullSyncAt) VALUES ('nd', 'SUBSONIC', 'nd', 0, 1, 0)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 4, true).use { db ->
+            db.query("SELECT COUNT(*) FROM sources").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+            }
+            db.execSQL("INSERT INTO wear_selections (`key`, kind, refId, addedAt) VALUES ('favorites', 'FAVORITES', NULL, 1)")
+            db.query("SELECT kind, refId FROM wear_selections").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("FAVORITES", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

@@ -29,6 +29,7 @@ dependencies {
     implementation(projects.core.data)
     implementation(projects.core.playback)
     implementation(projects.core.download)
+    implementation(projects.core.wearsync)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

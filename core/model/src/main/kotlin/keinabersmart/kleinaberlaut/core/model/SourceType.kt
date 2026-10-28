@@ -7,4 +7,10 @@ enum class SourceType {
 
     /** Navidrome bzw. anderer (Open)Subsonic-Server. */
     SUBSONIC,
+
+    /**
+     * Nur auf der Uhr: Der Song liegt allein auf dem gekoppelten Handy und kommt per Data Layer
+     * (Wear-Konzept 7.1). Es gibt keine Datenquelle dafür, abspielbar ist nur der fertige Download.
+     */
+    PHONE,
 }
