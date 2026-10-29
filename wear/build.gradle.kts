@@ -23,6 +23,13 @@ android {
             // Wie bei der Phone-App: Debug neben Release installierbar, applicationId beider Debug-Apps gleich.
             applicationIdSuffix = ".debug"
         }
+        release {
+            // Wie bei der Phone-App: nur androidx.** optimieren (kotlin.**/kotlinx.** führten dort zum Absturz beim Start).
+            optimization {
+                enable = true
+                packageScope = setOf("androidx.**")
+            }
+        }
     }
 }
 
