@@ -36,6 +36,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -262,7 +263,7 @@ private fun ProgressRing(progress: Float, modifier: Modifier = Modifier) {
     }
 }
 
-/** Das Cover als Hintergrund: groß, leicht unscharf und abgedunkelt, mit Abstand zum Fortschrittsring. */
+/** Das Cover als Hintergrund: groß, nur leicht unscharf, abgedunkelt und zum Rand hin weich nach Schwarz, mit Abstand zum Ring. */
 @Composable
 private fun CoverBackground(cover: android.graphics.Bitmap?, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize().padding(COVER_INSET).clip(CircleShape)) {
@@ -276,6 +277,12 @@ private fun CoverBackground(cover: android.graphics.Bitmap?, modifier: Modifier 
             )
             // Abdunkeln: Titel und Knöpfe müssen auch auf hellen Covern lesbar bleiben.
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = COVER_DIM)))
+            // Nach außen weich zu Schwarz: Das Cover endet nicht an einer harten Kante, sondern geht in den schwarzen Hintergrund über.
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.radialGradient(COVER_FADE_START to Color.Transparent, 1f to Color.Black),
+                ),
+            )
         } else {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerLow))
         }
@@ -290,8 +297,11 @@ private val RING_STROKE = 5.dp
 
 /** Abstand des Covers vom Rand: Ring (5 dp) plus Luft, damit das Cover den Fortschrittsring nicht berührt. */
 private val COVER_INSET = 14.dp
-private val COVER_BLUR = 8.dp
-private const val COVER_DIM = 0.45f
+private val COVER_BLUR = 3.dp
+private const val COVER_DIM = 0.3f
+
+/** Ab diesem Anteil des Radius beginnt der Verlauf nach Schwarz (am Rand ist es ganz schwarz). */
+private const val COVER_FADE_START = 0.6f
 private val TEXT_PADDING = 12.dp
 private val PLAY_BUTTON_SIZE = 64.dp
 private val SKIP_BUTTON_SIZE = 52.dp
