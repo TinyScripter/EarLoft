@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import keinabersmart.kleinaberlaut.core.data.repository.AlbumColorRepository
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
@@ -17,7 +18,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -32,6 +35,7 @@ class PlayerViewModel @Inject constructor(
     @ApplicationContext context: Context,
     private val playback: PlaybackConnection,
     artwork: ArtworkRepository,
+    albumColors: AlbumColorRepository,
 ) : ViewModel() {
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
@@ -51,6 +55,14 @@ class PlayerViewModel @Inject constructor(
         .map { it.current?.albumId }
         .distinctUntilChanged()
         .mapLatest { albumId -> albumId?.let { withContext(Dispatchers.IO) { artwork.albumCover(it, COVER_SIZE_PX) } } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Akzentfarbe des laufenden Albums (ARGB); `null`, solange sie fehlt oder nichts läuft. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val seedColor: StateFlow<Int?> = playback.state
+        .map { it.current?.albumId }
+        .distinctUntilChanged()
+        .flatMapLatest { albumId -> if (albumId == null) flowOf(null) else albumColors.seedColor(albumId) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _volume = MutableStateFlow(readVolume())

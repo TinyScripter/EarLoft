@@ -43,6 +43,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.androidx.wear.compose.material3)
+    implementation(libs.materialkolor)
+    // Nur zum Kompilieren: `dynamicColorScheme` liefert ein M3-ColorScheme; zur Laufzeit bringt materialkolor es selbst mit.
+    compileOnly(libs.androidx.compose.material3)
     implementation(libs.androidx.wear.compose.foundation)
     implementation(libs.androidx.wear.compose.navigation3)
     implementation(libs.androidx.navigation3.runtime)
