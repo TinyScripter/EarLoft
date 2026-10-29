@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.wear
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -8,6 +9,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -18,6 +23,7 @@ import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
 import dagger.hilt.android.AndroidEntryPoint
+import keinabersmart.kleinaberlaut.core.playback.EXTRA_OPEN_NOW_PLAYING
 import keinabersmart.kleinaberlaut.wear.ui.AddMusicScreen
 import keinabersmart.kleinaberlaut.wear.ui.NowPlayingScreen
 import keinabersmart.kleinaberlaut.wear.ui.SelectionScreen
@@ -27,12 +33,22 @@ import kotlinx.serialization.Serializable
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    /** Der Tipp auf den Chip der laufenden Musik (Zifferblatt) soll direkt die Wiedergabe-Ansicht öffnen. */
+    private var openNowPlaying by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestLocalNetworkAccess()
+        // Nur beim frischen Start: Nach einer Neuerstellung (Drehung, Prozess) steht der Intent noch an der Activity.
+        if (savedInstanceState == null) openNowPlaying = intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)
         setContent {
-            WearApp()
+            WearApp(openNowPlaying = openNowPlaying, onNowPlayingOpened = { openNowPlaying = false })
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)) openNowPlaying = true
     }
 
     private val localNetworkRequest = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -74,10 +90,16 @@ private fun MutableList<NavKey>.openNowPlaying() {
 }
 
 @Composable
-fun WearApp() {
+fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}) {
     MaterialTheme {
         AppScaffold {
             val backStack = rememberNavBackStack(StartRoute)
+            LaunchedEffect(openNowPlaying) {
+                if (openNowPlaying) {
+                    backStack.openNowPlaying()
+                    onNowPlayingOpened()
+                }
+            }
             NavDisplay(
                 backStack = backStack,
                 sceneStrategies = listOf(rememberSwipeDismissableSceneStrategy()),

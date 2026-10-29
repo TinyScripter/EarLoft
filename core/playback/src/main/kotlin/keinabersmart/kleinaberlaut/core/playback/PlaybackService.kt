@@ -41,6 +41,12 @@ import okhttp3.OkHttpClient
 import java.util.Optional
 import javax.inject.Inject
 
+/**
+ * Extra am Start-Intent der Sitzungs-Aktivität (Tipp auf Benachrichtigung bzw. auf den Chip der laufenden Musik auf
+ * dem Zifferblatt): Die App soll direkt die Wiedergabe-Ansicht öffnen. Wer sie nicht kennt, startet normal.
+ */
+const val EXTRA_OPEN_NOW_PLAYING = "keinabersmart.kleinaberlaut.OPEN_NOW_PLAYING"
+
 /** Wiedergabe-Service mit Media3-Session (Konzept 7.1). */
 @OptIn(UnstableApi::class)
 @AndroidEntryPoint
@@ -191,6 +197,8 @@ class PlaybackService : MediaLibraryService() {
 
     private fun sessionActivity(): PendingIntent? {
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return null
+        // SINGLE_TOP: Ist die App schon offen, bekommt die Activity den Intent per onNewIntent, statt dass er verloren geht.
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(EXTRA_OPEN_NOW_PLAYING, true)
         return PendingIntent.getActivity(
             this,
             0,
