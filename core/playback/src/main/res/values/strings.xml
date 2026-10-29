@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_library">kleinaberlaut</string>
-    <string name="albums">Alben</string>
+    <string name="app_library" translatable="false">kleinaberlaut</string>
+    <string name="albums">Albums</string>
 </resources>

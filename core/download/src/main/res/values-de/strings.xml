@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="download_channel_name">Downloads</string>
+    <string name="download_notification_title">Musik wird heruntergeladen</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">Noch %d Titel</item>
+        <item quantity="other">Noch %d Titel</item>
+    </plurals>
+</resources>

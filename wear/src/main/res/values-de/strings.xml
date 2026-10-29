@@ -1,0 +1,87 @@
+<resources>
+    <plurals name="song_count">
+        <item quantity="one">%d Titel</item>
+        <item quantity="other">%d Titel</item>
+    </plurals>
+    <string name="selection_missing">Nicht mehr auf der Uhr</string>
+    <string name="selection_not_loaded">Noch nicht geladen</string>
+    <string name="selection_progress">%1$d von %2$d geladen</string>
+
+    <string name="selection_play">Abspielen</string>
+    <string name="selection_shuffle">Zufällig</string>
+    <string name="start_shuffle_all">Alles zufällig</string>
+    <string name="start_now_playing">Läuft gerade</string>
+
+    <!-- Musik hinzufügen -->
+    <string name="add_music_title">Musik hinzufügen</string>
+    <string name="add_music_favorites">Favoriten</string>
+    <string name="add_music_no_phone">Handy nicht verbunden</string>
+
+    <!-- Wiedergabe -->
+    <string name="player_nothing">Keine Wiedergabe</string>
+    <string name="player_no_output">Kopfhörer verbinden</string>
+    <string name="player_previous">Zurück</string>
+    <string name="player_play">Wiedergabe</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_next">Weiter</string>
+    <string name="player_shuffle">Zufällige Reihenfolge</string>
+    <string name="player_output">Bluetooth-Ausgabe</string>
+    <string name="player_position">Position im Titel</string>
+    <string name="player_volume">Lautstärke</string>
+    <string name="player_volume_percent">%d %%</string>
+
+    <!-- Downloads -->
+    <string name="download_channel_name">Downloads</string>
+    <string name="download_notification_title">Musik wird geladen</string>
+    <plurals name="download_notification_pending">
+        <item quantity="one">Noch %d Titel</item>
+        <item quantity="other">Noch %d Titel</item>
+    </plurals>
+    <string name="download_error_server">Server nicht erreichbar</string>
+    <string name="download_error_server_no_phone_copy">Server nicht erreichbar, Handy hat keine Kopie</string>
+    <string name="download_error_phone_no_copy">Handy hat keine Kopie</string>
+    <string name="download_error_phone_unreachable">Handy nicht erreichbar</string>
+
+    <!-- Speicher & Downloads -->
+    <string name="storage_title">Speicher &amp; Downloads</string>
+    <string name="storage_used">Belegt: %s</string>
+    <string name="storage_free">Frei: %s</string>
+    <string name="storage_limit">Grenze: %s</string>
+    <string name="storage_loading">Lädt …</string>
+    <string name="storage_idle">Alles geladen</string>
+    <string name="storage_waiting_charger">Wartet auf das Ladegerät</string>
+    <plurals name="storage_pending">
+        <item quantity="one">Noch %d Titel</item>
+        <item quantity="other">Noch %d Titel</item>
+    </plurals>
+    <plurals name="storage_missing">
+        <item quantity="one">Speicher voll – %d Titel fehlt</item>
+        <item quantity="other">Speicher voll – %d Titel fehlen</item>
+    </plurals>
+    <plurals name="storage_failed">
+        <item quantity="one">%d Titel fehlgeschlagen</item>
+        <item quantity="other">%d Titel fehlgeschlagen</item>
+    </plurals>
+    <string name="storage_phone_transfer">Über das Handy: %1$s, ca. %2$d Min.</string>
+    <string name="storage_phone_charger_hint">Am besten am Ladegerät.</string>
+    <string name="storage_retry">Erneut versuchen</string>
+    <string name="storage_last_error">Letzter Fehler: %s</string>
+    <string name="storage_clear_all">Alles entfernen</string>
+    <string name="storage_clear_confirm">Alle Musik von der Uhr entfernen? Die Auswahl am Handy wird geleert.</string>
+    <string name="storage_clear_yes">Entfernen</string>
+    <string name="storage_clear_no">Abbrechen</string>
+    <string name="storage_clear_no_phone">Handy nicht verbunden – nichts entfernt.</string>
+
+    <!-- Einrichtung -->
+    <string name="setup_checking">Suche Handy …</string>
+    <string name="setup_no_phone_title">Handy nicht verbunden</string>
+    <string name="setup_no_phone_text">Zum Einrichten braucht die Uhr das gekoppelte Handy in der Nähe.</string>
+    <string name="setup_app_missing_title">App fehlt auf dem Handy</string>
+    <string name="setup_app_missing_text">Installiere kleinaberlaut auf dem Handy. Dort wählst du die Musik für die Uhr aus.</string>
+    <string name="setup_install_on_phone">Auf Handy öffnen</string>
+    <string name="setup_opened_on_phone">Weiter auf dem Handy</string>
+    <string name="setup_open_failed">Konnte nicht geöffnet werden</string>
+    <string name="setup_waiting_title">Bereit</string>
+    <string name="setup_waiting_text">Wähle in kleinaberlaut auf dem Handy Musik für die Uhr aus.</string>
+    <string name="setup_retry">Erneut prüfen</string>
+</resources>

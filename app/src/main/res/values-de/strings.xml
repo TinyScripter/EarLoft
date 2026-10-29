@@ -1,0 +1,286 @@
+<resources>
+
+    <string name="nav_home">Start</string>
+    <string name="nav_library">Bibliothek</string>
+    <string name="nav_search">Suche</string>
+    <string name="nav_settings">Einstellungen</string>
+    <string name="nav_downloads">Downloads</string>
+
+    <!-- Berechtigungen -->
+    <string name="permission_title">Zugriff auf deine Musik</string>
+    <string name="permission_text">kleinaberlaut braucht die Erlaubnis, die Musik auf diesem Gerät zu lesen.</string>
+    <string name="permission_denied_text">Der Zugriff wurde abgelehnt. Du kannst ihn in den App-Einstellungen unter „Berechtigungen“ erlauben.</string>
+    <string name="permission_grant">Zugriff erlauben</string>
+    <string name="permission_open_settings">Einstellungen öffnen</string>
+    <string name="permission_skip">Ohne Musik auf dem Gerät weiter</string>
+
+    <!-- Allgemeine Aktionen -->
+    <string name="action_back">Zurück</string>
+    <string name="action_more">Weitere Optionen</string>
+    <string name="action_play">Abspielen</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_shuffle">Zufällig</string>
+    <string name="action_next">Nächster Titel</string>
+    <string name="action_previous">Vorheriger Titel</string>
+    <string name="action_play_next">Als Nächstes spielen</string>
+    <string name="action_add_to_queue">Zur Warteschlange hinzufügen</string>
+    <string name="action_remove_from_queue">Aus der Warteschlange entfernen</string>
+    <string name="action_reorder_queue_item">Zum Umsortieren ziehen</string>
+    <string name="action_clear_search">Suche löschen</string>
+
+    <!-- Bibliothek -->
+    <string name="library_albums">Alben</string>
+    <string name="library_artists">Künstler</string>
+    <string name="library_songs">Songs</string>
+    <string name="library_empty">Keine Musik gefunden. Neue Dateien erscheinen automatisch.</string>
+    <string name="library_syncing">Bibliothek wird aktualisiert …</string>
+    <string name="item_missing">Nicht mehr in der Bibliothek.</string>
+    <string name="disc_number">CD %1$d</string>
+    <plurals name="album_count">
+        <item quantity="one">%1$d Album</item>
+        <item quantity="other">%1$d Alben</item>
+    </plurals>
+    <plurals name="song_count">
+        <item quantity="one">%1$d Song</item>
+        <item quantity="other">%1$d Songs</item>
+    </plurals>
+
+    <!-- Start -->
+    <string name="home_recently_added">Neu hinzugefügt</string>
+    <string name="home_rediscover">Alben wiederentdecken</string>
+    <string name="home_recently_played">Zuletzt gespielte Alben</string>
+    <string name="home_random_artists">Zufällige Interpreten</string>
+    <string name="home_random_albums">Zufällige Alben</string>
+
+    <!-- Suche -->
+    <string name="search_hint">Songs, Alben, Künstler</string>
+    <string name="search_no_results">Nichts gefunden für „%1$s“.</string>
+
+    <!-- Player -->
+    <string name="player_now_playing">Wird gespielt</string>
+    <string name="player_queue">Warteschlange</string>
+    <string name="player_open_queue">Warteschlange öffnen</string>
+    <string name="player_close">Player schließen</string>
+    <string name="player_show_lyrics">Songtext anzeigen</string>
+    <string name="player_hide_lyrics">Cover anzeigen</string>
+    <string name="lyrics_none">Kein Songtext vorhanden</string>
+    <string name="lyrics_unavailable">Songtext konnte nicht geladen werden.</string>
+    <string name="lyrics_retry">Erneut versuchen</string>
+    <string name="player_shuffle_on">Zufallswiedergabe an</string>
+    <string name="player_shuffle_off">Zufallswiedergabe aus</string>
+    <string name="player_repeat_off">Wiederholen aus</string>
+    <string name="player_repeat_all">Alle wiederholen</string>
+    <string name="player_repeat_one">Titel wiederholen</string>
+    <string name="player_seek">Wiedergabeposition</string>
+
+    <!-- Chromecast -->
+    <string name="cast_playing_on">Wird auf %1$s gespielt</string>
+    <string name="cast_queue_limited">Beim Casten passen höchstens %1$d von %2$d Titeln in die Warteschlange.</string>
+    <plurals name="cast_nothing_castable">
+        <item quantity="one">Dieser Titel liegt nur auf dem Handy und lässt sich nicht casten.</item>
+        <item quantity="other">Diese Titel liegen nur auf dem Handy und lassen sich nicht casten.</item>
+    </plurals>
+    <plurals name="cast_skipped_local">
+        <item quantity="one">%d Titel liegt nur auf dem Handy und wird beim Casten übersprungen.</item>
+        <item quantity="other">%d Titel liegen nur auf dem Handy und werden beim Casten übersprungen.</item>
+    </plurals>
+
+    <!-- Einstellungen & Server -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_servers">Server</string>
+    <string name="settings_no_servers">Noch kein Server eingerichtet. Navidrome und andere Subsonic-Server werden unterstützt.</string>
+    <string name="settings_add_server">Server hinzufügen</string>
+    <string name="settings_refresh_all">Alle Quellen jetzt abgleichen</string>
+    <string name="settings_general">Allgemein</string>
+    <string name="settings_theme">App-Darstellung</string>
+    <string name="theme_system">Systemeinstellung folgen</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+    <string name="settings_artist_images">Bilder von Interpreten herunterladen</string>
+    <string name="settings_artist_images_summary">Sucht Fotos bei Deezer. Dafür werden Namen von Interpreten an Deezer gesendet.</string>
+    <string name="settings_album_covers">Fehlende Album-Cover herunterladen</string>
+    <string name="settings_album_covers_summary">Sucht Cover bei MusicBrainz und im Cover Art Archive. Dafür werden Albumtitel und Interpret gesendet.</string>
+    <string name="settings_local_media">Musik auf diesem Gerät nutzen</string>
+    <string name="settings_local_media_summary">Aus: Die Bibliothek zeigt nur Musik von Servern.</string>
+    <string name="settings_about">Über</string>
+    <string name="settings_about_app">Über die App</string>
+    <string name="settings_licenses">Lizenzen</string>
+    <string name="settings_licenses_summary">Genutzte Bibliotheken und ihre Lizenzen</string>
+    <string name="server_auto_download">Alles wird automatisch heruntergeladen</string>
+    <string name="server_form_auto_download">Alles automatisch herunterladen</string>
+    <string name="server_form_auto_download_summary">Jeder Titel dieses Servers wird auf das Gerät geladen, auch neu hinzugekommene. Braucht entsprechend viel Speicher.</string>
+    <string name="about_title">Über die App</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_text">kleinaberlaut spielt deine eigene Musiksammlung – vom Gerät und von deinen Navidrome- oder Subsonic-Servern – in einer gemeinsamen Bibliothek, auf dem Handy und auf der Uhr.</string>
+    <string name="about_placeholder">Weitere Informationen folgen.</string>
+    <string name="licenses_title">Lizenzen</string>
+    <string name="server_never_synced">Noch nicht abgeglichen</string>
+    <string name="server_last_sync">Abgeglichen %1$s</string>
+    <string name="server_synced_just_now">Gerade abgeglichen</string>
+    <string name="server_sync_failed">Abgleich fehlgeschlagen: %1$s</string>
+    <string name="server_sync_now">Jetzt abgleichen</string>
+    <string name="server_password_lost">Das gespeicherte Passwort lässt sich nicht mehr lesen (z. B. nach einer Wiederherstellung auf einem anderen Gerät). Tippe auf den Server und gib das Passwort neu ein.</string>
+    <plurals name="age_minutes">
+        <item quantity="one">vor %1$d Minute</item>
+        <item quantity="other">vor %1$d Minuten</item>
+    </plurals>
+    <plurals name="age_hours">
+        <item quantity="one">vor %1$d Stunde</item>
+        <item quantity="other">vor %1$d Stunden</item>
+    </plurals>
+    <plurals name="age_days">
+        <item quantity="one">vor %1$d Tag</item>
+        <item quantity="other">vor %1$d Tagen</item>
+    </plurals>
+    <string name="sync_notice_playlist_replaced">„%1$s“ wurde auch auf dem Server geändert. Deren Fassung gilt, deine Änderung ging verloren.</string>
+    <string name="sync_notice_favorite_dropped">Ein Favorit konnte nicht an den Server übertragen werden.</string>
+    <string name="sync_notice_playlist_dropped">Eine Playlist-Änderung konnte nicht an den Server übertragen werden.</string>
+    <string name="server_remove">Server entfernen</string>
+    <string name="server_edit">Bearbeiten</string>
+    <string name="server_remove_title">„%1$s“ entfernen?</string>
+    <string name="server_remove_text">Songs, die nur auf diesem Server liegen, verschwinden aus der Bibliothek. Favoriten und Playlists auf dem Server bleiben unberührt.</string>
+    <string name="action_cancel">Abbrechen</string>
+    <string name="action_remove">Entfernen</string>
+
+    <string name="add_server_title">Server hinzufügen</string>
+    <string name="add_server_name">Name (optional)</string>
+    <string name="add_server_url">Adresse</string>
+    <string name="add_server_username">Benutzername</string>
+    <string name="add_server_password">Passwort</string>
+    <string name="add_server_http_warning">Unverschlüsselte Verbindung: Benutzername und Musik werden lesbar übertragen. Nur im eigenen Heimnetz verwenden.</string>
+    <string name="add_server_allow_http">Trotzdem unverschlüsselt verbinden</string>
+    <string name="add_server_test">Verbindung testen</string>
+    <string name="add_server_save">Speichern</string>
+    <string name="add_server_success">Verbunden mit %1$s %2$s</string>
+    <string name="add_server_invalid_url">Die Adresse ist ungültig.</string>
+    <string name="add_server_wrong_credentials">Benutzername oder Passwort falsch.</string>
+    <string name="add_server_not_subsonic">Unter dieser Adresse antwortet kein Subsonic-Server.</string>
+    <string name="add_server_unreachable">Server nicht erreichbar (%1$s).</string>
+    <string name="add_server_server_error">Der Server meldet Fehler %1$d: %2$s</string>
+    <string name="edit_server_title">Server bearbeiten</string>
+    <string name="edit_server_password_keep">Leer lassen, um das gespeicherte Passwort zu behalten.</string>
+    <string name="edit_server_password_required">Das gespeicherte Passwort ist nicht lesbar. Bitte neu eingeben.</string>
+
+    <!-- Favoriten & Playlists -->
+    <string name="action_add_favorite">Zu Favoriten hinzufügen</string>
+    <string name="action_remove_favorite">Aus Favoriten entfernen</string>
+    <string name="library_playlists">Playlists</string>
+    <string name="favorites_title">Favoriten</string>
+    <string name="favorites_empty">Noch keine Favoriten. Tippe im Player auf das Herz oder nutze das Song-Menü.</string>
+    <string name="settings_scrobble">Wiedergaben an den Server melden</string>
+    <string name="settings_scrobble_summary">Gehörte Titel zählen beim Server (und ggf. bei Last.fm oder ListenBrainz) mit.</string>
+
+    <!-- Downloads -->
+    <string name="action_download">Herunterladen</string>
+    <string name="action_remove_download">Download entfernen</string>
+    <string name="action_cancel_download">Download abbrechen</string>
+    <string name="download_album_done">Heruntergeladen – Download entfernen</string>
+    <string name="download_album_running">Wird heruntergeladen – abbrechen</string>
+    <string name="download_album_remove_title">Download entfernen?</string>
+    <string name="download_album_remove_text">Die heruntergeladenen Dateien von „%1$s“ werden gelöscht. Das Album bleibt in der Bibliothek und lässt sich weiter streamen.</string>
+    <string name="download_playlist_remove_text">Die heruntergeladenen Dateien der Songs aus „%1$s“ werden gelöscht – auch, wenn sie in anderen Alben oder Playlists vorkommen. Die Songs bleiben in der Bibliothek und lassen sich weiter streamen.</string>
+    <string name="download_album_progress">Wird heruntergeladen: %1$d von %2$d</string>
+    <plurals name="download_album_failed">
+        <item quantity="one">%1$d Download fehlgeschlagen</item>
+        <item quantity="other">%1$d Downloads fehlgeschlagen</item>
+    </plurals>
+    <string name="download_state_downloaded">Heruntergeladen</string>
+    <string name="download_state_pending">Wartet auf Download</string>
+    <string name="download_state_failed">Download fehlgeschlagen</string>
+    <string name="downloads_empty">Noch nichts heruntergeladen. Öffne ein Album vom Server und tippe auf den Download-Pfeil, um es ohne Netz zu hören.</string>
+    <string name="downloads_storage">%1$s belegt · %2$s frei</string>
+    <plurals name="downloads_pending">
+        <item quantity="one">Noch %1$d Titel</item>
+        <item quantity="other">Noch %1$d Titel</item>
+    </plurals>
+    <string name="downloads_waiting_hint">Downloads starten, sobald ein passendes Netz verfügbar ist.</string>
+    <string name="downloads_retry">Erneut versuchen</string>
+    <string name="downloads_remove_all">Alle Downloads entfernen</string>
+    <string name="downloads_remove_all_title">Alle Downloads entfernen?</string>
+    <string name="downloads_remove_all_text">Alle heruntergeladenen Dateien werden gelöscht. Die Bibliothek bleibt erhalten.</string>
+    <string name="downloads_album_summary">%1$d von %2$d Songs · %3$s</string>
+    <string name="settings_wifi_only">Nur über WLAN herunterladen</string>
+    <string name="settings_wifi_only_summary">Über mobile Daten wird nichts heruntergeladen.</string>
+    <string name="settings_auto_download_favorites">Favoriten automatisch herunterladen</string>
+    <string name="settings_auto_download_favorites_summary">Neue Favoriten werden geladen, entfernte Favoriten wieder gelöscht. Gilt für Server, von denen nicht ohnehin alles geladen wird.</string>
+
+    <!-- Einstellungen: Wiedergabe -->
+    <string name="settings_downloads_summary">Heruntergeladene Alben verwalten und Speicher prüfen</string>
+    <string name="settings_playback">Wiedergabe</string>
+    <string name="settings_replay_gain">Lautstärke angleichen (ReplayGain)</string>
+    <string name="replay_gain_off">Aus</string>
+    <string name="replay_gain_track">Je Titel</string>
+    <string name="replay_gain_album">Je Album</string>
+    <string name="replay_gain_auto">Automatisch</string>
+    <string name="replay_gain_auto_summary">Je Album, wenn ein Album in Reihenfolge läuft, sonst je Titel</string>
+    <string name="settings_pre_amp">Vorverstärkung</string>
+    <string name="settings_pre_amp_summary">Gilt für Titel mit ReplayGain-Werten; übersteuert nicht.</string>
+    <string name="settings_pre_amp_value">%1$+.0f dB</string>
+
+    <!-- Widget -->
+    <string name="widget_name">Wiedergabe</string>
+    <string name="widget_description">Zeigt den aktuellen Titel mit Steuerung.</string>
+    <string name="player_nothing_playing">Nichts wird gespielt</string>
+
+    <!-- Playlists -->
+    <string name="playlist_new">Neue Playlist</string>
+    <string name="playlist_name">Name</string>
+    <string name="playlist_location_device">Nur auf diesem Gerät</string>
+    <string name="playlist_location_server">Auf %1$s</string>
+    <string name="playlist_create">Anlegen</string>
+    <string name="playlist_save">Speichern</string>
+    <string name="playlist_rename">Umbenennen</string>
+    <string name="playlist_delete">Löschen</string>
+    <string name="playlist_delete_title">Playlist löschen?</string>
+    <string name="playlist_delete_text">„%1$s“ wird gelöscht.</string>
+    <string name="playlist_delete_text_server">„%1$s“ wird auch auf %2$s gelöscht.</string>
+    <string name="playlist_empty">Noch keine Songs. Füge welche über das Song-Menü hinzu.</string>
+    <string name="playlist_missing_on_server">Nicht auf %1$s</string>
+    <string name="playlist_added">Zu „%1$s“ hinzugefügt</string>
+    <string name="action_add_to_playlist">Zur Playlist hinzufügen</string>
+    <string name="action_remove_from_playlist">Aus Playlist entfernen</string>
+
+    <!-- Uhr (Wear-Konzept 5) -->
+    <string name="watch_add">Auf Uhr laden</string>
+    <string name="watch_remove">Von Uhr entfernen</string>
+    <string name="watch_added">Kommt auf die Uhr</string>
+    <string name="watch_removed">Wird von der Uhr entfernt</string>
+    <string name="watch_status_progress">Auf der Uhr: %1$d von %2$d</string>
+    <string name="watch_status_done">Auf der Uhr: alle %1$d Titel</string>
+    <string name="watch_status_failed">Auf der Uhr: %1$d von %2$d, %3$d fehlgeschlagen</string>
+    <string name="watch_status_full">Speicher der Uhr voll</string>
+    <string name="settings_watch">Uhr</string>
+    <string name="settings_watch_open">Musik auf der Uhr</string>
+    <string name="settings_watch_open_summary">Auswahl, Qualität, Speicher</string>
+    <string name="watch_settings_title">Uhr</string>
+    <string name="watch_selections">Auf der Uhr</string>
+    <string name="watch_selections_empty">Noch nichts ausgewählt. Tippe bei einem Album, einer Playlist oder den Favoriten auf das Uhr-Symbol.</string>
+    <string name="watch_selection_album">Album</string>
+    <string name="watch_selection_playlist">Playlist</string>
+    <string name="watch_selection_favorites">Favoriten</string>
+    <string name="watch_downloads">Laden auf der Uhr</string>
+    <string name="watch_quality">Qualität</string>
+    <string name="watch_quality_opus">Opus 128 kbit/s (spart Speicher)</string>
+    <string name="watch_quality_original">Original</string>
+    <string name="watch_quality_summary">Gilt für neue Downloads. Opus wandelt der Server um.</string>
+    <string name="watch_storage_limit">Speichergrenze</string>
+    <string name="watch_storage_auto">Bis auf 1 GB freien Speicher</string>
+    <string name="watch_storage_gb">Höchstens %1$d GB</string>
+    <string name="watch_require_charging">Nur am Ladegerät laden</string>
+    <string name="watch_require_charging_summary">Die Uhr lädt per WLAN, während sie lädt. Aus: auch ohne Ladegerät.</string>
+    <string name="watch_clear">Alles von der Uhr entfernen</string>
+    <string name="watch_clear_text">Die Auswahl wird geleert; die Uhr löscht die geladene Musik.</string>
+    <string name="watch_status_storage">Speicher der Uhr: %1$s belegt, %2$s frei</string>
+    <string name="watch_status_limit">Grenze: %s</string>
+    <string name="watch_status_none">Noch kein Bericht der Uhr</string>
+    <string name="watch_status_error">Letzter Fehler: %s</string>
+    <string name="watch_selection_progress">%1$s · %2$d von %3$d geladen</string>
+    <plurals name="watch_status_missing">
+        <item quantity="one">Speicher der Uhr voll – %d Titel fehlt</item>
+        <item quantity="other">Speicher der Uhr voll – %d Titel fehlen</item>
+    </plurals>
+    <plurals name="watch_selection_songs">
+        <item quantity="one">%1$s · %2$d Titel</item>
+        <item quantity="other">%1$s · %2$d Titel</item>
+    </plurals>
+</resources>
