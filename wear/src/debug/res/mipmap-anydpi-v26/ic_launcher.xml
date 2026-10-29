@@ -7,5 +7,5 @@
             <item android:drawable="@drawable/ic_launcher_debug_badge" />
         </layer-list>
     </foreground>
-    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 </adaptive-icon>

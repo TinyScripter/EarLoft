@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Ring 1: Hohe Frequenz (feine Oszillation, dezenter Alpha) -->
+    <path
+        android:pathData="M 256,200 C 264,196 273,204 281,204 C 290,204 298,212 303,219 C 309,227 312,236 312,246 C 312,256 307,265 305,275 C 302,284 292,291 283,297 C 274,302 265,312 256,312 C 246,312 237,302 229,297 C 219,291 210,284 207,275 C 204,265 200,256 200,246 C 200,236 203,227 209,219 C 214,212 222,204 231,204 C 239,204 248,196 256,200 Z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="4.5"
+        android:strokeAlpha="0.45" />
+
+    <!-- Ring 2: 6 runde Wellenberge (mittlerer Hub) -->
+    <path
+        android:pathData="M 256,146 C 285,146 302,174 326,186 C 350,198 366,225 366,256 C 366,286 348,314 326,326 C 304,338 285,366 256,366 C 227,366 208,338 186,326 C 164,314 146,286 146,256 C 146,225 162,198 186,186 C 210,174 227,146 256,146 Z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="7.5"
+        android:strokeAlpha="0.65" />
+
+    <!-- Ring 3: 4 ausgeprägte Druckbögen (starker Hub) -->
+    <path
+        android:pathData="M 256,90 C 310,90 348,142 388,178 C 424,212 422,256 422,256 C 422,308 372,358 334,388 C 298,418 256,422 256,422 C 202,422 160,372 124,334 C 90,298 90,256 90,256 C 90,204 140,154 178,124 C 212,90 256,90 256,90 Z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="12"
+        android:strokeAlpha="0.85" />
+
+    <!-- Ring 4: 3 tiefe Sub-Bass-Bögen (volle Deckkraft) -->
+    <path
+        android:pathData="M 256,24 C 340,24 430,110 460,190 C 488,266 436,348 396,404 C 350,468 260,488 190,472 C 120,454 44,388 32,308 C 20,220 92,124 164,68 C 202,38 230,24 256,24 Z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="18"
+        android:strokeLineCap="round"
+        android:strokeAlpha="1.0" />
+
+    <!-- Kompakter Ursprung ("klein"): Äußerer Ring -->
+    <path
+        android:pathData="M 256,233 a 23,23 0 1,0 0,46 a 23,23 0 1,0 0,-46 Z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="4"
+        android:strokeAlpha="0.8" />
+
+    <!-- Kompakter Ursprung ("klein"): Gefüllter Kern -->
+    <path
+        android:pathData="M 256,242 a 14,14 0 1,0 0,28 a 14,14 0 1,0 0,-28 Z"
+        android:fillColor="#FF000000"
+        android:fillAlpha="1.0" />
+</vector>
