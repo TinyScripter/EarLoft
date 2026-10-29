@@ -66,6 +66,8 @@ class PlayerViewModel @Inject constructor(
 
     fun toggleShuffle() = playback.toggleShuffle()
 
+    fun seekTo(positionMs: Long) = playback.seekTo(positionMs)
+
     private val _volumeVisible = MutableStateFlow(false)
 
     /** Der Lautstärkebalken steht kurz nach jeder Drehung der Krone. */

@@ -43,9 +43,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,6 +65,7 @@ import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import keinabersmart.kleinaberlaut.core.playback.QueueEntry
 import keinabersmart.kleinaberlaut.wear.R
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 
 /**
  * Wiedergabe (Wear-Konzept 11): Cover, Titel, Steuerung und Fortschrittsring; die Krone ändert die Lautstärke.
@@ -86,6 +91,7 @@ fun NowPlayingScreen(viewModel: PlayerViewModel = hiltViewModel()) {
         onShuffle = viewModel::toggleShuffle,
         onOutput = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
         onCrown = viewModel::onCrown,
+        onSeek = viewModel::seekTo,
     )
 }
 
@@ -102,7 +108,22 @@ private fun NowPlayingContent(
     onShuffle: () -> Unit,
     onOutput: () -> Unit,
     onCrown: (Float) -> Unit,
+    onSeek: (Long) -> Unit,
 ) {
+    val duration = state.durationMs
+    var dragProgress by remember { mutableStateOf<Float?>(null) }
+    var seekTarget by remember { mutableStateOf<Long?>(null) }
+    // Nach dem Loslassen bleibt die Anzeige am Ziel, bis der Player nachgekommen ist (die Position wird nur alle 500 ms gelesen).
+    LaunchedEffect(seekTarget, positionMs) {
+        seekTarget?.let { if (abs(positionMs - it) < SEEK_SETTLE_MS) seekTarget = null }
+    }
+    LaunchedEffect(seekTarget) {
+        if (seekTarget != null) {
+            delay(SEEK_HOLD_MAX_MS)
+            seekTarget = null
+        }
+    }
+    val shownPositionMs = dragProgress?.let { (it * duration).toLong() } ?: seekTarget ?: positionMs
     val focusRequester = remember { FocusRequester() }
     var hasFocus by remember { mutableStateOf(false) }
     // Beim Bildschirmwechsel verliert das Feld den Fokus gleich wieder (die Liste davor wird abgebaut); ohne Fokus
@@ -126,10 +147,34 @@ private fun NowPlayingContent(
                 .focusable(),
             contentAlignment = Alignment.Center,
         ) {
-            val duration = state.durationMs
+            val progress = if (duration > 0) (shownPositionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
+            val positionLabel = stringResource(R.string.player_position)
+            // Vor der Steuerung gezeichnet: Berührungen auf den Knöpfen gehen an die Knöpfe, nicht an den Ring.
             ProgressRing(
-                progress = if (duration > 0) (positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f,
-                modifier = Modifier.fillMaxSize(),
+                progress = progress,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .ringSeek(
+                        enabled = duration > 0,
+                        bandWidth = SEEK_BAND_WIDTH,
+                        onPreview = { dragProgress = it },
+                        onSeek = { target ->
+                            val ms = (target * duration).toLong()
+                            seekTarget = ms
+                            onSeek(ms)
+                        },
+                    )
+                    .semantics {
+                        contentDescription = positionLabel
+                        stateDescription = "${formatPosition(shownPositionMs)} / ${formatPosition(duration)}"
+                        progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
+                        setProgress { target ->
+                            val ms = (target.coerceIn(0f, 1f) * duration).toLong()
+                            seekTarget = ms
+                            onSeek(ms)
+                            true
+                        }
+                    },
             )
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -173,6 +218,7 @@ private fun NowPlayingContent(
                     ControlButton(R.drawable.ic_bluetooth, R.string.player_output, onOutput, active = state.outputSuppressed)
                 }
             }
+            if (dragProgress != null) PositionIndicator(shownPositionMs, duration)
             if (volumeVisible) VolumeIndicator(volume)
         }
     }
@@ -196,9 +242,10 @@ private fun ProgressRing(progress: Float, modifier: Modifier = Modifier) {
 }
 
 private const val FOCUS_RETRY_MS = 150L
+private const val SEEK_SETTLE_MS = 1_500L
+private const val SEEK_HOLD_MAX_MS = 2_000L
+private val SEEK_BAND_WIDTH = 32.dp
 private val RING_STROKE = 5.dp
-private const val RING_START_ANGLE = 295f
-private const val RING_SWEEP = 310f
 
 /** Lautstärkebalken in der Mitte, solange an der Krone gedreht wird. */
 @Composable
@@ -230,6 +277,19 @@ private fun VolumeIndicator(volume: Float, modifier: Modifier = Modifier) {
                     .background(MaterialTheme.colorScheme.primary),
             )
         }
+    }
+}
+
+/** Zeit beim Ziehen am Ring: „1:23 / 3:45“. */
+@Composable
+private fun PositionIndicator(positionMs: Long, durationMs: Long, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text("${formatPosition(positionMs)} / ${formatPosition(durationMs)}", style = MaterialTheme.typography.titleMedium)
     }
 }
 
@@ -269,6 +329,7 @@ private fun NowPlayingPreview() {
             onShuffle = {},
             onOutput = {},
             onCrown = {},
+            onSeek = {},
         )
     }
 }
