@@ -47,6 +47,7 @@
     <string name="storage_limit">Grenze: %s</string>
     <string name="storage_loading">Lädt …</string>
     <string name="storage_idle">Alles geladen</string>
+    <string name="storage_waiting_charger">Wartet auf das Ladegerät</string>
     <plurals name="storage_pending">
         <item quantity="one">Noch %d Titel</item>
         <item quantity="other">Noch %d Titel</item>

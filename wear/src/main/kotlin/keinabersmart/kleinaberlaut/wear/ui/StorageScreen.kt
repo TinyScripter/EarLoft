@@ -76,14 +76,20 @@ private fun StorageContent(
                 line(transformationSpec) { stringResource(R.string.storage_limit, Formatter.formatFileSize(context, limit)) }
             }
             val progress = overview.currentProgress
-            line(transformationSpec) {
-                when {
-                    overview.pendingSongs > 0 && progress != null ->
-                        stringResource(R.string.storage_loading) + " " + (progress * 100).toInt() + " %"
-                    overview.pendingSongs > 0 ->
-                        pluralStringResource(R.plurals.storage_pending, overview.pendingSongs, overview.pendingSongs)
-                    else -> stringResource(R.string.storage_idle)
+            // „Alles geladen“ nur, wenn auch nichts fehlgeschlagen ist; sonst steht darunter die Fehlerzeile.
+            if (overview.pendingSongs > 0 || overview.failedSongs == 0) {
+                line(transformationSpec) {
+                    when {
+                        overview.pendingSongs > 0 && progress != null ->
+                            stringResource(R.string.storage_loading) + " " + (progress * 100).toInt() + " %"
+                        overview.pendingSongs > 0 ->
+                            pluralStringResource(R.plurals.storage_pending, overview.pendingSongs, overview.pendingSongs)
+                        else -> stringResource(R.string.storage_idle)
+                    }
                 }
+            }
+            if (state.waitingForCharger) {
+                line(transformationSpec) { stringResource(R.string.storage_waiting_charger) }
             }
             if (state.phoneBacklogBytes > 0) {
                 line(transformationSpec) {
