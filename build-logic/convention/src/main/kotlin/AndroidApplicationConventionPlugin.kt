@@ -1,4 +1,6 @@
 import com.android.build.api.dsl.ApplicationExtension
+import com.android.build.api.variant.ApplicationAndroidComponentsExtension
+import com.android.build.api.variant.HasUnitTestBuilder
 import keinabersmart.kleinaberlaut.buildlogic.BuildConfig
 import keinabersmart.kleinaberlaut.buildlogic.libs
 import keinabersmart.kleinaberlaut.buildlogic.library
@@ -12,6 +14,13 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             pluginManager.apply("com.android.application")
+
+            extensions.configure<ApplicationAndroidComponentsExtension> {
+                beforeVariants { variantBuilder ->
+                    (variantBuilder as? HasUnitTestBuilder)?.enableUnitTest = true
+                }
+            }
+
 
             extensions.configure<ApplicationExtension> {
                 compileSdk = BuildConfig.COMPILE_SDK
@@ -44,6 +53,10 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                     }
                     buildTypes.getByName("release").signingConfig = signingConfigs.getByName("release")
                 }
+            }
+
+            tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
+                compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(BuildConfig.JAVA_VERSION.toString()))
             }
 
             dependencies {

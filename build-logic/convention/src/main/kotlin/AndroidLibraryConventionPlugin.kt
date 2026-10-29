@@ -28,6 +28,10 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                 }
             }
 
+            tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
+                compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(BuildConfig.JAVA_VERSION.toString()))
+            }
+
             dependencies {
                 "testImplementation"(libs.library("junit"))
             }
