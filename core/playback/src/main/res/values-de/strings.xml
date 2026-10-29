@@ -5,4 +5,7 @@
     <string name="favorites">Favoriten</string>
     <string name="recently_played">Zuletzt gehört</string>
     <string name="library">Bibliothek</string>
+    <string name="song_unavailable">Song nicht verfügbar: Server nicht erreichbar und nicht heruntergeladen</string>
+    <string name="favorite_add">Zu Favoriten hinzufügen</string>
+    <string name="favorite_remove">Aus Favoriten entfernen</string>
 </resources>

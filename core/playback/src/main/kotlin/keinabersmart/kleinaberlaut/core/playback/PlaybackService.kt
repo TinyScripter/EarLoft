@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.core.playback
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -22,6 +23,8 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CacheBitmapLoader
+import androidx.media3.session.CommandButton
+import androidx.media3.session.SessionCommand
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import dagger.hilt.android.AndroidEntryPoint
@@ -37,6 +40,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -91,6 +95,7 @@ class PlaybackService : MediaLibraryService() {
             DefaultDataSource.Factory(this, streamFactory),
             sourceResolver,
             SourceHealth(),
+            getString(R.string.song_unavailable),
             replayGain::onSourceResolved,
         )
         val renderersFactory = object : DefaultRenderersFactory(this) {
@@ -151,7 +156,34 @@ class PlaybackService : MediaLibraryService() {
             .apply { sessionActivity()?.let { setSessionActivity(it) } }
             .build()
 
+        session?.let { bindFavoriteButton(player, it) }
         restoreQueue(player)
+    }
+
+    /** Herz neben den Wiedergabetasten (Android Auto, Benachrichtigung); zeigt den Favoriten-Zustand des aktuellen Songs. */
+    private fun bindFavoriteButton(player: Player, session: MediaLibrarySession) {
+        var favoriteJob: Job? = null
+        fun update() {
+            favoriteJob?.cancel()
+            val songId = player.currentMediaItem?.songId
+            if (songId == null) {
+                session.setCustomLayout(emptyList())
+                return
+            }
+            favoriteJob = mainScope.launch {
+                favoritesRepository.isFavorite(songId).collect { favorite ->
+                    val button = CommandButton.Builder(if (favorite) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED)
+                        .setDisplayName(getString(if (favorite) R.string.favorite_remove else R.string.favorite_add))
+                        .setSessionCommand(SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
+                        .build()
+                    session.setCustomLayout(listOf(button))
+                }
+            }
+        }
+        player.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = update()
+        })
+        update()
     }
 
     /**

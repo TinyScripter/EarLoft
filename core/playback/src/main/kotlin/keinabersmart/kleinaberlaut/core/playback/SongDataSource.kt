@@ -31,6 +31,8 @@ internal class SongDataSource(
     /** Siehe [PlaybackSourceResolver.candidates]. */
     private val candidatesOf: suspend (songId: Long) -> List<ResolvedPlayback>,
     private val health: SourceHealth,
+    /** Text der Fehlermeldung, wenn keine Quelle erreichbar ist; Android Auto zeigt ihn dem Fahrer. */
+    private val unavailableMessage: String = "No playable source",
     /** ReplayGain der gewählten Quelle; wird vor dem Abspielen der Samples gemeldet. */
     private val onResolved: (songId: Long, replayGain: ReplayGain?) -> Unit,
 ) : DataSource {
@@ -40,7 +42,7 @@ internal class SongDataSource(
     override fun open(dataSpec: DataSpec): Long {
         val songId = AppUris.parseSongId(dataSpec.uri.toString()) ?: return upstream.open(dataSpec)
         val candidates = health.reachableFirst(runBlocking { candidatesOf(songId) })
-        if (candidates.isEmpty()) throw IOException("Keine abspielbare Quelle für Song $songId")
+        if (candidates.isEmpty()) throw IOException(unavailableMessage)
 
         val tries = if (dataSpec.position == 0L) {
             candidates
@@ -63,7 +65,7 @@ internal class SongDataSource(
                 lastError = e
             }
         }
-        throw lastError ?: IOException("Keine abspielbare Quelle für Song $songId")
+        throw lastError ?: IOException(unavailableMessage)
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int = upstream.read(buffer, offset, length)
@@ -78,10 +80,11 @@ internal class SongDataSource(
         private val upstream: DataSource.Factory,
         private val sourceResolver: PlaybackSourceResolver,
         private val health: SourceHealth,
+        private val unavailableMessage: String,
         private val onResolved: (songId: Long, replayGain: ReplayGain?) -> Unit,
     ) : DataSource.Factory {
         override fun createDataSource(): DataSource =
-            SongDataSource(upstream.createDataSource(), sourceResolver::candidates, health, onResolved)
+            SongDataSource(upstream.createDataSource(), sourceResolver::candidates, health, unavailableMessage, onResolved)
     }
 
     private companion object {

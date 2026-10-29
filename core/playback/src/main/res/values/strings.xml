@@ -6,4 +6,7 @@
     <string name="favorites">Favorites</string>
     <string name="recently_played">Recently played</string>
     <string name="library">Library</string>
+    <string name="song_unavailable">Song unavailable: server not reachable and not downloaded</string>
+    <string name="favorite_add">Add to favorites</string>
+    <string name="favorite_remove">Remove from favorites</string>
 </resources>

@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.core.playback
 
 import android.content.Context
+import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -12,6 +13,9 @@ import androidx.media3.session.MediaLibraryService.LibraryParams
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionError
+import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.ListenableFuture
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
@@ -21,6 +25,9 @@ import keinabersmart.kleinaberlaut.core.model.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
+
+/** Benutzerdefinierte Aktion „Favorit umschalten“ (Herz in Android Auto, Benachrichtigung, Uhr). */
+internal const val ACTION_TOGGLE_FAVORITE = "keinabersmart.kleinaberlaut.TOGGLE_FAVORITE"
 
 /**
  * Browse-Tree und Auflösung von Media-Items für alle Controller (App, System, Uhr, Android Auto).
@@ -91,6 +98,50 @@ internal class LibrarySessionCallback(
         LibraryResult.ofItemList(paged, params)
     }
 
+    override fun onSearch(
+        session: MediaLibrarySession,
+        browser: MediaSession.ControllerInfo,
+        query: String,
+        params: LibraryParams?,
+    ): ListenableFuture<LibraryResult<Void>> = scope.future {
+        val results = libraryRepository.search(query)
+        session.notifySearchResultChanged(browser, query, results.albums.size + results.artists.size + results.songs.size, params)
+        LibraryResult.ofVoid()
+    }
+
+    override fun onGetSearchResult(
+        session: MediaLibrarySession,
+        browser: MediaSession.ControllerInfo,
+        query: String,
+        page: Int,
+        pageSize: Int,
+        params: LibraryParams?,
+    ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future {
+        val results = libraryRepository.search(query)
+        val items = results.albums.map { it.toBrowsableMediaItem(context) } +
+            results.artists.map { it.toBrowsableMediaItem() } +
+            results.songs.map { it.toBrowsableSongItem(context, MediaIds.search(query)) }
+        LibraryResult.ofItemList(items.drop(page * pageSize).take(pageSize), params)
+    }
+
+    override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
+        val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
+            .add(SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
+            .build()
+        return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailableSessionCommands(commands).build()
+    }
+
+    override fun onCustomCommand(
+        session: MediaSession,
+        controller: MediaSession.ControllerInfo,
+        customCommand: SessionCommand,
+        args: Bundle,
+    ): ListenableFuture<SessionResult> = scope.future {
+        if (customCommand.customAction != ACTION_TOGGLE_FAVORITE) return@future SessionResult(SessionError.ERROR_NOT_SUPPORTED)
+        session.player.currentMediaItem?.songId?.let { favoritesRepository.toggleFavorite(it) }
+        SessionResult(SessionResult.RESULT_SUCCESS)
+    }
+
     override fun onGetItem(
         session: MediaLibrarySession,
         browser: MediaSession.ControllerInfo,
@@ -151,6 +202,7 @@ internal class LibrarySessionCallback(
     /** Die Songs eines Ordners (Album, Playlist, Favoriten); `null`, wenn [folderId] keine Songliste ist. */
     private suspend fun songsOf(folderId: String): List<Song>? = when {
         folderId == MediaIds.FAVORITES -> favoritesRepository.favorites().first()
+        MediaIds.searchQuery(folderId) != null -> libraryRepository.search(MediaIds.searchQuery(folderId)!!).songs
         MediaIds.albumId(folderId) != null -> libraryRepository.album(MediaIds.albumId(folderId)!!).first()?.songs.orEmpty()
         MediaIds.playlistId(folderId) != null ->
             playlistRepository.playlist(MediaIds.playlistId(folderId)!!).first()?.entries.orEmpty().map { it.song }
@@ -163,11 +215,37 @@ internal class LibrarySessionCallback(
      */
     private suspend fun expandContext(mediaItems: List<MediaItem>, startIndex: Int): Pair<List<MediaItem>, Int> {
         val item = mediaItems.singleOrNull() ?: return mediaItems to startIndex
+        val voiceQuery = item.requestMetadata.searchQuery
+        if (item.mediaId.isEmpty() && voiceQuery != null) {
+            return voiceSongs(voiceQuery).map { it.toMediaItem() } to 0
+        }
         val folderId = MediaIds.contextOf(item.mediaId) ?: return mediaItems to startIndex
         val songs = songsOf(folderId) ?: return mediaItems to startIndex
         val index = songs.indexOfFirst { it.id == item.songId }
         if (index < 0) return mediaItems to startIndex
         return songs.map { it.toMediaItem() } to index
+    }
+
+    /**
+     * Was auf „Spiele …“ hin läuft: ohne Suchbegriff gemischte Favoriten (sonst die Bibliothek); mit Begriff ein Song
+     * mit genau diesem Titel, sonst der erste passende Künstler oder das erste passende Album, sonst die Treffer.
+     */
+    private suspend fun voiceSongs(query: String): List<Song> {
+        if (query.isBlank()) {
+            val favorites = favoritesRepository.favorites().first()
+            return favorites.ifEmpty { libraryRepository.songs().first() }.shuffled().take(VOICE_QUEUE_SIZE)
+        }
+        val results = libraryRepository.search(query)
+        val exact = results.songs.filter { it.title.equals(query, ignoreCase = true) }
+        if (exact.isNotEmpty()) return exact
+        results.artists.firstOrNull()?.let { artist ->
+            val albums = libraryRepository.artist(artist.id).first()?.albums.orEmpty()
+            return albums.flatMap { libraryRepository.album(it.id).first()?.songs.orEmpty() }
+        }
+        results.albums.firstOrNull()?.let { album ->
+            return libraryRepository.album(album.id).first()?.songs.orEmpty()
+        }
+        return results.songs
     }
 
     private fun maxQueueSize(player: Player): Int = playerFactory?.maxQueueSize(player) ?: Int.MAX_VALUE
@@ -194,5 +272,6 @@ internal class LibrarySessionCallback(
 
     private companion object {
         const val RECENT_ALBUMS = 50
+        const val VOICE_QUEUE_SIZE = 100
     }
 }

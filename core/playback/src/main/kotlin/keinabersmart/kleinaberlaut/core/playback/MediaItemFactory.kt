@@ -30,12 +30,17 @@ internal object MediaIds {
     private const val ALBUM_PREFIX = "album:"
     private const val ARTIST_PREFIX = "artist:"
     private const val PLAYLIST_PREFIX = "playlist:"
+    private const val SEARCH_PREFIX = "search:"
     private const val CONTEXT_SEPARATOR = '/'
 
     fun song(songId: Long) = "$SONG_PREFIX$songId"
     fun album(albumId: Long) = "$ALBUM_PREFIX$albumId"
     fun artist(artistId: Long) = "$ARTIST_PREFIX$artistId"
     fun playlist(playlistId: Long) = "$PLAYLIST_PREFIX$playlistId"
+
+    /** Ordner der Suchtreffer zu [query]. */
+    fun search(query: String) = "$SEARCH_PREFIX$query"
+    fun searchQuery(mediaId: String): String? = mediaId.removePrefix(SEARCH_PREFIX).takeIf { mediaId.startsWith(SEARCH_PREFIX) }
 
     /** Song [songId] als Eintrag des Ordners [contextId]. */
     fun inContext(contextId: String, songId: Long) = "$contextId$CONTEXT_SEPARATOR${song(songId)}"

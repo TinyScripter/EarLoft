@@ -42,6 +42,16 @@ class MediaIdsTest {
     }
 
     @Test
+    fun `search folder survives a slash in the query`() {
+        val folder = MediaIds.search("AC/DC")
+        val id = MediaIds.inContext(folder, 7)
+        assertEquals("AC/DC", MediaIds.searchQuery(folder))
+        assertEquals(folder, MediaIds.contextOf(id))
+        assertEquals(7L, MediaIds.songId(id))
+        assertNull(MediaIds.searchQuery(MediaIds.album(1)))
+    }
+
+    @Test
     fun `malformed ids are rejected`() {
         assertNull(MediaIds.songId("song:"))
         assertNull(MediaIds.songId("song:abc"))
