@@ -56,13 +56,22 @@ class NavigatorTest {
     }
 
     @Test
-    fun `tab keeps its back stack when switching away and back`() {
+    fun `tab shows its root again when switching away and back`() {
         navigator.navigate(LibraryRoute)
         navigator.navigate(AlbumDetail)
         navigator.navigate(SearchRoute)
         navigator.navigate(LibraryRoute)
 
-        assertEquals(listOf(LibraryRoute, AlbumDetail), state.backStacks.getValue(LibraryRoute).toList())
+        assertEquals(listOf(LibraryRoute), state.backStacks.getValue(LibraryRoute).toList())
+    }
+
+    @Test
+    fun `tapping the selected tab returns to its root`() {
+        navigator.navigate(LibraryRoute)
+        navigator.navigate(AlbumDetail)
+        navigator.navigate(LibraryRoute)
+
+        assertEquals(listOf(LibraryRoute), state.backStacks.getValue(LibraryRoute).toList())
     }
 
     @Test

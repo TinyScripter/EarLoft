@@ -26,6 +26,7 @@
     <string name="action_play_next">Als Nächstes spielen</string>
     <string name="action_add_to_queue">Zur Warteschlange hinzufügen</string>
     <string name="action_remove_from_queue">Aus der Warteschlange entfernen</string>
+    <string name="action_reorder_queue_item">Zum Umsortieren ziehen</string>
     <string name="action_clear_search">Suche löschen</string>
 
     <!-- Bibliothek -->

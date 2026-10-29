@@ -85,6 +85,7 @@ class PlayerViewModel @Inject constructor(
     fun cycleRepeatMode() = playbackConnection.cycleRepeatMode()
     fun skipToQueueItem(index: Int) = playbackConnection.skipToQueueItem(index)
     fun removeQueueItem(index: Int) = playbackConnection.removeQueueItem(index)
+    fun moveQueueItem(from: Int, to: Int) = playbackConnection.moveQueueItem(from, to)
 
     fun toggleFavorite() {
         val songId = state.value.current?.songId ?: return

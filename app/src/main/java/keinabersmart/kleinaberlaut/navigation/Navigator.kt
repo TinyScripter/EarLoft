@@ -10,6 +10,9 @@ class Navigator(private val state: NavigationState) {
 
     fun navigate(route: NavKey) {
         if (route in state.backStacks.keys) {
+            // Ein Tipp auf einen Tab zeigt immer dessen Startseite, auch wenn dort zuvor tiefer navigiert wurde.
+            val stack = state.backStacks.getValue(route)
+            while (stack.size > 1) stack.removeLastOrNull()
             state.topLevelRoute = route
         } else {
             currentStack().add(route)
