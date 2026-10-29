@@ -260,11 +260,21 @@ internal class LibrarySessionCallback(
         }
     }
 
+    /**
+     * [isForPlayback] `false`: Die System-Oberfläche will nur Metadaten für die Fortsetzen-Benachrichtigung (z. B. nach
+     * dem Neustart des Geräts); dann genügt der aktuelle Titel, und am Player ändert sich nichts.
+     */
     override fun onPlaybackResumption(
         mediaSession: MediaSession,
         controller: MediaSession.ControllerInfo,
+        isForPlayback: Boolean,
     ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
         val restored = queuePersistence.restore() ?: throw UnsupportedOperationException("Keine gespeicherte Warteschlange")
+        if (!isForPlayback) {
+            val current = restored.items.getOrNull(restored.startIndex)
+                ?: throw UnsupportedOperationException("Keine gespeicherte Warteschlange")
+            return@future MediaItemsWithStartPosition(listOf(current), 0, restored.startPositionMs)
+        }
         mediaSession.player.shuffleModeEnabled = restored.shuffle
         mediaSession.player.repeatMode = restored.repeatMode
         MediaItemsWithStartPosition(restored.items, restored.startIndex, restored.startPositionMs)
