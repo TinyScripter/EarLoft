@@ -62,6 +62,11 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         if (serverFailures.contains(sourceUid)) serverFailures.edit().remove(sourceUid).apply()
     }
 
+    /** Für „Erneut versuchen“: Sonst ginge jeder Song sofort ans Handy, ohne dass der Server noch einmal gefragt wird. */
+    fun clearAllServerFailures() {
+        serverFailures.edit().clear().apply()
+    }
+
     fun setMissingForStorage(count: Int) {
         prefs.edit().putInt(KEY_MISSING, count).apply()
         _missingForStorage.value = count

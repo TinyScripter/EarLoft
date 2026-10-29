@@ -1,8 +1,12 @@
 package keinabersmart.kleinaberlaut.wear
 
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
@@ -25,14 +29,29 @@ import kotlinx.serialization.Serializable
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestLocalNetworkAccess()
         setContent {
             WearApp()
         }
+    }
+
+    private val localNetworkRequest = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
+    private fun requestLocalNetworkAccess() {
+        if (Build.VERSION.SDK_INT < 37) return
+        if (ContextCompat.checkSelfPermission(this, LOCAL_NETWORK_PERMISSION) == PackageManager.PERMISSION_GRANTED) return
+        localNetworkRequest.launch(LOCAL_NETWORK_PERMISSION)
     }
 }
 
 @Serializable
 data object StartRoute : NavKey
+
+/**
+ * Die Uhr lädt direkt vom Server im Heimnetz. Ab Android 17 geht das nur mit `ACCESS_LOCAL_NETWORK`; ohne sie laufen
+ * Verbindungen ins LAN in einen Timeout.
+ */
+private const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
 
 /** Eine Auswahl vom Handy; [playlistId] ist ihre Geräte-Playlist auf der Uhr (Wear-Konzept 7.2). */
 @Serializable

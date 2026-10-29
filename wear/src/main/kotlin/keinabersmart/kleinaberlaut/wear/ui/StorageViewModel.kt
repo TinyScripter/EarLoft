@@ -35,7 +35,7 @@ class StorageViewModel @Inject constructor(
     private val downloads: DownloadRepository,
     private val catalog: PhoneCatalog,
     private val wearDao: WearDao,
-    state: WatchState,
+    private val watchState: WatchState,
 ) : ViewModel() {
 
     private val _clearFailed = MutableStateFlow(false)
@@ -45,9 +45,9 @@ class StorageViewModel @Inject constructor(
 
     val state: StateFlow<StorageUiState> = combine(
         downloads.overview(),
-        state.settings,
-        state.missingForStorage,
-        state.lastError,
+        watchState.settings,
+        watchState.missingForStorage,
+        watchState.lastError,
     ) { overview, settings: WearSettingsDto, missing, error ->
         val backlog = if (overview.pendingSongs > 0) phoneBacklog(settings.quality) else 0
         StorageUiState(overview, settings.storageLimitBytes, missing, error, backlog)
@@ -66,6 +66,7 @@ class StorageViewModel @Inject constructor(
     }
 
     fun retryFailed() {
+        watchState.clearAllServerFailures()
         viewModelScope.launch { downloads.retryFailed() }
     }
 }
