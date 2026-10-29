@@ -93,7 +93,8 @@ class WearDownloadWorker(
                         downloadDao.getSongSource(uid)?.sourceId?.let { sourceId ->
                             state.recordServerFailures(downloadDao.queuedUidsOfSource(sourceId).filter { it != uid })
                         }
-                        Log.w(TAG, "Download $uid unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS})", outcome.cause)
+                        // Der Text steht ausdrücklich im Log: Log.w mit Throwable gibt bei UnknownHostException keinen Stacktrace aus.
+                        Log.w(TAG, "Download $uid unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
                         if (failures < WatchState.SERVER_ATTEMPTS) {
                             downloadDao.requeue(uid)
                             return Result.retry()
