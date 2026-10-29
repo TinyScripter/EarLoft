@@ -120,16 +120,7 @@ private fun QueueContent(
                     headlineContent = { Text(entry.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     supportingContent = { Text(entry.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     leadingContent = {
-                        AlbumArt(albumId = entry.albumId, modifier = Modifier.size(48.dp), shape = MaterialTheme.shapes.small)
-                    },
-                    trailingContent = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { onRemove(rows.indexOf(row)) }) {
-                                Icon(
-                                    painterResource(DesignR.drawable.ic_close),
-                                    contentDescription = stringResource(R.string.action_remove_from_queue),
-                                )
-                            }
                             Icon(
                                 painterResource(DesignR.drawable.ic_drag_handle),
                                 contentDescription = stringResource(R.string.action_reorder_queue_item),
@@ -161,6 +152,19 @@ private fun QueueContent(
                                             }
                                         }
                                     },
+                            )
+                            AlbumArt(
+                                albumId = entry.albumId,
+                                modifier = Modifier.padding(start = 4.dp).size(48.dp),
+                                shape = MaterialTheme.shapes.small,
+                            )
+                        }
+                    },
+                    trailingContent = {
+                        IconButton(onClick = { onRemove(rows.indexOf(row)) }) {
+                            Icon(
+                                painterResource(DesignR.drawable.ic_close),
+                                contentDescription = stringResource(R.string.action_remove_from_queue),
                             )
                         }
                     },
