@@ -16,6 +16,21 @@ class Navigator(private val state: NavigationState) {
         }
     }
 
+    /**
+     * Zeigt die Wiedergabe-Ansicht, egal wo die App gerade steht (z. B. nach dem Tipp auf die Benachrichtigung).
+     * Liegt sie schon im Stack des aktuellen Tabs, kommt sie nach vorn (die Warteschlange darüber wird geschlossen),
+     * statt ein zweites Mal daraufzulegen.
+     */
+    fun showNowPlaying() {
+        val stack = currentStack()
+        val index = stack.lastIndexOf(NowPlayingRoute)
+        if (index < 0) {
+            stack.add(NowPlayingRoute)
+        } else {
+            while (stack.size > index + 1) stack.removeLastOrNull()
+        }
+    }
+
     fun goBack() {
         val stack = currentStack()
         if (stack.last() == state.topLevelRoute) {

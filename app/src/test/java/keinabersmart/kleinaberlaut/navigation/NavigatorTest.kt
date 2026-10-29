@@ -79,6 +79,46 @@ class NavigatorTest {
     }
 
     @Test
+    fun `showNowPlaying opens the player on top of the current tab`() {
+        navigator.navigate(LibraryRoute)
+        navigator.navigate(AlbumDetail)
+
+        navigator.showNowPlaying()
+
+        assertEquals(listOf(LibraryRoute, AlbumDetail, NowPlayingRoute), state.backStacks.getValue(LibraryRoute).toList())
+        assertEquals(NowPlayingRoute, navigator.currentRoute)
+    }
+
+    @Test
+    fun `showNowPlaying does not stack the player twice`() {
+        navigator.showNowPlaying()
+        navigator.showNowPlaying()
+
+        assertEquals(listOf(HomeRoute, NowPlayingRoute), state.backStacks.getValue(HomeRoute).toList())
+    }
+
+    @Test
+    fun `showNowPlaying closes the queue above the player`() {
+        navigator.navigate(NowPlayingRoute)
+        navigator.navigate(QueueRoute)
+
+        navigator.showNowPlaying()
+
+        assertEquals(listOf(HomeRoute, NowPlayingRoute), state.backStacks.getValue(HomeRoute).toList())
+        assertEquals(NowPlayingRoute, navigator.currentRoute)
+    }
+
+    @Test
+    fun `back from the player returns to where the user was`() {
+        navigator.navigate(LibraryRoute)
+        navigator.showNowPlaying()
+
+        navigator.goBack()
+
+        assertEquals(LibraryRoute, navigator.currentRoute)
+    }
+
+    @Test
     fun `the same album opened twice gets distinct routes`() {
         assertNotEquals(AlbumRoute(albumId = 5), AlbumRoute(albumId = 5))
     }

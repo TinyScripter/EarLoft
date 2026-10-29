@@ -17,6 +17,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -72,6 +73,8 @@ import keinabersmart.kleinaberlaut.ui.settings.WatchSettingsScreen
 
 @Composable
 fun KleinaberlautApp(
+    openNowPlaying: Boolean = false,
+    onNowPlayingOpened: () -> Unit = {},
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
     val navigationState = rememberNavigationState(
@@ -79,6 +82,12 @@ fun KleinaberlautApp(
         topLevelRoutes = TOP_LEVEL_ROUTES,
     )
     val navigator = remember(navigationState) { Navigator(navigationState) }
+    LaunchedEffect(openNowPlaying) {
+        if (openNowPlaying) {
+            navigator.showNowPlaying()
+            onNowPlayingOpened()
+        }
+    }
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
 
     val openAlbum: (Long) -> Unit = { navigator.navigate(AlbumRoute(it)) }

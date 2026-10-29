@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -9,12 +10,15 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
+import keinabersmart.kleinaberlaut.core.playback.EXTRA_OPEN_NOW_PLAYING
 import keinabersmart.kleinaberlaut.ui.KleinaberlautApp
 import keinabersmart.kleinaberlaut.ui.permission.AudioPermissionGate
 import keinabersmart.kleinaberlaut.ui.theme.ThemeMode
@@ -31,6 +35,14 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var librarySettings: LibrarySettings
 
+    /** Der Tipp auf die Benachrichtigung der laufenden Musik soll immer die Wiedergabe-Ansicht zeigen. */
+    private var openNowPlaying by mutableStateOf(false)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)) openNowPlaying = true
+    }
+
     override fun onStart() {
         super.onStart()
         libraryRefresher.refreshQuick()
@@ -39,6 +51,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Nur beim frischen Start: Nach einer Neuerstellung (Drehung, Prozess) steht der Intent noch an der Activity.
+        if (savedInstanceState == null) openNowPlaying = intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)
         setContent {
             val themeMode by themeSettings.mode.collectAsStateWithLifecycle(initialValue = null)
             val useLocalMedia by librarySettings.useLocalMedia.collectAsStateWithLifecycle(initialValue = null)
@@ -66,7 +80,7 @@ class MainActivity : ComponentActivity() {
                     onGranted = libraryRefresher::refreshNow,
                     onSkip = { lifecycleScope.launch { librarySettings.setUseLocalMedia(false) } },
                 ) {
-                    KleinaberlautApp()
+                    KleinaberlautApp(openNowPlaying = openNowPlaying, onNowPlayingOpened = { openNowPlaying = false })
                 }
             }
         }
