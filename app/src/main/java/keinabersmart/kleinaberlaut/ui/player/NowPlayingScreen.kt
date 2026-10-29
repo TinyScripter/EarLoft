@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -203,7 +204,7 @@ private fun NowPlayingContent(
             )
         }
         Spacer(Modifier.height(16.dp))
-        SeekBar(durationMs = state.durationMs, positionMs = positionMs, onSeek = onSeek)
+        SeekBar(durationMs = state.durationMs, positionMs = positionMs, isPlaying = state.isPlaying, onSeek = onSeek)
         Spacer(Modifier.height(8.dp))
         Row(
             Modifier.fillMaxWidth(),
@@ -253,8 +254,12 @@ private fun NowPlayingContent(
     }
 }
 
+// Der Standard-Daumen des Sliders ist 4 dp breit; der Wellen-Track hält so viel Abstand zum Rand.
+private val SeekThumbHalfWidth = 2.dp
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SeekBar(durationMs: Long, positionMs: Long, onSeek: (Long) -> Unit) {
+private fun SeekBar(durationMs: Long, positionMs: Long, isPlaying: Boolean, onSeek: (Long) -> Unit) {
     // Während des Ziehens die Fingerposition zeigen, nicht die (verzögerte) Player-Position.
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     val fraction = dragFraction ?: if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
@@ -269,6 +274,14 @@ private fun SeekBar(durationMs: Long, positionMs: Long, onSeek: (Long) -> Unit) 
                 dragFraction = null
             },
             enabled = durationMs > 0,
+            track = {
+                WavyProgressBar(
+                    progress = { fraction },
+                    active = isPlaying,
+                    emphasized = dragFraction != null,
+                    inset = SeekThumbHalfWidth,
+                )
+            },
             modifier = Modifier.semantics { contentDescription = seekLabel },
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

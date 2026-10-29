@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -47,10 +46,12 @@ fun MiniPlayer(
             .clickable(onClick = onClick),
     ) {
         Column {
-            LinearProgressIndicator(
+            WavyProgressBar(
                 progress = { if (state.durationMs > 0) (position.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f },
-                modifier = Modifier.fillMaxWidth(),
-                drawStopIndicator = {},
+                active = state.isPlaying,
+                strokeWidth = 3.dp,
+                wavelength = 24.dp,
+                maxAmplitude = 2.dp,
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
