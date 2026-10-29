@@ -4,24 +4,33 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
@@ -34,6 +43,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -50,7 +60,7 @@ import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import keinabersmart.kleinaberlaut.core.playback.QueueEntry
 import keinabersmart.kleinaberlaut.wear.R
-import kotlin.math.sign
+import kotlinx.coroutines.delay
 
 /**
  * Wiedergabe (Wear-Konzept 11): Cover, Titel, Steuerung und Fortschrittsring; die Krone ändert die Lautstärke.
@@ -61,17 +71,21 @@ fun NowPlayingScreen(viewModel: PlayerViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val positionMs by viewModel.positionMs.collectAsStateWithLifecycle()
     val cover by viewModel.cover.collectAsStateWithLifecycle()
+    val volume by viewModel.volume.collectAsStateWithLifecycle()
+    val volumeVisible by viewModel.volumeVisible.collectAsStateWithLifecycle()
     val context = LocalContext.current
     NowPlayingContent(
         state = state,
         positionMs = positionMs,
         cover = cover,
+        volume = volume,
+        volumeVisible = volumeVisible,
         onPrevious = viewModel::previous,
         onPlayPause = viewModel::togglePlayPause,
         onNext = viewModel::next,
         onShuffle = viewModel::toggleShuffle,
         onOutput = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
-        onVolume = viewModel::changeVolume,
+        onCrown = viewModel::onCrown,
     )
 }
 
@@ -80,25 +94,35 @@ private fun NowPlayingContent(
     state: PlayerState,
     positionMs: Long,
     cover: android.graphics.Bitmap?,
+    volume: Float,
+    volumeVisible: Boolean,
     onPrevious: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onShuffle: () -> Unit,
     onOutput: () -> Unit,
-    onVolume: (Int) -> Unit,
+    onCrown: (Float) -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    var hasFocus by remember { mutableStateOf(false) }
+    // Beim Bildschirmwechsel verliert das Feld den Fokus gleich wieder (die Liste davor wird abgebaut); ohne Fokus
+    // kommt die Krone nie an. Deshalb nach jedem Verlust erneut anfordern.
+    LaunchedEffect(hasFocus) {
+        if (!hasFocus) {
+            delay(FOCUS_RETRY_MS)
+            focusRequester.requestFocus()
+        }
+    }
     ScreenScaffold {
         Box(
             Modifier
                 .fillMaxSize()
                 .onRotaryScrollEvent {
-                    // Ein Schritt je Rastung; die Richtung gibt die Drehung vor.
-                    onVolume(it.verticalScrollPixels.sign.toInt())
+                    onCrown(it.verticalScrollPixels)
                     true
                 }
                 .focusRequester(focusRequester)
+                .onFocusChanged { hasFocus = it.isFocused }
                 .focusable(),
             contentAlignment = Alignment.Center,
         ) {
@@ -149,6 +173,7 @@ private fun NowPlayingContent(
                     ControlButton(R.drawable.ic_bluetooth, R.string.player_output, onOutput, active = state.outputSuppressed)
                 }
             }
+            if (volumeVisible) VolumeIndicator(volume)
         }
     }
 }
@@ -170,9 +195,46 @@ private fun ProgressRing(progress: Float, modifier: Modifier = Modifier) {
     }
 }
 
+private const val FOCUS_RETRY_MS = 150L
 private val RING_STROKE = 5.dp
 private const val RING_START_ANGLE = 295f
 private const val RING_SWEEP = 310f
+
+/** Lautstärkebalken in der Mitte, solange an der Krone gedreht wird. */
+@Composable
+private fun VolumeIndicator(volume: Float, modifier: Modifier = Modifier) {
+    val percent = (volume * 100).toInt()
+    val label = stringResource(R.string.player_volume)
+    val value = stringResource(R.string.player_volume_percent, percent)
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "$label $value" },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(value, style = MaterialTheme.typography.titleMedium)
+        Box(
+            Modifier
+                .padding(top = 6.dp)
+                .width(VOLUME_BAR_WIDTH)
+                .height(VOLUME_BAR_HEIGHT)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.background),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(volume.coerceIn(0f, 1f))
+                    .background(MaterialTheme.colorScheme.primary),
+            )
+        }
+    }
+}
+
+private val VOLUME_BAR_WIDTH = 110.dp
+private val VOLUME_BAR_HEIGHT = 8.dp
 
 @Composable
 private fun ControlButton(iconRes: Int, descriptionRes: Int, onClick: () -> Unit, active: Boolean = false, toggle: Boolean = false) {
@@ -199,12 +261,14 @@ private fun NowPlayingPreview() {
             ),
             positionMs = 80_000,
             cover = null,
+            volume = 0.4f,
+            volumeVisible = true,
             onPrevious = {},
             onPlayPause = {},
             onNext = {},
             onShuffle = {},
             onOutput = {},
-            onVolume = {},
+            onCrown = {},
         )
     }
 }

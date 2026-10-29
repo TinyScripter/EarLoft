@@ -11,6 +11,7 @@ import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
@@ -64,8 +66,32 @@ class PlayerViewModel @Inject constructor(
 
     fun toggleShuffle() = playback.toggleShuffle()
 
-    /** [steps] > 0 lauter, < 0 leiser; die Krone liefert [steps] aus der Drehung. */
-    fun changeVolume(steps: Int) {
+    private val _volumeVisible = MutableStateFlow(false)
+
+    /** Der Lautstärkebalken steht kurz nach jeder Drehung der Krone. */
+    val volumeVisible: StateFlow<Boolean> = _volumeVisible
+
+    private var hideVolumeJob: Job? = null
+    private val crown = CrownStepper(CROWN_PX_PER_STEP)
+
+    /** Dreht jemand an der Krone, ändert sich die Lautstärke schrittweise, und der Balken wird kurz sichtbar. */
+    fun onCrown(pixels: Float) {
+        val steps = crown.add(pixels)
+        if (steps != 0) changeVolume(steps)
+        showVolume()
+    }
+
+    private fun showVolume() {
+        _volumeVisible.value = true
+        hideVolumeJob?.cancel()
+        hideVolumeJob = viewModelScope.launch {
+            delay(VOLUME_VISIBLE_MS)
+            _volumeVisible.value = false
+        }
+    }
+
+    /** [steps] > 0 lauter, < 0 leiser. */
+    private fun changeVolume(steps: Int) {
         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         val target = (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) + steps).coerceIn(0, max)
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
@@ -79,6 +105,9 @@ class PlayerViewModel @Inject constructor(
 
     private companion object {
         const val POSITION_INTERVAL_MS = 500L
+        /** Knapp unter einer langsamen Rastung (rund 34 px), damit jede Rastung genau einen Schritt gibt. */
+        const val CROWN_PX_PER_STEP = 30f
+        const val VOLUME_VISIBLE_MS = 1_500L
         const val COVER_SIZE_PX = 400
     }
 }
