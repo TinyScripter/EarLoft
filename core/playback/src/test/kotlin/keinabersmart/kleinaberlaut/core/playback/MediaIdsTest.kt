@@ -21,6 +21,27 @@ class MediaIdsTest {
     }
 
     @Test
+    fun `song in a folder keeps its folder and its song id`() {
+        val id = MediaIds.inContext(MediaIds.album(3), 42)
+        assertEquals(42L, MediaIds.songId(id))
+        assertEquals(MediaIds.album(3), MediaIds.contextOf(id))
+        assertEquals(MediaIds.FAVORITES, MediaIds.contextOf(MediaIds.inContext(MediaIds.FAVORITES, 1)))
+    }
+
+    @Test
+    fun `plain ids have no folder`() {
+        assertNull(MediaIds.contextOf(MediaIds.song(42)))
+        assertNull(MediaIds.contextOf(MediaIds.album(7)))
+    }
+
+    @Test
+    fun `artist and playlist ids round trip`() {
+        assertEquals(5L, MediaIds.artistId(MediaIds.artist(5)))
+        assertEquals(9L, MediaIds.playlistId(MediaIds.playlist(9)))
+        assertNull(MediaIds.artistId(MediaIds.playlist(9)))
+    }
+
+    @Test
     fun `malformed ids are rejected`() {
         assertNull(MediaIds.songId("song:"))
         assertNull(MediaIds.songId("song:abc"))

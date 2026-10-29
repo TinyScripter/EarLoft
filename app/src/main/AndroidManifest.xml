@@ -34,6 +34,11 @@
             </intent-filter>
         </activity>
 
+        <!-- Android Auto: Medien-App; Browse-Tree und Wiedergabe kommen vom PlaybackService. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
         <!-- Chromecast mit dem Default Media Receiver; initialisiert in KleinaberlautApplication. -->
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"

@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application>
-        <!-- Exportiert, damit Systemsteuerung, Uhr und später Android Auto sich verbinden können. -->
+        <!-- Exportiert, damit Systemsteuerung, Uhr und Android Auto sich verbinden können. -->
         <service
             android:name=".PlaybackService"
             android:exported="true"
@@ -16,6 +16,12 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+
+        <!-- Cover für die Browse-Listen von Android Auto (nur lesbar, siehe CoverProvider). -->
+        <provider
+            android:name=".CoverProvider"
+            android:authorities="${applicationId}.covers"
+            android:exported="true" />
 
         <!-- Medientasten (Kopfhörer, Widget) und Fortsetzen der Wiedergabe ohne laufende App. -->
         <receiver

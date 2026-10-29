@@ -1,4 +1,9 @@
 <resources>
     <string name="app_library" translatable="false">kleinaberlaut</string>
     <string name="albums">Albums</string>
+    <string name="artists">Artists</string>
+    <string name="playlists">Playlists</string>
+    <string name="favorites">Favorites</string>
+    <string name="recently_played">Recently played</string>
+    <string name="library">Library</string>
 </resources>

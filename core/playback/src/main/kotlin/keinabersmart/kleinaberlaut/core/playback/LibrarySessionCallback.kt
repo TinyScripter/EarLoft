@@ -14,13 +14,20 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.ListenableFuture
+import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
+import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
+import keinabersmart.kleinaberlaut.core.model.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
 
 /**
- * Browse-Tree und Auflösung von Media-Items für alle Controller (App, System, Uhr, später Auto).
+ * Browse-Tree und Auflösung von Media-Items für alle Controller (App, System, Uhr, Android Auto).
+ *
+ * Die Wurzel hat höchstens vier Einträge, weil Android Auto sie als Tabs zeigt: Zuletzt gehört, Bibliothek,
+ * Playlists, Favoriten. Songs in Listen tragen ihren Ordner in der Media-ID ([MediaIds.inContext]); wird einer
+ * davon allein gesetzt (Antippen in Auto), lädt [onSetMediaItems] die ganze Liste als Warteschlange.
  *
  * Controller schicken Items ohne abspielbare URI über Prozessgrenzen; [onAddMediaItems] und
  * [onSetMediaItems] bauen sie deshalb anhand der Media-ID neu aus der Datenbank. Songs, die der
@@ -31,6 +38,8 @@ import kotlinx.coroutines.guava.future
 internal class LibrarySessionCallback(
     private val context: Context,
     private val libraryRepository: LibraryRepository,
+    private val playlistRepository: PlaylistRepository,
+    private val favoritesRepository: FavoritesRepository,
     private val queuePersistence: QueuePersistence,
     private val playerFactory: SessionPlayerFactory?,
     private val scope: CoroutineScope,
@@ -57,12 +66,26 @@ internal class LibrarySessionCallback(
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future {
         val children = when {
             parentId == MediaIds.ROOT -> listOf(
-                folderMediaItem(MediaIds.ALBUMS, context.getString(R.string.albums), MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS),
+                folderMediaItem(MediaIds.RECENT, context.getString(R.string.recently_played), MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS),
+                folderMediaItem(MediaIds.LIBRARY, context.getString(R.string.library), MediaMetadata.MEDIA_TYPE_FOLDER_MIXED),
+                folderMediaItem(MediaIds.PLAYLISTS, context.getString(R.string.playlists), MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS),
+                folderMediaItem(MediaIds.FAVORITES, context.getString(R.string.favorites), MediaMetadata.MEDIA_TYPE_PLAYLIST),
             )
-            parentId == MediaIds.ALBUMS -> libraryRepository.albums().first().map { it.toBrowsableMediaItem() }
-            MediaIds.albumId(parentId) != null ->
-                libraryRepository.album(MediaIds.albumId(parentId)!!).first()?.songs.orEmpty().map { it.toMediaItem() }
-            else -> return@future LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE)
+            parentId == MediaIds.RECENT ->
+                libraryRepository.recentlyPlayedAlbums(RECENT_ALBUMS).first()
+                    .ifEmpty { libraryRepository.recentlyAddedAlbums(RECENT_ALBUMS).first() }
+                    .map { it.toBrowsableMediaItem(context) }
+            parentId == MediaIds.LIBRARY -> listOf(
+                folderMediaItem(MediaIds.ALBUMS, context.getString(R.string.albums), MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS),
+                folderMediaItem(MediaIds.ARTISTS, context.getString(R.string.artists), MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS),
+            )
+            parentId == MediaIds.ALBUMS -> libraryRepository.albums().first().map { it.toBrowsableMediaItem(context) }
+            parentId == MediaIds.ARTISTS -> libraryRepository.artists().first().map { it.toBrowsableMediaItem() }
+            parentId == MediaIds.PLAYLISTS -> playlistRepository.playlists().first().map { it.toBrowsableMediaItem() }
+            MediaIds.artistId(parentId) != null ->
+                libraryRepository.artist(MediaIds.artistId(parentId)!!).first()?.albums.orEmpty().map { it.toBrowsableMediaItem(context) }
+            else -> songsOf(parentId)?.map { it.toBrowsableSongItem(context, parentId) }
+                ?: return@future LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE)
         }
         val paged = children.drop(page * pageSize).take(pageSize)
         LibraryResult.ofItemList(paged, params)
@@ -103,16 +126,17 @@ internal class LibrarySessionCallback(
         startPositionMs: Long,
     ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
         val player = mediaSession.player
-        val resolved = resolve(player, mediaItems)
-        if (resolved.isEmpty() && mediaItems.isNotEmpty()) {
+        val (requested, requestedStart) = expandContext(mediaItems, startIndex)
+        val resolved = resolve(player, requested)
+        if (resolved.isEmpty() && requested.isNotEmpty()) {
             // Nichts abspielbar: Warteschlange behalten statt sie zu leeren.
             throw UnsupportedOperationException("Keiner der Titel ist abspielbar")
         }
         val items = resolved.map { it.second }
-        val newIndex = resolved.indexOfFirst { it.first >= startIndex }.takeIf { startIndex != C.INDEX_UNSET }
+        val newIndex = resolved.indexOfFirst { it.first >= requestedStart }.takeIf { requestedStart != C.INDEX_UNSET }
         val position = when {
             newIndex == null -> startPositionMs
-            newIndex >= 0 && resolved[newIndex].first == startIndex -> startPositionMs
+            newIndex >= 0 && resolved[newIndex].first == requestedStart -> startPositionMs
             else -> 0
         }
         val maxSize = maxQueueSize(player)
@@ -122,6 +146,28 @@ internal class LibrarySessionCallback(
         val window = queueWindow(items, newIndex?.coerceAtLeast(0) ?: 0, maxSize, player.shuffleModeEnabled)
         playerFactory?.onQueueLimited(window.items.size, items.size)
         MediaItemsWithStartPosition(window.items, window.startIndex, position)
+    }
+
+    /** Die Songs eines Ordners (Album, Playlist, Favoriten); `null`, wenn [folderId] keine Songliste ist. */
+    private suspend fun songsOf(folderId: String): List<Song>? = when {
+        folderId == MediaIds.FAVORITES -> favoritesRepository.favorites().first()
+        MediaIds.albumId(folderId) != null -> libraryRepository.album(MediaIds.albumId(folderId)!!).first()?.songs.orEmpty()
+        MediaIds.playlistId(folderId) != null ->
+            playlistRepository.playlist(MediaIds.playlistId(folderId)!!).first()?.entries.orEmpty().map { it.song }
+        else -> null
+    }
+
+    /**
+     * Ein einzelner Song aus einer Liste (Android Auto schickt nur die Media-ID) wird zur ganzen Liste mit diesem
+     * Song als Start. Alles andere bleibt unverändert.
+     */
+    private suspend fun expandContext(mediaItems: List<MediaItem>, startIndex: Int): Pair<List<MediaItem>, Int> {
+        val item = mediaItems.singleOrNull() ?: return mediaItems to startIndex
+        val folderId = MediaIds.contextOf(item.mediaId) ?: return mediaItems to startIndex
+        val songs = songsOf(folderId) ?: return mediaItems to startIndex
+        val index = songs.indexOfFirst { it.id == item.songId }
+        if (index < 0) return mediaItems to startIndex
+        return songs.map { it.toMediaItem() } to index
     }
 
     private fun maxQueueSize(player: Player): Int = playerFactory?.maxQueueSize(player) ?: Int.MAX_VALUE
@@ -144,5 +190,9 @@ internal class LibrarySessionCallback(
         mediaSession.player.shuffleModeEnabled = restored.shuffle
         mediaSession.player.repeatMode = restored.repeatMode
         MediaItemsWithStartPosition(restored.items, restored.startIndex, restored.startPositionMs)
+    }
+
+    private companion object {
+        const val RECENT_ALBUMS = 50
     }
 }

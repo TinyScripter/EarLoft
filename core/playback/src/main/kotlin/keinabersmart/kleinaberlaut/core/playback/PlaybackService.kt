@@ -26,10 +26,12 @@ import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import dagger.hilt.android.AndroidEntryPoint
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
+import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackSourceResolver
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackStateRepository
+import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.SupervisorJob
@@ -54,6 +56,8 @@ class PlaybackService : MediaLibraryService() {
 
     @Inject lateinit var sourceResolver: PlaybackSourceResolver
     @Inject lateinit var libraryRepository: LibraryRepository
+    @Inject lateinit var playlistRepository: PlaylistRepository
+    @Inject lateinit var favoritesRepository: FavoritesRepository
     @Inject lateinit var artworkRepository: ArtworkRepository
     @Inject lateinit var playbackStateRepository: PlaybackStateRepository
     @Inject lateinit var queuePersistence: QueuePersistence
@@ -141,7 +145,7 @@ class PlaybackService : MediaLibraryService() {
         session = MediaLibrarySession.Builder(
             this,
             player,
-            LibrarySessionCallback(this, libraryRepository, queuePersistence, factory, mainScope),
+            LibrarySessionCallback(this, libraryRepository, playlistRepository, favoritesRepository, queuePersistence, factory, mainScope),
         )
             .setBitmapLoader(CacheBitmapLoader(ArtworkBitmapLoader(this, artworkRepository, mainScope)))
             .apply { sessionActivity()?.let { setSessionActivity(it) } }
