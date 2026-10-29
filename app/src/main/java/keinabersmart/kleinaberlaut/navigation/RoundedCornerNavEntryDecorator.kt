@@ -5,8 +5,10 @@ import android.view.RoundedCorner
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -36,7 +38,8 @@ fun rememberRoundedCornerNavEntryDecorator(): NavEntryDecorator<NavKey> {
                 transitionSpec = { tween(100) },
                 label = "screenCornerRadius",
             ) { state -> if (state == EnterExitState.Visible) 0.dp else deviceRadius }
-            Box(Modifier.clip(RoundedCornerShape(radius))) {
+            // Deckender Hintergrund, sonst scheint bei der Zurück-Geste der Screen dahinter durch.
+            Box(Modifier.clip(RoundedCornerShape(radius)).background(MaterialTheme.colorScheme.background)) {
                 entry.Content()
             }
         }
