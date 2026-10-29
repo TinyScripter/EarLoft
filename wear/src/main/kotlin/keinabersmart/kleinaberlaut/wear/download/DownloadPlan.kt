@@ -36,6 +36,14 @@ fun downloadBudget(settings: WearSettingsDto, freeBytes: Long, doneBytes: Long, 
 }
 
 /**
+ * Ob beim Start des Auftrags wenigstens ein wartender Download noch unter [budgetBytes] passt. Zwischen Planung und
+ * Start kann der Speicher geschrumpft sein (andere Apps, Cover, Systemdaten); dann lohnt sich kein Start mit
+ * Vordergrund-Benachrichtigung und WLAN-Anforderung. Ohne wartende Downloads gibt es nichts zu prüfen.
+ */
+fun hasRoomForAny(pendingEstimates: List<Long>, budgetBytes: Long): Boolean =
+    pendingEstimates.isEmpty() || pendingEstimates.min() <= budgetBytes
+
+/**
  * Geschätzte Größe der Datei. Opus: Dauer × 128 kbit/s + 3 % Container; Original: die Größe der Quelle,
  * sonst aus der Bitrate (Standard 320 kbit/s).
  */

@@ -53,6 +53,14 @@ class DownloadPlanTest {
     }
 
     @Test
+    fun `start check needs room for at least the smallest pending download`() {
+        assertEquals(true, hasRoomForAny(emptyList(), budgetBytes = 0))
+        assertEquals(true, hasRoomForAny(listOf(5_000, 800), budgetBytes = 1_000))
+        assertEquals(false, hasRoomForAny(listOf(5_000, 1_200), budgetBytes = 1_000))
+        assertEquals(false, hasRoomForAny(listOf(1), budgetBytes = -10))
+    }
+
+    @Test
     fun `opus estimate is duration times 128 kbit plus overhead`() {
         val candidate = WearCandidateRow("nd:1", 1, SourceType.SUBSONIC, 0, bitRate = 900, sizeBytes = 30_000_000, durationMs = 200_000)
 

@@ -17,6 +17,7 @@ import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.repository.CoverFiles
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
+import keinabersmart.kleinaberlaut.core.database.dao.WearDao
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
 import keinabersmart.kleinaberlaut.core.download.DownloadOutcome
 import keinabersmart.kleinaberlaut.core.download.DownloadProfile
@@ -24,6 +25,8 @@ import keinabersmart.kleinaberlaut.core.download.DownloadStorage
 import keinabersmart.kleinaberlaut.core.download.Downloader
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
 import keinabersmart.kleinaberlaut.wear.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -39,6 +42,7 @@ class WearDownloadWorker(
 
     private val entryPoint = EntryPointAccessors.fromApplication(context, WearDownloadEntryPoint::class.java)
     private val downloadDao = entryPoint.downloadDao()
+    private val wearDao = entryPoint.wearDao()
     private val downloader = entryPoint.downloader()
     private val storage = entryPoint.storage()
     private val state = entryPoint.state()
@@ -50,6 +54,7 @@ class WearDownloadWorker(
         downloadDao.requeueRunning()
         val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
         if (downloadDao.countPending() == 0 && !coversMissing) return finish()
+        if (!hasRoomToStart()) return finish()
         startForeground()
 
         // Songs, die nur das Handy hat, brauchen kein WLAN.
@@ -113,6 +118,22 @@ class WearDownloadWorker(
         }
         cacheCovers()
         return finish()
+    }
+
+    /**
+     * Prüft vor dem Start den freien Speicher (Planung und Start liegen zeitlich auseinander). Passt nicht einmal der
+     * kleinste wartende Titel unter die Grenze, bleibt alles eingereiht und der Auftrag endet ohne Fehlversuch: Der Planer
+     * reiht nach dem nächsten Abgleich oder bei geänderten Einstellungen neu ein.
+     */
+    private suspend fun hasRoomToStart(): Boolean {
+        val settings = state.settings.value
+        val pending = wearDao.getPendingCandidates()
+        val free = withContext(Dispatchers.IO) { storage.freeBytes() }
+        val budget = downloadBudget(settings, free, wearDao.getDoneBytes(), reservedBytes = 0)
+        if (hasRoomForAny(pending.map { estimateBytes(it, settings.quality) }, budget)) return true
+        Log.i(TAG, "Speicher voll: kein wartender Titel passt (Budget $budget Bytes), kein Start")
+        state.setMissingForStorage(pending.size)
+        return false
     }
 
     /** Lädt alle wartenden Songs, die nur das Handy hat. @return `false`, wenn das Handy fehlt und es später erneut versucht werden soll. */
@@ -227,6 +248,7 @@ class WearDownloadWorker(
     @InstallIn(SingletonComponent::class)
     internal interface WearDownloadEntryPoint {
         fun downloadDao(): DownloadDao
+        fun wearDao(): WearDao
         fun downloader(): Downloader
         fun storage(): DownloadStorage
         fun wifi(): WifiNetwork
