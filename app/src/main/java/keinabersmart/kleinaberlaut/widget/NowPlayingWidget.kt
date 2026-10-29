@@ -53,6 +53,7 @@ import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.MainActivity
 import keinabersmart.kleinaberlaut.R
 import com.materialkolor.dynamicColorScheme
+import keinabersmart.kleinaberlaut.core.playback.EXTRA_OPEN_NOW_PLAYING
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
@@ -93,7 +94,7 @@ private fun NowPlayingContent(state: WidgetState) {
             .fillMaxSize()
             .cornerRadius(16.dp)
             .background(GlanceTheme.colors.widgetBackground)
-            .clickable(actionStartActivity<MainActivity>())
+            .clickable(openAppAction(showNowPlaying = nowPlaying != null))
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -173,6 +174,18 @@ private fun playerCommand(command: String): Action =
     actionRunCallback<WidgetPlayerAction>(actionParametersOf(WidgetPlayerAction.CommandKey to command))
 
 @OptIn(UnstableApi::class)
+/**
+ * Tipp auf das Widget: Ist ein Titel geladen, zeigt die App die Wiedergabe-Ansicht (wie beim Tipp auf die Benachrichtigung),
+ * sonst die Startseite – „Nichts wird gespielt“ wäre eine leere Ansicht.
+ */
+private fun openAppAction(showNowPlaying: Boolean): Action {
+    if (!showNowPlaying) return actionStartActivity<MainActivity>()
+    // Glance legt die Parameter unter ihrem Namen als Extras in den Intent; MainActivity ist `singleTop` und bekommt ihn per onNewIntent.
+    return actionStartActivity<MainActivity>(actionParametersOf(OPEN_NOW_PLAYING_KEY to true))
+}
+
+private val OPEN_NOW_PLAYING_KEY = ActionParameters.Key<Boolean>(EXTRA_OPEN_NOW_PLAYING)
+
 private fun playIntent(context: Context): Intent =
     Intent(Intent.ACTION_MEDIA_BUTTON)
         .setComponent(ComponentName(context, MediaButtonReceiver::class.java))
