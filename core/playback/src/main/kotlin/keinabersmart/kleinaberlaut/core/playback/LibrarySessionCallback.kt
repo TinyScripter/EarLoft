@@ -128,7 +128,7 @@ internal class LibrarySessionCallback(
         val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
             .add(SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
             .build()
-        return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailableSessionCommands(commands).build()
+        return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller).setAvailableSessionCommands(commands).build()
     }
 
     override fun onCustomCommand(
