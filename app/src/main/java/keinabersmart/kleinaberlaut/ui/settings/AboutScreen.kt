@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.ui.settings
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,14 +24,20 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 
-/** Platzhalter-Infoseite über die App. */
+/** Infoseite über die App mit Links zum Projekt und zum Issue-Tracker. */
 @Composable
 fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -76,13 +83,37 @@ private fun AboutContent(versionName: String?, onBack: () -> Unit, modifier: Mod
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
             )
-            Text(
-                stringResource(R.string.about_placeholder),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
+            LinkBlock(R.string.about_more_info, R.string.about_repository_url)
+            LinkBlock(R.string.about_feedback, R.string.about_issues_url)
         }
+    }
+}
+
+/** Erklärtext mit darunter stehendem, anklickbarem Link. */
+@Composable
+private fun LinkBlock(@StringRes labelRes: Int, @StringRes urlRes: Int) {
+    val url = stringResource(urlRes)
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            stringResource(labelRes),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = buildAnnotatedString {
+                withLink(
+                    LinkAnnotation.Url(
+                        url,
+                        TextLinkStyles(
+                            SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline),
+                        ),
+                    ),
+                ) { append(url) }
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
