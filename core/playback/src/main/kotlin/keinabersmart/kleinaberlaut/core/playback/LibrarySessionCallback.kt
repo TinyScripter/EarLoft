@@ -273,7 +273,12 @@ internal class LibrarySessionCallback(
         if (!isForPlayback) {
             val current = restored.items.getOrNull(restored.startIndex)
                 ?: throw UnsupportedOperationException("Keine gespeicherte Warteschlange")
-            return@future MediaItemsWithStartPosition(listOf(current), 0, restored.startPositionMs)
+            // Die System-Oberfläche lädt das Cover selbst und kennt kal://cover nicht (siehe CoverProvider).
+            val coverUri = current.mediaMetadata.albumIdExtra?.let { CoverProvider.albumCoverUri(context, it) }
+            val withCover = current.buildUpon()
+                .setMediaMetadata(current.mediaMetadata.buildUpon().setArtworkUri(coverUri).build())
+                .build()
+            return@future MediaItemsWithStartPosition(listOf(withCover), 0, restored.startPositionMs)
         }
         mediaSession.player.shuffleModeEnabled = restored.shuffle
         mediaSession.player.repeatMode = restored.repeatMode
