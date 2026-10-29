@@ -35,14 +35,19 @@ import androidx.glance.background
 import androidx.glance.color.ColorProviders
 import androidx.glance.material3.ColorProviders as material3ColorProviders
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
+import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Row
+import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
+import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
+import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaButtonReceiver
@@ -57,7 +62,7 @@ import keinabersmart.kleinaberlaut.core.playback.EXTRA_OPEN_NOW_PLAYING
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
-/** Widget 4×1: Cover links; rechts Titel, Künstler und darunter die Steuerung. Farben aus dem Cover. */
+/** Widget 4 × 1: Cover links vollflächig & ungeschnitten; rechts Titel, Künstler und Steuerung zentriert. */
 class NowPlayingWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -95,57 +100,86 @@ private fun NowPlayingContent(state: WidgetState) {
             .cornerRadius(16.dp)
             .background(GlanceTheme.colors.widgetBackground)
             .clickable(openAppAction(showNowPlaying = nowPlaying != null))
-            .padding(4.dp),
+            .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // 1. Cover: Passt sich der vollen Höhe an und bleibt unverzerrt/ungeschnitten
         Image(
             provider = state.cover?.let { ImageProvider(it) } ?: ImageProvider(DesignR.drawable.ic_music_note),
             contentDescription = null,
+            contentScale = ContentScale.Fit,
             colorFilter = if (state.cover == null) ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant) else null,
             modifier = GlanceModifier
-                .size(COVER_SIZE)
-                .cornerRadius(10.dp),
+                .fillMaxHeight()
+                .cornerRadius(12.dp),
         )
+
+        // 2. Rechter Bereich: Zentrierter Text & Steuerung
         Column(
             modifier = GlanceModifier
                 .defaultWeight()
                 .fillMaxHeight()
-                .padding(start = 12.dp),
+                .padding(start = 12.dp, end = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Track-Titel
             Text(
                 text = nowPlaying?.title ?: context.getString(R.string.player_nothing_playing),
                 maxLines = 1,
-                style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                style = TextStyle(
+                    color = GlanceTheme.colors.onSurface,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                ),
             )
+
+            // Untertitel (Artist)
             if (nowPlaying != null) {
                 Text(
                     text = nowPlaying.artist,
                     maxLines = 1,
-                    style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp),
+                    style = TextStyle(
+                        color = GlanceTheme.colors.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    ),
+                    modifier = GlanceModifier.padding(top = 2.dp)
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+
+            Spacer(modifier = GlanceModifier.defaultWeight())
+
+            // 3. Wiedergabe-Steuerung
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 if (nowPlaying != null) {
                     ControlButton(
                         icon = DesignR.drawable.ic_skip_previous,
                         label = context.getString(R.string.action_previous),
                         action = playerCommand(WidgetPlayerAction.PREVIOUS),
+                        isPrimary = false
                     )
+                    Spacer(modifier = GlanceModifier.width(12.dp))
                 }
+
                 ControlButton(
                     icon = if (isPlaying) DesignR.drawable.ic_pause else DesignR.drawable.ic_play,
                     label = context.getString(if (isPlaying) R.string.action_pause else R.string.action_play),
-                    // „Play“ geht über den MediaButtonReceiver, damit die Wiedergabe auch ohne laufenden
-                    // Service fortgesetzt wird. Alles andere ignoriert dieser ab API 26 – dafür gibt es
-                    // die Verbindung zum laufenden Service.
                     action = if (isPlaying) playerCommand(WidgetPlayerAction.PAUSE) else actionSendBroadcast(playIntent(context)),
+                    isPrimary = true
                 )
+
                 if (nowPlaying != null) {
+                    Spacer(modifier = GlanceModifier.width(12.dp))
                     ControlButton(
                         icon = DesignR.drawable.ic_skip_next,
                         label = context.getString(R.string.action_next),
                         action = playerCommand(WidgetPlayerAction.NEXT),
+                        isPrimary = false
                     )
                 }
             }
@@ -153,43 +187,62 @@ private fun NowPlayingContent(state: WidgetState) {
     }
 }
 
-private val COVER_SIZE = 50.dp
-
 @Composable
-private fun ControlButton(icon: Int, label: String, action: Action) {
-    Image(
-        provider = ImageProvider(icon),
-        contentDescription = label,
-        colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurface),
-        // Flache, aber breite Trefferfläche: In einer Zellenhöhe ist kein Platz für 48 dp Höhe.
-        modifier = GlanceModifier
-            .size(width = 48.dp, height = 20.dp)
-            .cornerRadius(10.dp)
-            .clickable(action)
-            .padding(horizontal = 16.dp, vertical = 2.dp),
-    )
+private fun ControlButton(
+    icon: Int,
+    label: String,
+    action: Action,
+    isPrimary: Boolean = false
+) {
+    if (isPrimary) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = GlanceModifier
+                .size(36.dp)
+                .cornerRadius(18.dp)
+                .background(GlanceTheme.colors.primary)
+                .clickable(action)
+        ) {
+            Image(
+                provider = ImageProvider(icon),
+                contentDescription = label,
+                colorFilter = ColorFilter.tint(GlanceTheme.colors.onPrimary),
+                modifier = GlanceModifier.size(20.dp)
+            )
+        }
+    } else {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = GlanceModifier
+                .size(32.dp)
+                .cornerRadius(16.dp)
+                .clickable(action)
+        ) {
+            Image(
+                provider = ImageProvider(icon),
+                contentDescription = label,
+                colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurface),
+                modifier = GlanceModifier.size(20.dp)
+            )
+        }
+    }
 }
 
 private fun playerCommand(command: String): Action =
     actionRunCallback<WidgetPlayerAction>(actionParametersOf(WidgetPlayerAction.CommandKey to command))
 
 @OptIn(UnstableApi::class)
-/**
- * Tipp auf das Widget: Ist ein Titel geladen, zeigt die App die Wiedergabe-Ansicht (wie beim Tipp auf die Benachrichtigung),
- * sonst die Startseite – „Nichts wird gespielt“ wäre eine leere Ansicht.
- */
 private fun openAppAction(showNowPlaying: Boolean): Action {
     if (!showNowPlaying) return actionStartActivity<MainActivity>()
-    // Glance legt die Parameter unter ihrem Namen als Extras in den Intent; MainActivity ist `singleTop` und bekommt ihn per onNewIntent.
     return actionStartActivity<MainActivity>(actionParametersOf(OPEN_NOW_PLAYING_KEY to true))
 }
 
 private val OPEN_NOW_PLAYING_KEY = ActionParameters.Key<Boolean>(EXTRA_OPEN_NOW_PLAYING)
 
+@OptIn(UnstableApi::class)
 private fun playIntent(context: Context): Intent =
     Intent(Intent.ACTION_MEDIA_BUTTON)
         .setComponent(ComponentName(context, MediaButtonReceiver::class.java))
-        // Eigene Data-URI, damit sich der PendingIntent von anderen Medientasten-Intents unterscheidet.
         .setData("kal://widget/media_button/${KeyEvent.KEYCODE_MEDIA_PLAY}".toUri())
         .putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY))
 
