@@ -130,7 +130,8 @@ class SleepTimer internal constructor(
         /** Dauern, die beide Apps zur Auswahl anbieten. */
         val PRESET_MINUTES = listOf(15, 30, 45, 60)
 
-        /** Obergrenze für die eigene Dauer. */
-        const val MAX_MINUTES = 480
+        /** Schrittweite und Obergrenze für die eigene Dauer. */
+        const val STEP_MINUTES = 5
+        const val MAX_MINUTES = 240
     }
 }

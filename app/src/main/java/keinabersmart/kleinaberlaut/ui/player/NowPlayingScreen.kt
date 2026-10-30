@@ -122,9 +122,7 @@ private fun NowPlayingContent(
     var sleepSheetVisible by remember { mutableStateOf(false) }
     if (sleepSheetVisible) {
         SleepTimerSheet(
-            remainingMs = sleepTimerRemainingMs,
             onStart = onStartSleepTimer,
-            onCancel = onCancelSleepTimer,
             onDismiss = { sleepSheetVisible = false },
         )
     }
@@ -174,15 +172,17 @@ private fun NowPlayingContent(
                     onClick = onToggleLyrics,
                 )
             }
-            ToggleIconButton(
-                icon = DesignR.drawable.ic_bedtime,
-                active = sleepTimerRemainingMs != null,
-                label = stringResource(R.string.sleep_timer_title),
-                onClick = { sleepSheetVisible = true },
-            )
             IconButton(onClick = onOpenQueue) {
                 Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = stringResource(R.string.player_open_queue))
             }
+            // Läuft ein Timer, schaltet ein Tipp ihn aus; sonst öffnet er die Auswahl.
+            val sleepActive = sleepTimerRemainingMs != null
+            ToggleIconButton(
+                icon = DesignR.drawable.ic_bedtime,
+                active = sleepActive,
+                label = stringResource(if (sleepActive) R.string.sleep_timer_off else R.string.sleep_timer_title),
+                onClick = { if (sleepActive) onCancelSleepTimer() else sleepSheetVisible = true },
+            )
         }
 
         val current = state.current

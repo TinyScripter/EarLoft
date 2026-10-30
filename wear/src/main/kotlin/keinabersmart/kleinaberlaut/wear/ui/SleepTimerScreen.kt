@@ -1,10 +1,22 @@
 package keinabersmart.kleinaberlaut.wear.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.focusable
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -14,14 +26,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
-import androidx.wear.compose.material3.Stepper
+import androidx.wear.compose.material3.IconButton
+import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
@@ -36,12 +48,11 @@ internal fun minutesLeft(remainingMs: Long): Int = ((remainingMs + MS_PER_MINUTE
 private const val MS_PER_MINUTE = 60_000L
 
 /**
- * Sleep-Timer wählen: feste Dauern, „Eigene Dauer“ und – bei laufendem Timer – „Timer ausschalten“.
+ * Sleep-Timer wählen: feste Dauern und „Eigene Dauer“. Beenden geschieht über den Knopf in der Wiedergabe.
  * [onDone] schließt den Bildschirm nach einer Auswahl.
  */
 @Composable
 fun SleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: PlayerViewModel = hiltViewModel()) {
-    val remainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(scrollState = columnState) { contentPadding ->
@@ -52,11 +63,6 @@ fun SleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: Player
             contentPadding = contentPadding,
         ) {
             line(transformationSpec, header = true) { stringResource(R.string.sleep_timer_title) }
-            remainingMs?.let { remaining ->
-                line(transformationSpec) {
-                    stringResource(R.string.sleep_timer_remaining, pluralStringResource(R.plurals.sleep_timer_minutes, minutesLeft(remaining), minutesLeft(remaining)))
-                }
-            }
             SleepTimer.PRESET_MINUTES.forEach { minutes ->
                 item {
                     Button(
@@ -79,38 +85,52 @@ fun SleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: Player
                     label = { Text(stringResource(R.string.sleep_timer_custom)) },
                 )
             }
-            if (remainingMs != null) {
-                item {
-                    Button(
-                        onClick = {
-                            viewModel.cancelSleepTimer()
-                            onDone()
-                        },
-                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                        transformation = SurfaceTransformation(transformationSpec),
-                        colors = ButtonDefaults.filledTonalButtonColors(),
-                        label = { Text(stringResource(R.string.sleep_timer_off)) },
-                    )
-                }
-            }
         }
     }
 }
 
-/** Eigene Dauer: die Krone (oder +/−) ändert die Minuten in Fünferschritten, „Starten“ übernimmt sie. */
+/** Eigene Dauer: die Krone (oder +/−) ändert die Minuten in Fünferschritten bis 240, „Starten“ übernimmt sie. */
 @Composable
 fun SleepTimerCustomScreen(onDone: () -> Unit, viewModel: PlayerViewModel = hiltViewModel()) {
     var minutes by remember { mutableIntStateOf(CUSTOM_DEFAULT_MINUTES) }
+    val crown = remember { CrownStepper(CROWN_PX_PER_STEP) }
+    val focusRequester = remember { FocusRequester() }
+    var hasFocus by remember { mutableStateOf(false) }
+    // Wie in der Wiedergabe-Ansicht: Ohne Fokus kommt die Krone nie an, und er geht beim Bildschirmwechsel gern verloren.
+    LaunchedEffect(hasFocus) {
+        if (!hasFocus) {
+            delay(FOCUS_RETRY_MS)
+            focusRequester.requestFocus()
+        }
+    }
+    fun change(steps: Int) {
+        minutes = (minutes + steps * SleepTimer.STEP_MINUTES).coerceIn(SleepTimer.STEP_MINUTES, SleepTimer.MAX_MINUTES)
+    }
     ScreenScaffold {
-        Stepper(
-            value = minutes,
-            onValueChange = { minutes = it },
-            valueProgression = CUSTOM_STEP_MINUTES..SleepTimer.MAX_MINUTES step CUSTOM_STEP_MINUTES,
-            increaseIcon = { Text("+") },
-            decreaseIcon = { Text("−") },
+        Box(
+            Modifier
+                .fillMaxSize()
+                .onRotaryScrollEvent {
+                    val steps = crown.add(it.verticalScrollPixels)
+                    if (steps != 0) change(steps)
+                    true
+                }
+                .focusRequester(focusRequester)
+                .onFocusChanged { hasFocus = it.isFocused }
+                .focusable(),
+            contentAlignment = Alignment.Center,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(pluralStringResource(R.plurals.sleep_timer_minutes, minutes, minutes), style = MaterialTheme.typography.titleMedium)
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IconButton(onClick = { change(-1) }, colors = IconButtonDefaults.filledTonalIconButtonColors()) { Text("−") }
+                    Text(
+                        pluralStringResource(R.plurals.sleep_timer_minutes, minutes, minutes),
+                        modifier = Modifier.width(MINUTES_WIDTH),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    IconButton(onClick = { change(1) }, colors = IconButtonDefaults.filledTonalIconButtonColors()) { Text("+") }
+                }
                 Button(
                     onClick = {
                         viewModel.startSleepTimer(minutes)
@@ -124,4 +144,8 @@ fun SleepTimerCustomScreen(onDone: () -> Unit, viewModel: PlayerViewModel = hilt
 }
 
 private const val CUSTOM_DEFAULT_MINUTES = 20
-private const val CUSTOM_STEP_MINUTES = 5
+private const val FOCUS_RETRY_MS = 150L
+private val MINUTES_WIDTH = 96.dp
+
+/** Wie bei der Lautstärke: knapp unter einer langsamen Rastung, damit jede Rastung genau einen Schritt (5 min) gibt. */
+private const val CROWN_PX_PER_STEP = 30f

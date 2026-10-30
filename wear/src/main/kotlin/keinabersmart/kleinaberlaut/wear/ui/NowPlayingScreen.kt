@@ -96,7 +96,8 @@ fun NowPlayingScreen(onOpenSleepTimer: () -> Unit = {}, viewModel: PlayerViewMod
             volume = volume,
             volumeVisible = volumeVisible,
             sleepTimerRemainingMs = sleepTimerRemainingMs,
-            onSleepTimer = onOpenSleepTimer,
+            // Läuft ein Timer, schaltet ein Tipp ihn aus; sonst öffnet er die Auswahl.
+            onSleepTimer = { if (sleepTimerRemainingMs != null) viewModel.cancelSleepTimer() else onOpenSleepTimer() },
             onPrevious = viewModel::previous,
             onPlayPause = viewModel::togglePlayPause,
             onNext = viewModel::next,
