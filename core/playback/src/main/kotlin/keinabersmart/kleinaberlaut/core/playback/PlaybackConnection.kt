@@ -25,6 +25,7 @@ data class QueueEntry(
     val title: String,
     val artist: String,
     val albumId: Long?,
+    val albumTitle: String = "",
 )
 
 data class PlayerState(
@@ -170,6 +171,7 @@ class PlaybackConnection @Inject constructor(
             title = mediaMetadata.title?.toString().orEmpty(),
             artist = mediaMetadata.artist?.toString().orEmpty(),
             albumId = mediaMetadata.albumIdExtra,
+            albumTitle = mediaMetadata.albumTitle?.toString().orEmpty(),
         )
     }
 }

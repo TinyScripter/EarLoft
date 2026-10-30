@@ -137,75 +137,83 @@ private fun NowPlayingContent(
             IconButton(onClick = onClose) {
                 Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = stringResource(R.string.player_close))
             }
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    stringResource(R.string.player_now_playing),
-                    style = MaterialTheme.typography.titleSmall,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (sleepTimerRemainingMs != null) {
-                    Text(
-                        stringResource(R.string.sleep_timer_remaining, formatDuration(sleepTimerRemainingMs)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+            Text(
+                stringResource(R.string.player_now_playing),
+                style = MaterialTheme.typography.titleSmall,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            // So groß wie der Schließen-Knopf: Der Titel bleibt mittig.
+            Spacer(Modifier.size(48.dp))
+        }
+
+        // Läuft ein Timer, schaltet ein Tipp auf den Mond ihn aus; sonst öffnet er die Auswahl.
+        val sleepActive = sleepTimerRemainingMs != null
+        val actionRow: @Composable () -> Unit = {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                castButton()
+                if (state.current != null) {
+                    ToggleIconButton(
+                        icon = if (isFavorite) DesignR.drawable.ic_favorite else DesignR.drawable.ic_favorite_border,
+                        active = isFavorite,
+                        label = stringResource(if (isFavorite) R.string.action_remove_favorite else R.string.action_add_favorite),
+                        onClick = onToggleFavorite,
+                    )
+                    ToggleIconButton(
+                        icon = DesignR.drawable.ic_lyrics,
+                        active = lyricsVisible,
+                        label = stringResource(if (lyricsVisible) R.string.player_hide_lyrics else R.string.player_show_lyrics),
+                        onClick = onToggleLyrics,
+                    )
+                }
+                IconButton(onClick = onOpenQueue) {
+                    Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = stringResource(R.string.player_open_queue))
+                }
+                if (state.current != null) {
+                    ToggleIconButton(
+                        icon = DesignR.drawable.ic_bedtime,
+                        active = sleepActive,
+                        label = stringResource(if (sleepActive) R.string.sleep_timer_off else R.string.sleep_timer_title),
+                        onClick = { if (sleepActive) onCancelSleepTimer() else sleepSheetVisible = true },
                     )
                 }
             }
-            castButton()
-            if (state.current != null) {
-                ToggleIconButton(
-                    icon = if (isFavorite) DesignR.drawable.ic_favorite else DesignR.drawable.ic_favorite_border,
-                    active = isFavorite,
-                    label = stringResource(if (isFavorite) R.string.action_remove_favorite else R.string.action_add_favorite),
-                    onClick = onToggleFavorite,
-                )
-            }
-            if (state.current != null) {
-                ToggleIconButton(
-                    icon = DesignR.drawable.ic_lyrics,
-                    active = lyricsVisible,
-                    label = stringResource(if (lyricsVisible) R.string.player_hide_lyrics else R.string.player_show_lyrics),
-                    onClick = onToggleLyrics,
-                )
-            }
-            IconButton(onClick = onOpenQueue) {
-                Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = stringResource(R.string.player_open_queue))
-            }
-            // Läuft ein Timer, schaltet ein Tipp ihn aus; sonst öffnet er die Auswahl.
-            val sleepActive = sleepTimerRemainingMs != null
-            ToggleIconButton(
-                icon = DesignR.drawable.ic_bedtime,
-                active = sleepActive,
-                label = stringResource(if (sleepActive) R.string.sleep_timer_off else R.string.sleep_timer_title),
-                onClick = { if (sleepActive) onCancelSleepTimer() else sleepSheetVisible = true },
-            )
         }
 
         val current = state.current
         if (current == null) {
+            actionRow()
             EmptyHint(stringResource(R.string.player_nothing_playing))
             return@Column
         }
 
-        Box(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentAlignment = Alignment.Center,
-        ) {
+        // Cover oben, die Knöpfe direkt darunter; der Rest des Platzes bleibt zwischen Knöpfen und Titel frei.
+        Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             if (lyricsVisible) {
-                LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
+                }
             } else {
                 AlbumArt(
                     albumId = current.albumId,
                     modifier = Modifier
+                        .weight(1f, fill = false)
                         .widthIn(max = 420.dp)
                         .fillMaxWidth(),
                     shape = MaterialTheme.shapes.extraLarge,
+                )
+            }
+            actionRow()
+            if (sleepTimerRemainingMs != null) {
+                // Eigene Zeile ohne Kürzung, damit die Restzeit auch bei langen Zeiten und großer Schrift ganz zu lesen ist.
+                Text(
+                    stringResource(R.string.sleep_timer_remaining, formatDuration(sleepTimerRemainingMs)),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -224,6 +232,15 @@ private fun NowPlayingContent(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (current.albumTitle.isNotEmpty()) {
+            Text(
+                current.albumTitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         if (castDeviceName != null) {
             Text(
                 stringResource(R.string.cast_playing_on, castDeviceName),
@@ -329,7 +346,7 @@ private fun NowPlayingContentPreview() {
     KleinaberlautTheme {
         NowPlayingContent(
             state = PlayerState(
-                current = QueueEntry(songId = 1, title = "Ein Lied", artist = "Eine Band", albumId = null),
+                current = QueueEntry(songId = 1, title = "Ein Lied", artist = "Eine Band", albumId = null, albumTitle = "Ein Album"),
                 isPlaying = true,
                 durationMs = 200_000,
                 shuffle = true,
