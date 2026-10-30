@@ -75,7 +75,7 @@
 
     <!-- Einschlaf-Timer -->
     <string name="sleep_timer_title">Einschlaf-Timer</string>
-    <string name="sleep_timer_remaining">Pausiert in %1$s</string>
+    <string name="sleep_timer_remaining">Pause: %1$s</string>
     <plurals name="sleep_timer_minutes">
         <item quantity="one">%1$d Minute</item>
         <item quantity="other">%1$d Minuten</item>

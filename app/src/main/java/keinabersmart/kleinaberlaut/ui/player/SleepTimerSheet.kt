@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.playback.SleepTimer
 
@@ -72,14 +73,15 @@ private fun CustomDuration(onStart: (minutes: Int) -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Slider(
                 value = minutes,
-                onValueChange = { minutes = it },
+                // Auf ganze Schritte einrasten: Der Regler liefert Zwischenwerte (39,99 statt 40), die abgeschnitten 39 ergäben.
+                onValueChange = { minutes = (it / step).roundToInt() * step.toFloat() },
                 valueRange = step.toFloat()..SleepTimer.MAX_MINUTES.toFloat(),
                 steps = SleepTimer.MAX_MINUTES / step - 2,
                 modifier = Modifier.weight(1f),
             )
-            Text(pluralStringResource(R.plurals.sleep_timer_minutes, minutes.toInt(), minutes.toInt()))
+            Text(pluralStringResource(R.plurals.sleep_timer_minutes, minutes.roundToInt(), minutes.roundToInt()))
         }
-        Button(onClick = { onStart(minutes.toInt()) }, modifier = Modifier.align(Alignment.End)) {
+        Button(onClick = { onStart(minutes.roundToInt()) }, modifier = Modifier.align(Alignment.End)) {
             Text(stringResource(R.string.sleep_timer_start))
         }
     }
