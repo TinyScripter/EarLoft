@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -144,7 +146,9 @@ private fun NowPlayingContent(
     }
     BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding()) {
         // Breit (Tablet quer): links Cover und Steuerung, rechts Warteschlange oder Songtext.
-        val wide = maxWidth >= TwoColumnMinWidth
+        // Handy quer: zu niedrig für Cover über den Knöpfen, daher links das Cover und rechts alles andere.
+        val short = maxHeight < ShortHeight && maxWidth > maxHeight
+        val wide = maxWidth >= TwoColumnMinWidth && !short
 
         // Läuft ein Timer, schaltet ein Tipp auf den Mond ihn aus; sonst öffnet er die Auswahl.
         val sleepActive = sleepTimerRemainingMs != null
@@ -209,6 +213,35 @@ private fun NowPlayingContent(
             if (current == null) {
                 actionRow()
                 EmptyHint(stringResource(R.string.player_nothing_playing))
+            } else if (short) {
+                Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    if (lyricsVisible) {
+                        Surface(
+                            modifier = Modifier.weight(1f).fillMaxHeight().padding(bottom = 8.dp),
+                            shape = MaterialTheme.shapes.extraLarge,
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        ) {
+                            LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
+                        }
+                    } else {
+                        Box(Modifier.weight(1f).fillMaxHeight().padding(bottom = 8.dp), contentAlignment = Alignment.Center) {
+                            AlbumArt(
+                                albumId = current.albumId,
+                                modifier = Modifier.fillMaxHeight(),
+                                shape = MaterialTheme.shapes.extraLarge,
+                            )
+                        }
+                    }
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        trackInfoAndControls(current)
+                        actionRow()
+                        SleepTimerLine(sleepTimerRemainingMs)
+                    }
+                }
             } else if (wide) {
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                     Column(
@@ -277,6 +310,9 @@ private fun NowPlayingContent(
         }
     }
 }
+
+/** Darunter (und breiter als hoch) liegt Now Playing in zwei Spalten statt Cover über den Knöpfen. */
+private val ShortHeight = 480.dp
 
 @Composable
 private fun NowPlayingTopBar(onClose: () -> Unit) {
