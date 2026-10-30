@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.cast
 
 import android.content.Context
+import android.os.Handler
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.media3.cast.Cast
@@ -10,6 +11,7 @@ import androidx.media3.common.C
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
 import androidx.media3.common.PlayerTransferState
+import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.google.android.gms.cast.framework.CastSession
@@ -38,6 +40,10 @@ import javax.inject.Singleton
  * 64 KB groß sein – ein Eintrag braucht etwa 700 Byte (zwei URLs mit Zugangsdaten plus Metadaten).
  * Größere Warteschlangen verwirft der Empfänger ohne Fehlermeldung (am Gerät gesehen: 620 Titel).
  * Deshalb hält die Warteschlange beim Casten höchstens [MAX_REMOTE_QUEUE] Titel.
+ *
+ * Kann der Empfänger die Titel nicht laden (zum Beispiel weil er den Server nicht erreicht oder dessen
+ * Zertifikat ablehnt), bleibt seine Warteschlange leer und der Player zeigt nichts mehr an. Dann beendet
+ * [watchRemoteLoad] die Sitzung und die ursprüngliche Warteschlange kommt pausiert aufs Handy zurück.
  */
 @OptIn(UnstableApi::class)
 @Singleton
@@ -48,6 +54,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
 ) : SessionPlayerFactory {
 
     private var sessionListener: SessionManagerListener<CastSession>? = null
+    private val handOver = HandOver()
 
     override fun create(context: Context, localPlayer: ExoPlayer): Player {
         val remotePlayer = RemoteCastPlayer.Builder(context)
@@ -56,9 +63,10 @@ internal class CastSessionPlayerFactory @Inject constructor(
         val player = CastPlayer.Builder(context)
             .setLocalPlayer(localPlayer)
             .setRemotePlayer(remotePlayer)
-            .setTransferCallback(CastTransferCallback(cache, ::showSkipped, ::onQueueLimited))
+            .setTransferCallback(CastTransferCallback(cache, handOver, ::showSkipped, ::onQueueLimited))
             .build()
         prepareOnSessionStart(player)
+        watchRemoteLoad(player)
         return DeferredRemotePlayPlayer(player)
     }
 
@@ -106,6 +114,32 @@ internal class CastSessionPlayerFactory @Inject constructor(
         sessionListener = listener
     }
 
+    /**
+     * Wurde eine nicht leere Warteschlange an den Empfänger übergeben und ist sie nach [REMOTE_LOAD_TIMEOUT_MS]
+     * dort immer noch leer, hat der Empfänger sie abgelehnt.
+     */
+    private fun watchRemoteLoad(player: Player) {
+        val handler = Handler(player.applicationLooper)
+        val check = Runnable {
+            val handedOver = handOver.state ?: return@Runnable
+            if (player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE || player.mediaItemCount > 0) return@Runnable
+            handOver.rescue = handedOver
+            Toast.makeText(appContext, R.string.cast_load_failed, Toast.LENGTH_LONG).show()
+            Cast.getSingletonInstance(appContext).endCurrentSession(true)
+        }
+        player.addListener(object : Player.Listener {
+            override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
+                handler.removeCallbacks(check)
+                val remote = deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+                if (remote && handOver.state != null) handler.postDelayed(check, REMOTE_LOAD_TIMEOUT_MS)
+            }
+
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                if (player.mediaItemCount > 0) handler.removeCallbacks(check)
+            }
+        })
+    }
+
     /** Main-Thread. */
     private fun showSkipped(skipped: Int, total: Int) {
         if (skipped <= 0) return
@@ -119,23 +153,44 @@ internal class CastSessionPlayerFactory @Inject constructor(
 
     companion object {
         const val MAX_REMOTE_QUEUE = 50
+        private const val REMOTE_LOAD_TIMEOUT_MS = 8_000L
     }
+}
+
+/**
+ * [state]: was zuletzt an den Empfänger ging (nur wenn nicht leer). [rescue]: nach einem gescheiterten
+ * Laden – beim Zurückwechseln aufs Handy wird daraus die Warteschlange wiederhergestellt.
+ */
+@OptIn(UnstableApi::class)
+private class HandOver {
+    @Volatile var state: PlayerTransferState? = null
+    @Volatile var rescue: PlayerTransferState? = null
 }
 
 /** Übergibt nur Songs mit Server-Quelle an den Empfänger; zurück aufs Handy geht alles. */
 @OptIn(UnstableApi::class)
 private class CastTransferCallback(
     private val cache: CastMediaCache,
+    private val handOver: HandOver,
     private val onSkipped: (skipped: Int, total: Int) -> Unit,
     private val onLimited: (kept: Int, requested: Int) -> Unit,
 ) : CastPlayer.TransferCallback {
 
     override fun transferState(sourcePlayer: Player, targetPlayer: Player) {
         if (targetPlayer !is RemoteCastPlayer) {
-            CastPlayer.TransferCallback.DEFAULT.transferState(sourcePlayer, targetPlayer)
+            val rescue = handOver.rescue
+            handOver.state = null
+            handOver.rescue = null
+            if (rescue != null) {
+                rescue.buildUpon().setPlayWhenReady(false).build().setToPlayer(targetPlayer)
+            } else {
+                CastPlayer.TransferCallback.DEFAULT.transferState(sourcePlayer, targetPlayer)
+            }
             return
         }
         val state = PlayerTransferState.fromPlayer(sourcePlayer)
+        handOver.rescue = null
+        handOver.state = state.takeIf { it.mediaItems.isNotEmpty() }
         val items = state.mediaItems
         cache.prepareBlocking(items.mapNotNull { it.songId })
         val castable = items.indices.filter { items[it].songId?.let(cache::isCastable) == true }
