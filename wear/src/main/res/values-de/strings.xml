@@ -30,6 +30,18 @@
     <string name="player_volume">Lautstärke</string>
     <string name="player_volume_percent">%d %%</string>
 
+    <!-- Einschlaf-Timer -->
+    <string name="sleep_timer_title">Einschlaf-Timer</string>
+    <string name="sleep_timer_remaining">Pausiert in %1$s</string>
+    <string name="sleep_timer_badge">%d Min.</string>
+    <plurals name="sleep_timer_minutes">
+        <item quantity="one">%1$d Minute</item>
+        <item quantity="other">%1$d Minuten</item>
+    </plurals>
+    <string name="sleep_timer_custom">Eigene Dauer</string>
+    <string name="sleep_timer_start">Starten</string>
+    <string name="sleep_timer_off">Ausschalten</string>
+
     <!-- Downloads -->
     <string name="download_channel_name">Downloads</string>
     <string name="download_notification_title">Musik wird geladen</string>

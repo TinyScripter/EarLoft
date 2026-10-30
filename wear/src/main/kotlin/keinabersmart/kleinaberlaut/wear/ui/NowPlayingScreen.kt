@@ -79,13 +79,14 @@ import kotlin.math.abs
  * Ohne passende Ausgabe (Kopfhörer) hält die Wiedergabe an; ein Tipp auf den Hinweis öffnet die Bluetooth-Einstellungen.
  */
 @Composable
-fun NowPlayingScreen(viewModel: PlayerViewModel = hiltViewModel()) {
+fun NowPlayingScreen(onOpenSleepTimer: () -> Unit = {}, viewModel: PlayerViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val positionMs by viewModel.positionMs.collectAsStateWithLifecycle()
     val cover by viewModel.cover.collectAsStateWithLifecycle()
     val volume by viewModel.volume.collectAsStateWithLifecycle()
     val volumeVisible by viewModel.volumeVisible.collectAsStateWithLifecycle()
     val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
+    val sleepTimerRemainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     val context = LocalContext.current
     AlbumColorTheme(seedColor) {
         NowPlayingContent(
@@ -94,6 +95,8 @@ fun NowPlayingScreen(viewModel: PlayerViewModel = hiltViewModel()) {
             cover = cover,
             volume = volume,
             volumeVisible = volumeVisible,
+            sleepTimerRemainingMs = sleepTimerRemainingMs,
+            onSleepTimer = onOpenSleepTimer,
             onPrevious = viewModel::previous,
             onPlayPause = viewModel::togglePlayPause,
             onNext = viewModel::next,
@@ -112,6 +115,8 @@ private fun NowPlayingContent(
     cover: android.graphics.Bitmap?,
     volume: Float,
     volumeVisible: Boolean,
+    sleepTimerRemainingMs: Long?,
+    onSleepTimer: () -> Unit,
     onPrevious: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
@@ -229,15 +234,31 @@ private fun NowPlayingContent(
                     )
                     ControlButton(R.drawable.ic_skip_next, R.string.player_next, SKIP_BUTTON_SIZE, onNext)
                 }
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    ControlButton(
-                        R.drawable.ic_shuffle,
-                        R.string.player_shuffle,
-                        SHUFFLE_BUTTON_SIZE,
-                        onShuffle,
-                        active = state.shuffle,
-                        toggle = true,
-                    )
+                Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(CONTROL_SPACING)) {
+                        ControlButton(
+                            R.drawable.ic_shuffle,
+                            R.string.player_shuffle,
+                            SHUFFLE_BUTTON_SIZE,
+                            onShuffle,
+                            active = state.shuffle,
+                            toggle = true,
+                        )
+                        ControlButton(
+                            R.drawable.ic_bedtime,
+                            R.string.sleep_timer_title,
+                            SHUFFLE_BUTTON_SIZE,
+                            onSleepTimer,
+                            active = sleepTimerRemainingMs != null,
+                        )
+                    }
+                    if (sleepTimerRemainingMs != null) {
+                        Text(
+                            stringResource(R.string.sleep_timer_badge, minutesLeft(sleepTimerRemainingMs)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
             if (dragProgress != null) PositionIndicator(shownPositionMs, duration)
@@ -415,6 +436,8 @@ private fun NowPlayingPreview() {
                 cover = previewCover(),
                 volume = 0.4f,
                 volumeVisible = false,
+                sleepTimerRemainingMs = 754_000,
+                onSleepTimer = {},
                 onPrevious = {},
                 onPlayPause = {},
                 onNext = {},

@@ -11,6 +11,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.model.Song
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,6 +50,7 @@ data class PlayerState(
 @Singleton
 class PlaybackConnection @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val sleepTimer: SleepTimer,
 ) {
     private val scope = MainScope()
     private val controller = CompletableDeferred<MediaController>()
@@ -134,6 +136,13 @@ class PlaybackConnection @Inject constructor(
             else -> Player.REPEAT_MODE_OFF
         }
     }
+
+    /** Restzeit des Sleep-Timers in Millisekunden, jede Sekunde neu; `null`, solange keiner läuft. */
+    val sleepTimerRemainingMs: Flow<Long?> get() = sleepTimer.remainingMs
+
+    fun startSleepTimer(minutes: Int) = sleepTimer.start(minutes * 60_000L)
+
+    fun cancelSleepTimer() = sleepTimer.cancel()
 
     private fun withController(block: MediaController.() -> Unit) {
         scope.launch { controller.await().block() }

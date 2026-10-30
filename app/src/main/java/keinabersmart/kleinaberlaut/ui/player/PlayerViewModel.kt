@@ -75,6 +75,13 @@ class PlayerViewModel @Inject constructor(
         lyricsRetry.value++
     }
 
+    /** Restzeit des Einschlaf-Timers; `null`, solange keiner läuft. */
+    val sleepTimerRemainingMs: StateFlow<Long?> = playbackConnection.sleepTimerRemainingMs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun startSleepTimer(minutes: Int) = playbackConnection.startSleepTimer(minutes)
+    fun cancelSleepTimer() = playbackConnection.cancelSleepTimer()
+
     val currentPositionMs: Long get() = playbackConnection.currentPositionMs
 
     fun togglePlayPause() = playbackConnection.togglePlayPause()

@@ -28,6 +28,8 @@ import keinabersmart.kleinaberlaut.core.playback.EXTRA_OPEN_NOW_PLAYING
 import keinabersmart.kleinaberlaut.wear.ui.AddMusicScreen
 import keinabersmart.kleinaberlaut.wear.ui.NowPlayingScreen
 import keinabersmart.kleinaberlaut.wear.ui.SelectionScreen
+import keinabersmart.kleinaberlaut.wear.ui.SleepTimerCustomScreen
+import keinabersmart.kleinaberlaut.wear.ui.SleepTimerScreen
 import keinabersmart.kleinaberlaut.wear.ui.StartScreen
 import keinabersmart.kleinaberlaut.wear.ui.StorageScreen
 import kotlinx.serialization.Serializable
@@ -97,6 +99,14 @@ data object AddMusicRoute : NavKey
 @Serializable
 data object NowPlayingRoute : NavKey
 
+/** Sleep-Timer wählen (aus der Wiedergabe-Ansicht). */
+@Serializable
+data object SleepTimerRoute : NavKey
+
+/** Eigene Dauer des Sleep-Timers. */
+@Serializable
+data object SleepTimerCustomRoute : NavKey
+
 /** Öffnet die Wiedergabe-Ansicht höchstens einmal; sonst stapeln sich Kopien, wenn man mehrfach etwas startet. */
 private fun MutableList<NavKey>.openNowPlaying() {
     if (lastOrNull() != NowPlayingRoute) add(NowPlayingRoute)
@@ -129,7 +139,17 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                             onNowPlayingClick = { backStack.openNowPlaying() },
                         )
                     }
-                    entry<NowPlayingRoute> { NowPlayingScreen() }
+                    entry<NowPlayingRoute> { NowPlayingScreen(onOpenSleepTimer = { backStack.add(SleepTimerRoute) }) }
+                    entry<SleepTimerRoute> {
+                        SleepTimerScreen(
+                            onCustom = { backStack.add(SleepTimerCustomRoute) },
+                            onDone = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<SleepTimerCustomRoute> {
+                        // Zurück zur Wiedergabe: erst die eigene Dauer, dann die Auswahl davor schließen.
+                        SleepTimerCustomScreen(onDone = { repeat(2) { backStack.removeLastOrNull() } })
+                    }
                     entry<StorageRoute> { StorageScreen() }
                     entry<AddMusicRoute> { AddMusicScreen() }
                     entry<SelectionRoute> { route -> SelectionScreen(playlistId = route.playlistId, onPlayed = { backStack.openNowPlaying() }) }

@@ -64,6 +64,7 @@ fun NowPlayingScreen(
     val lyricsVisible by viewModel.lyricsVisible.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
+    val sleepTimerRemainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     AlbumColorTheme(seedColor) {
         Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             NowPlayingContent(
@@ -83,6 +84,9 @@ fun NowPlayingScreen(
                 onToggleShuffle = viewModel::toggleShuffle,
                 onCycleRepeat = viewModel::cycleRepeatMode,
                 onToggleFavorite = viewModel::toggleFavorite,
+                sleepTimerRemainingMs = sleepTimerRemainingMs,
+                onStartSleepTimer = viewModel::startSleepTimer,
+                onCancelSleepTimer = viewModel::cancelSleepTimer,
                 castDeviceName = rememberCastDeviceName(state.isRemote),
                 castButton = { CastButton() },
             )
@@ -108,10 +112,22 @@ private fun NowPlayingContent(
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
     onToggleFavorite: () -> Unit,
+    sleepTimerRemainingMs: Long?,
+    onStartSleepTimer: (minutes: Int) -> Unit,
+    onCancelSleepTimer: () -> Unit,
     modifier: Modifier = Modifier,
     castDeviceName: String? = null,
     castButton: @Composable () -> Unit = {},
 ) {
+    var sleepSheetVisible by remember { mutableStateOf(false) }
+    if (sleepSheetVisible) {
+        SleepTimerSheet(
+            remainingMs = sleepTimerRemainingMs,
+            onStart = onStartSleepTimer,
+            onCancel = onCancelSleepTimer,
+            onDismiss = { sleepSheetVisible = false },
+        )
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -123,14 +139,24 @@ private fun NowPlayingContent(
             IconButton(onClick = onClose) {
                 Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = stringResource(R.string.player_close))
             }
-            Text(
-                stringResource(R.string.player_now_playing),
-                style = MaterialTheme.typography.titleSmall,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    stringResource(R.string.player_now_playing),
+                    style = MaterialTheme.typography.titleSmall,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (sleepTimerRemainingMs != null) {
+                    Text(
+                        stringResource(R.string.sleep_timer_remaining, formatDuration(sleepTimerRemainingMs)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
             castButton()
             if (state.current != null) {
                 ToggleIconButton(
@@ -148,6 +174,12 @@ private fun NowPlayingContent(
                     onClick = onToggleLyrics,
                 )
             }
+            ToggleIconButton(
+                icon = DesignR.drawable.ic_bedtime,
+                active = sleepTimerRemainingMs != null,
+                label = stringResource(R.string.sleep_timer_title),
+                onClick = { sleepSheetVisible = true },
+            )
             IconButton(onClick = onOpenQueue) {
                 Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = stringResource(R.string.player_open_queue))
             }
@@ -318,6 +350,9 @@ private fun NowPlayingContentPreview() {
             onToggleShuffle = {},
             onCycleRepeat = {},
             onToggleFavorite = {},
+            sleepTimerRemainingMs = 754_000,
+            onStartSleepTimer = {},
+            onCancelSleepTimer = {},
         )
     }
 }

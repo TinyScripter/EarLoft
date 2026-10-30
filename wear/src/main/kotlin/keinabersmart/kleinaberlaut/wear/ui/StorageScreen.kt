@@ -152,7 +152,7 @@ private fun StorageContent(
     )
 }
 
-private fun androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope.line(
+internal fun androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope.line(
     transformationSpec: androidx.wear.compose.material3.lazy.TransformationSpec,
     header: Boolean = false,
     text: @Composable () -> String,

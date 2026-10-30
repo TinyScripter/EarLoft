@@ -72,6 +72,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var replayGainSettings: ReplayGainSettings
     @Inject internal lateinit var libraryRemovals: LibraryRemovals
     @Inject lateinit var sessionPlayerFactory: Optional<SessionPlayerFactory>
+    @Inject lateinit var sleepTimer: SleepTimer
 
     /** Für Player-Zugriffe (Main-Thread). */
     private val mainScope = MainScope()
@@ -136,6 +137,7 @@ class PlaybackService : MediaLibraryService() {
         // Handy: Cast-fähiger Player um den ExoPlayer; Hörverlauf und Warteschlange folgen dem jeweils aktiven Player.
         val factory = sessionPlayerFactory.orElse(null)
         val player = factory?.create(this, localPlayer) ?: localPlayer
+        sleepTimer.attach(player.asSleepTimerTarget())
         playTracker = PlayTracker(player, playbackStateRepository, ioScope)
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
@@ -219,6 +221,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        sleepTimer.detach()
         session?.let { session ->
             playTracker.finishCurrent()
             queuePersistence.savePosition(session.player, ioScope)

@@ -31,6 +31,18 @@
     <string name="player_volume">Volume</string>
     <string name="player_volume_percent">%d %%</string>
 
+    <!-- Sleep timer -->
+    <string name="sleep_timer_title">Sleep timer</string>
+    <string name="sleep_timer_remaining">Pauses in %1$s</string>
+    <string name="sleep_timer_badge">%d min</string>
+    <plurals name="sleep_timer_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <string name="sleep_timer_custom">Custom</string>
+    <string name="sleep_timer_start">Start</string>
+    <string name="sleep_timer_off">Turn off</string>
+
     <!-- Downloads -->
     <string name="download_channel_name">Downloads</string>
     <string name="download_notification_title">Loading music</string>

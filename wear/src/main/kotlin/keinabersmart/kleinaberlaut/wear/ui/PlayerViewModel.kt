@@ -80,6 +80,14 @@ class PlayerViewModel @Inject constructor(
 
     fun seekTo(positionMs: Long) = playback.seekTo(positionMs)
 
+    /** Restzeit des Sleep-Timers; `null`, solange keiner läuft. */
+    val sleepTimerRemainingMs: StateFlow<Long?> = playback.sleepTimerRemainingMs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun startSleepTimer(minutes: Int) = playback.startSleepTimer(minutes)
+
+    fun cancelSleepTimer() = playback.cancelSleepTimer()
+
     private val _volumeVisible = MutableStateFlow(false)
 
     /** Der Lautstärkebalken steht kurz nach jeder Drehung der Krone. */
