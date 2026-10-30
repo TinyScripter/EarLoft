@@ -65,6 +65,7 @@ class WearRemotePublisher @Inject constructor(
     /** Die Uhr zeigt die Fernsteuerung: Beim ersten Mal schreibt das Handy sofort alles neu, danach bei Änderungen. */
     @Synchronized
     fun subscribe(scope: CoroutineScope) {
+        Log.d(TAG, "Uhr angemeldet (aktiv bisher: ${active.value})")
         expiry?.cancel()
         active.value = true
         expiry = scope.launch {

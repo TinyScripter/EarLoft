@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -30,7 +31,16 @@ import kotlin.math.roundToInt
 class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote) : ViewModel(), NowPlayingModel {
 
     private val remoteState: StateFlow<WearRemoteStateDto?> =
-        remote.state.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        // Die Nebenwirkungen hängen am Fluss, nicht an einem eigenen Collector: Ein dauerhafter Collector hielte die Anmeldung
+        // beim Handy offen (und damit dessen Schreiben), auch wenn die Ansicht nicht sichtbar ist.
+        remote.state
+            .onEach { dto ->
+                // Das Handy hat gemeldet: Die vorläufigen Werte gelten nicht mehr.
+                pendingPlaying.value = null
+                pendingShuffle.value = null
+                if (dto != null && !_volumeVisible.value) _volume.value = dto.volume
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val pendingPlaying = MutableStateFlow<Boolean?>(null)
     private val pendingShuffle = MutableStateFlow<Boolean?>(null)
@@ -70,17 +80,6 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
     override val volumeVisible: StateFlow<Boolean> = _volumeVisible
     private var hideVolumeJob: Job? = null
     private val crown = CrownStepper(CROWN_PX_PER_STEP)
-
-    init {
-        viewModelScope.launch {
-            remoteState.collect { dto ->
-                // Das Handy hat gemeldet: Die vorläufigen Werte gelten nicht mehr.
-                pendingPlaying.value = null
-                pendingShuffle.value = null
-                if (dto != null && !_volumeVisible.value) _volume.value = dto.volume
-            }
-        }
-    }
 
     override fun togglePlayPause() {
         pending { pendingPlaying.value = !state.value.isPlaying }
