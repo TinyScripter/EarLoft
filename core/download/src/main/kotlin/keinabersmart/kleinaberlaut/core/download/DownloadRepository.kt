@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.core.download
 
 import androidx.room.withTransaction
+import keinabersmart.kleinaberlaut.core.data.repository.CoverFiles
 import keinabersmart.kleinaberlaut.core.data.repository.SourcePreference
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
@@ -36,6 +37,7 @@ class DownloadRepository @Inject constructor(
     private val playlistDao: PlaylistDao,
     private val storage: DownloadStorage,
     private val scheduler: DownloadScheduler,
+    private val coverFiles: CoverFiles,
 ) {
     suspend fun downloadAlbum(albumId: Long): Int =
         enqueue(libraryDao.getSongIdsOfAlbum(albumId), pinnedBy = "album:$albumId")
@@ -137,6 +139,7 @@ class DownloadRepository @Inject constructor(
         val all = downloadDao.getAll()
         downloadDao.deleteAll()
         withContext(Dispatchers.IO) { all.forEach(storage::delete) }
+        dropOrphanCovers()
     }
 
     /** Ein laufender Download bemerkt das Entfernen beim nächsten Fortschritt und bricht ab. */
@@ -144,6 +147,13 @@ class DownloadRepository @Inject constructor(
         if (downloads.isEmpty()) return
         downloads.map { it.sourceUid }.chunked(SQLITE_MAX_VARIABLES).forEach { downloadDao.delete(it) }
         withContext(Dispatchers.IO) { downloads.forEach(storage::delete) }
+        dropOrphanCovers()
+    }
+
+    /** Die Cover heruntergeladener Alben bleiben dauerhaft (außerhalb des Cover-Caches); mit dem letzten Download verschwindet auch das Cover. */
+    private suspend fun dropOrphanCovers() {
+        val albumIds = downloadDao.getAlbumIdsWithDoneDownload().toSet()
+        withContext(Dispatchers.IO) { coverFiles.retainOnly(albumIds) }
     }
 
     suspend fun retryFailed() {
@@ -152,7 +162,10 @@ class DownloadRepository @Inject constructor(
 
     /** Nach App-Start: Wartende Downloads fortsetzen, falls WorkManager den Auftrag verloren hat. */
     suspend fun resumePending() {
-        if (downloadDao.countPending() > 0) scheduler.enqueue()
+        dropOrphanCovers()
+        // Auch ohne wartende Downloads: Der Auftrag holt fehlende Cover heruntergeladener Alben nach.
+        val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
+        if (downloadDao.countPending() > 0 || coversMissing) scheduler.enqueue()
     }
 
     /** Nach Ändern der WLAN-Einstellung den Auftrag mit neuen Bedingungen ersetzen. */

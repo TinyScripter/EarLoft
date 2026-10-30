@@ -1,5 +1,7 @@
 package keinabersmart.kleinaberlaut.core.download
 
+import androidx.test.core.app.ApplicationProvider
+import keinabersmart.kleinaberlaut.core.data.repository.CoverFiles
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntryEntity
@@ -42,6 +44,7 @@ class DownloadRepositoryTest {
             playlistDao = library.db.playlistDao(),
             storage = storage,
             scheduler = scheduler,
+            coverFiles = CoverFiles(ApplicationProvider.getApplicationContext()),
         )
         library.source("local", SourceType.LOCAL)
         library.source("home", priority = 0)

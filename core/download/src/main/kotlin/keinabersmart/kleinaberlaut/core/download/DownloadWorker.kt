@@ -15,7 +15,10 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
+import keinabersmart.kleinaberlaut.core.data.repository.CoverFiles
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
+import kotlinx.coroutines.CancellationException
 
 /**
  * Arbeitet die Download-Warteschlange nacheinander ab (Konzept 5.3) und läuft dabei als
@@ -31,6 +34,8 @@ class DownloadWorker(
     private val downloadDao = entryPoint.downloadDao()
     private val downloader = entryPoint.downloader()
     private val storage = entryPoint.storage()
+    private val artwork = entryPoint.artwork()
+    private val coverFiles = entryPoint.coverFiles()
 
     override suspend fun doWork(): Result {
         downloadDao.requeueRunning()
@@ -65,7 +70,25 @@ class DownloadWorker(
 
     private suspend fun finish(): Result {
         storage.deleteOrphans(downloadDao.getAll())
+        cacheCovers()
+        coverFiles.retainOnly(downloadDao.getAlbumIdsWithDoneDownload().toSet())
         return Result.success()
+    }
+
+    /**
+     * Je Album mit geladenen Songs einmal das Cover als Datei: Es gehört zum Download, zählt nicht zum Cover-Cache und
+     * bleibt, auch wenn alle Cover zusammen größer werden. Fehlt es, bleibt die Wiedergabe unberührt.
+     */
+    private suspend fun cacheCovers() {
+        for (albumId in downloadDao.getAlbumIdsWithDoneDownload()) {
+            try {
+                artwork.cacheAlbumCover(albumId, COVER_SIZE_PX)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Cover für Album $albumId nicht ladbar", e)
+            }
+        }
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo(buildNotification(pending = 0, progress = null))
@@ -124,6 +147,8 @@ class DownloadWorker(
         fun downloadDao(): DownloadDao
         fun downloader(): Downloader
         fun storage(): DownloadStorage
+        fun artwork(): ArtworkRepository
+        fun coverFiles(): CoverFiles
     }
 
     private companion object {
@@ -131,5 +156,6 @@ class DownloadWorker(
         const val CHANNEL_ID = "downloads"
         const val NOTIFICATION_ID = 2001
         const val MAX_ATTEMPTS = 5
+        const val COVER_SIZE_PX = 1024
     }
 }
