@@ -48,6 +48,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.AlbumColorTheme
+import keinabersmart.kleinaberlaut.navigation.LocalClosesDetailPane
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.AlbumDetails
 import keinabersmart.kleinaberlaut.core.model.AlbumOfflineStatus
@@ -334,7 +335,12 @@ private fun AddAlbumToPlaylistButton(songIds: List<Long>) {
 @Composable
 fun BackButton(onBack: () -> Unit) {
     IconButton(onClick = onBack) {
-        Icon(painterResource(DesignR.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
+        // Rechts neben der Liste schließt „Zurück“ nur die Spalte – dann ✕ statt Pfeil.
+        if (LocalClosesDetailPane.current) {
+            Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_close_pane))
+        } else {
+            Icon(painterResource(DesignR.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
+        }
     }
 }
 

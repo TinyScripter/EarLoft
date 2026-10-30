@@ -17,6 +17,7 @@
 
     <!-- General actions -->
     <string name="action_back">Back</string>
+    <string name="action_close_pane">Close</string>
     <string name="action_more">More options</string>
     <string name="action_play">Play</string>
     <string name="action_pause">Pause</string>

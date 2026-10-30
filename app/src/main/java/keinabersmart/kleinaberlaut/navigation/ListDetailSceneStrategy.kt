@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavEntry
@@ -44,7 +46,13 @@ class ListDetailSceneStrategy(private val twoPane: Boolean) : SceneStrategy<NavK
         if (index < 0 || entries[index].metadata[PANE_KEY] != PANE_LIST) return null
         val list = entries[index]
         val detail = entries.last().takeIf { index < entries.lastIndex }
-        return ListDetailScene(list = list, detail = detail, previousEntries = entries.dropLast(1))
+        return ListDetailScene(
+            list = list,
+            detail = detail,
+            // Nur die erste Detailebene schließt mit „Zurück“ die Spalte; darüber führt es zur vorigen Detailseite.
+            detailClosesPane = index == entries.lastIndex - 1,
+            previousEntries = entries.dropLast(1),
+        )
     }
 
     private fun List<NavEntry<NavKey>>.isDetailAt(index: Int): Boolean = when (this[index].metadata[PANE_KEY]) {
@@ -73,9 +81,16 @@ class ListDetailSceneStrategy(private val twoPane: Boolean) : SceneStrategy<NavK
     }
 }
 
+/**
+ * `true` für eine Detailseite, die direkt neben ihrer Liste steht: „Zurück“ schließt dort die rechte Spalte,
+ * daher zeigt [keinabersmart.kleinaberlaut.ui.library.BackButton] ein ✕ statt des Pfeils.
+ */
+val LocalClosesDetailPane = staticCompositionLocalOf { false }
+
 private class ListDetailScene(
     val list: NavEntry<NavKey>,
     val detail: NavEntry<NavKey>?,
+    val detailClosesPane: Boolean,
     override val previousEntries: List<NavEntry<NavKey>>,
 ) : Scene<NavKey> {
     override val key: Any = list.contentKey
@@ -98,14 +113,20 @@ private class ListDetailScene(
                         transitionSpec = { fadeIn(tween(210, delayMillis = 90)) togetherWith fadeOut(tween(90)) },
                         label = "detailPane",
                         modifier = Modifier.weight(1f).fillMaxHeight(),
-                    ) { entry -> entry.Content() }
+                    ) { entry ->
+                        CompositionLocalProvider(
+                            LocalClosesDetailPane provides (detailClosesPane && entry.contentKey == detail.contentKey),
+                        ) { entry.Content() }
+                    }
                 }
             }
         }
     }
 
     override fun equals(other: Any?): Boolean =
-        other is ListDetailScene && list == other.list && detail == other.detail && previousEntries == other.previousEntries
+        other is ListDetailScene && list == other.list && detail == other.detail &&
+            detailClosesPane == other.detailClosesPane && previousEntries == other.previousEntries
 
-    override fun hashCode(): Int = (list.hashCode() * 31 + detail.hashCode()) * 31 + previousEntries.hashCode()
+    override fun hashCode(): Int =
+        ((list.hashCode() * 31 + detail.hashCode()) * 31 + detailClosesPane.hashCode()) * 31 + previousEntries.hashCode()
 }
