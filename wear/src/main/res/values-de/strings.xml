@@ -18,19 +18,19 @@
     <string name="list_albums">Alben</string>
     <string name="list_favorites">Favoriten</string>
     <string name="list_playlists">Playlists</string>
-    <string name="list_empty_watch">Noch nichts auf der Uhr. Wähle Musik am Handy oder unter „Musik hinzufügen“.</string>
-    <string name="list_empty_phone">Nichts auf dem Handy</string>
+    <string name="list_empty_watch">Noch nichts auf der Uhr. Wähle Musik am Telefon oder unter „Musik hinzufügen“.</string>
+    <string name="list_empty_phone">Nichts auf dem Telefon</string>
 
-    <!-- Fernsteuerung des Handys -->
-    <string name="remote_unreachable">Handy nicht erreichbar</string>
-    <string name="remote_missing">Nicht mehr auf dem Handy</string>
-    <string name="remote_no_library">Öffne kleinaberlaut einmal am Handy</string>
+    <!-- Fernsteuerung des Telefons -->
+    <string name="remote_unreachable">Telefon nicht erreichbar</string>
+    <string name="remote_missing">Nicht mehr auf dem Telefon</string>
+    <string name="remote_no_library">Öffne kleinaberlaut einmal am Telefon</string>
     <string name="remote_truncated">Nur die ersten Titel werden gezeigt</string>
 
     <!-- Musik hinzufügen -->
     <string name="add_music_title">Musik hinzufügen</string>
     <string name="add_music_favorites">Favoriten</string>
-    <string name="add_music_no_phone">Handy nicht verbunden</string>
+    <string name="add_music_no_phone">Telefon nicht verbunden</string>
 
     <!-- Wiedergabe -->
     <string name="player_nothing">Keine Wiedergabe</string>
@@ -65,9 +65,9 @@
         <item quantity="other">Noch %d Titel</item>
     </plurals>
     <string name="download_error_server">Server nicht erreichbar</string>
-    <string name="download_error_server_no_phone_copy">Server nicht erreichbar, Handy hat keine Kopie</string>
-    <string name="download_error_phone_no_copy">Handy hat keine Kopie</string>
-    <string name="download_error_phone_unreachable">Handy nicht erreichbar</string>
+    <string name="download_error_server_no_phone_copy">Server nicht erreichbar, Telefon hat keine Kopie</string>
+    <string name="download_error_phone_no_copy">Telefon hat keine Kopie</string>
+    <string name="download_error_phone_unreachable">Telefon nicht erreichbar</string>
 
     <!-- Speicher & Downloads -->
     <string name="storage_title">Speicher &amp; Downloads</string>
@@ -89,26 +89,26 @@
         <item quantity="one">%d Titel fehlgeschlagen</item>
         <item quantity="other">%d Titel fehlgeschlagen</item>
     </plurals>
-    <string name="storage_phone_transfer">Über das Handy: %1$s, ca. %2$d Min.</string>
+    <string name="storage_phone_transfer">Über das Telefon: %1$s, ca. %2$d Min.</string>
     <string name="storage_phone_charger_hint">Am besten am Ladegerät.</string>
     <string name="storage_retry">Erneut versuchen</string>
     <string name="storage_last_error">Letzter Fehler: %s</string>
     <string name="storage_clear_all">Alles entfernen</string>
-    <string name="storage_clear_confirm">Alle Musik von der Uhr entfernen? Die Auswahl am Handy wird geleert.</string>
+    <string name="storage_clear_confirm">Alle Musik von der Uhr entfernen? Die Auswahl am Telefon wird geleert.</string>
     <string name="storage_clear_yes">Entfernen</string>
     <string name="storage_clear_no">Abbrechen</string>
-    <string name="storage_clear_no_phone">Handy nicht verbunden – nichts entfernt.</string>
+    <string name="storage_clear_no_phone">Telefon nicht verbunden – nichts entfernt.</string>
 
     <!-- Einrichtung -->
-    <string name="setup_checking">Suche Handy …</string>
-    <string name="setup_no_phone_title">Handy nicht verbunden</string>
-    <string name="setup_no_phone_text">Zum Einrichten braucht die Uhr das gekoppelte Handy in der Nähe.</string>
-    <string name="setup_app_missing_title">App fehlt auf dem Handy</string>
-    <string name="setup_app_missing_text">Installiere kleinaberlaut auf dem Handy. Dort wählst du die Musik für die Uhr aus.</string>
-    <string name="setup_install_on_phone">Auf Handy öffnen</string>
-    <string name="setup_opened_on_phone">Weiter auf dem Handy</string>
+    <string name="setup_checking">Suche Telefon …</string>
+    <string name="setup_no_phone_title">Telefon nicht verbunden</string>
+    <string name="setup_no_phone_text">Zum Einrichten braucht die Uhr das gekoppelte Telefon in der Nähe.</string>
+    <string name="setup_app_missing_title">App fehlt auf dem Telefon</string>
+    <string name="setup_app_missing_text">Installiere kleinaberlaut auf dem Telefon. Dort wählst du die Musik für die Uhr aus.</string>
+    <string name="setup_install_on_phone">Auf Telefon öffnen</string>
+    <string name="setup_opened_on_phone">Weiter auf dem Telefon</string>
     <string name="setup_open_failed">Konnte nicht geöffnet werden</string>
     <string name="setup_waiting_title">Bereit</string>
-    <string name="setup_waiting_text">Wähle in kleinaberlaut auf dem Handy Musik für die Uhr aus.</string>
+    <string name="setup_waiting_text">Wähle in kleinaberlaut auf dem Telefon Musik für die Uhr aus.</string>
     <string name="setup_retry">Erneut prüfen</string>
 </resources>

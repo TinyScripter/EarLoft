@@ -1,7 +1,9 @@
 package keinabersmart.kleinaberlaut.wear.ui
 
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -9,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -110,6 +113,12 @@ private fun StartContent(
                     action(R.string.list_favorites, transformationSpec, onClick = onPhoneFavoritesClick)
                     action(R.string.list_playlists, transformationSpec, onClick = { onPlaylistsClick(true) })
                     action(R.string.start_shuffle_all, transformationSpec, onClick = onShuffleAllOnPhone)
+                } else if (state.phone == PhoneStatus.NotConnected) {
+                    // Der Abschnitt bleibt, damit die Fernsteuerung nicht ohne Erklärung verschwindet.
+                    header(R.string.start_section_phone, transformationSpec)
+                    message(R.string.remote_unreachable, transformationSpec)
+                    // Als letztes Element läge der Hinweis am runden Rand und würde abgeschnitten; der Abstand lässt ihn weiter hochscrollen.
+                    item { Spacer(Modifier.height(BOTTOM_HINT_SPACE)) }
                 }
             } else {
                 setup(state, transformationSpec, onOpenOnPhone, onRetry)
@@ -117,6 +126,8 @@ private fun StartContent(
         }
     }
 }
+
+private val BOTTOM_HINT_SPACE = 48.dp
 
 private fun TransformingLazyColumnScope.setup(
     state: StartUiState,

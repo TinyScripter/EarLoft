@@ -1,8 +1,10 @@
 package keinabersmart.kleinaberlaut.wear.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +59,16 @@ fun TrackListContent(state: TrackListState, onPlay: (key: Long?, shuffle: Boolea
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(scrollState = columnState) { contentPadding ->
+        if (state !is TrackListState.Ready) {
+            // Ladeanzeige und Meldung stehen in der Mitte des Bildschirms, nicht am Listenanfang.
+            Box(Modifier.fillMaxSize().padding(contentPadding), contentAlignment = Alignment.Center) {
+                when (state) {
+                    is TrackListState.Message -> Text(stringResource(state.textRes), textAlign = TextAlign.Center)
+                    else -> CircularProgressIndicator()
+                }
+            }
+            return@ScreenScaffold
+        }
         TransformingLazyColumn(
             state = columnState,
             modifier = Modifier.fillMaxSize(),
@@ -64,16 +76,6 @@ fun TrackListContent(state: TrackListState, onPlay: (key: Long?, shuffle: Boolea
             contentPadding = contentPadding,
         ) {
             when (state) {
-                TrackListState.Loading -> item {
-                    CircularProgressIndicator(Modifier.transformedHeight(this, transformationSpec))
-                }
-                is TrackListState.Message -> item {
-                    Text(
-                        stringResource(state.textRes),
-                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                        textAlign = TextAlign.Center,
-                    )
-                }
                 is TrackListState.Ready -> {
                     if (state.title.isNotEmpty()) {
                         item {
@@ -140,6 +142,7 @@ fun TrackListContent(state: TrackListState, onPlay: (key: Long?, shuffle: Boolea
                         }
                     }
                 }
+                else -> Unit
             }
         }
     }
