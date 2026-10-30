@@ -46,6 +46,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
+    // Navigation Rail statt Bottom-Bar auf breiten Fenstern (Tablet, Foldable, Querformat).
+    implementation(libs.androidx.compose.navigationsuite)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)

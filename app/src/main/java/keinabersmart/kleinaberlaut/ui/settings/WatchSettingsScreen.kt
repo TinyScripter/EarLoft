@@ -39,6 +39,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.ui.components.readableWidth
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
@@ -144,7 +145,7 @@ private fun WatchSettingsContent(
     var confirmClear by rememberSaveable { mutableStateOf(false) }
     val settings = state.settings
 
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
             title = { Text(stringResource(R.string.watch_settings_title)) },
             navigationIcon = { BackButton(onBack) },

@@ -2,6 +2,7 @@ package keinabersmart.kleinaberlaut.ui.player
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -80,9 +81,29 @@ private fun QueueContent(
             title = { Text(stringResource(R.string.player_queue)) },
             navigationIcon = { BackButton(onBack) },
         )
+        QueueList(
+            state = state,
+            onItemClick = onItemClick,
+            onRemove = onRemove,
+            onMove = onMove,
+            modifier = Modifier.navigationBarsPadding(),
+        )
+    }
+}
+
+/** Die Warteschlange mit Ziehgriffen; auch rechts neben der Wiedergabe auf breiten Fenstern. */
+@Composable
+fun QueueList(
+    state: PlayerState,
+    onItemClick: (Int) -> Unit,
+    onRemove: (Int) -> Unit,
+    onMove: (from: Int, to: Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier) {
         if (state.queue.isEmpty()) {
             EmptyHint(stringResource(R.string.player_nothing_playing))
-            return@Column
+            return@Box
         }
         val listState = rememberLazyListState(initialFirstVisibleItemIndex = state.currentIndex.coerceAtLeast(0))
 
@@ -110,7 +131,7 @@ private fun QueueContent(
             onMove(from, to)
         }
 
-        LazyColumn(state = listState, modifier = Modifier.navigationBarsPadding()) {
+        LazyColumn(state = listState) {
             items(rows, key = { it.id }) { row ->
                 val index = rows.indexOf(row)
                 val entry = row.entry

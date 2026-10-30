@@ -39,6 +39,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import keinabersmart.kleinaberlaut.ui.components.readableWidth
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.repository.ConnectionResult
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
@@ -87,7 +88,7 @@ private fun ServerFormContent(
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
             title = {
                 Text(stringResource(if (state.isEditing) R.string.edit_server_title else R.string.add_server_title))

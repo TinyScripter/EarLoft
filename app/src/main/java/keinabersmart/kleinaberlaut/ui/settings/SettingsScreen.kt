@@ -45,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import keinabersmart.kleinaberlaut.ui.components.readableWidth
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
@@ -129,7 +130,7 @@ private fun SettingsContent(
     var choosingTheme by rememberSaveable { mutableStateOf(false) }
     var choosingReplayGain by rememberSaveable { mutableStateOf(false) }
 
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
             title = { Text(stringResource(R.string.settings_title)) },
         )

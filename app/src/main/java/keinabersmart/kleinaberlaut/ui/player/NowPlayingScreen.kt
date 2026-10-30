@@ -2,9 +2,11 @@ package keinabersmart.kleinaberlaut.ui.player
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -49,6 +52,7 @@ import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import keinabersmart.kleinaberlaut.core.playback.QueueEntry
 import keinabersmart.kleinaberlaut.ui.components.AlbumArt
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.TwoColumnMinWidth
 import keinabersmart.kleinaberlaut.ui.components.formatDuration
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
@@ -90,6 +94,15 @@ fun NowPlayingScreen(
                 onCancelSleepTimer = viewModel::cancelSleepTimer,
                 castDeviceName = rememberCastDeviceName(state.isRemote),
                 castButton = { CastButton() },
+                queuePane = { paneModifier ->
+                    QueueList(
+                        state = state,
+                        onItemClick = viewModel::skipToQueueItem,
+                        onRemove = viewModel::removeQueueItem,
+                        onMove = viewModel::moveQueueItem,
+                        modifier = paneModifier,
+                    )
+                },
             )
         }
     }
@@ -119,6 +132,8 @@ private fun NowPlayingContent(
     modifier: Modifier = Modifier,
     castDeviceName: String? = null,
     castButton: @Composable () -> Unit = {},
+    /** Warteschlange rechts neben der Wiedergabe auf breiten Fenstern; schmal öffnet [onOpenQueue] eine eigene Seite. */
+    queuePane: @Composable (Modifier) -> Unit = {},
 ) {
     var sleepSheetVisible by remember { mutableStateOf(false) }
     if (sleepSheetVisible) {
@@ -127,28 +142,9 @@ private fun NowPlayingContent(
             onDismiss = { sleepSheetVisible = false },
         )
     }
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .safeDrawingPadding()
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onClose) {
-                Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = stringResource(R.string.player_close))
-            }
-            Text(
-                stringResource(R.string.player_now_playing),
-                style = MaterialTheme.typography.titleSmall,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            // So groß wie der Schließen-Knopf: Der Titel bleibt mittig.
-            Spacer(Modifier.size(48.dp))
-        }
+    BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding()) {
+        // Breit (Tablet quer): links Cover und Steuerung, rechts Warteschlange oder Songtext.
+        val wide = maxWidth >= TwoColumnMinWidth
 
         // Läuft ein Timer, schaltet ein Tipp auf den Mond ihn aus; sonst öffnet er die Auswahl.
         val sleepActive = sleepTimerRemainingMs != null
@@ -169,8 +165,18 @@ private fun NowPlayingContent(
                         onClick = onToggleLyrics,
                     )
                 }
-                IconButton(onClick = onOpenQueue) {
-                    Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = stringResource(R.string.player_open_queue))
+                if (wide) {
+                    // Die Warteschlange steht schon rechts; der Knopf holt sie nur hinter dem Songtext hervor.
+                    ToggleIconButton(
+                        icon = DesignR.drawable.ic_queue_music,
+                        active = !lyricsVisible,
+                        label = stringResource(R.string.player_open_queue),
+                        onClick = { if (lyricsVisible) onToggleLyrics() },
+                    )
+                } else {
+                    IconButton(onClick = onOpenQueue) {
+                        Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = stringResource(R.string.player_open_queue))
+                    }
                 }
                 if (state.current != null) {
                     ToggleIconButton(
@@ -182,49 +188,143 @@ private fun NowPlayingContent(
                 }
             }
         }
-
-        val current = state.current
-        if (current == null) {
-            actionRow()
-            EmptyHint(stringResource(R.string.player_nothing_playing))
-            return@Column
+        val trackInfoAndControls: @Composable (QueueEntry) -> Unit = { current ->
+            TrackInfoAndControls(
+                current = current,
+                state = state,
+                positionMs = positionMs,
+                castDeviceName = castDeviceName,
+                onSeek = onSeek,
+                onToggleShuffle = onToggleShuffle,
+                onPrevious = onPrevious,
+                onTogglePlayPause = onTogglePlayPause,
+                onNext = onNext,
+                onCycleRepeat = onCycleRepeat,
+            )
         }
 
-        // Cover oben mit den Knöpfen darunter; alles ab dem Titel sitzt im übrigen Platz mittig (oben und unten gleich viel
-        // Luft). Mit Songtext bekommt dieser den ganzen Platz, und der Titelblock rückt nach unten.
-        Column(
-            Modifier.weight(1f).fillMaxWidth(),
-            verticalArrangement = if (lyricsVisible) Arrangement.Top else CoverThenCentered,
-        ) {
-        Column(Modifier.weight(1f, fill = lyricsVisible).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (lyricsVisible) {
-                Box(Modifier.weight(1f).fillMaxWidth()) {
-                    LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
+        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            NowPlayingTopBar(onClose)
+            val current = state.current
+            if (current == null) {
+                actionRow()
+                EmptyHint(stringResource(R.string.player_nothing_playing))
+            } else if (wide) {
+                Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight().padding(bottom = 16.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // Ohne fillMaxWidth, damit das Cover bei wenig Höhe schrumpft statt die Knöpfe zu überdecken.
+                        AlbumArt(
+                            albumId = current.albumId,
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .widthIn(max = 480.dp),
+                            shape = MaterialTheme.shapes.extraLarge,
+                        )
+                        actionRow()
+                        SleepTimerLine(sleepTimerRemainingMs)
+                        Spacer(Modifier.height(8.dp))
+                        trackInfoAndControls(current)
+                    }
+                    Surface(
+                        modifier = Modifier.weight(1f).fillMaxHeight().padding(bottom = 16.dp),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        if (lyricsVisible) {
+                            LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
+                        } else {
+                            queuePane(Modifier.fillMaxSize().padding(vertical = 8.dp))
+                        }
+                    }
                 }
             } else {
-                AlbumArt(
-                    albumId = current.albumId,
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .widthIn(max = 420.dp)
-                        .fillMaxWidth(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                )
-            }
-            actionRow()
-            if (sleepTimerRemainingMs != null) {
-                // Eigene Zeile ohne Kürzung, damit die Restzeit auch bei langen Zeiten und großer Schrift ganz zu lesen ist.
-                Text(
-                    stringResource(R.string.sleep_timer_remaining, formatDuration(sleepTimerRemainingMs)),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                // Cover oben mit den Knöpfen darunter; alles ab dem Titel sitzt im übrigen Platz mittig (oben und unten
+                // gleich viel Luft). Mit Songtext bekommt dieser den ganzen Platz, und der Titelblock rückt nach unten.
+                // Auf Tablets im Hochformat nicht über die ganze Breite ziehen.
+                Column(
+                    Modifier.weight(1f).widthIn(max = 560.dp).fillMaxWidth(),
+                    verticalArrangement = if (lyricsVisible) Arrangement.Top else CoverThenCentered,
+                ) {
+                    Column(Modifier.weight(1f, fill = lyricsVisible).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (lyricsVisible) {
+                            Box(Modifier.weight(1f).fillMaxWidth()) {
+                                LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
+                            }
+                        } else {
+                            AlbumArt(
+                                albumId = current.albumId,
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .widthIn(max = 420.dp)
+                                    .fillMaxWidth(),
+                                shape = MaterialTheme.shapes.extraLarge,
+                            )
+                        }
+                        actionRow()
+                        SleepTimerLine(sleepTimerRemainingMs)
+                    }
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (lyricsVisible) Spacer(Modifier.height(24.dp))
+                        trackInfoAndControls(current)
+                        if (lyricsVisible) Spacer(Modifier.height(24.dp))
+                    }
+                }
             }
         }
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        if (lyricsVisible) Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun NowPlayingTopBar(onClose: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onClose) {
+            Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = stringResource(R.string.player_close))
+        }
+        Text(
+            stringResource(R.string.player_now_playing),
+            style = MaterialTheme.typography.titleSmall,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        // So groß wie der Schließen-Knopf: Der Titel bleibt mittig.
+        Spacer(Modifier.size(48.dp))
+    }
+}
+
+@Composable
+private fun SleepTimerLine(remainingMs: Long?) {
+    if (remainingMs == null) return
+    // Eigene Zeile ohne Kürzung, damit die Restzeit auch bei langen Zeiten und großer Schrift ganz zu lesen ist.
+    Text(
+        stringResource(R.string.sleep_timer_remaining, formatDuration(remainingMs)),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** Titel, Interpret, Album, Cast-Hinweis, Fortschritt und die Wiedergabe-Knöpfe. */
+@Composable
+private fun TrackInfoAndControls(
+    current: QueueEntry,
+    state: PlayerState,
+    positionMs: Long,
+    castDeviceName: String?,
+    onSeek: (Long) -> Unit,
+    onToggleShuffle: () -> Unit,
+    onPrevious: () -> Unit,
+    onTogglePlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onCycleRepeat: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             current.title,
             style = MaterialTheme.typography.headlineSmall,
@@ -305,9 +405,6 @@ private fun NowPlayingContent(
                 onClick = onCycleRepeat,
             )
         }
-        if (lyricsVisible) Spacer(Modifier.height(24.dp))
-        }
-        }
     }
 }
 
@@ -366,6 +463,7 @@ private fun ToggleIconButton(icon: Int, active: Boolean, label: String, onClick:
 }
 
 @Preview(showBackground = true, heightDp = 760)
+@Preview(name = "Tablet", showBackground = true, device = Devices.TABLET)
 @Composable
 private fun NowPlayingContentPreview() {
     KleinaberlautTheme {

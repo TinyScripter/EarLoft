@@ -9,18 +9,24 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSuiteScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -38,6 +44,10 @@ import keinabersmart.kleinaberlaut.navigation.FavoritesRoute
 import keinabersmart.kleinaberlaut.navigation.HomeRoute
 import keinabersmart.kleinaberlaut.navigation.LibraryRoute
 import keinabersmart.kleinaberlaut.navigation.LicensesRoute
+import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy
+import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy.Companion.detailPane
+import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy.Companion.listPane
+import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy.Companion.nestedDetailPane
 import keinabersmart.kleinaberlaut.navigation.Navigator
 import keinabersmart.kleinaberlaut.navigation.NowPlayingRoute
 import keinabersmart.kleinaberlaut.navigation.PlaylistRoute
@@ -90,6 +100,17 @@ fun KleinaberlautApp(
     }
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
 
+    // Ab mittlerer Breite (Tablet, Foldable, Handy quer) Navigation Rail statt Bottom-Bar,
+    // ab großer Breite zusätzlich Liste und Detail nebeneinander.
+    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    val navigationSuiteType = if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
+        NavigationSuiteType.NavigationRail
+    } else {
+        NavigationSuiteType.NavigationBar
+    }
+    val twoPane = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
+    val sceneStrategy = remember(twoPane) { ListDetailSceneStrategy(twoPane) }
+
     val openAlbum: (Long) -> Unit = { navigator.navigate(AlbumRoute(it)) }
     val openArtist: (Long) -> Unit = { navigator.navigate(ArtistRoute(it)) }
 
@@ -100,7 +121,7 @@ fun KleinaberlautApp(
                 onArtistClick = openArtist,
             )
         }
-        entry<LibraryRoute> {
+        entry<LibraryRoute>(metadata = listPane()) {
             LibraryScreen(
                 onAlbumClick = openAlbum,
                 onArtistClick = openArtist,
@@ -108,19 +129,23 @@ fun KleinaberlautApp(
                 onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
             )
         }
-        entry<FavoritesRoute> { FavoritesScreen(onBack = navigator::goBack) }
-        entry<PlaylistRoute> { route -> PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack) }
+        entry<FavoritesRoute>(metadata = detailPane()) { FavoritesScreen(onBack = navigator::goBack) }
+        entry<PlaylistRoute>(metadata = detailPane()) { route ->
+            PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack)
+        }
         entry<SearchRoute> { SearchScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) }
-        entry<DownloadsRoute> { DownloadsScreen(onBack = navigator::goBack, onAlbumClick = openAlbum) }
-        entry<AlbumRoute> { route -> AlbumScreen(albumId = route.albumId, onBack = navigator::goBack) }
-        entry<ArtistRoute> { route ->
+        entry<DownloadsRoute>(metadata = detailPane()) { DownloadsScreen(onBack = navigator::goBack, onAlbumClick = openAlbum) }
+        entry<AlbumRoute>(metadata = nestedDetailPane()) { route ->
+            AlbumScreen(albumId = route.albumId, onBack = navigator::goBack)
+        }
+        entry<ArtistRoute>(metadata = detailPane()) { route ->
             ArtistScreen(artistId = route.artistId, onBack = navigator::goBack, onAlbumClick = openAlbum)
         }
         entry<NowPlayingRoute> {
             NowPlayingScreen(onClose = navigator::goBack, onOpenQueue = { navigator.navigate(QueueRoute) })
         }
         entry<QueueRoute> { QueueScreen(onBack = navigator::goBack) }
-        entry<SettingsRoute> {
+        entry<SettingsRoute>(metadata = listPane()) {
             SettingsScreen(
                 onAddServer = { navigator.navigate(AddServerRoute) },
                 onEditServer = { navigator.navigate(EditServerRoute(it)) },
@@ -130,14 +155,20 @@ fun KleinaberlautApp(
                 onOpenLicenses = { navigator.navigate(LicensesRoute) },
             )
         }
-        entry<WatchSettingsRoute> { WatchSettingsScreen(onBack = navigator::goBack) }
-        entry<AboutRoute> { AboutScreen(onBack = navigator::goBack) }
-        entry<LicensesRoute> { LicensesScreen(onBack = navigator::goBack) }
-        entry<AddServerRoute> { ServerFormScreen(sourceId = null, onDone = navigator::goBack) }
-        entry<EditServerRoute> { route -> ServerFormScreen(sourceId = route.sourceId, onDone = navigator::goBack) }
+        entry<WatchSettingsRoute>(metadata = detailPane()) { WatchSettingsScreen(onBack = navigator::goBack) }
+        entry<AboutRoute>(metadata = detailPane()) { AboutScreen(onBack = navigator::goBack) }
+        entry<LicensesRoute>(metadata = detailPane()) { LicensesScreen(onBack = navigator::goBack) }
+        entry<AddServerRoute>(metadata = detailPane()) { ServerFormScreen(sourceId = null, onDone = navigator::goBack) }
+        entry<EditServerRoute>(metadata = detailPane()) { route ->
+            ServerFormScreen(sourceId = route.sourceId, onDone = navigator::goBack)
+        }
     }
 
     val showChrome = !navigator.currentRoute.isFullScreenPlayer
+    val navigationSuiteState = rememberNavigationSuiteScaffoldState()
+    LaunchedEffect(showChrome) {
+        if (showChrome) navigationSuiteState.show() else navigationSuiteState.hide()
+    }
 
     SyncNoticeEffect()
 
@@ -145,46 +176,48 @@ fun KleinaberlautApp(
         LocalOfflineController provides rememberOfflineController(),
         LocalWatchController provides rememberWatchController(),
     ) {
-        Scaffold(
-            // Die Bildschirme kümmern sich selbst um Statusleiste und – ohne Bottom-Bar – die Navigationsleiste.
-            contentWindowInsets = WindowInsets(0),
-            bottomBar = {
-                if (showChrome) {
-                    Column {
-                        if (playerState.hasMedia) {
-                            val seedColor by playerViewModel.seedColor.collectAsStateWithLifecycle()
-                            AlbumColorTheme(seedColor) {
-                                MiniPlayer(
-                                    state = playerState,
-                                    positionProvider = { playerViewModel.currentPositionMs },
-                                    onClick = { navigator.navigate(NowPlayingRoute) },
-                                    onTogglePlayPause = playerViewModel::togglePlayPause,
-                                    onNext = playerViewModel::next,
-                                )
-                            }
-                        }
-                        NavigationBar {
-                            TopLevelDestination.entries.forEach { destination ->
-                                NavigationBarItem(
-                                    selected = destination.route == navigationState.topLevelRoute,
-                                    onClick = { navigator.navigate(destination.route) },
-                                    icon = { Icon(painterResource(destination.icon), contentDescription = null) },
-                                    label = { Text(stringResource(destination.label)) },
-                                )
-                            }
-                        }
-                    }
+        // Die Bildschirme kümmern sich selbst um die Statusleiste und – im Vollbild-Player – um die Navigationsleiste.
+        NavigationSuiteScaffold(
+            navigationItems = {
+                TopLevelDestination.entries.forEach { destination ->
+                    NavigationSuiteItem(
+                        selected = destination.route == navigationState.topLevelRoute,
+                        onClick = { navigator.navigate(destination.route) },
+                        icon = { Icon(painterResource(destination.icon), contentDescription = null) },
+                        label = { Text(stringResource(destination.label)) },
+                        navigationSuiteType = navigationSuiteType,
+                    )
                 }
             },
-        ) { innerPadding ->
-            NavDisplay(
-                entries = navigationState.toDecoratedEntries(entryProvider),
-                onBack = { navigator.goBack() },
-                transitionSpec = { fadeThrough() },
-                popTransitionSpec = { fadeThrough() },
-                predictivePopTransitionSpec = { predictiveBack() },
-                modifier = Modifier.padding(innerPadding),
-            )
+            navigationSuiteType = navigationSuiteType,
+            state = navigationSuiteState,
+        ) {
+            // Mit Bottom-Bar ist der untere Rand schon verbraucht; mit Rail hält dies Listen und Mini-Player
+            // von der Gestenleiste fern.
+            val bottomInsets = if (showChrome) WindowInsets.navigationBars.only(WindowInsetsSides.Bottom) else WindowInsets(0)
+            Column(Modifier.windowInsetsPadding(bottomInsets)) {
+                NavDisplay(
+                    entries = navigationState.toDecoratedEntries(entryProvider),
+                    sceneStrategies = listOf(sceneStrategy),
+                    onBack = { navigator.goBack() },
+                    transitionSpec = { fadeThrough() },
+                    popTransitionSpec = { fadeThrough() },
+                    predictivePopTransitionSpec = { predictiveBack() },
+                    modifier = Modifier.weight(1f),
+                )
+                if (showChrome && playerState.hasMedia) {
+                    val seedColor by playerViewModel.seedColor.collectAsStateWithLifecycle()
+                    AlbumColorTheme(seedColor) {
+                        MiniPlayer(
+                            state = playerState,
+                            positionProvider = { playerViewModel.currentPositionMs },
+                            onClick = { navigator.navigate(NowPlayingRoute) },
+                            onTogglePlayPause = playerViewModel::togglePlayPause,
+                            onNext = playerViewModel::next,
+                        )
+                    }
+                }
+            }
         }
     }
 }

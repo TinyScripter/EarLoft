@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
 import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
+import keinabersmart.kleinaberlaut.ui.components.readableWidth
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 
@@ -22,7 +23,7 @@ import keinabersmart.kleinaberlaut.ui.library.BackButton
 @Composable
 fun LicensesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val libraries by produceLibraries(R.raw.aboutlibraries)
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
             title = { Text(stringResource(R.string.licenses_title)) },
             navigationIcon = { BackButton(onBack) },

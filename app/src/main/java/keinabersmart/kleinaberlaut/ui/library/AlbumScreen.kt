@@ -2,9 +2,11 @@ package keinabersmart.kleinaberlaut.ui.library
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,6 +15,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,6 +63,7 @@ import keinabersmart.kleinaberlaut.ui.components.PreviewSong
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
+import keinabersmart.kleinaberlaut.ui.components.TwoColumnMinWidth
 import keinabersmart.kleinaberlaut.ui.components.WatchStatusText
 import keinabersmart.kleinaberlaut.ui.components.WatchToggleButton
 import keinabersmart.kleinaberlaut.ui.components.formatDuration
@@ -132,34 +138,55 @@ private fun AlbumSongs(
     onRemoveDownload: () -> Unit,
     actions: SongActions,
 ) {
+    val header = @Composable {
+        AlbumHeader(
+            details = details,
+            offline = offline,
+            onPlay = { onPlay(0) },
+            onShuffle = onShuffle,
+            onDownload = onDownload,
+            onRemoveDownload = onRemoveDownload,
+        )
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (maxWidth >= TwoColumnMinWidth) {
+            // Breites Fenster: Cover und Knöpfe links, die Songs rechts daneben.
+            val headerWidth = maxWidth * 0.4f
+            Row(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier
+                        .width(headerWidth)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .padding(top = 8.dp, bottom = 24.dp),
+                ) { header() }
+                LazyColumn(Modifier.weight(1f).fillMaxHeight()) { albumSongItems(details, onPlay, actions) }
+            }
+        } else {
+            LazyColumn(Modifier.fillMaxSize()) {
+                item(key = "header") { header() }
+                albumSongItems(details, onPlay, actions)
+            }
+        }
+    }
+}
+
+private fun LazyListScope.albumSongItems(details: AlbumDetails, onPlay: (Int) -> Unit, actions: SongActions) {
     val songs = details.songs
     val multiDisc = songs.map { it.discNumber }.distinct().size > 1
-
-    LazyColumn(Modifier.fillMaxSize()) {
-        item(key = "header") {
-            AlbumHeader(
-                details = details,
-                offline = offline,
-                onPlay = { onPlay(0) },
-                onShuffle = onShuffle,
-                onDownload = onDownload,
-                onRemoveDownload = onRemoveDownload,
-            )
+    songs.forEachIndexed { index, song ->
+        if (multiDisc && (index == 0 || songs[index - 1].discNumber != song.discNumber)) {
+            item(key = "disc-${song.discNumber}") {
+                SectionHeader(stringResource(R.string.disc_number, song.discNumber))
+            }
         }
-        songs.forEachIndexed { index, song ->
-            if (multiDisc && (index == 0 || songs[index - 1].discNumber != song.discNumber)) {
-                item(key = "disc-${song.discNumber}") {
-                    SectionHeader(stringResource(R.string.disc_number, song.discNumber))
-                }
-            }
-            item(key = song.id) {
-                SongListItem(
-                    song = song,
-                    onClick = { onPlay(index) },
-                    actions = actions,
-                    trackNumber = song.trackNumber,
-                )
-            }
+        item(key = song.id) {
+            SongListItem(
+                song = song,
+                onClick = { onPlay(index) },
+                actions = actions,
+                trackNumber = song.trackNumber,
+            )
         }
     }
 }

@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import keinabersmart.kleinaberlaut.ui.components.readableWidth
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.ui.library.BackButton
@@ -48,7 +49,7 @@ fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AboutContent(versionName: String?, onBack: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
             title = { Text(stringResource(R.string.about_title)) },
             navigationIcon = { BackButton(onBack) },
