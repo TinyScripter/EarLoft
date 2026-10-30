@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -189,8 +190,13 @@ private fun NowPlayingContent(
             return@Column
         }
 
-        // Cover oben, die Knöpfe direkt darunter; der Rest des Platzes bleibt zwischen Knöpfen und Titel frei.
-        Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        // Cover oben mit den Knöpfen darunter; alles ab dem Titel sitzt im übrigen Platz mittig (oben und unten gleich viel
+        // Luft). Mit Songtext bekommt dieser den ganzen Platz, und der Titelblock rückt nach unten.
+        Column(
+            Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = if (lyricsVisible) Arrangement.Top else CoverThenCentered,
+        ) {
+        Column(Modifier.weight(1f, fill = lyricsVisible).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             if (lyricsVisible) {
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
@@ -217,7 +223,8 @@ private fun NowPlayingContent(
                 )
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        if (lyricsVisible) Spacer(Modifier.height(24.dp))
         Text(
             current.title,
             style = MaterialTheme.typography.headlineSmall,
@@ -298,7 +305,25 @@ private fun NowPlayingContent(
                 onClick = onCycleRepeat,
             )
         }
-        Spacer(Modifier.height(24.dp))
+        if (lyricsVisible) Spacer(Modifier.height(24.dp))
+        }
+        }
+    }
+}
+
+/**
+ * Zwei Kinder: Cover samt Knöpfen ganz oben, der Titelblock danach mit dem restlichen Platz je zur Hälfte davor und
+ * dahinter, damit der freie Raum oben und unten gleich groß ist.
+ */
+private object CoverThenCentered : Arrangement.Vertical {
+    override fun Density.arrange(totalSize: Int, sizes: IntArray, outPositions: IntArray) {
+        val free = (totalSize - sizes.sum()).coerceAtLeast(0)
+        var position = 0
+        sizes.forEachIndexed { index, size ->
+            if (index == 1) position += free / 2
+            outPositions[index] = position
+            position += size
+        }
     }
 }
 
