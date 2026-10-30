@@ -35,6 +35,11 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     private val _lastError = MutableStateFlow(prefs.getString(KEY_LAST_ERROR, null))
     val lastError: StateFlow<String?> = _lastError.asStateFlow()
 
+    private val _waitingForWifi = MutableStateFlow(prefs.getBoolean(KEY_WAITING_WIFI, false))
+
+    /** Der letzte Lauf bekam kein WLAN (aus oder außer Reichweite); die Downloads warten auf den nächsten Versuch. */
+    val waitingForWifi: StateFlow<Boolean> = _waitingForWifi.asStateFlow()
+
     /** @return `true`, wenn sich etwas geändert hat. */
     fun updateSettings(settings: WearSettingsDto): Boolean {
         if (settings == _settings.value) return false
@@ -77,6 +82,12 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         _lastError.value = message
     }
 
+    fun setWaitingForWifi(waiting: Boolean) {
+        if (waiting == _waitingForWifi.value) return
+        prefs.edit().putBoolean(KEY_WAITING_WIFI, waiting).apply()
+        _waitingForWifi.value = waiting
+    }
+
     private fun readSettings(): WearSettingsDto {
         val json = prefs.getString(KEY_SETTINGS, null) ?: return WearSettingsDto()
         return try {
@@ -95,5 +106,6 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_SETTINGS = "settings"
         private const val KEY_MISSING = "missing_for_storage"
         private const val KEY_LAST_ERROR = "last_error"
+        private const val KEY_WAITING_WIFI = "waiting_wifi"
     }
 }

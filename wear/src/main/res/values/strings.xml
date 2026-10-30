@@ -79,6 +79,7 @@
     <string name="storage_loading">Loading …</string>
     <string name="storage_idle">Everything loaded</string>
     <string name="storage_waiting_charger">Waiting for the charger</string>
+    <string name="storage_waiting_wifi">Waiting for Wi-Fi – please turn on the watch\'s Wi-Fi</string>
     <plurals name="storage_pending">
         <item quantity="one">%d track left</item>
         <item quantity="other">%d tracks left</item>

@@ -75,8 +75,10 @@ class WearDownloadWorker(
                 if (lease == null) {
                     // Kein WLAN zählt nicht als Fehlversuch des Servers: Sonst käme die ganze Auswahl über Bluetooth.
                     Log.i(TAG, "Kein WLAN, später erneut (Versuch ${runAttemptCount + 1})")
+                    state.setWaitingForWifi(true)
                     return Result.retry()
                 }
+                state.setWaitingForWifi(false)
                 var lastPercent = -1
                 val outcome = downloader.download(next, profile, lease.network) { done, total ->
                     val percent = total?.let { (done * 100 / it).toInt() } ?: -1

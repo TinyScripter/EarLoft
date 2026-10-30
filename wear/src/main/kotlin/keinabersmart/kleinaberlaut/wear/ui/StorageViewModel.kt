@@ -42,7 +42,12 @@ data class StorageUiState(
     /** Einstellung vom Handy: Downloads nur am Ladegerät. */
     val requireCharging: Boolean = false,
     val charging: Boolean = true,
+    /** Der letzte Lauf bekam kein WLAN. */
+    val noWifi: Boolean = false,
 ) {
+    /** Es wartet etwas, aber die Uhr bekommt kein WLAN (Vorrang hat das Ladegerät, das den Lauf gar nicht erst startet). */
+    val waitingForWifi: Boolean get() = noWifi && !waitingForCharger && (overview?.pendingSongs ?: 0) > 0
+
     /** Es wartet etwas, aber der Auftrag startet erst am Ladegerät. */
     val waitingForCharger: Boolean get() = requireCharging && !charging && (overview?.pendingSongs ?: 0) > 0
 }
@@ -66,10 +71,10 @@ class StorageViewModel @Inject constructor(
         watchState.settings,
         watchState.missingForStorage,
         watchState.lastError,
-        context.chargingFlow(),
-    ) { overview, settings: WearSettingsDto, missing, error, charging ->
+        context.chargingFlow().combine(watchState.waitingForWifi, ::Pair),
+    ) { overview, settings: WearSettingsDto, missing, error, (charging, noWifi) ->
         val backlog = if (overview.pendingSongs > 0) phoneBacklog(settings.quality) else 0
-        StorageUiState(overview, settings.storageLimitBytes, missing, error, backlog, settings.requireCharging, charging)
+        StorageUiState(overview, settings.storageLimitBytes, missing, error, backlog, settings.requireCharging, charging, noWifi)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
 
     private suspend fun phoneBacklog(quality: WearQuality): Long =

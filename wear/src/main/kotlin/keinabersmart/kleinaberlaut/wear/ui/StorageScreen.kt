@@ -91,6 +91,9 @@ private fun StorageContent(
             if (state.waitingForCharger) {
                 line(transformationSpec) { stringResource(R.string.storage_waiting_charger) }
             }
+            if (state.waitingForWifi) {
+                line(transformationSpec) { stringResource(R.string.storage_waiting_wifi) }
+            }
             if (state.phoneBacklogBytes > 0) {
                 line(transformationSpec) {
                     stringResource(
