@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.core.data.repository
 
 import android.graphics.Bitmap
+import android.util.Log
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
 import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
 import kotlinx.coroutines.flow.first
@@ -15,14 +16,25 @@ class ArtworkRepository @Inject constructor(
     private val libraryDao: LibraryDao,
     private val registry: MusicDataSources,
     private val coverFiles: CoverFiles,
+    private val coverCache: CoverCache,
     private val settings: ArtworkSettings,
     private val onlineFiles: OnlineImageFiles,
     private val onlineClient: OnlineArtworkClient,
 ) {
-    /** Zuerst die Cover-Datei auf dem Gerät (Uhr, Wear-Konzept 7.3), sonst die Quelle. */
+    /**
+     * Zuerst die Cover-Datei auf dem Gerät (Uhr, Wear-Konzept 7.3), dann der Cache, sonst die Quelle. Der Cache gilt nur,
+     * wenn er mindestens [sizePx] groß ist; ist die Quelle nicht erreichbar, nimmt die App auch ein kleineres Bild.
+     */
     suspend fun albumCover(albumId: Long, sizePx: Int): Bitmap? {
         coverFiles.read(albumId)?.let { return it }
-        return loadFromSource(albumId, sizePx) ?: onlineAlbumCover(albumId)
+        val cached = coverCache.read(albumId)
+        if (cached != null && maxOf(cached.width, cached.height) >= sizePx) return cached
+        val loaded = loadFromSource(albumId, sizePx)
+        if (loaded != null) {
+            coverCache.write(albumId, loaded)
+            return loaded
+        }
+        return cached ?: onlineAlbumCover(albumId)
     }
 
     /** Interpreten-Bild aus dem Internet; `null`, wenn die Option aus ist oder es keines gibt. */
@@ -78,6 +90,16 @@ class ArtworkRepository @Inject constructor(
 
     private suspend fun loadFromSource(albumId: Long, sizePx: Int): Bitmap? {
         val source = libraryDao.getCoverSource(albumId) ?: return null
-        return registry[source.sourceId]?.loadArtwork(source.coverRemoteId ?: source.remoteId, sizePx)
+        return try {
+            registry[source.sourceId]?.loadArtwork(source.coverRemoteId ?: source.remoteId, sizePx)
+        } catch (e: IOException) {
+            // Server nicht erreichbar: Ein fehlendes Cover darf nie die App beenden (Aufrufer laufen u. a. im Hauptthread).
+            Log.w(TAG, "Cover von ${source.sourceId} nicht ladbar: $e")
+            null
+        }
+    }
+
+    private companion object {
+        const val TAG = "ArtworkRepository"
     }
 }
