@@ -134,7 +134,7 @@ SDK levels: `minSdk` 26 (phone) and 30 (watch), `compileSdk` / `targetSdk` 37, J
   with backoff.
 - **Browse tree for Auto, the watch and the system UI** comes from one `MediaLibraryService`.
 
-Details and decisions are in [`ideas/konzept_und_architektur_v2.md`](ideas/konzept_und_architektur_v2.md) (concept),
+Details and decisions are in [`ideas/konzept_und_architektur.md`](ideas/konzept_und_architektur.md) (concept),
 [`ideas/wear_konzept.md`](ideas/wear_konzept.md) (watch) and [`ideas/stand.md`](ideas/stand.md) (current status and
 open points). Those documents are written in German.
 
