@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteLibraryDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteStateDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteSubscription
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteTracksRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteTracksResult
 import keinabersmart.kleinaberlaut.core.wearsync.assetPayloadsAt
@@ -21,7 +22,10 @@ import keinabersmart.kleinaberlaut.core.wearsync.payloadsAt
 import keinabersmart.kleinaberlaut.core.wearsync.sendAndAwait
 import keinabersmart.kleinaberlaut.core.wearsync.sendPayload
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -39,11 +43,13 @@ class PhoneRemote @Inject constructor(
 ) {
     /** Was das Handy spielt; `null`, solange es nichts gemeldet hat. */
     val state: Flow<WearRemoteStateDto?> = dataClient.changesAt(WearPaths.REMOTE_STATE)
+        .subscribed()
         .map { dataClient.payloadsAt(WearPaths.REMOTE_STATE).values.firstOrNull()?.let(::decodeState) }
         .distinctUntilChanged()
 
     /** Cover des laufenden Albums als (Album-ID, Bild); das Bild ist `null`, wenn das Handy keines hat. */
     val cover: Flow<Pair<Long, Bitmap?>?> = dataClient.changesAt(WearPaths.REMOTE_COVER)
+        .subscribed()
         .map {
             val (albumId, jpeg) = dataClient.payloadsAt(WearPaths.REMOTE_COVER).values.firstNotNullOfOrNull { WearCodec.decodeCover(it) }
                 ?: return@map null
@@ -53,6 +59,7 @@ class PhoneRemote @Inject constructor(
 
     /** Alben und Playlists des Handys; `null`, solange das Handy sie nicht geschrieben hat. */
     val library: Flow<WearRemoteLibraryDto?> = dataClient.changesAt(WearPaths.REMOTE_LIBRARY)
+        .subscribed()
         .map {
             dataClient.assetPayloadsAt(WearPaths.REMOTE_LIBRARY).values.firstOrNull()?.let { bytes ->
                 try {
@@ -63,6 +70,21 @@ class PhoneRemote @Inject constructor(
                 }
             }
         }
+
+    /**
+     * Meldet die Uhr beim Handy an, solange [this] gesammelt wird. Das Handy schreibt Zustand, Cover und Bibliotheksindex nur
+     * für angemeldete Uhren; so weckt nicht jeder Titelwechsel am Handy die Uhr-App. Die Anmeldung gilt
+     * [WearRemoteSubscription.TTL_MS] und wird alle [WearRemoteSubscription.RENEW_MS] erneuert.
+     */
+    private fun <T> Flow<T>.subscribed(): Flow<T> = channelFlow {
+        launch {
+            while (true) {
+                sendToPhone(WearPaths.REMOTE_SUBSCRIBE, ByteArray(0))
+                delay(WearRemoteSubscription.RENEW_MS)
+            }
+        }
+        collect { send(it) }
+    }
 
     /** @return `false`, wenn kein Handy erreichbar war oder das Senden scheiterte. */
     suspend fun send(action: WearRemoteAction, value: Long = 0): Boolean =

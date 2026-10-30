@@ -301,3 +301,9 @@ data class WearRemoteTracksResult(
 
 @Serializable
 data class WearRemoteTrackDto(val songId: Long, val title: String, val artist: String)
+
+/** Wie lange eine Anmeldung ([WearPaths.REMOTE_SUBSCRIBE]) gilt und wie oft die Uhr sie erneuert (mit Reserve für verlorene Nachrichten). */
+object WearRemoteSubscription {
+    const val TTL_MS = 90_000L
+    const val RENEW_MS = 30_000L
+}

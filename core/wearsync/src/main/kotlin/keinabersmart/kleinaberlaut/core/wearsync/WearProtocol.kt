@@ -60,6 +60,12 @@ object WearPaths {
     /** DataItem mit Asset, Handy → Uhr: [WearRemoteLibraryDto] (gzip) – Alben und Playlists des Handys. */
     const val REMOTE_LIBRARY = "/kal/remote/library"
 
+    /**
+     * Message, Uhr → Handy, ohne Inhalt: „Ich zeige die Fernsteuerung.“ Nur dann schreibt das Handy Zustand, Cover und
+     * Bibliotheksindex (siehe [WearRemoteSubscription]); die Uhr erneuert die Anmeldung, solange die App offen ist.
+     */
+    const val REMOTE_SUBSCRIBE = "/kal/remote/subscribe"
+
     /** Message, Uhr → Handy: [WearRemoteCommand]. */
     const val REMOTE_COMMAND = "/kal/remote/command"
 

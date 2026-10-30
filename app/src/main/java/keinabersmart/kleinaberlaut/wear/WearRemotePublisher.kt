@@ -18,12 +18,16 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteAlbumDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteLibraryDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlaylistDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteStateDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteSubscription
 import keinabersmart.kleinaberlaut.core.wearsync.hashesAt
 import keinabersmart.kleinaberlaut.core.wearsync.putAssetPayload
 import keinabersmart.kleinaberlaut.core.wearsync.putPayload
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -39,13 +43,13 @@ import javax.inject.Singleton
 
 /**
  * Hält für die Fernsteuerung von der Uhr aus (Wear-Konzept 15) drei DataItems aktuell: was das Handy spielt, dessen
- * Cover sowie Alben und Playlists. Geschrieben wird nur, solange eine Uhr mit der App gekoppelt ist.
+ * Cover sowie Alben und Playlists. Geschrieben wird nur, solange die Uhr sich angemeldet hat ([subscribe]) – jede Änderung
+ * weckt sonst die Uhr-App, auch wenn niemand sie benutzt.
  */
 @Singleton
 class WearRemotePublisher @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val dataClient: DataClient,
-    private val watchConnection: WatchConnection,
     private val playback: PlaybackConnection,
     private val artwork: ArtworkRepository,
     private val albumColors: AlbumColorRepository,
@@ -54,6 +58,20 @@ class WearRemotePublisher @Inject constructor(
     private val favorites: FavoritesRepository,
 ) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
+
+    private val active = MutableStateFlow(false)
+    private var expiry: Job? = null
+
+    /** Die Uhr zeigt die Fernsteuerung: Beim ersten Mal schreibt das Handy sofort alles neu, danach bei Änderungen. */
+    @Synchronized
+    fun subscribe(scope: CoroutineScope) {
+        expiry?.cancel()
+        active.value = true
+        expiry = scope.launch {
+            delay(WearRemoteSubscription.TTL_MS)
+            active.value = false
+        }
+    }
 
     /** Album, dessen Cover zuletzt geschrieben wurde; ändert sich nur beim Albumwechsel. */
     private var publishedCoverAlbumId: Long? = null
@@ -64,8 +82,8 @@ class WearRemotePublisher @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     fun start(scope: CoroutineScope) {
         scope.launch {
-            watchConnection.watchAppInstalled.flatMapLatest { installed ->
-                if (!installed) {
+            active.flatMapLatest { subscribed ->
+                if (!subscribed) {
                     emptyFlow()
                 } else {
                     // Zustandsänderungen und Sprünge (Spulen) zusammenfassen: Ein Titelwechsel löst beides aus.
@@ -74,17 +92,18 @@ class WearRemotePublisher @Inject constructor(
             }.collect { publishState() }
         }
         scope.launch {
-            watchConnection.watchAppInstalled.flatMapLatest { installed ->
-                if (!installed) {
+            active.flatMapLatest { subscribed ->
+                if (!subscribed) {
                     emptyFlow()
                 } else {
+                    var first = true
                     combine(library.albums(), playlists.playlists(), favorites.favorites()) { albums, lists, favs ->
                         WearRemoteLibraryDto(
                             albums = albums.map { WearRemoteAlbumDto(it.id, it.title, it.artist, it.songCount) },
                             playlists = lists.map { WearRemotePlaylistDto(it.id, it.name, it.songCount) },
                             favoritesCount = favs.size,
                         )
-                    }.debounce(LIBRARY_DEBOUNCE_MS)
+                    }.debounce { if (first) 0L.also { first = false } else LIBRARY_DEBOUNCE_MS }
                 }
             }.collect { publishLibrary(it) }
         }
@@ -111,6 +130,7 @@ class WearRemotePublisher @Inject constructor(
             volumeMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
         )
         dataClient.putPayload(WearPaths.REMOTE_STATE, WearCodec.encode(dto))
+        // Nach einer Pause ohne Anmeldung kann die Uhr ein altes Cover haben: bei neuer Anmeldung neu schreiben.
         if (albumId != null && albumId != publishedCoverAlbumId) publishCover(albumId)
     }
 

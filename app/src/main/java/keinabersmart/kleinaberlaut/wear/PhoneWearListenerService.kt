@@ -50,6 +50,7 @@ class PhoneWearListenerService : WearableListenerService() {
     @Inject lateinit var playImporter: WatchPlayImporter
     @Inject lateinit var selections: WearSelectionRepository
     @Inject lateinit var remote: WearRemoteHandler
+    @Inject lateinit var remotePublisher: WearRemotePublisher
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onMessageReceived(event: MessageEvent) {
@@ -65,6 +66,7 @@ class PhoneWearListenerService : WearableListenerService() {
                 applicationScope.launch { selections.setSelected(request.kind, request.refId, request.selected) }
             }
             WearPaths.CLEAR_SELECTIONS -> applicationScope.launch { selections.clear() }
+            WearPaths.REMOTE_SUBSCRIBE -> remotePublisher.subscribe(applicationScope)
             WearPaths.REMOTE_COMMAND -> decodeOrNull<WearRemoteCommand>(event)?.let(remote::command)
             WearPaths.REMOTE_PLAY -> {
                 val request = decodeOrNull<WearRemotePlayRequest>(event) ?: return
