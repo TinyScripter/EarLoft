@@ -21,12 +21,19 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 private const val TAG = "WearFileTransfer"
 private const val BUFFER_BYTES = 64 * 1024
 
 /** Wie lange die Uhr auf die Kopfzeile des Handys wartet (Handy außer Reichweite, App nicht startbar). */
 private const val HEADER_TIMEOUT_MS = 30_000L
+
+/** Wie lange während der Übertragung kein Byte ankommen darf (Bluetooth weg): Danach bricht die Uhr ab und versucht es später erneut. */
+private const val STALL_TIMEOUT_MS = 30_000L
+
+private const val WATCHDOG_INTERVAL_MS = 5_000L
+private const val NANOS_PER_MS = 1_000_000L
 
 /** Kopfzeile des Datei-Kanals: die Länge in Bytes, [NO_FILE] wenn das Handy keine Datei hat. */
 const val NO_FILE = -1L
@@ -58,14 +65,20 @@ suspend fun ChannelClient.receiveFile(
     return coroutineScope {
         val headerRead = AtomicBoolean(false)
         val timedOut = AtomicBoolean(false)
-        // Blockierende Lesezugriffe lassen sich nur durch Schließen des Kanals beenden: bei Abbruch von außen
-        // und wenn die Kopfzeile ausbleibt.
+        val lastActivity = AtomicLong(System.nanoTime())
+        // Blockierende Lesezugriffe lassen sich nur durch Schließen des Kanals beenden: bei Abbruch von außen,
+        // wenn die Kopfzeile ausbleibt und wenn die Übertragung stockt (Bluetooth-Verbindung weg).
         val guard = launch(start = CoroutineStart.UNDISPATCHED) {
             try {
-                delay(HEADER_TIMEOUT_MS)
-                if (!headerRead.get()) {
-                    timedOut.set(true)
-                    close(channel)
+                while (true) {
+                    delay(WATCHDOG_INTERVAL_MS)
+                    val idleMs = (System.nanoTime() - lastActivity.get()) / NANOS_PER_MS
+                    val limitMs = if (headerRead.get()) STALL_TIMEOUT_MS else HEADER_TIMEOUT_MS
+                    if (idleMs > limitMs) {
+                        timedOut.set(true)
+                        close(channel)
+                        break
+                    }
                 }
                 awaitCancellation()
             } finally {
@@ -78,7 +91,10 @@ suspend fun ChannelClient.receiveFile(
                 val length = input.readLong()
                 headerRead.set(true)
                 if (length == NO_FILE) return@withContext FileReceive.Missing
-                copyExactly(input, output, length, onProgress)
+                copyExactly(input, output, length) { done, total ->
+                    lastActivity.set(System.nanoTime())
+                    onProgress(done, total)
+                }
                 FileReceive.Received(length)
             }
         } catch (e: CancellationException) {

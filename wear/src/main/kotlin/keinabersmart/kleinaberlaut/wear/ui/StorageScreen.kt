@@ -122,6 +122,9 @@ private fun StorageContent(
                         label = { Text(stringResource(R.string.storage_retry)) },
                     )
                 }
+            } else if (overview.pendingSongs > 0) {
+                // Z. B. „Telefon nicht erreichbar“: Die Titel warten, es ist noch nichts fehlgeschlagen.
+                state.lastError?.let { error -> line(transformationSpec) { stringResource(R.string.storage_last_error, error) } }
             }
             if (clearFailed) {
                 line(transformationSpec) { stringResource(R.string.storage_clear_no_phone) }

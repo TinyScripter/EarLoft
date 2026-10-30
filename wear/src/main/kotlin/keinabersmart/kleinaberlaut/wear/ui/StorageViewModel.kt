@@ -77,8 +77,10 @@ class StorageViewModel @Inject constructor(
         StorageUiState(overview, settings.storageLimitBytes, missing, error, backlog, settings.requireCharging, charging, noWifi)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
 
-    private suspend fun phoneBacklog(quality: WearQuality): Long =
-        wearDao.getPendingCandidates().filter { it.sourceType == SourceType.PHONE }.sumOf { estimateBytes(it, quality) }
+    /** Was über das Handy kommt: Songs nur vom Handy und Server-Songs, bei denen der Server zu oft scheiterte (Wear-Konzept 8.3). */
+    private suspend fun phoneBacklog(quality: WearQuality): Long = wearDao.getPendingCandidates()
+        .filter { it.sourceType == SourceType.PHONE || watchState.hasServerFailedTooOften(it.uid) }
+        .sumOf { estimateBytes(it, quality) }
 
     /** Das Handy bestimmt die Auswahl; lokal löschen würde beim nächsten Abgleich wieder geladen. */
     fun clearAll() {
