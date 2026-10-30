@@ -202,3 +202,102 @@ data class WearCredentialsRequest(val sourceId: String)
 
 @Serializable
 data class WearCredentialsDto(val sourceId: String, val password: String)
+
+// ---- Fernsteuerung des Handys von der Uhr aus ----
+
+/** Was das Handy gerade spielt (Handy → Uhr). Die Position rechnet die Uhr mit [positionAt] weiter. */
+@Serializable
+data class WearRemoteStateDto(
+    val hasMedia: Boolean = false,
+    val title: String = "",
+    val artist: String = "",
+    /** Album-ID am Handy; gehört zum Cover unter [WearPaths.REMOTE_COVER]. */
+    val albumId: Long? = null,
+    val albumTitle: String = "",
+    val durationMs: Long = 0,
+    /** Position zum Zeitpunkt [sampledAt] (Handy-Uhrzeit, Millisekunden seit 1970). */
+    val positionMs: Long = 0,
+    val sampledAt: Long = 0,
+    val isPlaying: Boolean = false,
+    val shuffle: Boolean = false,
+    /** Akzentfarbe des Albums (ARGB); `null`, solange sie fehlt. */
+    val seedColor: Int? = null,
+    /** Medienlautstärke des Handys, 0..1. */
+    val volume: Float = 0f,
+    /** Höchste Lautstärkestufe des Handys; [volume] ist ein Vielfaches von 1/[volumeMax]. */
+    val volumeMax: Int = 15,
+) {
+    /** Position zum Zeitpunkt [now]: läuft die Wiedergabe, zählt sie seit [sampledAt] weiter (höchstens bis zum Ende). */
+    fun positionAt(now: Long): Long {
+        if (!isPlaying || sampledAt == 0L) return positionMs
+        val elapsed = (now - sampledAt).coerceAtLeast(0)
+        val position = positionMs + elapsed
+        return if (durationMs > 0) position.coerceAtMost(durationMs) else position
+    }
+}
+
+/** Alben und Playlists des Handys, damit die Uhr sie anzeigen kann (Handy → Uhr, als gzip-Asset). */
+@Serializable
+data class WearRemoteLibraryDto(
+    val albums: List<WearRemoteAlbumDto> = emptyList(),
+    val playlists: List<WearRemotePlaylistDto> = emptyList(),
+    val favoritesCount: Int = 0,
+)
+
+@Serializable
+data class WearRemoteAlbumDto(val id: Long, val title: String, val artist: String, val songCount: Int)
+
+@Serializable
+data class WearRemotePlaylistDto(val id: Long, val name: String, val songCount: Int)
+
+/** Welche Titelliste am Handy gemeint ist. */
+@Serializable
+enum class WearRemoteListKind { ALBUM, PLAYLIST, FAVORITES, ALL }
+
+enum class WearRemoteAction {
+    PLAY_PAUSE,
+    NEXT,
+    PREVIOUS,
+    TOGGLE_SHUFFLE,
+
+    /** [WearRemoteCommand.value] = Position in Millisekunden. */
+    SEEK,
+
+    /** [WearRemoteCommand.value] = Schritte der Medienlautstärke, negativ = leiser. */
+    VOLUME_STEPS,
+}
+
+@Serializable
+data class WearRemoteCommand(val action: WearRemoteAction, val value: Long = 0)
+
+/** Das Handy soll eine Titelliste abspielen, ab [startIndex] bzw. dem Titel [startSongId] (falls die Liste sich verschoben hat). */
+@Serializable
+data class WearRemotePlayRequest(
+    val kind: WearRemoteListKind,
+    val refId: Long? = null,
+    val startSongId: Long? = null,
+    val startIndex: Int = 0,
+    val shuffle: Boolean = false,
+)
+
+@Serializable
+data class WearRemoteTracksRequest(val requestId: String, val kind: WearRemoteListKind, val refId: Long? = null)
+
+/** Antwort auf [WearRemoteTracksRequest]; [found] = `false`, wenn Album bzw. Playlist am Handy nicht mehr existiert. */
+@Serializable
+data class WearRemoteTracksResult(
+    val requestId: String,
+    val found: Boolean = true,
+    val title: String = "",
+    val tracks: List<WearRemoteTrackDto> = emptyList(),
+    /** Die Liste war länger als [MAX_TRACKS] und wurde gekürzt. */
+    val truncated: Boolean = false,
+) {
+    companion object {
+        /** Eine Message verträgt rund 100 KB; mit gzip passen so viele Titel sicher hinein. */
+        const val MAX_TRACKS = 1000
+    }
+}
+
+@Serializable
+data class WearRemoteTrackDto(val songId: Long, val title: String, val artist: String)

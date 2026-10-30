@@ -22,6 +22,9 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearPlaysDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteCommand
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteTracksRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearSelectRequest
 import keinabersmart.kleinaberlaut.core.wearsync.delete
 import keinabersmart.kleinaberlaut.core.wearsync.payloadOrNull
@@ -46,6 +49,7 @@ class PhoneWearListenerService : WearableListenerService() {
     @Inject lateinit var dataClient: DataClient
     @Inject lateinit var playImporter: WatchPlayImporter
     @Inject lateinit var selections: WearSelectionRepository
+    @Inject lateinit var remote: WearRemoteHandler
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onMessageReceived(event: MessageEvent) {
@@ -61,6 +65,15 @@ class PhoneWearListenerService : WearableListenerService() {
                 applicationScope.launch { selections.setSelected(request.kind, request.refId, request.selected) }
             }
             WearPaths.CLEAR_SELECTIONS -> applicationScope.launch { selections.clear() }
+            WearPaths.REMOTE_COMMAND -> decodeOrNull<WearRemoteCommand>(event)?.let(remote::command)
+            WearPaths.REMOTE_PLAY -> {
+                val request = decodeOrNull<WearRemotePlayRequest>(event) ?: return
+                applicationScope.launch { remote.play(request) }
+            }
+            WearPaths.REMOTE_TRACKS_REQUEST -> {
+                val request = decodeOrNull<WearRemoteTracksRequest>(event) ?: return
+                applicationScope.launch { remote.sendTracks(event.sourceNodeId, request) }
+            }
         }
     }
 

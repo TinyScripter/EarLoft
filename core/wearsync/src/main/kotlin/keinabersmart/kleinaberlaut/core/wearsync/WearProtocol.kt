@@ -49,6 +49,29 @@ object WearPaths {
     /** Channel, von der Uhr geöffnet: `/kal/file/<sourceUid>`; das Handy schreibt die Datei im Original. */
     const val FILE_CHANNEL_PREFIX = "/kal/file/"
 
+    // ---- Fernsteuerung des Handys von der Uhr aus ----
+
+    /** DataItem, Handy → Uhr: [WearRemoteStateDto] – was das Handy gerade spielt. */
+    const val REMOTE_STATE = "/kal/remote/state"
+
+    /** DataItem, Handy → Uhr: Cover des laufenden Albums, siehe [WearCodec.encodeCover]. */
+    const val REMOTE_COVER = "/kal/remote/cover"
+
+    /** DataItem mit Asset, Handy → Uhr: [WearRemoteLibraryDto] (gzip) – Alben und Playlists des Handys. */
+    const val REMOTE_LIBRARY = "/kal/remote/library"
+
+    /** Message, Uhr → Handy: [WearRemoteCommand]. */
+    const val REMOTE_COMMAND = "/kal/remote/command"
+
+    /** Message, Uhr → Handy: [WearRemotePlayRequest]. */
+    const val REMOTE_PLAY = "/kal/remote/play"
+
+    /** Message, Uhr → Handy: [WearRemoteTracksRequest]. */
+    const val REMOTE_TRACKS_REQUEST = "/kal/remote/tracks"
+
+    /** Message, Handy → Uhr: [WearRemoteTracksResult] (gzip, siehe [WearCodec.encodeCompressed]). */
+    const val REMOTE_TRACKS_RESULT = "/kal/remote/tracks/result"
+
     fun plays(packetId: String) = "$PLAYS_PREFIX$packetId"
 
     fun fileChannel(sourceUid: String) = "$FILE_CHANNEL_PREFIX$sourceUid"

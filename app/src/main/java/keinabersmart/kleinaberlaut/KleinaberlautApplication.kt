@@ -19,6 +19,7 @@ import keinabersmart.kleinaberlaut.ui.image.AlbumCoverFetcher
 import keinabersmart.kleinaberlaut.ui.image.ArtistImageFetcher
 import keinabersmart.kleinaberlaut.wear.PhoneInfoPublisher
 import keinabersmart.kleinaberlaut.wear.WearPublisher
+import keinabersmart.kleinaberlaut.wear.WearRemotePublisher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -33,6 +34,7 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var syncQueueStarter: SyncQueueStarter
     @Inject lateinit var phoneInfoPublisher: PhoneInfoPublisher
     @Inject lateinit var wearPublisher: WearPublisher
+    @Inject lateinit var wearRemotePublisher: WearRemotePublisher
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     @OptIn(UnstableApi::class)
@@ -48,6 +50,7 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
         }
         applicationScope.launch { phoneInfoPublisher.publish() }
         wearPublisher.start(applicationScope)
+        wearRemotePublisher.start(applicationScope)
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

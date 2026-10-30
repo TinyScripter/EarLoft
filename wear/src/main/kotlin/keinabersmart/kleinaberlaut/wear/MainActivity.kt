@@ -25,7 +25,15 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
 import dagger.hilt.android.AndroidEntryPoint
 import keinabersmart.kleinaberlaut.core.playback.EXTRA_OPEN_NOW_PLAYING
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
 import keinabersmart.kleinaberlaut.wear.ui.AddMusicScreen
+import keinabersmart.kleinaberlaut.wear.ui.AlbumScreen
+import keinabersmart.kleinaberlaut.wear.ui.LocalAlbumsScreen
+import keinabersmart.kleinaberlaut.wear.ui.LocalPlaylistsScreen
+import keinabersmart.kleinaberlaut.wear.ui.RemoteAlbumsScreen
+import keinabersmart.kleinaberlaut.wear.ui.RemoteNowPlayingScreen
+import keinabersmart.kleinaberlaut.wear.ui.RemotePlaylistsScreen
+import keinabersmart.kleinaberlaut.wear.ui.RemoteTracksScreen
 import keinabersmart.kleinaberlaut.wear.ui.NowPlayingScreen
 import keinabersmart.kleinaberlaut.wear.ui.SelectionScreen
 import keinabersmart.kleinaberlaut.wear.ui.SleepTimerCustomScreen
@@ -96,8 +104,25 @@ data object StorageRoute : NavKey
 @Serializable
 data object AddMusicRoute : NavKey
 
+/** Wiedergabe-Ansicht der Uhr oder, mit [remote], die des Handys (Fernsteuerung, Wear-Konzept 15). */
 @Serializable
-data object NowPlayingRoute : NavKey
+data class NowPlayingRoute(val remote: Boolean = false) : NavKey
+
+/** Geladene Alben der Uhr bzw., mit [remote], alle Alben des Handys. */
+@Serializable
+data class AlbumsRoute(val remote: Boolean) : NavKey
+
+/** Playlists der Uhr bzw., mit [remote], alle Playlists des Handys. */
+@Serializable
+data class PlaylistsRoute(val remote: Boolean) : NavKey
+
+/** Ein geladenes Album der Uhr. */
+@Serializable
+data class AlbumRoute(val albumId: Long) : NavKey
+
+/** Eine Titelliste des Handys: Album, Playlist oder Favoriten ([refId] fehlt bei Favoriten). */
+@Serializable
+data class RemoteTracksRoute(val kind: WearRemoteListKind, val refId: Long? = null) : NavKey
 
 /** Sleep-Timer wählen (aus der Wiedergabe-Ansicht). */
 @Serializable
@@ -108,8 +133,9 @@ data object SleepTimerRoute : NavKey
 data object SleepTimerCustomRoute : NavKey
 
 /** Öffnet die Wiedergabe-Ansicht höchstens einmal; sonst stapeln sich Kopien, wenn man mehrfach etwas startet. */
-private fun MutableList<NavKey>.openNowPlaying() {
-    if (lastOrNull() != NowPlayingRoute) add(NowPlayingRoute)
+private fun MutableList<NavKey>.openNowPlaying(remote: Boolean = false) {
+    val route = NowPlayingRoute(remote)
+    if (lastOrNull() != route) add(route)
 }
 
 @Composable
@@ -133,13 +159,40 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                 entryProvider = entryProvider {
                     entry<StartRoute> {
                         StartScreen(
-                            onSelectionClick = { backStack.add(SelectionRoute(it)) },
                             onStorageClick = { backStack.add(StorageRoute) },
                             onAddMusicClick = { backStack.add(AddMusicRoute) },
-                            onNowPlayingClick = { backStack.openNowPlaying() },
+                            onNowPlayingClick = { backStack.openNowPlaying(it) },
+                            onAlbumsClick = { backStack.add(AlbumsRoute(it)) },
+                            onPlaylistsClick = { backStack.add(PlaylistsRoute(it)) },
+                            onFavoritesClick = { backStack.add(SelectionRoute(it)) },
+                            onPhoneFavoritesClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.FAVORITES)) },
                         )
                     }
-                    entry<NowPlayingRoute> { NowPlayingScreen(onOpenSleepTimer = { backStack.add(SleepTimerRoute) }) }
+                    entry<NowPlayingRoute> { route ->
+                        if (route.remote) {
+                            RemoteNowPlayingScreen()
+                        } else {
+                            NowPlayingScreen(onOpenSleepTimer = { backStack.add(SleepTimerRoute) })
+                        }
+                    }
+                    entry<AlbumsRoute> { route ->
+                        if (route.remote) {
+                            RemoteAlbumsScreen(onClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.ALBUM, it)) })
+                        } else {
+                            LocalAlbumsScreen(onClick = { backStack.add(AlbumRoute(it)) })
+                        }
+                    }
+                    entry<PlaylistsRoute> { route ->
+                        if (route.remote) {
+                            RemotePlaylistsScreen(onClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.PLAYLIST, it)) })
+                        } else {
+                            LocalPlaylistsScreen(onClick = { backStack.add(SelectionRoute(it)) })
+                        }
+                    }
+                    entry<AlbumRoute> { route -> AlbumScreen(albumId = route.albumId, onPlayed = { backStack.openNowPlaying() }) }
+                    entry<RemoteTracksRoute> { route ->
+                        RemoteTracksScreen(route.kind, route.refId, onPlayed = { backStack.openNowPlaying(remote = true) })
+                    }
                     entry<SleepTimerRoute> {
                         SleepTimerScreen(
                             onCustom = { backStack.add(SleepTimerCustomRoute) },

@@ -14,10 +14,12 @@ import com.google.android.gms.wearable.NodeClient
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.PutDataRequest
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "WearDataLayer"
 
@@ -138,6 +140,32 @@ suspend fun DataClient.delete(uri: Uri): Boolean =
 /** Schickt eine Message; nur zugestellt, wenn [nodeId] gerade erreichbar ist. @return `false` bei Fehler. */
 suspend fun MessageClient.sendPayload(nodeId: String, path: String, payload: ByteArray): Boolean =
     runCatchingApi("Message $path an $nodeId senden") { sendMessage(nodeId, path, payload).await() } != null
+
+/**
+ * Schickt [payload] an [nodeId] und wartet höchstens [timeoutMs] auf die erste Message unter [responsePath], deren Inhalt
+ * [accept] annimmt (zur Zuordnung der Antwort). Der Listener steht vor dem Senden, die Antwort kann also nicht verloren gehen.
+ * @return die Antwort; `null` bei Fehler oder Zeitüberschreitung.
+ */
+suspend fun MessageClient.sendAndAwait(
+    nodeId: String,
+    path: String,
+    payload: ByteArray,
+    responsePath: String,
+    timeoutMs: Long,
+    accept: (ByteArray) -> Boolean,
+): ByteArray? {
+    val response = CompletableDeferred<ByteArray>()
+    val listener = MessageClient.OnMessageReceivedListener { event ->
+        if (event.path == responsePath && accept(event.data)) response.complete(event.data)
+    }
+    runCatchingApi("Antwort $responsePath erwarten") { addListener(listener).await(); Unit } ?: return null
+    try {
+        if (!sendPayload(nodeId, path, payload)) return null
+        return withTimeoutOrNull(timeoutMs) { response.await() }
+    } finally {
+        removeListener(listener)
+    }
+}
 
 /** Nutzlasten der DataItems unter [path] von allen Geräten (auch dem eigenen): `nodeId → payload`. */
 suspend fun DataClient.payloadsAt(path: String): Map<String, ByteArray> =

@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,15 +35,19 @@ import keinabersmart.kleinaberlaut.wear.R
 import keinabersmart.kleinaberlaut.wear.sync.PhoneStatus
 
 /**
- * Startbildschirm: die Auswahlen vom Handy (Wear-Konzept 11). Solange es keine gibt, erklärt er die
- * Einrichtung (Handy fehlt, App fehlt, noch nichts übertragen).
+ * Startbildschirm (Wear-Konzept 11, 14): oben die Uhr selbst, darunter – solange ein Handy mit der App verbunden ist –
+ * das Handy als Fernsteuerung. Ohne Handy und ohne geladene Musik erklärt er stattdessen die Einrichtung
+ * (Handy fehlt, App fehlt).
  */
 @Composable
 fun StartScreen(
-    onSelectionClick: (playlistId: Long) -> Unit,
     onStorageClick: () -> Unit,
     onAddMusicClick: () -> Unit,
-    onNowPlayingClick: () -> Unit,
+    onNowPlayingClick: (remote: Boolean) -> Unit,
+    onAlbumsClick: (remote: Boolean) -> Unit,
+    onPlaylistsClick: (remote: Boolean) -> Unit,
+    onFavoritesClick: (playlistId: Long) -> Unit,
+    onPhoneFavoritesClick: () -> Unit,
     viewModel: StartViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -52,11 +55,15 @@ fun StartScreen(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
     StartContent(
         state = state,
-        onSelectionClick = onSelectionClick,
         onStorageClick = onStorageClick,
         onAddMusicClick = onAddMusicClick,
         onNowPlayingClick = onNowPlayingClick,
-        onShuffleAll = { viewModel.shuffleAll(onNowPlayingClick) },
+        onAlbumsClick = onAlbumsClick,
+        onPlaylistsClick = onPlaylistsClick,
+        onFavoritesClick = onFavoritesClick,
+        onPhoneFavoritesClick = onPhoneFavoritesClick,
+        onShuffleAll = { viewModel.shuffleAll { onNowPlayingClick(false) } },
+        onShuffleAllOnPhone = { viewModel.shuffleAllOnPhone { onNowPlayingClick(true) } },
         onOpenOnPhone = viewModel::openStoreOnPhone,
         onRetry = viewModel::refresh,
     )
@@ -65,11 +72,15 @@ fun StartScreen(
 @Composable
 private fun StartContent(
     state: StartUiState,
-    onSelectionClick: (Long) -> Unit,
     onStorageClick: () -> Unit,
     onAddMusicClick: () -> Unit,
-    onNowPlayingClick: () -> Unit,
+    onNowPlayingClick: (Boolean) -> Unit,
+    onAlbumsClick: (Boolean) -> Unit,
+    onPlaylistsClick: (Boolean) -> Unit,
+    onFavoritesClick: (Long) -> Unit,
+    onPhoneFavoritesClick: () -> Unit,
     onShuffleAll: () -> Unit,
+    onShuffleAllOnPhone: () -> Unit,
     onOpenOnPhone: (nodeId: String) -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -82,43 +93,26 @@ private fun StartContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = contentPadding,
         ) {
-            if (state.hasSelections) {
-                header(R.string.app_name, transformationSpec)
-                state.nowPlaying?.let { playing ->
-                    item {
-                        Button(
-                            onClick = onNowPlayingClick,
-                            modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                            transformation = SurfaceTransformation(transformationSpec),
-                            label = { Text(playing.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            secondaryLabel = { Text(stringResource(R.string.start_now_playing)) },
-                        )
-                    }
+            if (state.hasSelections || state.phoneConnected) {
+                header(R.string.start_section_watch, transformationSpec)
+                action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(false) }, secondary = state.nowPlaying?.title)
+                action(R.string.list_albums, transformationSpec, onClick = { onAlbumsClick(false) })
+                val favorites = state.favoritesPlaylistId
+                action(R.string.list_favorites, transformationSpec, enabled = favorites != null, onClick = { favorites?.let(onFavoritesClick) })
+                action(R.string.list_playlists, transformationSpec, onClick = { onPlaylistsClick(false) })
+                if (state.canShuffleAll) action(R.string.start_shuffle_all, transformationSpec, onClick = onShuffleAll)
+                action(R.string.add_music_title, transformationSpec, onClick = onAddMusicClick)
+                action(R.string.storage_title, transformationSpec, onClick = onStorageClick)
+                if (state.phoneConnected) {
+                    header(R.string.start_section_phone, transformationSpec)
+                    action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(true) }, secondary = state.phoneNowPlaying)
+                    action(R.string.list_albums, transformationSpec, onClick = { onAlbumsClick(true) })
+                    action(R.string.list_favorites, transformationSpec, onClick = onPhoneFavoritesClick)
+                    action(R.string.list_playlists, transformationSpec, onClick = { onPlaylistsClick(true) })
+                    action(R.string.start_shuffle_all, transformationSpec, onClick = onShuffleAllOnPhone)
                 }
-                items(state.selections, key = { it.playlistId }) { selection ->
-                    Button(
-                        onClick = { onSelectionClick(selection.playlistId) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .transformedHeight(this, transformationSpec),
-                        transformation = SurfaceTransformation(transformationSpec),
-                        label = { Text(selection.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-                        secondaryLabel = {
-                            Text(
-                                if (selection.downloadedCount >= selection.songCount) {
-                                    pluralStringResource(R.plurals.song_count, selection.songCount, selection.songCount)
-                                } else {
-                                    stringResource(R.string.selection_progress, selection.downloadedCount, selection.songCount)
-                                },
-                            )
-                        },
-                    )
-                }
-                if (state.canShuffleAll) action(R.string.start_shuffle_all, transformationSpec, onShuffleAll)
-                action(R.string.add_music_title, transformationSpec, onAddMusicClick)
-                action(R.string.storage_title, transformationSpec, onStorageClick)
             } else {
-                setup(state, transformationSpec, onOpenOnPhone, onRetry, onAddMusicClick)
+                setup(state, transformationSpec, onOpenOnPhone, onRetry)
             }
         }
     }
@@ -129,7 +123,6 @@ private fun TransformingLazyColumnScope.setup(
     transformationSpec: TransformationSpec,
     onOpenOnPhone: (String) -> Unit,
     onRetry: () -> Unit,
-    onAddMusicClick: () -> Unit,
 ) {
     when (val phone = state.phone) {
         PhoneStatus.Checking -> item {
@@ -138,7 +131,7 @@ private fun TransformingLazyColumnScope.setup(
         PhoneStatus.NotConnected -> {
             header(R.string.setup_no_phone_title, transformationSpec)
             message(R.string.setup_no_phone_text, transformationSpec)
-            action(R.string.setup_retry, transformationSpec, onRetry)
+            action(R.string.setup_retry, transformationSpec, onClick = onRetry)
         }
         is PhoneStatus.AppMissing -> {
             header(R.string.setup_app_missing_title, transformationSpec)
@@ -150,11 +143,8 @@ private fun TransformingLazyColumnScope.setup(
             }
             action(R.string.setup_install_on_phone, transformationSpec) { onOpenOnPhone(phone.nodeId) }
         }
-        is PhoneStatus.Connected -> {
-            header(R.string.setup_waiting_title, transformationSpec)
-            message(R.string.setup_waiting_text, transformationSpec)
-            action(R.string.add_music_title, transformationSpec, onAddMusicClick)
-        }
+        // Mit Handy zeigt der Startbildschirm das Menü, nicht die Einrichtung.
+        is PhoneStatus.Connected -> Unit
     }
 }
 
@@ -183,47 +173,38 @@ private fun TransformingLazyColumnScope.message(textRes: Int, transformationSpec
     )
 }
 
-private fun TransformingLazyColumnScope.action(textRes: Int, transformationSpec: TransformationSpec, onClick: () -> Unit) =
-    item {
-        Button(
-            onClick = onClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .transformedHeight(this, transformationSpec),
-            transformation = SurfaceTransformation(transformationSpec),
-            label = { Text(stringResource(textRes)) },
-        )
-    }
-
-@WearPreviewDevices
-@WearPreviewFontScales
-@Composable
-private fun StartAppMissingPreview() {
-    MaterialTheme {
-        StartContent(
-            state = StartUiState(phone = PhoneStatus.AppMissing("phone")),
-            onSelectionClick = {},
-            onStorageClick = {},
-            onAddMusicClick = {},
-            onNowPlayingClick = {},
-            onShuffleAll = {},
-            onOpenOnPhone = {},
-            onRetry = {},
-        )
-    }
+private fun TransformingLazyColumnScope.action(
+    textRes: Int,
+    transformationSpec: TransformationSpec,
+    enabled: Boolean = true,
+    secondary: String? = null,
+    onClick: () -> Unit,
+) = item {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .transformedHeight(this, transformationSpec),
+        transformation = SurfaceTransformation(transformationSpec),
+        label = { Text(stringResource(textRes)) },
+        secondaryLabel = secondary?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+    )
 }
 
-@WearPreviewDevices
-@Composable
-private fun StartWaitingPreview() {
+private val previewCallbacks: @Composable (StartUiState) -> Unit = { state ->
     MaterialTheme {
         StartContent(
-            state = StartUiState(phone = PhoneStatus.Connected("phone")),
-            onSelectionClick = {},
+            state = state,
             onStorageClick = {},
             onAddMusicClick = {},
             onNowPlayingClick = {},
+            onAlbumsClick = {},
+            onPlaylistsClick = {},
+            onFavoritesClick = {},
+            onPhoneFavoritesClick = {},
             onShuffleAll = {},
+            onShuffleAllOnPhone = {},
             onOpenOnPhone = {},
             onRetry = {},
         )
@@ -233,24 +214,24 @@ private fun StartWaitingPreview() {
 @WearPreviewDevices
 @WearPreviewFontScales
 @Composable
-private fun StartSelectionsPreview() {
-    MaterialTheme {
-        StartContent(
-            state = StartUiState(
-                phone = PhoneStatus.Connected("phone"),
-                selections = listOf(
-                    SelectionItem(1, WearSelectionKind.FAVORITES, "Favoriten", 42),
-                    SelectionItem(2, WearSelectionKind.ALBUM, "Mondlicht", 4, downloadedCount = 1),
-                    SelectionItem(3, WearSelectionKind.PLAYLIST, "Laufen am Morgen mit sehr langem Namen", 1),
-                ),
-            ),
-            onSelectionClick = {},
-            onStorageClick = {},
-            onAddMusicClick = {},
-            onNowPlayingClick = {},
-            onShuffleAll = {},
-            onOpenOnPhone = {},
-            onRetry = {},
-        )
-    }
-}
+private fun StartAppMissingPreview() = previewCallbacks(StartUiState(phone = PhoneStatus.AppMissing("phone")))
+
+@WearPreviewDevices
+@Composable
+private fun StartPhoneConnectedPreview() = previewCallbacks(
+    StartUiState(phone = PhoneStatus.Connected("phone"), phoneNowPlaying = "Mondlicht"),
+)
+
+@WearPreviewDevices
+@WearPreviewFontScales
+@Composable
+private fun StartSelectionsPreview() = previewCallbacks(
+    StartUiState(
+        phone = PhoneStatus.Connected("phone"),
+        selections = listOf(
+            SelectionItem(1, WearSelectionKind.FAVORITES, "Favoriten", 42),
+            SelectionItem(2, WearSelectionKind.ALBUM, "Mondlicht", 4, downloadedCount = 1),
+            SelectionItem(3, WearSelectionKind.PLAYLIST, "Laufen am Morgen mit sehr langem Namen", 1),
+        ),
+    ),
+)

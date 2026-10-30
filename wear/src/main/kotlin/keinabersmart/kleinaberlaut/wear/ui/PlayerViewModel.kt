@@ -36,14 +36,14 @@ class PlayerViewModel @Inject constructor(
     private val playback: PlaybackConnection,
     artwork: ArtworkRepository,
     albumColors: AlbumColorRepository,
-) : ViewModel() {
+) : ViewModel(), NowPlayingModel {
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
 
-    val state: StateFlow<PlayerState> = playback.state
+    override val state: StateFlow<PlayerState> = playback.state
 
     /** Position in Millisekunden; wird nur abgefragt, solange der Bildschirm sichtbar ist. */
-    val positionMs: StateFlow<Long> = flow {
+    override val positionMs: StateFlow<Long> = flow {
         while (true) {
             emit(playback.currentPositionMs)
             delay(POSITION_INTERVAL_MS)
@@ -51,7 +51,7 @@ class PlayerViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val cover: StateFlow<Bitmap?> = playback.state
+    override val cover: StateFlow<Bitmap?> = playback.state
         .map { it.current?.albumId }
         .distinctUntilChanged()
         .mapLatest { albumId -> albumId?.let { withContext(Dispatchers.IO) { artwork.albumCover(it, COVER_SIZE_PX) } } }
@@ -59,7 +59,7 @@ class PlayerViewModel @Inject constructor(
 
     /** Akzentfarbe des laufenden Albums (ARGB); `null`, solange sie fehlt oder nichts läuft. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val seedColor: StateFlow<Int?> = playback.state
+    override val seedColor: StateFlow<Int?> = playback.state
         .map { it.current?.albumId }
         .distinctUntilChanged()
         .flatMapLatest { albumId -> if (albumId == null) flowOf(null) else albumColors.seedColor(albumId) }
@@ -68,36 +68,36 @@ class PlayerViewModel @Inject constructor(
     private val _volume = MutableStateFlow(readVolume())
 
     /** 0..1 für die Anzeige beim Drehen der Krone. */
-    val volume: StateFlow<Float> = _volume
+    override val volume: StateFlow<Float> = _volume
 
-    fun togglePlayPause() = playback.togglePlayPause()
+    override fun togglePlayPause() = playback.togglePlayPause()
 
-    fun next() = playback.next()
+    override fun next() = playback.next()
 
-    fun previous() = playback.previous()
+    override fun previous() = playback.previous()
 
-    fun toggleShuffle() = playback.toggleShuffle()
+    override fun toggleShuffle() = playback.toggleShuffle()
 
-    fun seekTo(positionMs: Long) = playback.seekTo(positionMs)
+    override fun seekTo(positionMs: Long) = playback.seekTo(positionMs)
 
     /** Restzeit des Sleep-Timers; `null`, solange keiner läuft. */
-    val sleepTimerRemainingMs: StateFlow<Long?> = playback.sleepTimerRemainingMs
+    override val sleepTimerRemainingMs: StateFlow<Long?> = playback.sleepTimerRemainingMs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun startSleepTimer(minutes: Int) = playback.startSleepTimer(minutes)
 
-    fun cancelSleepTimer() = playback.cancelSleepTimer()
+    override fun cancelSleepTimer() = playback.cancelSleepTimer()
 
     private val _volumeVisible = MutableStateFlow(false)
 
     /** Der Lautstärkebalken steht kurz nach jeder Drehung der Krone. */
-    val volumeVisible: StateFlow<Boolean> = _volumeVisible
+    override val volumeVisible: StateFlow<Boolean> = _volumeVisible
 
     private var hideVolumeJob: Job? = null
     private val crown = CrownStepper(CROWN_PX_PER_STEP)
 
     /** Dreht jemand an der Krone, ändert sich die Lautstärke schrittweise, und der Balken wird kurz sichtbar. */
-    fun onCrown(pixels: Float) {
+    override fun onCrown(pixels: Float) {
         val steps = crown.add(pixels)
         if (steps != 0) changeVolume(steps)
         showVolume()

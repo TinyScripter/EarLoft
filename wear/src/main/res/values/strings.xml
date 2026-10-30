@@ -11,7 +11,23 @@
     <string name="selection_play">Play</string>
     <string name="selection_shuffle">Shuffle</string>
     <string name="start_shuffle_all">Shuffle all</string>
-    <string name="start_now_playing">Now playing</string>
+
+    <string name="start_section_watch">Watch</string>
+    <string name="start_section_phone">Phone</string>
+    <string name="start_current_playback">Now playing</string>
+
+    <!-- Lists -->
+    <string name="list_albums">Albums</string>
+    <string name="list_favorites">Favorites</string>
+    <string name="list_playlists">Playlists</string>
+    <string name="list_empty_watch">Nothing on the watch yet. Choose music on the phone or under “Add music”.</string>
+    <string name="list_empty_phone">Nothing on the phone</string>
+
+    <!-- Phone remote control -->
+    <string name="remote_unreachable">Phone not reachable</string>
+    <string name="remote_missing">No longer on the phone</string>
+    <string name="remote_no_library">Open kleinaberlaut on the phone once</string>
+    <string name="remote_truncated">Only the first tracks are shown</string>
 
     <!-- Add music -->
     <string name="add_music_title">Add music</string>

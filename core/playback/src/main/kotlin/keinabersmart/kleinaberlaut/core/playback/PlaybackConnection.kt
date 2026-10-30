@@ -12,8 +12,10 @@ import keinabersmart.kleinaberlaut.core.model.Song
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
@@ -59,6 +61,11 @@ class PlaybackConnection @Inject constructor(
 
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
+    private val _positionJumps = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Meldet Sprünge der Position (Spulen, Titelwechsel), die der [state] nicht abbildet. */
+    val positionJumps: Flow<Unit> = _positionJumps.asSharedFlow()
+
     /** Aktuelle Position; für die Fortschrittsanzeige periodisch abfragen. */
     val currentPositionMs: Long
         get() = if (controller.isCompleted) controller.getCompleted().currentPosition else 0
@@ -69,6 +76,7 @@ class PlaybackConnection @Inject constructor(
             val mediaController = MediaController.Builder(context, token).buildAsync().await()
             mediaController.addListener(object : Player.Listener {
                 override fun onEvents(player: Player, events: Player.Events) {
+                    if (events.contains(Player.EVENT_POSITION_DISCONTINUITY)) _positionJumps.tryEmit(Unit)
                     _state.value = player.toState(
                         previous = _state.value,
                         queueChanged = events.contains(Player.EVENT_TIMELINE_CHANGED),

@@ -1,50 +1,32 @@
 package keinabersmart.kleinaberlaut.wear.ui
 
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
-import androidx.wear.compose.foundation.lazy.items
-import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
-import androidx.wear.compose.material3.Button
-import androidx.wear.compose.material3.CircularProgressIndicator
-import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.ScreenScaffold
-import androidx.wear.compose.material3.SurfaceTransformation
-import androidx.wear.compose.material3.Text
-import androidx.wear.compose.material3.lazy.rememberTransformationSpec
-import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.model.Playlist
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.model.PlaylistDetails
 import keinabersmart.kleinaberlaut.core.model.PlaylistEntry
-import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.model.SongOfflineLookup
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
-import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
 import keinabersmart.kleinaberlaut.wear.R
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /** `Loading` vor dem ersten Wert; `Missing`, wenn die Auswahl inzwischen entfernt wurde. */
@@ -60,15 +42,36 @@ sealed interface SelectionUiState {
     }
 }
 
+/** Woher die Titel einer Liste auf der Uhr kommen: eine Geräte-Playlist (Auswahl vom Handy) oder ein geladenes Album. */
+sealed interface LocalList {
+    data class OfPlaylist(val id: Long) : LocalList
+
+    data class OfAlbum(val id: Long) : LocalList
+}
+
 @HiltViewModel(assistedFactory = SelectionViewModel.Factory::class)
 class SelectionViewModel @AssistedInject constructor(
-    @Assisted playlistId: Long,
+    @Assisted source: LocalList,
     playlistRepository: PlaylistRepository,
+    libraryRepository: LibraryRepository,
     downloadRepository: DownloadRepository,
     private val playback: PlaybackConnection,
 ) : ViewModel() {
 
-    val state: StateFlow<SelectionUiState> = combine(playlistRepository.playlist(playlistId), downloadRepository.songStatuses()) { details, offline ->
+    private val details: Flow<PlaylistDetails?> = when (source) {
+        is LocalList.OfPlaylist -> playlistRepository.playlist(source.id)
+        is LocalList.OfAlbum -> libraryRepository.album(source.id).map { album ->
+            album?.let {
+                // Ein Album verhält sich wie eine Playlist ohne Duplikate; die Song-ID dient als Eintrags-ID.
+                PlaylistDetails(
+                    playlist = Playlist(it.album.id, it.album.title, it.songs.size, it.songs.sumOf { song -> song.durationMs }, null),
+                    entries = it.songs.map { song -> PlaylistEntry(song.id, song, false) },
+                )
+            }
+        }
+    }
+
+    val state: StateFlow<SelectionUiState> = combine(details, downloadRepository.songStatuses()) { details, offline ->
         details?.let { SelectionUiState.Ready(it, offline) } ?: SelectionUiState.Missing
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SelectionUiState.Loading)
@@ -84,7 +87,7 @@ class SelectionViewModel @AssistedInject constructor(
 
     @AssistedFactory
     interface Factory {
-        fun create(playlistId: Long): SelectionViewModel
+        fun create(source: LocalList): SelectionViewModel
     }
 }
 
@@ -93,14 +96,21 @@ class SelectionViewModel @AssistedInject constructor(
  * [onPlayed] wird nach dem Start der Wiedergabe aufgerufen (Wechsel zur Wiedergabe-Ansicht).
  */
 @Composable
-fun SelectionScreen(
-    playlistId: Long,
+fun SelectionScreen(playlistId: Long, onPlayed: () -> Unit) = LocalListScreen(LocalList.OfPlaylist(playlistId), onPlayed)
+
+/** Ein geladenes Album der Uhr, sonst wie [SelectionScreen]. */
+@Composable
+fun AlbumScreen(albumId: Long, onPlayed: () -> Unit) = LocalListScreen(LocalList.OfAlbum(albumId), onPlayed)
+
+@Composable
+private fun LocalListScreen(
+    source: LocalList,
     onPlayed: () -> Unit,
-    viewModel: SelectionViewModel = hiltViewModel<SelectionViewModel, SelectionViewModel.Factory> { it.create(playlistId) },
+    viewModel: SelectionViewModel = hiltViewModel<SelectionViewModel, SelectionViewModel.Factory> { it.create(source) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    SelectionContent(
-        state = state,
+    TrackListContent(
+        state = state.toTrackList(),
         onPlay = { entryId, shuffle ->
             viewModel.play(entryId, shuffle)
             onPlayed()
@@ -108,97 +118,32 @@ fun SelectionScreen(
     )
 }
 
-@Composable
-private fun SelectionContent(state: SelectionUiState, onPlay: (entryId: Long?, shuffle: Boolean) -> Unit) {
-    val columnState = rememberTransformingLazyColumnState()
-    val transformationSpec = rememberTransformationSpec()
-    ScreenScaffold(scrollState = columnState) { contentPadding ->
-        TransformingLazyColumn(
-            state = columnState,
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = contentPadding,
-        ) {
-            when (state) {
-                SelectionUiState.Loading -> item {
-                    CircularProgressIndicator(Modifier.transformedHeight(this, transformationSpec))
-                }
-                SelectionUiState.Missing -> item {
-                    Text(
-                        stringResource(R.string.selection_missing),
-                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                        textAlign = TextAlign.Center,
-                    )
-                }
-                is SelectionUiState.Ready -> {
-                    val playlist = state.details.playlist
-                    item {
-                        ListHeader(
-                            modifier = Modifier.transformedHeight(this, transformationSpec),
-                            transformation = SurfaceTransformation(transformationSpec),
-                        ) {
-                            Text(playlist.name, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                    item {
-                        Text(
-                            if (state.downloadedCount >= playlist.songCount) {
-                                pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount)
-                            } else {
-                                stringResource(R.string.selection_progress, state.downloadedCount, playlist.songCount)
-                            },
-                            modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    if (state.downloadedCount > 0) {
-                        item {
-                            Button(
-                                onClick = { onPlay(null, false) },
-                                modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                                transformation = SurfaceTransformation(transformationSpec),
-                                label = { Text(stringResource(R.string.selection_play)) },
-                            )
-                        }
-                        item {
-                            Button(
-                                onClick = { onPlay(null, true) },
-                                modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                                transformation = SurfaceTransformation(transformationSpec),
-                                label = { Text(stringResource(R.string.selection_shuffle)) },
-                            )
-                        }
-                    }
-                    items(state.details.entries, key = { it.entryId }) { entry ->
-                        Button(
-                            onClick = { onPlay(entry.entryId, false) },
-                            enabled = state.isLoaded(entry.song.id),
-                            modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                            transformation = SurfaceTransformation(transformationSpec),
-                            label = { Text(entry.song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            secondaryLabel = {
-                                val text = if (state.isLoaded(entry.song.id)) entry.song.artist else stringResource(R.string.selection_not_loaded)
-                                Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            },
-                        )
-                    }
-                }
-            }
-        }
-    }
+private fun SelectionUiState.toTrackList(): TrackListState = when (this) {
+    SelectionUiState.Loading -> TrackListState.Loading
+    SelectionUiState.Missing -> TrackListState.Message(R.string.selection_missing)
+    is SelectionUiState.Ready -> TrackListState.Ready(
+        title = details.playlist.name,
+        songCount = details.playlist.songCount,
+        loadedCount = downloadedCount,
+        items = details.entries.map { TrackItem(it.entryId, it.song.title, it.song.artist, enabled = isLoaded(it.song.id)) },
+    )
 }
 
 @WearPreviewDevices
 @Composable
 private fun SelectionPreview() {
-    val songs = listOf("Aufbruch", "Mondlicht", "Nachtfalter").mapIndexed { index, title ->
-        PlaylistEntry(index.toLong(), Song(index.toLong(), title, "Nachtfalter", 1, "Mondlicht", 200_000, 1, index + 1, false), false)
-    }
     MaterialTheme {
-        val offline = SongOfflineLookup(mapOf(0L to SongOfflineStatus(SongOfflineState.DOWNLOADED)), emptySet())
-        SelectionContent(
-            state = SelectionUiState.Ready(PlaylistDetails(Playlist(1, "Mondlicht", songs.size, 600_000, null), songs), offline),
+        TrackListContent(
+            state = TrackListState.Ready(
+                title = "Mondlicht",
+                songCount = 3,
+                loadedCount = 2,
+                items = listOf(
+                    TrackItem(0, "Aufbruch", "Nachtfalter"),
+                    TrackItem(1, "Mondlicht", "Nachtfalter"),
+                    TrackItem(2, "Nachtfalter", "Nachtfalter", enabled = false),
+                ),
+            ),
             onPlay = { _, _ -> },
         )
     }

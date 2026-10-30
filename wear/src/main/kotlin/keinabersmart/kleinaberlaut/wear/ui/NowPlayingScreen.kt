@@ -80,13 +80,27 @@ import kotlin.math.abs
  */
 @Composable
 fun NowPlayingScreen(onOpenSleepTimer: () -> Unit = {}, viewModel: PlayerViewModel = hiltViewModel()) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val positionMs by viewModel.positionMs.collectAsStateWithLifecycle()
-    val cover by viewModel.cover.collectAsStateWithLifecycle()
-    val volume by viewModel.volume.collectAsStateWithLifecycle()
-    val volumeVisible by viewModel.volumeVisible.collectAsStateWithLifecycle()
-    val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
-    val sleepTimerRemainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
+    NowPlayingHost(viewModel, onOpenSleepTimer = onOpenSleepTimer)
+}
+
+/**
+ * Wiedergabe-Ansicht des Handys (Wear-Konzept 15): dieselbe Ansicht, aber Bedienung und Anzeige gehören dem Handy.
+ * Einen Sleep-Timer gibt es hier nicht, die Krone ändert die Lautstärke des Handys.
+ */
+@Composable
+fun RemoteNowPlayingScreen(viewModel: RemotePlayerViewModel = hiltViewModel()) {
+    NowPlayingHost(viewModel, onOpenSleepTimer = {}, sleepTimerAvailable = false)
+}
+
+@Composable
+private fun NowPlayingHost(model: NowPlayingModel, onOpenSleepTimer: () -> Unit, sleepTimerAvailable: Boolean = true) {
+    val state by model.state.collectAsStateWithLifecycle()
+    val positionMs by model.positionMs.collectAsStateWithLifecycle()
+    val cover by model.cover.collectAsStateWithLifecycle()
+    val volume by model.volume.collectAsStateWithLifecycle()
+    val volumeVisible by model.volumeVisible.collectAsStateWithLifecycle()
+    val seedColor by model.seedColor.collectAsStateWithLifecycle()
+    val sleepTimerRemainingMs by model.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     val context = LocalContext.current
     AlbumColorTheme(seedColor) {
         NowPlayingContent(
@@ -95,16 +109,17 @@ fun NowPlayingScreen(onOpenSleepTimer: () -> Unit = {}, viewModel: PlayerViewMod
             cover = cover,
             volume = volume,
             volumeVisible = volumeVisible,
+            sleepTimerAvailable = sleepTimerAvailable,
             sleepTimerRemainingMs = sleepTimerRemainingMs,
             // Läuft ein Timer, schaltet ein Tipp ihn aus; sonst öffnet er die Auswahl.
-            onSleepTimer = { if (sleepTimerRemainingMs != null) viewModel.cancelSleepTimer() else onOpenSleepTimer() },
-            onPrevious = viewModel::previous,
-            onPlayPause = viewModel::togglePlayPause,
-            onNext = viewModel::next,
-            onShuffle = viewModel::toggleShuffle,
+            onSleepTimer = { if (sleepTimerRemainingMs != null) model.cancelSleepTimer() else onOpenSleepTimer() },
+            onPrevious = model::previous,
+            onPlayPause = model::togglePlayPause,
+            onNext = model::next,
+            onShuffle = model::toggleShuffle,
             onOutput = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
-            onCrown = viewModel::onCrown,
-            onSeek = viewModel::seekTo,
+            onCrown = model::onCrown,
+            onSeek = model::seekTo,
         )
     }
 }
@@ -116,6 +131,7 @@ private fun NowPlayingContent(
     cover: android.graphics.Bitmap?,
     volume: Float,
     volumeVisible: Boolean,
+    sleepTimerAvailable: Boolean,
     sleepTimerRemainingMs: Long?,
     onSleepTimer: () -> Unit,
     onPrevious: () -> Unit,
@@ -245,13 +261,15 @@ private fun NowPlayingContent(
                             active = state.shuffle,
                             toggle = true,
                         )
-                        ControlButton(
-                            R.drawable.ic_bedtime,
-                            R.string.sleep_timer_title,
-                            SHUFFLE_BUTTON_SIZE,
-                            onSleepTimer,
-                            active = sleepTimerRemainingMs != null,
-                        )
+                        if (sleepTimerAvailable) {
+                            ControlButton(
+                                R.drawable.ic_bedtime,
+                                R.string.sleep_timer_title,
+                                SHUFFLE_BUTTON_SIZE,
+                                onSleepTimer,
+                                active = sleepTimerRemainingMs != null,
+                            )
+                        }
                     }
                     if (sleepTimerRemainingMs != null) {
                         Text(
@@ -437,6 +455,7 @@ private fun NowPlayingPreview() {
                 cover = previewCover(),
                 volume = 0.4f,
                 volumeVisible = false,
+                sleepTimerAvailable = true,
                 sleepTimerRemainingMs = 754_000,
                 onSleepTimer = {},
                 onPrevious = {},

@@ -10,7 +10,22 @@
     <string name="selection_play">Abspielen</string>
     <string name="selection_shuffle">Zufällig</string>
     <string name="start_shuffle_all">Alles zufällig</string>
-    <string name="start_now_playing">Läuft gerade</string>
+    <string name="start_section_watch">Uhr</string>
+    <string name="start_section_phone">Smartphone</string>
+    <string name="start_current_playback">Aktuelle Wiedergabe</string>
+
+    <!-- Listen -->
+    <string name="list_albums">Alben</string>
+    <string name="list_favorites">Favoriten</string>
+    <string name="list_playlists">Playlists</string>
+    <string name="list_empty_watch">Noch nichts auf der Uhr. Wähle Musik am Handy oder unter „Musik hinzufügen“.</string>
+    <string name="list_empty_phone">Nichts auf dem Handy</string>
+
+    <!-- Fernsteuerung des Handys -->
+    <string name="remote_unreachable">Handy nicht erreichbar</string>
+    <string name="remote_missing">Nicht mehr auf dem Handy</string>
+    <string name="remote_no_library">Öffne kleinaberlaut einmal am Handy</string>
+    <string name="remote_truncated">Nur die ersten Titel werden gezeigt</string>
 
     <!-- Musik hinzufügen -->
     <string name="add_music_title">Musik hinzufügen</string>
