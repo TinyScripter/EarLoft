@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,7 @@ import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
 import keinabersmart.kleinaberlaut.ui.formatBytes
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
+import kotlinx.coroutines.delay
 
 @Composable
 fun DownloadsScreen(
@@ -155,6 +157,8 @@ private fun StorageLine(overview: DownloadOverview) {
     )
 }
 
+private const val WAITING_HINT_DELAY_MS = 3_000L
+
 @Composable
 private fun PendingRow(overview: DownloadOverview) {
     ListItem(
@@ -162,13 +166,22 @@ private fun PendingRow(overview: DownloadOverview) {
             Text(pluralStringResource(R.plurals.downloads_pending, overview.pendingSongs, overview.pendingSongs))
         },
         supportingContent = {
+            val progress = overview.currentProgress
+            // Zwischen zwei Liedern ist der Fortschritt kurz null. Der Balken bleibt, und der (höhere)
+            // Hinweis erscheint erst nach einer Pause, sonst springt die Liste bei jedem fertigen Lied.
+            var waiting by remember { mutableStateOf(false) }
+            LaunchedEffect(progress == null) {
+                waiting = false
+                if (progress == null) {
+                    delay(WAITING_HINT_DELAY_MS)
+                    waiting = true
+                }
+            }
             Column(Modifier.padding(top = 8.dp)) {
-                val progress = overview.currentProgress
-                if (progress != null) {
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
-                } else {
-                    // Kein Download läuft gerade: wartet auf Netz (bzw. WLAN) oder Speicher.
-                    Text(stringResource(R.string.downloads_waiting_hint))
+                LinearProgressIndicator(progress = { progress ?: 0f }, modifier = Modifier.fillMaxWidth())
+                if (waiting) {
+                    // Kein Download läuft: wartet auf Netz (bzw. WLAN) oder Speicher.
+                    Text(stringResource(R.string.downloads_waiting_hint), Modifier.padding(top = 8.dp))
                 }
             }
         },
