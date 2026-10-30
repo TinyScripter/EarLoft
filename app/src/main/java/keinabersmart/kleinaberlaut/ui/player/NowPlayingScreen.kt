@@ -49,7 +49,6 @@ import keinabersmart.kleinaberlaut.core.playback.QueueEntry
 import keinabersmart.kleinaberlaut.ui.components.AlbumArt
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.formatDuration
-import keinabersmart.kleinaberlaut.ui.formatRemaining
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @Composable
@@ -148,7 +147,7 @@ private fun NowPlayingContent(
                 )
                 if (sleepTimerRemainingMs != null) {
                     Text(
-                        stringResource(R.string.sleep_timer_remaining, formatRemaining(sleepTimerRemainingMs)),
+                        stringResource(R.string.sleep_timer_remaining, formatDuration(sleepTimerRemainingMs)),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
