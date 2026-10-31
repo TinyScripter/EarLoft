@@ -381,7 +381,7 @@
     <string name="podcast_refresh">Refresh podcasts</string>
     <string name="podcast_refresh_failed">Refreshing failed.</string>
     <string name="podcast_auto_download">Download new episodes automatically</string>
-    <string name="podcast_auto_download_summary">Keeps the three newest unheard episodes on this device.</string>
+    <string name="podcast_auto_download_summary">Keeps the newest unheard episodes on this device (number: Settings → Podcasts).</string>
     <string name="podcast_download_episode">Download episode</string>
     <string name="podcast_download_cancel">Cancel download</string>
     <string name="podcast_download_offline">No connection. The download starts as soon as you are online.</string>
@@ -410,6 +410,11 @@
     </plurals>
     <string name="settings_podcast_mobile">Also use mobile data</string>
     <string name="settings_podcast_mobile_summary">Off: refreshing and downloading episodes only run on Wi-Fi.</string>
+    <string name="settings_podcast_auto_count">Episodes kept ready automatically</string>
+    <plurals name="settings_podcast_auto_count_value">
+        <item quantity="one">The newest unheard episode</item>
+        <item quantity="other">The %d newest unheard episodes</item>
+    </plurals>
     <string name="settings_podcast_delete_heard">Delete downloads of heard episodes</string>
     <string name="settings_podcast_delete_heard_now">Right after listening</string>
     <string name="settings_podcast_delete_heard_never">Never</string>

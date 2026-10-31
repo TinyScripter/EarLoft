@@ -377,7 +377,7 @@
     <string name="podcast_refresh">Podcasts aktualisieren</string>
     <string name="podcast_refresh_failed">Aktualisieren fehlgeschlagen.</string>
     <string name="podcast_auto_download">Neue Folgen automatisch herunterladen</string>
-    <string name="podcast_auto_download_summary">Hält die drei neuesten ungehörten Folgen auf diesem Gerät bereit.</string>
+    <string name="podcast_auto_download_summary">Hält die neuesten ungehörten Folgen auf diesem Gerät bereit (Anzahl: Einstellungen → Podcasts).</string>
     <string name="podcast_download_episode">Folge herunterladen</string>
     <string name="podcast_download_cancel">Download abbrechen</string>
     <string name="podcast_download_offline">Keine Verbindung. Der Download startet, sobald du online bist.</string>
@@ -406,6 +406,11 @@
     </plurals>
     <string name="settings_podcast_mobile">Auch über Mobilfunk laden</string>
     <string name="settings_podcast_mobile_summary">Aus: Aktualisieren und das Herunterladen von Folgen laufen nur im WLAN.</string>
+    <string name="settings_podcast_auto_count">Automatisch bereitgehaltene Folgen</string>
+    <plurals name="settings_podcast_auto_count_value">
+        <item quantity="one">Die neueste ungehörte Folge</item>
+        <item quantity="other">Die %d neuesten ungehörten Folgen</item>
+    </plurals>
     <string name="settings_podcast_delete_heard">Downloads gehörter Folgen löschen</string>
     <string name="settings_podcast_delete_heard_now">Sofort nach dem Hören</string>
     <string name="settings_podcast_delete_heard_never">Nie</string>

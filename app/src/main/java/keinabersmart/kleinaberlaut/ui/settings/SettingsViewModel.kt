@@ -53,6 +53,7 @@ data class SettingsUiState(
     val podcastRefreshHours: Int = PodcastSettings.DEFAULT_REFRESH_HOURS,
     val podcastMobileData: Boolean = false,
     val podcastDeleteHeardDays: Int = PodcastSettings.DEFAULT_DELETE_HEARD_DAYS,
+    val podcastAutoDownloadCount: Int = PodcastSettings.DEFAULT_AUTO_DOWNLOAD_COUNT,
 )
 
 private data class GeneralSettings(
@@ -139,6 +140,8 @@ class SettingsViewModel @Inject constructor(
         combine(podcastSettings.refreshHours, podcastSettings.useMobileData, podcastSettings.deleteHeardAfterDays, ::Triple),
     ) { state, (hours, mobile, deleteHeardDays) ->
         state.copy(podcastRefreshHours = hours, podcastMobileData = mobile, podcastDeleteHeardDays = deleteHeardDays)
+    }.combine(podcastSettings.autoDownloadCount) { state, count ->
+        state.copy(podcastAutoDownloadCount = count)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     /** Die Planung des periodischen Auftrags folgt der Einstellung (PodcastRefresher). */
@@ -149,6 +152,11 @@ class SettingsViewModel @Inject constructor(
     /** Die Aufräum-Automatik (EpisodeDownloads) folgt der Einstellung. */
     fun setPodcastDeleteHeardDays(days: Int) {
         viewModelScope.launch { podcastSettings.setDeleteHeardAfterDays(days) }
+    }
+
+    /** Die Download-Automatik (EpisodeDownloads) holt bei einer größeren Zahl sofort Folgen nach. */
+    fun setPodcastAutoDownloadCount(count: Int) {
+        viewModelScope.launch { podcastSettings.setAutoDownloadCount(count) }
     }
 
     fun setPodcastMobileData(enabled: Boolean) {

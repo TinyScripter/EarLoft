@@ -87,6 +87,7 @@ fun SettingsScreen(
         onPodcastRefreshHoursChange = viewModel::setPodcastRefreshHours,
         onPodcastMobileChange = viewModel::setPodcastMobileData,
         onPodcastDeleteHeardDaysChange = viewModel::setPodcastDeleteHeardDays,
+        onPodcastAutoDownloadCountChange = viewModel::setPodcastAutoDownloadCount,
         onUseLocalMediaChange = { enabled ->
             if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
         },
@@ -121,6 +122,7 @@ private fun SettingsContent(
     onPodcastRefreshHoursChange: (Int) -> Unit,
     onPodcastMobileChange: (Boolean) -> Unit,
     onPodcastDeleteHeardDaysChange: (Int) -> Unit,
+    onPodcastAutoDownloadCountChange: (Int) -> Unit,
     onUseLocalMediaChange: (Boolean) -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
@@ -144,6 +146,7 @@ private fun SettingsContent(
     var choosingReplayGain by rememberSaveable { mutableStateOf(false) }
     var choosingPodcastRefresh by rememberSaveable { mutableStateOf(false) }
     var choosingPodcastDeleteHeard by rememberSaveable { mutableStateOf(false) }
+    var choosingPodcastAutoCount by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
@@ -207,6 +210,14 @@ private fun SettingsContent(
                     icon = DesignR.drawable.ic_cloud,
                     checked = state.podcastMobileData,
                     onCheckedChange = onPodcastMobileChange,
+                )
+            }
+            item(key = "podcast-auto-count") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_podcast_auto_count)) },
+                    supportingContent = { Text(pluralStringResource(R.plurals.settings_podcast_auto_count_value, state.podcastAutoDownloadCount, state.podcastAutoDownloadCount)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                    modifier = Modifier.clickable { choosingPodcastAutoCount = true },
                 )
             }
             item(key = "podcast-delete-heard") {
@@ -368,6 +379,20 @@ private fun SettingsContent(
                 choosingPodcastRefresh = false
             },
             onDismiss = { choosingPodcastRefresh = false },
+        )
+    }
+
+    if (choosingPodcastAutoCount) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_podcast_auto_count),
+            options = PodcastSettings.AUTO_DOWNLOAD_COUNT_CHOICES,
+            selected = state.podcastAutoDownloadCount,
+            label = { pluralStringResource(R.plurals.settings_podcast_auto_count_value, it, it) },
+            onSelect = {
+                onPodcastAutoDownloadCountChange(it)
+                choosingPodcastAutoCount = false
+            },
+            onDismiss = { choosingPodcastAutoCount = false },
         )
     }
 
@@ -620,6 +645,7 @@ private fun SettingsContentPreview() {
             onPodcastRefreshHoursChange = {},
             onPodcastMobileChange = {},
             onPodcastDeleteHeardDaysChange = {},
+            onPodcastAutoDownloadCountChange = {},
             onUseLocalMediaChange = {},
             onAddServer = {},
             onEditServer = {},

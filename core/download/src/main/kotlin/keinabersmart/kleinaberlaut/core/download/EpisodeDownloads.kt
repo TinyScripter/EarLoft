@@ -86,7 +86,7 @@ class EpisodeDownloads @Inject constructor(
     /** Reiht die neuesten ungehörten Folgen ein, wenn der Podcast automatisch lädt. */
     suspend fun queueAutomatic(feedId: String) {
         if (dao.feed(feedId)?.autoDownload != true) return
-        if (dao.queueLatestUnheard(feedId, AUTO_COUNT) > 0) enqueueWorker()
+        if (dao.queueLatestUnheard(feedId, settings.autoDownloadCount.first()) > 0) enqueueWorker()
     }
 
     /** Hängt die Automatik an die Abgleiche und den Schalter; einmal beim Start der App. */
@@ -101,6 +101,12 @@ class EpisodeDownloads @Inject constructor(
                     .distinctUntilChanged()
                     .flatMapConcat { it.asFlow() },
             ).collect { queueAutomatic(it) }
+        }
+        // Eine größere Anzahl holt sofort fehlende Folgen nach (eine kleinere löscht nichts).
+        scope.launch {
+            settings.autoDownloadCount.distinctUntilChanged().drop(1).collect {
+                dao.feeds().filter { it.autoDownload }.forEach { queueAutomatic(it.feedId) }
+            }
         }
         // Die Einstellung „Mobilfunk“ gilt für wartende Downloads sofort: den Auftrag mit neuen Bedingungen ersetzen.
         scope.launch {
@@ -149,8 +155,5 @@ class EpisodeDownloads @Inject constructor(
     private companion object {
         const val WORK_NAME = "episode-downloads"
         const val HOUR_MS = 60 * 60 * 1000L
-
-        /** Annahme: Die Automatik hält die letzten drei ungehörten Folgen bereit. */
-        const val AUTO_COUNT = 3
     }
 }

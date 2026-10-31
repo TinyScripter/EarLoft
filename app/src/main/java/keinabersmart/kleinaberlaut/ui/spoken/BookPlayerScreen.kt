@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -347,25 +347,42 @@ fun BookPlayerScreen(
     }
 }
 
-/** Gespielte Zeit links, Restzeit rechts, optional ein Text in der Mitte (Kapitelname). */
+/**
+ * Gespielte Zeit links, Restzeit rechts, optional ein Text genau in der Mitte (Kapitelname, also über dem Abspielknopf).
+ * Die Mitte hängt nicht von der Breite der Zeiten ab: Der Text bekommt höchstens so viel Platz, wie neben der breiteren
+ * Zeit auf beiden Seiten frei bleibt.
+ */
 @Composable
 private fun TimeRow(elapsed: String, remaining: String, center: String? = null) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(elapsed, style = MaterialTheme.typography.bodySmall)
-        if (center != null) {
-            Text(
-                center,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-            )
-        } else {
-            Spacer(Modifier.weight(1f))
+    Layout(
+        content = {
+            Text(elapsed, style = MaterialTheme.typography.bodySmall)
+            Text(remaining, style = MaterialTheme.typography.bodySmall)
+            if (center != null) {
+                Text(
+                    center,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) { measurables, constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val start = measurables[0].measure(loose)
+        val end = measurables[1].measure(loose)
+        val gap = 8.dp.roundToPx()
+        val side = maxOf(start.width, end.width)
+        val middle = measurables.getOrNull(2)?.measure(loose.copy(maxWidth = (constraints.maxWidth - 2 * (side + gap)).coerceAtLeast(0)))
+        val height = maxOf(start.height, end.height, middle?.height ?: 0)
+        layout(constraints.maxWidth, height) {
+            start.placeRelative(0, (height - start.height) / 2)
+            end.placeRelative(constraints.maxWidth - end.width, (height - end.height) / 2)
+            middle?.placeRelative((constraints.maxWidth - middle.width) / 2, (height - middle.height) / 2)
         }
-        Text(remaining, style = MaterialTheme.typography.bodySmall)
     }
 }
 
