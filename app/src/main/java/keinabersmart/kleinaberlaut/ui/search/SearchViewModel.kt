@@ -41,6 +41,15 @@ enum class SearchScope(val music: Boolean, val books: Boolean) {
     ALL(true, true),
     MUSIC(true, false),
     SPOKEN(false, true),
+    ;
+
+    companion object {
+        fun of(searchAll: Boolean, mode: SpokenMode): SearchScope = when {
+            searchAll -> ALL
+            mode == SpokenMode.SPOKEN -> SPOKEN
+            else -> MUSIC
+        }
+    }
 }
 
 @HiltViewModel
@@ -58,13 +67,7 @@ class SearchViewModel @Inject constructor(
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     val results: StateFlow<SearchUiState> = combine(
         query.map { it.trim() }.distinctUntilChanged().debounce { if (it.isEmpty()) 0 else DEBOUNCE_MS },
-        combine(spokenSettings.searchAll, spokenSettings.mode) { all, mode ->
-            when {
-                all -> SearchScope.ALL
-                mode == SpokenMode.SPOKEN -> SearchScope.SPOKEN
-                else -> SearchScope.MUSIC
-            }
-        }.distinctUntilChanged(),
+        combine(spokenSettings.searchAll, spokenSettings.mode, SearchScope::of).distinctUntilChanged(),
         ::Pair,
     ).mapLatest { (query, scope) ->
         if (query.isEmpty()) {
