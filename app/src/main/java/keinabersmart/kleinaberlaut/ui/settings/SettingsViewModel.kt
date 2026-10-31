@@ -8,6 +8,7 @@ import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkSettings
+import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
 import keinabersmart.kleinaberlaut.core.data.sync.SyncSettings
@@ -47,6 +48,7 @@ data class SettingsUiState(
     val preAmpDb: Float = 0f,
     val artistImages: Boolean = false,
     val albumCovers: Boolean = false,
+    val searchAll: Boolean = true,
 )
 
 private data class GeneralSettings(
@@ -54,6 +56,7 @@ private data class GeneralSettings(
     val useLocalMedia: Boolean,
     val artistImages: Boolean,
     val albumCovers: Boolean,
+    val searchAll: Boolean,
 )
 
 @HiltViewModel
@@ -66,6 +69,7 @@ class SettingsViewModel @Inject constructor(
     private val replayGainSettings: ReplayGainSettings,
     private val themeSettings: ThemeSettings,
     private val librarySettings: LibrarySettings,
+    private val spokenSettings: SpokenSettings,
     private val artworkSettings: ArtworkSettings,
     private val artworkRepository: ArtworkRepository,
     private val registry: DataSourceRegistry,
@@ -93,8 +97,14 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private val generalSettings = combine(themeSettings.mode, librarySettings.useLocalMedia, artworkSettings.artistImages, artworkSettings.albumCovers) { theme, local, artists, albums ->
-        GeneralSettings(theme, local, artists, albums)
+    private val generalSettings = combine(
+        themeSettings.mode,
+        librarySettings.useLocalMedia,
+        artworkSettings.artistImages,
+        artworkSettings.albumCovers,
+        spokenSettings.searchAll,
+    ) { theme, local, artists, albums, searchAll ->
+        GeneralSettings(theme, local, artists, albums, searchAll)
     }
 
     val state: StateFlow<SettingsUiState> = combine(
@@ -118,8 +128,13 @@ class SettingsViewModel @Inject constructor(
             useLocalMedia = general.useLocalMedia,
             artistImages = general.artistImages,
             albumCovers = general.albumCovers,
+            searchAll = general.searchAll,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
+
+    fun setSearchAll(enabled: Boolean) {
+        viewModelScope.launch { spokenSettings.setSearchAll(enabled) }
+    }
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { themeSettings.setMode(mode) }

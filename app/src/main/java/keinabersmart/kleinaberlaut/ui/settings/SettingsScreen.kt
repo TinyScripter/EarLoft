@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.ui.components.readableWidth
+import keinabersmart.kleinaberlaut.ui.spoken.AudiobookshelfSection
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
@@ -64,6 +65,7 @@ fun SettingsScreen(
     onEditServer: (sourceId: String) -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenWatch: () -> Unit,
+    onAddAudiobookshelf: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenLicenses: () -> Unit,
     modifier: Modifier = Modifier,
@@ -80,6 +82,7 @@ fun SettingsScreen(
         onThemeModeChange = viewModel::setThemeMode,
         onArtistImagesChange = viewModel::setArtistImages,
         onAlbumCoversChange = viewModel::setAlbumCovers,
+        onSearchAllChange = viewModel::setSearchAll,
         onUseLocalMediaChange = { enabled ->
             if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
         },
@@ -87,6 +90,7 @@ fun SettingsScreen(
         onEditServer = onEditServer,
         onOpenDownloads = onOpenDownloads,
         onOpenWatch = onOpenWatch,
+        onAddAudiobookshelf = onAddAudiobookshelf,
         onOpenAbout = onOpenAbout,
         onOpenLicenses = onOpenLicenses,
         onSyncNow = viewModel::syncNow,
@@ -109,11 +113,13 @@ private fun SettingsContent(
     onThemeModeChange: (ThemeMode) -> Unit,
     onArtistImagesChange: (Boolean) -> Unit,
     onAlbumCoversChange: (Boolean) -> Unit,
+    onSearchAllChange: (Boolean) -> Unit,
     onUseLocalMediaChange: (Boolean) -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenWatch: () -> Unit,
+    onAddAudiobookshelf: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenLicenses: () -> Unit,
     onSyncNow: (String) -> Unit,
@@ -165,6 +171,15 @@ private fun SettingsContent(
                     onCheckedChange = onAlbumCoversChange,
                 )
             }
+            item(key = "search-all") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_search_all),
+                    summary = stringResource(R.string.settings_search_all_summary),
+                    icon = R.drawable.ic_nav_search,
+                    checked = state.searchAll,
+                    onCheckedChange = onSearchAllChange,
+                )
+            }
 
             // --- Server ---
             item(key = "servers") { SectionHeader(stringResource(R.string.settings_servers)) }
@@ -194,6 +209,7 @@ private fun SettingsContent(
                     Text(stringResource(R.string.settings_add_server), modifier = Modifier.padding(start = 8.dp))
                 }
             }
+            item(key = "audiobookshelf") { AudiobookshelfSection(onAdd = onAddAudiobookshelf) }
             item(key = "refresh") {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_refresh_all)) },
@@ -520,11 +536,13 @@ private fun SettingsContentPreview() {
             onThemeModeChange = {},
             onArtistImagesChange = {},
             onAlbumCoversChange = {},
+            onSearchAllChange = {},
             onUseLocalMediaChange = {},
             onAddServer = {},
             onEditServer = {},
             onOpenDownloads = {},
             onOpenWatch = {},
+            onAddAudiobookshelf = {},
             onOpenAbout = {},
             onOpenLicenses = {},
             onSyncNow = {},

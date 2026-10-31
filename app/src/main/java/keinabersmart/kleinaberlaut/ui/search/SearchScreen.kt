@@ -1,11 +1,15 @@
 package keinabersmart.kleinaberlaut.ui.search
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
@@ -31,12 +35,14 @@ import keinabersmart.kleinaberlaut.ui.components.ArtistListItem
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
+import keinabersmart.kleinaberlaut.ui.spoken.BookCard
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @Composable
 fun SearchScreen(
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
+    onBookClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
@@ -48,7 +54,17 @@ fun SearchScreen(
         OutlinedTextField(
             value = query,
             onValueChange = viewModel::onQueryChange,
-            placeholder = { Text(stringResource(R.string.search_hint)) },
+            placeholder = {
+                Text(
+                    stringResource(
+                        when (state.scope) {
+                            SearchScope.ALL -> R.string.search_hint_all
+                            SearchScope.MUSIC -> R.string.search_hint
+                            SearchScope.SPOKEN -> R.string.search_hint_spoken
+                        },
+                    ),
+                )
+            },
             leadingIcon = { Icon(painterResource(R.drawable.ic_nav_search), contentDescription = null) },
             trailingIcon = {
                 if (query.isNotEmpty()) {
@@ -70,8 +86,21 @@ fun SearchScreen(
         val results = state.results
         when {
             state.query.isEmpty() -> Unit
-            results.isEmpty -> EmptyHint(stringResource(R.string.search_no_results, state.query))
+            state.isEmpty -> EmptyHint(stringResource(R.string.search_no_results, state.query))
             else -> LazyColumn(Modifier.fillMaxSize()) {
+                if (state.books.isNotEmpty()) {
+                    item(key = "books") { SectionHeader(stringResource(R.string.spoken_search_books)) }
+                    item(key = "books-row") {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            items(state.books, key = { it.book.id }) { item ->
+                                BookCard(item, onClick = { onBookClick(item.book.id) }, modifier = Modifier.width(140.dp))
+                            }
+                        }
+                    }
+                }
                 if (results.artists.isNotEmpty()) {
                     item(key = "artists") { SectionHeader(stringResource(R.string.library_artists)) }
                     items(results.artists, key = { "artist-${it.id}" }) { artist ->

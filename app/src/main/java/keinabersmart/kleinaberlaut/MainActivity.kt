@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
@@ -30,6 +31,7 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var libraryRefresher: LibraryRefresher
+    @Inject lateinit var spokenRefresher: SpokenRefresher
 
     @Inject lateinit var themeSettings: ThemeSettings
 
@@ -46,6 +48,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         libraryRefresher.refreshQuick()
+        spokenRefresher.refreshQuick()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

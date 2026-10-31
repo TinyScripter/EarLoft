@@ -55,6 +55,8 @@
 
     <!-- Suche -->
     <string name="search_hint">Songs, Alben, Künstler</string>
+    <string name="search_hint_all">Songs, Alben, Künstler, Bücher</string>
+    <string name="search_hint_spoken">Bücher</string>
     <string name="search_no_results">Nichts gefunden für „%1$s“.</string>
 
     <!-- Player -->
@@ -110,6 +112,8 @@
     <string name="theme_system">Systemeinstellung folgen</string>
     <string name="theme_light">Hell</string>
     <string name="theme_dark">Dunkel</string>
+    <string name="settings_search_all">Musik und Bücher gemeinsam durchsuchen</string>
+    <string name="settings_search_all_summary">Aus: Die Suche durchsucht nur den Inhalt des gewählten Modus (Musik oder Gesprochenes).</string>
     <string name="settings_artist_images">Bilder von Interpreten herunterladen</string>
     <string name="settings_artist_images_summary">Sucht Fotos bei Deezer. Dafür werden Namen von Interpreten an Deezer gesendet.</string>
     <string name="settings_album_covers">Fehlende Album-Cover herunterladen</string>
@@ -298,4 +302,56 @@
         <item quantity="one">%1$s · %2$d Titel</item>
         <item quantity="other">%1$s · %2$d Titel</item>
     </plurals>
+
+    <!-- Gesprochenes: Hörbücher & Podcasts (Konzept 12) -->
+    <string name="spoken_mode_music">Musik</string>
+    <string name="spoken_mode_spoken">Gesprochenes</string>
+    <string name="spoken_title_home">Gesprochenes</string>
+    <string name="spoken_continue">Weiterhören</string>
+    <string name="spoken_recent">Zuletzt hinzugefügt</string>
+    <string name="spoken_books">Bücher</string>
+    <string name="spoken_all_books">Alle Bücher</string>
+    <string name="spoken_no_server">Noch kein Audiobookshelf-Server eingerichtet.</string>
+    <string name="spoken_no_books">Noch keine Bücher. In den Einstellungen abgleichen.</string>
+    <string name="spoken_setup">Audiobookshelf einrichten</string>
+    <string name="spoken_play">Abspielen</string>
+    <string name="spoken_resume">Weiterhören</string>
+    <string name="spoken_play_again">Noch einmal hören</string>
+    <string name="spoken_chapters">Kapitel</string>
+    <string name="spoken_chapter_n">Kapitel %1$d</string>
+    <string name="spoken_percent_listened">%1$d %% gehört</string>
+    <string name="spoken_finished">Beendet</string>
+    <string name="spoken_duration">%1$s</string>
+    <string name="spoken_seek_back_30">30 Sekunden zurück</string>
+    <string name="spoken_seek_forward_10">10 Sekunden vor</string>
+    <string name="spoken_previous_chapter">Voriges Kapitel</string>
+    <string name="spoken_next_chapter">Nächstes Kapitel</string>
+    <string name="spoken_speed">Geschwindigkeit</string>
+    <string name="spoken_speed_value">%1$s×</string>
+    <string name="spoken_speed_reset">Normale Geschwindigkeit</string>
+    <string name="spoken_close">Schließen</string>
+    <string name="spoken_position">Position im Buch</string>
+    <string name="spoken_position_chapter">Position im Kapitel</string>
+    <string name="spoken_position_state">%1$s von %2$s</string>
+    <string name="spoken_speed_description">Geschwindigkeit %1$s×</string>
+    <string name="spoken_play_failed">Das Buch konnte nicht geladen werden. Ist der Server erreichbar?</string>
+    <string name="spoken_resumed_from_server">Weiter an der Stelle von einem anderen Gerät (%1$s)</string>
+    <string name="spoken_abs_title">Audiobookshelf</string>
+    <string name="spoken_abs_add">Audiobookshelf-Server hinzufügen</string>
+    <string name="spoken_abs_none">Noch kein Audiobookshelf-Server.</string>
+    <string name="spoken_abs_name">Name</string>
+    <string name="spoken_abs_url">Serveradresse</string>
+    <string name="spoken_abs_url_hint">https://audiobookshelf.example.org</string>
+    <string name="spoken_abs_key">API-Schlüssel</string>
+    <string name="spoken_abs_key_summary">In Audiobookshelf unter Einstellungen → API-Schlüssel erstellen.</string>
+    <string name="spoken_abs_connect">Verbinden</string>
+    <string name="spoken_abs_connecting">Verbinde…</string>
+    <string name="spoken_abs_error_url">Diese Adresse ist ungültig.</string>
+    <string name="spoken_abs_error_unreachable">Der Server ist nicht erreichbar.</string>
+    <string name="spoken_abs_error_auth">Der API-Schlüssel wurde abgelehnt.</string>
+    <string name="spoken_abs_error_library">Der Server hat keine Bibliothek mit Büchern.</string>
+    <string name="spoken_abs_sync">Jetzt abgleichen</string>
+    <string name="spoken_abs_remove">Server entfernen</string>
+    <string name="spoken_abs_remove_message">Die Bücher von „%1$s“ werden von diesem Gerät entfernt. Dein Fortschritt auf dem Server bleibt erhalten.</string>
+    <string name="spoken_search_books">Bücher</string>
 </resources>

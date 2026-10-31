@@ -157,11 +157,14 @@ private fun NowPlayingContent(state: WidgetState) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (nowPlaying != null) {
+                    // Bei Büchern −30 s / +10 s statt Titelsprung (wie im Buch-Player und in der Benachrichtigung).
+                    val isBook = nowPlaying.isBook
                     ControlButton(
-                        icon = DesignR.drawable.ic_skip_previous,
-                        label = context.getString(R.string.action_previous),
-                        action = playerCommand(WidgetPlayerAction.PREVIOUS),
-                        isPrimary = false
+                        icon = if (isBook) DesignR.drawable.ic_replay else DesignR.drawable.ic_skip_previous,
+                        label = context.getString(if (isBook) R.string.spoken_seek_back_30 else R.string.action_previous),
+                        action = playerCommand(if (isBook) WidgetPlayerAction.SKIP_BACK else WidgetPlayerAction.PREVIOUS),
+                        isPrimary = false,
+                        badge = if (isBook) "30" else null,
                     )
                     Spacer(modifier = GlanceModifier.width(12.dp))
                 }
@@ -175,11 +178,13 @@ private fun NowPlayingContent(state: WidgetState) {
 
                 if (nowPlaying != null) {
                     Spacer(modifier = GlanceModifier.width(12.dp))
+                    val isBook = nowPlaying.isBook
                     ControlButton(
-                        icon = DesignR.drawable.ic_skip_next,
-                        label = context.getString(R.string.action_next),
-                        action = playerCommand(WidgetPlayerAction.NEXT),
-                        isPrimary = false
+                        icon = if (isBook) DesignR.drawable.ic_forward else DesignR.drawable.ic_skip_next,
+                        label = context.getString(if (isBook) R.string.spoken_seek_forward_10 else R.string.action_next),
+                        action = playerCommand(if (isBook) WidgetPlayerAction.SKIP_FORWARD else WidgetPlayerAction.NEXT),
+                        isPrimary = false,
+                        badge = if (isBook) "10" else null,
                     )
                 }
             }
@@ -192,7 +197,9 @@ private fun ControlButton(
     icon: Int,
     label: String,
     action: Action,
-    isPrimary: Boolean = false
+    isPrimary: Boolean = false,
+    /** Zahl im Symbol (Sprungweite in Sekunden bei Büchern). */
+    badge: String? = null,
 ) {
     if (isPrimary) {
         Box(
@@ -222,8 +229,20 @@ private fun ControlButton(
                 provider = ImageProvider(icon),
                 contentDescription = label,
                 colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurface),
-                modifier = GlanceModifier.size(20.dp)
+                modifier = GlanceModifier.size(if (badge != null) 28.dp else 20.dp)
             )
+            if (badge != null) {
+                Text(
+                    text = badge,
+                    style = TextStyle(
+                        color = GlanceTheme.colors.onSurface,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    ),
+                    modifier = GlanceModifier.padding(top = 2.dp),
+                )
+            }
         }
     }
 }
@@ -254,6 +273,8 @@ class WidgetPlayerAction : ActionCallback {
             PAUSE -> connection.pause()
             NEXT -> connection.next()
             PREVIOUS -> connection.previous()
+            SKIP_BACK -> connection.skipBack()
+            SKIP_FORWARD -> connection.skipForward()
         }
     }
 
@@ -262,6 +283,8 @@ class WidgetPlayerAction : ActionCallback {
         const val PAUSE = "pause"
         const val NEXT = "next"
         const val PREVIOUS = "previous"
+        const val SKIP_BACK = "skip_back"
+        const val SKIP_FORWARD = "skip_forward"
     }
 }
 

@@ -9,4 +9,6 @@
     <string name="song_unavailable">Song unavailable: server not reachable and not downloaded</string>
     <string name="favorite_add">Add to favorites</string>
     <string name="favorite_remove">Remove from favorites</string>
+    <string name="spoken_seek_back">Back 30 seconds</string>
+    <string name="spoken_seek_forward">Forward 10 seconds</string>
 </resources>

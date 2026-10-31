@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
+import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
 import keinabersmart.kleinaberlaut.core.database.dao.LyricsDao
@@ -54,4 +55,7 @@ internal object DatabaseModule {
 
     @Provides
     fun provideWearDao(database: KleinaberlautDatabase): WearDao = database.wearDao()
+
+    @Provides
+    fun provideBookDao(database: KleinaberlautDatabase): BookDao = database.bookDao()
 }

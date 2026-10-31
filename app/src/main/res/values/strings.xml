@@ -56,6 +56,8 @@
 
     <!-- Search -->
     <string name="search_hint">Songs, albums, artists</string>
+    <string name="search_hint_all">Songs, albums, artists, books</string>
+    <string name="search_hint_spoken">Books</string>
     <string name="search_no_results">Nothing found for “%1$s”.</string>
 
     <!-- Player -->
@@ -111,6 +113,8 @@
     <string name="theme_system">Follow system setting</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="settings_search_all">Search music and books together</string>
+    <string name="settings_search_all_summary">When off, search only covers the content of the selected mode (Music or Spoken).</string>
     <string name="settings_artist_images">Download artist images</string>
     <string name="settings_artist_images_summary">Looks up photos on Deezer. Artist names are sent to Deezer for this.</string>
     <string name="settings_album_covers">Download missing album covers</string>
@@ -302,4 +306,56 @@
         <item quantity="one">%1$s · %2$d track</item>
         <item quantity="other">%1$s · %2$d tracks</item>
     </plurals>
+
+    <!-- Gesprochenes: Hörbücher & Podcasts (Konzept 12) -->
+    <string name="spoken_mode_music">Music</string>
+    <string name="spoken_mode_spoken">Spoken</string>
+    <string name="spoken_title_home">Spoken</string>
+    <string name="spoken_continue">Continue listening</string>
+    <string name="spoken_recent">Recently added</string>
+    <string name="spoken_books">Books</string>
+    <string name="spoken_all_books">All books</string>
+    <string name="spoken_no_server">No Audiobookshelf server set up yet.</string>
+    <string name="spoken_no_books">No books yet. Pull down in Settings to sync.</string>
+    <string name="spoken_setup">Set up Audiobookshelf</string>
+    <string name="spoken_play">Play</string>
+    <string name="spoken_resume">Resume</string>
+    <string name="spoken_play_again">Play again</string>
+    <string name="spoken_chapters">Chapters</string>
+    <string name="spoken_chapter_n">Chapter %1$d</string>
+    <string name="spoken_percent_listened">%1$d %% listened</string>
+    <string name="spoken_finished">Finished</string>
+    <string name="spoken_duration">%1$s</string>
+    <string name="spoken_seek_back_30">Back 30 seconds</string>
+    <string name="spoken_seek_forward_10">Forward 10 seconds</string>
+    <string name="spoken_previous_chapter">Previous chapter</string>
+    <string name="spoken_next_chapter">Next chapter</string>
+    <string name="spoken_speed">Speed</string>
+    <string name="spoken_speed_value">%1$s×</string>
+    <string name="spoken_speed_reset">Normal speed</string>
+    <string name="spoken_close">Close</string>
+    <string name="spoken_position">Position in the book</string>
+    <string name="spoken_position_chapter">Position in the chapter</string>
+    <string name="spoken_position_state">%1$s of %2$s</string>
+    <string name="spoken_speed_description">Speed %1$s×</string>
+    <string name="spoken_play_failed">The book could not be loaded. Is the server reachable?</string>
+    <string name="spoken_resumed_from_server">Continuing where you stopped on another device (%1$s)</string>
+    <string name="spoken_abs_title">Audiobookshelf</string>
+    <string name="spoken_abs_add">Add Audiobookshelf server</string>
+    <string name="spoken_abs_none">No Audiobookshelf server yet.</string>
+    <string name="spoken_abs_name">Name</string>
+    <string name="spoken_abs_url">Server address</string>
+    <string name="spoken_abs_url_hint">https://audiobookshelf.example.org</string>
+    <string name="spoken_abs_key">API key</string>
+    <string name="spoken_abs_key_summary">Create it in Audiobookshelf under Settings → API Keys.</string>
+    <string name="spoken_abs_connect">Connect</string>
+    <string name="spoken_abs_connecting">Connecting…</string>
+    <string name="spoken_abs_error_url">That address is not valid.</string>
+    <string name="spoken_abs_error_unreachable">The server could not be reached.</string>
+    <string name="spoken_abs_error_auth">The API key was rejected.</string>
+    <string name="spoken_abs_error_library">The server has no book library.</string>
+    <string name="spoken_abs_sync">Sync now</string>
+    <string name="spoken_abs_remove">Remove server</string>
+    <string name="spoken_abs_remove_message">Books of “%1$s” are removed from this device. Your progress on the server is kept.</string>
+    <string name="spoken_search_books">Books</string>
 </resources>

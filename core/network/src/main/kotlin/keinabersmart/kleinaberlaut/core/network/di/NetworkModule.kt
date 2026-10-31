@@ -6,6 +6,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsAuthInterceptor
 import keinabersmart.kleinaberlaut.core.network.subsonic.CoverArtCacheInterceptor
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicAuthInterceptor
 import okhttp3.Cache
@@ -24,11 +25,13 @@ internal object NetworkModule {
     fun provideOkHttpClient(
         @ApplicationContext context: Context,
         authInterceptor: SubsonicAuthInterceptor,
+        absAuthInterceptor: AbsAuthInterceptor,
         coverArtCacheInterceptor: CoverArtCacheInterceptor,
     ): OkHttpClient =
         OkHttpClient.Builder()
             .cache(Cache(File(context.cacheDir, "http"), HTTP_CACHE_BYTES))
             .addNetworkInterceptor(authInterceptor)
+            .addNetworkInterceptor(absAuthInterceptor)
             .addNetworkInterceptor(coverArtCacheInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

@@ -35,6 +35,9 @@ import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackSourceResolver
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackStateRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
+import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
+import keinabersmart.kleinaberlaut.core.data.spoken.BookProgressSync
+import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.SupervisorJob
@@ -73,6 +76,9 @@ class PlaybackService : MediaLibraryService() {
     @Inject internal lateinit var libraryRemovals: LibraryRemovals
     @Inject lateinit var sessionPlayerFactory: Optional<SessionPlayerFactory>
     @Inject lateinit var sleepTimer: SleepTimer
+    @Inject lateinit var bookRepository: BookRepository
+    @Inject lateinit var bookProgressSync: BookProgressSync
+    @Inject lateinit var bookCovers: BookCovers
 
     /** Für Player-Zugriffe (Main-Thread). */
     private val mainScope = MainScope()
@@ -82,6 +88,7 @@ class PlaybackService : MediaLibraryService() {
 
     private var session: MediaLibrarySession? = null
     private lateinit var playTracker: PlayTracker
+    private lateinit var bookListener: BookPlaybackListener
     private val replayGain = ReplayGainProcessor()
 
     override fun onCreate() {
@@ -141,6 +148,8 @@ class PlaybackService : MediaLibraryService() {
         playTracker = PlayTracker(player, playbackStateRepository, ioScope)
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
+        bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, mainScope)
+        player.addListener(bookListener)
         mainScope.launch {
             libraryRemovals.removals.collect { removeMissingSongs(player) }
         }
@@ -151,10 +160,11 @@ class PlaybackService : MediaLibraryService() {
 
         session = MediaLibrarySession.Builder(
             this,
-            player,
+            // Bei Hörbüchern gelten andere Sprungweiten (-30 s / +10 s), siehe SpokenAwarePlayer.
+            SpokenAwarePlayer(player),
             LibrarySessionCallback(this, libraryRepository, playlistRepository, favoritesRepository, queuePersistence, factory, mainScope),
         )
-            .setBitmapLoader(CacheBitmapLoader(ArtworkBitmapLoader(this, artworkRepository, mainScope)))
+            .setBitmapLoader(CacheBitmapLoader(ArtworkBitmapLoader(this, artworkRepository, bookCovers, mainScope)))
             .apply { sessionActivity()?.let { setSessionActivity(it) } }
             .build()
 
@@ -168,6 +178,22 @@ class PlaybackService : MediaLibraryService() {
         fun update() {
             favoriteJob?.cancel()
             val songId = player.currentMediaItem?.songId
+            if (player.currentMediaItem?.isSpoken == true) {
+                // Hörbuch: Springen statt Favorit.
+                session.setCustomLayout(
+                    listOf(
+                        CommandButton.Builder(CommandButton.ICON_SKIP_BACK_30)
+                            .setDisplayName(getString(R.string.spoken_seek_back))
+                            .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+                            .build(),
+                        CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD_10)
+                            .setDisplayName(getString(R.string.spoken_seek_forward))
+                            .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
+                            .build(),
+                    ),
+                )
+                return
+            }
             if (songId == null) {
                 session.setCustomLayout(emptyList())
                 return
@@ -224,6 +250,7 @@ class PlaybackService : MediaLibraryService() {
         sleepTimer.detach()
         session?.let { session ->
             playTracker.finishCurrent()
+            bookListener.finish()
             queuePersistence.savePosition(session.player, ioScope)
             session.player.release()
             session.release()
@@ -280,41 +307,49 @@ class PlaybackService : MediaLibraryService() {
     /** Hält Warteschlange, Position und Beobachter (Widget) aktuell. */
     private inner class PersistenceListener(private val player: Player) : Player.Listener {
 
+        // Hörbücher haben ihren Fortschritt in der Datenbank (BookPlaybackListener); die gespeicherte Musik-Warteschlange
+        // darf dadurch weder geleert noch auf ihre Position zurückgesetzt werden.
+        private val holdsSpoken: Boolean get() = player.currentMediaItem?.isSpoken == true
+
         override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-            if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+            if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED && !holdsSpoken) {
                 queuePersistence.saveQueueDebounced(player, ioScope)
             }
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            queuePersistence.savePosition(player, ioScope)
+            if (!holdsSpoken) queuePersistence.savePosition(player, ioScope)
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            if (!isPlaying) queuePersistence.savePosition(player, ioScope)
+            if (!isPlaying && !holdsSpoken) queuePersistence.savePosition(player, ioScope)
         }
 
         override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-            queuePersistence.savePosition(player, ioScope)
+            if (!holdsSpoken) queuePersistence.savePosition(player, ioScope)
         }
 
         override fun onRepeatModeChanged(repeatMode: Int) {
-            queuePersistence.savePosition(player, ioScope)
+            if (!holdsSpoken) queuePersistence.savePosition(player, ioScope)
         }
 
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_METADATA_CHANGED)) {
                 val item = player.currentMediaItem
                 val songId = item?.songId
+                val bookId = item?.bookId
                 notifyObservers(
-                    songId?.let {
+                    if (item != null && (songId != null || bookId != null)) {
                         NowPlaying(
-                            songId = it,
+                            songId = songId,
                             title = item.mediaMetadata.title?.toString().orEmpty(),
                             artist = item.mediaMetadata.artist?.toString().orEmpty(),
-                            albumId = item.mediaMetadata.albumIdExtra,
+                            albumId = if (bookId == null) item.mediaMetadata.albumIdExtra else null,
                             isPlaying = player.isPlaying,
+                            bookId = bookId,
                         )
+                    } else {
+                        null
                     },
                 )
             }

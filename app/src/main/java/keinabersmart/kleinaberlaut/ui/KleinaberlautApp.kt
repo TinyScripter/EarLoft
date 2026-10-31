@@ -35,6 +35,8 @@ import keinabersmart.kleinaberlaut.core.designsystem.theme.AlbumColorTheme
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import keinabersmart.kleinaberlaut.navigation.AboutRoute
+import keinabersmart.kleinaberlaut.navigation.AddAudiobookshelfRoute
+import keinabersmart.kleinaberlaut.navigation.BookRoute
 import keinabersmart.kleinaberlaut.navigation.AddServerRoute
 import keinabersmart.kleinaberlaut.navigation.AlbumRoute
 import keinabersmart.kleinaberlaut.navigation.ArtistRoute
@@ -80,6 +82,16 @@ import keinabersmart.kleinaberlaut.ui.settings.LicensesScreen
 import keinabersmart.kleinaberlaut.ui.settings.ServerFormScreen
 import keinabersmart.kleinaberlaut.ui.settings.SettingsScreen
 import keinabersmart.kleinaberlaut.ui.settings.WatchSettingsScreen
+import keinabersmart.kleinaberlaut.ui.spoken.AudiobookshelfFormScreen
+import keinabersmart.kleinaberlaut.ui.spoken.BookLaunchEffect
+import keinabersmart.kleinaberlaut.ui.spoken.BookPlayerScreen
+import keinabersmart.kleinaberlaut.ui.spoken.BookPlayerViewModel
+import keinabersmart.kleinaberlaut.ui.spoken.BookScreen
+import keinabersmart.kleinaberlaut.ui.spoken.SpokenHomeScreen
+import keinabersmart.kleinaberlaut.ui.spoken.SpokenLibraryScreen
+import keinabersmart.kleinaberlaut.ui.spoken.SpokenMiniPlayer
+import keinabersmart.kleinaberlaut.ui.spoken.SpokenModeHost
+import keinabersmart.kleinaberlaut.ui.spoken.bookFraction
 
 @Composable
 fun KleinaberlautApp(
@@ -113,27 +125,44 @@ fun KleinaberlautApp(
 
     val openAlbum: (Long) -> Unit = { navigator.navigate(AlbumRoute(it)) }
     val openArtist: (Long) -> Unit = { navigator.navigate(ArtistRoute(it)) }
+    val openBook: (Long) -> Unit = { navigator.navigate(BookRoute(it)) }
+    val setupAudiobookshelf: () -> Unit = { navigator.navigate(AddAudiobookshelfRoute) }
 
     val entryProvider = entryProvider {
         entry<HomeRoute> {
-            HomeScreen(
-                onAlbumClick = openAlbum,
-                onArtistClick = openArtist,
+            SpokenModeHost(
+                music = { HomeScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) },
+                spoken = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
             )
         }
         entry<LibraryRoute>(metadata = listPane()) {
-            LibraryScreen(
-                onAlbumClick = openAlbum,
-                onArtistClick = openArtist,
-                onFavoritesClick = { navigator.navigate(FavoritesRoute) },
-                onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
+            SpokenModeHost(
+                music = {
+                    LibraryScreen(
+                        onAlbumClick = openAlbum,
+                        onArtistClick = openArtist,
+                        onFavoritesClick = { navigator.navigate(FavoritesRoute) },
+                        onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
+                    )
+                },
+                spoken = { SpokenLibraryScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
             )
         }
+        entry<BookRoute> { route ->
+            // Läuft dieses Buch schon, öffnet „Abspielen“ die Wiedergabe-Ansicht, statt es neu zu starten.
+            BookScreen(
+                bookId = route.bookId,
+                onBack = navigator::goBack,
+                isCurrent = playerState.spoken?.bookId == route.bookId,
+                onOpenPlayer = navigator::showNowPlaying,
+            )
+        }
+        entry<AddAudiobookshelfRoute>(metadata = detailPane()) { AudiobookshelfFormScreen(onDone = navigator::goBack) }
         entry<FavoritesRoute>(metadata = detailPane()) { FavoritesScreen(onBack = navigator::goBack) }
         entry<PlaylistRoute>(metadata = detailPane()) { route ->
             PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack)
         }
-        entry<SearchRoute> { SearchScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) }
+        entry<SearchRoute> { SearchScreen(onAlbumClick = openAlbum, onArtistClick = openArtist, onBookClick = openBook) }
         entry<DownloadsRoute>(metadata = detailPane()) { DownloadsScreen(onBack = navigator::goBack, onAlbumClick = openAlbum) }
         entry<AlbumRoute>(metadata = nestedDetailPane()) { route ->
             AlbumScreen(albumId = route.albumId, onBack = navigator::goBack)
@@ -142,7 +171,12 @@ fun KleinaberlautApp(
             ArtistScreen(artistId = route.artistId, onBack = navigator::goBack, onAlbumClick = openAlbum)
         }
         entry<NowPlayingRoute> {
-            NowPlayingScreen(onClose = navigator::goBack, onOpenQueue = { navigator.navigate(QueueRoute) })
+            // Das laufende Item entscheidet, nicht der Modus: ein Hörbuch hat seine eigene Ansicht.
+            if (playerState.spoken != null) {
+                BookPlayerScreen(onClose = navigator::goBack)
+            } else {
+                NowPlayingScreen(onClose = navigator::goBack, onOpenQueue = { navigator.navigate(QueueRoute) })
+            }
         }
         entry<QueueRoute> { QueueScreen(onBack = navigator::goBack) }
         entry<SettingsRoute>(metadata = listPane()) {
@@ -151,6 +185,7 @@ fun KleinaberlautApp(
                 onEditServer = { navigator.navigate(EditServerRoute(it)) },
                 onOpenDownloads = { navigator.navigate(DownloadsRoute) },
                 onOpenWatch = { navigator.navigate(WatchSettingsRoute) },
+                onAddAudiobookshelf = setupAudiobookshelf,
                 onOpenAbout = { navigator.navigate(AboutRoute) },
                 onOpenLicenses = { navigator.navigate(LicensesRoute) },
             )
@@ -171,6 +206,7 @@ fun KleinaberlautApp(
     }
 
     SyncNoticeEffect()
+    BookLaunchEffect()
 
     CompositionLocalProvider(
         LocalOfflineController provides rememberOfflineController(),
@@ -205,7 +241,17 @@ fun KleinaberlautApp(
                     predictivePopTransitionSpec = { predictiveBack() },
                     modifier = Modifier.weight(1f),
                 )
-                if (showChrome && playerState.hasMedia) {
+                if (showChrome && playerState.spoken != null) {
+                    val bookPlayer: BookPlayerViewModel = hiltViewModel()
+                    SpokenMiniPlayer(
+                        state = playerState,
+                        fractionProvider = bookPlayer::bookFraction,
+                        onClick = { navigator.navigate(NowPlayingRoute) },
+                        onTogglePlayPause = bookPlayer::togglePlayPause,
+                        onSkipBack = bookPlayer::skipBack,
+                        onSkipForward = bookPlayer::skipForward,
+                    )
+                } else if (showChrome && playerState.hasMedia) {
                     val seedColor by playerViewModel.seedColor.collectAsStateWithLifecycle()
                     AlbumColorTheme(seedColor) {
                         MiniPlayer(
