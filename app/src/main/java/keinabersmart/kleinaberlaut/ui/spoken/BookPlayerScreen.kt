@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,6 +48,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -168,6 +171,14 @@ fun BookPlayerScreen(
 
     // Oben das ganze Buch (zum Spulen), darunter nur das Kapitel; jeweils links gespielt, rechts die Restzeit mit „-“.
     val progress: @Composable () -> Unit = {
+        Text(
+            entry.title,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
         Slider(
             value = shown.coerceIn(0, duration.coerceAtLeast(1)).toFloat(),
             onValueChange = { dragging = it },
@@ -191,14 +202,6 @@ fun BookPlayerScreen(
             val chapterElapsed = (shown - chapter.startMs).coerceIn(0, chapter.durationMs)
             val chapterLabel = stringResource(R.string.spoken_position_chapter)
             val chapterState = stringResource(R.string.spoken_position_state, formatClock(chapterElapsed), formatClock(chapter.durationMs))
-            Text(
-                chapterTitle(chapter),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 16.dp),
-            )
             Slider(
                 value = chapterElapsed.toFloat(),
                 onValueChange = { chapterDragging = it },
@@ -210,18 +213,24 @@ fun BookPlayerScreen(
                 valueRange = 0f..chapter.durationMs.coerceAtLeast(1).toFloat(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp)
+                    .padding(top = 16.dp)
                     .semantics {
                         contentDescription = chapterLabel
                         stateDescription = chapterState
                     },
             )
-            TimeRow(elapsed = formatClock(chapterElapsed), remaining = "-" + formatClock(chapterRemaining))
+            TimeRow(
+                elapsed = formatClock(chapterElapsed),
+                remaining = "-" + formatClock(chapterRemaining),
+                center = chapterTitle(chapter),
+            )
         }
     }
+    // Handy quer (wenig Höhe): kleinerer Abspielknopf, damit die Leiste darunter ohne Scrollen sichtbar bleibt.
+    val shortHeight = LocalConfiguration.current.screenHeightDp < 480
     val controls: @Composable () -> Unit = {
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            Modifier.fillMaxWidth().padding(vertical = if (shortHeight) 4.dp else 12.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -229,11 +238,11 @@ fun BookPlayerScreen(
                 Icon(painterResource(DesignR.drawable.ic_skip_previous), contentDescription = stringResource(R.string.spoken_previous_chapter))
             }
             SeekButton(DesignR.drawable.ic_replay, "30", stringResource(R.string.spoken_seek_back_30), viewModel::skipBack)
-            FilledIconButton(onClick = viewModel::togglePlayPause, modifier = Modifier.size(72.dp)) {
+            FilledIconButton(onClick = viewModel::togglePlayPause, modifier = Modifier.size(if (shortHeight) 56.dp else 72.dp)) {
                 Icon(
                     painterResource(playPauseIcon(state.isPlaying)),
                     contentDescription = stringResource(playPauseLabel(state.isPlaying)),
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier.size(if (shortHeight) 28.dp else 36.dp),
                 )
             }
             SeekButton(DesignR.drawable.ic_forward, "10", stringResource(R.string.spoken_seek_forward_10), viewModel::skipForward)
@@ -312,11 +321,24 @@ fun BookPlayerScreen(
     }
 }
 
-/** Gespielte Zeit links, Restzeit rechts. */
+/** Gespielte Zeit links, Restzeit rechts, optional ein Text in der Mitte (Kapitelname). */
 @Composable
-private fun TimeRow(elapsed: String, remaining: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+private fun TimeRow(elapsed: String, remaining: String, center: String? = null) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(elapsed, style = MaterialTheme.typography.bodySmall)
+        if (center != null) {
+            Text(
+                center,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+            )
+        } else {
+            Spacer(Modifier.weight(1f))
+        }
         Text(remaining, style = MaterialTheme.typography.bodySmall)
     }
 }
