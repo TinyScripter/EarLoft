@@ -336,6 +336,9 @@
     <string name="spoken_speed_value">%1$s×</string>
     <string name="spoken_speed_reset">Normal speed</string>
     <string name="spoken_close">Close</string>
+    <string name="spoken_position">Position in the book</string>
+    <string name="spoken_position_state">%1$s of %2$s</string>
+    <string name="spoken_speed_description">Speed %1$s×</string>
     <string name="spoken_play_failed">The book could not be loaded. Is the server reachable?</string>
     <string name="spoken_resumed_from_server">Continuing where you stopped on another device (%1$s)</string>
     <string name="spoken_abs_title">Audiobookshelf</string>

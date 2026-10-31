@@ -3,8 +3,10 @@ package keinabersmart.kleinaberlaut.ui.spoken
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -14,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -39,6 +43,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,6 +61,7 @@ import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
+import keinabersmart.kleinaberlaut.ui.components.TwoColumnMinWidth
 import keinabersmart.kleinaberlaut.ui.player.SleepTimerSheet
 import keinabersmart.kleinaberlaut.ui.player.playPauseIcon
 import keinabersmart.kleinaberlaut.ui.player.playPauseLabel
@@ -151,18 +160,12 @@ fun BookPlayerScreen(
     val speed = state.speed
     val remainingTotal = tl?.remainingBookMs(shown, speed) ?: ((duration - shown).coerceAtLeast(0) / speed).toLong()
 
-    Column(
-        modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onClose) {
-                Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = stringResource(R.string.spoken_close))
-            }
-        }
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            BookArt(entry.bookId, Modifier.widthIn(max = 320.dp).fillMaxWidth())
-        }
+    val positionLabel = stringResource(R.string.spoken_position)
+    val positionState = stringResource(R.string.spoken_position_state, formatClock(shown), formatClock(duration))
+    val speedLabel = stringResource(R.string.spoken_speed_description, formatSpeed(speed))
+
+    // Titel, Autor und Kapitel.
+    val details: @Composable () -> Unit = {
         Text(
             entry.title,
             style = MaterialTheme.typography.titleLarge,
@@ -183,7 +186,9 @@ fun BookPlayerScreen(
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
-
+    }
+    // Positionsregler mit Zeiten und Restzeiten.
+    val progress: @Composable () -> Unit = {
         Slider(
             value = shown.coerceIn(0, duration.coerceAtLeast(1)).toFloat(),
             onValueChange = { dragging = it },
@@ -192,7 +197,13 @@ fun BookPlayerScreen(
                 dragging = null
             },
             valueRange = 0f..duration.coerceAtLeast(1).toFloat(),
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .semantics {
+                    contentDescription = positionLabel
+                    stateDescription = positionState
+                },
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(formatClock(shown), style = MaterialTheme.typography.bodySmall)
@@ -211,7 +222,8 @@ fun BookPlayerScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-
+    }
+    val controls: @Composable () -> Unit = {
         Row(
             Modifier.fillMaxWidth().padding(vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -233,13 +245,15 @@ fun BookPlayerScreen(
                 Icon(painterResource(DesignR.drawable.ic_skip_next), contentDescription = stringResource(R.string.spoken_next_chapter))
             }
         }
-
+    }
+    // Geschwindigkeit, Sleep-Timer, Kapitelliste.
+    val extras: @Composable () -> Unit = {
         Row(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 8.dp),
+            Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = { showSpeed = true }) {
+            TextButton(onClick = { showSpeed = true }, modifier = Modifier.semantics { contentDescription = speedLabel }) {
                 Text(stringResource(R.string.spoken_speed_value, formatSpeed(speed)))
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -250,6 +264,44 @@ fun BookPlayerScreen(
             }
             IconButton(onClick = { showChapters = true }, enabled = tl?.hasChapters == true) {
                 Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = stringResource(R.string.spoken_chapters))
+            }
+        }
+    }
+
+    BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding()) {
+        // Breit (Tablet, Handy quer): links das Cover, rechts alles andere; schmal untereinander.
+        val wide = maxWidth >= TwoColumnMinWidth
+        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onClose) {
+                    Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = stringResource(R.string.spoken_close))
+                }
+            }
+            if (wide) {
+                Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                    Box(Modifier.weight(1f).fillMaxHeight().padding(bottom = 16.dp), contentAlignment = Alignment.Center) {
+                        // Ohne fillMaxWidth, damit das Cover bei wenig Höhe schrumpft.
+                        BookArt(entry.bookId, Modifier.widthIn(max = 480.dp))
+                    }
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        details()
+                        progress()
+                        controls()
+                        extras()
+                    }
+                }
+            } else {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    BookArt(entry.bookId, Modifier.widthIn(max = 320.dp).fillMaxWidth())
+                }
+                details()
+                progress()
+                controls()
+                extras()
             }
         }
     }
@@ -272,7 +324,8 @@ private fun SeekButton(icon: Int, seconds: String, description: String, onClick:
     IconButton(onClick = onClick, modifier = Modifier.size(56.dp)) {
         Box(contentAlignment = Alignment.Center) {
             Icon(painterResource(icon), contentDescription = description, modifier = Modifier.size(40.dp))
-            Text(seconds, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
+            // Die Zahl steckt schon in der Beschreibung des Symbols; TalkBack soll sie nicht noch einmal vorlesen.
+            Text(seconds, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp).clearAndSetSemantics {})
         }
     }
 }
