@@ -107,6 +107,26 @@ abstract class BookDao {
     @Insert
     abstract suspend fun insertChapters(chapters: List<BookChapterEntity>)
 
+    @Query("UPDATE books SET durationMs = :durationMs WHERE bookId = :bookId")
+    abstract suspend fun setBookDuration(bookId: Long, durationMs: Long)
+
+    @Query("UPDATE book_tracks SET durationMs = :durationMs WHERE bookId = :bookId AND trackIndex = 0")
+    abstract suspend fun setFirstTrackDuration(bookId: Long, durationMs: Long)
+
+    /** Das letzte Kapitel reicht bis zum Ende des Buchs. */
+    @Query(
+        "UPDATE book_chapters SET endMs = :durationMs WHERE bookId = :bookId AND chapterIndex = " +
+            "(SELECT MAX(chapterIndex) FROM book_chapters WHERE bookId = :bookId) AND startMs < :durationMs",
+    )
+    abstract suspend fun stretchLastChapter(bookId: Long, durationMs: Long)
+
+    @Transaction
+    open suspend fun setSingleFileDuration(bookId: Long, durationMs: Long) {
+        setBookDuration(bookId, durationMs)
+        setFirstTrackDuration(bookId, durationMs)
+        stretchLastChapter(bookId, durationMs)
+    }
+
     @Query("UPDATE books SET detailsLoaded = 1 WHERE bookId = :bookId")
     abstract suspend fun markDetailsLoaded(bookId: Long)
 

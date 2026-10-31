@@ -81,6 +81,17 @@ class BookRepository @Inject constructor(
         return dao.search(pattern, limit).map { BookWithProgress(it.toModel(), dao.progress(it.bookId)?.toModel()) }
     }
 
+    /**
+     * Folgen: Der Feed nennt die Dauer nicht immer oder falsch; die Datei kennt sie. Übernimmt die vom Player gelernte
+     * Dauer, wenn sie spürbar abweicht. `true`, wenn sich etwas geändert hat.
+     */
+    suspend fun learnEpisodeDuration(bookId: Long, durationMs: Long): Boolean {
+        val book = dao.book(bookId) ?: return false
+        if (book.kind != BookKind.EPISODE || durationMs <= 0 || kotlin.math.abs(book.durationMs - durationMs) <= DURATION_TOLERANCE_MS) return false
+        dao.setSingleFileDuration(bookId, durationMs)
+        return true
+    }
+
     /** Merkt die Geschwindigkeit des Buchs, auch wenn es noch keinen Fortschritt hat (der Server gewinnt dann sofort). */
     suspend fun setSpeed(bookId: Long, speed: Float) {
         if (dao.progress(bookId) != null) {
@@ -91,6 +102,8 @@ class BookRepository @Inject constructor(
         }
     }
 }
+
+private const val DURATION_TOLERANCE_MS = 2_000L
 
 internal fun BookEntity.toModel() = Book(
     id = bookId,

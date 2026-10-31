@@ -59,6 +59,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
@@ -94,6 +95,11 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
         .flatMapLatest { id -> if (id == null) flowOf(null) else books.book(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Podcast-Folgen haben nur den einen Regler über die ganze Länge. */
+    val isEpisode: StateFlow<Boolean> = book
+        .map { it?.book?.kind == BookKind.EPISODE }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** Zeitachse des laufenden Buchs; `null`, bis Dateien und Kapitel geladen sind. */
     val timeline: StateFlow<BookTimeline?> = bookId
         .mapLatest { id -> id?.let { books.timeline(it) } }
@@ -101,6 +107,12 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
 
     val sleepTimerRemainingMs: StateFlow<Long?> = playback.sleepTimerRemainingMs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Länge des ganzen Buchs. Eine Folge, deren Feed keine Dauer nannte, hat sie erst, wenn der Player sie kennt; bis
+     * dahin gilt dessen Angabe.
+     */
+    fun durationMs(): Long = timeline.value?.durationMs?.takeIf { it > 0 } ?: state.value.durationMs
 
     /** Aktuelle Position im ganzen Buch. */
     fun bookPositionMs(): Long {
@@ -143,6 +155,7 @@ fun BookPlayerScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val timeline by viewModel.timeline.collectAsStateWithLifecycle()
     val sleepRemaining by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
+    val episode by viewModel.isEpisode.collectAsStateWithLifecycle()
     val entry = state.spoken
     val position by rememberPlaybackPosition { viewModel.bookPositionMs() }
     var dragging by remember { mutableStateOf<Float?>(null) }
@@ -158,7 +171,7 @@ fun BookPlayerScreen(
         return
     }
     val tl = timeline
-    val duration = tl?.durationMs ?: state.durationMs
+    val duration = tl?.durationMs?.takeIf { it > 0 } ?: state.durationMs
     val base = dragging?.toLong() ?: position
     val chapter = tl?.chapterAt(base)
     val shown = chapterDragging?.let { (chapter?.startMs ?: 0) + it.toLong() } ?: base
@@ -195,10 +208,15 @@ fun BookPlayerScreen(
                     stateDescription = positionState
                 },
         )
-        TimeRow(elapsed = formatClock(shown), remaining = "-" + formatClock(remainingTotal))
+        // Bei Folgen gibt es nur diesen einen Regler; ein Kapitelname steht dann zwischen den Zeiten.
+        TimeRow(
+            elapsed = formatClock(shown),
+            remaining = "-" + formatClock(remainingTotal),
+            center = if (episode && chapter != null) chapterTitle(chapter) else null,
+        )
         // Nur bei Büchern mit Kapiteln.
         val chapterRemaining = tl?.remainingChapterMs(shown, speed)
-        if (chapter != null && chapterRemaining != null) {
+        if (!episode && chapter != null && chapterRemaining != null) {
             val chapterElapsed = (shown - chapter.startMs).coerceIn(0, chapter.durationMs)
             val chapterLabel = stringResource(R.string.spoken_position_chapter)
             val chapterState = stringResource(R.string.spoken_position_state, formatClock(chapterElapsed), formatClock(chapter.durationMs))
@@ -226,6 +244,7 @@ fun BookPlayerScreen(
             )
         }
     }
+    val hasChapters = tl?.hasChapters == true
     // Handy quer (wenig Höhe): kleinerer Abspielknopf, damit die Leiste darunter ohne Scrollen sichtbar bleibt.
     val shortHeight = LocalConfiguration.current.screenHeightDp < 480
     val controls: @Composable () -> Unit = {
@@ -234,8 +253,11 @@ fun BookPlayerScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = viewModel::previousChapter, enabled = tl?.hasChapters == true) {
-                Icon(painterResource(DesignR.drawable.ic_skip_previous), contentDescription = stringResource(R.string.spoken_previous_chapter))
+            // Kapitel-Knöpfe nur, wenn das Buch bzw. die Folge welche hat.
+            if (hasChapters) {
+                IconButton(onClick = viewModel::previousChapter) {
+                    Icon(painterResource(DesignR.drawable.ic_skip_previous), contentDescription = stringResource(R.string.spoken_previous_chapter))
+                }
             }
             SeekButton(DesignR.drawable.ic_replay, "30", stringResource(R.string.spoken_seek_back_30), viewModel::skipBack)
             FilledIconButton(onClick = viewModel::togglePlayPause, modifier = Modifier.size(if (shortHeight) 56.dp else 72.dp)) {
@@ -246,8 +268,10 @@ fun BookPlayerScreen(
                 )
             }
             SeekButton(DesignR.drawable.ic_forward, "10", stringResource(R.string.spoken_seek_forward_10), viewModel::skipForward)
-            IconButton(onClick = viewModel::nextChapter, enabled = tl?.hasChapters == true) {
-                Icon(painterResource(DesignR.drawable.ic_skip_next), contentDescription = stringResource(R.string.spoken_next_chapter))
+            if (hasChapters) {
+                IconButton(onClick = viewModel::nextChapter) {
+                    Icon(painterResource(DesignR.drawable.ic_skip_next), contentDescription = stringResource(R.string.spoken_next_chapter))
+                }
             }
         }
     }
@@ -267,8 +291,10 @@ fun BookPlayerScreen(
                 }
                 sleepRemaining?.let { Text(formatClock(it), style = MaterialTheme.typography.bodySmall) }
             }
-            IconButton(onClick = { showChapters = true }, enabled = tl?.hasChapters == true) {
-                Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.spoken_chapters))
+            if (hasChapters) {
+                IconButton(onClick = { showChapters = true }) {
+                    Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.spoken_chapters))
+                }
             }
         }
     }
@@ -475,6 +501,6 @@ private fun formatSpeed(speed: Float): String =
 
 /** Der Anteil des Buchs für den Mini-Player. */
 fun BookPlayerViewModel.bookFraction(): Float {
-    val duration = timeline.value?.durationMs ?: return 0f
+    val duration = durationMs()
     return if (duration > 0) (bookPositionMs().toFloat() / duration).coerceIn(0f, 1f) else 0f
 }

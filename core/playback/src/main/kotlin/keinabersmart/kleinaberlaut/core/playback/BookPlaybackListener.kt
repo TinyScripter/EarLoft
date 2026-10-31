@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.core.playback
 
 import androidx.annotation.OptIn
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -83,6 +84,16 @@ internal class BookPlaybackListener(
 
     override fun onPlaybackStateChanged(playbackState: Int) {
         if (playbackState == Player.STATE_ENDED) recordCurrent(force = true)
+        if (playbackState == Player.STATE_READY) learnDuration()
+    }
+
+    /** Folgen ohne (oder mit falscher) Dauer im Feed: die Datei sagt, wie lang sie wirklich ist. */
+    private fun learnDuration() {
+        val bookId = player.currentMediaItem?.bookId ?: return
+        val duration = player.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: return
+        scope.launch {
+            if (books.learnEpisodeDuration(bookId, duration) && timelineBookId == bookId) timeline = books.timeline(bookId)
+        }
     }
 
     /** Beim Beenden des Service aufrufen. */
@@ -100,7 +111,8 @@ internal class BookPlaybackListener(
     private fun record(bookId: Long, trackIndex: Int, positionInTrackMs: Long, force: Boolean) {
         val timeline = timeline.takeIf { timelineBookId == bookId } ?: return
         val position = timeline.toBookPosition(trackIndex, positionInTrackMs)
-        val finished = position >= timeline.durationMs - FINISHED_TOLERANCE_MS ||
+        // Ohne bekannte Dauer (Folge, deren Länge noch nicht gelernt ist) kann es nicht zu Ende sein.
+        val finished = (timeline.durationMs > 0 && position >= timeline.durationMs - FINISHED_TOLERANCE_MS) ||
             (player.playbackState == Player.STATE_ENDED && player.currentMediaItem?.bookId == bookId)
         scope.launch { progressSync.record(bookId, position, timeline.durationMs, finished, force) }
     }

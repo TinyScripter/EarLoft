@@ -8,6 +8,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
 import keinabersmart.kleinaberlaut.core.data.spoken.PreparedBook
 import keinabersmart.kleinaberlaut.core.model.AppUris
+import keinabersmart.kleinaberlaut.core.model.BookKind
 
 /**
  * Hörbücher in der Warteschlange (Konzept 12.4): ein `MediaItem` je Datei, `mediaId = book:<bookId>/<trackIndex>`.
@@ -51,7 +52,9 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> =
                     .setDurationMs(timeline.tracks[index].durationMs)
                     .setIsBrowsable(false)
                     .setIsPlayable(true)
-                    .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK_CHAPTER)
+                    .setMediaType(
+                        if (book.kind == BookKind.EPISODE) MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE else MediaMetadata.MEDIA_TYPE_AUDIO_BOOK_CHAPTER,
+                    )
                     .setExtras(Bundle().apply { putLong(EXTRA_BOOK_ID, book.id) })
                     .build(),
             )
