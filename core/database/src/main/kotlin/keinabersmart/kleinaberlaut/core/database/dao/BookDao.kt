@@ -162,4 +162,83 @@ abstract class BookDao {
 
     @Query("UPDATE book_progress SET speed = :speed WHERE bookId = :bookId")
     abstract suspend fun setSpeed(bookId: Long, speed: Float)
+
+    // --- Downloads der Bücher (je Datei; Folgen laufen über den PodcastDao) ---
+
+    /** Download-Stand aller Bücher mit Dateien, zusammengezählt über deren Tracks. */
+    @Query(
+        "SELECT t.bookId AS bookId, COUNT(*) AS total, " +
+            "SUM(t.downloadState = 'DONE') AS done, " +
+            "SUM(t.downloadState = 'RUNNING') AS running, " +
+            "SUM(t.downloadState = 'QUEUED') AS queued, " +
+            "SUM(t.downloadState = 'FAILED') AS failed, " +
+            "SUM(t.downloadState = 'REMOVED') AS removed, " +
+            "SUM(t.fileSize) AS bytes " +
+            "FROM book_tracks t JOIN books b ON b.bookId = t.bookId WHERE b.kind = 'BOOK' GROUP BY t.bookId",
+    )
+    abstract fun observeBookDownloads(): Flow<List<BookDownloadRow>>
+
+    /** Von Hand: auch fehlgeschlagene und entfernte Dateien laden wieder; fertige bleiben. */
+    @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND downloadState IN ('NONE', 'FAILED', 'REMOVED')")
+    abstract suspend fun queueBookDownload(bookId: Long): Int
+
+    @Query(
+        "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'BOOK' AND t.downloadState = 'QUEUED' ORDER BY t.bookId, t.trackIndex LIMIT 1",
+    )
+    abstract suspend fun nextQueuedBookTrack(): BookTrackEntity?
+
+    @Query(
+        "SELECT COUNT(*) FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'BOOK' AND t.downloadState IN ('QUEUED', 'RUNNING')",
+    )
+    abstract suspend fun countPendingBookDownloads(): Int
+
+    @Query("UPDATE book_tracks SET downloadState = 'RUNNING' WHERE bookId = :bookId AND trackIndex = :trackIndex AND downloadState = 'QUEUED'")
+    abstract suspend fun markBookTrackRunning(bookId: Long, trackIndex: Int): Int
+
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'QUEUED' WHERE downloadState = 'RUNNING' " +
+            "AND bookId IN (SELECT bookId FROM books WHERE kind = 'BOOK')",
+    )
+    abstract suspend fun requeueRunningBookDownloads()
+
+    @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND trackIndex = :trackIndex AND downloadState = 'RUNNING'")
+    abstract suspend fun requeueBookTrack(bookId: Long, trackIndex: Int)
+
+    /** Scheitert eine Datei, ist das Buch nicht brauchbar: die übrigen wartenden Dateien hören auf zu warten. */
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'FAILED', filePath = NULL, fileSize = 0 " +
+            "WHERE bookId = :bookId AND downloadState IN ('QUEUED', 'RUNNING')",
+    )
+    abstract suspend fun markBookDownloadFailed(bookId: Long)
+
+    /** `0`, wenn der Eintrag inzwischen entfernt oder zurückgesetzt wurde. */
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'DONE', filePath = :path, fileSize = :size " +
+            "WHERE bookId = :bookId AND trackIndex = :trackIndex AND downloadState = 'RUNNING'",
+    )
+    abstract suspend fun markBookTrackDone(bookId: Long, trackIndex: Int, path: String, size: Long): Int
+
+    @Query("UPDATE book_tracks SET downloadState = 'REMOVED', filePath = NULL, fileSize = 0 WHERE bookId = :bookId AND downloadState != 'NONE'")
+    abstract suspend fun markBookDownloadRemoved(bookId: Long)
+
+    /** Dateien aller Bücher, für das Aufräumen verwaister Dateien. */
+    @Query(
+        "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'BOOK' AND t.filePath IS NOT NULL",
+    )
+    abstract suspend fun downloadedBookTracks(): List<BookTrackEntity>
 }
+
+/** Summen über die Dateien eines Buchs; `bytes` sind die bisher fertig geladenen. */
+data class BookDownloadRow(
+    val bookId: Long,
+    val total: Int,
+    val done: Int,
+    val running: Int,
+    val queued: Int,
+    val failed: Int,
+    val removed: Int,
+    val bytes: Long,
+)

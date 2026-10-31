@@ -45,14 +45,12 @@ class BookPlaybackSource @Inject constructor(
         // Kapitel einer Folge kommen aus einer eigenen Liste; fehlt sie oder ist sie offline nicht erreichbar, geht es ohne.
         if (episode) podcasts.ensureChapters(bookId)
         val timeline = repository.timeline(bookId) ?: return null
-        val urls = if (episode) {
-            // Bei Folgen ist die Dateikennung die Audio-Adresse aus dem Feed; eine geladene Datei geht vor dem Stream.
-            timeline.tracks.map { track ->
-                track.localPath?.let(::File)?.takeIf { it.isFile }?.let { Uri.fromFile(it).toString() } ?: track.remoteFileId
-            }
-        } else {
-            val server = servers.server(book.serverId) ?: return null
-            timeline.tracks.map { api.fileUrl(server, book.remoteId, it.remoteFileId).toString() }
+        // Eine geladene Datei geht vor dem Stream (Folgen und Bücher, auch gemischt, wenn nur ein Teil geladen ist).
+        val server = if (episode) null else servers.server(book.serverId) ?: return null
+        val urls = timeline.tracks.map { track ->
+            track.localPath?.let(::File)?.takeIf { it.isFile }?.let { Uri.fromFile(it).toString() }
+                // Bei Folgen ist die Dateikennung die Audio-Adresse aus dem Feed.
+                ?: if (server == null) track.remoteFileId else api.fileUrl(server, book.remoteId, track.remoteFileId).toString()
         }
         val progress = pulled.progress
         val startPositionMs = progress.startPosition()

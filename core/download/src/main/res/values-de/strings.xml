@@ -3,6 +3,7 @@
     <string name="download_channel_name">Downloads</string>
     <string name="download_notification_title">Musik wird heruntergeladen</string>
     <string name="episode_download_notification_title">Podcast-Folgen werden heruntergeladen</string>
+    <string name="book_download_notification_title">Hörbücher werden heruntergeladen</string>
     <plurals name="download_notification_pending">
         <item quantity="one">Noch %d Titel</item>
         <item quantity="other">Noch %d Titel</item>

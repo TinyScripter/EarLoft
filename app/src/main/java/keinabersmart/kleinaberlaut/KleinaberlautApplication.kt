@@ -18,6 +18,7 @@ import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.data.sync.SyncQueueStarter
 import keinabersmart.kleinaberlaut.core.download.AutoDownloads
+import keinabersmart.kleinaberlaut.core.download.BookDownloads
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.download.EpisodeDownloads
 import keinabersmart.kleinaberlaut.ui.image.AlbumCoverFetcher
@@ -43,6 +44,7 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var downloadRepository: DownloadRepository
     @Inject lateinit var autoDownloads: AutoDownloads
     @Inject lateinit var episodeDownloads: EpisodeDownloads
+    @Inject lateinit var bookDownloads: BookDownloads
     @Inject lateinit var syncQueueStarter: SyncQueueStarter
     @Inject lateinit var phoneInfoPublisher: PhoneInfoPublisher
     @Inject lateinit var wearPublisher: WearPublisher
@@ -59,6 +61,7 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
         podcastRefresher.start()
         autoDownloads.start(applicationScope)
         episodeDownloads.start(applicationScope)
+        bookDownloads.start(applicationScope)
         applicationScope.launch {
             downloadRepository.resumePending()
             syncQueueStarter.startIfPending()

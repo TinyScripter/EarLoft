@@ -390,6 +390,15 @@
     <string name="podcast_download_waiting_wifi">Waiting for Wi-Fi. You can allow mobile data in Settings → Podcasts.</string>
     <string name="podcast_download_remove">Remove download</string>
     <string name="podcast_download_retry">Download failed, try again</string>
+    <string name="book_download">Download</string>
+    <string name="book_download_retry">Retry</string>
+    <string name="book_download_delete">Delete</string>
+    <string name="book_download_waiting">Waiting…</string>
+    <string name="book_download_progress">%1$s of %2$s downloaded</string>
+    <string name="book_download_progress_unknown">%1$s downloaded</string>
+    <string name="book_download_delete_title">Delete download?</string>
+    <string name="book_download_delete_message">This frees %1$s. The book stays in your library and can still be streamed.</string>
+    <string name="book_download_delete_confirm">Delete</string>
     <string name="podcast_remove_heard_downloads">Delete downloads of heard episodes</string>
     <string name="podcast_continuous">Queue the next episode</string>
     <string name="podcast_continuous_summary">When you start an episode, the next unheard one is added right behind it in Continue listening.</string>

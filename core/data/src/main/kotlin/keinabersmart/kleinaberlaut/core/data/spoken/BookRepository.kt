@@ -16,6 +16,7 @@ import keinabersmart.kleinaberlaut.core.model.BookTrack
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -80,6 +81,12 @@ class BookRepository @Inject constructor(
     fun chapters(bookId: Long): Flow<List<BookChapter>> = dao.observeChapters(bookId).map { list -> list.map { it.toModel() } }
 
     suspend fun bookNow(bookId: Long): Book? = dao.book(bookId)?.toModel()
+
+    /** Download-Stand des Buchs; ohne geladene Dateiliste [TrackDownload.NONE]. */
+    fun download(bookId: Long): Flow<BookDownload> =
+        dao.observeBookDownloads().map { rows ->
+            rows.firstOrNull { it.bookId == bookId }?.let { BookDownload(it.state(), it.bytes) } ?: BookDownload(TrackDownload.NONE, 0)
+        }.distinctUntilChanged()
 
     suspend fun progressNow(bookId: Long): BookProgress? = dao.progress(bookId)?.toModel()
 

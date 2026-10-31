@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -16,7 +17,15 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,9 +56,22 @@ import keinabersmart.kleinaberlaut.core.model.BookChapter
 import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.ui.components.TwoColumnMinWidth
+import keinabersmart.kleinaberlaut.core.data.spoken.BookDownload
+import keinabersmart.kleinaberlaut.core.download.BookDownloadProgress
+import keinabersmart.kleinaberlaut.core.download.BookDownloads
+import keinabersmart.kleinaberlaut.core.download.BookTransfer
+import keinabersmart.kleinaberlaut.core.download.DownloadStart
+import keinabersmart.kleinaberlaut.core.model.TrackDownload
+import keinabersmart.kleinaberlaut.ui.formatBytes
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @HiltViewModel(assistedFactory = BookViewModel.Factory::class)
@@ -57,10 +79,37 @@ class BookViewModel @AssistedInject constructor(
     @Assisted private val bookId: Long,
     books: BookRepository,
     private val launcher: BookLauncher,
+    private val downloads: BookDownloads,
+    downloadProgress: BookDownloadProgress,
 ) : ViewModel() {
 
     val book: StateFlow<BookWithProgress?> = books.book(bookId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val download: StateFlow<BookDownload> = books.download(bookId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookDownload(TrackDownload.NONE, 0))
+
+    /** Bytes des ladenden Buchs; `null`, solange es nicht lädt. */
+    val transfer: StateFlow<BookTransfer?> = downloadProgress.transfers.map { it[bookId] }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private val _messages = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    val messages: SharedFlow<Int> = _messages.asSharedFlow()
+
+    fun startDownload() {
+        viewModelScope.launch {
+            when (downloads.download(bookId)) {
+                DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)
+                DownloadStart.WAITING_FOR_WIFI -> _messages.emit(R.string.podcast_download_waiting_wifi)
+                DownloadStart.STARTED -> Unit
+            }
+        }
+    }
+
+    /** Bricht einen laufenden Download ab oder löscht die geladenen Dateien. */
+    fun removeDownload() {
+        viewModelScope.launch { downloads.remove(bookId) }
+    }
 
     val chapters: StateFlow<List<BookChapter>> = books.chapters(bookId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -90,6 +139,27 @@ fun BookScreen(
     val chapters by viewModel.chapters.collectAsStateWithLifecycle()
     val book = item?.book
     val progress = item?.progress
+    val download by viewModel.download.collectAsStateWithLifecycle()
+    val transfer by viewModel.transfer.collectAsStateWithLifecycle()
+    var confirmDelete by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+    }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.book_download_delete_title)) },
+            text = { Text(stringResource(R.string.book_download_delete_message, formatBytes(download.bytes))) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.removeDownload()
+                    confirmDelete = false
+                }) { Text(stringResource(R.string.book_download_delete_confirm)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
 
     Column(modifier.fillMaxSize()) {
         TopAppBar(
@@ -101,7 +171,17 @@ fun BookScreen(
             },
         )
         if (book == null) return@Column
-        val header = @Composable { BookHeader(book, progress, onPlay = if (isCurrent) onOpenPlayer else viewModel::play) }
+        val header = @Composable {
+            BookHeader(
+                book, progress,
+                download = download.state,
+                transfer = transfer,
+                onPlay = if (isCurrent) onOpenPlayer else viewModel::play,
+                onDownload = viewModel::startDownload,
+                onCancelDownload = viewModel::removeDownload,
+                onDeleteDownload = { confirmDelete = true },
+            )
+        }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             if (maxWidth >= TwoColumnMinWidth) {
                 // Breites Fenster: Cover und Abspielen links, Beschreibung und Kapitel rechts daneben.
@@ -130,7 +210,16 @@ fun BookScreen(
 
 /** Cover, Titel, Autor, Dauer, Fortschritt und Abspielen. */
 @Composable
-private fun BookHeader(book: Book, progress: BookProgress?, onPlay: () -> Unit) {
+private fun BookHeader(
+    book: Book,
+    progress: BookProgress?,
+    download: TrackDownload,
+    transfer: BookTransfer?,
+    onPlay: () -> Unit,
+    onDownload: () -> Unit,
+    onCancelDownload: () -> Unit,
+    onDeleteDownload: () -> Unit,
+) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -164,16 +253,59 @@ private fun BookHeader(book: Book, progress: BookProgress?, onPlay: () -> Unit) 
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        FilledTonalButton(onClick = onPlay, modifier = Modifier.padding(top = 8.dp)) {
-            Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null)
-            val label = when {
-                progress?.finished == true -> R.string.spoken_play_again
-                progress != null && progress.positionMs > 0 -> R.string.spoken_resume
-                else -> R.string.spoken_play
+        // Abspielen und Download sind gleich groß; Podcast-Folgen haben hier keinen Download (eigener Knopf je Folge).
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilledTonalButton(onClick = onPlay, modifier = Modifier.weight(1f)) {
+                Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null)
+                val label = when {
+                    progress?.finished == true -> R.string.spoken_play_again
+                    progress != null && progress.positionMs > 0 -> R.string.spoken_resume
+                    else -> R.string.spoken_play
+                }
+                Text(stringResource(label), modifier = Modifier.padding(start = 8.dp), maxLines = 1)
             }
-            Text(stringResource(label), modifier = Modifier.padding(start = 8.dp))
+            if (book.kind == BookKind.BOOK) {
+                DownloadButton(download, onDownload, onCancelDownload, onDeleteDownload, Modifier.weight(1f))
+            }
+        }
+        if (book.kind == BookKind.BOOK && (download == TrackDownload.QUEUED || download == TrackDownload.RUNNING)) {
+            Text(
+                transferText(transfer),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
     }
+}
+
+/** Herunterladen; beim Laden Abbrechen, danach Löschen (mit Rückfrage), nach einem Fehler erneut versuchen. */
+@Composable
+private fun DownloadButton(
+    state: TrackDownload,
+    onDownload: () -> Unit,
+    onCancel: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val (icon, label, onClick) = when (state) {
+        TrackDownload.QUEUED, TrackDownload.RUNNING -> Triple(DesignR.drawable.ic_close, R.string.action_cancel, onCancel)
+        TrackDownload.DONE -> Triple(DesignR.drawable.ic_delete, R.string.book_download_delete, onDelete)
+        TrackDownload.FAILED -> Triple(DesignR.drawable.ic_error, R.string.book_download_retry, onDownload)
+        TrackDownload.NONE, TrackDownload.REMOVED -> Triple(DesignR.drawable.ic_download, R.string.book_download, onDownload)
+    }
+    FilledTonalButton(onClick = onClick, modifier = modifier) {
+        Icon(painterResource(icon), contentDescription = null)
+        Text(stringResource(label), modifier = Modifier.padding(start = 8.dp), maxLines = 1)
+    }
+}
+
+/** „32 MB von 500 MB geladen“; ohne bekannte Gesamtgröße nur der übertragene Teil, vor dem Start „Wartet“. */
+@Composable
+private fun transferText(transfer: BookTransfer?): String = when {
+    transfer == null -> stringResource(R.string.book_download_waiting)
+    transfer.totalBytes == null -> stringResource(R.string.book_download_progress_unknown, formatBytes(transfer.doneBytes))
+    else -> stringResource(R.string.book_download_progress, formatBytes(transfer.doneBytes), formatBytes(transfer.totalBytes!!))
 }
 
 /** Beschreibung und Kapitelliste; ein Tipp auf ein Kapitel spielt ab dessen Anfang. */

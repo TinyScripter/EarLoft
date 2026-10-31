@@ -117,7 +117,10 @@ abstract class PodcastDao {
     abstract fun observeDownloadStates(feedId: String): Flow<List<EpisodeDownloadRow>>
 
     /** Alle fertig geladenen Folgen (aller Podcasts), für das Kontextmenü. */
-    @Query("SELECT bookId FROM book_tracks WHERE trackIndex = 0 AND downloadState = 'DONE'")
+    @Query(
+        "SELECT t.bookId FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND t.trackIndex = 0 AND t.downloadState = 'DONE'",
+    )
     abstract fun observeDownloadedIds(): Flow<List<Long>>
 
     /** Von Hand: auch fehlgeschlagene und entfernte Folgen laden wieder. */
@@ -133,16 +136,25 @@ abstract class PodcastDao {
     )
     abstract suspend fun queueLatestUnheard(feedId: String, count: Int): Int
 
-    @Query("SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId WHERE t.downloadState = 'QUEUED' ORDER BY b.addedAt DESC, t.bookId DESC LIMIT 1")
+    @Query(
+        "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND t.downloadState = 'QUEUED' ORDER BY b.addedAt DESC, t.bookId DESC LIMIT 1",
+    )
     abstract suspend fun nextQueuedDownload(): BookTrackEntity?
 
-    @Query("SELECT COUNT(*) FROM book_tracks WHERE downloadState IN ('QUEUED', 'RUNNING')")
+    @Query(
+        "SELECT COUNT(*) FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND t.downloadState IN ('QUEUED', 'RUNNING')",
+    )
     abstract suspend fun countPendingDownloads(): Int
 
     @Query("UPDATE book_tracks SET downloadState = 'RUNNING' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState = 'QUEUED'")
     abstract suspend fun markDownloadRunning(bookId: Long): Int
 
-    @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE downloadState = 'RUNNING'")
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'QUEUED' WHERE downloadState = 'RUNNING' " +
+            "AND bookId IN (SELECT bookId FROM books WHERE kind = 'EPISODE')",
+    )
     abstract suspend fun requeueRunningDownloads()
 
     @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState = 'RUNNING'")
@@ -159,12 +171,16 @@ abstract class PodcastDao {
     @Query("UPDATE book_tracks SET downloadState = 'REMOVED', filePath = NULL, fileSize = 0 WHERE bookId = :bookId AND trackIndex = 0 AND downloadState != 'NONE'")
     abstract suspend fun markDownloadRemoved(bookId: Long)
 
-    @Query("SELECT * FROM book_tracks WHERE downloadState = 'DONE' OR filePath IS NOT NULL")
+    @Query(
+        "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND (t.downloadState = 'DONE' OR t.filePath IS NOT NULL)",
+    )
     abstract suspend fun downloadedTracks(): List<BookTrackEntity>
 
     @Query(
         "SELECT t.bookId AS bookId, p.updatedAt AS finishedAt, t.filePath AS filePath FROM book_tracks t " +
-            "JOIN book_progress p ON p.bookId = t.bookId WHERE t.downloadState = 'DONE' AND p.finished = 1",
+            "JOIN books b ON b.bookId = t.bookId JOIN book_progress p ON p.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND t.downloadState = 'DONE' AND p.finished = 1",
     )
     abstract fun observeFinishedDownloads(): Flow<List<FinishedDownloadRow>>
 
