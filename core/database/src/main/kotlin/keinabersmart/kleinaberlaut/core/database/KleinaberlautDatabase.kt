@@ -28,6 +28,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
 import keinabersmart.kleinaberlaut.core.database.entity.LyricsEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlayEventEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntity
+import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntryEntity
 import keinabersmart.kleinaberlaut.core.database.entity.QueueItemEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SongArtistCrossRef
@@ -64,14 +65,16 @@ import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
         BookTrackEntity::class,
         BookChapterEntity::class,
         BookProgressEntity::class,
+        PodcastFeedEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = KleinaberlautDatabase.AddSearchIndex::class),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
+        AutoMigration(from = 5, to = 6),
     ],
 )
 abstract class KleinaberlautDatabase : RoomDatabase() {

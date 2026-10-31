@@ -19,6 +19,23 @@ data class SpokenServerEntity(
     val lastFullSyncAt: Long = 0,
 )
 
+/** Abonnierter Podcast (Konzept 12.1). Seine Folgen sind `books`-Zeilen mit `serverId = feedId`. */
+@Entity(tableName = "podcast_feeds", indices = [Index("url", unique = true)])
+data class PodcastFeedEntity(
+    @PrimaryKey val feedId: String,
+    val url: String,
+    val title: String,
+    val author: String = "",
+    val description: String = "",
+    val imageUrl: String? = null,
+    /** Validatoren des letzten Abrufs, damit ein unveränderter Feed nur 304 kostet. */
+    val etag: String? = null,
+    val lastModified: String? = null,
+    val lastRefreshAt: Long = 0,
+    /** Zähler für Mark-and-Sweep: Folgen, die der Feed nicht mehr enthält, fallen weg. */
+    val syncGeneration: Long = 0,
+)
+
 @Entity(
     tableName = "books",
     indices = [Index("serverId", "remoteId", unique = true), Index("normTitle")],
@@ -41,6 +58,10 @@ data class BookEntity(
     /** Kapitel und Dateien sind geladen (kommen nur mit dem Einzelabruf). */
     val detailsLoaded: Boolean = false,
     val seenInGeneration: Long = 0,
+    /** Cover der Folge bzw. des Buchs, wenn es nicht über den Server kommt (Podcasts). */
+    val coverUrl: String? = null,
+    /** Podcasting-2.0-Kapitelliste (JSON) einer Folge; `null`, wenn der Feed keine anbietet. */
+    val chaptersUrl: String? = null,
 )
 
 @Entity(

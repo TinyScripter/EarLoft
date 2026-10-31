@@ -17,5 +17,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.okhttp.mockwebserver)
+    // XmlPullParser-Implementierung für die JVM-Tests (android.jar hat nur Stubs).
+    testImplementation(libs.kxml2)
     testImplementation(libs.kotlinx.coroutines.test)
 }
