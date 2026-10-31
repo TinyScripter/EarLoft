@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.core.data.spoken
 
 import android.net.Uri
+import keinabersmart.kleinaberlaut.core.data.podcast.EpisodeQueue
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.model.Book
 import keinabersmart.kleinaberlaut.core.model.BookKind
@@ -31,6 +32,7 @@ class BookPlaybackSource @Inject constructor(
     private val api: AbsApi,
     private val progressSync: BookProgressSync,
     private val podcasts: PodcastRepository,
+    private val queue: EpisodeQueue,
 ) {
     /**
      * Gleicht den Fortschritt mit dem Server ab (ohne Verbindung gilt der lokale Stand) und baut die Medien-URLs.
@@ -53,13 +55,20 @@ class BookPlaybackSource @Inject constructor(
             timeline.tracks.map { api.fileUrl(server, book.remoteId, it.remoteFileId).toString() }
         }
         val progress = pulled.progress
+        val startPositionMs = progress.startPosition()
+        val speed = progress?.speed ?: 1f
+        // Nach dem Abgleich: Das Buch steht ab jetzt ganz vorn in „Weiterhören“ (Folgen haben ihre eigene Zeile).
+        if (!episode) {
+            repository.touchProgress(bookId, startPositionMs, timeline.durationMs, speed)
+            queue.moveToFront(bookId)
+        }
         return PreparedBook(
             book = book,
             timeline = timeline,
             trackUrls = urls,
-            startPositionMs = progress.startPosition(),
+            startPositionMs = startPositionMs,
             resumedFromServer = pulled.noticeable,
-            speed = progress?.speed ?: 1f,
+            speed = speed,
         )
     }
 

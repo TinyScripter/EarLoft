@@ -63,7 +63,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
+import keinabersmart.kleinaberlaut.core.data.podcast.EpisodeQueue
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
+import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.LaunchedEffect
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import kotlinx.coroutines.flow.SharingStarted
@@ -76,9 +80,25 @@ import javax.inject.Inject
 class SpokenLibraryViewModel @Inject constructor(
     books: BookRepository,
     servers: AudiobookshelfServers,
+    private val launcher: BookLauncher,
+    private val playback: PlaybackConnection,
+    queue: EpisodeQueue,
 ) : ViewModel() {
 
-    val continueListening: StateFlow<List<BookWithProgress>> = books.continueListening()
+    /** Das Buch, das gerade läuft (nicht: pausiert). */
+    val playingBookId: StateFlow<Long?> = playback.state
+        .map { if (it.isPlaying) it.spoken?.bookId else null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Läuft das Buch, pausiert es; ist es geladen und pausiert, geht es weiter; sonst startet oder setzt es fort
+     * (und steht danach ganz vorn in „Weiterhören“).
+     */
+    fun playOrPause(bookId: Long) {
+        if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
+    }
+
+    val continueListening: StateFlow<List<BookWithProgress>> = books.continueListening(startOrder = queue.order)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val recentlyAdded: StateFlow<List<BookWithProgress>> = books.recentlyAdded()
@@ -128,6 +148,10 @@ fun SpokenHomeScreen(
     val continueListening by viewModel.continueListening.collectAsStateWithLifecycle()
     val recent by viewModel.recentlyAdded.collectAsStateWithLifecycle()
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
+    val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
+    val rowState = rememberLazyListState()
+    // Springt ein anderes Buch an die erste Stelle, steht es wieder ganz links sichtbar.
+    LaunchedEffect(continueListening.firstOrNull()?.book?.id) { rowState.scrollToItem(0) }
 
     Column(modifier.fillMaxSize()) {
         when {
@@ -135,7 +159,9 @@ fun SpokenHomeScreen(
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
                 if (continueListening.isNotEmpty()) {
                     item(key = "continue-header") { SectionHeader(stringResource(R.string.spoken_continue)) }
-                    item(key = "continue") { BookRow(continueListening, onBookClick) }
+                    item(key = "continue") {
+                        BookRow(continueListening, onBookClick, state = rowState, playingId = playingId, onPlay = viewModel::playOrPause)
+                    }
                 }
                 if (recent.isNotEmpty()) {
                     item(key = "recent-header") { SectionHeader(stringResource(R.string.spoken_recent)) }
@@ -280,13 +306,26 @@ private fun NoServerHint(onSetup: () -> Unit) {
 }
 
 @Composable
-private fun BookRow(books: List<BookWithProgress>, onBookClick: (Long) -> Unit) {
+private fun BookRow(
+    books: List<BookWithProgress>,
+    onBookClick: (Long) -> Unit,
+    state: LazyListState = rememberLazyListState(),
+    playingId: Long? = null,
+    onPlay: ((Long) -> Unit)? = null,
+) {
     LazyRow(
+        state = state,
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(books, key = { it.book.id }) { item ->
-            BookCard(item, onClick = { onBookClick(item.book.id) }, modifier = Modifier.width(140.dp))
+            BookCard(
+                item,
+                onClick = { onBookClick(item.book.id) },
+                modifier = Modifier.width(140.dp),
+                onPlay = onPlay?.let { play -> { play(item.book.id) } },
+                playing = item.book.id == playingId,
+            )
         }
     }
 }

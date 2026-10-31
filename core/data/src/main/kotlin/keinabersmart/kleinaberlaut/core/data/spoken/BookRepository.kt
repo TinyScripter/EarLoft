@@ -16,6 +16,7 @@ import keinabersmart.kleinaberlaut.core.model.BookTrack
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,13 +34,19 @@ class BookRepository @Inject constructor(
             books.filter { it.kind == BookKind.BOOK }.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
         }
 
-    /** Angefangene, noch nicht beendete Bücher, zuletzt gehörte zuerst. */
-    fun continueListening(limit: Int = 12): Flow<List<BookWithProgress>> =
-        combine(dao.observeBooks(), dao.observeAllProgress()) { books, progress ->
+    /**
+     * Gestartete, noch nicht beendete Bücher, zuletzt gestartete oder gehörte zuerst. Ein Buch zählt ab dem Start, auch
+     * bei Position 0 (siehe [touchProgress]).
+     */
+    fun continueListening(limit: Int = 12, startOrder: Flow<List<Long>> = flowOf(emptyList())): Flow<List<BookWithProgress>> =
+        combine(dao.observeBooks(), dao.observeAllProgress(), startOrder) { books, progress, order ->
             val byId = books.filter { it.kind == BookKind.BOOK }.associateBy { it.bookId }
+            // Der Player schreibt den Stand des vorigen Buchs erst beim Wechsel (mit neuerem Zeitstempel); darum
+            // gilt zuerst die Startreihenfolge und erst dahinter der Zeitpunkt der letzten Änderung.
+            val rank = order.withIndex().associate { it.value to it.index }
             progress
-                .filter { !it.finished && it.positionMs > 0 }
-                .sortedByDescending { it.updatedAt }
+                .filter { !it.finished }
+                .sortedWith(compareBy<BookProgressEntity> { rank[it.bookId] ?: Int.MAX_VALUE }.thenByDescending { it.updatedAt })
                 .mapNotNull { p -> byId[p.bookId]?.let { BookWithProgress(it.toModel(), p.toModel()) } }
                 .take(limit)
         }
@@ -47,10 +54,23 @@ class BookRepository @Inject constructor(
     /** Zuletzt hinzugefügte Bücher, die noch nicht angefangen sind. */
     fun recentlyAdded(limit: Int = 12): Flow<List<BookWithProgress>> =
         books().map { list ->
-            list.filter { (it.progress?.positionMs ?: 0L) == 0L }
+            // Gestartete Bücher stehen in „Weiterhören“, nicht hier.
+            list.filter { item -> item.progress.let { it == null || (it.positionMs == 0L && it.finished) } }
                 .sortedByDescending { it.book.addedAt }
                 .take(limit)
         }
+
+    /**
+     * Das Buch wird gestartet: Es steht sofort ganz vorn in „Weiterhören“. Position und Geschwindigkeit bleiben, wie sie
+     * nach dem Abgleich mit dem Server sind; der Zeitpunkt wird auf jetzt gesetzt.
+     */
+    suspend fun touchProgress(bookId: Long, startPositionMs: Long, durationMs: Long, speed: Float) {
+        val old = dao.progress(bookId)
+        dao.upsertProgress(
+            old?.copy(positionMs = startPositionMs, finished = false, updatedAt = System.currentTimeMillis())
+                ?: BookProgressEntity(bookId, startPositionMs, durationMs, finished = false, speed = speed, updatedAt = System.currentTimeMillis()),
+        )
+    }
 
     fun book(bookId: Long): Flow<BookWithProgress?> =
         combine(dao.observeBook(bookId), dao.observeProgress(bookId)) { book, progress ->

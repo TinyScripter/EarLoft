@@ -17,7 +17,7 @@ private val Context.episodeQueueDataStore: DataStore<Preferences> by preferences
 
 /**
  * Die Warteschlange der Podcasts ist die Zeile „Weiterhören“ (Konzept 12.4). Hier steht ihre Reihenfolge, soweit sie
- * festgelegt wurde: [order] ganz vorn, dahinter die Folgen, die von selbst dort stehen (angefangene und neue). Wer die
+ * festgelegt wurde (die Ids gehören zur Tabelle `books`; Folgen und Bücher teilen die Liste, jede Zeile liest nur ihre eigenen): [order] ganz vorn, dahinter die Folgen, die von selbst dort stehen (angefangene und neue). Wer die
  * Zeile ändert, nutzt `ContinueListening`.
  */
 @Singleton
@@ -42,7 +42,7 @@ class EpisodeQueue @Inject constructor(
     suspend fun append(bookId: Long) = edit { order -> if (bookId in order) order else order + bookId }
 
     /** Legt die ganze Reihenfolge fest (Bearbeiten der Warteschlange); die Folgen darin sind nicht mehr ausgeblendet. */
-    suspend fun setOrder(bookIds: List<Long>) = edit { bookIds.distinct() }
+    suspend fun setOrder(bookIds: List<Long>) = edit { old -> bookIds.distinct() + (old - bookIds.toSet()) }
 
     /** Nimmt die Folge aus der Zeile, egal ob sie festgelegt oder von selbst dort steht. */
     suspend fun remove(bookId: Long) {
