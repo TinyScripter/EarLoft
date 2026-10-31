@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.core.data.spoken
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -28,7 +29,15 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_MODE] = mode.name }
     }
 
+    /** Suche über Musik und Bücher zugleich (Standard: an); aus = nur der Inhalt des gewählten Modus. */
+    val searchAll: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_SEARCH_ALL] ?: true }
+
+    suspend fun setSearchAll(enabled: Boolean) {
+        context.spokenSettingsDataStore.edit { it[KEY_SEARCH_ALL] = enabled }
+    }
+
     private companion object {
         val KEY_MODE = stringPreferencesKey("mode")
+        val KEY_SEARCH_ALL = booleanPreferencesKey("search_all")
     }
 }

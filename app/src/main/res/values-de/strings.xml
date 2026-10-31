@@ -55,6 +55,8 @@
 
     <!-- Suche -->
     <string name="search_hint">Songs, Alben, Künstler</string>
+    <string name="search_hint_all">Songs, Alben, Künstler, Bücher</string>
+    <string name="search_hint_spoken">Bücher</string>
     <string name="search_no_results">Nichts gefunden für „%1$s“.</string>
 
     <!-- Player -->
@@ -110,6 +112,8 @@
     <string name="theme_system">Systemeinstellung folgen</string>
     <string name="theme_light">Hell</string>
     <string name="theme_dark">Dunkel</string>
+    <string name="settings_search_all">Musik und Bücher gemeinsam durchsuchen</string>
+    <string name="settings_search_all_summary">Aus: Die Suche durchsucht nur den Inhalt des gewählten Modus (Musik oder Gesprochenes).</string>
     <string name="settings_artist_images">Bilder von Interpreten herunterladen</string>
     <string name="settings_artist_images_summary">Sucht Fotos bei Deezer. Dafür werden Namen von Interpreten an Deezer gesendet.</string>
     <string name="settings_album_covers">Fehlende Album-Cover herunterladen</string>

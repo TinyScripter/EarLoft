@@ -82,6 +82,7 @@ fun SettingsScreen(
         onThemeModeChange = viewModel::setThemeMode,
         onArtistImagesChange = viewModel::setArtistImages,
         onAlbumCoversChange = viewModel::setAlbumCovers,
+        onSearchAllChange = viewModel::setSearchAll,
         onUseLocalMediaChange = { enabled ->
             if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
         },
@@ -112,6 +113,7 @@ private fun SettingsContent(
     onThemeModeChange: (ThemeMode) -> Unit,
     onArtistImagesChange: (Boolean) -> Unit,
     onAlbumCoversChange: (Boolean) -> Unit,
+    onSearchAllChange: (Boolean) -> Unit,
     onUseLocalMediaChange: (Boolean) -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
@@ -167,6 +169,15 @@ private fun SettingsContent(
                     icon = DesignR.drawable.ic_music_note,
                     checked = state.albumCovers,
                     onCheckedChange = onAlbumCoversChange,
+                )
+            }
+            item(key = "search-all") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_search_all),
+                    summary = stringResource(R.string.settings_search_all_summary),
+                    icon = R.drawable.ic_nav_search,
+                    checked = state.searchAll,
+                    onCheckedChange = onSearchAllChange,
                 )
             }
 
@@ -525,6 +536,7 @@ private fun SettingsContentPreview() {
             onThemeModeChange = {},
             onArtistImagesChange = {},
             onAlbumCoversChange = {},
+            onSearchAllChange = {},
             onUseLocalMediaChange = {},
             onAddServer = {},
             onEditServer = {},

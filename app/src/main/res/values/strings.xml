@@ -56,6 +56,8 @@
 
     <!-- Search -->
     <string name="search_hint">Songs, albums, artists</string>
+    <string name="search_hint_all">Songs, albums, artists, books</string>
+    <string name="search_hint_spoken">Books</string>
     <string name="search_no_results">Nothing found for “%1$s”.</string>
 
     <!-- Player -->
@@ -111,6 +113,8 @@
     <string name="theme_system">Follow system setting</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="settings_search_all">Search music and books together</string>
+    <string name="settings_search_all_summary">When off, search only covers the content of the selected mode (Music or Spoken).</string>
     <string name="settings_artist_images">Download artist images</string>
     <string name="settings_artist_images_summary">Looks up photos on Deezer. Artist names are sent to Deezer for this.</string>
     <string name="settings_album_covers">Download missing album covers</string>
