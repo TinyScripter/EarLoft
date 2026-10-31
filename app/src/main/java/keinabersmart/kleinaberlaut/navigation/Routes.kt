@@ -33,6 +33,16 @@ data class PlaylistRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class BookRoute(
+    val bookId: Long,
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
+@Serializable
+data object AddAudiobookshelfRoute : NavKey
+
 @Serializable
 data object FavoritesRoute : NavKey
 

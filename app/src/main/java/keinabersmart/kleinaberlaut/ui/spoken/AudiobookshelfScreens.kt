@@ -1,0 +1,223 @@
+package keinabersmart.kleinaberlaut.ui.spoken
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.core.data.spoken.AddServerResult
+import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
+import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
+import keinabersmart.kleinaberlaut.core.model.SpokenServer
+import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
+
+sealed interface ConnectState {
+    data object Idle : ConnectState
+    data object Connecting : ConnectState
+    data class Failed(val message: Int) : ConnectState
+    data object Connected : ConnectState
+}
+
+@HiltViewModel
+class AudiobookshelfViewModel @Inject constructor(
+    private val servers: AudiobookshelfServers,
+    private val refresher: SpokenRefresher,
+) : ViewModel() {
+
+    val list: StateFlow<List<SpokenServer>> = servers.servers
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)
+    val connect: StateFlow<ConnectState> = _connect.asStateFlow()
+
+    fun connect(name: String, url: String, apiKey: String) {
+        if (_connect.value == ConnectState.Connecting) return
+        _connect.value = ConnectState.Connecting
+        viewModelScope.launch {
+            _connect.value = when (servers.add(name, url, apiKey)) {
+                is AddServerResult.Added -> {
+                    refresher.refreshAll()
+                    ConnectState.Connected
+                }
+                AddServerResult.InvalidUrl -> ConnectState.Failed(R.string.spoken_abs_error_url)
+                AddServerResult.Unreachable -> ConnectState.Failed(R.string.spoken_abs_error_unreachable)
+                AddServerResult.AuthFailed -> ConnectState.Failed(R.string.spoken_abs_error_auth)
+                AddServerResult.NoBookLibrary -> ConnectState.Failed(R.string.spoken_abs_error_library)
+            }
+        }
+    }
+
+    fun syncNow() = refresher.refreshAll()
+
+    fun remove(serverId: String) {
+        viewModelScope.launch { servers.remove(serverId) }
+    }
+}
+
+/** Abschnitt „Audiobookshelf“ in den Einstellungen: Server auflisten, abgleichen, entfernen, hinzufügen. */
+@Composable
+fun AudiobookshelfSection(
+    onAdd: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: AudiobookshelfViewModel = hiltViewModel(),
+) {
+    val servers by viewModel.list.collectAsStateWithLifecycle()
+    var removing by rememberSaveable { mutableStateOf<String?>(null) }
+
+    Column(modifier) {
+        SectionHeader(stringResource(R.string.spoken_abs_title))
+        if (servers.isEmpty()) EmptyHint(stringResource(R.string.spoken_abs_none))
+        servers.forEach { server ->
+            ListItem(
+                headlineContent = { Text(server.name) },
+                supportingContent = { Text(server.baseUrl) },
+                leadingContent = { Icon(painterResource(DesignR.drawable.ic_book), contentDescription = null) },
+                trailingContent = {
+                    Column {
+                        IconButton(onClick = viewModel::syncNow) {
+                            Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
+                        }
+                    }
+                },
+            )
+            TextButton(onClick = { removing = server.serverId }, modifier = Modifier.padding(start = 56.dp)) {
+                Text(stringResource(R.string.spoken_abs_remove))
+            }
+        }
+        FilledTonalButton(onClick = onAdd, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
+            Text(stringResource(R.string.spoken_abs_add), modifier = Modifier.padding(start = 8.dp))
+        }
+    }
+
+    val toRemove = servers.firstOrNull { it.serverId == removing }
+    if (toRemove != null) {
+        AlertDialog(
+            onDismissRequest = { removing = null },
+            title = { Text(stringResource(R.string.spoken_abs_remove)) },
+            text = { Text(stringResource(R.string.spoken_abs_remove_message, toRemove.name)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.remove(toRemove.serverId)
+                    removing = null
+                }) { Text(stringResource(R.string.action_remove)) }
+            },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+}
+
+/** Formular zum Verbinden mit einem Audiobookshelf-Server per API-Schlüssel. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AudiobookshelfFormScreen(
+    onDone: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: AudiobookshelfViewModel = hiltViewModel(),
+) {
+    val connectState by viewModel.connect.collectAsStateWithLifecycle()
+    var name by rememberSaveable { mutableStateOf("") }
+    var url by rememberSaveable { mutableStateOf("") }
+    var key by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(connectState) { if (connectState == ConnectState.Connected) onDone() }
+
+    Column(modifier.fillMaxSize().imePadding()) {
+        TopAppBar(
+            title = { Text(stringResource(R.string.spoken_abs_add)) },
+            navigationIcon = {
+                IconButton(onClick = onDone) {
+                    Icon(painterResource(DesignR.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
+                }
+            },
+        )
+        Column(
+            Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp),
+        ) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.spoken_abs_name)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                label = { Text(stringResource(R.string.spoken_abs_url)) },
+                placeholder = { Text(stringResource(R.string.spoken_abs_url_hint)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            OutlinedTextField(
+                value = key,
+                onValueChange = { key = it },
+                label = { Text(stringResource(R.string.spoken_abs_key)) },
+                supportingText = { Text(stringResource(R.string.spoken_abs_key_summary)) },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            (connectState as? ConnectState.Failed)?.let {
+                Text(
+                    stringResource(it.message),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            Button(
+                onClick = { viewModel.connect(name, url, key) },
+                enabled = url.isNotBlank() && key.isNotBlank() && connectState != ConnectState.Connecting,
+                modifier = Modifier.padding(top = 16.dp),
+            ) {
+                Text(stringResource(if (connectState == ConnectState.Connecting) R.string.spoken_abs_connecting else R.string.spoken_abs_connect))
+            }
+        }
+    }
+}

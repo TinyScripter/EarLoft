@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.ui.components.readableWidth
+import keinabersmart.kleinaberlaut.ui.spoken.AudiobookshelfSection
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
@@ -64,6 +65,7 @@ fun SettingsScreen(
     onEditServer: (sourceId: String) -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenWatch: () -> Unit,
+    onAddAudiobookshelf: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenLicenses: () -> Unit,
     modifier: Modifier = Modifier,
@@ -87,6 +89,7 @@ fun SettingsScreen(
         onEditServer = onEditServer,
         onOpenDownloads = onOpenDownloads,
         onOpenWatch = onOpenWatch,
+        onAddAudiobookshelf = onAddAudiobookshelf,
         onOpenAbout = onOpenAbout,
         onOpenLicenses = onOpenLicenses,
         onSyncNow = viewModel::syncNow,
@@ -114,6 +117,7 @@ private fun SettingsContent(
     onEditServer: (String) -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenWatch: () -> Unit,
+    onAddAudiobookshelf: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenLicenses: () -> Unit,
     onSyncNow: (String) -> Unit,
@@ -194,6 +198,7 @@ private fun SettingsContent(
                     Text(stringResource(R.string.settings_add_server), modifier = Modifier.padding(start = 8.dp))
                 }
             }
+            item(key = "audiobookshelf") { AudiobookshelfSection(onAdd = onAddAudiobookshelf) }
             item(key = "refresh") {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_refresh_all)) },
@@ -525,6 +530,7 @@ private fun SettingsContentPreview() {
             onEditServer = {},
             onOpenDownloads = {},
             onOpenWatch = {},
+            onAddAudiobookshelf = {},
             onOpenAbout = {},
             onOpenLicenses = {},
             onSyncNow = {},

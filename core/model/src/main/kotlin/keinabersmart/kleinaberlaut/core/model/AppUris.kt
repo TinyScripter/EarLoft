@@ -9,12 +9,17 @@ object AppUris {
     private const val SONG_PREFIX = "$SCHEME://song/"
     private const val ALBUM_COVER_PREFIX = "$SCHEME://cover/album/"
     private const val ARTIST_IMAGE_PREFIX = "$SCHEME://cover/artist/"
+    private const val BOOK_COVER_PREFIX = "$SCHEME://cover/book/"
 
     fun song(songId: Long): String = "$SONG_PREFIX$songId"
 
     fun albumCover(albumId: Long): String = "$ALBUM_COVER_PREFIX$albumId"
 
     fun artistImage(artistId: Long): String = "$ARTIST_IMAGE_PREFIX$artistId"
+
+    fun bookCover(bookId: Long): String = "$BOOK_COVER_PREFIX$bookId"
+
+    fun parseBookCoverId(uri: String): Long? = uri.removePrefixOrNull(BOOK_COVER_PREFIX)?.toLongOrNull()
 
     fun parseSongId(uri: String): Long? = uri.removePrefixOrNull(SONG_PREFIX)?.toLongOrNull()
 

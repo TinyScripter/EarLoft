@@ -256,6 +256,8 @@ internal class LibrarySessionCallback(
         val songs = libraryRepository.songs(songIds).associateBy { it.id }
         val playable = playerFactory?.playableSongIds(player, songs.keys) ?: songs.keys
         return mediaItems.mapIndexedNotNull { index, item ->
+            // Hörbücher sind schon fertig aufgebaut (BookMediaItems) und gehen unverändert durch.
+            if (item.isSpoken) return@mapIndexedNotNull index to item
             item.songId?.takeIf { it in playable }?.let(songs::get)?.let { index to it.toMediaItem() }
         }
     }

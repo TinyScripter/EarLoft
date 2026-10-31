@@ -8,8 +8,12 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import dagger.hilt.android.qualifiers.ApplicationContext
+import keinabersmart.kleinaberlaut.core.data.spoken.BookPlaybackSource
+import keinabersmart.kleinaberlaut.core.data.spoken.PreparedBook
 import keinabersmart.kleinaberlaut.core.model.Song
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -30,8 +34,19 @@ data class QueueEntry(
     val albumTitle: String = "",
 )
 
+/** Das laufende Hörbuch (Konzept 12); die Position im Buch rechnet die UI über die Zeitachse aus. */
+data class SpokenEntry(
+    val bookId: Long,
+    val trackIndex: Int,
+    val title: String,
+    val author: String,
+)
+
 data class PlayerState(
     val current: QueueEntry? = null,
+    /** Statt [current], wenn ein Hörbuch läuft. */
+    val spoken: SpokenEntry? = null,
+    val speed: Float = 1f,
     val isPlaying: Boolean = false,
     val durationMs: Long = 0,
     val shuffle: Boolean = false,
@@ -43,7 +58,7 @@ data class PlayerState(
     /** Wiedergabe auf einem anderen Gerät (Chromecast). */
     val isRemote: Boolean = false,
 ) {
-    val hasMedia: Boolean get() = current != null
+    val hasMedia: Boolean get() = current != null || spoken != null
 }
 
 /**
@@ -54,6 +69,7 @@ data class PlayerState(
 class PlaybackConnection @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val sleepTimer: SleepTimer,
+    private val bookPlaybackSource: BookPlaybackSource,
 ) {
     private val scope = MainScope()
     private val controller = CompletableDeferred<MediaController>()
@@ -96,6 +112,38 @@ class PlaybackConnection @Inject constructor(
         prepare()
         play()
     }
+
+    /**
+     * Startet ein Hörbuch an der gespeicherten Stelle (oder bei [startPositionMs], z. B. einem Kapitel), nachdem der
+     * Fortschritt mit dem Server abgeglichen ist.
+     * `null`, wenn das Buch nicht zu laden ist (kein Netz und noch nie geladen).
+     */
+    suspend fun playBook(bookId: Long, startPositionMs: Long? = null): PreparedBook? {
+        val prepared = bookPlaybackSource.prepare(bookId) ?: return null
+        val start = prepared.timeline.locate(startPositionMs ?: prepared.startPositionMs)
+        val items = prepared.toMediaItems()
+        // Der MediaController darf nur vom Main-Thread angesprochen werden.
+        withContext(Dispatchers.Main.immediate) {
+            controller.await().apply {
+                shuffleModeEnabled = false
+                repeatMode = Player.REPEAT_MODE_OFF
+                setMediaItems(items, start.trackIndex, start.offsetMs)
+                setPlaybackSpeed(prepared.speed)
+                prepare()
+                play()
+            }
+        }
+        return prepared
+    }
+
+    fun skipBack() = withController { seekBack() }
+
+    fun skipForward() = withController { seekForward() }
+
+    /** Springt in Datei [trackIndex] an die Stelle [positionMs] (Position in der Datei). */
+    fun seekToTrack(trackIndex: Int, positionMs: Long) = withController { seekTo(trackIndex, positionMs) }
+
+    fun setSpeed(speed: Float) = withController { setPlaybackSpeed(speed) }
 
     fun playNext(songs: List<Song>) = withController {
         val position = if (mediaItemCount == 0) 0 else currentMediaItemIndex + 1
@@ -161,6 +209,8 @@ class PlaybackConnection @Inject constructor(
         val queue = if (queueChanged) (0 until mediaItemCount).mapNotNull { getMediaItemAt(it).toQueueEntry() } else previous.queue
         return PlayerState(
             current = currentMediaItem?.toQueueEntry(),
+            spoken = currentMediaItem?.toSpokenEntry(),
+            speed = playbackParameters.speed,
             isPlaying = isPlaying,
             durationMs = duration.takeIf { it > 0 } ?: currentMediaItem?.mediaMetadata?.durationMs ?: 0,
             shuffle = shuffleModeEnabled,
@@ -169,6 +219,16 @@ class PlaybackConnection @Inject constructor(
             currentIndex = currentMediaItemIndex,
             outputSuppressed = playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT,
             isRemote = deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE,
+        )
+    }
+
+    private fun MediaItem.toSpokenEntry(): SpokenEntry? {
+        val id = bookId ?: return null
+        return SpokenEntry(
+            bookId = id,
+            trackIndex = bookTrackIndex ?: 0,
+            title = mediaMetadata.title?.toString().orEmpty(),
+            author = mediaMetadata.artist?.toString().orEmpty(),
         )
     }
 

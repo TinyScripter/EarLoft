@@ -9,6 +9,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceBitmapLoader
 import com.google.common.util.concurrent.ListenableFuture
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
+import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,7 @@ import java.io.IOException
 internal class ArtworkBitmapLoader(
     context: Context,
     private val artworkRepository: ArtworkRepository,
+    private val bookCovers: BookCovers,
     private val scope: CoroutineScope,
 ) : BitmapLoader {
 
@@ -33,6 +35,9 @@ internal class ArtworkBitmapLoader(
     override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> = fallback.decodeBitmap(data)
 
     override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> {
+        AppUris.parseBookCoverId(uri.toString())?.let { bookId ->
+            return scope.future(Dispatchers.IO) { bookCovers.cover(bookId) ?: throw IOException("Kein Cover für Buch $bookId") }
+        }
         val albumId = AppUris.parseAlbumCoverId(uri.toString()) ?: return fallback.loadBitmap(uri)
         return scope.future(Dispatchers.IO) {
             artworkRepository.albumCover(albumId, ARTWORK_SIZE_PX) ?: throw IOException("Kein Cover für Album $albumId")

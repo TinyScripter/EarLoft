@@ -8,4 +8,6 @@
     <string name="song_unavailable">Song nicht verfügbar: Server nicht erreichbar und nicht heruntergeladen</string>
     <string name="favorite_add">Zu Favoriten hinzufügen</string>
     <string name="favorite_remove">Aus Favoriten entfernen</string>
+    <string name="spoken_seek_back">30 Sekunden zurück</string>
+    <string name="spoken_seek_forward">10 Sekunden vor</string>
 </resources>
