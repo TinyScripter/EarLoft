@@ -169,7 +169,7 @@ class PlaybackService : MediaLibraryService() {
             this,
             // Bei Hörbüchern gelten andere Sprungweiten (-30 s / +10 s), siehe SpokenAwarePlayer.
             SpokenAwarePlayer(player),
-            LibrarySessionCallback(this, libraryRepository, playlistRepository, favoritesRepository, queuePersistence, factory, mainScope),
+            LibrarySessionCallback(this, libraryRepository, playlistRepository, favoritesRepository, queuePersistence, bookPlaybackSource, factory, mainScope),
         )
             .setBitmapLoader(CacheBitmapLoader(ArtworkBitmapLoader(this, artworkRepository, bookCovers, mainScope)))
             .apply { sessionActivity()?.let { setSessionActivity(it) } }
@@ -245,6 +245,16 @@ class PlaybackService : MediaLibraryService() {
      */
     private fun restoreQueue(player: Player) {
         mainScope.launch {
+            // Lief zuletzt ein Buch oder eine Folge, wird diese (pausiert) geladen statt der Musik-Warteschlange.
+            val lastBookId = queuePersistence.lastBookId()
+            if (lastBookId != null) {
+                val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.prepare(lastBookId) }
+                if (player.mediaItemCount > 0) return@launch
+                if (prepared != null) {
+                    player.playBook(prepared, autoPlay = false)
+                    return@launch
+                }
+            }
             val restored = queuePersistence.restore() ?: return@launch
             if (player.mediaItemCount > 0) return@launch
             player.shuffleModeEnabled = restored.shuffle
@@ -342,6 +352,7 @@ class PlaybackService : MediaLibraryService() {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            if (mediaItem != null) queuePersistence.saveLastBook(mediaItem.bookId, ioScope)
             if (!holdsSpoken) queuePersistence.savePosition(player, ioScope)
         }
 

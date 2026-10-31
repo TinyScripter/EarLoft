@@ -67,6 +67,15 @@ class QueuePersistence @Inject constructor(
         }
     }
 
+    /** Merkt, ob zuletzt ein Buch/eine Folge ([bookId]) oder Musik (`null`) lief; so wird beim Start genau das geladen. */
+    fun saveLastBook(bookId: Long?, scope: CoroutineScope) {
+        scope.launch { context.playbackDataStore.edit { it[KEY_LAST_BOOK] = bookId ?: NO_BOOK } }
+    }
+
+    /** Das Buch bzw. die Folge, die zuletzt lief; `null`, wenn zuletzt Musik lief. */
+    suspend fun lastBookId(): Long? =
+        context.playbackDataStore.data.first()[KEY_LAST_BOOK]?.takeIf { it != NO_BOOK }
+
     suspend fun restore(): RestoredQueue? {
         val songs = libraryRepository.songs(playbackStateRepository.loadQueue())
         if (songs.isEmpty()) return null
@@ -87,5 +96,7 @@ class QueuePersistence @Inject constructor(
         val KEY_POSITION = longPreferencesKey("position_ms")
         val KEY_SHUFFLE = booleanPreferencesKey("shuffle")
         val KEY_REPEAT = intPreferencesKey("repeat_mode")
+        val KEY_LAST_BOOK = longPreferencesKey("last_book_id")
+        const val NO_BOOK = -1L
     }
 }

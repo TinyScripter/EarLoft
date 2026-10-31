@@ -12,12 +12,13 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
+import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import kotlinx.coroutines.runBlocking
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
 
 /**
- * Liefert Album-Cover als `content://<Anwendungs-ID>.covers/album/<id>`. Android Auto lädt die Cover der Browse-Listen
+ * Liefert Album-Cover als `content://<Anwendungs-ID>.covers/album/<id>` (Bücher und Folgen: `…/book/<id>`). Android Auto lädt die Cover der Browse-Listen
  * selbst über eine solche URI; `kal://cover/…` kann es nicht lesen. Die Bilder kommen aus derselben Pipeline wie in der
  * App ([ArtworkRepository]), also auch von Servern mit Anmeldung.
  *
@@ -29,25 +30,30 @@ class CoverProvider : ContentProvider() {
     @InstallIn(SingletonComponent::class)
     internal interface Entry {
         fun artworkRepository(): ArtworkRepository
+        fun bookCovers(): BookCovers
     }
 
     override fun onCreate(): Boolean = true
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
         if (mode != "r") throw FileNotFoundException("Nur lesbar")
-        val albumId = albumId(uri) ?: throw FileNotFoundException(uri.toString())
+        val albumId = albumId(uri)
+        val bookId = bookId(uri)
+        if (albumId == null && bookId == null) throw FileNotFoundException(uri.toString())
         val context = context ?: throw FileNotFoundException(uri.toString())
-        val artwork = EntryPointAccessors.fromApplication(context, Entry::class.java).artworkRepository()
+        val entry = EntryPointAccessors.fromApplication(context, Entry::class.java)
         // Die Pipe-Helfer-Threads dürfen blockieren; der Binder-Thread kehrt sofort zurück.
-        return openPipeHelper(uri, MIME_TYPE, null, albumId) { output, _, _, _, _ ->
-            val bitmap = runBlocking { artwork.albumCover(albumId, SIZE_PX) }
+        return openPipeHelper(uri, MIME_TYPE, null, null) { output, _, _, _, _ ->
+            val bitmap = runBlocking {
+                if (albumId != null) entry.artworkRepository().albumCover(albumId, SIZE_PX) else entry.bookCovers().cover(bookId!!)
+            }
             FileOutputStream(output.fileDescriptor).use { stream ->
                 bitmap?.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, stream)
             }
         }
     }
 
-    override fun getType(uri: Uri): String? = MIME_TYPE.takeIf { albumId(uri) != null }
+    override fun getType(uri: Uri): String? = MIME_TYPE.takeIf { albumId(uri) != null || bookId(uri) != null }
 
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor? = null
 
@@ -60,6 +66,7 @@ class CoverProvider : ContentProvider() {
     companion object {
         private const val MIME_TYPE = "image/jpeg"
         private const val ALBUM_SEGMENT = "album"
+        private const val BOOK_SEGMENT = "book"
         private const val SIZE_PX = 512
         private const val JPEG_QUALITY = 90
 
@@ -73,9 +80,21 @@ class CoverProvider : ContentProvider() {
                 .appendPath(albumId.toString())
                 .build()
 
-        internal fun albumId(uri: Uri): Long? {
+        fun bookCoverUri(context: Context, bookId: Long): Uri =
+            Uri.Builder()
+                .scheme("content")
+                .authority(authority(context))
+                .appendPath(BOOK_SEGMENT)
+                .appendPath(bookId.toString())
+                .build()
+
+        internal fun albumId(uri: Uri): Long? = id(uri, ALBUM_SEGMENT)
+
+        internal fun bookId(uri: Uri): Long? = id(uri, BOOK_SEGMENT)
+
+        private fun id(uri: Uri, segment: String): Long? {
             val segments = uri.pathSegments
-            return segments.takeIf { it.size == 2 && it[0] == ALBUM_SEGMENT }?.get(1)?.toLongOrNull()
+            return segments.takeIf { it.size == 2 && it[0] == segment }?.get(1)?.toLongOrNull()
         }
     }
 }

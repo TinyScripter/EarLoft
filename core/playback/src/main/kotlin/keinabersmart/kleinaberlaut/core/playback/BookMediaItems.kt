@@ -63,14 +63,14 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> =
     }
 
 /** Ersetzt die Warteschlange durch das Buch und spielt es an der gespeicherten Stelle bzw. bei [startPositionMs]. */
-internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = null) {
+internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = null, autoPlay: Boolean = true) {
     val start = prepared.timeline.locate(startPositionMs ?: prepared.startPositionMs)
     shuffleModeEnabled = false
     repeatMode = Player.REPEAT_MODE_OFF
     setMediaItems(prepared.toMediaItems(), start.trackIndex, start.offsetMs)
     setPlaybackSpeed(prepared.speed)
     prepare()
-    play()
+    if (autoPlay) play()
 }
 
 internal const val EXTRA_BOOK_ID = "keinabersmart.kleinaberlaut.BOOK_ID"

@@ -21,8 +21,11 @@ import com.google.common.util.concurrent.ListenableFuture
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
+import keinabersmart.kleinaberlaut.core.data.spoken.BookPlaybackSource
 import keinabersmart.kleinaberlaut.core.model.Song
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
 
@@ -48,6 +51,7 @@ internal class LibrarySessionCallback(
     private val playlistRepository: PlaylistRepository,
     private val favoritesRepository: FavoritesRepository,
     private val queuePersistence: QueuePersistence,
+    private val bookPlaybackSource: BookPlaybackSource,
     private val playerFactory: SessionPlayerFactory?,
     private val scope: CoroutineScope,
 ) : MediaLibrarySession.Callback {
@@ -271,6 +275,28 @@ internal class LibrarySessionCallback(
         controller: MediaSession.ControllerInfo,
         isForPlayback: Boolean,
     ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
+        // Lief zuletzt ein Buch oder eine Folge, wird diese fortgesetzt statt der Musik-Warteschlange.
+        queuePersistence.lastBookId()?.let { bookId ->
+            val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.prepare(bookId) }
+            if (prepared != null) {
+                val start = prepared.timeline.locate(prepared.startPositionMs)
+                val items = prepared.toMediaItems()
+                if (!isForPlayback) {
+                    // Wie bei Musik: Die System-Oberfläche kennt kal://cover nicht, also die CoverProvider-URI.
+                    val current = items[start.trackIndex]
+                    val withCover = current.buildUpon()
+                        .setMediaMetadata(
+                            current.mediaMetadata.buildUpon().setArtworkUri(CoverProvider.bookCoverUri(context, bookId)).build(),
+                        )
+                        .build()
+                    return@future MediaItemsWithStartPosition(listOf(withCover), 0, start.offsetMs)
+                }
+                mediaSession.player.shuffleModeEnabled = false
+                mediaSession.player.repeatMode = Player.REPEAT_MODE_OFF
+                mediaSession.player.setPlaybackSpeed(prepared.speed)
+                return@future MediaItemsWithStartPosition(items, start.trackIndex, start.offsetMs)
+            }
+        }
         val restored = queuePersistence.restore() ?: throw UnsupportedOperationException("Keine gespeicherte Warteschlange")
         if (!isForPlayback) {
             val current = restored.items.getOrNull(restored.startIndex)
