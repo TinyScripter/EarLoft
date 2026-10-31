@@ -67,6 +67,12 @@ import keinabersmart.kleinaberlaut.core.data.podcast.EpisodeQueue
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
+import keinabersmart.kleinaberlaut.core.model.AppUris
 import androidx.compose.runtime.LaunchedEffect
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
@@ -217,7 +223,7 @@ fun SpokenLibraryScreen(
                     when (BookTab.entries[page]) {
                         BookTab.ALL -> BookGrid(all, onBookClick, fastScroll = true)
                         BookTab.SERIES -> BookGroupList(series) { onGroupClick(BookGroupKind.SERIES, it) }
-                        BookTab.AUTHORS -> BookGroupList(authors) { onGroupClick(BookGroupKind.AUTHOR, it) }
+                        BookTab.AUTHORS -> AuthorGrid(authors) { onGroupClick(BookGroupKind.AUTHOR, it) }
                     }
                 }
             }
@@ -245,6 +251,58 @@ private fun BookGrid(books: List<BookWithProgress>, onBookClick: (Long) -> Unit,
         if (fastScroll) {
             LazyGridFastScroller(state, labelAt = { index -> letterOf(books.getOrNull(index)?.book?.title.orEmpty().sortKey()) })
         }
+    }
+}
+
+/**
+ * Autoren als Raster, zwei pro Reihe: Autorenbild (von Audiobookshelf, sonst aus dem Internet, wenn die Option an ist), darunter
+ * Name und Anzahl der Bücher. Ohne Bild bleibt das Cover des ersten Buchs.
+ */
+@Composable
+private fun AuthorGrid(authors: List<BookGroup>, onClick: (String) -> Unit) {
+    if (authors.isEmpty()) {
+        EmptyHint(stringResource(R.string.library_empty))
+        return
+    }
+    val state = rememberLazyGridState()
+    Box(Modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            state = state,
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            items(authors, key = { it.name }) { author ->
+                Column(Modifier.clickable { onClick(author.name) }) {
+                    Box {
+                        BookArt(author.books.first().book.id, Modifier.fillMaxWidth())
+                        // Liegt über dem Buchcover; schlägt das Laden fehl, bleibt das Cover sichtbar.
+                        AsyncImage(
+                            model = AppUris.authorImage(author.name),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            alignment = Alignment.TopCenter,
+                            modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp)),
+                        )
+                    }
+                    Text(
+                        author.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    Text(
+                        pluralStringResource(R.plurals.book_count, author.books.size, author.books.size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        LazyGridFastScroller(state, labelAt = { index -> letterOf(authors.getOrNull(index)?.name.orEmpty().sortKey()) })
     }
 }
 

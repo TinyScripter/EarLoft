@@ -9,6 +9,7 @@ import kotlinx.coroutines.sync.withLock
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import javax.inject.Inject
@@ -17,7 +18,8 @@ import javax.inject.Singleton
 /**
  * Bilder aus dem Internet:
  * - Interpreten: Deezer (Suche per Name, ohne Schlüssel),
- * - Album-Cover: MusicBrainz (Release suchen) und das Cover Art Archive (Bild).
+ * - Album-Cover: MusicBrainz (Release suchen) und das Cover Art Archive (Bild),
+ * - Autoren (Bücher): Audnexus (Suche per Name, ohne Schlüssel).
  *
  * `null` heißt „es gibt dort nichts“; Netzwerkfehler werden als [IOException] geworfen und dürfen nicht
  * als „nicht gefunden“ gemerkt werden.
@@ -47,6 +49,22 @@ class OnlineArtworkClient @Inject constructor(
             return getBytes(picture)
         }
         return null
+    }
+
+    /**
+     * Autorenbild von Audnexus (die Autoren-Daten von Audible, die auch Audiobookshelf nutzt): erst den Autor per Name suchen,
+     * dann sein Bild laden. Nur ein Treffer mit gleichem Namen zählt.
+     */
+    suspend fun findAuthorImage(name: String): ByteArray? {
+        val search = "$AUDNEXUS/authors".toHttpUrl().newBuilder().addQueryParameter("name", name).build()
+        val results = getBytes(search.toString())?.let { JSONArray(String(it, Charsets.UTF_8)) } ?: return null
+        val wanted = name.normalizeForMerge()
+        val asin = (0 until results.length())
+            .mapNotNull { results.optJSONObject(it) }
+            .firstOrNull { it.optString("name").normalizeForMerge() == wanted && it.optString("asin").isNotEmpty() }
+            ?.optString("asin") ?: return null
+        val image = getJson("$AUDNEXUS/authors/$asin")?.optString("image").orEmpty()
+        return if (image.isEmpty()) null else getBytes(image)
     }
 
     suspend fun findAlbumCover(title: String, artist: String, releaseMbid: String?): ByteArray? {
@@ -96,6 +114,7 @@ class OnlineArtworkClient @Inject constructor(
         const val DEEZER_SEARCH = "https://api.deezer.com/search/artist"
         const val MUSICBRAINZ = "https://musicbrainz.org/ws/2"
         const val COVER_ART_ARCHIVE = "https://coverartarchive.org"
+        const val AUDNEXUS = "https://api.audnex.us"
         const val USER_AGENT = "kleinaberlaut/1.0 (Android music player)"
         const val MUSICBRAINZ_INTERVAL_MS = 1_100L
         const val MIN_SCORE = 90

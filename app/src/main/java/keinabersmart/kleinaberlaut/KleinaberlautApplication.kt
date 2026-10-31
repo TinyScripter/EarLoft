@@ -11,6 +11,7 @@ import coil3.request.crossfade
 import dagger.hilt.android.HiltAndroidApp
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
+import keinabersmart.kleinaberlaut.core.data.spoken.AuthorImages
 import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
@@ -21,6 +22,7 @@ import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.download.EpisodeDownloads
 import keinabersmart.kleinaberlaut.ui.image.AlbumCoverFetcher
 import keinabersmart.kleinaberlaut.ui.image.ArtistImageFetcher
+import keinabersmart.kleinaberlaut.ui.image.AuthorImageFetcher
 import keinabersmart.kleinaberlaut.ui.image.BookCoverFetcher
 import keinabersmart.kleinaberlaut.wear.PhoneInfoPublisher
 import keinabersmart.kleinaberlaut.wear.WearPublisher
@@ -36,6 +38,7 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var spokenRefresher: SpokenRefresher
     @Inject lateinit var podcastRefresher: PodcastRefresher
     @Inject lateinit var bookCovers: BookCovers
+    @Inject lateinit var authorImages: AuthorImages
     @Inject lateinit var artworkRepository: ArtworkRepository
     @Inject lateinit var downloadRepository: DownloadRepository
     @Inject lateinit var autoDownloads: AutoDownloads
@@ -72,6 +75,7 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
                 add(AlbumCoverFetcher.Factory(artworkRepository))
                 add(ArtistImageFetcher.Factory(artworkRepository))
                 add(BookCoverFetcher.Factory(bookCovers))
+                add(AuthorImageFetcher.Factory(authorImages))
             }
             .crossfade(true)
             .build()

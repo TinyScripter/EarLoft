@@ -117,6 +117,8 @@
     <string name="settings_search_all_summary">When off, search only covers the content of the selected mode (Music or Books).</string>
     <string name="settings_artist_images">Download artist images</string>
     <string name="settings_artist_images_summary">Looks up photos on Deezer. Artist names are sent to Deezer for this.</string>
+    <string name="settings_author_images">Download missing author images</string>
+    <string name="settings_author_images_summary">Used for authors in the book library when Audiobookshelf has no image. Looks them up on Audnexus; the author’s name is sent for this.</string>
     <string name="settings_album_covers">Download missing album covers</string>
     <string name="settings_album_covers_summary">Looks up covers on MusicBrainz and the Cover Art Archive. Album title and artist are sent for this.</string>
     <string name="settings_local_media">Use music on this device</string>

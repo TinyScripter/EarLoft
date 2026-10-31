@@ -87,6 +87,20 @@ class AbsApi @Inject constructor(
         }
     }
 
+    /** Autoren der Bibliothek (mit Bildpfad, falls der Server ein Bild kennt). */
+    suspend fun authors(server: AbsServer, libraryId: String): List<AbsAuthorDto> =
+        decode<AbsAuthorsResponse>(execute(authorized(server, server.endpoint("api/libraries/$libraryId/authors").build()))).authors
+
+    /** Autorenbild (Bytes); `null`, wenn der Autor keines hat. */
+    suspend fun authorImage(server: AbsServer, authorId: String, width: Int): ByteArray? = withContext(Dispatchers.IO) {
+        val url = server.endpoint("api/authors/$authorId/image").addQueryParameter("width", width.toString()).build()
+        client.newCall(authorized(server, url)).await().use { response ->
+            if (response.code == 404) return@use null
+            if (!response.isSuccessful) throw AbsException(response.code, "HTTP ${response.code}")
+            response.body.bytes()
+        }
+    }
+
     private fun authorized(server: AbsServer, url: HttpUrl, configure: Request.Builder.() -> Request.Builder = { this }): Request =
         Request.Builder().url(url).header("Authorization", "Bearer ${server.apiKey}").configure().build()
 

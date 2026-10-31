@@ -28,6 +28,13 @@ class ArtworkSettings @Inject constructor(
     /** Fehlende Album-Cover über MusicBrainz und das Cover Art Archive nachladen. */
     val albumCovers: Flow<Boolean> = context.artworkSettingsDataStore.data.map { it[KEY_ALBUM_COVERS] ?: false }
 
+    /** Fehlende Autorenbilder (Bücher) von Audnexus nachladen; der Name des Autors geht dabei an Dritte. */
+    val authorImages: Flow<Boolean> = context.artworkSettingsDataStore.data.map { it[KEY_AUTHOR_IMAGES] ?: false }
+
+    suspend fun setAuthorImages(enabled: Boolean) {
+        context.artworkSettingsDataStore.edit { it[KEY_AUTHOR_IMAGES] = enabled }
+    }
+
     suspend fun setArtistImages(enabled: Boolean) {
         context.artworkSettingsDataStore.edit { it[KEY_ARTIST_IMAGES] = enabled }
     }
@@ -39,5 +46,6 @@ class ArtworkSettings @Inject constructor(
     private companion object {
         val KEY_ARTIST_IMAGES = booleanPreferencesKey("artist_images")
         val KEY_ALBUM_COVERS = booleanPreferencesKey("album_covers")
+        val KEY_AUTHOR_IMAGES = booleanPreferencesKey("author_images")
     }
 }

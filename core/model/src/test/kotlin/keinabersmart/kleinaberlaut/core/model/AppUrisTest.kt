@@ -24,6 +24,15 @@ class AppUrisTest {
     }
 
     @Test
+    fun `author image uri keeps names with spaces, umlauts and slashes`() {
+        for (name in listOf("Stephen King", "Sebastian Fitzek", "Jörg Maurer", "AC/DC & Co.")) {
+            assertEquals(name, AppUris.parseAuthorImageName(AppUris.authorImage(name)))
+        }
+        assertNull(AppUris.parseAuthorImageName(AppUris.bookCover(1)))
+        assertNull(AppUris.parseBookCoverId(AppUris.authorImage("1")))
+    }
+
+    @Test
     fun `foreign uris are rejected`() {
         assertNull(AppUris.parseSongId("content://media/external/audio/media/42"))
         assertNull(AppUris.parseSongId(AppUris.albumCover(42)))

@@ -83,6 +83,7 @@ fun SettingsScreen(
         onThemeModeChange = viewModel::setThemeMode,
         onArtistImagesChange = viewModel::setArtistImages,
         onAlbumCoversChange = viewModel::setAlbumCovers,
+        onAuthorImagesChange = viewModel::setAuthorImages,
         onSearchAllChange = viewModel::setSearchAll,
         onPodcastRefreshHoursChange = viewModel::setPodcastRefreshHours,
         onPodcastMobileChange = viewModel::setPodcastMobileData,
@@ -119,6 +120,7 @@ private fun SettingsContent(
     onThemeModeChange: (ThemeMode) -> Unit,
     onArtistImagesChange: (Boolean) -> Unit,
     onAlbumCoversChange: (Boolean) -> Unit,
+    onAuthorImagesChange: (Boolean) -> Unit,
     onSearchAllChange: (Boolean) -> Unit,
     onPodcastRefreshHoursChange: (Int) -> Unit,
     onPodcastMobileChange: (Boolean) -> Unit,
@@ -183,6 +185,15 @@ private fun SettingsContent(
                     icon = DesignR.drawable.ic_music_note,
                     checked = state.albumCovers,
                     onCheckedChange = onAlbumCoversChange,
+                )
+            }
+            item(key = "author-images") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_author_images),
+                    summary = stringResource(R.string.settings_author_images_summary),
+                    icon = DesignR.drawable.ic_book,
+                    checked = state.authorImages,
+                    onCheckedChange = onAuthorImagesChange,
                 )
             }
             item(key = "search-all") {
@@ -652,6 +663,7 @@ private fun SettingsContentPreview() {
             onThemeModeChange = {},
             onArtistImagesChange = {},
             onAlbumCoversChange = {},
+            onAuthorImagesChange = {},
             onSearchAllChange = {},
             onPodcastRefreshHoursChange = {},
             onPodcastMobileChange = {},

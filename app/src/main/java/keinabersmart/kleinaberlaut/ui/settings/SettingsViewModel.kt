@@ -9,6 +9,7 @@ import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkSettings
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
+import keinabersmart.kleinaberlaut.core.data.spoken.AuthorImages
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
@@ -49,6 +50,7 @@ data class SettingsUiState(
     val preAmpDb: Float = 0f,
     val artistImages: Boolean = false,
     val albumCovers: Boolean = false,
+    val authorImages: Boolean = false,
     val searchAll: Boolean = true,
     val podcastRefreshHours: Int = PodcastSettings.DEFAULT_REFRESH_HOURS,
     val podcastMobileData: Boolean = false,
@@ -79,6 +81,7 @@ class SettingsViewModel @Inject constructor(
     private val podcastSettings: PodcastSettings,
     private val artworkSettings: ArtworkSettings,
     private val artworkRepository: ArtworkRepository,
+    private val authorImages: AuthorImages,
     private val registry: DataSourceRegistry,
     syncer: LibrarySyncer,
 ) : ViewModel() {
@@ -137,6 +140,8 @@ class SettingsViewModel @Inject constructor(
             albumCovers = general.albumCovers,
             searchAll = general.searchAll,
         )
+    }.combine(artworkSettings.authorImages) { state, authors ->
+        state.copy(authorImages = authors)
     }.combine(
         combine(podcastSettings.refreshHours, podcastSettings.useMobileData, podcastSettings.deleteHeardAfterDays, ::Triple),
     ) { state, (hours, mobile, deleteHeardDays) ->
@@ -195,6 +200,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             artworkSettings.setAlbumCovers(enabled)
             artworkRepository.clearDisabledOnlineImages()
+        }
+    }
+
+    /** Beim Ausschalten werden die schon geladenen Autorenbilder aus dem Internet gelöscht. */
+    fun setAuthorImages(enabled: Boolean) {
+        viewModelScope.launch {
+            artworkSettings.setAuthorImages(enabled)
+            if (!enabled) authorImages.clearOnlineImages()
         }
     }
 

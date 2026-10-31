@@ -16,6 +16,17 @@ data class AbsLibraryDto(
 )
 
 @Serializable
+data class AbsAuthorsResponse(val authors: List<AbsAuthorDto> = emptyList())
+
+@Serializable
+data class AbsAuthorDto(
+    val id: String,
+    val name: String = "",
+    /** Pfad des Bilds auf dem Server; `null`, wenn der Autor keines hat. */
+    val imagePath: String? = null,
+)
+
+@Serializable
 data class AbsItemsPage(
     val results: List<AbsItemDto> = emptyList(),
     val total: Int = 0,

@@ -116,6 +116,8 @@
     <string name="settings_search_all_summary">Aus: Die Suche durchsucht nur den Inhalt des gewählten Modus (Musik oder Bücher).</string>
     <string name="settings_artist_images">Bilder von Interpreten herunterladen</string>
     <string name="settings_artist_images_summary">Sucht Fotos bei Deezer. Dafür werden Namen von Interpreten an Deezer gesendet.</string>
+    <string name="settings_author_images">Fehlende Autorenbilder herunterladen</string>
+    <string name="settings_author_images_summary">Für Autoren in der Büchersammlung, wenn Audiobookshelf kein Bild hat. Sucht bei Audnexus; dazu wird der Name des Autors gesendet.</string>
     <string name="settings_album_covers">Fehlende Album-Cover herunterladen</string>
     <string name="settings_album_covers_summary">Sucht Cover bei MusicBrainz und im Cover Art Archive. Dafür werden Albumtitel und Interpret gesendet.</string>
     <string name="settings_local_media">Musik auf diesem Gerät nutzen</string>
