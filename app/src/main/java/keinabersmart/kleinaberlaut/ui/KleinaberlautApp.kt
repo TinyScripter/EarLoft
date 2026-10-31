@@ -141,7 +141,7 @@ fun KleinaberlautApp(
         entry<HomeRoute> {
             SpokenModeHost(
                 music = { HomeScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) },
-                podcasts = { PodcastHomeScreen(onEpisodeClick = openBook) },
+                podcasts = { PodcastHomeScreen(onEpisodeClick = openBook, onFeedClick = openPodcast) },
                 books = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
                 onModeChange = closeDetail,
             )
@@ -156,7 +156,7 @@ fun KleinaberlautApp(
                         onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
                     )
                 },
-                podcasts = { PodcastLibraryScreen(onFeedClick = openPodcast) },
+                podcasts = { PodcastLibraryScreen(onFeedClick = openPodcast, onEpisodeClick = openBook) },
                 books = {
                     SpokenLibraryScreen(
                         onBookClick = openBook,

@@ -45,6 +45,9 @@ sealed interface SubscribeResult {
 /** Ergebnis eines Feed-Abgleichs: `null` bei Fehler, sonst die Folgen, die neu im Feed stehen. */
 data class RefreshResult(val newEpisodeIds: List<Long>)
 
+/** Ein Abo mit einer Auswahl seiner Folgen. */
+data class FeedEpisodes(val feed: PodcastFeed, val episodes: List<BookWithProgress>)
+
 /** Podcast-Abos und ihre Folgen (Konzept 12.1): abonnieren, abgleichen, Kapitel nachladen. */
 @Singleton
 class PodcastRepository @Inject constructor(
@@ -72,6 +75,20 @@ class PodcastRepository @Inject constructor(
         combine(dao.observeEpisodesOf(feedId), bookDao.observeAllProgress()) { episodes, progress ->
             val byBook = progress.associateBy { it.bookId }
             episodes.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
+        }
+
+    /** Pro Abo (nach Titel) die Folgen, die noch nicht zu Ende gehört sind, neueste zuerst; Abos ohne solche Folgen entfallen. */
+    fun unheardByFeed(): Flow<List<FeedEpisodes>> =
+        combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress()) { feeds, episodes, progress ->
+            val byBook = progress.associateBy { it.bookId }
+            val byFeed = episodes
+                .filter { byBook[it.bookId]?.finished != true }
+                .groupBy { it.serverId }
+            feeds.mapNotNull { feed ->
+                byFeed[feed.feedId]?.let { list ->
+                    FeedEpisodes(feed.toModel(), list.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) })
+                }
+            }
         }
 
     /**

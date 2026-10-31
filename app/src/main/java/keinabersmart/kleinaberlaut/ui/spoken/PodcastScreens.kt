@@ -18,19 +18,27 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -38,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +72,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.core.data.podcast.FeedEpisodes
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.SubscribeResult
@@ -108,6 +118,10 @@ class PodcastViewModel @Inject constructor(
     val continueListening: StateFlow<List<BookWithProgress>> = podcasts.continueListening()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Pro Abo die noch nicht zu Ende gehörten Folgen. */
+    val unheard: StateFlow<List<FeedEpisodes>> = podcasts.unheardByFeed()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** `null`, solange noch geladen wird. */
     val feeds: StateFlow<List<PodcastFeed>?> = podcasts.feeds
         .map<List<PodcastFeed>, List<PodcastFeed>?> { it }
@@ -139,22 +153,58 @@ class PodcastViewModel @Inject constructor(
     fun refreshAll() = refresher.refreshAll()
 }
 
-/** Start im Modus „Podcasts“: Weiterhören – angefangene Folgen, die zuletzt gehörte links, neue Folgen am Ende. */
+/** Zustand und Dialog zum Abonnieren; nach dem Hinzufügen öffnet sich der neue Podcast. */
+private class AddPodcastControl(val show: () -> Unit)
+
+/** Zeigt bei Bedarf den „Podcast hinzufügen“-Dialog; [content] bekommt den Auslöser. */
+@Composable
+private fun AddPodcastHost(
+    viewModel: PodcastViewModel,
+    onFeedClick: (String) -> Unit,
+    content: @Composable (AddPodcastControl) -> Unit,
+) {
+    val add by viewModel.add.collectAsStateWithLifecycle()
+    var adding by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(add) {
+        val state = add
+        if (state is AddPodcastState.Done) {
+            adding = false
+            viewModel.resetAdd()
+            onFeedClick(state.feedId)
+        }
+    }
+
+    content(AddPodcastControl { adding = true })
+
+    if (adding) {
+        AddPodcastDialog(
+            state = add,
+            onSubscribe = viewModel::subscribe,
+            onDismiss = {
+                adding = false
+                viewModel.resetAdd()
+            },
+        )
+    }
+}
+
+/** Start im Modus „Podcasts“: Weiterhören (angefangene Folgen, die zuletzt gehörte links, neue am Ende) und die Abos. */
 @Composable
 fun PodcastHomeScreen(
     onEpisodeClick: (Long) -> Unit,
+    onFeedClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PodcastViewModel = hiltViewModel(),
 ) {
     val episodes by viewModel.continueListening.collectAsStateWithLifecycle()
+    val feeds by viewModel.feeds.collectAsStateWithLifecycle()
     val rowState = rememberLazyListState()
     // Wird eine andere Folge zur aktivsten, steht sie wieder ganz links sichtbar (die Zeile bliebe sonst am alten Eintrag stehen).
     LaunchedEffect(episodes.firstOrNull()?.book?.id) { rowState.scrollToItem(0) }
-    Column(modifier.fillMaxSize()) {
-        if (episodes.isEmpty()) {
-            EmptyHint(stringResource(R.string.podcast_nothing_to_continue))
-        } else {
-            LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
+    AddPodcastHost(viewModel, onFeedClick) { addControl ->
+        LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+            if (episodes.isNotEmpty()) {
                 item(key = "continue-header") { SectionHeader(stringResource(R.string.spoken_continue)) }
                 item(key = "continue") {
                     LazyRow(
@@ -168,60 +218,143 @@ fun PodcastHomeScreen(
                     }
                 }
             }
+            item(key = "subscriptions-header") { SectionHeader(stringResource(R.string.podcast_subscriptions)) }
+            item(key = "add") {
+                FilledTonalButton(onClick = addControl.show, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
+                    Text(stringResource(R.string.podcast_add), modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+            if (feeds?.isEmpty() == true) {
+                item(key = "empty") { EmptyHint(stringResource(R.string.podcast_none)) }
+            } else {
+                item(key = "subscriptions") {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(feeds.orEmpty(), key = { it.id }) { feed ->
+                            FeedCard(feed, onClick = { onFeedClick(feed.id) }, modifier = Modifier.width(140.dp))
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
-/** Bibliothek im Modus „Podcasts“: Abos mit „Podcast hinzufügen“. */
+/** Bild und Titel eines Abos. */
+@Composable
+private fun FeedCard(feed: PodcastFeed, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.clickable(onClick = onClick)) {
+        PodcastArt(feed.imageUrl, Modifier.fillMaxWidth())
+        Text(
+            feed.title,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+    }
+}
+
+private enum class PodcastTab(@StringRes val label: Int) {
+    EPISODES(R.string.podcast_episodes),
+    FEEDS(R.string.podcast_tab_feeds),
+}
+
+/** Bibliothek im Modus „Podcasts“: Reiter Folgen (ungehörte je Abo) und Abos (Raster mit schwebendem „+“). */
 @Composable
 fun PodcastLibraryScreen(
     onFeedClick: (String) -> Unit,
+    onEpisodeClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PodcastViewModel = hiltViewModel(),
 ) {
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
-    val add by viewModel.add.collectAsStateWithLifecycle()
-    var adding by rememberSaveable { mutableStateOf(false) }
+    val unheard by viewModel.unheard.collectAsStateWithLifecycle()
+    val pagerState = rememberPagerState { PodcastTab.entries.size }
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(add) {
-        val state = add
-        if (state is AddPodcastState.Done) {
-            adding = false
-            viewModel.resetAdd()
-            onFeedClick(state.feedId)
-        }
-    }
-
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        item(key = "header") { SectionHeader(stringResource(R.string.podcast_subscriptions)) }
-        item(key = "add") {
-            FilledTonalButton(onClick = { adding = true }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
-                Text(stringResource(R.string.podcast_add), modifier = Modifier.padding(start = 8.dp))
+    AddPodcastHost(viewModel, onFeedClick) { addControl ->
+        Column(modifier.fillMaxSize()) {
+            PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
+                PodcastTab.entries.forEachIndexed { index, tab ->
+                    Tab(
+                        selected = pagerState.currentPage == index,
+                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                        text = { Text(stringResource(tab.label)) },
+                    )
+                }
+            }
+            HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth(), key = { it }) { page ->
+                when (PodcastTab.entries[page]) {
+                    PodcastTab.EPISODES -> UnheardEpisodes(unheard, hasFeeds = feeds?.isNotEmpty() == true, onFeedClick, onEpisodeClick)
+                    PodcastTab.FEEDS -> FeedGrid(feeds.orEmpty(), onFeedClick, onAdd = addControl.show)
+                }
             }
         }
-        if (feeds?.isEmpty() == true) {
-            item(key = "empty") { EmptyHint(stringResource(R.string.podcast_none)) }
-        }
-        items(feeds.orEmpty(), key = { it.id }) { feed ->
-            ListItem(
-                headlineContent = { Text(feed.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                supportingContent = feed.author.takeIf { it.isNotBlank() }?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
-                leadingContent = { PodcastArt(feed.imageUrl, Modifier.size(56.dp), MaterialTheme.shapes.small) },
-                modifier = Modifier.clickable { onFeedClick(feed.id) },
-            )
+    }
+}
+
+/** Je Abo (untereinander) die ungehörten Folgen, horizontal scrollbar. */
+@Composable
+private fun UnheardEpisodes(
+    unheard: List<FeedEpisodes>,
+    hasFeeds: Boolean,
+    onFeedClick: (String) -> Unit,
+    onEpisodeClick: (Long) -> Unit,
+) {
+    if (unheard.isEmpty()) {
+        EmptyHint(stringResource(if (hasFeeds) R.string.podcast_all_heard else R.string.podcast_none))
+        return
+    }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+        unheard.forEach { (feed, episodes) ->
+            item(key = "header-${feed.id}") {
+                Text(
+                    feed.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clickable { onFeedClick(feed.id) }.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+            }
+            item(key = "row-${feed.id}") {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(episodes, key = { it.book.id }) { item ->
+                        BookCard(item, onClick = { onEpisodeClick(item.book.id) }, modifier = Modifier.width(140.dp))
+                    }
+                }
+            }
         }
     }
+}
 
-    if (adding) {
-        AddPodcastDialog(
-            state = add,
-            onSubscribe = viewModel::subscribe,
-            onDismiss = {
-                adding = false
-                viewModel.resetAdd()
-            },
-        )
+/** Alle Abos als Bilder, drei nebeneinander; das „+“ schwebt unten rechts und bleibt beim Scrollen stehen. */
+@Composable
+private fun FeedGrid(feeds: List<PodcastFeed>, onFeedClick: (String) -> Unit, onAdd: () -> Unit) {
+    Box(Modifier.fillMaxSize()) {
+        if (feeds.isEmpty()) {
+            EmptyHint(stringResource(R.string.podcast_none))
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                // Unten Platz lassen, damit der Knopf das letzte Abo nicht verdeckt.
+                contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                items(feeds, key = { it.id }) { feed -> FeedCard(feed, onClick = { onFeedClick(feed.id) }) }
+            }
+        }
+        FloatingActionButton(onClick = onAdd, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
+            Icon(painterResource(DesignR.drawable.ic_add), contentDescription = stringResource(R.string.podcast_add))
+        }
     }
 }
 

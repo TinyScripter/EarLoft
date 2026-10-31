@@ -396,6 +396,8 @@
     <string name="podcast_newest_first">Newest episode first</string>
     <string name="podcast_newest_first_summary">Order for \"Play all\" and for continuing. Off: oldest first.</string>
     <string name="podcast_episodes">Episodes</string>
+    <string name="podcast_tab_feeds">Subscriptions</string>
+    <string name="podcast_all_heard">All episodes heard.</string>
     <string name="podcast_no_episodes">This feed has no episodes.</string>
     <string name="podcast_unsubscribe">Unsubscribe</string>
     <string name="podcast_unsubscribe_title">Unsubscribe?</string>
