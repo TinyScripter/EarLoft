@@ -143,6 +143,8 @@ fun BookPlayerScreen(
     val entry = state.spoken
     val position by rememberPlaybackPosition { viewModel.bookPositionMs() }
     var dragging by remember { mutableStateOf<Float?>(null) }
+    // Ziehen am Kapitelbalken: Abstand zum Kapitelanfang.
+    var chapterDragging by remember { mutableStateOf<Float?>(null) }
     var showSpeed by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
     var showChapters by remember { mutableStateOf(false) }
@@ -154,8 +156,9 @@ fun BookPlayerScreen(
     }
     val tl = timeline
     val duration = tl?.durationMs ?: state.durationMs
-    val shown = dragging?.toLong() ?: position
-    val chapter = tl?.chapterAt(shown)
+    val base = dragging?.toLong() ?: position
+    val chapter = tl?.chapterAt(base)
+    val shown = chapterDragging?.let { (chapter?.startMs ?: 0) + it.toLong() } ?: base
     val speed = state.speed
     val remainingTotal = tl?.remainingBookMs(shown, speed) ?: ((duration - shown).coerceAtLeast(0) / speed).toLong()
 
@@ -196,8 +199,15 @@ fun BookPlayerScreen(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 16.dp),
             )
-            LinearProgressIndicator(
-                progress = { if (chapter.durationMs > 0) (chapterElapsed.toFloat() / chapter.durationMs).coerceIn(0f, 1f) else 0f },
+            Slider(
+                value = chapterElapsed.toFloat(),
+                onValueChange = { chapterDragging = it },
+                onValueChangeFinished = {
+                    // Knapp vor dem Ende bleiben, damit der Sprung nicht schon im nächsten Kapitel landet.
+                    chapterDragging?.let { viewModel.seekToBook(chapter.startMs + it.toLong().coerceAtMost(chapter.durationMs - 1)) }
+                    chapterDragging = null
+                },
+                valueRange = 0f..chapter.durationMs.coerceAtLeast(1).toFloat(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp)
@@ -205,7 +215,6 @@ fun BookPlayerScreen(
                         contentDescription = chapterLabel
                         stateDescription = chapterState
                     },
-                drawStopIndicator = {},
             )
             TimeRow(elapsed = formatClock(chapterElapsed), remaining = "-" + formatClock(chapterRemaining))
         }
