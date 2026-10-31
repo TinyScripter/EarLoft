@@ -278,6 +278,19 @@ class PodcastFeedViewModel @AssistedInject constructor(
         viewModelScope.launch { podcasts.setAutoDownload(feedId, enabled) }
     }
 
+    fun setNewestFirst(enabled: Boolean) {
+        viewModelScope.launch { podcasts.setNewestFirst(feedId, enabled) }
+    }
+
+    fun setContinuous(enabled: Boolean) {
+        viewModelScope.launch { podcasts.setContinuous(feedId, enabled) }
+    }
+
+    /** Beginnt bei der ersten ungehörten Folge in der Reihenfolge des Podcasts; danach geht es von selbst weiter. */
+    fun playAll() {
+        viewModelScope.launch { podcasts.firstToPlay(feedId)?.let(launcher::play) }
+    }
+
     fun unsubscribe() {
         viewModelScope.launch { podcasts.unsubscribe(feedId) }
     }
@@ -342,7 +355,29 @@ fun PodcastScreen(
                         Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null)
                         Text(stringResource(R.string.podcast_play_latest), modifier = Modifier.padding(start = 8.dp))
                     }
+                    FilledTonalButton(onClick = viewModel::playAll, enabled = list.isNotEmpty()) {
+                        Icon(painterResource(DesignR.drawable.ic_playlist_play), contentDescription = null)
+                        Text(stringResource(R.string.podcast_play_all), modifier = Modifier.padding(start = 8.dp))
+                    }
                 }
+            }
+            item(key = "continuous") {
+                SwitchRow(
+                    title = stringResource(R.string.podcast_continuous),
+                    summary = stringResource(R.string.podcast_continuous_summary),
+                    icon = DesignR.drawable.ic_playlist_play,
+                    checked = current.continuous,
+                    onCheckedChange = viewModel::setContinuous,
+                )
+            }
+            item(key = "newest-first") {
+                SwitchRow(
+                    title = stringResource(R.string.podcast_newest_first),
+                    summary = stringResource(R.string.podcast_newest_first_summary),
+                    icon = DesignR.drawable.ic_list,
+                    checked = current.newestFirst,
+                    onCheckedChange = viewModel::setNewestFirst,
+                )
             }
             item(key = "auto-download") {
                 SwitchRow(

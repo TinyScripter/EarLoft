@@ -103,6 +103,29 @@ class PodcastRepository @Inject constructor(
 
     suspend fun setAutoDownload(feedId: String, enabled: Boolean) = dao.setAutoDownload(feedId, enabled)
 
+    suspend fun setNewestFirst(feedId: String, newestFirst: Boolean) = dao.setNewestFirst(feedId, newestFirst)
+
+    suspend fun setContinuous(feedId: String, continuous: Boolean) = dao.setContinuous(feedId, continuous)
+
+    /** Die Folge, mit der „Alle abspielen“ beginnt: die erste ungehörte in der Reihenfolge des Podcasts. */
+    suspend fun firstToPlay(feedId: String): Long? {
+        val feed = dao.feed(feedId) ?: return null
+        return nextEpisode(playOrder(feed), dao.finishedEpisodeIds(feedId).toSet())
+    }
+
+    /**
+     * Die Folge, die nach dem Ende von [bookId] von selbst startet. `null` bei Hörbüchern, wenn das Weiterspielen für
+     * den Podcast aus ist oder nichts Ungehörtes mehr folgt.
+     */
+    suspend fun autoNextAfter(bookId: Long): Long? {
+        val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.EPISODE } ?: return null
+        val feed = dao.feed(book.serverId)?.takeIf { it.continuous } ?: return null
+        return nextEpisode(playOrder(feed), dao.finishedEpisodeIds(feed.feedId).toSet(), bookId)
+    }
+
+    private suspend fun playOrder(feed: PodcastFeedEntity): List<Long> =
+        dao.episodeIdsOldestFirst(feed.feedId).let { if (feed.newestFirst) it.asReversed() else it }
+
     /** Gleicht alle Abos ab; `true`, wenn kein Feed fehlgeschlagen ist. */
     suspend fun refreshAll(): Boolean = dao.feeds().map { refresh(it.feedId) != null }.all { it }
 
@@ -224,6 +247,8 @@ private fun PodcastFeedEntity.toModel() = PodcastFeed(
     imageUrl = imageUrl,
     autoDownload = autoDownload,
     lastRefreshAt = lastRefreshAt,
+    newestFirst = newestFirst,
+    continuous = continuous,
 )
 
 /** Beschreibungen kommen als HTML; die Oberfläche zeigt reinen Text. */

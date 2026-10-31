@@ -120,18 +120,9 @@ class PlaybackConnection @Inject constructor(
      */
     suspend fun playBook(bookId: Long, startPositionMs: Long? = null): PreparedBook? {
         val prepared = bookPlaybackSource.prepare(bookId) ?: return null
-        val start = prepared.timeline.locate(startPositionMs ?: prepared.startPositionMs)
-        val items = prepared.toMediaItems()
         // Der MediaController darf nur vom Main-Thread angesprochen werden.
         withContext(Dispatchers.Main.immediate) {
-            controller.await().apply {
-                shuffleModeEnabled = false
-                repeatMode = Player.REPEAT_MODE_OFF
-                setMediaItems(items, start.trackIndex, start.offsetMs)
-                setPlaybackSpeed(prepared.speed)
-                prepare()
-                play()
-            }
+            controller.await().playBook(prepared, startPositionMs)
         }
         return prepared
     }

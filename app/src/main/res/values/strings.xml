@@ -383,6 +383,11 @@
     <string name="podcast_auto_download">Download new episodes automatically</string>
     <string name="podcast_auto_download_summary">Remembered; downloading episodes is not available yet.</string>
     <string name="podcast_play_latest">Play latest episode</string>
+    <string name="podcast_play_all">Play all</string>
+    <string name="podcast_continuous">Play the next episode automatically</string>
+    <string name="podcast_continuous_summary">When an episode ends, the next unheard one starts.</string>
+    <string name="podcast_newest_first">Newest episode first</string>
+    <string name="podcast_newest_first_summary">Order for \"Play all\" and for continuing. Off: oldest first.</string>
     <string name="podcast_episodes">Episodes</string>
     <string name="podcast_no_episodes">This feed has no episodes.</string>
     <string name="podcast_unsubscribe">Unsubscribe</string>

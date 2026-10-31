@@ -92,6 +92,10 @@ data class PodcastFeed(
     val imageUrl: String?,
     val autoDownload: Boolean,
     val lastRefreshAt: Long,
+    /** Reihenfolge für „Alle abspielen“ und das Weiterspielen: neueste zuerst statt älteste zuerst. */
+    val newestFirst: Boolean = false,
+    /** Nach einer Folge von selbst die nächste spielen. */
+    val continuous: Boolean = true,
 )
 
 /** Stelle in einer Datei des Buchs. */

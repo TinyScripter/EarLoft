@@ -35,6 +35,22 @@ abstract class PodcastDao {
     @Query("UPDATE podcast_feeds SET autoDownload = :enabled WHERE feedId = :feedId")
     abstract suspend fun setAutoDownload(feedId: String, enabled: Boolean)
 
+    @Query("UPDATE podcast_feeds SET newestFirst = :newestFirst WHERE feedId = :feedId")
+    abstract suspend fun setNewestFirst(feedId: String, newestFirst: Boolean)
+
+    @Query("UPDATE podcast_feeds SET continuous = :continuous WHERE feedId = :feedId")
+    abstract suspend fun setContinuous(feedId: String, continuous: Boolean)
+
+    /** Ids der Folgen eines Podcasts, älteste zuerst (bei gleichem Datum in der Reihenfolge des Auftauchens). */
+    @Query("SELECT bookId FROM books WHERE kind = 'EPISODE' AND serverId = :feedId ORDER BY addedAt, bookId")
+    abstract suspend fun episodeIdsOldestFirst(feedId: String): List<Long>
+
+    @Query(
+        "SELECT p.bookId FROM book_progress p JOIN books b ON b.bookId = p.bookId " +
+            "WHERE b.serverId = :feedId AND p.finished = 1",
+    )
+    abstract suspend fun finishedEpisodeIds(feedId: String): List<Long>
+
     @Query("DELETE FROM podcast_feeds WHERE feedId = :feedId")
     abstract suspend fun deleteFeedRow(feedId: String)
 

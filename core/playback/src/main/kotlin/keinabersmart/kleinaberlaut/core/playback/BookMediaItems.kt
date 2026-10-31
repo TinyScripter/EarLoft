@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import keinabersmart.kleinaberlaut.core.data.spoken.PreparedBook
 import keinabersmart.kleinaberlaut.core.model.AppUris
@@ -60,5 +61,16 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> =
             )
             .build()
     }
+
+/** Ersetzt die Warteschlange durch das Buch und spielt es an der gespeicherten Stelle bzw. bei [startPositionMs]. */
+internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = null) {
+    val start = prepared.timeline.locate(startPositionMs ?: prepared.startPositionMs)
+    shuffleModeEnabled = false
+    repeatMode = Player.REPEAT_MODE_OFF
+    setMediaItems(prepared.toMediaItems(), start.trackIndex, start.offsetMs)
+    setPlaybackSpeed(prepared.speed)
+    prepare()
+    play()
+}
 
 internal const val EXTRA_BOOK_ID = "keinabersmart.kleinaberlaut.BOOK_ID"

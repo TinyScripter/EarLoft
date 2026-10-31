@@ -379,6 +379,11 @@
     <string name="podcast_auto_download">Neue Folgen automatisch herunterladen</string>
     <string name="podcast_auto_download_summary">Wird gemerkt; das Herunterladen von Folgen kommt noch.</string>
     <string name="podcast_play_latest">Neueste Folge abspielen</string>
+    <string name="podcast_play_all">Alle abspielen</string>
+    <string name="podcast_continuous">Nächste Folge automatisch abspielen</string>
+    <string name="podcast_continuous_summary">Ist eine Folge zu Ende, startet die nächste ungehörte.</string>
+    <string name="podcast_newest_first">Neueste Folge zuerst</string>
+    <string name="podcast_newest_first_summary">Reihenfolge für „Alle abspielen“ und das Weiterspielen. Aus: älteste zuerst.</string>
     <string name="podcast_episodes">Folgen</string>
     <string name="podcast_no_episodes">Dieser Feed enthält keine Folgen.</string>
     <string name="podcast_unsubscribe">Abo beenden</string>

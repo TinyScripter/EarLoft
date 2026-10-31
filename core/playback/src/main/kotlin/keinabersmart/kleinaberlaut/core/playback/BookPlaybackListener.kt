@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.core.playback
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -24,6 +25,8 @@ internal class BookPlaybackListener(
     private val books: BookRepository,
     private val progressSync: BookProgressSync,
     private val scope: CoroutineScope,
+    /** Eine Podcast-Folge ist bis zum Ende gelaufen und der Player wartet (Parameter: Buch-ID der Folge). */
+    private val onEpisodeEnded: (Long) -> Unit,
 ) : Player.Listener {
 
     private var timelineBookId: Long? = null
@@ -83,7 +86,14 @@ internal class BookPlaybackListener(
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) {
-        if (playbackState == Player.STATE_ENDED) recordCurrent(force = true)
+        if (playbackState == Player.STATE_ENDED) {
+            recordCurrent(force = true)
+            val item = player.currentMediaItem
+            val bookId = item?.bookId
+            if (bookId != null && item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE && player.playWhenReady) {
+                onEpisodeEnded(bookId)
+            }
+        }
         if (playbackState == Player.STATE_READY) learnDuration()
     }
 

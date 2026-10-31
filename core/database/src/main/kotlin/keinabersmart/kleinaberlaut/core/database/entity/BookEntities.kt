@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.core.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -36,6 +37,10 @@ data class PodcastFeedEntity(
     val syncGeneration: Long = 0,
     /** Neue Folgen automatisch herunterladen (je Podcast einstellbar). */
     val autoDownload: Boolean = false,
+    /** „Alle abspielen“ und das Weiterspielen laufen von der neuesten Folge rückwärts statt von der ältesten vorwärts. */
+    @ColumnInfo(defaultValue = "0") val newestFirst: Boolean = false,
+    /** Nach dem Ende einer Folge startet von selbst die nächste. */
+    @ColumnInfo(defaultValue = "1") val continuous: Boolean = true,
 )
 
 @Entity(

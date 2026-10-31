@@ -35,7 +35,9 @@ import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackSourceResolver
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackStateRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
+import keinabersmart.kleinaberlaut.core.data.spoken.BookPlaybackSource
 import keinabersmart.kleinaberlaut.core.data.spoken.BookProgressSync
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import kotlinx.coroutines.CoroutineScope
@@ -46,6 +48,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.util.Optional
 import javax.inject.Inject
@@ -78,6 +81,8 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var sleepTimer: SleepTimer
     @Inject lateinit var bookRepository: BookRepository
     @Inject lateinit var bookProgressSync: BookProgressSync
+    @Inject lateinit var bookPlaybackSource: BookPlaybackSource
+    @Inject lateinit var podcastRepository: PodcastRepository
     @Inject lateinit var bookCovers: BookCovers
 
     /** Für Player-Zugriffe (Main-Thread). */
@@ -148,7 +153,9 @@ class PlaybackService : MediaLibraryService() {
         playTracker = PlayTracker(player, playbackStateRepository, ioScope)
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
-        bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, mainScope)
+        bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, mainScope) { endedId ->
+            continueWithNextEpisode(player, endedId)
+        }
         player.addListener(bookListener)
         mainScope.launch {
             libraryRemovals.removals.collect { removeMissingSongs(player) }
@@ -170,6 +177,20 @@ class PlaybackService : MediaLibraryService() {
 
         session?.let { bindFavoriteButton(player, it) }
         restoreQueue(player)
+    }
+
+    /**
+     * Folge-für-Folge (Konzept 12.4): Ist eine Podcast-Folge zu Ende, wird die nächste erst jetzt geladen. Wurde in der
+     * Zwischenzeit etwas anderes gestartet, bleibt es dabei.
+     */
+    private fun continueWithNextEpisode(player: Player, endedId: Long) {
+        mainScope.launch {
+            val prepared = withContext(Dispatchers.IO) {
+                podcastRepository.autoNextAfter(endedId)?.let { bookPlaybackSource.prepare(it) }
+            } ?: return@launch
+            val stillWaiting = player.playbackState == Player.STATE_ENDED && player.currentMediaItem?.bookId == endedId
+            if (stillWaiting) player.playBook(prepared)
+        }
     }
 
     /** Herz neben den Wiedergabetasten (Android Auto, Benachrichtigung); zeigt den Favoriten-Zustand des aktuellen Songs. */
