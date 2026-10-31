@@ -4,7 +4,7 @@ package keinabersmart.kleinaberlaut.core.model
 enum class BookKind { BOOK, EPISODE }
 
 /** Schalter in der oberen Leiste von Start und Bibliothek (Konzept 12.5). */
-enum class SpokenMode { MUSIC, SPOKEN }
+enum class SpokenMode { MUSIC, PODCASTS, BOOKS }
 
 data class Book(
     val id: Long,
@@ -20,6 +20,24 @@ data class Book(
     val remoteId: String,
     val addedAt: Long = 0,
 )
+
+/** Eine Serie eines Buchs, mit Band, falls der Server ihn mitliefert. */
+data class SeriesRef(val name: String, val sequence: Double?)
+
+/**
+ * Audiobookshelf liefert den Serienamen samt Band („Carl Mørck #10“, mehrere Serien durch „, “ getrennt, nach dem
+ * Band). Hier wird beides getrennt; ein „#“ ohne Zahl gehört zum Namen.
+ */
+fun parseSeries(raw: String): List<SeriesRef> =
+    raw.split(SERIES_SEPARATOR)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .map { part ->
+            SERIES_PART.find(part)?.let { SeriesRef(it.groupValues[1].trim(), it.groupValues[2].toDouble()) } ?: SeriesRef(part, null)
+        }
+
+private val SERIES_PART = Regex("""^(.*?)\s+#(\d+(?:\.\d+)?)$""")
+private val SERIES_SEPARATOR = Regex("""(?<=#[\d.]{1,10}),\s*""")
 
 data class BookChapter(
     val index: Int,

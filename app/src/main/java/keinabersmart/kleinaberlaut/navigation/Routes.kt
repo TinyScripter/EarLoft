@@ -40,6 +40,17 @@ data class BookRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
+enum class BookGroupKind { SERIES, AUTHOR }
+
+/** Alle Bücher einer Serie oder eines Autors. */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class BookGroupRoute(
+    val kind: BookGroupKind,
+    val name: String,
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
 @Serializable
 data object AddAudiobookshelfRoute : NavKey
 

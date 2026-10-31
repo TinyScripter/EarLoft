@@ -27,7 +27,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -92,7 +91,6 @@ fun LibraryScreen(
     val scope = rememberCoroutineScope()
 
     Column(modifier.fillMaxSize()) {
-        TopAppBar(title = { Text(stringResource(R.string.nav_library)) })
         PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
             LibraryTab.entries.forEachIndexed { index, tab ->
                 Tab(

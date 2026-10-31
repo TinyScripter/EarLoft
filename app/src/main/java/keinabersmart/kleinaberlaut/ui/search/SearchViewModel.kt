@@ -46,7 +46,9 @@ enum class SearchScope(val music: Boolean, val books: Boolean) {
     companion object {
         fun of(searchAll: Boolean, mode: SpokenMode): SearchScope = when {
             searchAll -> ALL
-            mode == SpokenMode.SPOKEN -> SPOKEN
+            mode == SpokenMode.BOOKS -> SPOKEN
+            // Podcasts haben noch keinen Inhalt, den man einschränken könnte.
+            mode == SpokenMode.PODCASTS -> ALL
             else -> MUSIC
         }
     }

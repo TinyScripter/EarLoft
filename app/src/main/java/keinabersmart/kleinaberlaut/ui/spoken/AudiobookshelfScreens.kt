@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import keinabersmart.kleinaberlaut.ui.library.BackButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -168,11 +169,7 @@ fun AudiobookshelfFormScreen(
     Column(modifier.fillMaxSize().imePadding()) {
         TopAppBar(
             title = { Text(stringResource(R.string.spoken_abs_add)) },
-            navigationIcon = {
-                IconButton(onClick = onDone) {
-                    Icon(painterResource(DesignR.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
-                }
-            },
+            navigationIcon = { BackButton(onDone) },
         )
         Column(
             Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp),

@@ -15,13 +15,14 @@ class SearchScopeTest {
     @Test
     fun `search all ignores the mode`() {
         assertEquals(SearchScope.ALL, SearchScope.of(searchAll = true, mode = SpokenMode.MUSIC))
-        assertEquals(SearchScope.ALL, SearchScope.of(searchAll = true, mode = SpokenMode.SPOKEN))
+        assertEquals(SearchScope.ALL, SearchScope.of(searchAll = true, mode = SpokenMode.BOOKS))
     }
 
     @Test
     fun `without search all the mode decides`() {
         assertEquals(SearchScope.MUSIC, SearchScope.of(searchAll = false, mode = SpokenMode.MUSIC))
-        assertEquals(SearchScope.SPOKEN, SearchScope.of(searchAll = false, mode = SpokenMode.SPOKEN))
+        assertEquals(SearchScope.SPOKEN, SearchScope.of(searchAll = false, mode = SpokenMode.BOOKS))
+        assertEquals(SearchScope.ALL, SearchScope.of(searchAll = false, mode = SpokenMode.PODCASTS))
     }
 
     @Test

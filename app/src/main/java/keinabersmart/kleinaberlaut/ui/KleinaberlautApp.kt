@@ -51,6 +51,7 @@ import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy.Companion.
 import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy.Companion.listPane
 import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy.Companion.nestedDetailPane
 import keinabersmart.kleinaberlaut.navigation.Navigator
+import keinabersmart.kleinaberlaut.navigation.BookGroupRoute
 import keinabersmart.kleinaberlaut.navigation.NowPlayingRoute
 import keinabersmart.kleinaberlaut.navigation.PlaylistRoute
 import keinabersmart.kleinaberlaut.navigation.QueueRoute
@@ -90,6 +91,7 @@ import keinabersmart.kleinaberlaut.ui.spoken.BookScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenHomeScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenLibraryScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenMiniPlayer
+import keinabersmart.kleinaberlaut.ui.spoken.BookGroupScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenModeHost
 import keinabersmart.kleinaberlaut.ui.spoken.bookFraction
 
@@ -127,12 +129,15 @@ fun KleinaberlautApp(
     val openArtist: (Long) -> Unit = { navigator.navigate(ArtistRoute(it)) }
     val openBook: (Long) -> Unit = { navigator.navigate(BookRoute(it)) }
     val setupAudiobookshelf: () -> Unit = { navigator.navigate(AddAudiobookshelfRoute) }
+    // Modus gewechselt: die Detailspalte des vorigen Modus schließen (Tab auf seine Startseite zurück).
+    val closeDetail: () -> Unit = { navigator.navigate(navigationState.topLevelRoute) }
 
     val entryProvider = entryProvider {
         entry<HomeRoute> {
             SpokenModeHost(
                 music = { HomeScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) },
-                spoken = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
+                books = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
+                onModeChange = closeDetail,
             )
         }
         entry<LibraryRoute>(metadata = listPane()) {
@@ -145,7 +150,14 @@ fun KleinaberlautApp(
                         onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
                     )
                 },
-                spoken = { SpokenLibraryScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
+                books = {
+                    SpokenLibraryScreen(
+                        onBookClick = openBook,
+                        onGroupClick = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
+                        onSetup = setupAudiobookshelf,
+                    )
+                },
+                onModeChange = closeDetail,
             )
         }
         entry<BookRoute> { route ->
@@ -156,6 +168,9 @@ fun KleinaberlautApp(
                 isCurrent = playerState.spoken?.bookId == route.bookId,
                 onOpenPlayer = navigator::showNowPlaying,
             )
+        }
+        entry<BookGroupRoute>(metadata = detailPane()) { route ->
+            BookGroupScreen(kind = route.kind, name = route.name, onBack = navigator::goBack, onBookClick = openBook)
         }
         entry<AddAudiobookshelfRoute>(metadata = detailPane()) { AudiobookshelfFormScreen(onDone = navigator::goBack) }
         entry<FavoritesRoute>(metadata = detailPane()) { FavoritesScreen(onBack = navigator::goBack) }

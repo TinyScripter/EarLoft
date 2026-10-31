@@ -113,7 +113,7 @@
     <string name="theme_light">Hell</string>
     <string name="theme_dark">Dunkel</string>
     <string name="settings_search_all">Musik und Bücher gemeinsam durchsuchen</string>
-    <string name="settings_search_all_summary">Aus: Die Suche durchsucht nur den Inhalt des gewählten Modus (Musik oder Gesprochenes).</string>
+    <string name="settings_search_all_summary">Aus: Die Suche durchsucht nur den Inhalt des gewählten Modus (Musik oder Bücher).</string>
     <string name="settings_artist_images">Bilder von Interpreten herunterladen</string>
     <string name="settings_artist_images_summary">Sucht Fotos bei Deezer. Dafür werden Namen von Interpreten an Deezer gesendet.</string>
     <string name="settings_album_covers">Fehlende Album-Cover herunterladen</string>
@@ -305,12 +305,19 @@
 
     <!-- Gesprochenes: Hörbücher & Podcasts (Konzept 12) -->
     <string name="spoken_mode_music">Musik</string>
-    <string name="spoken_mode_spoken">Gesprochenes</string>
-    <string name="spoken_title_home">Gesprochenes</string>
+    <string name="spoken_mode_podcasts">Podcasts</string>
+    <string name="spoken_mode_books">Bücher</string>
+    <string name="spoken_podcasts_soon">Podcasts kommen später.</string>
+    <string name="spoken_tab_all">Alle</string>
+    <string name="spoken_tab_series">Serien</string>
+    <string name="spoken_tab_authors">Autoren</string>
+    <plurals name="book_count">
+        <item quantity="one">%d Buch</item>
+        <item quantity="other">%d Bücher</item>
+    </plurals>
     <string name="spoken_continue">Weiterhören</string>
     <string name="spoken_recent">Zuletzt hinzugefügt</string>
     <string name="spoken_books">Bücher</string>
-    <string name="spoken_all_books">Alle Bücher</string>
     <string name="spoken_no_server">Noch kein Audiobookshelf-Server eingerichtet.</string>
     <string name="spoken_no_books">Noch keine Bücher. In den Einstellungen abgleichen.</string>
     <string name="spoken_setup">Audiobookshelf einrichten</string>

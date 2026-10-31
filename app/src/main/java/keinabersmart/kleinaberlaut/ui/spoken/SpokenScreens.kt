@@ -1,6 +1,27 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.res.pluralStringResource
+import keinabersmart.kleinaberlaut.core.common.sortKey
+import keinabersmart.kleinaberlaut.core.model.parseSeries
+import keinabersmart.kleinaberlaut.navigation.BookGroupKind
+import keinabersmart.kleinaberlaut.ui.components.LazyGridFastScroller
+import keinabersmart.kleinaberlaut.ui.library.BackButton
+import keinabersmart.kleinaberlaut.ui.components.LazyListFastScroller
+import keinabersmart.kleinaberlaut.ui.components.letterOf
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,8 +37,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,7 +44,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,7 +55,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
-import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
@@ -46,13 +63,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
-import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @HiltViewModel
 class SpokenLibraryViewModel @Inject constructor(
     books: BookRepository,
     servers: AudiobookshelfServers,
-    private val refresher: SpokenRefresher,
 ) : ViewModel() {
 
     val continueListening: StateFlow<List<BookWithProgress>> = books.continueListening()
@@ -69,12 +84,32 @@ class SpokenLibraryViewModel @Inject constructor(
     /** `null`, solange noch geladen wird. */
     val hasServer: StateFlow<Boolean?> = servers.servers.map<_, Boolean?> { it.isNotEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    fun refresh() = refresher.refreshAll()
 }
 
-/** Start im Modus „Gesprochenes“: weiterhören und neu hinzugekommene Bücher. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Bücher mit gleichem Autor bzw. aus der gleichen Serie. */
+data class BookGroup(val name: String, val books: List<BookWithProgress>)
+
+/** Nach Autor; Bücher ohne Autor entfallen. Gruppen nach Name, Bücher darin nach Titel. */
+fun List<BookWithProgress>.authorGroups(): List<BookGroup> =
+    filter { it.book.author.isNotBlank() }
+        .groupBy { it.book.author.trim() }
+        .map { (name, books) -> BookGroup(name, books.sortedBy { it.book.title.sortKey() }) }
+        .sortedBy { it.name.sortKey() }
+
+/** Nach Serie (ohne Bandnummer, ein Buch kann in mehreren stehen); Bücher darin nach Band, dann Titel. */
+fun List<BookWithProgress>.seriesGroups(): List<BookGroup> =
+    flatMap { item -> parseSeries(item.book.series).map { Triple(it.name, it.sequence, item) } }
+        .groupBy { it.first }
+        .map { (name, entries) ->
+            val sorted = entries.sortedWith(compareBy({ it.second ?: Double.MAX_VALUE }, { it.third.book.title.sortKey() }))
+            BookGroup(name, sorted.map { it.third })
+        }
+        .sortedBy { it.name.sortKey() }
+
+fun List<BookWithProgress>.groups(kind: BookGroupKind): List<BookGroup> =
+    if (kind == BookGroupKind.SERIES) seriesGroups() else authorGroups()
+
+/** Start im Modus „Bücher“: weiterhören und neu hinzugekommene Bücher. */
 @Composable
 fun SpokenHomeScreen(
     onBookClick: (Long) -> Unit,
@@ -87,14 +122,6 @@ fun SpokenHomeScreen(
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
 
     Column(modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text(stringResource(R.string.spoken_title_home)) },
-            actions = {
-                IconButton(onClick = viewModel::refresh) {
-                    Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
-                }
-            },
-        )
         when {
             hasServer == false -> NoServerHint(onSetup)
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
@@ -114,35 +141,123 @@ fun SpokenHomeScreen(
     }
 }
 
-/** Bibliothek im Modus „Gesprochenes“: alle Bücher als Raster. */
+private enum class BookTab(@StringRes val label: Int) {
+    ALL(R.string.spoken_tab_all),
+    SERIES(R.string.spoken_tab_series),
+    AUTHORS(R.string.spoken_tab_authors),
+}
+
+/** Bibliothek im Modus „Bücher“: Alle (Raster), Serien und Autoren (Listen) wie bei der Musik. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpokenLibraryScreen(
     onBookClick: (Long) -> Unit,
+    onGroupClick: (BookGroupKind, String) -> Unit,
     onSetup: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SpokenLibraryViewModel = hiltViewModel(),
 ) {
     val books by viewModel.allBooks.collectAsStateWithLifecycle()
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
+    val pagerState = rememberPagerState { BookTab.entries.size }
+    val scope = rememberCoroutineScope()
 
     Column(modifier.fillMaxSize()) {
-        TopAppBar(title = { Text(stringResource(R.string.spoken_all_books)) })
         when {
             hasServer == false -> NoServerHint(onSetup)
             books.isNullOrEmpty() && hasServer == true -> EmptyHint(stringResource(R.string.spoken_no_books))
-            else -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(150.dp),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                items(books.orEmpty(), key = { it.book.id }) { item ->
-                    BookCard(item, onClick = { onBookClick(item.book.id) })
+            else -> {
+                val all = books.orEmpty()
+                val series = remember(all) { all.seriesGroups() }
+                val authors = remember(all) { all.authorGroups() }
+                PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
+                    BookTab.entries.forEachIndexed { index, tab ->
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                            text = { Text(stringResource(tab.label)) },
+                        )
+                    }
+                }
+                HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth(), key = { it }) { page ->
+                    when (BookTab.entries[page]) {
+                        BookTab.ALL -> BookGrid(all, onBookClick, fastScroll = true)
+                        BookTab.SERIES -> BookGroupList(series) { onGroupClick(BookGroupKind.SERIES, it) }
+                        BookTab.AUTHORS -> BookGroupList(authors) { onGroupClick(BookGroupKind.AUTHOR, it) }
+                    }
                 }
             }
         }
+    }
+}
+
+/** Bücher als Raster; mit Schnellscroller, wenn die Liste nach Titel sortiert ist. */
+@Composable
+private fun BookGrid(books: List<BookWithProgress>, onBookClick: (Long) -> Unit, fastScroll: Boolean = false) {
+    val state = rememberLazyGridState()
+    Box(Modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(150.dp),
+            state = state,
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            items(books, key = { it.book.id }) { item ->
+                BookCard(item, onClick = { onBookClick(item.book.id) })
+            }
+        }
+        if (fastScroll) {
+            LazyGridFastScroller(state, labelAt = { index -> letterOf(books.getOrNull(index)?.book?.title.orEmpty().sortKey()) })
+        }
+    }
+}
+
+/** Serien bzw. Autoren mit dem Cover des ersten Buchs und der Anzahl. */
+@Composable
+private fun BookGroupList(groups: List<BookGroup>, onClick: (String) -> Unit) {
+    if (groups.isEmpty()) {
+        EmptyHint(stringResource(R.string.library_empty))
+        return
+    }
+    val state = rememberLazyListState()
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), state = state) {
+            items(groups, key = { it.name }) { group ->
+                ListItem(
+                    headlineContent = { Text(group.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    supportingContent = { Text(pluralStringResource(R.plurals.book_count, group.books.size, group.books.size)) },
+                    leadingContent = { BookArt(group.books.first().book.id, Modifier.size(48.dp), MaterialTheme.shapes.small) },
+                    modifier = Modifier.clickable { onClick(group.name) },
+                )
+            }
+        }
+        LazyListFastScroller(state, labelAt = { index -> letterOf(groups.getOrNull(index)?.name.orEmpty().sortKey()) })
+    }
+}
+
+/** Alle Bücher einer Serie oder eines Autors. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BookGroupScreen(
+    kind: BookGroupKind,
+    name: String,
+    onBack: () -> Unit,
+    onBookClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: SpokenLibraryViewModel = hiltViewModel(),
+) {
+    val books by viewModel.allBooks.collectAsStateWithLifecycle()
+    val group = remember(books, kind, name) {
+        books.orEmpty().groups(kind).firstOrNull { it.name == name }
+    }
+    Column(modifier.fillMaxSize()) {
+        TopAppBar(
+            title = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            navigationIcon = { BackButton(onBack) },
+        )
+        BookGrid(group?.books.orEmpty(), onBookClick)
     }
 }
 

@@ -1,24 +1,19 @@
 package keinabersmart.kleinaberlaut.ui.home
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -50,7 +45,6 @@ fun HomeScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeContent(
     state: HomeUiState,
@@ -59,15 +53,6 @@ private fun HomeContent(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
-        TopAppBar(
-            title = {
-                Image(
-                    painter = painterResource(R.drawable.logo_wide),
-                    contentDescription = stringResource(R.string.app_name),
-                    modifier = Modifier.height(40.dp),
-                )
-            },
-        )
         if (state.isSyncing) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
         }

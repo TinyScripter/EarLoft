@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,15 +9,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,10 +40,12 @@ import coil3.compose.AsyncImage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
+import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import keinabersmart.kleinaberlaut.core.model.SpokenMode
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
+import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -56,44 +61,81 @@ import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 @HiltViewModel
 class SpokenModeViewModel @Inject constructor(
     private val settings: SpokenSettings,
+    private val refresher: SpokenRefresher,
 ) : ViewModel() {
     val mode: StateFlow<SpokenMode> = settings.mode.stateIn(viewModelScope, SharingStarted.Eagerly, SpokenMode.MUSIC)
 
     fun setMode(mode: SpokenMode) {
         viewModelScope.launch { settings.setMode(mode) }
     }
+
+    fun refreshBooks() = refresher.refreshAll()
 }
 
 /**
- * Schalter Musik / Gesprochenes über Start und Bibliothek (Konzept 12.5). Er schaltet nur den Inhalt dieser beiden
- * Tabs um; Suche, Einstellungen, Mini-Player und Wiedergabe-Ansicht hängen am laufenden Item.
+ * Ganz oben das Banner der App, darunter der Schalter Musik / Podcasts / Bücher über Start und Bibliothek
+ * (Konzept 12.5). Er schaltet nur den Inhalt dieser beiden Tabs um; Suche, Einstellungen, Mini-Player und
+ * Wiedergabe-Ansicht hängen am laufenden Item.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpokenModeHost(
     music: @Composable () -> Unit,
-    spoken: @Composable () -> Unit,
+    books: @Composable () -> Unit,
+    /** Nach dem Wechsel auf einen anderen Modus; schließt z. B. die Detailspalte des vorigen Modus. */
+    onModeChange: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SpokenModeViewModel = hiltViewModel(),
 ) {
     val mode by viewModel.mode.collectAsStateWithLifecycle()
-    // Die Statusleiste verbraucht hier der Schalter; die Bildschirme darunter bekommen sie als bereits belegt gemeldet.
-    Column(modifier.fillMaxSize().statusBarsPadding()) {
+    // Die Statusleiste verbraucht das Banner; die Bildschirme darunter haben keine eigene Leiste mehr.
+    Column(modifier.fillMaxSize()) {
+        TopAppBar(
+            title = {
+                Image(
+                    painter = painterResource(R.drawable.logo_wide),
+                    contentDescription = stringResource(R.string.app_name),
+                    modifier = Modifier.height(40.dp),
+                )
+            },
+            actions = {
+                if (mode == SpokenMode.BOOKS) {
+                    IconButton(onClick = viewModel::refreshBooks) {
+                        Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
+                    }
+                }
+            },
+        )
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
             SpokenMode.entries.forEachIndexed { index, entry ->
                 SegmentedButton(
                     selected = mode == entry,
-                    onClick = { viewModel.setMode(entry) },
+                    onClick = {
+                        if (entry != mode) {
+                            viewModel.setMode(entry)
+                            onModeChange()
+                        }
+                    },
                     shape = SegmentedButtonDefaults.itemShape(index, SpokenMode.entries.size),
                 ) {
-                    Text(stringResource(if (entry == SpokenMode.MUSIC) R.string.spoken_mode_music else R.string.spoken_mode_spoken))
+                    Text(stringResource(modeLabel(entry)))
                 }
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (mode == SpokenMode.MUSIC) music() else spoken()
+            when (mode) {
+                SpokenMode.MUSIC -> music()
+                SpokenMode.PODCASTS -> EmptyHint(stringResource(R.string.spoken_podcasts_soon))
+                SpokenMode.BOOKS -> books()
+            }
         }
     }
+}
+
+private fun modeLabel(mode: SpokenMode): Int = when (mode) {
+    SpokenMode.MUSIC -> R.string.spoken_mode_music
+    SpokenMode.PODCASTS -> R.string.spoken_mode_podcasts
+    SpokenMode.BOOKS -> R.string.spoken_mode_books
 }
 
 /** Quadratisches Buchcover; solange keines geladen ist (oder keines existiert), bleibt das Buch-Symbol sichtbar. */

@@ -20,9 +20,11 @@ private val Context.spokenSettingsDataStore: DataStore<Preferences> by preferenc
 class SpokenSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
-    /** Schalter Musik / Gesprochenes in Start und Bibliothek (Standard: Musik). */
+    /** Schalter Musik / Podcasts / Bücher in Start und Bibliothek (Standard: Musik). */
     val mode: Flow<SpokenMode> = context.spokenSettingsDataStore.data.map { preferences ->
-        preferences[KEY_MODE]?.let { name -> SpokenMode.entries.firstOrNull { it.name == name } } ?: SpokenMode.MUSIC
+        // „SPOKEN“ hieß der Modus, bevor er in Podcasts und Bücher geteilt wurde.
+        preferences[KEY_MODE]?.let { name -> if (name == "SPOKEN") SpokenMode.BOOKS else SpokenMode.entries.firstOrNull { it.name == name } }
+            ?: SpokenMode.MUSIC
     }
 
     suspend fun setMode(mode: SpokenMode) {
