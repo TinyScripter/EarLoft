@@ -82,6 +82,10 @@ class BookRepository @Inject constructor(
 
     suspend fun bookNow(bookId: Long): Book? = dao.book(bookId)?.toModel()
 
+    /** Download-Stand aller Bücher; Bücher ohne geladene Dateiliste fehlen (= [TrackDownload.NONE]). */
+    fun downloads(): Flow<Map<Long, BookDownload>> =
+        dao.observeBookDownloads().map { rows -> rows.associate { it.bookId to BookDownload(it.state(), it.bytes) } }
+
     /** Download-Stand des Buchs; ohne geladene Dateiliste [TrackDownload.NONE]. */
     fun download(bookId: Long): Flow<BookDownload> =
         dao.observeBookDownloads().map { rows ->

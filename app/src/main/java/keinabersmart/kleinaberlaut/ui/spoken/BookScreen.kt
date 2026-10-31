@@ -302,7 +302,7 @@ private fun DownloadButton(
 
 /** „32 MB von 500 MB geladen“; ohne bekannte Gesamtgröße nur der übertragene Teil, vor dem Start „Wartet“. */
 @Composable
-private fun transferText(transfer: BookTransfer?): String = when {
+internal fun transferText(transfer: BookTransfer?): String = when {
     transfer == null -> stringResource(R.string.book_download_waiting)
     transfer.totalBytes == null -> stringResource(R.string.book_download_progress_unknown, formatBytes(transfer.doneBytes))
     else -> stringResource(R.string.book_download_progress, formatBytes(transfer.doneBytes), formatBytes(transfer.totalBytes!!))

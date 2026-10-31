@@ -208,7 +208,7 @@
     <string name="download_state_downloaded">Heruntergeladen</string>
     <string name="download_state_pending">Wartet auf Download</string>
     <string name="download_state_failed">Download fehlgeschlagen</string>
-    <string name="downloads_empty">Noch nichts heruntergeladen. Öffne ein Album vom Server und tippe auf den Download-Pfeil, um es ohne Netz zu hören.</string>
+    <string name="downloads_empty">Noch nichts heruntergeladen. Öffne ein Album oder ein Buch vom Server und tippe auf den Download-Pfeil, um es ohne Netz zu hören.</string>
     <string name="downloads_storage">%1$s belegt · %2$s frei</string>
     <plurals name="downloads_pending">
         <item quantity="one">Noch %1$d Titel</item>
@@ -395,6 +395,11 @@
     <string name="book_download_delete_title">Download löschen?</string>
     <string name="book_download_delete_message">Das gibt %1$s frei. Das Buch bleibt in der Bibliothek und lässt sich weiter streamen.</string>
     <string name="book_download_delete_confirm">Löschen</string>
+    <string name="book_download_done">Heruntergeladen</string>
+    <string name="book_download_running">Download läuft oder wartet</string>
+    <string name="book_download_failed">Download fehlgeschlagen</string>
+    <string name="downloads_section_music">Musik</string>
+    <string name="downloads_section_books">Bücher</string>
     <string name="podcast_remove_heard_downloads">Downloads gehörter Folgen löschen</string>
     <string name="podcast_continuous">Nächste Folge einreihen</string>
     <string name="podcast_continuous_summary">Startest du eine Folge, kommt die nächste ungehörte direkt dahinter in „Weiterhören“.</string>

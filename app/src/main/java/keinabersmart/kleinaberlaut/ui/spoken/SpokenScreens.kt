@@ -398,6 +398,7 @@ fun BookCard(item: BookWithProgress, onClick: () -> Unit, modifier: Modifier = M
         if (episode) EpisodeMenu(item, expanded = menu, onDismiss = { menu = false })
         Box {
             BookArt(item.book.id, Modifier.fillMaxWidth())
+            if (!episode) BookDownloadBadge(item.book.id, Modifier.align(Alignment.TopStart).padding(6.dp))
             if (onPlay != null) {
                 FilledTonalIconButton(
                     onClick = onPlay,

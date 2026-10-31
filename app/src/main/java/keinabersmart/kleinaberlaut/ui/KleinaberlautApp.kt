@@ -105,7 +105,9 @@ import keinabersmart.kleinaberlaut.ui.spoken.SpokenLibraryScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenMiniPlayer
 import keinabersmart.kleinaberlaut.ui.spoken.BookGroupScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenModeHost
+import keinabersmart.kleinaberlaut.ui.spoken.LocalBookDownloads
 import keinabersmart.kleinaberlaut.ui.spoken.bookFraction
+import keinabersmart.kleinaberlaut.ui.spoken.rememberBookDownloads
 
 @Composable
 fun KleinaberlautApp(
@@ -224,7 +226,7 @@ fun KleinaberlautApp(
         entry<PodcastSearchRoute>(metadata = nestedDetailPane()) { route ->
             PodcastSearchScreen(feedId = route.feedId, onBack = navigator::goBack, onEpisodeClick = openBook)
         }
-        entry<DownloadsRoute>(metadata = detailPane()) { DownloadsScreen(onBack = navigator::goBack, onAlbumClick = openAlbum) }
+        entry<DownloadsRoute>(metadata = detailPane()) { DownloadsScreen(onBack = navigator::goBack, onAlbumClick = openAlbum, onBookClick = openBook) }
         entry<AlbumRoute>(metadata = nestedDetailPane()) { route ->
             AlbumScreen(albumId = route.albumId, onBack = navigator::goBack)
         }
@@ -273,6 +275,7 @@ fun KleinaberlautApp(
     CompositionLocalProvider(
         LocalOfflineController provides rememberOfflineController(),
         LocalWatchController provides rememberWatchController(),
+        LocalBookDownloads provides rememberBookDownloads(),
     ) {
         // Die Bildschirme kümmern sich selbst um die Statusleiste und – im Vollbild-Player – um die Navigationsleiste.
         NavigationSuiteScaffold(

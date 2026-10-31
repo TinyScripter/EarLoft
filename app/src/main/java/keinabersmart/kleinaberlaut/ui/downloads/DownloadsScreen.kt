@@ -44,7 +44,11 @@ import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.model.DownloadedAlbum
+import keinabersmart.kleinaberlaut.core.download.BookTransfer
+import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.ui.components.AlbumArt
+import keinabersmart.kleinaberlaut.ui.spoken.BookArt
+import keinabersmart.kleinaberlaut.ui.spoken.transferText
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
 import keinabersmart.kleinaberlaut.ui.formatBytes
@@ -56,16 +60,21 @@ import kotlinx.coroutines.delay
 fun DownloadsScreen(
     onBack: () -> Unit,
     onAlbumClick: (Long) -> Unit,
+    onBookClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val transfers by viewModel.transfers.collectAsStateWithLifecycle()
     DownloadsContent(
         state = state,
+        transfers = transfers,
         onBack = onBack,
         onAlbumClick = onAlbumClick,
+        onBookClick = onBookClick,
         onRetryFailed = viewModel::retryFailed,
         onRemoveAlbum = viewModel::removeAlbum,
+        onRemoveBook = viewModel::removeBook,
         onRemoveAll = viewModel::removeAll,
         modifier = modifier,
     )
@@ -75,14 +84,18 @@ fun DownloadsScreen(
 @Composable
 private fun DownloadsContent(
     state: DownloadsUiState,
+    transfers: Map<Long, BookTransfer>,
     onBack: () -> Unit,
     onAlbumClick: (Long) -> Unit,
+    onBookClick: (Long) -> Unit,
     onRetryFailed: () -> Unit,
     onRemoveAlbum: (Long) -> Unit,
+    onRemoveBook: (Long) -> Unit,
     onRemoveAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var albumToRemove by rememberSaveable { mutableStateOf<Long?>(null) }
+    var bookToRemove by rememberSaveable { mutableStateOf<Long?>(null) }
     var confirmRemoveAll by rememberSaveable { mutableStateOf(false) }
     val overview = state.overview
 
@@ -91,7 +104,7 @@ private fun DownloadsContent(
             title = { Text(stringResource(R.string.nav_downloads)) },
             navigationIcon = { BackButton(onBack) },
             actions = {
-                if (state.albums.isNotEmpty()) {
+                if (state.albums.isNotEmpty() || state.books.isNotEmpty()) {
                     Box {
                         var menuOpen by remember { mutableStateOf(false) }
                         IconButton(onClick = { menuOpen = true }) {
@@ -113,16 +126,30 @@ private fun DownloadsContent(
         )
         when {
             state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            state.albums.isEmpty() -> EmptyHint(stringResource(R.string.downloads_empty))
+            state.albums.isEmpty() && state.books.isEmpty() -> EmptyHint(stringResource(R.string.downloads_empty))
             else -> LazyColumn(Modifier.fillMaxSize()) {
                 item(key = "storage") { StorageLine(overview) }
                 if (overview.pendingSongs > 0) item(key = "pending") { PendingRow(overview) }
                 if (overview.failedSongs > 0) item(key = "failed") { FailedRow(overview.failedSongs, onRetryFailed) }
-                items(state.albums, key = { it.album.id }) { album ->
+                val sections = state.albums.isNotEmpty() && state.books.isNotEmpty()
+                if (sections) item(key = "albums-header") { SectionHeader(stringResource(R.string.downloads_section_music)) }
+                items(state.albums, key = { "album-${it.album.id}" }) { album ->
                     DownloadedAlbumRow(
                         album = album,
                         onClick = { onAlbumClick(album.album.id) },
                         onRemove = { albumToRemove = album.album.id },
+                    )
+                }
+                if (sections) item(key = "books-header") { SectionHeader(stringResource(R.string.downloads_section_books)) }
+                items(state.books, key = { "book-${it.book.id}" }) { item ->
+                    DownloadedBookRow(
+                        item = item,
+                        transfer = transfers[item.book.id],
+                        onClick = { onBookClick(item.book.id) },
+                        // Ein wartender oder ladender Download wird ohne Rückfrage abgebrochen, ein geladener gelöscht.
+                        onRemove = {
+                            if (item.download.state == TrackDownload.DONE) bookToRemove = item.book.id else onRemoveBook(item.book.id)
+                        },
                     )
                 }
             }
@@ -136,6 +163,15 @@ private fun DownloadsContent(
             text = stringResource(R.string.download_album_remove_text, removing.album.title),
             onConfirm = { onRemoveAlbum(removing.album.id) },
             onDismiss = { albumToRemove = null },
+        )
+    }
+    val removingBook = state.books.firstOrNull { it.book.id == bookToRemove }
+    if (removingBook != null) {
+        ConfirmDialog(
+            title = stringResource(R.string.book_download_delete_title),
+            text = stringResource(R.string.book_download_delete_message, formatBytes(removingBook.download.bytes)),
+            onConfirm = { onRemoveBook(removingBook.book.id) },
+            onDismiss = { bookToRemove = null },
         )
     }
     if (confirmRemoveAll) {
@@ -232,6 +268,50 @@ private fun DownloadedAlbumRow(album: DownloadedAlbum, onClick: () -> Unit, onRe
 }
 
 @Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+    )
+}
+
+/** Buch mit Cover und Stand: Größe, „32 MB von 500 MB geladen“, Wartet oder Fehler; Tipp öffnet die Buchseite. */
+@Composable
+private fun DownloadedBookRow(item: DownloadedBook, transfer: BookTransfer?, onClick: () -> Unit, onRemove: () -> Unit) {
+    val state = item.download.state
+    ListItem(
+        headlineContent = { Text(item.book.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = {
+            Column {
+                Text(item.book.author, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                when (state) {
+                    TrackDownload.DONE -> Text(formatBytes(item.download.bytes), style = MaterialTheme.typography.bodySmall)
+                    TrackDownload.FAILED -> Text(
+                        stringResource(R.string.book_download_failed),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    else -> Text(transferText(transfer), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        leadingContent = { BookArt(item.book.id, Modifier.size(56.dp), MaterialTheme.shapes.small) },
+        trailingContent = {
+            IconButton(onClick = onRemove) {
+                if (state == TrackDownload.DONE || state == TrackDownload.FAILED) {
+                    Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = stringResource(R.string.action_remove_download))
+                } else {
+                    Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_cancel_download))
+                }
+            }
+        },
+        modifier = Modifier.clickable(onClick = onClick),
+    )
+}
+
+@Composable
 private fun ConfirmDialog(title: String, text: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -266,10 +346,13 @@ private fun DownloadsContentPreview() {
                 ),
                 isLoading = false,
             ),
+            transfers = emptyMap(),
             onBack = {},
             onAlbumClick = {},
+            onBookClick = {},
             onRetryFailed = {},
             onRemoveAlbum = {},
+            onRemoveBook = {},
             onRemoveAll = {},
         )
     }
