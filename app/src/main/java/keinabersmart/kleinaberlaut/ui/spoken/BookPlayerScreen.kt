@@ -47,7 +47,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -164,30 +163,7 @@ fun BookPlayerScreen(
     val positionState = stringResource(R.string.spoken_position_state, formatClock(shown), formatClock(duration))
     val speedLabel = stringResource(R.string.spoken_speed_description, formatSpeed(speed))
 
-    // Titel, Autor und Kapitel.
-    val details: @Composable () -> Unit = {
-        Text(
-            entry.title,
-            style = MaterialTheme.typography.titleLarge,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 16.dp),
-        )
-        Text(entry.author, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-        // Nur mit Kapiteln: Name des aktuellen Kapitels.
-        if (chapter != null) {
-            Text(
-                chapterTitle(chapter),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
-    }
-    // Positionsregler mit Zeiten und Restzeiten.
+    // Oben das ganze Buch (zum Spulen), darunter nur das Kapitel; jeweils links gespielt, rechts die Restzeit mit „-“.
     val progress: @Composable () -> Unit = {
         Slider(
             value = shown.coerceIn(0, duration.coerceAtLeast(1)).toFloat(),
@@ -205,22 +181,33 @@ fun BookPlayerScreen(
                     stateDescription = positionState
                 },
         )
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(formatClock(shown), style = MaterialTheme.typography.bodySmall)
-            Text(formatClock(duration), style = MaterialTheme.typography.bodySmall)
-        }
-        Text(
-            stringResource(R.string.spoken_remaining_total, formatDuration(remainingTotal)),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-        // Die Restzeit im Kapitel gibt es nur bei Büchern mit Kapiteln.
-        tl?.remainingChapterMs(shown, speed)?.let { remaining ->
+        TimeRow(elapsed = formatClock(shown), remaining = "-" + formatClock(remainingTotal))
+        // Nur bei Büchern mit Kapiteln.
+        val chapterRemaining = tl?.remainingChapterMs(shown, speed)
+        if (chapter != null && chapterRemaining != null) {
+            val chapterElapsed = (shown - chapter.startMs).coerceIn(0, chapter.durationMs)
+            val chapterLabel = stringResource(R.string.spoken_position_chapter)
+            val chapterState = stringResource(R.string.spoken_position_state, formatClock(chapterElapsed), formatClock(chapter.durationMs))
             Text(
-                stringResource(R.string.spoken_remaining_chapter, formatDuration(remaining)),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                chapterTitle(chapter),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 16.dp),
             )
+            LinearProgressIndicator(
+                progress = { if (chapter.durationMs > 0) (chapterElapsed.toFloat() / chapter.durationMs).coerceIn(0f, 1f) else 0f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .semantics {
+                        contentDescription = chapterLabel
+                        stateDescription = chapterState
+                    },
+                drawStopIndicator = {},
+            )
+            TimeRow(elapsed = formatClock(chapterElapsed), remaining = "-" + formatClock(chapterRemaining))
         }
     }
     val controls: @Composable () -> Unit = {
@@ -263,7 +250,7 @@ fun BookPlayerScreen(
                 sleepRemaining?.let { Text(formatClock(it), style = MaterialTheme.typography.bodySmall) }
             }
             IconButton(onClick = { showChapters = true }, enabled = tl?.hasChapters == true) {
-                Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = stringResource(R.string.spoken_chapters))
+                Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.spoken_chapters))
             }
         }
     }
@@ -288,7 +275,6 @@ fun BookPlayerScreen(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        details()
                         progress()
                         controls()
                         extras()
@@ -298,7 +284,6 @@ fun BookPlayerScreen(
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     BookArt(entry.bookId, Modifier.widthIn(max = 320.dp).fillMaxWidth())
                 }
-                details()
                 progress()
                 controls()
                 extras()
@@ -315,6 +300,15 @@ fun BookPlayerScreen(
             onChapter = { viewModel.seekToBook(it) },
             onDismiss = { showChapters = false },
         )
+    }
+}
+
+/** Gespielte Zeit links, Restzeit rechts. */
+@Composable
+private fun TimeRow(elapsed: String, remaining: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(elapsed, style = MaterialTheme.typography.bodySmall)
+        Text(remaining, style = MaterialTheme.typography.bodySmall)
     }
 }
 

@@ -322,8 +322,6 @@
     <string name="spoken_percent_listened">%1$d %% gehört</string>
     <string name="spoken_finished">Beendet</string>
     <string name="spoken_duration">%1$s</string>
-    <string name="spoken_remaining_total">noch %1$s im Buch</string>
-    <string name="spoken_remaining_chapter">noch %1$s im Kapitel</string>
     <string name="spoken_seek_back_30">30 Sekunden zurück</string>
     <string name="spoken_seek_forward_10">10 Sekunden vor</string>
     <string name="spoken_previous_chapter">Voriges Kapitel</string>
@@ -333,6 +331,7 @@
     <string name="spoken_speed_reset">Normale Geschwindigkeit</string>
     <string name="spoken_close">Schließen</string>
     <string name="spoken_position">Position im Buch</string>
+    <string name="spoken_position_chapter">Position im Kapitel</string>
     <string name="spoken_position_state">%1$s von %2$s</string>
     <string name="spoken_speed_description">Geschwindigkeit %1$s×</string>
     <string name="spoken_play_failed">Das Buch konnte nicht geladen werden. Ist der Server erreichbar?</string>
