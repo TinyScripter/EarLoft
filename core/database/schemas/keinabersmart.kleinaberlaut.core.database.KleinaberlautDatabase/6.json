@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 6,
-    "identityHash": "ef62ba32bd471bee0d820b6e2fb1274c",
+    "identityHash": "91a34bf3c7c946d58cee48e7a476f64a",
     "entities": [
       {
         "tableName": "sources",
@@ -1610,7 +1610,7 @@
       },
       {
         "tableName": "podcast_feeds",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`feedId` TEXT NOT NULL, `url` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT NOT NULL, `description` TEXT NOT NULL, `imageUrl` TEXT, `etag` TEXT, `lastModified` TEXT, `lastRefreshAt` INTEGER NOT NULL, `syncGeneration` INTEGER NOT NULL, PRIMARY KEY(`feedId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`feedId` TEXT NOT NULL, `url` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT NOT NULL, `description` TEXT NOT NULL, `imageUrl` TEXT, `etag` TEXT, `lastModified` TEXT, `lastRefreshAt` INTEGER NOT NULL, `syncGeneration` INTEGER NOT NULL, `autoDownload` INTEGER NOT NULL, PRIMARY KEY(`feedId`))",
         "fields": [
           {
             "fieldPath": "feedId",
@@ -1668,6 +1668,12 @@
             "columnName": "syncGeneration",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "autoDownload",
+            "columnName": "autoDownload",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -1691,7 +1697,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ef62ba32bd471bee0d820b6e2fb1274c')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '91a34bf3c7c946d58cee48e7a476f64a')"
     ]
   }
 }

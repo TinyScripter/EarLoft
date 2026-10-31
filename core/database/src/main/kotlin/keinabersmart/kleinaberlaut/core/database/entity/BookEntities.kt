@@ -34,6 +34,8 @@ data class PodcastFeedEntity(
     val lastRefreshAt: Long = 0,
     /** Zähler für Mark-and-Sweep: Folgen, die der Feed nicht mehr enthält, fallen weg. */
     val syncGeneration: Long = 0,
+    /** Neue Folgen automatisch herunterladen (je Podcast einstellbar). */
+    val autoDownload: Boolean = false,
 )
 
 @Entity(

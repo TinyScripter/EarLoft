@@ -82,6 +82,18 @@ data class SpokenServer(
     val lastFullSyncAt: Long,
 )
 
+/** Ein abonnierter Podcast (Konzept 12.1); seine Folgen sind [Book]s mit `kind = EPISODE` und `serverId = id`. */
+data class PodcastFeed(
+    val id: String,
+    val url: String,
+    val title: String,
+    val author: String,
+    val description: String,
+    val imageUrl: String?,
+    val autoDownload: Boolean,
+    val lastRefreshAt: Long,
+)
+
 /** Stelle in einer Datei des Buchs. */
 data class TrackPosition(val trackIndex: Int, val offsetMs: Long)
 

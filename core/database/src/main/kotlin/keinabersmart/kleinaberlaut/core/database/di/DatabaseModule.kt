@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
+import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
 import keinabersmart.kleinaberlaut.core.database.dao.LyricsDao
@@ -58,4 +59,7 @@ internal object DatabaseModule {
 
     @Provides
     fun provideBookDao(database: KleinaberlautDatabase): BookDao = database.bookDao()
+
+    @Provides
+    fun providePodcastDao(database: KleinaberlautDatabase): PodcastDao = database.podcastDao()
 }

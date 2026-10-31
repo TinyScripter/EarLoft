@@ -1,6 +1,8 @@
 package keinabersmart.kleinaberlaut.core.data.spoken
 
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.model.Book
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
@@ -26,6 +28,7 @@ class BookPlaybackSource @Inject constructor(
     private val servers: AudiobookshelfServers,
     private val api: AbsApi,
     private val progressSync: BookProgressSync,
+    private val podcasts: PodcastRepository,
 ) {
     /**
      * Gleicht den Fortschritt mit dem Server ab (ohne Verbindung gilt der lokale Stand) und baut die Medien-URLs.
@@ -34,9 +37,17 @@ class BookPlaybackSource @Inject constructor(
     suspend fun prepare(bookId: Long): PreparedBook? {
         val book = repository.bookNow(bookId) ?: return null
         val pulled = progressSync.pull(bookId)
+        val episode = book.kind == BookKind.EPISODE
+        // Kapitel einer Folge kommen aus einer eigenen Liste; fehlt sie oder ist sie offline nicht erreichbar, geht es ohne.
+        if (episode) podcasts.ensureChapters(bookId)
         val timeline = repository.timeline(bookId) ?: return null
-        val server = servers.server(book.serverId) ?: return null
-        val urls = timeline.tracks.map { api.fileUrl(server, book.remoteId, it.remoteFileId).toString() }
+        val urls = if (episode) {
+            // Bei Folgen ist die Dateikennung die Audio-Adresse aus dem Feed.
+            timeline.tracks.map { it.remoteFileId }
+        } else {
+            val server = servers.server(book.serverId) ?: return null
+            timeline.tracks.map { api.fileUrl(server, book.remoteId, it.remoteFileId).toString() }
+        }
         val progress = pulled.progress
         return PreparedBook(
             book = book,

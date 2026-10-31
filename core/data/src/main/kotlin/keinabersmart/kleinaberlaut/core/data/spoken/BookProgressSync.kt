@@ -17,6 +17,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsMediaProgressDto
@@ -79,6 +80,11 @@ class BookProgressSync @Inject constructor(
         val progress = dao.progress(bookId) ?: return true
         if (!progress.dirty) return true
         val book = dao.book(bookId) ?: return true
+        if (book.kind == BookKind.EPISODE) {
+            // Folgen haben keinen Server, der den Fortschritt kennen müsste.
+            dao.markClean(bookId, progress.updatedAt)
+            return true
+        }
         val server = servers.server(book.serverId) ?: return false
         lastPush[bookId] = System.currentTimeMillis()
         return try {

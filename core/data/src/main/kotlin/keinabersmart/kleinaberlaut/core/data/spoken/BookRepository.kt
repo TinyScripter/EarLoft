@@ -8,6 +8,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.model.Book
 import keinabersmart.kleinaberlaut.core.model.BookChapter
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.model.BookTrack
@@ -28,13 +29,13 @@ class BookRepository @Inject constructor(
     fun books(): Flow<List<BookWithProgress>> =
         combine(dao.observeBooks(), dao.observeAllProgress()) { books, progress ->
             val byBook = progress.associateBy { it.bookId }
-            books.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
+            books.filter { it.kind == BookKind.BOOK }.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
         }
 
     /** Angefangene, noch nicht beendete Bücher, zuletzt gehörte zuerst. */
     fun continueListening(limit: Int = 12): Flow<List<BookWithProgress>> =
         combine(dao.observeBooks(), dao.observeAllProgress()) { books, progress ->
-            val byId = books.associateBy { it.bookId }
+            val byId = books.filter { it.kind == BookKind.BOOK }.associateBy { it.bookId }
             progress
                 .filter { !it.finished && it.positionMs > 0 }
                 .sortedByDescending { it.updatedAt }

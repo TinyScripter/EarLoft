@@ -1,0 +1,183 @@
+package keinabersmart.kleinaberlaut.core.data.podcast
+
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
+import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
+import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import java.io.IOException
+import java.time.Instant
+
+@RunWith(RobolectricTestRunner::class)
+class PodcastRepositoryTest {
+
+    private lateinit var db: KleinaberlautDatabase
+    private lateinit var repository: PodcastRepository
+
+    /** Was der „Server“ gerade ausliefert; `null` = nicht erreichbar. */
+    private var served: String? = feed("A" to "Thu, 30 Oct 2025 06:00:00 GMT", "B" to "Wed, 29 Oct 2025 06:00:00 GMT", "C" to "Tue, 28 Oct 2025 06:00:00 GMT")
+
+    private val now = Instant.parse("2025-10-31T00:00:00Z").toEpochMilli()
+
+    @Before
+    fun setUp() {
+        db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KleinaberlautDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val body = served ?: throw IOException("offline")
+                Response.Builder()
+                    .request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                    .body(body.toResponseBody("application/rss+xml".toMediaType()))
+                    .build()
+            }
+            .build()
+        repository = PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client))
+    }
+
+    @After
+    fun tearDown() = db.close()
+
+    private suspend fun subscribe(): String = (repository.subscribe("https://example.com/feed.xml") as SubscribeResult.Added).feedId
+
+    private suspend fun idOf(feedId: String, title: String) = db.bookDao().booksOf(feedId).single { it.title == title }.bookId
+
+    private suspend fun listen(bookId: Long, positionMs: Long, updatedAt: Long, finished: Boolean = false) =
+        db.bookDao().upsertProgress(BookProgressEntity(bookId, positionMs, 600_000, finished, 1f, updatedAt))
+
+    @Test
+    fun `subscribing stores the feed and its episodes with one track each`() = runTest {
+        val feedId = subscribe()
+
+        val feed = db.podcastDao().feed(feedId)!!
+        assertEquals("Test-Podcast", feed.title)
+        val episodes = repository.episodes(feedId).first().map { it.book }
+        assertEquals(listOf("A", "B", "C"), episodes.map { it.title })
+        assertTrue(episodes.all { it.kind == BookKind.EPISODE && it.author == "Test-Podcast" })
+        val track = db.bookDao().tracks(episodes.first().id).single()
+        assertEquals("https://example.com/A.mp3", track.remoteFileId)
+        assertEquals(600_000, track.durationMs)
+        assertTrue(db.bookDao().book(episodes.first().id)!!.detailsLoaded)
+    }
+
+    @Test
+    fun `the same feed cannot be subscribed twice and bad input is told apart`() = runTest {
+        val feedId = subscribe()
+
+        assertEquals(SubscribeResult.AlreadySubscribed(feedId), repository.subscribe("https://example.com/feed.xml"))
+        assertEquals(SubscribeResult.InvalidUrl, repository.subscribe("kein feed"))
+        served = "<html></html>"
+        assertEquals(SubscribeResult.NotAFeed, repository.subscribe("https://example.com/other"))
+        served = null
+        assertEquals(SubscribeResult.Unreachable, repository.subscribe("https://example.com/third"))
+    }
+
+    @Test
+    fun `continue listening puts the most recently heard first and new episodes last`() = runTest {
+        val feedId = subscribe()
+        listen(idOf(feedId, "B"), positionMs = 60_000, updatedAt = 100)
+        listen(idOf(feedId, "C"), positionMs = 30_000, updatedAt = 200)
+
+        val titles = repository.continueListening { now }.first().map { it.book.title }
+
+        assertEquals(listOf("C", "B", "A"), titles)
+    }
+
+    @Test
+    fun `finished and old episodes are not offered`() = runTest {
+        val feedId = subscribe()
+        listen(idOf(feedId, "A"), positionMs = 590_000, updatedAt = 100, finished = true)
+
+        val titles = repository.continueListening { now + 30L * 24 * 60 * 60 * 1000 }.first().map { it.book.title }
+
+        assertEquals(emptyList<String>(), titles)
+    }
+
+    @Test
+    fun `refresh keeps started episodes the feed no longer lists and drops the rest`() = runTest {
+        val feedId = subscribe()
+        listen(idOf(feedId, "B"), positionMs = 60_000, updatedAt = 100)
+        val ids = db.bookDao().booksOf(feedId).associate { it.title to it.bookId }
+        served = feed("D" to "Fri, 31 Oct 2025 06:00:00 GMT")
+
+        val result = repository.refresh(feedId)
+
+        assertEquals(1, result!!.newEpisodeIds.size)
+        val titles = repository.episodes(feedId).first().map { it.book.title }
+        assertEquals(listOf("D", "B"), titles)
+        assertEquals("a started episode keeps its row and id", ids.getValue("B"), db.bookDao().booksOf(feedId).single { it.title == "B" }.bookId)
+        assertNotNull(db.bookDao().progress(ids.getValue("B")))
+    }
+
+    @Test
+    fun `a failed refresh changes nothing`() = runTest {
+        val feedId = subscribe()
+        served = null
+        assertEquals(null, repository.refresh(feedId))
+        served = "<rss><channel>"
+        assertEquals(null, repository.refresh(feedId))
+
+        assertEquals(3, repository.episodes(feedId).first().size)
+    }
+
+    @Test
+    fun `an episode keeps its id and first-seen date across refreshes`() = runTest {
+        served = feed("A" to "")
+        val feedId = subscribe()
+        val before = db.bookDao().booksOf(feedId).single()
+
+        repository.refresh(feedId)
+        val after = db.bookDao().booksOf(feedId).single()
+
+        assertEquals(before.bookId, after.bookId)
+        assertEquals(before.addedAt, after.addedAt)
+    }
+
+    @Test
+    fun `unsubscribing removes episodes and progress`() = runTest {
+        val feedId = subscribe()
+        val id = idOf(feedId, "A")
+        listen(id, 1_000, 1)
+
+        repository.unsubscribe(feedId)
+
+        assertTrue(db.bookDao().booksOf(feedId).isEmpty())
+        assertEquals(null, db.bookDao().progress(id))
+        assertTrue(repository.feeds.first().isEmpty())
+    }
+
+    @Test
+    fun `plain text is taken from html descriptions`() {
+        assertEquals("Hallo Welt", "<p>Hallo <b>Welt</b></p>".toPlainText())
+        assertEquals("Tom & Jerry", "Tom &amp; Jerry".toPlainText())
+    }
+
+    private companion object {
+        fun feed(vararg episodes: Pair<String, String>): String = buildString {
+            append("""<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>Test-Podcast</title>""")
+            episodes.forEach { (title, date) ->
+                append("<item><title>$title</title><guid>guid-$title</guid>")
+                if (date.isNotEmpty()) append("<pubDate>$date</pubDate>")
+                append("""<enclosure url="https://example.com/$title.mp3" type="audio/mpeg"/><itunes:duration>10:00</itunes:duration></item>""")
+            }
+            append("</channel></rss>")
+        }
+    }
+}
