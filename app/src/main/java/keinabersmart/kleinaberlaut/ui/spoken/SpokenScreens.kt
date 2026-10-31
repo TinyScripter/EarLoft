@@ -2,6 +2,9 @@ package keinabersmart.kleinaberlaut.ui.spoken
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -37,6 +40,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
+import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -283,11 +291,29 @@ private fun BookRow(books: List<BookWithProgress>, onBookClick: (Long) -> Unit) 
     }
 }
 
-/** Cover mit Fortschrittsbalken, darunter Titel und Autor. */
+/** Cover mit Fortschrittsbalken, darunter Titel und Autor; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts auf dem Cover. */
 @Composable
-fun BookCard(item: BookWithProgress, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.clickable(onClick = onClick)) {
-        BookArt(item.book.id, Modifier.fillMaxWidth())
+fun BookCard(item: BookWithProgress, onClick: () -> Unit, modifier: Modifier = Modifier, onPlay: (() -> Unit)? = null, playing: Boolean = false) {
+    // Podcast-Folgen haben ein Kontextmenü (Langklick), Hörbücher nicht.
+    var menu by remember { mutableStateOf(false) }
+    val episode = item.isEpisode
+    Column(modifier.combinedClickable(onClick = onClick, onLongClick = if (episode) ({ menu = true }) else null)) {
+        if (episode) EpisodeMenu(item, expanded = menu, onDismiss = { menu = false })
+        Box {
+            BookArt(item.book.id, Modifier.fillMaxWidth())
+            if (onPlay != null) {
+                FilledTonalIconButton(
+                    onClick = onPlay,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(36.dp),
+                ) {
+                    if (playing) {
+                        Icon(painterResource(DesignR.drawable.ic_pause), contentDescription = stringResource(R.string.action_pause))
+                    } else {
+                        Icon(painterResource(DesignR.drawable.ic_play), contentDescription = stringResource(R.string.podcast_play_episode))
+                    }
+                }
+            }
+        }
         val progress = item.progress
         if (progress != null && progress.positionMs > 0 && !progress.finished) {
             LinearProgressIndicator(

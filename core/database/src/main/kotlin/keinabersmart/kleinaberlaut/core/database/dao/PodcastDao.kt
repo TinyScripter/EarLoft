@@ -116,6 +116,10 @@ abstract class PodcastDao {
     )
     abstract fun observeDownloadStates(feedId: String): Flow<List<EpisodeDownloadRow>>
 
+    /** Alle fertig geladenen Folgen (aller Podcasts), für das Kontextmenü. */
+    @Query("SELECT bookId FROM book_tracks WHERE trackIndex = 0 AND downloadState = 'DONE'")
+    abstract fun observeDownloadedIds(): Flow<List<Long>>
+
     /** Von Hand: auch fehlgeschlagene und entfernte Folgen laden wieder. */
     @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState IN ('NONE', 'FAILED', 'REMOVED')")
     abstract suspend fun queueDownload(bookId: Long): Int

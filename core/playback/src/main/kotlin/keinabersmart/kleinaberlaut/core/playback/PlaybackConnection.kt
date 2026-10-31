@@ -8,6 +8,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import dagger.hilt.android.qualifiers.ApplicationContext
+import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.spoken.BookPlaybackSource
 import keinabersmart.kleinaberlaut.core.data.spoken.PreparedBook
 import keinabersmart.kleinaberlaut.core.model.Song
@@ -70,6 +71,7 @@ class PlaybackConnection @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val sleepTimer: SleepTimer,
     private val bookPlaybackSource: BookPlaybackSource,
+    private val continueListening: ContinueListening,
 ) {
     private val scope = MainScope()
     private val controller = CompletableDeferred<MediaController>()
@@ -119,6 +121,8 @@ class PlaybackConnection @Inject constructor(
      * `null`, wenn das Buch nicht zu laden ist (kein Netz und noch nie geladen).
      */
     suspend fun playBook(bookId: Long, startPositionMs: Long? = null): PreparedBook? {
+        // Eine Podcast-Folge steht sofort ganz vorn in „Weiterhören“, auch wenn sie sich nicht laden lässt.
+        continueListening.started(bookId)
         val prepared = bookPlaybackSource.prepare(bookId) ?: return null
         // Der MediaController darf nur vom Main-Thread angesprochen werden.
         withContext(Dispatchers.Main.immediate) {

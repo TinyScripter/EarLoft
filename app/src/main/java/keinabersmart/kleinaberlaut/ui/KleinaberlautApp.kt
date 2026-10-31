@@ -24,7 +24,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.ui.res.painterResource
@@ -37,7 +39,10 @@ import androidx.navigation3.ui.NavDisplay
 import keinabersmart.kleinaberlaut.navigation.AboutRoute
 import keinabersmart.kleinaberlaut.navigation.AddAudiobookshelfRoute
 import keinabersmart.kleinaberlaut.navigation.BookRoute
+import keinabersmart.kleinaberlaut.navigation.PodcastInfoRoute
+import keinabersmart.kleinaberlaut.navigation.PodcastQueueRoute
 import keinabersmart.kleinaberlaut.navigation.PodcastRoute
+import keinabersmart.kleinaberlaut.navigation.PodcastSettingsRoute
 import keinabersmart.kleinaberlaut.navigation.AddServerRoute
 import keinabersmart.kleinaberlaut.navigation.AlbumRoute
 import keinabersmart.kleinaberlaut.navigation.ArtistRoute
@@ -90,6 +95,9 @@ import keinabersmart.kleinaberlaut.ui.spoken.BookPlayerScreen
 import keinabersmart.kleinaberlaut.ui.spoken.BookPlayerViewModel
 import keinabersmart.kleinaberlaut.ui.spoken.BookScreen
 import keinabersmart.kleinaberlaut.ui.spoken.PodcastHomeScreen
+import keinabersmart.kleinaberlaut.ui.spoken.PodcastInfoScreen
+import keinabersmart.kleinaberlaut.ui.spoken.PodcastQueueScreen
+import keinabersmart.kleinaberlaut.ui.spoken.PodcastSettingsScreen
 import keinabersmart.kleinaberlaut.ui.spoken.PodcastLibraryScreen
 import keinabersmart.kleinaberlaut.ui.spoken.PodcastScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenHomeScreen
@@ -133,6 +141,12 @@ fun KleinaberlautApp(
     val openArtist: (Long) -> Unit = { navigator.navigate(ArtistRoute(it)) }
     val openBook: (Long) -> Unit = { navigator.navigate(BookRoute(it)) }
     val openPodcast: (String) -> Unit = { navigator.navigate(PodcastRoute(it)) }
+    // Suchbegriff, den die Suche beim nächsten Öffnen übernimmt (z. B. der Titel eines Podcasts).
+    var presetSearch by remember { mutableStateOf<String?>(null) }
+    val searchFor: (String) -> Unit = {
+        presetSearch = it
+        navigator.navigate(SearchRoute)
+    }
     val setupAudiobookshelf: () -> Unit = { navigator.navigate(AddAudiobookshelfRoute) }
     // Modus gewechselt: die Detailspalte des vorigen Modus schließen (Tab auf seine Startseite zurück).
     val closeDetail: () -> Unit = { navigator.navigate(navigationState.topLevelRoute) }
@@ -141,7 +155,11 @@ fun KleinaberlautApp(
         entry<HomeRoute> {
             SpokenModeHost(
                 music = { HomeScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) },
-                podcasts = { PodcastHomeScreen(onEpisodeClick = openBook, onFeedClick = openPodcast) },
+                podcasts = { PodcastHomeScreen(
+                        onEpisodeClick = openBook,
+                        onFeedClick = openPodcast,
+                        onOpenQueue = { navigator.navigate(PodcastQueueRoute) },
+                    ) },
                 books = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
                 onModeChange = closeDetail,
             )
@@ -177,7 +195,28 @@ fun KleinaberlautApp(
             )
         }
         entry<PodcastRoute>(metadata = detailPane()) { route ->
-            PodcastScreen(feedId = route.feedId, onBack = navigator::goBack, onEpisodeClick = openBook)
+            PodcastScreen(
+                feedId = route.feedId,
+                onBack = navigator::goBack,
+                onEpisodeClick = openBook,
+                onInfo = { navigator.navigate(PodcastInfoRoute(route.feedId)) },
+                onSettings = { navigator.navigate(PodcastSettingsRoute(route.feedId)) },
+                onSearch = searchFor,
+            )
+        }
+        entry<PodcastInfoRoute>(metadata = nestedDetailPane()) { route ->
+            PodcastInfoScreen(feedId = route.feedId, onBack = navigator::goBack)
+        }
+        entry<PodcastSettingsRoute>(metadata = nestedDetailPane()) { route ->
+            PodcastSettingsScreen(
+                feedId = route.feedId,
+                onBack = navigator::goBack,
+                // Das Abo ist weg: auch die Detailseite dahinter schließen.
+                onUnsubscribed = {
+                    navigator.goBack()
+                    navigator.goBack()
+                },
+            )
         }
         entry<BookGroupRoute>(metadata = detailPane()) { route ->
             BookGroupScreen(kind = route.kind, name = route.name, onBack = navigator::goBack, onBookClick = openBook)
@@ -187,7 +226,15 @@ fun KleinaberlautApp(
         entry<PlaylistRoute>(metadata = detailPane()) { route ->
             PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack)
         }
-        entry<SearchRoute> { SearchScreen(onAlbumClick = openAlbum, onArtistClick = openArtist, onBookClick = openBook) }
+        entry<SearchRoute> {
+            SearchScreen(
+                onAlbumClick = openAlbum,
+                onArtistClick = openArtist,
+                onBookClick = openBook,
+                presetQuery = presetSearch,
+                onPresetConsumed = { presetSearch = null },
+            )
+        }
         entry<DownloadsRoute>(metadata = detailPane()) { DownloadsScreen(onBack = navigator::goBack, onAlbumClick = openAlbum) }
         entry<AlbumRoute>(metadata = nestedDetailPane()) { route ->
             AlbumScreen(albumId = route.albumId, onBack = navigator::goBack)
@@ -204,6 +251,7 @@ fun KleinaberlautApp(
             }
         }
         entry<QueueRoute> { QueueScreen(onBack = navigator::goBack) }
+        entry<PodcastQueueRoute> { PodcastQueueScreen(onBack = navigator::goBack) }
         entry<SettingsRoute>(metadata = listPane()) {
             SettingsScreen(
                 onAddServer = { navigator.navigate(AddServerRoute) },

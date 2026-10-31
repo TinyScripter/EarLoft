@@ -35,7 +35,7 @@ import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackSourceResolver
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackStateRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
-import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
+import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.data.spoken.BookPlaybackSource
 import keinabersmart.kleinaberlaut.core.data.spoken.BookProgressSync
@@ -82,7 +82,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var bookRepository: BookRepository
     @Inject lateinit var bookProgressSync: BookProgressSync
     @Inject lateinit var bookPlaybackSource: BookPlaybackSource
-    @Inject lateinit var podcastRepository: PodcastRepository
+    @Inject lateinit var continueListening: ContinueListening
     @Inject lateinit var bookCovers: BookCovers
 
     /** Für Player-Zugriffe (Main-Thread). */
@@ -186,7 +186,10 @@ class PlaybackService : MediaLibraryService() {
     private fun continueWithNextEpisode(player: Player, endedId: Long) {
         mainScope.launch {
             val prepared = withContext(Dispatchers.IO) {
-                podcastRepository.autoNextAfter(endedId)?.let { bookPlaybackSource.prepare(it) }
+                continueListening.nextAfter(endedId)?.let { next ->
+                    continueListening.started(next)
+                    bookPlaybackSource.prepare(next)
+                }
             } ?: return@launch
             val stillWaiting = player.playbackState == Player.STATE_ENDED && player.currentMediaItem?.bookId == endedId
             if (stillWaiting) player.playBook(prepared)

@@ -48,6 +48,22 @@ data class PodcastRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
+/** Info-Seite eines Podcasts (Beschreibung, Feed-Adresse). */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class PodcastInfoRoute(
+    val feedId: String,
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
+/** Einstellungen eines Podcasts. */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class PodcastSettingsRoute(
+    val feedId: String,
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
 enum class BookGroupKind { SERIES, AUTHOR }
 
 /** Alle Bücher einer Serie oder eines Autors. */
@@ -70,6 +86,10 @@ data object NowPlayingRoute : NavKey
 
 @Serializable
 data object QueueRoute : NavKey
+
+/** Die Warteschlange der Podcasts (Zeile „Weiterhören“) bearbeiten. */
+@Serializable
+data object PodcastQueueRoute : NavKey
 
 @Serializable
 data object SettingsRoute : NavKey

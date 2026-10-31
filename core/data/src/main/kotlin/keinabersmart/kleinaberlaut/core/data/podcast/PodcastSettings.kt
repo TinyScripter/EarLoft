@@ -51,6 +51,13 @@ class PodcastSettings @Inject constructor(
         context.podcastSettingsDataStore.edit { it[KEY_AUTO_COUNT] = count.coerceAtLeast(1) }
     }
 
+    /** Ist eine Folge zu Ende, startet die nächste der Zeile „Weiterhören“ (Standard: an). */
+    val autoPlayNext: Flow<Boolean> = context.podcastSettingsDataStore.data.map { it[KEY_AUTO_PLAY_NEXT] ?: true }
+
+    suspend fun setAutoPlayNext(enabled: Boolean) {
+        context.podcastSettingsDataStore.edit { it[KEY_AUTO_PLAY_NEXT] = enabled }
+    }
+
     companion object {
         val AUTO_DOWNLOAD_COUNT_CHOICES = listOf(1, 2, 3, 5, 10)
         const val DEFAULT_AUTO_DOWNLOAD_COUNT = 3
@@ -69,5 +76,6 @@ class PodcastSettings @Inject constructor(
         private val KEY_DELETE_HEARD_DAYS = intPreferencesKey("delete_heard_days")
         private val KEY_REFRESH_HOURS = intPreferencesKey("refresh_hours")
         private val KEY_MOBILE = booleanPreferencesKey("mobile_data")
+        private val KEY_AUTO_PLAY_NEXT = booleanPreferencesKey("auto_play_next")
     }
 }

@@ -7,6 +7,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import keinabersmart.kleinaberlaut.core.database.entity.BookChapterEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
+import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.data.spoken.toModel
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -92,23 +94,68 @@ class PodcastRepository @Inject constructor(
         }
 
     /**
-     * „Weiterhören“: angefangene Folgen mit der zuletzt gehörten ganz vorn, dahinter die neuen, noch nicht
-     * angefangenen Folgen der letzten [NEW_DAYS] Tage (neueste zuerst).
+     * „Weiterhören“ (die Warteschlange der Podcasts): ganz vorn die Folgen aus [order] (nicht zu Ende gehörte, in dieser
+     * Reihenfolge), dahinter von selbst die angefangenen Folgen mit der zuletzt gehörten zuerst und die neuen, noch nicht
+     * angefangenen Folgen der letzten [NEW_DAYS] Tage (neueste zuerst). Folgen in [hidden] fehlen.
      */
-    fun continueListening(now: () -> Long = System::currentTimeMillis): Flow<List<BookWithProgress>> =
-        combine(dao.observeEpisodes(), bookDao.observeAllProgress()) { episodes, progress ->
+    fun continueListening(
+        order: Flow<List<Long>> = flowOf(emptyList()),
+        hidden: Flow<Set<Long>> = flowOf(emptySet()),
+        now: () -> Long = System::currentTimeMillis,
+    ): Flow<List<BookWithProgress>> =
+        combine(dao.observeEpisodes(), bookDao.observeAllProgress(), order, hidden) { episodes, progress, orderIds, hiddenIds ->
             val byBook = progress.associateBy { it.bookId }
             val started = episodes
+                .filter { it.bookId !in hiddenIds }
                 .mapNotNull { e -> byBook[e.bookId]?.takeIf { !it.finished && it.positionMs > 0 }?.let { e to it } }
                 .sortedByDescending { (_, p) -> p.updatedAt }
                 .map { (e, p) -> BookWithProgress(e.toModel(), p.toModel()) }
             val since = now() - NEW_DAYS * DAY_MS
             val fresh = episodes
-                .filter { e -> (byBook[e.bookId]?.positionMs ?: 0L) == 0L && byBook[e.bookId]?.finished != true && e.addedAt >= since }
+                .filter { e ->
+                    e.bookId !in hiddenIds && (byBook[e.bookId]?.positionMs ?: 0L) == 0L &&
+                        byBook[e.bookId]?.finished != true && e.addedAt >= since
+                }
                 .take(MAX_NEW)
                 .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
-            started + fresh
+            val byId = episodes.associateBy { it.bookId }
+            val ordered = orderIds.mapNotNull { id ->
+                byId[id]?.takeIf { id !in hiddenIds && byBook[id]?.finished != true }
+                    ?.let { BookWithProgress(it.toModel(), byBook[id]?.toModel()) }
+            }
+            val placed = ordered.mapTo(HashSet()) { it.book.id }
+            ordered + (started + fresh).filter { it.book.id !in placed }
         }
+
+    suspend fun isEpisode(bookId: Long): Boolean = bookDao.book(bookId)?.kind == BookKind.EPISODE
+
+    /** Eine zu Ende gehörte Folge, die neu startet, gilt wieder als offen (sie beginnt ohnehin von vorn). */
+    suspend fun reopenIfFinished(bookId: Long) {
+        if (bookDao.progress(bookId)?.finished == true) setPlayed(bookId, played = false)
+    }
+
+    /** Ids aller fertig geladenen Folgen. */
+    fun downloadedIds(): Flow<Set<Long>> = dao.observeDownloadedIds().map { it.toSet() }
+
+    /** Markiert die Folge als gespielt (Position ans Ende) oder als ungespielt (Position 0). Nur lokal, es gibt keinen Server. */
+    suspend fun setPlayed(bookId: Long, played: Boolean) {
+        val book = bookDao.book(bookId) ?: return
+        val old = bookDao.progress(bookId)
+        val duration = book.durationMs.takeIf { it > 0 } ?: old?.durationMs ?: 0
+        bookDao.upsertProgress(
+            BookProgressEntity(
+                bookId = bookId,
+                positionMs = if (played) duration else 0,
+                durationMs = duration,
+                finished = played,
+                speed = old?.speed ?: 1f,
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    /** Setzt die Folge an den Anfang zurück (auch den Zustand „gespielt“). */
+    suspend fun resetPosition(bookId: Long) = setPlayed(bookId, played = false)
 
     suspend fun subscribe(input: String): SubscribeResult {
         val url = normalizeFeedUrl(input) ?: return SubscribeResult.InvalidUrl
@@ -137,15 +184,9 @@ class PodcastRepository @Inject constructor(
 
     suspend fun setContinuous(feedId: String, continuous: Boolean) = dao.setContinuous(feedId, continuous)
 
-    /** Die Folge, mit der „Alle abspielen“ beginnt: die erste ungehörte in der Reihenfolge des Podcasts. */
-    suspend fun firstToPlay(feedId: String): Long? {
-        val feed = dao.feed(feedId) ?: return null
-        return nextEpisode(playOrder(feed), dao.finishedEpisodeIds(feedId).toSet())
-    }
-
     /**
-     * Die Folge, die nach dem Ende von [bookId] von selbst startet. `null` bei Hörbüchern, wenn das Weiterspielen für
-     * den Podcast aus ist oder nichts Ungehörtes mehr folgt.
+     * Die ungehörte Folge, die in der Reihenfolge des Podcasts auf [bookId] folgt und in die Zeile „Weiterhören“
+     * eingereiht wird. `null` bei Hörbüchern, wenn das Einreihen für den Podcast aus ist oder nichts Ungehörtes mehr folgt.
      */
     suspend fun autoNextAfter(bookId: Long): Long? {
         val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.EPISODE } ?: return null

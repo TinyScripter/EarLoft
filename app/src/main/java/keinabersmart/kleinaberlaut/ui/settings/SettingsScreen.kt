@@ -88,6 +88,7 @@ fun SettingsScreen(
         onPodcastMobileChange = viewModel::setPodcastMobileData,
         onPodcastDeleteHeardDaysChange = viewModel::setPodcastDeleteHeardDays,
         onPodcastAutoDownloadCountChange = viewModel::setPodcastAutoDownloadCount,
+        onPodcastAutoPlayNextChange = viewModel::setPodcastAutoPlayNext,
         onUseLocalMediaChange = { enabled ->
             if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
         },
@@ -123,6 +124,7 @@ private fun SettingsContent(
     onPodcastMobileChange: (Boolean) -> Unit,
     onPodcastDeleteHeardDaysChange: (Int) -> Unit,
     onPodcastAutoDownloadCountChange: (Int) -> Unit,
+    onPodcastAutoPlayNextChange: (Boolean) -> Unit,
     onUseLocalMediaChange: (Boolean) -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
@@ -201,6 +203,15 @@ private fun SettingsContent(
                     supportingContent = { Text(podcastRefreshLabel(state.podcastRefreshHours)) },
                     leadingContent = { Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = null) },
                     modifier = Modifier.clickable { choosingPodcastRefresh = true },
+                )
+            }
+            item(key = "podcast-auto-play-next") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_podcast_auto_play_next),
+                    summary = stringResource(R.string.settings_podcast_auto_play_next_summary),
+                    icon = DesignR.drawable.ic_playlist_play,
+                    checked = state.podcastAutoPlayNext,
+                    onCheckedChange = onPodcastAutoPlayNextChange,
                 )
             }
             item(key = "podcast-mobile") {
@@ -646,6 +657,7 @@ private fun SettingsContentPreview() {
             onPodcastMobileChange = {},
             onPodcastDeleteHeardDaysChange = {},
             onPodcastAutoDownloadCountChange = {},
+            onPodcastAutoPlayNextChange = {},
             onUseLocalMediaChange = {},
             onAddServer = {},
             onEditServer = {},

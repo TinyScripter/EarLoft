@@ -165,11 +165,10 @@ class PodcastRepositoryTest {
     }
 
     @Test
-    fun `play all starts with the oldest unheard episode and continues towards the newest`() = runTest {
+    fun `the next episode follows in the order of the podcast`() = runTest {
         val feedId = subscribe()
         val (a, b, c) = listOf("A", "B", "C").map { idOf(feedId, it) }
 
-        assertEquals(c, repository.firstToPlay(feedId))
         assertEquals(b, repository.autoNextAfter(c))
         assertEquals(a, repository.autoNextAfter(b))
         assertEquals(null, repository.autoNextAfter(a))
@@ -182,18 +181,16 @@ class PodcastRepositoryTest {
         repository.setNewestFirst(feedId, true)
         listen(b, positionMs = 600_000, updatedAt = 1, finished = true)
 
-        assertEquals(a, repository.firstToPlay(feedId))
         assertEquals("B is finished", c, repository.autoNextAfter(a))
         assertEquals(null, repository.autoNextAfter(c))
     }
 
     @Test
-    fun `nothing follows when continuing is off`() = runTest {
+    fun `nothing is queued when queueing the next episode is off`() = runTest {
         val feedId = subscribe()
         repository.setContinuous(feedId, false)
 
         assertEquals(null, repository.autoNextAfter(idOf(feedId, "C")))
-        assertEquals("play all still works", idOf(feedId, "C"), repository.firstToPlay(feedId))
     }
 
     private suspend fun stateOf(bookId: Long) = db.podcastDao().trackOf(bookId)!!.downloadState
