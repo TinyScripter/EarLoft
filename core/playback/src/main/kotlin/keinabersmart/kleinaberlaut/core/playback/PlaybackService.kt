@@ -337,15 +337,19 @@ class PlaybackService : MediaLibraryService() {
             if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_METADATA_CHANGED)) {
                 val item = player.currentMediaItem
                 val songId = item?.songId
+                val bookId = item?.bookId
                 notifyObservers(
-                    songId?.let {
+                    if (item != null && (songId != null || bookId != null)) {
                         NowPlaying(
-                            songId = it,
+                            songId = songId,
                             title = item.mediaMetadata.title?.toString().orEmpty(),
                             artist = item.mediaMetadata.artist?.toString().orEmpty(),
-                            albumId = item.mediaMetadata.albumIdExtra,
+                            albumId = if (bookId == null) item.mediaMetadata.albumIdExtra else null,
                             isPlaying = player.isPlaying,
+                            bookId = bookId,
                         )
+                    } else {
+                        null
                     },
                 )
             }

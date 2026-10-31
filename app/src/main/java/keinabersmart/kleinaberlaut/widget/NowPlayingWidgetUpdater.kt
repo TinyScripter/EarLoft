@@ -12,6 +12,7 @@ import dagger.multibindings.IntoSet
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.data.repository.AlbumColorRepository
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
+import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.playback.NowPlaying
 import keinabersmart.kleinaberlaut.core.playback.NowPlayingObserver
 import kotlinx.coroutines.CoroutineScope
@@ -41,6 +42,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val artworkRepository: ArtworkRepository,
     private val albumColorRepository: AlbumColorRepository,
+    private val bookCovers: BookCovers,
     @ApplicationScope scope: CoroutineScope,
 ) : NowPlayingObserver {
 
@@ -63,7 +65,9 @@ class NowPlayingWidgetUpdater @Inject constructor(
     private suspend fun update(nowPlaying: NowPlaying?) {
         val previous = _state.value
         val albumId = nowPlaying?.albumId
+        val bookId = nowPlaying?.bookId
         val cover = when {
+            bookId != null -> if (bookId == previous.nowPlaying?.bookId && previous.cover != null) previous.cover else bookCovers.cover(bookId)?.scaledToWidget()
             albumId == null -> null
             albumId == previous.nowPlaying?.albumId && previous.cover != null -> previous.cover
             else -> artworkRepository.albumCover(albumId, COVER_SIZE_PX)
@@ -75,6 +79,14 @@ class NowPlayingWidgetUpdater @Inject constructor(
         }
         _state.value = WidgetState(nowPlaying, cover, seedColor)
         NowPlayingWidget().updateAll(context)
+    }
+
+    /** Buchcover kommen mit 800 px; das Widget braucht wie bei Albumcovern nur [COVER_SIZE_PX] (Größe der RemoteViews, Layout). */
+    private fun Bitmap.scaledToWidget(): Bitmap {
+        val longest = maxOf(width, height)
+        if (longest <= COVER_SIZE_PX) return this
+        val factor = COVER_SIZE_PX.toFloat() / longest
+        return Bitmap.createScaledBitmap(this, (width * factor).toInt().coerceAtLeast(1), (height * factor).toInt().coerceAtLeast(1), true)
     }
 
     private companion object {
