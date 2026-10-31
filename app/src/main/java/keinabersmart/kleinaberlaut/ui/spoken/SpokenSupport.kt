@@ -40,12 +40,12 @@ import coil3.compose.AsyncImage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import keinabersmart.kleinaberlaut.core.model.SpokenMode
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
-import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -62,6 +62,7 @@ import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 class SpokenModeViewModel @Inject constructor(
     private val settings: SpokenSettings,
     private val refresher: SpokenRefresher,
+    private val podcastRefresher: PodcastRefresher,
 ) : ViewModel() {
     val mode: StateFlow<SpokenMode> = settings.mode.stateIn(viewModelScope, SharingStarted.Eagerly, SpokenMode.MUSIC)
 
@@ -70,6 +71,8 @@ class SpokenModeViewModel @Inject constructor(
     }
 
     fun refreshBooks() = refresher.refreshAll()
+
+    fun refreshPodcasts() = podcastRefresher.refreshAll()
 }
 
 /**
@@ -81,6 +84,7 @@ class SpokenModeViewModel @Inject constructor(
 @Composable
 fun SpokenModeHost(
     music: @Composable () -> Unit,
+    podcasts: @Composable () -> Unit,
     books: @Composable () -> Unit,
     /** Nach dem Wechsel auf einen anderen Modus; schließt z. B. die Detailspalte des vorigen Modus. */
     onModeChange: () -> Unit,
@@ -104,6 +108,11 @@ fun SpokenModeHost(
                         Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
                     }
                 }
+                if (mode == SpokenMode.PODCASTS) {
+                    IconButton(onClick = viewModel::refreshPodcasts) {
+                        Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.podcast_refresh))
+                    }
+                }
             },
         )
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -125,7 +134,7 @@ fun SpokenModeHost(
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (mode) {
                 SpokenMode.MUSIC -> music()
-                SpokenMode.PODCASTS -> EmptyHint(stringResource(R.string.spoken_podcasts_soon))
+                SpokenMode.PODCASTS -> podcasts()
                 SpokenMode.BOOKS -> books()
             }
         }

@@ -311,7 +311,6 @@
     <string name="spoken_mode_music">Music</string>
     <string name="spoken_mode_podcasts">Podcasts</string>
     <string name="spoken_mode_books">Books</string>
-    <string name="spoken_podcasts_soon">Podcasts are coming later.</string>
     <string name="spoken_tab_all">All</string>
     <string name="spoken_tab_series">Series</string>
     <string name="spoken_tab_authors">Authors</string>
@@ -365,4 +364,38 @@
     <string name="spoken_abs_remove">Remove server</string>
     <string name="spoken_abs_remove_message">Books of “%1$s” are removed from this device. Your progress on the server is kept.</string>
     <string name="spoken_search_books">Books</string>
+
+    <!-- Podcasts -->
+    <string name="podcast_subscriptions">Subscriptions</string>
+    <string name="podcast_add">Add podcast</string>
+    <string name="podcast_add_url">Feed address</string>
+    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
+    <string name="podcast_add_confirm">Subscribe</string>
+    <string name="podcast_adding">Reading feed …</string>
+    <string name="podcast_error_invalid">That is not a valid address.</string>
+    <string name="podcast_error_unreachable">The feed cannot be reached.</string>
+    <string name="podcast_error_not_feed">There is no podcast feed (RSS or Atom) at this address.</string>
+    <string name="podcast_already">You are already subscribed to this podcast.</string>
+    <string name="podcast_none">No subscriptions yet. Tap “Add podcast” and enter the feed address.</string>
+    <string name="podcast_nothing_to_continue">Nothing to continue yet. Subscribe to a podcast under “Subscriptions”.</string>
+    <string name="podcast_refresh">Refresh podcasts</string>
+    <string name="podcast_refresh_failed">Refreshing failed.</string>
+    <string name="podcast_auto_download">Download new episodes automatically</string>
+    <string name="podcast_auto_download_summary">Remembered; downloading episodes is not available yet.</string>
+    <string name="podcast_play_latest">Play latest episode</string>
+    <string name="podcast_episodes">Episodes</string>
+    <string name="podcast_no_episodes">This feed has no episodes.</string>
+    <string name="podcast_unsubscribe">Unsubscribe</string>
+    <string name="podcast_unsubscribe_title">Unsubscribe?</string>
+    <string name="podcast_unsubscribe_message">“%1$s” will be removed with all episodes and your listening progress.</string>
+    <string name="podcast_play_episode">Play episode</string>
+    <string name="settings_podcasts">Podcasts</string>
+    <string name="settings_podcast_refresh">Refresh podcasts automatically</string>
+    <string name="settings_podcast_refresh_off">Off (manual only)</string>
+    <plurals name="settings_podcast_refresh_every">
+        <item quantity="one">Every hour</item>
+        <item quantity="other">Every %d hours</item>
+    </plurals>
+    <string name="settings_podcast_mobile">Also use mobile data</string>
+    <string name="settings_podcast_mobile_summary">Off: automatic refresh only runs on Wi-Fi.</string>
 </resources>

@@ -307,7 +307,6 @@
     <string name="spoken_mode_music">Musik</string>
     <string name="spoken_mode_podcasts">Podcasts</string>
     <string name="spoken_mode_books">Bücher</string>
-    <string name="spoken_podcasts_soon">Podcasts kommen später.</string>
     <string name="spoken_tab_all">Alle</string>
     <string name="spoken_tab_series">Serien</string>
     <string name="spoken_tab_authors">Autoren</string>
@@ -361,4 +360,38 @@
     <string name="spoken_abs_remove">Server entfernen</string>
     <string name="spoken_abs_remove_message">Die Bücher von „%1$s“ werden von diesem Gerät entfernt. Dein Fortschritt auf dem Server bleibt erhalten.</string>
     <string name="spoken_search_books">Bücher</string>
+
+    <!-- Podcasts -->
+    <string name="podcast_subscriptions">Abos</string>
+    <string name="podcast_add">Podcast hinzufügen</string>
+    <string name="podcast_add_url">Feed-Adresse</string>
+    <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
+    <string name="podcast_add_confirm">Abonnieren</string>
+    <string name="podcast_adding">Feed wird gelesen …</string>
+    <string name="podcast_error_invalid">Das ist keine gültige Adresse.</string>
+    <string name="podcast_error_unreachable">Der Feed ist nicht erreichbar.</string>
+    <string name="podcast_error_not_feed">Unter dieser Adresse liegt kein Podcast-Feed (RSS oder Atom).</string>
+    <string name="podcast_already">Dieser Podcast ist schon abonniert.</string>
+    <string name="podcast_none">Noch keine Abos. Tippe auf „Podcast hinzufügen“ und gib die Feed-Adresse ein.</string>
+    <string name="podcast_nothing_to_continue">Noch nichts zum Weiterhören. Abonniere unter „Abos“ einen Podcast.</string>
+    <string name="podcast_refresh">Podcasts aktualisieren</string>
+    <string name="podcast_refresh_failed">Aktualisieren fehlgeschlagen.</string>
+    <string name="podcast_auto_download">Neue Folgen automatisch herunterladen</string>
+    <string name="podcast_auto_download_summary">Wird gemerkt; das Herunterladen von Folgen kommt noch.</string>
+    <string name="podcast_play_latest">Neueste Folge abspielen</string>
+    <string name="podcast_episodes">Folgen</string>
+    <string name="podcast_no_episodes">Dieser Feed enthält keine Folgen.</string>
+    <string name="podcast_unsubscribe">Abo beenden</string>
+    <string name="podcast_unsubscribe_title">Abo beenden?</string>
+    <string name="podcast_unsubscribe_message">„%1$s“ wird mit allen Folgen und deinem Hörfortschritt entfernt.</string>
+    <string name="podcast_play_episode">Folge abspielen</string>
+    <string name="settings_podcasts">Podcasts</string>
+    <string name="settings_podcast_refresh">Podcasts automatisch aktualisieren</string>
+    <string name="settings_podcast_refresh_off">Aus (nur von Hand)</string>
+    <plurals name="settings_podcast_refresh_every">
+        <item quantity="one">Jede Stunde</item>
+        <item quantity="other">Alle %d Stunden</item>
+    </plurals>
+    <string name="settings_podcast_mobile">Auch über Mobilfunk laden</string>
+    <string name="settings_podcast_mobile_summary">Aus: Die automatische Aktualisierung läuft nur im WLAN.</string>
 </resources>

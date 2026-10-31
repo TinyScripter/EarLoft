@@ -49,6 +49,7 @@ import keinabersmart.kleinaberlaut.ui.components.readableWidth
 import keinabersmart.kleinaberlaut.ui.spoken.AudiobookshelfSection
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
 import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
@@ -83,6 +84,8 @@ fun SettingsScreen(
         onArtistImagesChange = viewModel::setArtistImages,
         onAlbumCoversChange = viewModel::setAlbumCovers,
         onSearchAllChange = viewModel::setSearchAll,
+        onPodcastRefreshHoursChange = viewModel::setPodcastRefreshHours,
+        onPodcastMobileChange = viewModel::setPodcastMobileData,
         onUseLocalMediaChange = { enabled ->
             if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
         },
@@ -114,6 +117,8 @@ private fun SettingsContent(
     onArtistImagesChange: (Boolean) -> Unit,
     onAlbumCoversChange: (Boolean) -> Unit,
     onSearchAllChange: (Boolean) -> Unit,
+    onPodcastRefreshHoursChange: (Int) -> Unit,
+    onPodcastMobileChange: (Boolean) -> Unit,
     onUseLocalMediaChange: (Boolean) -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
@@ -135,6 +140,7 @@ private fun SettingsContent(
     var serverToRemove by rememberSaveable { mutableStateOf<String?>(null) }
     var choosingTheme by rememberSaveable { mutableStateOf(false) }
     var choosingReplayGain by rememberSaveable { mutableStateOf(false) }
+    var choosingPodcastRefresh by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
@@ -178,6 +184,26 @@ private fun SettingsContent(
                     icon = R.drawable.ic_nav_search,
                     checked = state.searchAll,
                     onCheckedChange = onSearchAllChange,
+                )
+            }
+
+            // --- Podcasts ---
+            item(key = "podcasts") { SectionHeader(stringResource(R.string.settings_podcasts)) }
+            item(key = "podcast-refresh") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_podcast_refresh)) },
+                    supportingContent = { Text(podcastRefreshLabel(state.podcastRefreshHours)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = null) },
+                    modifier = Modifier.clickable { choosingPodcastRefresh = true },
+                )
+            }
+            item(key = "podcast-mobile") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_podcast_mobile),
+                    summary = stringResource(R.string.settings_podcast_mobile_summary),
+                    icon = DesignR.drawable.ic_cloud,
+                    checked = state.podcastMobileData,
+                    onCheckedChange = onPodcastMobileChange,
                 )
             }
 
@@ -320,6 +346,20 @@ private fun SettingsContent(
         )
     }
 
+    if (choosingPodcastRefresh) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_podcast_refresh),
+            options = PodcastSettings.REFRESH_HOUR_CHOICES,
+            selected = state.podcastRefreshHours,
+            label = { podcastRefreshLabel(it) },
+            onSelect = {
+                onPodcastRefreshHoursChange(it)
+                choosingPodcastRefresh = false
+            },
+            onDismiss = { choosingPodcastRefresh = false },
+        )
+    }
+
     if (choosingReplayGain) {
         ChoiceDialog(
             title = stringResource(R.string.settings_replay_gain),
@@ -383,6 +423,14 @@ internal fun SwitchRow(
 }
 
 private const val DISABLED_ALPHA = 0.38f
+
+@Composable
+private fun podcastRefreshLabel(hours: Int): String =
+    if (hours == 0) {
+        stringResource(R.string.settings_podcast_refresh_off)
+    } else {
+        pluralStringResource(R.plurals.settings_podcast_refresh_every, hours, hours)
+    }
 
 private val ThemeMode.label: Int
     get() = when (this) {
@@ -537,6 +585,8 @@ private fun SettingsContentPreview() {
             onArtistImagesChange = {},
             onAlbumCoversChange = {},
             onSearchAllChange = {},
+            onPodcastRefreshHoursChange = {},
+            onPodcastMobileChange = {},
             onUseLocalMediaChange = {},
             onAddServer = {},
             onEditServer = {},

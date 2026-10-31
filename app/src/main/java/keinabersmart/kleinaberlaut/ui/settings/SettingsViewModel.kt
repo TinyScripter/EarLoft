@@ -8,6 +8,7 @@ import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkSettings
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
@@ -49,6 +50,8 @@ data class SettingsUiState(
     val artistImages: Boolean = false,
     val albumCovers: Boolean = false,
     val searchAll: Boolean = true,
+    val podcastRefreshHours: Int = PodcastSettings.DEFAULT_REFRESH_HOURS,
+    val podcastMobileData: Boolean = false,
 )
 
 private data class GeneralSettings(
@@ -70,6 +73,7 @@ class SettingsViewModel @Inject constructor(
     private val themeSettings: ThemeSettings,
     private val librarySettings: LibrarySettings,
     private val spokenSettings: SpokenSettings,
+    private val podcastSettings: PodcastSettings,
     private val artworkSettings: ArtworkSettings,
     private val artworkRepository: ArtworkRepository,
     private val registry: DataSourceRegistry,
@@ -130,7 +134,18 @@ class SettingsViewModel @Inject constructor(
             albumCovers = general.albumCovers,
             searchAll = general.searchAll,
         )
+    }.combine(combine(podcastSettings.refreshHours, podcastSettings.useMobileData, ::Pair)) { state, (hours, mobile) ->
+        state.copy(podcastRefreshHours = hours, podcastMobileData = mobile)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
+
+    /** Die Planung des periodischen Auftrags folgt der Einstellung (PodcastRefresher). */
+    fun setPodcastRefreshHours(hours: Int) {
+        viewModelScope.launch { podcastSettings.setRefreshHours(hours) }
+    }
+
+    fun setPodcastMobileData(enabled: Boolean) {
+        viewModelScope.launch { podcastSettings.setUseMobileData(enabled) }
+    }
 
     fun setSearchAll(enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setSearchAll(enabled) }

@@ -146,7 +146,8 @@ private fun BookHeader(book: Book, progress: BookProgress?, onPlay: () -> Unit) 
         if (book.narrator.isNotBlank()) {
             Text(book.narrator, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text(formatDuration(book.durationMs), style = MaterialTheme.typography.bodyMedium)
+        // Podcast-Feeds nennen nicht immer eine Dauer.
+        if (book.durationMs > 0) Text(formatDuration(book.durationMs), style = MaterialTheme.typography.bodyMedium)
         if (progress != null && progress.positionMs > 0) {
             LinearProgressIndicator(
                 progress = { if (progress.finished) 1f else progress.fraction },

@@ -40,6 +40,14 @@ data class BookRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
+/** Detailseite eines abonnierten Podcasts. */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class PodcastRoute(
+    val feedId: String,
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
 enum class BookGroupKind { SERIES, AUTHOR }
 
 /** Alle Bücher einer Serie oder eines Autors. */

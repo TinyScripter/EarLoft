@@ -37,6 +37,7 @@ import androidx.navigation3.ui.NavDisplay
 import keinabersmart.kleinaberlaut.navigation.AboutRoute
 import keinabersmart.kleinaberlaut.navigation.AddAudiobookshelfRoute
 import keinabersmart.kleinaberlaut.navigation.BookRoute
+import keinabersmart.kleinaberlaut.navigation.PodcastRoute
 import keinabersmart.kleinaberlaut.navigation.AddServerRoute
 import keinabersmart.kleinaberlaut.navigation.AlbumRoute
 import keinabersmart.kleinaberlaut.navigation.ArtistRoute
@@ -88,6 +89,9 @@ import keinabersmart.kleinaberlaut.ui.spoken.BookLaunchEffect
 import keinabersmart.kleinaberlaut.ui.spoken.BookPlayerScreen
 import keinabersmart.kleinaberlaut.ui.spoken.BookPlayerViewModel
 import keinabersmart.kleinaberlaut.ui.spoken.BookScreen
+import keinabersmart.kleinaberlaut.ui.spoken.PodcastHomeScreen
+import keinabersmart.kleinaberlaut.ui.spoken.PodcastLibraryScreen
+import keinabersmart.kleinaberlaut.ui.spoken.PodcastScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenHomeScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenLibraryScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenMiniPlayer
@@ -128,6 +132,7 @@ fun KleinaberlautApp(
     val openAlbum: (Long) -> Unit = { navigator.navigate(AlbumRoute(it)) }
     val openArtist: (Long) -> Unit = { navigator.navigate(ArtistRoute(it)) }
     val openBook: (Long) -> Unit = { navigator.navigate(BookRoute(it)) }
+    val openPodcast: (String) -> Unit = { navigator.navigate(PodcastRoute(it)) }
     val setupAudiobookshelf: () -> Unit = { navigator.navigate(AddAudiobookshelfRoute) }
     // Modus gewechselt: die Detailspalte des vorigen Modus schließen (Tab auf seine Startseite zurück).
     val closeDetail: () -> Unit = { navigator.navigate(navigationState.topLevelRoute) }
@@ -136,6 +141,7 @@ fun KleinaberlautApp(
         entry<HomeRoute> {
             SpokenModeHost(
                 music = { HomeScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) },
+                podcasts = { PodcastHomeScreen(onEpisodeClick = openBook) },
                 books = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
                 onModeChange = closeDetail,
             )
@@ -150,6 +156,7 @@ fun KleinaberlautApp(
                         onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
                     )
                 },
+                podcasts = { PodcastLibraryScreen(onFeedClick = openPodcast) },
                 books = {
                     SpokenLibraryScreen(
                         onBookClick = openBook,
@@ -168,6 +175,9 @@ fun KleinaberlautApp(
                 isCurrent = playerState.spoken?.bookId == route.bookId,
                 onOpenPlayer = navigator::showNowPlaying,
             )
+        }
+        entry<PodcastRoute>(metadata = detailPane()) { route ->
+            PodcastScreen(feedId = route.feedId, onBack = navigator::goBack, onEpisodeClick = openBook)
         }
         entry<BookGroupRoute>(metadata = detailPane()) { route ->
             BookGroupScreen(kind = route.kind, name = route.name, onBack = navigator::goBack, onBookClick = openBook)
