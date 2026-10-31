@@ -33,11 +33,28 @@ class PodcastSettings @Inject constructor(
         context.podcastSettingsDataStore.edit { it[KEY_MOBILE] = enabled }
     }
 
+    /**
+     * Nach wie vielen Tagen der Download einer zu Ende gehörten Folge gelöscht wird: [DELETE_HEARD_IMMEDIATELY] (0),
+     * eine Anzahl Tage oder [DELETE_HEARD_NEVER] (-1).
+     */
+    val deleteHeardAfterDays: Flow<Int> =
+        context.podcastSettingsDataStore.data.map { it[KEY_DELETE_HEARD_DAYS] ?: DEFAULT_DELETE_HEARD_DAYS }
+
+    suspend fun setDeleteHeardAfterDays(days: Int) {
+        context.podcastSettingsDataStore.edit { it[KEY_DELETE_HEARD_DAYS] = days.coerceAtLeast(DELETE_HEARD_NEVER) }
+    }
+
     companion object {
         /** Auswahl in den Einstellungen. */
         val REFRESH_HOUR_CHOICES = listOf(0, 1, 3, 6, 12, 24)
         const val DEFAULT_REFRESH_HOURS = 6
 
+        const val DELETE_HEARD_NEVER = -1
+        const val DELETE_HEARD_IMMEDIATELY = 0
+        val DELETE_HEARD_CHOICES = listOf(DELETE_HEARD_IMMEDIATELY, 1, 3, 7, 14, 30, DELETE_HEARD_NEVER)
+        const val DEFAULT_DELETE_HEARD_DAYS = 3
+
+        private val KEY_DELETE_HEARD_DAYS = intPreferencesKey("delete_heard_days")
         private val KEY_REFRESH_HOURS = intPreferencesKey("refresh_hours")
         private val KEY_MOBILE = booleanPreferencesKey("mobile_data")
     }

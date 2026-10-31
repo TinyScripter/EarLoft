@@ -9,6 +9,13 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import kotlinx.coroutines.flow.Flow
+import keinabersmart.kleinaberlaut.core.model.TrackDownload
+
+/** Geladene Folge, die zu Ende gehört ist; [finishedAt] ist der Zeitpunkt der letzten Änderung ihres Fortschritts. */
+data class FinishedDownloadRow(val bookId: Long, val finishedAt: Long, val filePath: String?)
+
+/** Download-Zustand einer Folge. */
+data class EpisodeDownloadRow(val bookId: Long, val state: TrackDownload)
 
 /** Podcast-Abos; ihre Folgen sind `books`-Zeilen mit `kind = 'EPISODE'` und `serverId = feedId` (Konzept 12.1). */
 @Dao
@@ -79,12 +86,90 @@ abstract class PodcastDao {
     @Insert
     abstract suspend fun insertTracks(tracks: List<BookTrackEntity>)
 
-    /** Die Audiodatei einer Folge (genau ein Titel); Kapitel bleiben unberührt. */
+    @Query("SELECT * FROM book_tracks WHERE bookId = :bookId AND trackIndex = 0")
+    abstract suspend fun trackOf(bookId: Long): BookTrackEntity?
+
+    @Query("UPDATE book_tracks SET durationMs = :durationMs, mimeType = :mimeType WHERE bookId = :bookId AND trackIndex = 0")
+    abstract suspend fun updateTrackMeta(bookId: Long, durationMs: Long, mimeType: String?)
+
+    /**
+     * Die Audiodatei einer Folge (genau ein Titel); Kapitel bleiben unberührt. Bleibt die Adresse gleich, behalten
+     * Download-Zustand und Datei ihren Stand; bei einer neuen Adresse fängt der Download von vorn an.
+     */
     @Transaction
     open suspend fun setTrack(track: BookTrackEntity) {
-        deleteTracks(track.bookId)
-        insertTracks(listOf(track))
+        val old = trackOf(track.bookId)
+        if (old != null && old.remoteFileId == track.remoteFileId) {
+            updateTrackMeta(track.bookId, track.durationMs, track.mimeType)
+        } else {
+            deleteTracks(track.bookId)
+            insertTracks(listOf(track))
+        }
     }
+
+    // --- Downloads der Folgen ---
+
+    /** Download-Zustand der Folgen eines Podcasts, für die Liste. */
+    @Query(
+        "SELECT t.bookId AS bookId, t.downloadState AS state FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.serverId = :feedId AND t.trackIndex = 0",
+    )
+    abstract fun observeDownloadStates(feedId: String): Flow<List<EpisodeDownloadRow>>
+
+    /** Von Hand: auch fehlgeschlagene und entfernte Folgen laden wieder. */
+    @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState IN ('NONE', 'FAILED', 'REMOVED')")
+    abstract suspend fun queueDownload(bookId: Long): Int
+
+    /** Die neuesten ungehörten Folgen eines Podcasts, die noch nie geladen wurden (nicht: entfernte oder fehlgeschlagene). */
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'QUEUED' WHERE trackIndex = 0 AND downloadState = 'NONE' AND bookId IN (" +
+            "SELECT bookId FROM books WHERE kind = 'EPISODE' AND serverId = :feedId " +
+            "AND bookId NOT IN (SELECT bookId FROM book_progress WHERE finished = 1) " +
+            "ORDER BY addedAt DESC, bookId DESC LIMIT :count)",
+    )
+    abstract suspend fun queueLatestUnheard(feedId: String, count: Int): Int
+
+    @Query("SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId WHERE t.downloadState = 'QUEUED' ORDER BY b.addedAt DESC, t.bookId DESC LIMIT 1")
+    abstract suspend fun nextQueuedDownload(): BookTrackEntity?
+
+    @Query("SELECT COUNT(*) FROM book_tracks WHERE downloadState IN ('QUEUED', 'RUNNING')")
+    abstract suspend fun countPendingDownloads(): Int
+
+    @Query("UPDATE book_tracks SET downloadState = 'RUNNING' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState = 'QUEUED'")
+    abstract suspend fun markDownloadRunning(bookId: Long): Int
+
+    @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE downloadState = 'RUNNING'")
+    abstract suspend fun requeueRunningDownloads()
+
+    @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState = 'RUNNING'")
+    abstract suspend fun requeueDownload(bookId: Long)
+
+    @Query("UPDATE book_tracks SET downloadState = 'FAILED', filePath = NULL, fileSize = 0 WHERE bookId = :bookId AND trackIndex = 0")
+    abstract suspend fun markDownloadFailed(bookId: Long)
+
+    /** `0`, wenn der Eintrag inzwischen entfernt oder zurückgesetzt wurde. */
+    @Query("UPDATE book_tracks SET downloadState = 'DONE', filePath = :path, fileSize = :size WHERE bookId = :bookId AND trackIndex = 0 AND downloadState = 'RUNNING'")
+    abstract suspend fun markDownloadDone(bookId: Long, path: String, size: Long): Int
+
+    /** Entfernt den Download (auch einen wartenden) und merkt, dass die Automatik die Folge nicht neu laden soll. */
+    @Query("UPDATE book_tracks SET downloadState = 'REMOVED', filePath = NULL, fileSize = 0 WHERE bookId = :bookId AND trackIndex = 0 AND downloadState != 'NONE'")
+    abstract suspend fun markDownloadRemoved(bookId: Long)
+
+    @Query("SELECT * FROM book_tracks WHERE downloadState = 'DONE' OR filePath IS NOT NULL")
+    abstract suspend fun downloadedTracks(): List<BookTrackEntity>
+
+    @Query(
+        "SELECT t.bookId AS bookId, p.updatedAt AS finishedAt, t.filePath AS filePath FROM book_tracks t " +
+            "JOIN book_progress p ON p.bookId = t.bookId WHERE t.downloadState = 'DONE' AND p.finished = 1",
+    )
+    abstract fun observeFinishedDownloads(): Flow<List<FinishedDownloadRow>>
+
+    /** Fertig geladene Folgen eines Podcasts, die zu Ende gehört sind. */
+    @Query(
+        "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId JOIN book_progress p ON p.bookId = t.bookId " +
+            "WHERE b.serverId = :feedId AND t.downloadState = 'DONE' AND p.finished = 1",
+    )
+    abstract suspend fun finishedDownloads(feedId: String): List<BookTrackEntity>
 
     /**
      * Folgen, die der letzte Abgleich nicht mehr gesehen hat, fallen weg – außer angefangenen: wer eine Folge schon

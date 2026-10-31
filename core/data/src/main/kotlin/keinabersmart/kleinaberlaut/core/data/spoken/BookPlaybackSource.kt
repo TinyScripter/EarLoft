@@ -1,11 +1,13 @@
 package keinabersmart.kleinaberlaut.core.data.spoken
 
+import android.net.Uri
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.model.Book
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -42,8 +44,10 @@ class BookPlaybackSource @Inject constructor(
         if (episode) podcasts.ensureChapters(bookId)
         val timeline = repository.timeline(bookId) ?: return null
         val urls = if (episode) {
-            // Bei Folgen ist die Dateikennung die Audio-Adresse aus dem Feed.
-            timeline.tracks.map { it.remoteFileId }
+            // Bei Folgen ist die Dateikennung die Audio-Adresse aus dem Feed; eine geladene Datei geht vor dem Stream.
+            timeline.tracks.map { track ->
+                track.localPath?.let(::File)?.takeIf { it.isFile }?.let { Uri.fromFile(it).toString() } ?: track.remoteFileId
+            }
         } else {
             val server = servers.server(book.serverId) ?: return null
             timeline.tracks.map { api.fileUrl(server, book.remoteId, it.remoteFileId).toString() }

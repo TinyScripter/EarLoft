@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +22,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -42,8 +45,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,12 +67,19 @@ import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.SubscribeResult
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
+import keinabersmart.kleinaberlaut.core.download.DownloadStart
+import keinabersmart.kleinaberlaut.core.download.EpisodeDownloadProgress
+import keinabersmart.kleinaberlaut.core.download.EpisodeDownloads
 import keinabersmart.kleinaberlaut.core.model.PodcastFeed
+import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.settings.SwitchRow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -264,7 +277,12 @@ class PodcastFeedViewModel @AssistedInject constructor(
     @Assisted private val feedId: String,
     private val podcasts: PodcastRepository,
     private val launcher: BookLauncher,
+    private val downloads: EpisodeDownloads,
+    downloadProgress: EpisodeDownloadProgress,
 ) : ViewModel() {
+
+    /** Anteil der gerade ladenden Folgen (0..1, [EpisodeDownloadProgress.UNKNOWN] ohne bekannte Größe). */
+    val progress: StateFlow<Map<Long, Float>> = downloadProgress.fractions
 
     val feed: StateFlow<PodcastFeed?> = podcasts.feed(feedId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -273,6 +291,33 @@ class PodcastFeedViewModel @AssistedInject constructor(
     val episodes: StateFlow<List<BookWithProgress>?> = podcasts.episodes(feedId)
         .map<List<BookWithProgress>, List<BookWithProgress>?> { it }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Download-Zustand je Folge. */
+    val downloadStates: StateFlow<Map<Long, TrackDownload>> = podcasts.downloadStates(feedId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    private val _messages = MutableSharedFlow<Int>(extraBufferCapacity = 2)
+
+    /** Hinweise für den Nutzer (String-Ressource), z. B. dass ein Download auf eine Verbindung wartet. */
+    val messages: SharedFlow<Int> = _messages.asSharedFlow()
+
+    fun download(bookId: Long) {
+        viewModelScope.launch {
+            when (downloads.download(bookId)) {
+                DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)
+                DownloadStart.WAITING_FOR_WIFI -> _messages.emit(R.string.podcast_download_waiting_wifi)
+                DownloadStart.STARTED -> Unit
+            }
+        }
+    }
+
+    fun removeDownload(bookId: Long) {
+        viewModelScope.launch { downloads.remove(bookId) }
+    }
+
+    fun removeHeardDownloads() {
+        viewModelScope.launch { downloads.removeHeard(feedId) }
+    }
 
     fun setAutoDownload(enabled: Boolean) {
         viewModelScope.launch { podcasts.setAutoDownload(feedId, enabled) }
@@ -315,6 +360,12 @@ fun PodcastScreen(
 ) {
     val feed by viewModel.feed.collectAsStateWithLifecycle()
     val episodes by viewModel.episodes.collectAsStateWithLifecycle()
+    val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
+    val downloadProgress by viewModel.progress.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+    }
     var confirmUnsubscribe by rememberSaveable { mutableStateOf(false) }
     val current = feed
 
@@ -393,7 +444,22 @@ fun PodcastScreen(
                 item(key = "empty") { EmptyHint(stringResource(R.string.podcast_no_episodes)) }
             }
             items(list, key = { it.book.id }) { item ->
-                EpisodeRow(item, onClick = { onEpisodeClick(item.book.id) }, onPlay = { viewModel.play(item.book.id) })
+                EpisodeRow(
+                    item,
+                    download = downloadStates[item.book.id] ?: TrackDownload.NONE,
+                    downloadFraction = downloadProgress[item.book.id],
+                    onClick = { onEpisodeClick(item.book.id) },
+                    onPlay = { viewModel.play(item.book.id) },
+                    onDownload = { viewModel.download(item.book.id) },
+                    onRemoveDownload = { viewModel.removeDownload(item.book.id) },
+                )
+            }
+            if (downloadStates.values.any { it == TrackDownload.DONE }) {
+                item(key = "remove-heard") {
+                    TextButton(onClick = viewModel::removeHeardDownloads, modifier = Modifier.padding(horizontal = 8.dp)) {
+                        Text(stringResource(R.string.podcast_remove_heard_downloads))
+                    }
+                }
             }
             item(key = "unsubscribe") {
                 TextButton(onClick = { confirmUnsubscribe = true }, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
@@ -420,8 +486,45 @@ fun PodcastScreen(
     }
 }
 
+/**
+ * Herunterladen; beim Laden ein Kreis, der sich füllt (leer = wartet, Tipp bricht ab), danach Haken (Tipp löscht).
+ * Ist die Größe unbekannt, dreht sich der Kreis.
+ */
 @Composable
-private fun EpisodeRow(item: BookWithProgress, onClick: () -> Unit, onPlay: () -> Unit) {
+private fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: () -> Unit, onRemove: () -> Unit) {
+    when (state) {
+        TrackDownload.QUEUED, TrackDownload.RUNNING -> {
+            val cancel = stringResource(R.string.podcast_download_cancel)
+            IconButton(onClick = onRemove, modifier = Modifier.semantics { contentDescription = cancel }) {
+                if (fraction != null && fraction == EpisodeDownloadProgress.UNKNOWN) {
+                    CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                } else {
+                    CircularProgressIndicator(progress = { fraction ?: 0f }, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                }
+            }
+        }
+        TrackDownload.DONE -> IconButton(onClick = onRemove) {
+            Icon(painterResource(DesignR.drawable.ic_download_done), contentDescription = stringResource(R.string.podcast_download_remove))
+        }
+        TrackDownload.FAILED -> IconButton(onClick = onDownload) {
+            Icon(painterResource(DesignR.drawable.ic_error), contentDescription = stringResource(R.string.podcast_download_retry))
+        }
+        TrackDownload.NONE, TrackDownload.REMOVED -> IconButton(onClick = onDownload) {
+            Icon(painterResource(DesignR.drawable.ic_download), contentDescription = stringResource(R.string.podcast_download_episode))
+        }
+    }
+}
+
+@Composable
+private fun EpisodeRow(
+    item: BookWithProgress,
+    download: TrackDownload,
+    downloadFraction: Float?,
+    onClick: () -> Unit,
+    onPlay: () -> Unit,
+    onDownload: () -> Unit,
+    onRemoveDownload: () -> Unit,
+) {
     val book = item.book
     val progress = item.progress
     val listened = progress != null && progress.positionMs > 0
@@ -449,8 +552,11 @@ private fun EpisodeRow(item: BookWithProgress, onClick: () -> Unit, onPlay: () -
         },
         leadingContent = { BookArt(book.id, Modifier.size(56.dp), MaterialTheme.shapes.small) },
         trailingContent = {
-            IconButton(onClick = onPlay) {
-                Icon(painterResource(DesignR.drawable.ic_play), contentDescription = stringResource(R.string.podcast_play_episode))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                DownloadButton(download, downloadFraction, onDownload, onRemoveDownload)
+                IconButton(onClick = onPlay) {
+                    Icon(painterResource(DesignR.drawable.ic_play), contentDescription = stringResource(R.string.podcast_play_episode))
+                }
             }
         },
         modifier = Modifier.clickable(onClick = onClick),

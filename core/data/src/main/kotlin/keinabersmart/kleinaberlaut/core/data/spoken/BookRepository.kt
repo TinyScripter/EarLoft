@@ -9,6 +9,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.model.Book
 import keinabersmart.kleinaberlaut.core.model.BookChapter
 import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.model.BookTrack
@@ -121,6 +122,13 @@ internal fun BookEntity.toModel() = Book(
 
 internal fun BookChapterEntity.toModel() = BookChapter(chapterIndex, title, startMs, endMs)
 
-internal fun BookTrackEntity.toModel() = BookTrack(trackIndex, remoteFileId, startMs, durationMs, mimeType)
+internal fun BookTrackEntity.toModel() = BookTrack(
+    trackIndex,
+    remoteFileId,
+    startMs,
+    durationMs,
+    mimeType,
+    localPath = filePath.takeIf { downloadState == TrackDownload.DONE },
+)
 
 internal fun BookProgressEntity.toModel() = BookProgress(positionMs, durationMs, finished, speed, updatedAt, dirty)

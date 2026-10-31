@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.data.spoken.toModel
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.model.PodcastFeed
+import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.network.podcast.FeedFetch
 import keinabersmart.kleinaberlaut.core.network.podcast.ParsedEpisode
 import keinabersmart.kleinaberlaut.core.network.podcast.ParsedFeed
@@ -21,6 +22,9 @@ import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedException
 import keinabersmart.kleinaberlaut.core.network.podcast.normalizeFeedUrl
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -50,9 +54,18 @@ class PodcastRepository @Inject constructor(
 ) {
     private val mutex = Mutex()
 
+    private val _refreshed = MutableSharedFlow<String>(extraBufferCapacity = 16)
+
+    /** Meldet die Id jedes Podcasts, dessen Feed gerade abgeglichen wurde (auch ohne Änderung), für die Download-Automatik. */
+    val refreshed: SharedFlow<String> = _refreshed.asSharedFlow()
+
     val feeds: Flow<List<PodcastFeed>> = dao.observeFeeds().map { list -> list.map { it.toModel() } }
 
     fun feed(feedId: String): Flow<PodcastFeed?> = dao.observeFeed(feedId).map { it?.toModel() }
+
+    /** Download-Zustand je Folge eines Podcasts (Folgen ohne Eintrag sind nicht geladen). */
+    fun downloadStates(feedId: String): Flow<Map<Long, TrackDownload>> =
+        dao.observeDownloadStates(feedId).map { rows -> rows.associate { it.bookId to it.state } }
 
     /** Folgen eines Podcasts, neueste zuerst, mit Fortschritt. */
     fun episodes(feedId: String): Flow<List<BookWithProgress>> =
@@ -146,7 +159,7 @@ class PodcastRepository @Inject constructor(
                 RefreshResult(emptyList())
             }
             is FeedFetch.Fetched -> apply(feed, fetched)
-        }
+        }.also { _refreshed.tryEmit(feedId) }
     }
 
     private suspend fun apply(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult {
@@ -162,7 +175,9 @@ class PodcastRepository @Inject constructor(
             val id = bookDao.upsertBook(episode.toEntity(feed.feedId, title, parsed, existing, generation, now))
             if (existing == null) newIds += id
             val track = BookTrackEntity(id, 0, episode.audioUrl, 0, episode.durationMs.takeIf { it > 0 } ?: existing?.durationMs ?: 0, episode.mimeType)
-            if (bookDao.tracks(id) != listOf(track)) dao.setTrack(track)
+            // Der Download-Stand gehört nicht zum Feed und darf keinen Schreibvorgang auslösen.
+            val stored = bookDao.tracks(id).map { it.copy(downloadState = TrackDownload.NONE, filePath = null, fileSize = 0) }
+            if (stored != listOf(track)) dao.setTrack(track)
         }
         dao.deleteUnseenEpisodes(feed.feedId, generation)
         dao.upsertFeed(

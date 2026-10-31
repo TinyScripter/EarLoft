@@ -86,6 +86,7 @@ fun SettingsScreen(
         onSearchAllChange = viewModel::setSearchAll,
         onPodcastRefreshHoursChange = viewModel::setPodcastRefreshHours,
         onPodcastMobileChange = viewModel::setPodcastMobileData,
+        onPodcastDeleteHeardDaysChange = viewModel::setPodcastDeleteHeardDays,
         onUseLocalMediaChange = { enabled ->
             if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
         },
@@ -119,6 +120,7 @@ private fun SettingsContent(
     onSearchAllChange: (Boolean) -> Unit,
     onPodcastRefreshHoursChange: (Int) -> Unit,
     onPodcastMobileChange: (Boolean) -> Unit,
+    onPodcastDeleteHeardDaysChange: (Int) -> Unit,
     onUseLocalMediaChange: (Boolean) -> Unit,
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
@@ -141,6 +143,7 @@ private fun SettingsContent(
     var choosingTheme by rememberSaveable { mutableStateOf(false) }
     var choosingReplayGain by rememberSaveable { mutableStateOf(false) }
     var choosingPodcastRefresh by rememberSaveable { mutableStateOf(false) }
+    var choosingPodcastDeleteHeard by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
@@ -204,6 +207,14 @@ private fun SettingsContent(
                     icon = DesignR.drawable.ic_cloud,
                     checked = state.podcastMobileData,
                     onCheckedChange = onPodcastMobileChange,
+                )
+            }
+            item(key = "podcast-delete-heard") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_podcast_delete_heard)) },
+                    supportingContent = { Text(podcastDeleteHeardLabel(state.podcastDeleteHeardDays)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                    modifier = Modifier.clickable { choosingPodcastDeleteHeard = true },
                 )
             }
 
@@ -360,6 +371,20 @@ private fun SettingsContent(
         )
     }
 
+    if (choosingPodcastDeleteHeard) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_podcast_delete_heard),
+            options = PodcastSettings.DELETE_HEARD_CHOICES,
+            selected = state.podcastDeleteHeardDays,
+            label = { podcastDeleteHeardLabel(it) },
+            onSelect = {
+                onPodcastDeleteHeardDaysChange(it)
+                choosingPodcastDeleteHeard = false
+            },
+            onDismiss = { choosingPodcastDeleteHeard = false },
+        )
+    }
+
     if (choosingReplayGain) {
         ChoiceDialog(
             title = stringResource(R.string.settings_replay_gain),
@@ -431,6 +456,13 @@ private fun podcastRefreshLabel(hours: Int): String =
     } else {
         pluralStringResource(R.plurals.settings_podcast_refresh_every, hours, hours)
     }
+
+@Composable
+private fun podcastDeleteHeardLabel(days: Int): String = when (days) {
+    PodcastSettings.DELETE_HEARD_NEVER -> stringResource(R.string.settings_podcast_delete_heard_never)
+    PodcastSettings.DELETE_HEARD_IMMEDIATELY -> stringResource(R.string.settings_podcast_delete_heard_now)
+    else -> pluralStringResource(R.plurals.settings_podcast_delete_heard_after, days, days)
+}
 
 private val ThemeMode.label: Int
     get() = when (this) {
@@ -587,6 +619,7 @@ private fun SettingsContentPreview() {
             onSearchAllChange = {},
             onPodcastRefreshHoursChange = {},
             onPodcastMobileChange = {},
+            onPodcastDeleteHeardDaysChange = {},
             onUseLocalMediaChange = {},
             onAddServer = {},
             onEditServer = {},

@@ -377,7 +377,14 @@
     <string name="podcast_refresh">Podcasts aktualisieren</string>
     <string name="podcast_refresh_failed">Aktualisieren fehlgeschlagen.</string>
     <string name="podcast_auto_download">Neue Folgen automatisch herunterladen</string>
-    <string name="podcast_auto_download_summary">Wird gemerkt; das Herunterladen von Folgen kommt noch.</string>
+    <string name="podcast_auto_download_summary">Hält die drei neuesten ungehörten Folgen auf diesem Gerät bereit.</string>
+    <string name="podcast_download_episode">Folge herunterladen</string>
+    <string name="podcast_download_cancel">Download abbrechen</string>
+    <string name="podcast_download_offline">Keine Verbindung. Der Download startet, sobald du online bist.</string>
+    <string name="podcast_download_waiting_wifi">Wartet auf WLAN. Mobilfunk kannst du unter Einstellungen → Podcasts erlauben.</string>
+    <string name="podcast_download_remove">Download entfernen</string>
+    <string name="podcast_download_retry">Download fehlgeschlagen, erneut versuchen</string>
+    <string name="podcast_remove_heard_downloads">Downloads gehörter Folgen löschen</string>
     <string name="podcast_play_latest">Neueste Folge abspielen</string>
     <string name="podcast_play_all">Alle abspielen</string>
     <string name="podcast_continuous">Nächste Folge automatisch abspielen</string>
@@ -398,5 +405,12 @@
         <item quantity="other">Alle %d Stunden</item>
     </plurals>
     <string name="settings_podcast_mobile">Auch über Mobilfunk laden</string>
-    <string name="settings_podcast_mobile_summary">Aus: Die automatische Aktualisierung läuft nur im WLAN.</string>
+    <string name="settings_podcast_mobile_summary">Aus: Aktualisieren und das Herunterladen von Folgen laufen nur im WLAN.</string>
+    <string name="settings_podcast_delete_heard">Downloads gehörter Folgen löschen</string>
+    <string name="settings_podcast_delete_heard_now">Sofort nach dem Hören</string>
+    <string name="settings_podcast_delete_heard_never">Nie</string>
+    <plurals name="settings_podcast_delete_heard_after">
+        <item quantity="one">Nach %d Tag</item>
+        <item quantity="other">Nach %d Tagen</item>
+    </plurals>
 </resources>

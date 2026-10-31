@@ -6,6 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.model.TrackDownload
 
 /** Audiobookshelf-Server (Konzept 12.1). Der API-Key liegt im SecretStore, nie hier. */
 @Entity(tableName = "spoken_servers")
@@ -85,6 +86,10 @@ data class BookTrackEntity(
     val startMs: Long,
     val durationMs: Long,
     val mimeType: String? = null,
+    @ColumnInfo(defaultValue = "'NONE'") val downloadState: TrackDownload = TrackDownload.NONE,
+    /** Heruntergeladene Datei, solange [downloadState] `DONE` ist. */
+    val filePath: String? = null,
+    @ColumnInfo(defaultValue = "0") val fileSize: Long = 0,
 )
 
 @Entity(

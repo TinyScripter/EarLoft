@@ -3,6 +3,12 @@ package keinabersmart.kleinaberlaut.core.model
 /** Gesprochenes (Konzept 12): ein Hörbuch oder eine Podcast-Folge. */
 enum class BookKind { BOOK, EPISODE }
 
+/**
+ * Zustand des Downloads einer Datei (Konzept 12). [REMOVED]: vom Nutzer entfernt – die Automatik lädt sie nicht
+ * wieder, von Hand geht es weiterhin.
+ */
+enum class TrackDownload { NONE, QUEUED, RUNNING, DONE, FAILED, REMOVED }
+
 /** Schalter in der oberen Leiste von Start und Bibliothek (Konzept 12.5). */
 enum class SpokenMode { MUSIC, PODCASTS, BOOKS }
 
@@ -57,6 +63,8 @@ data class BookTrack(
     val startMs: Long,
     val durationMs: Long,
     val mimeType: String? = null,
+    /** Heruntergeladene Datei; nur gesetzt, wenn der Download fertig ist. */
+    val localPath: String? = null,
 )
 
 data class BookProgress(

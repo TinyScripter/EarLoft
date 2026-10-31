@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -193,6 +194,81 @@ class PodcastRepositoryTest {
 
         assertEquals(null, repository.autoNextAfter(idOf(feedId, "C")))
         assertEquals("play all still works", idOf(feedId, "C"), repository.firstToPlay(feedId))
+    }
+
+    private suspend fun stateOf(bookId: Long) = db.podcastDao().trackOf(bookId)!!.downloadState
+
+    @Test
+    fun `a refresh keeps the download of an episode whose file address is unchanged`() = runTest {
+        val feedId = subscribe()
+        val a = idOf(feedId, "A")
+        val dao = db.podcastDao()
+        dao.queueDownload(a)
+        dao.markDownloadRunning(a)
+        dao.markDownloadDone(a, "/files/episode-$a.mp3", 1234)
+
+        repository.refresh(feedId)
+
+        val track = dao.trackOf(a)!!
+        assertEquals(TrackDownload.DONE, track.downloadState)
+        assertEquals("/files/episode-$a.mp3", track.filePath)
+        assertEquals(1234, track.fileSize)
+    }
+
+    @Test
+    fun `a new file address starts the download over`() = runTest {
+        val feedId = subscribe()
+        val a = idOf(feedId, "A")
+        val dao = db.podcastDao()
+        dao.queueDownload(a)
+        dao.markDownloadRunning(a)
+        dao.markDownloadDone(a, "/files/old.mp3", 1)
+        served = served!!.replace("https://example.com/A.mp3", "https://example.com/A-new.mp3")
+
+        repository.refresh(feedId)
+
+        val track = dao.trackOf(a)!!
+        assertEquals("https://example.com/A-new.mp3", track.remoteFileId)
+        assertEquals(TrackDownload.NONE, track.downloadState)
+        assertEquals(null, track.filePath)
+    }
+
+    @Test
+    fun `the automatic download takes the newest unheard episodes and leaves removed ones alone`() = runTest {
+        served = feed(
+            "E" to "Fri, 31 Oct 2025 06:00:00 GMT", "D" to "Thu, 30 Oct 2025 06:00:00 GMT", "C" to "Wed, 29 Oct 2025 06:00:00 GMT",
+            "B" to "Tue, 28 Oct 2025 06:00:00 GMT", "A" to "Mon, 27 Oct 2025 06:00:00 GMT",
+        )
+        val feedId = subscribe()
+        val (e, d, c, b) = listOf("E", "D", "C", "B").map { idOf(feedId, it) }
+        val dao = db.podcastDao()
+        listen(e, positionMs = 600_000, updatedAt = 1, finished = true)
+        dao.queueDownload(c)
+        dao.markDownloadRemoved(c)
+
+        dao.queueLatestUnheard(feedId, 3)
+
+        assertEquals("finished", TrackDownload.NONE, stateOf(e))
+        assertEquals(TrackDownload.QUEUED, stateOf(d))
+        assertEquals("removed by the user", TrackDownload.REMOVED, stateOf(c))
+        assertEquals(TrackDownload.QUEUED, stateOf(b))
+        assertEquals("A is the fourth unheard one", TrackDownload.NONE, stateOf(idOf(feedId, "A")))
+        assertEquals("newest queued first", d, dao.nextQueuedDownload()!!.bookId)
+    }
+
+    @Test
+    fun `removing a queued or finished download is remembered and manual download works again`() = runTest {
+        val feedId = subscribe()
+        val a = idOf(feedId, "A")
+        val dao = db.podcastDao()
+        assertEquals(1, dao.queueDownload(a))
+        assertEquals(0, dao.queueDownload(a))
+
+        dao.markDownloadRemoved(a)
+        assertEquals(TrackDownload.REMOVED, stateOf(a))
+        dao.queueLatestUnheard(feedId, 3)
+        assertEquals("the automation does not bring it back", TrackDownload.REMOVED, stateOf(a))
+        assertEquals(1, dao.queueDownload(a))
     }
 
     @Test

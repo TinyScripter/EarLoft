@@ -381,7 +381,14 @@
     <string name="podcast_refresh">Refresh podcasts</string>
     <string name="podcast_refresh_failed">Refreshing failed.</string>
     <string name="podcast_auto_download">Download new episodes automatically</string>
-    <string name="podcast_auto_download_summary">Remembered; downloading episodes is not available yet.</string>
+    <string name="podcast_auto_download_summary">Keeps the three newest unheard episodes on this device.</string>
+    <string name="podcast_download_episode">Download episode</string>
+    <string name="podcast_download_cancel">Cancel download</string>
+    <string name="podcast_download_offline">No connection. The download starts as soon as you are online.</string>
+    <string name="podcast_download_waiting_wifi">Waiting for Wi-Fi. You can allow mobile data in Settings → Podcasts.</string>
+    <string name="podcast_download_remove">Remove download</string>
+    <string name="podcast_download_retry">Download failed, try again</string>
+    <string name="podcast_remove_heard_downloads">Delete downloads of heard episodes</string>
     <string name="podcast_play_latest">Play latest episode</string>
     <string name="podcast_play_all">Play all</string>
     <string name="podcast_continuous">Play the next episode automatically</string>
@@ -402,5 +409,12 @@
         <item quantity="other">Every %d hours</item>
     </plurals>
     <string name="settings_podcast_mobile">Also use mobile data</string>
-    <string name="settings_podcast_mobile_summary">Off: automatic refresh only runs on Wi-Fi.</string>
+    <string name="settings_podcast_mobile_summary">Off: refreshing and downloading episodes only run on Wi-Fi.</string>
+    <string name="settings_podcast_delete_heard">Delete downloads of heard episodes</string>
+    <string name="settings_podcast_delete_heard_now">Right after listening</string>
+    <string name="settings_podcast_delete_heard_never">Never</string>
+    <plurals name="settings_podcast_delete_heard_after">
+        <item quantity="one">After %d day</item>
+        <item quantity="other">After %d days</item>
+    </plurals>
 </resources>

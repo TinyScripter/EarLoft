@@ -60,6 +60,12 @@ class PodcastFeedApi @Inject constructor(
         parseChapters(text)
     }
 
+    /** Anfrage für die Audiodatei einer Folge (eigener User-Agent, nie aus dem HTTP-Cache); `null` bei ungültiger Adresse. */
+    fun audioRequest(url: String): Request? =
+        url.toHttpUrlOrNull()?.let {
+            Request.Builder().url(it).header("User-Agent", USER_AGENT).cacheControl(CacheControl.Builder().noStore().build()).build()
+        }
+
     /** Bild-Bytes; `null`, wenn es das Bild nicht (mehr) gibt. */
     suspend fun image(url: String): ByteArray? = withContext(Dispatchers.IO) {
         val httpUrl = url.toHttpUrlOrNull() ?: return@withContext null

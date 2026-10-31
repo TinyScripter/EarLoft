@@ -52,6 +52,7 @@ data class SettingsUiState(
     val searchAll: Boolean = true,
     val podcastRefreshHours: Int = PodcastSettings.DEFAULT_REFRESH_HOURS,
     val podcastMobileData: Boolean = false,
+    val podcastDeleteHeardDays: Int = PodcastSettings.DEFAULT_DELETE_HEARD_DAYS,
 )
 
 private data class GeneralSettings(
@@ -134,13 +135,20 @@ class SettingsViewModel @Inject constructor(
             albumCovers = general.albumCovers,
             searchAll = general.searchAll,
         )
-    }.combine(combine(podcastSettings.refreshHours, podcastSettings.useMobileData, ::Pair)) { state, (hours, mobile) ->
-        state.copy(podcastRefreshHours = hours, podcastMobileData = mobile)
+    }.combine(
+        combine(podcastSettings.refreshHours, podcastSettings.useMobileData, podcastSettings.deleteHeardAfterDays, ::Triple),
+    ) { state, (hours, mobile, deleteHeardDays) ->
+        state.copy(podcastRefreshHours = hours, podcastMobileData = mobile, podcastDeleteHeardDays = deleteHeardDays)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     /** Die Planung des periodischen Auftrags folgt der Einstellung (PodcastRefresher). */
     fun setPodcastRefreshHours(hours: Int) {
         viewModelScope.launch { podcastSettings.setRefreshHours(hours) }
+    }
+
+    /** Die Aufräum-Automatik (EpisodeDownloads) folgt der Einstellung. */
+    fun setPodcastDeleteHeardDays(days: Int) {
+        viewModelScope.launch { podcastSettings.setDeleteHeardAfterDays(days) }
     }
 
     fun setPodcastMobileData(enabled: Boolean) {
