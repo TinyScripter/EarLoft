@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -133,6 +134,9 @@ fun PodcastHomeScreen(
     viewModel: PodcastViewModel = hiltViewModel(),
 ) {
     val episodes by viewModel.continueListening.collectAsStateWithLifecycle()
+    val rowState = rememberLazyListState()
+    // Wird eine andere Folge zur aktivsten, steht sie wieder ganz links sichtbar (die Zeile bliebe sonst am alten Eintrag stehen).
+    LaunchedEffect(episodes.firstOrNull()?.book?.id) { rowState.scrollToItem(0) }
     Column(modifier.fillMaxSize()) {
         if (episodes.isEmpty()) {
             EmptyHint(stringResource(R.string.podcast_nothing_to_continue))
@@ -140,7 +144,11 @@ fun PodcastHomeScreen(
             LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
                 item(key = "continue-header") { SectionHeader(stringResource(R.string.spoken_continue)) }
                 item(key = "continue") {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LazyRow(
+                        state = rowState,
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         items(episodes, key = { it.book.id }) { item ->
                             BookCard(item, onClick = { onEpisodeClick(item.book.id) }, modifier = Modifier.width(140.dp))
                         }

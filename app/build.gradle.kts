@@ -52,6 +52,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.coil.compose)
+    // Podcast-Bilder kommen direkt aus dem Feed (Web-Adressen); ohne dies lädt Coil keine http(s)-URLs.
+    implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
     // Chromecast nur auf dem Handy; :core:playback (auch von :wear genutzt) kennt nur PlayerFactory.

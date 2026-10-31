@@ -107,6 +107,30 @@ class PodcastFeedParserTest {
     }
 
     @Test
+    fun `chapters are found whichever address the podcast namespace has`() {
+        // So steht es im Feed des Podcastindex („Podcasting 2.0“) selbst.
+        val namespaces = listOf(
+            "https://github.com/Podcastindex-org/podcast-namespace/blob/main/docs/1.0.md",
+            "http://podcastindex.org/namespace/1.0",
+            "https://podcastindex.org/namespace/1.0",
+        )
+        namespaces.forEach { namespace ->
+            val feed = parse(
+                """
+                <rss version="2.0" xmlns:podcast="$namespace">
+                  <channel><title>T</title>
+                    <item><enclosure url="https://example.com/a.mp3"/><podcast:chapters url="https://example.com/a.json" type="application/json"/></item>
+                    <item><enclosure url="https://example.com/b.mp3"/></item>
+                  </channel>
+                </rss>
+                """,
+            )
+            assertEquals(namespace, "https://example.com/a.json", feed.episodes[0].chaptersUrl)
+            assertNull(namespace, feed.episodes[1].chaptersUrl)
+        }
+    }
+
+    @Test
     fun `atom feed with enclosure links`() {
         val feed = parse(
             """

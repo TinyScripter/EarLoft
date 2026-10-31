@@ -33,6 +33,7 @@ class PodcastFeedApi @Inject constructor(
 ) {
     suspend fun fetch(url: HttpUrl, etag: String? = null, lastModified: String? = null): FeedFetch = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url)
+            .header("User-Agent", USER_AGENT)
             .header("Accept", "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5")
             .cacheControl(CacheControl.FORCE_NETWORK)
             .apply {
@@ -51,7 +52,7 @@ class PodcastFeedApi @Inject constructor(
 
     suspend fun chapters(url: String): List<ParsedChapter> = withContext(Dispatchers.IO) {
         val httpUrl = url.toHttpUrlOrNull() ?: throw IOException("Ungültige Kapitel-URL")
-        val request = Request.Builder().url(httpUrl).cacheControl(CacheControl.FORCE_NETWORK).build()
+        val request = Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).cacheControl(CacheControl.FORCE_NETWORK).build()
         val text = client.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             response.peekBody(MAX_CHAPTERS_BYTES).string()
@@ -62,7 +63,7 @@ class PodcastFeedApi @Inject constructor(
     /** Bild-Bytes; `null`, wenn es das Bild nicht (mehr) gibt. */
     suspend fun image(url: String): ByteArray? = withContext(Dispatchers.IO) {
         val httpUrl = url.toHttpUrlOrNull() ?: return@withContext null
-        client.newCall(Request.Builder().url(httpUrl).build()).await().use { response ->
+        client.newCall(Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).build()).await().use { response ->
             if (response.code == 404 || response.code == 410) return@use null
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             response.peekBody(MAX_IMAGE_BYTES).bytes()
@@ -70,6 +71,8 @@ class PodcastFeedApi @Inject constructor(
     }
 
     private companion object {
+        /** Manche Verzeichnisse (z. B. podcastindex.org) lehnen den Standard-User-Agent von OkHttp mit 403 ab. */
+        const val USER_AGENT = "kleinaberlaut/1.0 (Android podcast client)"
         const val MAX_FEED_BYTES = 20L * 1024 * 1024
         const val MAX_CHAPTERS_BYTES = 1L * 1024 * 1024
         const val MAX_IMAGE_BYTES = 10L * 1024 * 1024

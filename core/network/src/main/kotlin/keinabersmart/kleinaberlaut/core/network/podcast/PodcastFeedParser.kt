@@ -45,7 +45,6 @@ data class ParsedEpisode(
  */
 object PodcastFeedParser {
     private const val NS_ITUNES = "http://www.itunes.com/dtds/podcast-1.0.dtd"
-    private const val NS_PODCAST = "https://podcastindex.org/namespace/1.0"
     private const val NS_CONTENT = "http://purl.org/rss/1.0/modules/content/"
     private const val NS_ATOM = "http://www.w3.org/2005/Atom"
     private const val NS_NONE = ""
@@ -78,7 +77,7 @@ object PodcastFeedParser {
                 durationMs = parseDuration(item.text("duration", NS_ITUNES)),
                 publishedAt = parseRfc1123(item.text("pubDate")),
                 imageUrl = item.child("image", NS_ITUNES)?.attr("href")?.takeIf { it.isNotBlank() },
-                chaptersUrl = item.child("chapters", NS_PODCAST)?.attr("url")?.takeIf { it.isNotBlank() },
+                chaptersUrl = item.podcastChild("chapters")?.attr("url")?.takeIf { it.isNotBlank() },
             )
         }
         return ParsedFeed(
@@ -105,7 +104,7 @@ object PodcastFeedParser {
                 durationMs = parseDuration(entry.text("duration", NS_ITUNES)),
                 publishedAt = parseIso(entry.text("published").ifEmpty { entry.text("updated") }),
                 imageUrl = entry.child("image", NS_ITUNES)?.attr("href")?.takeIf { it.isNotBlank() },
-                chaptersUrl = entry.child("chapters", NS_PODCAST)?.attr("url")?.takeIf { it.isNotBlank() },
+                chaptersUrl = entry.podcastChild("chapters")?.attr("url")?.takeIf { it.isNotBlank() },
             )
         }
         return ParsedFeed(
@@ -156,6 +155,14 @@ object PodcastFeedParser {
 
         /** Ohne Namespace-Angabe gilt jeder Namespace, bevorzugt aber der des Feeds selbst. */
         fun child(name: String, namespace: String? = null): Node? = children(name, namespace).firstOrNull()
+
+        /**
+         * Elemente des Podcasting-2.0-Namespace. Feeds nennen ihn unterschiedlich (`https://podcastindex.org/namespace/1.0`,
+         * `http://podcastindex.org/namespace/1.0`, die GitHub-Dokumentation des Podcastindex), deshalb zählt jede Adresse,
+         * die „podcastindex“ enthält.
+         */
+        fun podcastChild(name: String): Node? =
+            children.firstOrNull { it.name == name && it.namespace.contains("podcastindex", ignoreCase = true) }
 
         fun text(name: String, namespace: String? = null): String = child(name, namespace)?.text?.toString()?.trim().orEmpty()
 
