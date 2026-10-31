@@ -20,7 +20,8 @@ import keinabersmart.kleinaberlaut.core.model.TrackDownload
 
 /**
  * Arbeitet die Warteschlange der Buch-Downloads Datei für Datei ab. Aufbau wie beim [EpisodeDownloadWorker]:
- * Vordergrund-Worker mit Fortschritt, Netzfehler stellen zurück und versuchen es mit Backoff erneut.
+ * Vordergrund-Worker mit Fortschritt, Netzfehler stellen zurück und versuchen es mit Backoff erneut, dann an der
+ * Stelle, an der die Teildatei endet.
  */
 class BookDownloadWorker(
     context: Context,
@@ -36,8 +37,7 @@ class BookDownloadWorker(
     override suspend fun doWork(): Result {
         dao.requeueRunningBookDownloads()
         if (dao.countPendingBookDownloads() == 0) return finish()
-        // Teildateien eines früheren, abgebrochenen Laufs sind unbrauchbar (kein Fortsetzen im Datei-Protokoll).
-        storage.deleteParts()
+        // Teildateien eines früheren, abgebrochenen Laufs bleiben liegen: der Downloader setzt dort fort.
         startForeground(progress = null)
 
         while (true) {
@@ -79,6 +79,8 @@ class BookDownloadWorker(
     /** Räumt Dateien weg, zu denen es keinen Eintrag mehr gibt (Buch vom Server gelöscht oder neu eingelesen). */
     private suspend fun finish(): Result {
         storage.deleteOrphans(dao.downloadedBookTracks().mapNotNull { it.filePath })
+        // Wartet nichts mehr (auch nicht nach einem Fehler), setzt keiner eine Teildatei fort.
+        if (dao.countPendingBookDownloads() == 0) storage.deleteParts()
         return Result.success()
     }
 
