@@ -20,7 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -45,17 +44,8 @@ fun SearchScreen(
     onArtistClick: (Long) -> Unit,
     onBookClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    presetQuery: String? = null,
-    onPresetConsumed: () -> Unit = {},
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
-    // Von außen vorgegebener Suchbegriff (z. B. Podcast-Titel) ersetzt die Eingabe einmalig.
-    LaunchedEffect(presetQuery) {
-        presetQuery?.let {
-            viewModel.onQueryChange(it)
-            onPresetConsumed()
-        }
-    }
     val query by viewModel.query.collectAsStateWithLifecycle()
     val state by viewModel.results.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current

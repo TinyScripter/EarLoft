@@ -15,6 +15,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
+import keinabersmart.kleinaberlaut.core.common.normalizeForMerge
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -528,7 +533,7 @@ fun PodcastScreen(
     onEpisodeClick: (Long) -> Unit,
     onInfo: () -> Unit,
     onSettings: () -> Unit,
-    onSearch: (String) -> Unit,
+    onSearch: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PodcastFeedViewModel = hiltViewModel<PodcastFeedViewModel, PodcastFeedViewModel.Factory> { it.create(feedId) },
 ) {
@@ -547,7 +552,7 @@ fun PodcastScreen(
             title = {},
             navigationIcon = { BackButton(onBack) },
             actions = {
-                IconButton(onClick = { current?.let { onSearch(it.title) } }, enabled = current != null) {
+                IconButton(onClick = onSearch, enabled = current != null) {
                     Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_search))
                 }
             },
@@ -603,6 +608,83 @@ fun PodcastScreen(
 }
 
 private val HEADER_ART_SIZE = 144.dp
+
+/** Suche in den Folgen eines Podcasts: Überschrift und Inhaltsangabe, mit Hinweis „In … suchen“ unter dem Feld. */
+@Composable
+fun PodcastSearchScreen(
+    feedId: String,
+    onBack: () -> Unit,
+    onEpisodeClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: PodcastFeedViewModel = hiltViewModel<PodcastFeedViewModel, PodcastFeedViewModel.Factory> { it.create(feedId) },
+) {
+    val feed by viewModel.feed.collectAsStateWithLifecycle()
+    val episodes by viewModel.episodes.collectAsStateWithLifecycle()
+    val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
+    val downloadProgress by viewModel.progress.collectAsStateWithLifecycle()
+    var query by rememberSaveable { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+
+    val needle = query.trim().normalizeForMerge()
+    val hits = remember(episodes, needle) {
+        if (needle.isEmpty()) {
+            emptyList()
+        } else {
+            episodes.orEmpty().filter {
+                it.book.title.normalizeForMerge().contains(needle) || it.book.description.normalizeForMerge().contains(needle)
+            }
+        }
+    }
+
+    Column(modifier.fillMaxSize()) {
+        Row(Modifier.statusBarsPadding().padding(end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            BackButton(onBack)
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = "" }) {
+                            Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_clear_search))
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.extraLarge,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                modifier = Modifier.weight(1f).focusRequester(focus),
+            )
+        }
+        feed?.let {
+            Text(
+                stringResource(R.string.podcast_search_in, it.title),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 68.dp, end = 16.dp, top = 2.dp, bottom = 4.dp),
+            )
+        }
+        when {
+            needle.isEmpty() -> Unit
+            hits.isEmpty() -> EmptyHint(stringResource(R.string.search_no_results, query.trim()))
+            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                items(hits, key = { it.book.id }) { item ->
+                    EpisodeRow(
+                        item,
+                        download = downloadStates[item.book.id] ?: TrackDownload.NONE,
+                        downloadFraction = downloadProgress[item.book.id],
+                        onClick = { onEpisodeClick(item.book.id) },
+                        onPlay = { viewModel.play(item.book.id) },
+                        onDownload = { viewModel.download(item.book.id) },
+                        onRemoveDownload = { viewModel.removeDownload(item.book.id) },
+                    )
+                }
+            }
+        }
+    }
+}
 
 /** Info-Seite: die komplette Beschreibung und die Feed-Adresse (Tipp kopiert sie in die Zwischenablage). */
 @OptIn(ExperimentalMaterial3Api::class)

@@ -56,6 +56,14 @@ data class PodcastInfoRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
+/** Suche in den Folgen eines Podcasts (Überschrift und Inhaltsangabe). */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class PodcastSearchRoute(
+    val feedId: String,
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
 /** Einstellungen eines Podcasts. */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
