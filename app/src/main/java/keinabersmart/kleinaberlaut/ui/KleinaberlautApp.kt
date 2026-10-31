@@ -148,7 +148,15 @@ fun KleinaberlautApp(
                 spoken = { SpokenLibraryScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
             )
         }
-        entry<BookRoute> { route -> BookScreen(bookId = route.bookId, onBack = navigator::goBack) }
+        entry<BookRoute> { route ->
+            // Läuft dieses Buch schon, öffnet „Abspielen“ die Wiedergabe-Ansicht, statt es neu zu starten.
+            BookScreen(
+                bookId = route.bookId,
+                onBack = navigator::goBack,
+                isCurrent = playerState.spoken?.bookId == route.bookId,
+                onOpenPlayer = navigator::showNowPlaying,
+            )
+        }
         entry<AddAudiobookshelfRoute>(metadata = detailPane()) { AudiobookshelfFormScreen(onDone = navigator::goBack) }
         entry<FavoritesRoute>(metadata = detailPane()) { FavoritesScreen(onBack = navigator::goBack) }
         entry<PlaylistRoute>(metadata = detailPane()) { route ->

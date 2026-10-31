@@ -81,6 +81,8 @@ class BookViewModel @AssistedInject constructor(
 fun BookScreen(
     bookId: Long,
     onBack: () -> Unit,
+    isCurrent: Boolean,
+    onOpenPlayer: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BookViewModel = hiltViewModel<BookViewModel, BookViewModel.Factory> { it.create(bookId) },
 ) {
@@ -99,7 +101,7 @@ fun BookScreen(
             },
         )
         if (book == null) return@Column
-        val header = @Composable { BookHeader(book, progress, onPlay = viewModel::play) }
+        val header = @Composable { BookHeader(book, progress, onPlay = if (isCurrent) onOpenPlayer else viewModel::play) }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             if (maxWidth >= TwoColumnMinWidth) {
                 // Breites Fenster: Cover und Abspielen links, Beschreibung und Kapitel rechts daneben.

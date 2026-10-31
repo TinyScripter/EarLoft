@@ -349,14 +349,13 @@ private fun SpeedDialog(speed: Float, onSpeed: (Float) -> Unit, onDismiss: () ->
                     value = speed,
                     onValueChange = { onSpeed(snapSpeed(it)) },
                     valueRange = MIN_SPEED..MAX_SPEED,
-                    steps = ((MAX_SPEED - MIN_SPEED) / SPEED_STEP).toInt() - 1,
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(1f, 1.25f, 1.5f, 2f).forEach { preset ->
                         FilterChip(
                             selected = snapSpeed(speed) == preset,
                             onClick = { onSpeed(preset) },
-                            label = { Text(formatSpeed(preset)) },
+                            label = { Text(stringResource(R.string.spoken_speed_value, formatSpeed(preset))) },
                         )
                     }
                 }
