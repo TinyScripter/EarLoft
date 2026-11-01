@@ -308,14 +308,17 @@ fun KleinaberlautApp(
                 )
                 if (showChrome && playerState.spoken != null) {
                     val bookPlayer: BookPlayerViewModel = hiltViewModel()
-                    SpokenMiniPlayer(
-                        state = playerState,
-                        fractionProvider = bookPlayer::bookFraction,
-                        onClick = { navigator.navigate(NowPlayingRoute) },
-                        onTogglePlayPause = bookPlayer::togglePlayPause,
-                        onSkipBack = bookPlayer::skipBack,
-                        onSkipForward = bookPlayer::skipForward,
-                    )
+                    val bookSeedColor by bookPlayer.seedColor.collectAsStateWithLifecycle()
+                    AlbumColorTheme(bookSeedColor) {
+                        SpokenMiniPlayer(
+                            state = playerState,
+                            fractionProvider = bookPlayer::bookFraction,
+                            onClick = { navigator.navigate(NowPlayingRoute) },
+                            onTogglePlayPause = bookPlayer::togglePlayPause,
+                            onSkipBack = bookPlayer::skipBack,
+                            onSkipForward = bookPlayer::skipForward,
+                        )
+                    }
                 } else if (showChrome && playerState.hasMedia) {
                     val seedColor by playerViewModel.seedColor.collectAsStateWithLifecycle()
                     AlbumColorTheme(seedColor) {

@@ -2,13 +2,17 @@ package keinabersmart.kleinaberlaut.ui.spoken
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -16,9 +20,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
@@ -52,12 +58,17 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.cast.CastButton
+import keinabersmart.kleinaberlaut.cast.rememberCastDeviceName
+import keinabersmart.kleinaberlaut.core.designsystem.theme.AlbumColorTheme
+import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
@@ -65,12 +76,20 @@ import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import keinabersmart.kleinaberlaut.ui.components.TwoColumnMinWidth
+import keinabersmart.kleinaberlaut.ui.player.CoverThenCentered
+import keinabersmart.kleinaberlaut.ui.player.PlayerTopBar
+import keinabersmart.kleinaberlaut.ui.player.ShortHeight
+import keinabersmart.kleinaberlaut.ui.player.SleepTimerLine
 import keinabersmart.kleinaberlaut.ui.player.SleepTimerSheet
+import keinabersmart.kleinaberlaut.ui.player.ToggleIconButton
 import keinabersmart.kleinaberlaut.ui.player.playPauseIcon
 import keinabersmart.kleinaberlaut.ui.player.playPauseLabel
 import keinabersmart.kleinaberlaut.ui.player.rememberPlaybackPosition
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -85,6 +104,9 @@ import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 class BookPlayerViewModel @javax.inject.Inject constructor(
     private val playback: PlaybackConnection,
     books: BookRepository,
+    bookCovers: BookCovers,
+    private val continueListening: ContinueListening,
+    private val launcher: BookLauncher,
 ) : ViewModel() {
 
     val state: StateFlow<PlayerState> = playback.state
@@ -103,6 +125,11 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     /** Zeitachse des laufenden Buchs; `null`, bis Dateien und Kapitel geladen sind. */
     val timeline: StateFlow<BookTimeline?> = bookId
         .mapLatest { id -> id?.let { books.timeline(it) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Grundfarbe des Covers für das Farbschema; `null`, solange sie fehlt. */
+    val seedColor: StateFlow<Int?> = bookId
+        .mapLatest { id -> id?.let { bookCovers.seedColor(it) } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val sleepTimerRemainingMs: StateFlow<Long?> = playback.sleepTimerRemainingMs
@@ -136,6 +163,23 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
         timeline.nextChapter(bookPositionMs())?.let { seekToBook(it.startMs) }
     }
 
+    /** Es gibt eine weitere Folge in der Warteschlange der Podcasts. */
+    val hasNextEpisode: StateFlow<Boolean> = combine(continueListening.episodes, bookId) { queue, current ->
+        queue.any { it.book.id != current }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Die Folge von vorn; steht sie, geht es auch gleich los. */
+    fun restartEpisode() {
+        seekToBook(0)
+        if (!state.value.isPlaying) playback.togglePlayPause()
+    }
+
+    /** Springt zur nächsten Folge der Warteschlange; sie rückt dabei an deren Anfang (`BookLauncher` → `started`). */
+    fun skipToNextEpisode() {
+        val current = state.value.spoken?.bookId ?: return
+        viewModelScope.launch { continueListening.next(current)?.let(launcher::play) }
+    }
+
     fun togglePlayPause() = playback.togglePlayPause()
     fun skipBack() = playback.skipBack()
     fun skipForward() = playback.skipForward()
@@ -152,10 +196,27 @@ fun BookPlayerScreen(
     modifier: Modifier = Modifier,
     viewModel: BookPlayerViewModel = hiltViewModel(),
 ) {
+    val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
+    AlbumColorTheme(seedColor) {
+        Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            BookPlayerContent(onClose, viewModel = viewModel)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BookPlayerContent(
+    onClose: () -> Unit,
+    viewModel: BookPlayerViewModel,
+    modifier: Modifier = Modifier,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val timeline by viewModel.timeline.collectAsStateWithLifecycle()
     val sleepRemaining by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     val episode by viewModel.isEpisode.collectAsStateWithLifecycle()
+    val hasNextEpisode by viewModel.hasNextEpisode.collectAsStateWithLifecycle()
+    val bookWithProgress by viewModel.book.collectAsStateWithLifecycle()
     val entry = state.spoken
     val position by rememberPlaybackPosition { viewModel.bookPositionMs() }
     var dragging by remember { mutableStateOf<Float?>(null) }
@@ -164,6 +225,9 @@ fun BookPlayerScreen(
     var showSpeed by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
     var showChapters by remember { mutableStateOf(false) }
+    var showInfo by remember { mutableStateOf(false) }
+    // Breit: die Kapitelliste ersetzt im rechten Panel die Beschreibung.
+    var chaptersInPane by remember { mutableStateOf(false) }
 
     if (entry == null) {
         // Das Buch wurde beendet oder entfernt: zurück, statt eine leere Seite zu zeigen.
@@ -184,14 +248,6 @@ fun BookPlayerScreen(
 
     // Oben das ganze Buch (zum Spulen), darunter nur das Kapitel; jeweils links gespielt, rechts die Restzeit mit „-“.
     val progress: @Composable () -> Unit = {
-        Text(
-            entry.title,
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
         Slider(
             value = shown.coerceIn(0, duration.coerceAtLeast(1)).toFloat(),
             onValueChange = { dragging = it },
@@ -202,7 +258,6 @@ fun BookPlayerScreen(
             valueRange = 0f..duration.coerceAtLeast(1).toFloat(),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp)
                 .semantics {
                     contentDescription = positionLabel
                     stateDescription = positionState
@@ -250,16 +305,26 @@ fun BookPlayerScreen(
     val controls: @Composable () -> Unit = {
         Row(
             Modifier.fillMaxWidth().padding(vertical = if (shortHeight) 4.dp else 12.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Kapitel-Knöpfe nur, wenn das Buch bzw. die Folge welche hat.
-            if (hasChapters) {
-                IconButton(onClick = viewModel::previousChapter) {
-                    Icon(painterResource(DesignR.drawable.ic_skip_previous), contentDescription = stringResource(R.string.spoken_previous_chapter))
+            // Jeder Knopf bekommt gleich viel Platz und schrumpft bei Bedarf; nur Abspielen behält seine Größe.
+            // Folgen: ganz links neu starten, ganz rechts zur nächsten Folge der Warteschlange.
+            if (episode) {
+                ControlCell {
+                    IconButton(onClick = viewModel::restartEpisode) {
+                        Icon(painterResource(DesignR.drawable.ic_restart), contentDescription = stringResource(R.string.spoken_restart_episode))
+                    }
                 }
             }
-            SeekButton(DesignR.drawable.ic_replay, "30", stringResource(R.string.spoken_seek_back_30), viewModel::skipBack)
+            // Kapitel-Knöpfe nur bei Büchern mit Kapiteln; Folgen haben dafür die Kapitelliste.
+            if (hasChapters && !episode) {
+                ControlCell {
+                    IconButton(onClick = viewModel::previousChapter) {
+                        Icon(painterResource(DesignR.drawable.ic_skip_previous), contentDescription = stringResource(R.string.spoken_previous_chapter))
+                    }
+                }
+            }
+            ControlCell { SeekButton(DesignR.drawable.ic_replay, "30", stringResource(R.string.spoken_seek_back_30), viewModel::skipBack) }
             FilledIconButton(onClick = viewModel::togglePlayPause, modifier = Modifier.size(if (shortHeight) 56.dp else 72.dp)) {
                 Icon(
                     painterResource(playPauseIcon(state.isPlaying)),
@@ -267,71 +332,213 @@ fun BookPlayerScreen(
                     modifier = Modifier.size(if (shortHeight) 28.dp else 36.dp),
                 )
             }
-            SeekButton(DesignR.drawable.ic_forward, "10", stringResource(R.string.spoken_seek_forward_10), viewModel::skipForward)
-            if (hasChapters) {
-                IconButton(onClick = viewModel::nextChapter) {
-                    Icon(painterResource(DesignR.drawable.ic_skip_next), contentDescription = stringResource(R.string.spoken_next_chapter))
+            ControlCell { SeekButton(DesignR.drawable.ic_forward, "10", stringResource(R.string.spoken_seek_forward_10), viewModel::skipForward) }
+            if (hasChapters && !episode) {
+                ControlCell {
+                    IconButton(onClick = viewModel::nextChapter) {
+                        Icon(painterResource(DesignR.drawable.ic_skip_next), contentDescription = stringResource(R.string.spoken_next_chapter))
+                    }
+                }
+            }
+            if (episode) {
+                ControlCell {
+                    IconButton(onClick = viewModel::skipToNextEpisode, enabled = hasNextEpisode) {
+                        Icon(painterResource(DesignR.drawable.ic_last_page), contentDescription = stringResource(R.string.spoken_next_episode))
+                    }
                 }
             }
         }
     }
-    // Geschwindigkeit, Sleep-Timer, Kapitelliste.
-    val extras: @Composable () -> Unit = {
-        Row(
-            Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(onClick = { showSpeed = true }, modifier = Modifier.semantics { contentDescription = speedLabel }) {
-                Text(stringResource(R.string.spoken_speed_value, formatSpeed(speed)))
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { if (sleepRemaining != null) viewModel.cancelSleepTimer() else showSleep = true }) {
-                    Icon(painterResource(DesignR.drawable.ic_bedtime), contentDescription = stringResource(R.string.sleep_timer_title))
+    val description = bookWithProgress?.book?.description.orEmpty()
+    val sleepActive = sleepRemaining != null
+    val castDeviceName = rememberCastDeviceName(state.isRemote)
+
+    BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding()) {
+        // Wie bei der Musik: breit (Tablet) links Cover und Steuerung, rechts Beschreibung oder Kapitel; Handy quer
+        // links das Cover und rechts alles andere; schmal untereinander.
+        val short = maxHeight < ShortHeight && maxWidth > maxHeight
+        val wide = maxWidth >= TwoColumnMinWidth && !short
+
+        // Geschwindigkeit, Sleep-Timer, Kapitelliste, schmal auch die Beschreibung.
+        val actionRow: @Composable () -> Unit = {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                CastButton()
+                TextButton(
+                    onClick = { showSpeed = true },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = if (speed == 1f) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                    ),
+                    modifier = Modifier.semantics { contentDescription = speedLabel },
+                ) {
+                    Text(stringResource(R.string.spoken_speed_value, formatSpeed(speed)))
                 }
-                sleepRemaining?.let { Text(formatClock(it), style = MaterialTheme.typography.bodySmall) }
+                ToggleIconButton(
+                    icon = DesignR.drawable.ic_bedtime,
+                    active = sleepActive,
+                    label = stringResource(if (sleepActive) R.string.sleep_timer_off else R.string.sleep_timer_title),
+                    onClick = { if (sleepActive) viewModel.cancelSleepTimer() else showSleep = true },
+                )
+                if (hasChapters) {
+                    ToggleIconButton(
+                        icon = DesignR.drawable.ic_list,
+                        active = wide && chaptersInPane,
+                        label = stringResource(R.string.spoken_chapters),
+                        onClick = { if (wide) chaptersInPane = !chaptersInPane else showChapters = true },
+                    )
+                }
+                if (wide) {
+                    // Die Beschreibung steht schon rechts; der Knopf holt sie nur hinter den Kapiteln hervor.
+                    ToggleIconButton(
+                        icon = DesignR.drawable.ic_info,
+                        active = !chaptersInPane || !hasChapters,
+                        label = stringResource(R.string.spoken_description),
+                        onClick = { chaptersInPane = false },
+                    )
+                } else {
+                    ToggleIconButton(
+                        icon = DesignR.drawable.ic_info,
+                        active = false,
+                        label = stringResource(R.string.spoken_description),
+                        onClick = { showInfo = true },
+                    )
+                }
             }
-            if (hasChapters) {
-                IconButton(onClick = { showChapters = true }) {
-                    Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.spoken_chapters))
+        }
+        val titleBlock: @Composable () -> Unit = {
+            Text(
+                entry.title,
+                style = MaterialTheme.typography.headlineSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+            if (entry.author.isNotBlank()) {
+                Text(
+                    entry.author,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (castDeviceName != null) {
+                Text(
+                    stringResource(R.string.cast_playing_on, castDeviceName),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+        val titleAndControls: @Composable () -> Unit = {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                titleBlock()
+                progress()
+                controls()
+            }
+        }
+        val coverShape = MaterialTheme.shapes.extraLarge
+
+        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            PlayerTopBar(
+                title = stringResource(R.string.player_now_playing),
+                closeLabel = stringResource(R.string.player_close),
+                onClose = onClose,
+            )
+            if (short) {
+                // Links Cover mit den Knöpfen darunter, rechts Titel und Steuerung.
+                Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(1f).fillMaxHeight().padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            BookArt(entry.bookId, Modifier.fillMaxHeight(), coverShape)
+                        }
+                        actionRow()
+                        SleepTimerLine(sleepRemaining)
+                    }
+                    // Ohne Scrollen: Der Titel bekommt den Platz, den Regler und Knöpfe übrig lassen, und schrumpft dafür.
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight().padding(bottom = 8.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text(
+                                entry.title,
+                                style = MaterialTheme.typography.titleLarge,
+                                autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = MaterialTheme.typography.titleLarge.fontSize),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                        if (entry.author.isNotBlank()) {
+                            Text(
+                                entry.author,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        if (castDeviceName != null) {
+                            Text(
+                                stringResource(R.string.cast_playing_on, castDeviceName),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        progress()
+                        controls()
+                    }
+                }
+            } else if (wide) {
+                Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight().padding(bottom = 16.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // Ohne fillMaxWidth, damit das Cover bei wenig Höhe schrumpft statt die Knöpfe zu überdecken.
+                        BookArt(entry.bookId, Modifier.weight(1f, fill = false).widthIn(max = 480.dp), coverShape)
+                        actionRow()
+                        SleepTimerLine(sleepRemaining)
+                        Spacer(Modifier.height(8.dp))
+                        titleAndControls()
+                    }
+                    Surface(
+                        modifier = Modifier.weight(1f).fillMaxHeight().padding(bottom = 16.dp),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        if (chaptersInPane && tl != null && hasChapters) {
+                            ChapterList(tl, chapter?.index, onChapter = viewModel::seekToBook, modifier = Modifier.fillMaxSize().padding(vertical = 8.dp))
+                        } else {
+                            DescriptionPane(description, Modifier.fillMaxSize())
+                        }
+                    }
+                }
+            } else {
+                // Cover oben mit den Knöpfen darunter; Titel und Steuerung im übrigen Platz mittig.
+                Column(Modifier.weight(1f).widthIn(max = 560.dp).fillMaxWidth(), verticalArrangement = CoverThenCentered) {
+                    Column(Modifier.weight(1f, fill = false).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        BookArt(entry.bookId, Modifier.weight(1f, fill = false).widthIn(max = 420.dp).fillMaxWidth(), coverShape)
+                        actionRow()
+                        SleepTimerLine(sleepRemaining)
+                    }
+                    titleAndControls()
                 }
             }
         }
     }
 
-    BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding()) {
-        // Breit (Tablet, Handy quer): links das Cover, rechts alles andere; schmal untereinander.
-        val wide = maxWidth >= TwoColumnMinWidth
-        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) {
-                    Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = stringResource(R.string.spoken_close))
-                }
-            }
-            if (wide) {
-                Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                    Box(Modifier.weight(1f).fillMaxHeight().padding(bottom = 16.dp), contentAlignment = Alignment.Center) {
-                        // Ohne fillMaxWidth, damit das Cover bei wenig Höhe schrumpft.
-                        BookArt(entry.bookId, Modifier.widthIn(max = 480.dp))
-                    }
-                    Column(
-                        Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        progress()
-                        controls()
-                        extras()
-                    }
-                }
-            } else {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    BookArt(entry.bookId, Modifier.widthIn(max = 320.dp).fillMaxWidth())
-                }
-                progress()
-                controls()
-                extras()
-            }
+    if (showInfo) {
+        ModalBottomSheet(onDismissRequest = { showInfo = false }) {
+            DescriptionPane(description, Modifier.fillMaxWidth().navigationBarsPadding())
         }
     }
 
@@ -384,6 +591,12 @@ private fun TimeRow(elapsed: String, remaining: String, center: String? = null) 
             middle?.placeRelative((constraints.maxWidth - middle.width) / 2, (height - middle.height) / 2)
         }
     }
+}
+
+/** Gleich breite Zelle in der Wiedergabe-Leiste; ein größerer Knopf wird auf die Zellbreite begrenzt. */
+@Composable
+private fun RowScope.ControlCell(content: @Composable () -> Unit) {
+    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { content() }
 }
 
 /** Zurück- oder Vorspringen mit der Sekundenzahl im Pfeil. */
@@ -439,21 +652,51 @@ private fun ChapterSheet(
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        LazyColumn(Modifier.navigationBarsPadding()) {
-            itemsIndexed(timeline.chapters, key = { _, chapter -> chapter.index }) { _, chapter ->
-                ListItem(
-                    headlineContent = { Text(chapterTitle(chapter), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    trailingContent = { Text(formatClock(chapter.startMs), style = MaterialTheme.typography.bodySmall) },
-                    colors = ListItemDefaults.colors(
-                        containerColor = if (chapter.index == currentIndex) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                    ),
-                    modifier = Modifier.clickable {
-                        onChapter(chapter.startMs)
-                        onDismiss()
-                    },
-                )
-            }
+        ChapterList(
+            timeline = timeline,
+            currentIndex = currentIndex,
+            onChapter = {
+                onChapter(it)
+                onDismiss()
+            },
+            modifier = Modifier.navigationBarsPadding(),
+        )
+    }
+}
+
+@Composable
+private fun ChapterList(
+    timeline: BookTimeline,
+    currentIndex: Int?,
+    onChapter: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Die Liste öffnet beim laufenden Kapitel.
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = timeline.chapters.indexOfFirst { it.index == currentIndex }.coerceAtLeast(0))
+    LazyColumn(modifier, state = listState) {
+        itemsIndexed(timeline.chapters, key = { _, chapter -> chapter.index }) { _, chapter ->
+            ListItem(
+                headlineContent = { Text(chapterTitle(chapter), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                trailingContent = { Text(formatClock(chapter.startMs), style = MaterialTheme.typography.bodySmall) },
+                colors = ListItemDefaults.colors(
+                    containerColor = if (chapter.index == currentIndex) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                ),
+                modifier = Modifier.clickable { onChapter(chapter.startMs) },
+            )
         }
+    }
+}
+
+/** Beschreibung des Buchs bzw. die Shownotes der Folge. */
+@Composable
+private fun DescriptionPane(description: String, modifier: Modifier = Modifier) {
+    Column(modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
+        Text(stringResource(R.string.spoken_description), style = MaterialTheme.typography.titleSmall)
+        Text(
+            description.ifBlank { stringResource(R.string.spoken_no_description) },
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 }
 

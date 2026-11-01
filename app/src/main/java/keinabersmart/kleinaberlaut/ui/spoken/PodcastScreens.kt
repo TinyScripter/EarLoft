@@ -267,12 +267,6 @@ fun PodcastHomeScreen(
                 }
             }
             item(key = "subscriptions-header") { SectionHeader(stringResource(R.string.podcast_subscriptions)) }
-            item(key = "add") {
-                FilledTonalButton(onClick = addControl.show, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
-                    Text(stringResource(R.string.podcast_add), modifier = Modifier.padding(start = 8.dp))
-                }
-            }
             if (feeds?.isEmpty() == true) {
                 item(key = "empty") { EmptyHint(stringResource(R.string.podcast_none)) }
             } else {
@@ -285,6 +279,12 @@ fun PodcastHomeScreen(
                             FeedCard(feed, onClick = { onFeedClick(feed.id) }, modifier = Modifier.width(140.dp))
                         }
                     }
+                }
+            }
+            item(key = "add") {
+                FilledTonalButton(onClick = addControl.show, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
+                    Text(stringResource(R.string.podcast_add), modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }

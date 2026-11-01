@@ -34,7 +34,7 @@ import javax.inject.Singleton
 /**
  * Chromecast (Default Media Receiver): [CastPlayer] wechselt beim Verbinden selbst zwischen dem lokalen
  * ExoPlayer und dem Empfänger. Der Empfänger lädt direkt vom Server; Songs, die nur auf dem Handy liegen,
- * werden beim Casten übersprungen. ReplayGain und Gapless gibt es dort nicht.
+ * werden beim Casten übersprungen. Bücher und Folgen spielt der Empfänger von Audiobookshelf bzw. aus dem Feed. ReplayGain und Gapless gibt es dort nicht.
  *
  * Die Warteschlange geht als eine Nachricht an den Empfänger, und Cast-Nachrichten dürfen höchstens
  * 64 KB groß sein – ein Eintrag braucht etwa 700 Byte (zwei URLs mit Zugangsdaten plus Metadaten).
@@ -193,7 +193,7 @@ private class CastTransferCallback(
         handOver.state = state.takeIf { it.mediaItems.isNotEmpty() }
         val items = state.mediaItems
         cache.prepareBlocking(items.mapNotNull { it.songId })
-        val castable = items.indices.filter { items[it].songId?.let(cache::isCastable) == true }
+        val castable = items.indices.filter { cache.isCastable(items[it]) }
         if (castable.size == items.size && items.size <= CastSessionPlayerFactory.MAX_REMOTE_QUEUE) {
             state.setToPlayer(targetPlayer)
             return

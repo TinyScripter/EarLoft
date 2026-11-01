@@ -12,9 +12,10 @@ import com.google.android.gms.cast.MediaQueueItem
 import com.google.android.gms.common.images.WebImage
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import keinabersmart.kleinaberlaut.core.playback.songId
+import keinabersmart.kleinaberlaut.core.playback.spokenCastSource
 
 /**
- * `kal://song/<id>` → Server-Stream für den Cast-Empfänger. Die `contentId` ist die Media-ID
+ * `kal://song/<id>` bzw. Buch-/Folgen-Datei → Server-Stream für den Cast-Empfänger. Die `contentId` ist die Media-ID
  * (`song:<id>`); darüber ordnet Media3 die Einträge des Empfängers wieder den ursprünglichen Items zu,
  * die Warteschlange auf dem Handy behält also ihre `kal://`-URIs.
  */
@@ -22,15 +23,21 @@ import keinabersmart.kleinaberlaut.core.playback.songId
 internal class CastMediaItemConverter(private val cache: CastMediaCache) : MediaItemConverter {
 
     override fun toMediaQueueItem(mediaItem: MediaItem): MediaQueueItem {
-        val media = mediaItem.songId?.let(cache::get)
+        val media = cache.get(mediaItem)
+        val spoken = mediaItem.spokenCastSource != null
         if (media == null) Log.w(TAG, "${mediaItem.mediaId} hat keine Server-Quelle")
         val meta = mediaItem.mediaMetadata
-        val metadata = MediaMetadata(MediaMetadata.MEDIA_TYPE_MUSIC_TRACK).apply {
+        val metadata = MediaMetadata(if (spoken) MediaMetadata.MEDIA_TYPE_GENERIC else MediaMetadata.MEDIA_TYPE_MUSIC_TRACK).apply {
             meta.title?.let { putString(MediaMetadata.KEY_TITLE, it.toString()) }
-            meta.artist?.let { putString(MediaMetadata.KEY_ARTIST, it.toString()) }
-            meta.albumTitle?.let { putString(MediaMetadata.KEY_ALBUM_TITLE, it.toString()) }
-            meta.trackNumber?.let { putInt(MediaMetadata.KEY_TRACK_NUMBER, it) }
-            meta.discNumber?.let { putInt(MediaMetadata.KEY_DISC_NUMBER, it) }
+            if (spoken) {
+                // Autor bzw. Podcast-Name als Untertitel; Dateien eines Buchs haben keine Titel- und Plattennummern.
+                meta.artist?.let { putString(MediaMetadata.KEY_SUBTITLE, it.toString()) }
+            } else {
+                meta.artist?.let { putString(MediaMetadata.KEY_ARTIST, it.toString()) }
+                meta.albumTitle?.let { putString(MediaMetadata.KEY_ALBUM_TITLE, it.toString()) }
+                meta.trackNumber?.let { putInt(MediaMetadata.KEY_TRACK_NUMBER, it) }
+                meta.discNumber?.let { putInt(MediaMetadata.KEY_DISC_NUMBER, it) }
+            }
             media?.coverUrl?.let { addImage(WebImage(Uri.parse(it))) }
         }
         val info = MediaInfo.Builder(mediaItem.mediaId)

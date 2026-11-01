@@ -32,8 +32,11 @@ class ContinueListening @Inject constructor(
     /** Die Folge, die nach [endedId] von selbst startet: die nächste der Zeile; `null`, wenn das aus ist oder nichts folgt. */
     suspend fun nextAfter(endedId: Long): Long? {
         if (!settings.autoPlayNext.first()) return null
-        return episodes.first().firstOrNull { it.book.id != endedId }?.book?.id
+        return next(endedId)
     }
+
+    /** Die nächste Folge der Zeile nach [currentId], unabhängig vom automatischen Weiterspielen (für „Überspringen“). */
+    suspend fun next(currentId: Long): Long? = episodes.first().firstOrNull { it.book.id != currentId }?.book?.id
 
     /** „In Warteschlange einfügen“: ganz ans Ende der Zeile. */
     suspend fun append(bookId: Long) {

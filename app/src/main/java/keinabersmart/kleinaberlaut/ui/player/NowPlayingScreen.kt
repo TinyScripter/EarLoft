@@ -146,7 +146,7 @@ private fun NowPlayingContent(
     }
     BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding()) {
         // Breit (Tablet quer): links Cover und Steuerung, rechts Warteschlange oder Songtext.
-        // Handy quer: zu niedrig für Cover über den Knöpfen, daher links das Cover und rechts alles andere.
+        // Handy quer: zu niedrig für Cover über Titel und Steuerung, daher links Cover mit den Knöpfen, rechts der Rest.
         val short = maxHeight < ShortHeight && maxWidth > maxHeight
         val wide = maxWidth >= TwoColumnMinWidth && !short
 
@@ -208,29 +208,34 @@ private fun NowPlayingContent(
         }
 
         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            NowPlayingTopBar(onClose)
+            PlayerTopBar(stringResource(R.string.player_now_playing), stringResource(R.string.player_close), onClose)
             val current = state.current
             if (current == null) {
                 actionRow()
                 EmptyHint(stringResource(R.string.player_nothing_playing))
             } else if (short) {
+                // Links Cover (oder Songtext) mit den Knöpfen darunter, rechts Titel und Steuerung.
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    if (lyricsVisible) {
-                        Surface(
-                            modifier = Modifier.weight(1f).fillMaxHeight().padding(bottom = 8.dp),
-                            shape = MaterialTheme.shapes.extraLarge,
-                            color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        ) {
-                            LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
-                        }
-                    } else {
-                        Box(Modifier.weight(1f).fillMaxHeight().padding(bottom = 8.dp), contentAlignment = Alignment.Center) {
-                            AlbumArt(
-                                albumId = current.albumId,
-                                modifier = Modifier.fillMaxHeight(),
+                    Column(Modifier.weight(1f).fillMaxHeight().padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (lyricsVisible) {
+                            Surface(
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
                                 shape = MaterialTheme.shapes.extraLarge,
-                            )
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            ) {
+                                LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
+                            }
+                        } else {
+                            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                AlbumArt(
+                                    albumId = current.albumId,
+                                    modifier = Modifier.fillMaxHeight(),
+                                    shape = MaterialTheme.shapes.extraLarge,
+                                )
+                            }
                         }
+                        actionRow()
+                        SleepTimerLine(sleepTimerRemainingMs)
                     }
                     Column(
                         Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
@@ -238,8 +243,6 @@ private fun NowPlayingContent(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         trackInfoAndControls(current)
-                        actionRow()
-                        SleepTimerLine(sleepTimerRemainingMs)
                     }
                 }
             } else if (wide) {
@@ -312,16 +315,17 @@ private fun NowPlayingContent(
 }
 
 /** Darunter (und breiter als hoch) liegt Now Playing in zwei Spalten statt Cover über den Knöpfen. */
-private val ShortHeight = 480.dp
+internal val ShortHeight = 480.dp
 
+/** Kopfzeile aller Wiedergabe-Ansichten (Musik, Bücher, Folgen): Schließen links, Titel mittig. */
 @Composable
-private fun NowPlayingTopBar(onClose: () -> Unit) {
+internal fun PlayerTopBar(title: String, closeLabel: String, onClose: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onClose) {
-            Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = stringResource(R.string.player_close))
+            Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = closeLabel)
         }
         Text(
-            stringResource(R.string.player_now_playing),
+            title,
             style = MaterialTheme.typography.titleSmall,
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -334,7 +338,7 @@ private fun NowPlayingTopBar(onClose: () -> Unit) {
 }
 
 @Composable
-private fun SleepTimerLine(remainingMs: Long?) {
+internal fun SleepTimerLine(remainingMs: Long?) {
     if (remainingMs == null) return
     // Eigene Zeile ohne Kürzung, damit die Restzeit auch bei langen Zeiten und großer Schrift ganz zu lesen ist.
     Text(
@@ -448,7 +452,7 @@ private fun TrackInfoAndControls(
  * Zwei Kinder: Cover samt Knöpfen ganz oben, der Titelblock danach mit dem restlichen Platz je zur Hälfte davor und
  * dahinter, damit der freie Raum oben und unten gleich groß ist.
  */
-private object CoverThenCentered : Arrangement.Vertical {
+internal object CoverThenCentered : Arrangement.Vertical {
     override fun Density.arrange(totalSize: Int, sizes: IntArray, outPositions: IntArray) {
         val free = (totalSize - sizes.sum()).coerceAtLeast(0)
         var position = 0
@@ -487,7 +491,7 @@ private fun SeekBar(durationMs: Long, positionMs: Long, onSeek: (Long) -> Unit) 
 }
 
 @Composable
-private fun ToggleIconButton(icon: Int, active: Boolean, label: String, onClick: () -> Unit) {
+internal fun ToggleIconButton(icon: Int, active: Boolean, label: String, onClick: () -> Unit) {
     IconButton(
         onClick = onClick,
         colors = IconButtonDefaults.iconButtonColors(

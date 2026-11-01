@@ -23,6 +23,14 @@ data class PreparedBook(
     /** Der Server hatte einen neueren Stand, der spürbar von dem auf diesem Gerät abweicht. */
     val resumedFromServer: Boolean,
     val speed: Float,
+    /**
+     * Adresse je Datei für einen Cast-Empfänger: immer die des Servers bzw. des Feeds, auch wenn die Datei geladen ist.
+     * Ohne Zugangsdaten; bei Audiobookshelf ergänzt der Cast-Teil den Schlüssel ([absServerId]).
+     */
+    val castUrls: List<String> = emptyList(),
+    /** Der Audiobookshelf-Server der Adressen; `null` bei Podcast-Folgen (öffentliche Adressen). */
+    val absServerId: String? = null,
+    val castCoverUrl: String? = null,
 )
 
 @Singleton
@@ -52,6 +60,9 @@ class BookPlaybackSource @Inject constructor(
                 // Bei Folgen ist die Dateikennung die Audio-Adresse aus dem Feed.
                 ?: if (server == null) track.remoteFileId else api.fileUrl(server, book.remoteId, track.remoteFileId).toString()
         }
+        val castUrls = timeline.tracks.map { track ->
+            if (server == null) track.remoteFileId else api.fileUrl(server, book.remoteId, track.remoteFileId).toString()
+        }
         val progress = pulled.progress
         val startPositionMs = progress.startPosition()
         val speed = progress?.speed ?: 1f
@@ -67,6 +78,9 @@ class BookPlaybackSource @Inject constructor(
             startPositionMs = startPositionMs,
             resumedFromServer = pulled.noticeable,
             speed = speed,
+            castUrls = castUrls,
+            absServerId = server?.serverId,
+            castCoverUrl = server?.let { api.coverUrl(it, book.remoteId, CAST_COVER_PX).toString() },
         )
     }
 
@@ -81,5 +95,6 @@ class BookPlaybackSource @Inject constructor(
         /** Nach längerer Pause ein Stück zurück, damit man wieder hineinfindet. */
         const val REWIND_AFTER_MS = 5 * 60 * 1000L
         const val REWIND_MS = 2_000L
+        const val CAST_COVER_PX = 512
     }
 }

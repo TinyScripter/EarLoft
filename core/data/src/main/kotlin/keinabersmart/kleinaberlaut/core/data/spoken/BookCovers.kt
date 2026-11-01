@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import keinabersmart.kleinaberlaut.core.data.repository.seedColorOf
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
@@ -13,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -47,6 +49,17 @@ class BookCovers @Inject constructor(
             file.writeBytes(bytes)
         }
         BitmapFactory.decodeFile(file.path)
+    }
+
+    private val seedColors = ConcurrentHashMap<Long, Int>()
+
+    /** Grundfarbe des Covers für das Farbschema der Wiedergabe-Ansicht (wie bei Alben); nur im Speicher gemerkt. */
+    suspend fun seedColor(bookId: Long): Int? {
+        seedColors[bookId]?.let { return it }
+        val bitmap = cover(bookId) ?: return null
+        val color = withContext(Dispatchers.Default) { seedColorOf(bitmap) }
+        seedColors[bookId] = color
+        return color
     }
 
     private companion object {

@@ -56,7 +56,15 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> =
                     .setMediaType(
                         if (book.kind == BookKind.EPISODE) MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE else MediaMetadata.MEDIA_TYPE_AUDIO_BOOK_CHAPTER,
                     )
-                    .setExtras(Bundle().apply { putLong(EXTRA_BOOK_ID, book.id) })
+                    .setExtras(
+                        Bundle().apply {
+                            putLong(EXTRA_BOOK_ID, book.id)
+                            castUrls.getOrNull(index)?.let { putString(EXTRA_CAST_URL, it) }
+                            timeline.tracks[index].mimeType?.let { putString(EXTRA_CAST_MIME, it) }
+                            absServerId?.let { putString(EXTRA_CAST_ABS_SERVER, it) }
+                            castCoverUrl?.let { putString(EXTRA_CAST_COVER, it) }
+                        },
+                    )
                     .build(),
             )
             .build()
@@ -74,3 +82,20 @@ internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = nu
 }
 
 internal const val EXTRA_BOOK_ID = "keinabersmart.kleinaberlaut.BOOK_ID"
+private const val EXTRA_CAST_URL = "keinabersmart.kleinaberlaut.CAST_URL"
+private const val EXTRA_CAST_MIME = "keinabersmart.kleinaberlaut.CAST_MIME"
+private const val EXTRA_CAST_ABS_SERVER = "keinabersmart.kleinaberlaut.CAST_ABS_SERVER"
+private const val EXTRA_CAST_COVER = "keinabersmart.kleinaberlaut.CAST_COVER"
+
+/**
+ * Wo ein Cast-Empfänger die Datei eines Buchs oder einer Folge findet. Die Adressen enthalten keine Zugangsdaten; bei
+ * [absServerId] ≠ `null` gehört der Schlüssel dieses Audiobookshelf-Servers als `token` dazu.
+ */
+class SpokenCastSource(val url: String, val mimeType: String?, val coverUrl: String?, val absServerId: String?)
+
+val MediaItem.spokenCastSource: SpokenCastSource?
+    get() {
+        val extras = mediaMetadata.extras ?: return null
+        val url = extras.getString(EXTRA_CAST_URL) ?: return null
+        return SpokenCastSource(url, extras.getString(EXTRA_CAST_MIME), extras.getString(EXTRA_CAST_COVER), extras.getString(EXTRA_CAST_ABS_SERVER))
+    }

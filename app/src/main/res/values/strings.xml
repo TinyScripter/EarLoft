@@ -341,6 +341,10 @@
     <string name="spoken_speed">Speed</string>
     <string name="spoken_speed_value">%1$s×</string>
     <string name="spoken_speed_reset">Normal speed</string>
+    <string name="spoken_description">Description</string>
+    <string name="spoken_no_description">No description available.</string>
+    <string name="spoken_restart_episode">Restart episode</string>
+    <string name="spoken_next_episode">Next episode</string>
     <string name="spoken_close">Close</string>
     <string name="spoken_position">Position in the book</string>
     <string name="spoken_position_chapter">Position in the chapter</string>
