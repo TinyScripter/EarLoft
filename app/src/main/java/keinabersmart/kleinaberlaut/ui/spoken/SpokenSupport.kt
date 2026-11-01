@@ -1,5 +1,9 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import java.util.Locale
+import java.util.Date
+import java.util.Calendar
+import java.text.SimpleDateFormat
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.fromHtml
@@ -276,4 +280,11 @@ private fun AnnotatedString.trimmed(): AnnotatedString {
     val start = text.indexOfFirst { !it.isWhitespace() }
     if (start < 0) return AnnotatedString("")
     return subSequence(start, text.indexOfLast { !it.isWhitespace() } + 1)
+}
+
+/** „Okt. 31“; das Jahr steht nur dabei, wenn es nicht das laufende ist („Okt. 31, 2025“). */
+fun formatEpisodeDate(ms: Long, now: Long = System.currentTimeMillis(), locale: Locale = Locale.getDefault()): String {
+    fun yearOf(time: Long) = Calendar.getInstance().apply { timeInMillis = time }.get(Calendar.YEAR)
+    val pattern = if (yearOf(ms) == yearOf(now)) "MMM d" else "MMM d, yyyy"
+    return SimpleDateFormat(pattern, locale).format(Date(ms))
 }

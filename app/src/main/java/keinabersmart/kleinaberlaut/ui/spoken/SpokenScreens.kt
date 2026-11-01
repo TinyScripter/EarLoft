@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import androidx.compose.foundation.layout.height
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -412,17 +413,18 @@ fun BookCard(item: BookWithProgress, onClick: () -> Unit, modifier: Modifier = M
                 }
             }
         }
+        // Alle Kacheln einer Zeile sind gleich hoch, egal ob begonnen und wie lang der Titel ist: sonst springt der Inhalt
+        // darunter, wenn beim Scrollen andere Kacheln sichtbar werden. Deshalb Platz für den Balken und zwei Titelzeilen.
         val progress = item.progress
-        if (progress != null && progress.positionMs > 0 && !progress.finished) {
-            LinearProgressIndicator(
-                progress = { progress.fraction },
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                drawStopIndicator = {},
-            )
+        Box(Modifier.fillMaxWidth().padding(top = 6.dp).height(PROGRESS_HEIGHT)) {
+            if (progress != null && progress.positionMs > 0 && !progress.finished) {
+                LinearProgressIndicator(progress = { progress.fraction }, modifier = Modifier.fillMaxWidth(), drawStopIndicator = {})
+            }
         }
         Text(
             item.book.title,
             style = MaterialTheme.typography.bodyMedium,
+            minLines = 2,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp),
@@ -431,8 +433,21 @@ fun BookCard(item: BookWithProgress, onClick: () -> Unit, modifier: Modifier = M
             item.book.author,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            minLines = 1,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        // Erscheinungsdatum der Folge (bei Büchern ist `addedAt` nur der Zeitpunkt des Abgleichs); die Zeile bleibt als Platz stehen.
+        if (episode) {
+            Text(
+                item.book.addedAt.takeIf { it > 0 }?.let(::formatEpisodeDate).orEmpty(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                minLines = 1,
+                maxLines = 1,
+            )
+        }
     }
 }
+
+private val PROGRESS_HEIGHT = 4.dp
