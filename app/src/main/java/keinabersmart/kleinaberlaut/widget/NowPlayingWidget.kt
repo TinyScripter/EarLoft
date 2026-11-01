@@ -26,6 +26,8 @@ import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.LocalSize
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionSendBroadcast
@@ -65,6 +67,9 @@ import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 /** Widget 4 × 1: Cover links vollflächig & ungeschnitten; rechts Titel, Künstler und Steuerung zentriert. */
 class NowPlayingWidget : GlanceAppWidget() {
 
+    // Die tatsächliche Größe wird gebraucht, damit das Cover genau die Höhe füllt (siehe [NowPlayingContent]).
+    override val sizeMode: SizeMode = SizeMode.Exact
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val updater = context.widgetEntryPoint().widgetUpdater()
         provideContent {
@@ -88,6 +93,9 @@ private fun albumColorProviders(seedColor: Int): ColorProviders {
     )
 }
 
+private val WIDGET_PADDING = 8.dp
+private val MIN_COVER = 32.dp
+
 @Composable
 private fun NowPlayingContent(state: WidgetState) {
     val context = LocalContext.current
@@ -100,17 +108,21 @@ private fun NowPlayingContent(state: WidgetState) {
             .cornerRadius(16.dp)
             .background(GlanceTheme.colors.widgetBackground)
             .clickable(openAppAction(showNowPlaying = nowPlaying != null))
-            .padding(8.dp),
+            .padding(WIDGET_PADDING),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 1. Cover: Passt sich der vollen Höhe an und bleibt unverzerrt/ungeschnitten
+        // 1. Cover: füllt die volle Höhe, die Breite folgt dem Seitenverhältnis (Album quadratisch, Buch hochkant), unverzerrt
+        // und ohne Leerraum links. Ohne feste Breite würde ein quadratisches Cover in einem zu breiten Feld mittig stehen.
+        val coverHeight = (LocalSize.current.height - WIDGET_PADDING * 2).coerceAtLeast(MIN_COVER)
+        val cover = state.cover
+        val coverWidth = if (cover != null && cover.height > 0) coverHeight * (cover.width.toFloat() / cover.height) else coverHeight
         Image(
-            provider = state.cover?.let { ImageProvider(it) } ?: ImageProvider(DesignR.drawable.ic_music_note),
+            provider = cover?.let { ImageProvider(it) } ?: ImageProvider(DesignR.drawable.ic_music_note),
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            colorFilter = if (state.cover == null) ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant) else null,
+            colorFilter = if (cover == null) ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant) else null,
             modifier = GlanceModifier
-                .fillMaxHeight()
+                .size(width = coverWidth, height = coverHeight)
                 .cornerRadius(12.dp),
         )
 
@@ -135,10 +147,15 @@ private fun NowPlayingContent(state: WidgetState) {
                 ),
             )
 
-            // Untertitel (Artist)
-            if (nowPlaying != null) {
+            // Untertitel: bei Musik der Künstler, bei Büchern und Folgen die Spielzeit (statt Autor bzw. Abo)
+            val subtitle = when {
+                nowPlaying == null -> null
+                nowPlaying.isBook -> state.clock?.let { bookClockText(it.positionMs, it.durationMs) }
+                else -> nowPlaying.artist
+            }
+            if (subtitle != null) {
                 Text(
-                    text = nowPlaying.artist,
+                    text = subtitle,
                     maxLines = 1,
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurfaceVariant,
@@ -245,6 +262,15 @@ private fun ControlButton(
             }
         }
     }
+}
+
+/** „00:23:40 / 01:02:43“; ist die Gesamtlänge unbekannt (0), nur die Position. */
+internal fun bookClockText(positionMs: Long, durationMs: Long): String =
+    if (durationMs > 0) "${clockOf(positionMs)} / ${clockOf(durationMs)}" else clockOf(positionMs)
+
+private fun clockOf(ms: Long): String {
+    val totalSeconds = (ms / 1000).coerceAtLeast(0)
+    return "%02d:%02d:%02d".format(totalSeconds / 3600, (totalSeconds % 3600) / 60, totalSeconds % 60)
 }
 
 private fun playerCommand(command: String): Action =
