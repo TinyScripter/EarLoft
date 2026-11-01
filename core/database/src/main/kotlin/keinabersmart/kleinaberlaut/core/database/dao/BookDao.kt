@@ -86,6 +86,10 @@ abstract class BookDao {
         }
     }
 
+    /** Das Buch ist unverändert und zählt für diesen Abgleich als gesehen. */
+    @Query("UPDATE books SET seenInGeneration = :generation WHERE serverId = :serverId AND remoteId = :remoteId")
+    abstract suspend fun markSeen(serverId: String, remoteId: String, generation: Long)
+
     /** Bücher, die der letzte Vollabgleich nicht mehr gesehen hat, sind auf dem Server gelöscht (Mark-and-Sweep). */
     @Query("DELETE FROM books WHERE serverId = :serverId AND seenInGeneration < :generation")
     abstract suspend fun deleteUnseen(serverId: String, generation: Long)

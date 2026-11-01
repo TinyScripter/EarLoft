@@ -390,7 +390,7 @@ fun PodcastsSettingsScreen(
     }
 }
 
-/** Hörbücher: bisher nur Server und Autorenbilder; Wiedergabe und Downloads haben noch keine Einstellungen. */
+/** Hörbücher: Quellen (Gerät, Server) und Autorenbilder; Wiedergabe und Downloads haben noch keine Einstellungen. */
 @Composable
 fun AudiobookSettingsScreen(
     onBack: () -> Unit,
@@ -400,9 +400,24 @@ fun AudiobookSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
+    val requestAudioPermission = rememberAudioPermissionRequester { granted ->
+        if (granted) viewModel.setUseLocalBooks(true)
+    }
 
     SettingsPage(stringResource(R.string.settings_audiobooks), onBack, modifier) {
         item(key = "sources") { SectionHeader(stringResource(R.string.settings_section_sources)) }
+        item(key = "local-books") {
+            SwitchRow(
+                title = stringResource(R.string.settings_local_books),
+                summary = stringResource(R.string.settings_local_books_summary),
+                icon = DesignR.drawable.ic_book,
+                checked = state.useLocalBooks,
+                onCheckedChange = { enabled ->
+                    if (enabled) requestAudioPermission() else viewModel.setUseLocalBooks(false)
+                },
+            )
+        }
         item(key = "audiobookshelf") { AudiobookshelfSection(onAdd = onAddServer, onEdit = onEditServer) }
 
         item(key = "refresh") { SectionHeader(stringResource(R.string.settings_section_refresh)) }

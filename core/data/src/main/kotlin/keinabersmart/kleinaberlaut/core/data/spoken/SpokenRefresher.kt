@@ -5,6 +5,7 @@ import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -22,6 +23,8 @@ class SpokenRefresher @Inject constructor(
     private val progressSync: BookProgressSync,
     private val servers: AudiobookshelfServers,
     private val dao: BookDao,
+    private val localBooks: LocalBooks,
+    private val settings: SpokenSettings,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val started = AtomicBoolean(false)
@@ -29,6 +32,10 @@ class SpokenRefresher @Inject constructor(
 
     fun start() {
         if (!started.compareAndSet(false, true)) return
+        // Bücher vom Gerät: beim Start abgleichen und jedes Mal, wenn der Schalter wechselt (aus = entfernen).
+        scope.launch {
+            settings.useLocalBooks.distinctUntilChanged().collect { enabled -> if (enabled) localBooks.sync() else localBooks.remove() }
+        }
         scope.launch {
             val now = System.currentTimeMillis()
             progressSync.pushPending()
@@ -44,6 +51,8 @@ class SpokenRefresher @Inject constructor(
         val last = lastQuick.get()
         if (now - last < QUICK_INTERVAL_MS || !lastQuick.compareAndSet(last, now)) return
         scope.launch {
+            // Neue Dateien in „Audiobooks“; unveränderte Bücher kosten nur die MediaStore-Abfrage.
+            localBooks.sync()
             progressSync.pushPending()
             servers.all().forEach { server ->
                 try {

@@ -33,11 +33,15 @@ class BookSyncer @Inject constructor(
     private val servers: AudiobookshelfServers,
     private val api: AbsApi,
     private val progressSync: BookProgressSync,
+    private val localBooks: LocalBooks,
 ) {
     private val syncMutex = Mutex()
 
-    /** `true`, wenn alle Server abgeglichen werden konnten. */
-    suspend fun syncAll(): Boolean = servers.all().map { syncSafely(it) }.all { it }
+    /** `true`, wenn alle Server und der Ordner „Audiobooks“ abgeglichen werden konnten. */
+    suspend fun syncAll(): Boolean {
+        val local = localBooks.sync()
+        return servers.all().map { syncSafely(it) }.all { it } && local
+    }
 
     suspend fun syncSafely(server: AbsServer): Boolean =
         try {

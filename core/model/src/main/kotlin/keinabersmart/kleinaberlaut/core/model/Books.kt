@@ -9,6 +9,9 @@ enum class BookKind { BOOK, EPISODE }
  */
 enum class TrackDownload { NONE, QUEUED, RUNNING, DONE, FAILED, REMOVED }
 
+/** `serverId` der Bücher aus dem Ordner „Audiobooks“ auf diesem Gerät (Konzept 12.1); es gibt dazu keinen Server. */
+const val LOCAL_BOOK_SERVER_ID = "local"
+
 /** Schalter in der oberen Leiste von Start und Bibliothek (Konzept 12.5). */
 enum class SpokenMode { MUSIC, PODCASTS, BOOKS }
 
@@ -25,7 +28,10 @@ data class Book(
     /** Eintrag auf dem Server (bei Audiobookshelf die Item-ID); `null` bei lokalen Büchern. */
     val remoteId: String,
     val addedAt: Long = 0,
-)
+) {
+    /** Liegt auf diesem Gerät: kein Server, kein Download, kein Cast. */
+    val isLocal: Boolean get() = serverId == LOCAL_BOOK_SERVER_ID
+}
 
 /** Eine Serie eines Buchs, mit Band, falls der Server ihn mitliefert. */
 data class SeriesRef(val name: String, val sequence: Double?)

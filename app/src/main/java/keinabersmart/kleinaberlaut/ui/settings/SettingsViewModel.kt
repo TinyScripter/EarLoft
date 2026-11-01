@@ -45,6 +45,7 @@ data class ServerItem(
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val useLocalMedia: Boolean = true,
+    val useLocalBooks: Boolean = true,
     val servers: List<ServerItem> = emptyList(),
     val audiobookServerCount: Int = 0,
     val podcastFeedCount: Int = 0,
@@ -153,6 +154,8 @@ class SettingsViewModel @Inject constructor(
         )
     }.combine(artworkSettings.authorImages) { state, authors ->
         state.copy(authorImages = authors)
+    }.combine(spokenSettings.useLocalBooks) { state, local ->
+        state.copy(useLocalBooks = local)
     }.combine(audiobookServers.servers) { state, list ->
         state.copy(audiobookServerCount = list.size)
     }.combine(podcastRepository.feeds) { state, feeds ->
@@ -208,6 +211,11 @@ class SettingsViewModel @Inject constructor(
     /** Einlesen bzw. Entfernen der lokalen Songs übernimmt der [LibraryRefresher]. */
     fun setUseLocalMedia(enabled: Boolean) {
         viewModelScope.launch { librarySettings.setUseLocalMedia(enabled) }
+    }
+
+    /** Einlesen bzw. Entfernen der Bücher vom Gerät übernimmt der [SpokenRefresher]. */
+    fun setUseLocalBooks(enabled: Boolean) {
+        viewModelScope.launch { spokenSettings.setUseLocalBooks(enabled) }
     }
 
     /** Beim Ausschalten werden die schon geladenen Bilder gelöscht. */

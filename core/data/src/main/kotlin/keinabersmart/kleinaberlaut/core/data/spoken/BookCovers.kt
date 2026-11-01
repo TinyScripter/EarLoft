@@ -7,7 +7,9 @@ import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.data.repository.seedColorOf
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
+import keinabersmart.kleinaberlaut.core.datasource.local.LocalBookScanner
 import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.model.LOCAL_BOOK_SERVER_ID
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +28,7 @@ class BookCovers @Inject constructor(
     private val servers: AudiobookshelfServers,
     private val api: AbsApi,
     private val podcastApi: PodcastFeedApi,
+    private val localScanner: LocalBookScanner,
 ) {
     suspend fun cover(bookId: Long): Bitmap? = withContext(Dispatchers.IO) {
         val book = dao.book(bookId) ?: return@withContext null
@@ -37,6 +40,9 @@ class BookCovers @Inject constructor(
             val bytes = try {
                 if (coverUrl != null) {
                     podcastApi.image(coverUrl)
+                } else if (book.serverId == LOCAL_BOOK_SERVER_ID) {
+                    // Lokale Bücher tragen ihr Cover in der ersten Datei.
+                    dao.tracks(bookId).firstOrNull()?.let { localScanner.cover(it.remoteFileId) } ?: return@withContext null
                 } else {
                     val server = servers.server(book.serverId) ?: return@withContext null
                     api.cover(server, book.remoteId, WIDTH_PX)
@@ -49,6 +55,12 @@ class BookCovers @Inject constructor(
             file.writeBytes(bytes)
         }
         BitmapFactory.decodeFile(file.path)
+    }
+
+    /** Das zwischengespeicherte Cover gilt nicht mehr (lokale Bücher, deren Datei sich geändert hat). */
+    fun invalidate(bookId: Long) {
+        File(File(context.cacheDir, DIRECTORY), "$bookId.img").delete()
+        seedColors.remove(bookId)
     }
 
     private val seedColors = ConcurrentHashMap<Long, Int>()

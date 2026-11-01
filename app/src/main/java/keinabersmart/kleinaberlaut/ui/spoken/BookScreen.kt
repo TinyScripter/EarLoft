@@ -192,7 +192,7 @@ fun BookScreen(
 
     Column(modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(book?.title.orEmpty(), maxLines = 1) },
+            title = {},
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(painterResource(DesignR.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
@@ -285,9 +285,9 @@ private fun BookHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        // Abspielen nimmt zwei Drittel der Zeile, Download ein Drittel (Bücher und Folgen).
+        // Abspielen nimmt zwei Drittel der Zeile, Download ein Drittel (Bücher und Folgen); Bücher vom Gerät haben keinen Download.
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(onClick = onPlay, modifier = Modifier.weight(2f)) {
+            FilledTonalButton(onClick = onPlay, modifier = Modifier.weight(if (book.isLocal) 1f else 2f)) {
                 Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null)
                 val label = when {
                     progress?.finished == true -> R.string.spoken_play_again
@@ -296,7 +296,7 @@ private fun BookHeader(
                 }
                 Text(stringResource(label), modifier = Modifier.padding(start = 8.dp), maxLines = 1)
             }
-            DownloadButton(download, onDownload, onCancelDownload, onDeleteDownload, Modifier.weight(1f))
+            if (!book.isLocal) DownloadButton(download, onDownload, onCancelDownload, onDeleteDownload, Modifier.weight(1f))
         }
         if (download == TrackDownload.QUEUED || download == TrackDownload.RUNNING) {
             Text(

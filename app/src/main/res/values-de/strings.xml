@@ -147,6 +147,8 @@
     <string name="settings_album_covers_summary">Sucht Cover bei MusicBrainz und im Cover Art Archive. Dafür werden Albumtitel und Interpret gesendet.</string>
     <string name="settings_local_media">Musik auf diesem Gerät nutzen</string>
     <string name="settings_local_media_summary">Aus: Die Bibliothek zeigt nur Musik von Servern.</string>
+    <string name="settings_local_books">Hörbücher auf diesem Gerät nutzen</string>
+    <string name="settings_local_books_summary">Aus dem Ordner „Audiobooks“: m4b-Dateien und Ordner mit MP3-Dateien (ein Kapitel je Datei). Aus: Die Bücher verschwinden samt Fortschritt.</string>
     <string name="settings_about">Über</string>
     <string name="settings_licenses">Lizenzen</string>
     <string name="server_auto_download">Alles wird automatisch heruntergeladen</string>
