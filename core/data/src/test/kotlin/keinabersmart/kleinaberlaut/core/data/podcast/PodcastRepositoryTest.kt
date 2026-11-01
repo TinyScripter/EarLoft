@@ -269,9 +269,10 @@ class PodcastRepositoryTest {
     }
 
     @Test
-    fun `plain text is taken from html descriptions`() {
-        assertEquals("Hallo Welt", "<p>Hallo <b>Welt</b></p>".toPlainText())
-        assertEquals("Tom & Jerry", "Tom &amp; Jerry".toPlainText())
+    fun `descriptions keep their html and doubly escaped markup is resolved`() {
+        assertEquals("<p>Hallo <b>Welt</b></p>", " <p>Hallo <b>Welt</b></p>\n".toDescriptionHtml())
+        assertEquals("<p>Hallo <b>Welt</b></p>", "&lt;p&gt;Hallo &lt;b&gt;Welt&lt;/b&gt;&lt;/p&gt;".toDescriptionHtml())
+        assertEquals("Tom &amp; Jerry", "Tom &amp; Jerry".toDescriptionHtml())
     }
 
     private companion object {

@@ -242,7 +242,7 @@ class PodcastRepository @Inject constructor(
             feed.copy(
                 title = title,
                 author = parsed.author,
-                description = parsed.description.toPlainText(),
+                description = parsed.description.toDescriptionHtml(),
                 imageUrl = parsed.imageUrl,
                 etag = fetched.etag,
                 lastModified = fetched.lastModified,
@@ -290,7 +290,7 @@ class PodcastRepository @Inject constructor(
         title = title.ifBlank { guid },
         normTitle = title.normalizeForMerge(),
         author = feedTitle,
-        description = description.toPlainText(),
+        description = description.toDescriptionHtml(),
         durationMs = durationMs.takeIf { it > 0 } ?: existing?.durationMs ?: 0,
         // Ohne Datum im Feed bleibt der Zeitpunkt, an dem die Folge zuerst aufgetaucht ist.
         addedAt = publishedAt.takeIf { it > 0 } ?: existing?.addedAt ?: now,
@@ -324,6 +324,11 @@ private fun PodcastFeedEntity.toModel() = PodcastFeed(
     continuous = continuous,
 )
 
-/** Beschreibungen kommen als HTML; die Oberfläche zeigt reinen Text. */
-internal fun String.toPlainText(): String =
-    if (contains('<') || contains('&')) Html.fromHtml(this, Html.FROM_HTML_MODE_COMPACT).toString().trim() else trim()
+/**
+ * Beschreibungen kommen als HTML und bleiben mit ihren Tags erhalten; die Oberfläche setzt sie um. Manche Feeds maskieren
+ * das HTML doppelt (nach dem Einlesen steht `&lt;p&gt;` statt `<p>` da): Das wird hier einmal aufgelöst.
+ */
+internal fun String.toDescriptionHtml(): String {
+    val text = trim()
+    return if ('<' !in text && text.contains("&lt;")) Html.fromHtml(text, Html.FROM_HTML_MODE_COMPACT).toString().trim() else text
+}

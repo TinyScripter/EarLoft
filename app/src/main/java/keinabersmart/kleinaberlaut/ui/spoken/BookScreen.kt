@@ -1,5 +1,7 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.PaddingValues
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,7 +62,12 @@ import keinabersmart.kleinaberlaut.core.data.spoken.BookDownload
 import keinabersmart.kleinaberlaut.core.download.BookDownloadProgress
 import keinabersmart.kleinaberlaut.core.download.BookDownloads
 import keinabersmart.kleinaberlaut.core.download.BookTransfer
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadStart
+import keinabersmart.kleinaberlaut.core.download.EpisodeDownloadProgress
+import keinabersmart.kleinaberlaut.core.download.EpisodeDownloads
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.ui.formatBytes
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -74,20 +81,40 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel(assistedFactory = BookViewModel.Factory::class)
 class BookViewModel @AssistedInject constructor(
     @Assisted private val bookId: Long,
     books: BookRepository,
+    podcasts: PodcastRepository,
     private val launcher: BookLauncher,
     private val downloads: BookDownloads,
+    private val episodeDownloads: EpisodeDownloads,
     downloadProgress: BookDownloadProgress,
+    episodeProgress: EpisodeDownloadProgress,
 ) : ViewModel() {
 
     val book: StateFlow<BookWithProgress?> = books.book(bookId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val download: StateFlow<BookDownload> = books.download(bookId)
+    private val isEpisode: Boolean get() = book.value?.book?.kind == BookKind.EPISODE
+
+    /** Download-Stand des Buchs bzw. der Folge (Folgen laden einzeln, ihre Größe kennt hier niemand: `bytes` ist 0). */
+    val download: StateFlow<BookDownload> = book
+        .map { it?.book?.takeIf { book -> book.kind == BookKind.EPISODE }?.serverId }
+        .distinctUntilChanged()
+        .flatMapLatest { feedId ->
+            if (feedId == null) {
+                books.download(bookId)
+            } else {
+                podcasts.downloadStates(feedId).map { BookDownload(it[bookId] ?: TrackDownload.NONE, 0) }.distinctUntilChanged()
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookDownload(TrackDownload.NONE, 0))
+
+    /** Anteil der ladenden Folge (0..1, [EpisodeDownloadProgress.UNKNOWN] ohne bekannte Größe); `null`, solange sie nicht lädt. */
+    val episodeFraction: StateFlow<Float?> = episodeProgress.fractions.map { it[bookId] }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Bytes des ladenden Buchs; `null`, solange es nicht lädt. */
     val transfer: StateFlow<BookTransfer?> = downloadProgress.transfers.map { it[bookId] }.distinctUntilChanged()
@@ -98,7 +125,8 @@ class BookViewModel @AssistedInject constructor(
 
     fun startDownload() {
         viewModelScope.launch {
-            when (downloads.download(bookId)) {
+            val start = if (isEpisode) episodeDownloads.download(bookId) else downloads.download(bookId)
+            when (start) {
                 DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)
                 DownloadStart.WAITING_FOR_WIFI -> _messages.emit(R.string.podcast_download_waiting_wifi)
                 DownloadStart.STARTED -> Unit
@@ -108,7 +136,7 @@ class BookViewModel @AssistedInject constructor(
 
     /** Bricht einen laufenden Download ab oder löscht die geladenen Dateien. */
     fun removeDownload() {
-        viewModelScope.launch { downloads.remove(bookId) }
+        viewModelScope.launch { if (isEpisode) episodeDownloads.remove(bookId) else downloads.remove(bookId) }
     }
 
     val chapters: StateFlow<List<BookChapter>> = books.chapters(bookId)
@@ -141,6 +169,7 @@ fun BookScreen(
     val progress = item?.progress
     val download by viewModel.download.collectAsStateWithLifecycle()
     val transfer by viewModel.transfer.collectAsStateWithLifecycle()
+    val episodeFraction by viewModel.episodeFraction.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
     val context = LocalContext.current
     LaunchedEffect(viewModel) {
@@ -176,10 +205,12 @@ fun BookScreen(
                 book, progress,
                 download = download.state,
                 transfer = transfer,
+                episodeFraction = episodeFraction,
                 onPlay = if (isCurrent) onOpenPlayer else viewModel::play,
                 onDownload = viewModel::startDownload,
                 onCancelDownload = viewModel::removeDownload,
-                onDeleteDownload = { confirmDelete = true },
+                // Eine Folge ist klein und wird wie in der Folgenliste ohne Rückfrage gelöscht.
+                onDeleteDownload = { if (book.kind == BookKind.EPISODE) viewModel.removeDownload() else confirmDelete = true },
             )
         }
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -215,6 +246,7 @@ private fun BookHeader(
     progress: BookProgress?,
     download: TrackDownload,
     transfer: BookTransfer?,
+    episodeFraction: Float?,
     onPlay: () -> Unit,
     onDownload: () -> Unit,
     onCancelDownload: () -> Unit,
@@ -253,9 +285,9 @@ private fun BookHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        // Abspielen und Download sind gleich groß; Podcast-Folgen haben hier keinen Download (eigener Knopf je Folge).
+        // Abspielen nimmt zwei Drittel der Zeile, Download ein Drittel (Bücher und Folgen).
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(onClick = onPlay, modifier = Modifier.weight(1f)) {
+            FilledTonalButton(onClick = onPlay, modifier = Modifier.weight(2f)) {
                 Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null)
                 val label = when {
                     progress?.finished == true -> R.string.spoken_play_again
@@ -264,13 +296,11 @@ private fun BookHeader(
                 }
                 Text(stringResource(label), modifier = Modifier.padding(start = 8.dp), maxLines = 1)
             }
-            if (book.kind == BookKind.BOOK) {
-                DownloadButton(download, onDownload, onCancelDownload, onDeleteDownload, Modifier.weight(1f))
-            }
+            DownloadButton(download, onDownload, onCancelDownload, onDeleteDownload, Modifier.weight(1f))
         }
-        if (book.kind == BookKind.BOOK && (download == TrackDownload.QUEUED || download == TrackDownload.RUNNING)) {
+        if (download == TrackDownload.QUEUED || download == TrackDownload.RUNNING) {
             Text(
-                transferText(transfer),
+                if (book.kind == BookKind.EPISODE) episodeTransferText(episodeFraction) else transferText(transfer),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
@@ -294,9 +324,10 @@ private fun DownloadButton(
         TrackDownload.FAILED -> Triple(DesignR.drawable.ic_error, R.string.book_download_retry, onDownload)
         TrackDownload.NONE, TrackDownload.REMOVED -> Triple(DesignR.drawable.ic_download, R.string.book_download, onDownload)
     }
-    FilledTonalButton(onClick = onClick, modifier = modifier) {
+    // Schmaler Knopf: kleinere Ränder, damit „Download“ und „Abbrechen“ auch bei großer Schrift Platz haben.
+    FilledTonalButton(onClick = onClick, modifier = modifier, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
         Icon(painterResource(icon), contentDescription = null)
-        Text(stringResource(label), modifier = Modifier.padding(start = 8.dp), maxLines = 1)
+        Text(stringResource(label), modifier = Modifier.padding(start = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -308,12 +339,21 @@ internal fun transferText(transfer: BookTransfer?): String = when {
     else -> stringResource(R.string.book_download_progress, formatBytes(transfer.doneBytes), formatBytes(transfer.totalBytes!!))
 }
 
+/** „45 % geladen“; vor dem Start und ohne bekannte Dateigröße „Wartet…“. */
+@Composable
+private fun episodeTransferText(fraction: Float?): String =
+    if (fraction == null || fraction == EpisodeDownloadProgress.UNKNOWN) {
+        stringResource(R.string.book_download_waiting)
+    } else {
+        stringResource(R.string.episode_download_progress, (fraction * 100).toInt())
+    }
+
 /** Beschreibung und Kapitelliste; ein Tipp auf ein Kapitel spielt ab dessen Anfang. */
 private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter>, onChapter: (Long) -> Unit) {
     if (book.description.isNotBlank()) {
         item(key = "description") {
             Text(
-                book.description,
+                rememberDescription(book.description),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
             )

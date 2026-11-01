@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import androidx.compose.ui.text.AnnotatedString
 import android.content.ClipData
 import android.widget.Toast
 import androidx.annotation.StringRes
@@ -632,7 +633,7 @@ fun PodcastSearchScreen(
             emptyList()
         } else {
             episodes.orEmpty().filter {
-                it.book.title.normalizeForMerge().contains(needle) || it.book.description.normalizeForMerge().contains(needle)
+                it.book.title.normalizeForMerge().contains(needle) || descriptionForSearch(it.book.description).normalizeForMerge().contains(needle)
             }
         }
     }
@@ -712,8 +713,9 @@ fun PodcastInfoScreen(
             if (current.author.isNotBlank()) {
                 Text(current.author, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            val formatted = rememberDescription(current.description)
             Text(
-                current.description.ifBlank { stringResource(R.string.podcast_no_description) },
+                if (current.description.isBlank()) AnnotatedString(stringResource(R.string.podcast_no_description)) else formatted,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 8.dp),
             )

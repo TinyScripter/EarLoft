@@ -1,5 +1,11 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.fromHtml
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.AnnotatedString
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -240,4 +246,34 @@ fun BookLaunchEffect(viewModel: BookLaunchViewModel = hiltViewModel()) {
             Toast.makeText(context, text, Toast.LENGTH_LONG).show()
         }
     }
+}
+
+private val MARKUP = Regex("<[a-zA-Z/!][^>]*>|&(#x?[0-9a-fA-F]+|[a-zA-Z]+);")
+private val TAG = Regex("<[^>]*>")
+
+/**
+ * Beschreibung eines Buchs oder einer Folge. Enthält sie HTML (Absätze, Fett/Kursiv, Links, Zeichencodes), wird es
+ * umgesetzt; reiner Text bleibt unverändert, damit seine Zeilenumbrüche erhalten bleiben.
+ */
+@Composable
+fun rememberDescription(raw: String): AnnotatedString {
+    val linkColor = MaterialTheme.colorScheme.primary
+    return remember(raw, linkColor) {
+        val text = raw.trim()
+        if (!MARKUP.containsMatchIn(text)) {
+            AnnotatedString(text)
+        } else {
+            val links = TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))
+            AnnotatedString.fromHtml(text, linkStyles = links).trimmed()
+        }
+    }
+}
+
+/** Beschreibung ohne Tags für die Suche; die Zeichencodes bleiben stehen (billiger als eine Umsetzung je Tastendruck). */
+fun descriptionForSearch(raw: String): String = if ('<' in raw) raw.replace(TAG, " ") else raw
+
+private fun AnnotatedString.trimmed(): AnnotatedString {
+    val start = text.indexOfFirst { !it.isWhitespace() }
+    if (start < 0) return AnnotatedString("")
+    return subSequence(start, text.indexOfLast { !it.isWhitespace() } + 1)
 }

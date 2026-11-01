@@ -394,6 +394,7 @@
     <string name="book_download_retry">Erneut laden</string>
     <string name="book_download_delete">Löschen</string>
     <string name="book_download_waiting">Wartet…</string>
+    <string name="episode_download_progress">%1$d %% geladen</string>
     <string name="book_download_progress">%1$s von %2$s geladen</string>
     <string name="book_download_progress_unknown">%1$s geladen</string>
     <string name="book_download_delete_title">Download löschen?</string>

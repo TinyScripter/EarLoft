@@ -398,6 +398,7 @@
     <string name="book_download_retry">Retry</string>
     <string name="book_download_delete">Delete</string>
     <string name="book_download_waiting">Waiting…</string>
+    <string name="episode_download_progress">%1$d %% downloaded</string>
     <string name="book_download_progress">%1$s of %2$s downloaded</string>
     <string name="book_download_progress_unknown">%1$s downloaded</string>
     <string name="book_download_delete_title">Delete download?</string>

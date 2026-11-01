@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.text.TextAutoSize
@@ -692,8 +693,9 @@ private fun ChapterList(
 private fun DescriptionPane(description: String, modifier: Modifier = Modifier) {
     Column(modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
         Text(stringResource(R.string.spoken_description), style = MaterialTheme.typography.titleSmall)
+        val formatted = rememberDescription(description)
         Text(
-            description.ifBlank { stringResource(R.string.spoken_no_description) },
+            if (description.isBlank()) AnnotatedString(stringResource(R.string.spoken_no_description)) else formatted,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 8.dp),
         )
