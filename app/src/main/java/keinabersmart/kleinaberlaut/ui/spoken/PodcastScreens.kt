@@ -322,6 +322,7 @@ fun PodcastLibraryScreen(
 ) {
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
     val unheard by viewModel.unheard.collectAsStateWithLifecycle()
+    val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { PodcastTab.entries.size }
     val scope = rememberCoroutineScope()
 
@@ -338,7 +339,14 @@ fun PodcastLibraryScreen(
             }
             HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth(), key = { it }) { page ->
                 when (PodcastTab.entries[page]) {
-                    PodcastTab.EPISODES -> UnheardEpisodes(unheard, hasFeeds = feeds?.isNotEmpty() == true, onFeedClick, onEpisodeClick)
+                    PodcastTab.EPISODES -> UnheardEpisodes(
+                        unheard,
+                        hasFeeds = feeds?.isNotEmpty() == true,
+                        onFeedClick,
+                        onEpisodeClick,
+                        playingId,
+                        viewModel::playOrPause,
+                    )
                     PodcastTab.FEEDS -> FeedGrid(feeds.orEmpty(), onFeedClick, onAdd = addControl.show)
                 }
             }
@@ -353,6 +361,8 @@ private fun UnheardEpisodes(
     hasFeeds: Boolean,
     onFeedClick: (String) -> Unit,
     onEpisodeClick: (Long) -> Unit,
+    playingId: Long?,
+    onPlay: (Long) -> Unit,
 ) {
     if (unheard.isEmpty()) {
         EmptyHint(stringResource(if (hasFeeds) R.string.podcast_all_heard else R.string.podcast_none))
@@ -375,7 +385,13 @@ private fun UnheardEpisodes(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(episodes, key = { it.book.id }) { item ->
-                        BookCard(item, onClick = { onEpisodeClick(item.book.id) }, modifier = Modifier.width(140.dp))
+                        BookCard(
+                            item,
+                            onClick = { onEpisodeClick(item.book.id) },
+                            modifier = Modifier.width(140.dp),
+                            onPlay = { onPlay(item.book.id) },
+                            playing = item.book.id == playingId,
+                        )
                     }
                 }
             }
@@ -459,9 +475,15 @@ class PodcastFeedViewModel @AssistedInject constructor(
     @Assisted private val feedId: String,
     private val podcasts: PodcastRepository,
     private val launcher: BookLauncher,
+    private val playback: PlaybackConnection,
     private val downloads: EpisodeDownloads,
     downloadProgress: EpisodeDownloadProgress,
 ) : ViewModel() {
+
+    /** Die Folge, die gerade läuft (nicht: pausiert). */
+    val playingBookId: StateFlow<Long?> = playback.state
+        .map { if (it.isPlaying) it.spoken?.bookId else null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Anteil der gerade ladenden Folgen (0..1, [EpisodeDownloadProgress.UNKNOWN] ohne bekannte Größe). */
     val progress: StateFlow<Map<Long, Float>> = downloadProgress.fractions
@@ -517,7 +539,10 @@ class PodcastFeedViewModel @AssistedInject constructor(
         viewModelScope.launch { podcasts.unsubscribe(feedId) }
     }
 
-    fun play(bookId: Long) = launcher.play(bookId)
+    /** Wie [PodcastViewModel.playOrPause]. */
+    fun playOrPause(bookId: Long) {
+        if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
+    }
 
     @AssistedFactory
     interface Factory {
@@ -542,6 +567,7 @@ fun PodcastScreen(
     val episodes by viewModel.episodes.collectAsStateWithLifecycle()
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.progress.collectAsStateWithLifecycle()
+    val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val context = LocalContext.current
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
@@ -598,8 +624,9 @@ fun PodcastScreen(
                     item,
                     download = downloadStates[item.book.id] ?: TrackDownload.NONE,
                     downloadFraction = downloadProgress[item.book.id],
+                    playing = item.book.id == playingId,
                     onClick = { onEpisodeClick(item.book.id) },
-                    onPlay = { viewModel.play(item.book.id) },
+                    onPlay = { viewModel.playOrPause(item.book.id) },
                     onDownload = { viewModel.download(item.book.id) },
                     onRemoveDownload = { viewModel.removeDownload(item.book.id) },
                 )
@@ -623,6 +650,7 @@ fun PodcastSearchScreen(
     val episodes by viewModel.episodes.collectAsStateWithLifecycle()
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.progress.collectAsStateWithLifecycle()
+    val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -676,8 +704,9 @@ fun PodcastSearchScreen(
                         item,
                         download = downloadStates[item.book.id] ?: TrackDownload.NONE,
                         downloadFraction = downloadProgress[item.book.id],
+                        playing = item.book.id == playingId,
                         onClick = { onEpisodeClick(item.book.id) },
-                        onPlay = { viewModel.play(item.book.id) },
+                        onPlay = { viewModel.playOrPause(item.book.id) },
                         onDownload = { viewModel.download(item.book.id) },
                         onRemoveDownload = { viewModel.removeDownload(item.book.id) },
                     )
@@ -876,6 +905,7 @@ private fun EpisodeRow(
     item: BookWithProgress,
     download: TrackDownload,
     downloadFraction: Float?,
+    playing: Boolean,
     onClick: () -> Unit,
     onPlay: () -> Unit,
     onDownload: () -> Unit,
@@ -914,7 +944,11 @@ private fun EpisodeRow(
                     // Dateien vom Gerät sind schon da.
                     if (!book.isLocal) DownloadButton(download, downloadFraction, onDownload, onRemoveDownload)
                     IconButton(onClick = onPlay) {
-                        Icon(painterResource(DesignR.drawable.ic_play), contentDescription = stringResource(R.string.podcast_play_episode))
+                        if (playing) {
+                            Icon(painterResource(DesignR.drawable.ic_pause), contentDescription = stringResource(R.string.action_pause))
+                        } else {
+                            Icon(painterResource(DesignR.drawable.ic_play), contentDescription = stringResource(R.string.podcast_play_episode))
+                        }
                     }
                 }
             },

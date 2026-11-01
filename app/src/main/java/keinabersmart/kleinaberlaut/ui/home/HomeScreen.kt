@@ -26,6 +26,7 @@ import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.ui.components.AlbumCard
 import keinabersmart.kleinaberlaut.ui.components.ArtistCard
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.PlayControlViewModel
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 
@@ -37,10 +38,14 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val playControl: PlayControlViewModel = hiltViewModel()
+    val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
     HomeContent(
         state = state,
         onAlbumClick = onAlbumClick,
         onArtistClick = onArtistClick,
+        playingAlbumId = playingAlbumId,
+        onPlayAlbum = playControl::playOrPauseAlbum,
         modifier = modifier,
     )
 }
@@ -51,6 +56,8 @@ private fun HomeContent(
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    playingAlbumId: Long? = null,
+    onPlayAlbum: ((Long) -> Unit)? = null,
 ) {
     Column(modifier.fillMaxSize()) {
         if (state.isSyncing) {
@@ -61,9 +68,9 @@ private fun HomeContent(
             return@Column
         }
         LazyColumn(Modifier.fillMaxSize()) {
-            albumSection("added", R.string.home_recently_added, state.recentlyAdded, onAlbumClick)
-            albumSection("rediscover", R.string.home_rediscover, state.rediscover, onAlbumClick)
-            albumSection("played", R.string.home_recently_played, state.recentlyPlayed, onAlbumClick)
+            albumSection("added", R.string.home_recently_added, state.recentlyAdded, onAlbumClick, playingAlbumId, onPlayAlbum)
+            albumSection("rediscover", R.string.home_rediscover, state.rediscover, onAlbumClick, playingAlbumId, onPlayAlbum)
+            albumSection("played", R.string.home_recently_played, state.recentlyPlayed, onAlbumClick, playingAlbumId, onPlayAlbum)
             if (state.randomArtists.isNotEmpty()) {
                 item(key = "artists-header") { SectionHeader(stringResource(R.string.home_random_artists)) }
                 item(key = "artists") {
@@ -77,7 +84,7 @@ private fun HomeContent(
                     }
                 }
             }
-            albumSection("random", R.string.home_random_albums, state.randomAlbums, onAlbumClick)
+            albumSection("random", R.string.home_random_albums, state.randomAlbums, onAlbumClick, playingAlbumId, onPlayAlbum)
         }
     }
 }
@@ -88,6 +95,8 @@ private fun LazyListScope.albumSection(
     @StringRes title: Int,
     albums: List<Album>,
     onAlbumClick: (Long) -> Unit,
+    playingAlbumId: Long?,
+    onPlayAlbum: ((Long) -> Unit)?,
 ) {
     if (albums.isEmpty()) return
     item(key = "$key-header") { SectionHeader(stringResource(title)) }
@@ -97,7 +106,13 @@ private fun LazyListScope.albumSection(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             items(albums, key = { it.id }) { album ->
-                AlbumCard(album = album, onClick = { onAlbumClick(album.id) }, width = 144.dp)
+                AlbumCard(
+                    album = album,
+                    onClick = { onAlbumClick(album.id) },
+                    width = 144.dp,
+                    onPlay = onPlayAlbum?.let { play -> { play(album.id) } },
+                    playing = album.id == playingAlbumId,
+                )
             }
         }
     }

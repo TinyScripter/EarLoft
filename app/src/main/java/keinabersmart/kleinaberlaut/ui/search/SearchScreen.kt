@@ -33,6 +33,7 @@ import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.ui.components.AlbumListItem
 import keinabersmart.kleinaberlaut.ui.components.ArtistListItem
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.PlayControlViewModel
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
 import keinabersmart.kleinaberlaut.ui.spoken.BookCard
@@ -49,6 +50,9 @@ fun SearchScreen(
     val query by viewModel.query.collectAsStateWithLifecycle()
     val state by viewModel.results.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current
+    val playControl: PlayControlViewModel = hiltViewModel()
+    val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
+    val playingBookId by playControl.playingBookId.collectAsStateWithLifecycle()
 
     Column(modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -96,7 +100,13 @@ fun SearchScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             items(state.books, key = { it.book.id }) { item ->
-                                BookCard(item, onClick = { onBookClick(item.book.id) }, modifier = Modifier.width(140.dp))
+                                BookCard(
+                                    item,
+                                    onClick = { onBookClick(item.book.id) },
+                                    modifier = Modifier.width(140.dp),
+                                    onPlay = { playControl.playOrPauseBook(item.book.id) },
+                                    playing = item.book.id == playingBookId,
+                                )
                             }
                         }
                     }
@@ -110,7 +120,12 @@ fun SearchScreen(
                 if (results.albums.isNotEmpty()) {
                     item(key = "albums") { SectionHeader(stringResource(R.string.library_albums)) }
                     items(results.albums, key = { "album-${it.id}" }) { album ->
-                        AlbumListItem(album = album, onClick = { onAlbumClick(album.id) })
+                        AlbumListItem(
+                            album = album,
+                            onClick = { onAlbumClick(album.id) },
+                            onPlay = { playControl.playOrPauseAlbum(album.id) },
+                            playing = album.id == playingAlbumId,
+                        )
                     }
                 }
                 if (results.songs.isNotEmpty()) {

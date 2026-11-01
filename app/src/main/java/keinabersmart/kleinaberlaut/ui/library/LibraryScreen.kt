@@ -50,6 +50,7 @@ import keinabersmart.kleinaberlaut.core.model.Playlist
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.ui.components.AlbumCard
+import keinabersmart.kleinaberlaut.ui.components.PlayControlViewModel
 import keinabersmart.kleinaberlaut.ui.components.ArtistListItem
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.LazyGridFastScroller
@@ -218,6 +219,8 @@ fun AlbumGrid(
     fastScroll: Boolean = false,
 ) {
     val state = rememberLazyGridState()
+    val playControl: PlayControlViewModel = hiltViewModel()
+    val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
     Box(modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 150.dp),
@@ -226,7 +229,12 @@ fun AlbumGrid(
             modifier = Modifier.fillMaxSize(),
         ) {
             items(albums, key = { it.id }) { album ->
-                AlbumCard(album = album, onClick = { onAlbumClick(album.id) })
+                AlbumCard(
+                    album = album,
+                    onClick = { onAlbumClick(album.id) },
+                    onPlay = { playControl.playOrPauseAlbum(album.id) },
+                    playing = album.id == playingAlbumId,
+                )
             }
         }
         if (fastScroll) {

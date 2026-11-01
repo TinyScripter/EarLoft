@@ -41,7 +41,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
@@ -76,6 +75,7 @@ import coil3.compose.AsyncImage
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import androidx.compose.runtime.LaunchedEffect
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.PlayPauseButton
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -172,7 +172,7 @@ fun SpokenHomeScreen(
                 }
                 if (recent.isNotEmpty()) {
                     item(key = "recent-header") { SectionHeader(stringResource(R.string.spoken_recent)) }
-                    item(key = "recent") { BookRow(recent, onBookClick) }
+                    item(key = "recent") { BookRow(recent, onBookClick, playingId = playingId, onPlay = viewModel::playOrPause) }
                 }
                 if (continueListening.isEmpty() && recent.isEmpty() && hasServer == true) {
                     item(key = "empty") { EmptyHint(stringResource(R.string.spoken_no_books)) }
@@ -200,6 +200,7 @@ fun SpokenLibraryScreen(
 ) {
     val books by viewModel.allBooks.collectAsStateWithLifecycle()
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
+    val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { BookTab.entries.size }
     val scope = rememberCoroutineScope()
 
@@ -222,7 +223,7 @@ fun SpokenLibraryScreen(
                 }
                 HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth(), key = { it }) { page ->
                     when (BookTab.entries[page]) {
-                        BookTab.ALL -> BookGrid(all, onBookClick, fastScroll = true)
+                        BookTab.ALL -> BookGrid(all, onBookClick, playingId, viewModel::playOrPause, fastScroll = true)
                         BookTab.SERIES -> BookGroupList(series) { onGroupClick(BookGroupKind.SERIES, it) }
                         BookTab.AUTHORS -> AuthorGrid(authors) { onGroupClick(BookGroupKind.AUTHOR, it) }
                     }
@@ -234,7 +235,13 @@ fun SpokenLibraryScreen(
 
 /** Bücher als Raster; mit Schnellscroller, wenn die Liste nach Titel sortiert ist. */
 @Composable
-private fun BookGrid(books: List<BookWithProgress>, onBookClick: (Long) -> Unit, fastScroll: Boolean = false) {
+private fun BookGrid(
+    books: List<BookWithProgress>,
+    onBookClick: (Long) -> Unit,
+    playingId: Long?,
+    onPlay: (Long) -> Unit,
+    fastScroll: Boolean = false,
+) {
     val state = rememberLazyGridState()
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -246,7 +253,12 @@ private fun BookGrid(books: List<BookWithProgress>, onBookClick: (Long) -> Unit,
             modifier = Modifier.fillMaxSize(),
         ) {
             items(books, key = { it.book.id }) { item ->
-                BookCard(item, onClick = { onBookClick(item.book.id) })
+                BookCard(
+                    item,
+                    onClick = { onBookClick(item.book.id) },
+                    onPlay = { onPlay(item.book.id) },
+                    playing = item.book.id == playingId,
+                )
             }
         }
         if (fastScroll) {
@@ -342,6 +354,7 @@ fun BookGroupScreen(
     viewModel: SpokenLibraryViewModel = hiltViewModel(),
 ) {
     val books by viewModel.allBooks.collectAsStateWithLifecycle()
+    val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val group = remember(books, kind, name) {
         books.orEmpty().groups(kind).firstOrNull { it.name == name }
     }
@@ -350,7 +363,7 @@ fun BookGroupScreen(
             title = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
         )
-        BookGrid(group?.books.orEmpty(), onBookClick)
+        BookGrid(group?.books.orEmpty(), onBookClick, playingId, viewModel::playOrPause)
     }
 }
 
@@ -401,16 +414,12 @@ fun BookCard(item: BookWithProgress, onClick: () -> Unit, modifier: Modifier = M
             BookArt(item.book.id, Modifier.fillMaxWidth())
             if (!episode) BookDownloadBadge(item.book.id, Modifier.align(Alignment.TopStart).padding(6.dp))
             if (onPlay != null) {
-                FilledTonalIconButton(
-                    onClick = onPlay,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(36.dp),
-                ) {
-                    if (playing) {
-                        Icon(painterResource(DesignR.drawable.ic_pause), contentDescription = stringResource(R.string.action_pause))
-                    } else {
-                        Icon(painterResource(DesignR.drawable.ic_play), contentDescription = stringResource(R.string.podcast_play_episode))
-                    }
-                }
+                PlayPauseButton(
+                    playing,
+                    onPlay,
+                    Modifier.align(Alignment.BottomEnd).padding(6.dp),
+                    playDescription = if (episode) R.string.podcast_play_episode else R.string.spoken_play,
+                )
             }
         }
         // Alle Kacheln einer Zeile sind gleich hoch, egal ob begonnen und wie lang der Titel ist: sonst springt der Inhalt
