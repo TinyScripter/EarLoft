@@ -5,53 +5,106 @@
 ![Wear OS](https://img.shields.io/badge/Wear_OS-3%2B-4285F4?logo=wearos&logoColor=white)
 ![Navidrome](https://img.shields.io/badge/Navidrome-supported-00A4EF)
 
-**kleinaberlaut** is a music player for your *own* music collection. It plays the files on your phone and the music on
-your self-hosted [Navidrome](https://www.navidrome.org) server in **one shared library** – on your phone and on your
-Wear OS watch. No streaming subscription, no account with a third party.
+**kleinaberlaut** is an audio player for your *own* collection: **music**, **podcasts** and **audiobooks**. It plays the
+files on your phone together with your self-hosted [Navidrome](https://www.navidrome.org) music server and your
+[Audiobookshelf](https://www.audiobookshelf.org) server in **one app** – on your phone and, for music, on your
+Wear OS watch. Podcasts come straight from their public RSS feeds. No streaming subscription, no account with a third
+party.
 
-> The name is just a name. kleinaberlaut is german and means "small but loud". For now, I'd like to keep it that way.
+> kleinaberlaut is german and means "small but loud". For now, I'd like to keep it that way.
 
 ## Features
 
-### On your phone
+A switch at the top of **Home** and **Library** changes between the three areas: **Music**, **Podcasts** and
+**Books**. **Search** has the same switch and searches in the selected area, or everywhere (see below).
+
+### Everywhere
+
+- **Offline listening.** Download music, podcast episodes and books. Everything you browse comes from a local database,
+  so the app stays usable without a connection. **Settings → Downloads** lists and removes them.
+- **Material You design** with colors taken from the cover (albums, books and episodes), light and dark mode, phone and
+  tablet layouts (navigation rail and list/detail view on wide screens). English and German.
+- **Search** over music, podcasts and books, with accent-insensitive matching (searching for "Bjork" finds "Björk").
+  A chip in the search bar switches between **search everywhere** and searching only the selected area. Results are
+  grouped by area, each with its own categories:
+  - Music: artists, albums, songs
+  - Podcasts: subscriptions, episodes
+  - Books: series, authors, books
+- **Play / pause buttons on covers.** Every album, book and episode tile in the overviews (Home, Library, search) has
+  a play/pause button; the one that is playing shows pause.
+- **Sleep timer**, a **mini player** and a full **player screen** that fits the content (songs, episodes, books).
+- **Home screen widget** (4×1) with cover and playback controls: previous/next for music, −30 s / +10 s for books and
+  episodes, which also show the elapsed and total time. The widget takes its colors from the cover.
+- **Chromecast** for songs that are on a server, and for books and episodes (see [Known limitations](#known-limitations)).
+
+### Music
 
 - **One library, no duplicates.** A song that exists on your phone *and* on your server shows up once. The app picks
   the best source automatically: file on the device, then a downloaded copy, then the stream.
-- **Albums, artists, songs, genres, playlists and favorites**, with fast search that ignores accents
-  (searching for "Bjork" finds "Björk").
+- **Albums, artists, songs, playlists and favorites**, with "recently added" and "recently played" on Home.
 - **Gapless playback**, so live albums and DJ mixes play without a break between tracks.
   Streams are played in their original quality by default, because server-side transcoding can introduce gaps.
 - **ReplayGain** (track, album or automatic) so quiet and loud albums play at a similar volume.
 - **Lyrics**, synchronized and scrolling along with the music when your files or server provide them.
-- **Offline listening.** Download albums, playlists or single songs, or let the app download your favorites (or a
-  whole server) automatically. Everything you browse comes from a local database, so the app stays usable without a
-  connection.
+- **Smart downloads.** Download albums, playlists or single songs, or let the app download your favorites (or a whole
+  server) automatically, Wi-Fi only by default.
 - **Favorites, playlists and play counts sync with your server.** Changes you make offline are sent as soon as you
   are online again. Scrobbling to the server is supported.
 - **Queue management:** reorder by drag and drop, shuffle, repeat, and continue where you stopped after a restart.
-- **Material You design** with colors taken from the album cover, light and dark mode.
-- **Home screen widget** (4×1) with cover and playback controls.
-- **Chromecast** for songs that are on a server (not for files that exist only on your phone).
 
-### Navidrome and other Subsonic servers
+### Podcasts
 
-Add one or more [Navidrome](https://www.navidrome.org) servers (OpenSubsonic API; other Subsonic-compatible servers
-should work but are not actively tested). Sign in with your username and password; the password is stored encrypted
-with the Android Keystore. Servers at home (`http://192.168.x.x`) work too. The app warns you before using an
-unencrypted connection.
+- **Subscribe with a feed address.** Add any podcast by its RSS or Atom feed URL. Feeds refresh automatically in the
+  background (interval and mobile data are configurable).
+- **Continue listening.** Home shows the episodes you started (the most recent first) followed by new ones, as a row
+  you can edit: reorder by drag and drop or remove episodes. This row is also the queue: when an episode ends, the
+  next one starts (can be switched off).
+- **Per podcast:** newest or oldest first, "play the next episode automatically", automatic downloads of the newest
+  unheard episodes, search within the podcast's episodes, and a page with the full description.
+- **Episode details:** show notes with working links, **chapters** (from the feed's Podcasting 2.0 chapter list or
+  embedded in the file), and an episode menu (long press) to mark as played, reset the position or delete the download.
+- **Downloads** per episode, resumable, with an option to remove downloads of heard episodes after a chosen time.
+- **Podcast files on your phone.** Audio files in the **Podcasts** folder of your device show up as podcasts, one per
+  subfolder or album, including date, description and chapters from the file's tags.
 
-### Artist photos and album covers (optional, off by default)
+### Books (Audiobookshelf)
 
-Missing pictures can be filled in from the internet. Both options are **off by default** because they send names to
-third parties, and you can switch them on in **Settings**:
+- **Connect your Audiobookshelf server** with an API key (several servers are possible, each can be switched off).
+  Books, covers, descriptions and chapters are synced into the app.
+- **Your progress syncs both ways.** The position is sent to the server while you listen and offline changes are
+  delivered later; when you open a book the app jumps to the newest position, whether it was set here or elsewhere.
+- **Built for long listening:** speed from 0.5× to 3× per book, −30 s / +10 s jumps (also on the notification and
+  the widget), chapters with next/previous, remaining time for the book and for the chapter.
+- **Library views:** all books, **series** (ordered by volume) and **authors** (with author pictures from your server).
+- **Downloads** per book, resumable after interruptions, and playback from the file while offline.
+- **Books on your phone.** Audio files in the **Audiobooks** folder of your device show up as books: a single file
+  (e.g. m4b with chapters) or a folder of MP3 files, one chapter per file.
+
+### Your sources
+
+- **Navidrome and other Subsonic servers (music).** Add one or more [Navidrome](https://www.navidrome.org) servers
+  (OpenSubsonic API; other Subsonic-compatible servers should work but are not actively tested). Sign in with your
+  username and password; the password is stored encrypted with the Android Keystore.
+- **Audiobookshelf (books).** Add your [Audiobookshelf](https://www.audiobookshelf.org) server with an API key.
+- **Podcast feeds.** Any public RSS or Atom feed.
+- **Your phone.** Music from the device, books from the **Audiobooks** folder and podcasts from the **Podcasts**
+  folder (each can be switched off in the settings).
+
+Servers at home (`http://192.168.x.x`) work too. The app warns you before using an unencrypted connection.
+
+### Artist photos, album covers and author pictures (optional, off by default)
+
+Missing pictures can be filled in from the internet. These options are **off by default** because they send names to
+third parties, and you can switch them on in **Settings → General**:
 
 - **Artist photos** from [Deezer](https://www.deezer.com) (artist names are sent).
 - **Missing album covers** from [MusicBrainz](https://musicbrainz.org) and the
   [Cover Art Archive](https://coverartarchive.org) (album title and artist are sent).
+- **Missing author pictures** from [Audnexus](https://api.audnex.us) (author names are sent).
 
 Covers embedded in your files or provided by your server are always used first.
 
-### On your watch (Wear OS)
+### On your watch (Wear OS, music)
 
 - **Music without your phone.** Choose albums or playlists on the phone (**Load onto watch**). The watch downloads them
   by itself over Wi-Fi directly from your server, or receives them from the phone if the server is not reachable.
@@ -63,13 +116,14 @@ Covers embedded in your files or provided by your server are always used first.
 ### Android Auto (in development)
 
 Android Auto support is **work in progress** and has not been tested in a car or on the Desktop Head Unit yet.
-It is implemented as a regular media app with four tabs (Recently played, Library, Playlists, Favorites), search, voice
+It covers music only and is implemented as a regular media app with four tabs (Recently played, Library, Playlists, Favorites), search, voice
 commands ("Play …") and a favorite button. Expect rough edges, and please report what you find.
 
 ## Privacy
 
 - Your library, listening history and settings stay on your device and on your own server.
-- The app contacts only the servers you add. The only exceptions are the two optional artwork lookups described above.
+- The app contacts only the servers and podcast feeds you add (and the sites that host their episodes and images). The
+  only exceptions are the optional artwork lookups described above.
 - Server passwords are stored encrypted with the Android Keystore. Neither the database, the downloads nor the
   credentials are included in Android backups.
 - There are no ads and no analytics.
@@ -85,16 +139,26 @@ application ID (`keinabersmart.kleinaberlaut`), so install both for the watch fe
 
 ## Getting started
 
-1. Open the app and allow access to your music (and notifications) when asked, or skip it if you only use servers.
-2. To add a server: **Settings → Servers → Add server**, then enter the address (for example
-   `https://music.example.com`) and your credentials. The first sync can take a while for large libraries.
-3. Play something. On an album or playlist you can download it (download arrow) or load it onto your watch.
-   Downloaded music is listed under **Downloads**; the watch is managed under **Settings → Watch**.
+1. Open the app and allow access to your audio files (and notifications) when asked, or skip it if you only use
+   servers and feeds.
+2. **Music:** **Settings → Music → Add server**, then enter the address (for example `https://music.example.com`) and
+   your credentials. The first sync can take a while for large libraries.
+3. **Podcasts:** switch to **Podcasts** on Home or Library and tap **Add podcast**, then paste the feed address.
+4. **Books:** **Settings → Audiobooks → Add server**, then enter your Audiobookshelf address and an API key (created in
+   Audiobookshelf under *Settings → API Keys*). Or just copy audiobooks into the **Audiobooks** folder of your phone.
+5. Play something. On an album, playlist, book or episode you can download it (download arrow); music can also be
+   loaded onto your watch. Downloads are listed under **Settings → Downloads**; the watch is managed under
+   **Settings → Watch**.
 
 ## Known limitations
 
-- Android Auto is in development (see above).
-- Chromecast only plays songs that are available on a server and is limited to 50 songs in the queue.
+- Android Auto is in development (see above), and so far covers music only.
+- The watch app plays music only; books and podcasts are not yet available on Wear OS or in Android Auto.
+- Chromecast: songs are limited to 50 in the queue. Casting books and episodes depends on the server accepting a
+  token in the address and has not been tested widely.
+- Podcasts: no "download all episodes" for a podcast, and local podcast files have no description unless their tags
+  contain one.
+- Local books and podcasts are picked up when the app is opened or refreshed, not while it is running.
 - Lyrics from `.lrc` files next to your music and a folder view are not supported, because Android does not let apps
   read arbitrary folders without a folder permission. Embedded lyrics and server lyrics work.
 
@@ -111,7 +175,7 @@ application ID (`keinabersmart.kleinaberlaut`), so install both for the watch fe
 | Wear UI | Compose for Wear OS Material 3 |
 | Playback | Media3 1.11: ExoPlayer, `MediaLibraryService`, `OkHttpDataSource`, `SimpleCache`, Cast |
 | Database | Room with FTS4 search and auto-migrations |
-| Network / images | OkHttp 5, kotlinx.serialization, Coil 3 |
+| Network / images | OkHttp 5, kotlinx.serialization, Coil 3; Subsonic, Audiobookshelf and RSS/Atom (own XML parser) |
 | DI | Hilt |
 | Background work | WorkManager (sync queue, downloads) |
 | Secrets | Android Keystore (AES-GCM) + DataStore |
@@ -132,6 +196,9 @@ SDK levels: `minSdk` 26 (phone) and 30 (watch), `compileSdk` / `targetSdk` 37, J
   cacheable and contain no secrets.
 - **Offline changes** (favorites, playlists, scrobbles) go through a sync queue that coalesces actions and retries
   with backoff.
+- **Books and podcast episodes share one model.** Both are `books` rows (`kind = BOOK` or `EPISODE`) with files, chapters
+  and a progress entry; a position in the whole book is converted to a file and offset when playback starts. The same
+  player service, download workers and "continue listening" logic serve both.
 - **Browse tree for Auto, the watch and the system UI** comes from one `MediaLibraryService`.
 
 Details and decisions are in [`ideas/konzept_und_architektur.md`](ideas/konzept_und_architektur.md) (concept),
@@ -146,11 +213,11 @@ open points). Those documents are written in German.
 :core:model           Plain Kotlin data classes
 :core:common          Dispatchers, normalization, shared helpers
 :core:database        Room entities, DAOs, FTS, migrations
-:core:network         OkHttp client, Subsonic auth interceptor, API and DTOs
-:core:datasource      Local (MediaStore) and Subsonic data sources
-:core:data            Repositories, library syncer, merge resolver, sync queue
-:core:download        Download workers and storage management
-:core:playback        Media library service, ReplayGain, source resolution, Auto browse tree
+:core:network         OkHttp client, Subsonic / Audiobookshelf APIs, podcast feed parser
+:core:datasource      Local (MediaStore: music, Audiobooks, Podcasts) and Subsonic data sources
+:core:data            Repositories (music, books, podcasts), library syncer, merge resolver, sync queue
+:core:download        Download workers (songs, books, episodes), resumable transfers, storage
+:core:playback        Media library service, ReplayGain, source resolution, book/episode playback, Auto browse tree
 :core:designsystem    Theme and shared phone components
 :core:wearsync        Phone ↔ watch protocol
 build-logic/          Convention plugins
@@ -211,7 +278,7 @@ Without this file `release` builds still run, but the APK stays unsigned.
 ./gradlew :app:assembleRelease :wear:assembleRelease
 ```
 
-### Trying it with a local Navidrome
+### Trying it with a local Navidrome (or Audiobookshelf)
 
 Any Navidrome instance works. For an emulator, start Navidrome on your computer and forward the port, so the app can
 use `http://127.0.0.1:4533`:
@@ -219,6 +286,8 @@ use `http://127.0.0.1:4533`:
 ```bash
 adb reverse tcp:4533 tcp:4533
 ```
+
+Audiobookshelf works the same way, with its own port (by default `13378`).
 
 ## Contributing
 
