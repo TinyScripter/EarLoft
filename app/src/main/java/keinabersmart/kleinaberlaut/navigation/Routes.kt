@@ -87,6 +87,9 @@ data class BookGroupRoute(
 data object AddAudiobookshelfRoute : NavKey
 
 @Serializable
+data class EditAudiobookshelfRoute(val serverId: String) : NavKey
+
+@Serializable
 data object FavoritesRoute : NavKey
 
 @Serializable
@@ -107,6 +110,18 @@ data object AddServerRoute : NavKey
 
 @Serializable
 data class EditServerRoute(val sourceId: String) : NavKey
+
+@Serializable
+data object SettingsGeneralRoute : NavKey
+
+@Serializable
+data object SettingsMusicRoute : NavKey
+
+@Serializable
+data object SettingsPodcastsRoute : NavKey
+
+@Serializable
+data object SettingsAudiobooksRoute : NavKey
 
 @Serializable
 data object WatchSettingsRoute : NavKey

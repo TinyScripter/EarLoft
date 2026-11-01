@@ -13,6 +13,9 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SpokenServerEntity
 import kotlinx.coroutines.flow.Flow
 
+/** Bücher (und Folgen) der ausgeschalteten Audiobookshelf-Server sind ausgeblendet; Podcast-Feeds stehen nicht in `spoken_servers`. */
+private const val BOOK_VISIBLE = "serverId NOT IN (SELECT serverId FROM spoken_servers WHERE enabled = 0)"
+
 @Dao
 abstract class BookDao {
 
@@ -30,6 +33,9 @@ abstract class BookDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertServer(server: SpokenServerEntity)
 
+    @Query("UPDATE spoken_servers SET enabled = :enabled WHERE serverId = :serverId")
+    abstract suspend fun setServerEnabled(serverId: String, enabled: Boolean)
+
     @Query("DELETE FROM spoken_servers WHERE serverId = :serverId")
     abstract suspend fun deleteServerRow(serverId: String)
 
@@ -44,10 +50,10 @@ abstract class BookDao {
 
     // --- Bücher ---
 
-    @Query("SELECT * FROM books ORDER BY normTitle")
+    @Query("SELECT * FROM books WHERE $BOOK_VISIBLE ORDER BY normTitle")
     abstract fun observeBooks(): Flow<List<BookEntity>>
 
-    @Query("SELECT * FROM books WHERE bookId = :bookId")
+    @Query("SELECT * FROM books WHERE bookId = :bookId AND $BOOK_VISIBLE")
     abstract fun observeBook(bookId: Long): Flow<BookEntity?>
 
     @Query("SELECT * FROM books WHERE bookId = :bookId")
@@ -59,7 +65,7 @@ abstract class BookDao {
     @Query("SELECT * FROM books WHERE serverId = :serverId")
     abstract suspend fun booksOf(serverId: String): List<BookEntity>
 
-    @Query("SELECT * FROM books WHERE normTitle LIKE :pattern ESCAPE '\\' OR author LIKE :pattern ESCAPE '\\' ORDER BY normTitle LIMIT :limit")
+    @Query("SELECT * FROM books WHERE (normTitle LIKE :pattern ESCAPE '\\' OR author LIKE :pattern ESCAPE '\\') AND $BOOK_VISIBLE ORDER BY normTitle LIMIT :limit")
     abstract suspend fun search(pattern: String, limit: Int): List<BookEntity>
 
     @Insert(onConflict = OnConflictStrategy.ABORT)

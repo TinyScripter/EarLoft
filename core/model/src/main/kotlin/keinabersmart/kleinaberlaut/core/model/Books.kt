@@ -88,6 +88,8 @@ data class SpokenServer(
     val name: String,
     val baseUrl: String,
     val lastFullSyncAt: Long,
+    /** Ausgeschaltet: kein Abgleich, Bücher ausgeblendet, nichts gelöscht. */
+    val enabled: Boolean = true,
 )
 
 /** Ein abonnierter Podcast (Konzept 12.1); seine Folgen sind [Book]s mit `kind = EPISODE` und `serverId = id`. */

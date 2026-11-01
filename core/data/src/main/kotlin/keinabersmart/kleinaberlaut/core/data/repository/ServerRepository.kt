@@ -158,6 +158,16 @@ class ServerRepository @Inject constructor(
         return result
     }
 
+    /**
+     * Schaltet den Server ein oder aus. Ausgeschaltet bleibt alles erhalten (Songs, Downloads, Favoriten,
+     * Playlists); nur Anzeige, Wiedergabe-Quellen und Abgleich ruhen. Einschalten gleicht sofort ab.
+     */
+    suspend fun setEnabled(sourceId: String, enabled: Boolean) {
+        sourceDao.setEnabled(sourceId, enabled)
+        registry.reload()
+        if (enabled) refresher.refreshSource(sourceId)
+    }
+
     /** Entfernt den Server samt aller Songs, die nur er geliefert hat. */
     suspend fun removeServer(sourceId: String) {
         database.withTransaction {
@@ -186,6 +196,7 @@ class ServerRepository @Inject constructor(
         baseUrl = baseUrl.orEmpty(),
         username = username,
         lastFullSyncAt = lastFullSyncAt,
+        enabled = enabled,
     )
 
     private companion object {

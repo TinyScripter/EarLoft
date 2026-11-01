@@ -3,12 +3,15 @@ package keinabersmart.kleinaberlaut.ui.downloads
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.core.data.podcast.FeedDownload
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.spoken.BookDownload
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.download.BookDownloadProgress
 import keinabersmart.kleinaberlaut.core.download.BookDownloads
 import keinabersmart.kleinaberlaut.core.download.BookTransfer
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
+import keinabersmart.kleinaberlaut.core.download.EpisodeDownloads
 import keinabersmart.kleinaberlaut.core.model.Book
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.model.DownloadedAlbum
@@ -28,6 +31,7 @@ data class DownloadsUiState(
     val overview: DownloadOverview = DownloadOverview.EMPTY,
     val albums: List<DownloadedAlbum> = emptyList(),
     val books: List<DownloadedBook> = emptyList(),
+    val podcasts: List<FeedDownload> = emptyList(),
     val isLoading: Boolean = true,
 )
 
@@ -36,6 +40,8 @@ class DownloadsViewModel @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val books: BookRepository,
     private val bookDownloads: BookDownloads,
+    private val podcastRepository: PodcastRepository,
+    private val episodeDownloads: EpisodeDownloads,
     bookProgress: BookDownloadProgress,
 ) : ViewModel() {
 
@@ -44,14 +50,21 @@ class DownloadsViewModel @Inject constructor(
         downloadRepository.downloadedAlbums(),
         books.books(),
         books.downloads(),
-    ) { overview, albums, allBooks, downloads ->
+        podcastRepository.feedDownloads(),
+    ) { overview, albums, allBooks, downloads, podcasts ->
         val shown = setOf(TrackDownload.DONE, TrackDownload.QUEUED, TrackDownload.RUNNING, TrackDownload.FAILED)
         val downloadedBooks = allBooks.mapNotNull { item ->
             downloads[item.book.id]?.takeIf { it.state in shown }?.let { DownloadedBook(item.book, it) }
         }
-        // Die Kopfzeile „belegt“ zählt die Musik; die geladenen Bücher kommen dazu.
-        val withBooks = overview.copy(usedBytes = overview.usedBytes + downloadedBooks.sumOf { it.download.bytes })
-        DownloadsUiState(overview = withBooks, albums = albums, books = downloadedBooks, isLoading = false)
+        // Die Kopfzeile „belegt“ zählt die Musik; die geladenen Bücher und Folgen kommen dazu.
+        val used = overview.usedBytes + downloadedBooks.sumOf { it.download.bytes } + podcasts.sumOf { it.bytes }
+        DownloadsUiState(
+            overview = overview.copy(usedBytes = used),
+            albums = albums,
+            books = downloadedBooks,
+            podcasts = podcasts,
+            isLoading = false,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadsUiState())
 
     /** Bytes der gerade ladenden Bücher. */
@@ -69,10 +82,28 @@ class DownloadsViewModel @Inject constructor(
         viewModelScope.launch { bookDownloads.remove(bookId) }
     }
 
-    fun removeAll() {
+    fun removeFeed(feedId: String) {
+        viewModelScope.launch { episodeDownloads.removeFeed(feedId) }
+    }
+
+    /** Alle Musik-Downloads (Alben, Playlists, Favoriten). */
+    fun removeAllMusic() {
+        viewModelScope.launch { downloadRepository.removeAll() }
+    }
+
+    fun removeAllBooks() {
         viewModelScope.launch {
-            downloadRepository.removeAll()
             books.downloads().first().filterValues { it.state != TrackDownload.NONE }.keys.forEach { bookDownloads.remove(it) }
         }
+    }
+
+    fun removeAllPodcasts() {
+        viewModelScope.launch { episodeDownloads.removeAll() }
+    }
+
+    fun removeAll() {
+        removeAllMusic()
+        removeAllBooks()
+        removeAllPodcasts()
     }
 }

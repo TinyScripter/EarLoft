@@ -18,20 +18,30 @@ import keinabersmart.kleinaberlaut.core.database.model.ReplayGainRow
 import keinabersmart.kleinaberlaut.core.database.model.SongRow
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Der Song (Alias `s`) hat mindestens eine Quelle, deren Server eingeschaltet ist. Deaktivierte Server
+ * blenden ihre Inhalte aus, ohne etwas zu löschen (Downloads, Favoriten, Playlists bleiben erhalten).
+ */
+const val SONG_VISIBLE = """EXISTS (
+    SELECT 1 FROM song_sources vss JOIN sources vsrc ON vsrc.sourceId = vss.sourceId
+    WHERE vss.songId = s.songId AND vsrc.enabled = 1
+)"""
+
 private const val SELECT_SONG_ROWS = """
     SELECT s.songId, s.title, s.artistDisplay, s.albumId, a.title AS albumTitle,
            s.durationMs, s.discNumber, s.trackNumber, s.isFavorite
-    FROM songs s JOIN albums a ON a.albumId = s.albumId
+    FROM songs s JOIN albums a ON a.albumId = s.albumId AND $SONG_VISIBLE
 """
 
 private const val SELECT_ALBUM_ROWS = """
     SELECT a.albumId, a.title, a.albumArtistDisplay, a.year, COUNT(s.songId) AS songCount
-    FROM albums a JOIN songs s ON s.albumId = a.albumId
+    FROM albums a JOIN songs s ON s.albumId = a.albumId AND $SONG_VISIBLE
 """
 
 private const val SELECT_ARTIST_ROWS = """
     SELECT ar.artistId, ar.name, COUNT(DISTINCT aa.albumId) AS albumCount
     FROM artists ar JOIN album_artists aa ON aa.artistId = ar.artistId
+        AND EXISTS (SELECT 1 FROM songs s WHERE s.albumId = aa.albumId AND $SONG_VISIBLE)
 """
 
 /** Lesender Zugriff auf die Bibliothek für UI und Wiedergabe. */
@@ -143,7 +153,7 @@ abstract class LibraryDao {
     )
     abstract fun observeRediscoverAlbumRows(playedBefore: Long, limit: Int): Flow<List<AlbumRow>>
 
-    @Query("SELECT COUNT(*) FROM albums")
+    @Query("SELECT COUNT(DISTINCT s.albumId) FROM songs s WHERE $SONG_VISIBLE")
     abstract fun observeAlbumCount(): Flow<Int>
 
     @Query("$SELECT_ALBUM_ROWS GROUP BY a.albumId ORDER BY RANDOM() LIMIT :limit")
@@ -196,7 +206,7 @@ abstract class LibraryDao {
         SELECT ss.uid, ss.songId, ss.sourceId, ss.remoteId, ss.coverRemoteId, src.type AS sourceType,
                src.priority AS sourcePriority, ss.mimeType, ss.bitRate
         FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId
-        WHERE ss.songId = :songId
+        WHERE ss.songId = :songId AND src.enabled = 1
         """,
     )
     abstract suspend fun getPlayableSources(songId: Long): List<PlayableSourceRow>
@@ -207,7 +217,7 @@ abstract class LibraryDao {
                src.priority AS sourcePriority, ss.mimeType, ss.bitRate
         FROM song_sources ss
         JOIN sources src ON src.sourceId = ss.sourceId
-        WHERE ss.songId IN (:songIds)
+        WHERE ss.songId IN (:songIds) AND src.enabled = 1
         """,
     )
     abstract suspend fun getPlayableSourcesOfSongs(songIds: List<Long>): List<PlayableSourceRow>

@@ -11,6 +11,9 @@ import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import kotlinx.coroutines.flow.Flow
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 
+/** Geladene Folgen eines Podcasts: Anzahl und belegte Bytes. */
+data class FeedDownloadRow(val feedId: String, val episodes: Int, val bytes: Long)
+
 /** Geladene Folge, die zu Ende gehört ist; [finishedAt] ist der Zeitpunkt der letzten Änderung ihres Fortschritts. */
 data class FinishedDownloadRow(val bookId: Long, val finishedAt: Long, val filePath: String?)
 
@@ -122,6 +125,28 @@ abstract class PodcastDao {
             "WHERE b.kind = 'EPISODE' AND t.trackIndex = 0 AND t.downloadState = 'DONE'",
     )
     abstract fun observeDownloadedIds(): Flow<List<Long>>
+
+    /** Fertig geladene Folgen je Podcast, für die Download-Übersicht. */
+    @Query(
+        "SELECT b.serverId AS feedId, COUNT(*) AS episodes, COALESCE(SUM(t.fileSize), 0) AS bytes " +
+            "FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND t.trackIndex = 0 AND t.downloadState = 'DONE' GROUP BY b.serverId",
+    )
+    abstract fun observeFeedDownloads(): Flow<List<FeedDownloadRow>>
+
+    /** Fertig geladene Folgen eines Podcasts. */
+    @Query(
+        "SELECT t.bookId FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.serverId = :feedId AND t.trackIndex = 0 AND t.downloadState = 'DONE'",
+    )
+    abstract suspend fun downloadedEpisodeIds(feedId: String): List<Long>
+
+    /** Fertig geladene Folgen aller Podcasts. */
+    @Query(
+        "SELECT t.bookId FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND t.trackIndex = 0 AND t.downloadState = 'DONE'",
+    )
+    abstract suspend fun allDownloadedEpisodeIds(): List<Long>
 
     /** Von Hand: auch fehlgeschlagene und entfernte Folgen laden wieder. */
     @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState IN ('NONE', 'FAILED', 'REMOVED')")

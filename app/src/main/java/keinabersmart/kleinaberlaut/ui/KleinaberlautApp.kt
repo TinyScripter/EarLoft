@@ -46,6 +46,7 @@ import keinabersmart.kleinaberlaut.navigation.AddServerRoute
 import keinabersmart.kleinaberlaut.navigation.AlbumRoute
 import keinabersmart.kleinaberlaut.navigation.ArtistRoute
 import keinabersmart.kleinaberlaut.navigation.DownloadsRoute
+import keinabersmart.kleinaberlaut.navigation.EditAudiobookshelfRoute
 import keinabersmart.kleinaberlaut.navigation.EditServerRoute
 import keinabersmart.kleinaberlaut.navigation.FavoritesRoute
 import keinabersmart.kleinaberlaut.navigation.HomeRoute
@@ -61,6 +62,10 @@ import keinabersmart.kleinaberlaut.navigation.NowPlayingRoute
 import keinabersmart.kleinaberlaut.navigation.PlaylistRoute
 import keinabersmart.kleinaberlaut.navigation.QueueRoute
 import keinabersmart.kleinaberlaut.navigation.SearchRoute
+import keinabersmart.kleinaberlaut.navigation.SettingsAudiobooksRoute
+import keinabersmart.kleinaberlaut.navigation.SettingsGeneralRoute
+import keinabersmart.kleinaberlaut.navigation.SettingsMusicRoute
+import keinabersmart.kleinaberlaut.navigation.SettingsPodcastsRoute
 import keinabersmart.kleinaberlaut.navigation.SettingsRoute
 import keinabersmart.kleinaberlaut.navigation.WatchSettingsRoute
 import keinabersmart.kleinaberlaut.navigation.TOP_LEVEL_ROUTES
@@ -85,6 +90,10 @@ import keinabersmart.kleinaberlaut.ui.playlists.PlaylistScreen
 import keinabersmart.kleinaberlaut.ui.search.SearchScreen
 import keinabersmart.kleinaberlaut.ui.settings.AboutScreen
 import keinabersmart.kleinaberlaut.ui.settings.LicensesScreen
+import keinabersmart.kleinaberlaut.ui.settings.AudiobookSettingsScreen
+import keinabersmart.kleinaberlaut.ui.settings.GeneralSettingsScreen
+import keinabersmart.kleinaberlaut.ui.settings.MusicSettingsScreen
+import keinabersmart.kleinaberlaut.ui.settings.PodcastsSettingsScreen
 import keinabersmart.kleinaberlaut.ui.settings.ServerFormScreen
 import keinabersmart.kleinaberlaut.ui.settings.SettingsScreen
 import keinabersmart.kleinaberlaut.ui.settings.WatchSettingsScreen
@@ -217,7 +226,10 @@ fun KleinaberlautApp(
         entry<BookGroupRoute>(metadata = detailPane()) { route ->
             BookGroupScreen(kind = route.kind, name = route.name, onBack = navigator::goBack, onBookClick = openBook)
         }
-        entry<AddAudiobookshelfRoute>(metadata = detailPane()) { AudiobookshelfFormScreen(onDone = navigator::goBack) }
+        entry<AddAudiobookshelfRoute>(metadata = detailPane()) { AudiobookshelfFormScreen(serverId = null, onDone = navigator::goBack) }
+        entry<EditAudiobookshelfRoute>(metadata = detailPane()) { route ->
+            AudiobookshelfFormScreen(serverId = route.serverId, onDone = navigator::goBack)
+        }
         entry<FavoritesRoute>(metadata = detailPane()) { FavoritesScreen(onBack = navigator::goBack) }
         entry<PlaylistRoute>(metadata = detailPane()) { route ->
             PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack)
@@ -226,7 +238,12 @@ fun KleinaberlautApp(
         entry<PodcastSearchRoute>(metadata = nestedDetailPane()) { route ->
             PodcastSearchScreen(feedId = route.feedId, onBack = navigator::goBack, onEpisodeClick = openBook)
         }
-        entry<DownloadsRoute>(metadata = detailPane()) { DownloadsScreen(onBack = navigator::goBack, onAlbumClick = openAlbum, onBookClick = openBook) }
+        entry<DownloadsRoute>(metadata = detailPane()) { DownloadsScreen(
+                onBack = navigator::goBack,
+                onAlbumClick = openAlbum,
+                onBookClick = openBook,
+                onPodcastClick = openPodcast,
+            ) }
         entry<AlbumRoute>(metadata = nestedDetailPane()) { route ->
             AlbumScreen(albumId = route.albumId, onBack = navigator::goBack)
         }
@@ -245,17 +262,34 @@ fun KleinaberlautApp(
         entry<PodcastQueueRoute> { PodcastQueueScreen(onBack = navigator::goBack) }
         entry<SettingsRoute>(metadata = listPane()) {
             SettingsScreen(
+                onOpenGeneral = { navigator.navigate(SettingsGeneralRoute) },
+                onOpenMusic = { navigator.navigate(SettingsMusicRoute) },
+                onOpenPodcasts = { navigator.navigate(SettingsPodcastsRoute) },
+                onOpenAudiobooks = { navigator.navigate(SettingsAudiobooksRoute) },
+                onOpenWatch = { navigator.navigate(WatchSettingsRoute) },
+                onOpenAbout = { navigator.navigate(AboutRoute) },
+            )
+        }
+        entry<SettingsGeneralRoute>(metadata = detailPane()) {
+            GeneralSettingsScreen(onBack = navigator::goBack, onOpenDownloads = { navigator.navigate(DownloadsRoute) })
+        }
+        entry<SettingsMusicRoute>(metadata = detailPane()) {
+            MusicSettingsScreen(
+                onBack = navigator::goBack,
                 onAddServer = { navigator.navigate(AddServerRoute) },
                 onEditServer = { navigator.navigate(EditServerRoute(it)) },
-                onOpenDownloads = { navigator.navigate(DownloadsRoute) },
-                onOpenWatch = { navigator.navigate(WatchSettingsRoute) },
-                onAddAudiobookshelf = setupAudiobookshelf,
-                onOpenAbout = { navigator.navigate(AboutRoute) },
-                onOpenLicenses = { navigator.navigate(LicensesRoute) },
+            )
+        }
+        entry<SettingsPodcastsRoute>(metadata = detailPane()) { PodcastsSettingsScreen(onBack = navigator::goBack) }
+        entry<SettingsAudiobooksRoute>(metadata = detailPane()) {
+            AudiobookSettingsScreen(
+                onBack = navigator::goBack,
+                onAddServer = setupAudiobookshelf,
+                onEditServer = { navigator.navigate(EditAudiobookshelfRoute(it)) },
             )
         }
         entry<WatchSettingsRoute>(metadata = detailPane()) { WatchSettingsScreen(onBack = navigator::goBack) }
-        entry<AboutRoute>(metadata = detailPane()) { AboutScreen(onBack = navigator::goBack) }
+        entry<AboutRoute>(metadata = detailPane()) { AboutScreen(onBack = navigator::goBack, onOpenLicenses = { navigator.navigate(LicensesRoute) }) }
         entry<LicensesRoute>(metadata = detailPane()) { LicensesScreen(onBack = navigator::goBack) }
         entry<AddServerRoute>(metadata = detailPane()) { ServerFormScreen(sourceId = null, onDone = navigator::goBack) }
         entry<EditServerRoute>(metadata = detailPane()) { route ->

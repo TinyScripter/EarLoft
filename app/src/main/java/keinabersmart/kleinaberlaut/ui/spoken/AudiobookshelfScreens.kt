@@ -1,6 +1,8 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -18,6 +20,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -46,7 +49,6 @@ import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.model.SpokenServer
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
-import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -75,11 +77,13 @@ class AudiobookshelfViewModel @Inject constructor(
     private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)
     val connect: StateFlow<ConnectState> = _connect.asStateFlow()
 
-    fun connect(name: String, url: String, apiKey: String) {
+    /** [serverId] `null` = neuer Server, sonst werden die Angaben dieses Servers geändert. */
+    fun connect(serverId: String?, name: String, url: String, apiKey: String) {
         if (_connect.value == ConnectState.Connecting) return
         _connect.value = ConnectState.Connecting
         viewModelScope.launch {
-            _connect.value = when (servers.add(name, url, apiKey)) {
+            val result = if (serverId == null) servers.add(name, url, apiKey) else servers.update(serverId, name, url, apiKey)
+            _connect.value = when (result) {
                 is AddServerResult.Added -> {
                     refresher.refreshAll()
                     ConnectState.Connected
@@ -94,15 +98,25 @@ class AudiobookshelfViewModel @Inject constructor(
 
     fun syncNow() = refresher.refreshAll()
 
+    suspend fun editable(serverId: String) = servers.editable(serverId)
+
+    fun setEnabled(serverId: String, enabled: Boolean) {
+        viewModelScope.launch {
+            servers.setEnabled(serverId, enabled)
+            if (enabled) refresher.refreshAll()
+        }
+    }
+
     fun remove(serverId: String) {
         viewModelScope.launch { servers.remove(serverId) }
     }
 }
 
-/** Abschnitt „Audiobookshelf“ in den Einstellungen: Server auflisten, abgleichen, entfernen, hinzufügen. */
+/** Die Audiobookshelf-Server in den Hörbuch-Einstellungen: auflisten, ein-/ausschalten, bearbeiten, abgleichen, entfernen, hinzufügen. */
 @Composable
 fun AudiobookshelfSection(
     onAdd: () -> Unit,
+    onEdit: (serverId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AudiobookshelfViewModel = hiltViewModel(),
 ) {
@@ -110,18 +124,32 @@ fun AudiobookshelfSection(
     var removing by rememberSaveable { mutableStateOf<String?>(null) }
 
     Column(modifier) {
-        SectionHeader(stringResource(R.string.spoken_abs_title))
         if (servers.isEmpty()) EmptyHint(stringResource(R.string.spoken_abs_none))
         servers.forEach { server ->
             ListItem(
+                modifier = Modifier.clickable(onClickLabel = stringResource(R.string.server_edit)) { onEdit(server.serverId) },
                 headlineContent = { Text(server.name) },
-                supportingContent = { Text(server.baseUrl) },
+                supportingContent = {
+                    Column {
+                        Text(server.baseUrl)
+                        if (!server.enabled) {
+                            Text(stringResource(R.string.server_disabled), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                },
                 leadingContent = { Icon(painterResource(DesignR.drawable.ic_book), contentDescription = null) },
                 trailingContent = {
-                    Column {
-                        IconButton(onClick = viewModel::syncNow) {
-                            Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
+                    Row {
+                        if (server.enabled) {
+                            IconButton(onClick = viewModel::syncNow) {
+                                Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
+                            }
                         }
+                        Switch(
+                            checked = server.enabled,
+                            onCheckedChange = { viewModel.setEnabled(server.serverId, it) },
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
                     }
                 },
             )
@@ -152,10 +180,11 @@ fun AudiobookshelfSection(
     }
 }
 
-/** Formular zum Verbinden mit einem Audiobookshelf-Server per API-Schlüssel. */
+/** Formular zum Verbinden mit einem Audiobookshelf-Server per API-Schlüssel ([serverId] `null`) oder zum Bearbeiten eines vorhandenen. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudiobookshelfFormScreen(
+    serverId: String?,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AudiobookshelfViewModel = hiltViewModel(),
@@ -164,11 +193,24 @@ fun AudiobookshelfFormScreen(
     var name by rememberSaveable { mutableStateOf("") }
     var url by rememberSaveable { mutableStateOf("") }
     var key by rememberSaveable { mutableStateOf("") }
+    // Beim Bearbeiten: leer = gespeicherter Schlüssel bleibt.
+    var hasStoredKey by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(serverId) {
+        if (serverId == null) return@LaunchedEffect
+        val server = viewModel.editable(serverId)
+        if (server == null) {
+            onDone()
+        } else if (name.isEmpty() && url.isEmpty()) {
+            name = server.name
+            url = server.baseUrl
+            hasStoredKey = server.hasKey
+        }
+    }
     LaunchedEffect(connectState) { if (connectState == ConnectState.Connected) onDone() }
 
     Column(modifier.fillMaxSize().imePadding()) {
         TopAppBar(
-            title = { Text(stringResource(R.string.spoken_abs_add)) },
+            title = { Text(stringResource(if (serverId == null) R.string.spoken_abs_add else R.string.spoken_abs_edit)) },
             navigationIcon = { BackButton(onDone) },
         )
         Column(
@@ -194,7 +236,9 @@ fun AudiobookshelfFormScreen(
                 value = key,
                 onValueChange = { key = it },
                 label = { Text(stringResource(R.string.spoken_abs_key)) },
-                supportingText = { Text(stringResource(R.string.spoken_abs_key_summary)) },
+                supportingText = {
+                    Text(stringResource(if (hasStoredKey) R.string.spoken_abs_key_keep else R.string.spoken_abs_key_summary))
+                },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -209,11 +253,19 @@ fun AudiobookshelfFormScreen(
                 )
             }
             Button(
-                onClick = { viewModel.connect(name, url, key) },
-                enabled = url.isNotBlank() && key.isNotBlank() && connectState != ConnectState.Connecting,
+                onClick = { viewModel.connect(serverId, name, url, key) },
+                enabled = url.isNotBlank() && (key.isNotBlank() || hasStoredKey) && connectState != ConnectState.Connecting,
                 modifier = Modifier.padding(top = 16.dp),
             ) {
-                Text(stringResource(if (connectState == ConnectState.Connecting) R.string.spoken_abs_connecting else R.string.spoken_abs_connect))
+                Text(
+                    stringResource(
+                        when {
+                            connectState == ConnectState.Connecting -> R.string.spoken_abs_connecting
+                            serverId == null -> R.string.spoken_abs_connect
+                            else -> R.string.spoken_abs_save
+                        },
+                    ),
+                )
             }
         }
     }

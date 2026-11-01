@@ -8,8 +8,12 @@ import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkSettings
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
+import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
 import keinabersmart.kleinaberlaut.core.data.spoken.AuthorImages
+import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
@@ -42,6 +46,9 @@ data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val useLocalMedia: Boolean = true,
     val servers: List<ServerItem> = emptyList(),
+    val audiobookServerCount: Int = 0,
+    val podcastFeedCount: Int = 0,
+    val syncIntervalDays: Int = LibrarySettings.DEFAULT_SYNC_DAYS,
     val isSyncing: Boolean = false,
     val downloadWifiOnly: Boolean = true,
     val autoDownloadFavorites: Boolean = false,
@@ -83,6 +90,10 @@ class SettingsViewModel @Inject constructor(
     private val artworkRepository: ArtworkRepository,
     private val authorImages: AuthorImages,
     private val registry: DataSourceRegistry,
+    private val spokenRefresher: SpokenRefresher,
+    private val podcastRefresher: PodcastRefresher,
+    podcastRepository: PodcastRepository,
+    audiobookServers: AudiobookshelfServers,
     syncer: LibrarySyncer,
 ) : ViewModel() {
 
@@ -142,6 +153,12 @@ class SettingsViewModel @Inject constructor(
         )
     }.combine(artworkSettings.authorImages) { state, authors ->
         state.copy(authorImages = authors)
+    }.combine(audiobookServers.servers) { state, list ->
+        state.copy(audiobookServerCount = list.size)
+    }.combine(podcastRepository.feeds) { state, feeds ->
+        state.copy(podcastFeedCount = feeds.size)
+    }.combine(librarySettings.syncIntervalDays) { state, days ->
+        state.copy(syncIntervalDays = days)
     }.combine(
         combine(podcastSettings.refreshHours, podcastSettings.useMobileData, podcastSettings.deleteHeardAfterDays, ::Triple),
     ) { state, (hours, mobile, deleteHeardDays) ->
@@ -173,6 +190,11 @@ class SettingsViewModel @Inject constructor(
 
     fun setPodcastMobileData(enabled: Boolean) {
         viewModelScope.launch { podcastSettings.setUseMobileData(enabled) }
+    }
+
+    /** Die Planung des periodischen Auftrags folgt der Einstellung ([keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher]). */
+    fun setSyncIntervalDays(days: Int) {
+        viewModelScope.launch { librarySettings.setSyncIntervalDays(days) }
     }
 
     fun setSearchAll(enabled: Boolean) {
@@ -213,7 +235,18 @@ class SettingsViewModel @Inject constructor(
 
     fun syncNow(sourceId: String) = serverRepository.syncNow(sourceId)
 
-    fun refreshAll() = refresher.refreshAll()
+    /** Lokale Musik und alle Navidrome-Server. */
+    fun refreshMusic() = refresher.refreshAll()
+
+    fun refreshAudiobooks() = spokenRefresher.refreshAll()
+
+    fun refreshPodcasts() = podcastRefresher.refreshAll()
+
+    fun refreshAll() {
+        refreshMusic()
+        refreshAudiobooks()
+        refreshPodcasts()
+    }
 
     fun setDownloadWifiOnly(wifiOnly: Boolean) {
         viewModelScope.launch {
@@ -237,6 +270,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setPreAmpDb(preAmpDb: Float) {
         viewModelScope.launch { replayGainSettings.setPreAmpDb(preAmpDb) }
+    }
+
+    fun setServerEnabled(sourceId: String, enabled: Boolean) {
+        viewModelScope.launch { serverRepository.setEnabled(sourceId, enabled) }
     }
 
     fun remove(sourceId: String) {

@@ -79,6 +79,12 @@ class EpisodeDownloads @Inject constructor(
         storage.delete(bookId, track?.filePath)
     }
 
+    /** Löscht die Dateien aller geladenen Folgen eines Podcasts. @return Anzahl. */
+    suspend fun removeFeed(feedId: String): Int = dao.downloadedEpisodeIds(feedId).onEach { remove(it) }.size
+
+    /** Löscht die Dateien aller geladenen Folgen. @return Anzahl. */
+    suspend fun removeAll(): Int = dao.allDownloadedEpisodeIds().onEach { remove(it) }.size
+
     /** Löscht die Dateien aller zu Ende gehörten Folgen des Podcasts. @return Anzahl. */
     suspend fun removeHeard(feedId: String): Int =
         dao.finishedDownloads(feedId).onEach { remove(it.bookId) }.size

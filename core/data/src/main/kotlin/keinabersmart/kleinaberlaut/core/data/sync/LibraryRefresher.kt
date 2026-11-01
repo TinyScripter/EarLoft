@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -30,7 +31,7 @@ import javax.inject.Singleton
  *   abgeschaltet, bricht ein laufender Scan ab und die lokalen Songs verschwinden sofort aus der
  *   Bibliothek. Lokal abgeglichen wird ausschließlich hier.
  * - **Server:** beim Start, wenn der letzte Vollabgleich länger als [SERVER_SYNC_INTERVAL_MS] her
- *   ist, täglich per [ServerSyncWorker] und auf Anforderung; sonst beim Öffnen der App ein
+ *   ist, regelmäßig (täglich/wöchentlich/monatlich/nie, [LibrarySettings.syncIntervalDays]) per [ServerSyncWorker] und auf Anforderung; sonst beim Öffnen der App ein
  *   Zwischenabgleich ([refreshQuick]).
  */
 @Singleton
@@ -67,12 +68,15 @@ class LibraryRefresher @Inject constructor(
         }
 
         scope.launch {
+            val threshold = fullSyncThresholdMs() ?: return@launch
             val now = System.currentTimeMillis()
             registry.servers()
-                .filter { now - (sourceDao.get(it.sourceId)?.lastFullSyncAt ?: 0) > SERVER_SYNC_INTERVAL_MS }
+                .filter { now - (sourceDao.get(it.sourceId)?.lastFullSyncAt ?: 0) > threshold }
                 .forEach { syncer.syncSafely(it) }
         }
-        ServerSyncWorker.schedule(context)
+        scope.launch {
+            librarySettings.syncIntervalDays.distinctUntilChanged().collect { ServerSyncWorker.schedule(context, it) }
+        }
     }
 
     /** Lokale Musik neu einlesen. */
@@ -89,8 +93,9 @@ class LibraryRefresher @Inject constructor(
         val last = lastQuickAttempt.get()
         if (now - last < QUICK_SYNC_INTERVAL_MS || !lastQuickAttempt.compareAndSet(last, now)) return
         scope.launch {
+            val threshold = fullSyncThresholdMs() ?: return@launch
             registry.servers()
-                .filter { now - (sourceDao.get(it.sourceId)?.lastFullSyncAt ?: 0) <= SERVER_SYNC_INTERVAL_MS }
+                .filter { now - (sourceDao.get(it.sourceId)?.lastFullSyncAt ?: 0) <= threshold }
                 .forEach { syncer.quickSync(it) }
         }
     }
@@ -106,8 +111,22 @@ class LibraryRefresher @Inject constructor(
         scope.launch { registry.servers().forEach { syncer.syncSafely(it) } }
     }
 
+    /**
+     * Ab wann ein Vollabgleich beim Start fällig ist: bei „täglich“ nach 6 h, sonst nach dem eingestellten
+     * Intervall; `null` = „nie“ (dann auch kein Zwischenabgleich, nur von Hand).
+     */
+    private suspend fun fullSyncThresholdMs(): Long? {
+        val days = librarySettings.syncIntervalDays.first()
+        return when {
+            days <= LibrarySettings.SYNC_NEVER -> null
+            days == 1 -> SERVER_SYNC_INTERVAL_MS
+            else -> days * DAY_MS
+        }
+    }
+
     private companion object {
         const val DEBOUNCE_MS = 1_500L
+        const val DAY_MS = 24 * 60 * 60 * 1000L
         const val SERVER_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000L
         const val QUICK_SYNC_INTERVAL_MS = 10 * 60 * 1000L
     }

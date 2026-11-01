@@ -58,15 +58,23 @@ class DataSourceRegistry @Inject constructor(
      */
     val unusableServers: StateFlow<Set<String>> = unusable.asStateFlow()
 
+    /** Ausgeschaltete Server; sie bleiben über [get] erreichbar (Cover, Downloads), werden aber nicht abgeglichen. */
+    @Volatile
+    private var disabled: Set<String> = emptySet()
+
     override suspend fun all(): List<MusicDataSource> =
-        listOfNotNull(localDataSource.takeIf { librarySettings.useLocalMedia.first() }) + loadedServers().values
+        listOfNotNull(localDataSource.takeIf { librarySettings.useLocalMedia.first() }) + servers()
 
     override suspend fun get(sourceId: String): MusicDataSource? =
         if (sourceId == localDataSource.sourceId) localDataSource else loadedServers()[sourceId]
 
-    suspend fun servers(): List<MusicDataSource> = loadedServers().values.toList()
+    /** Die eingeschalteten Server. */
+    suspend fun servers(): List<MusicDataSource> {
+        val all = loadedServers()
+        return all.filterKeys { it !in disabled }.values.toList()
+    }
 
-    /** Nach dem Hinzufügen oder Entfernen eines Servers aufrufen. */
+    /** Nach dem Hinzufügen, Entfernen, Ein- oder Ausschalten eines Servers aufrufen. */
     suspend fun reload() {
         mutex.withLock { servers = load() }
     }
@@ -76,6 +84,7 @@ class DataSourceRegistry @Inject constructor(
 
     private suspend fun load(): Map<String, MusicDataSource> {
         val entities = sourceDao.getByType(SourceType.SUBSONIC)
+        disabled = entities.filterNot { it.enabled }.mapTo(HashSet()) { it.sourceId }
         val loaded = entities.mapNotNull { entity -> toServer(entity)?.let { it to entity.name } }
         unusable.value = entities.mapTo(HashSet()) { it.sourceId } - loaded.mapTo(HashSet()) { it.first.sourceId }
         serverRegistry.replaceAll(loaded.map { it.first })

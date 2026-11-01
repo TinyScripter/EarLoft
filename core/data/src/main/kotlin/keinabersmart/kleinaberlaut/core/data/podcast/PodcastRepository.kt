@@ -50,6 +50,9 @@ data class RefreshResult(val newEpisodeIds: List<Long>)
 /** Ein Abo mit einer Auswahl seiner Folgen. */
 data class FeedEpisodes(val feed: PodcastFeed, val episodes: List<BookWithProgress>)
 
+/** Ein Podcast mit seinen fertig geladenen Folgen (Anzahl, belegte Bytes). */
+data class FeedDownload(val feed: PodcastFeed, val episodes: Int, val bytes: Long)
+
 /** Podcast-Abos und ihre Folgen (Konzept 12.1): abonnieren, abgleichen, Kapitel nachladen. */
 @Singleton
 class PodcastRepository @Inject constructor(
@@ -65,6 +68,12 @@ class PodcastRepository @Inject constructor(
     val refreshed: SharedFlow<String> = _refreshed.asSharedFlow()
 
     val feeds: Flow<List<PodcastFeed>> = dao.observeFeeds().map { list -> list.map { it.toModel() } }
+
+    /** Podcasts, von denen mindestens eine Folge geladen ist, nach Titel. */
+    fun feedDownloads(): Flow<List<FeedDownload>> = combine(feeds, dao.observeFeedDownloads()) { feeds, rows ->
+        val byFeed = rows.associateBy { it.feedId }
+        feeds.mapNotNull { feed -> byFeed[feed.id]?.let { FeedDownload(feed, it.episodes, it.bytes) } }
+    }
 
     fun feed(feedId: String): Flow<PodcastFeed?> = dao.observeFeed(feedId).map { it?.toModel() }
 

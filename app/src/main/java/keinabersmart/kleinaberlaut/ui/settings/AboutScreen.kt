@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -40,15 +41,15 @@ import keinabersmart.kleinaberlaut.ui.library.BackButton
 
 /** Infoseite über die App mit Links zum Projekt und zum Issue-Tracker. */
 @Composable
-fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun AboutScreen(onBack: () -> Unit, onOpenLicenses: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val versionName = remember(context) { context.versionName() }
-    AboutContent(versionName = versionName, onBack = onBack, modifier = modifier)
+    AboutContent(versionName = versionName, onBack = onBack, onOpenLicenses = onOpenLicenses, modifier = modifier)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AboutContent(versionName: String?, onBack: () -> Unit, modifier: Modifier = Modifier) {
+private fun AboutContent(versionName: String?, onBack: () -> Unit, onOpenLicenses: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
             title = { Text(stringResource(R.string.about_title)) },
@@ -86,6 +87,7 @@ private fun AboutContent(versionName: String?, onBack: () -> Unit, modifier: Mod
             )
             LinkBlock(R.string.about_more_info, R.string.about_repository_url)
             LinkBlock(R.string.about_feedback, R.string.about_issues_url)
+            FilledTonalButton(onClick = onOpenLicenses) { Text(stringResource(R.string.settings_licenses)) }
         }
     }
 }
@@ -125,6 +127,6 @@ private fun Context.versionName(): String? =
 @Composable
 private fun AboutContentPreview() {
     KleinaberlautTheme {
-        AboutContent(versionName = "1.0", onBack = {})
+        AboutContent(versionName = "1.0", onBack = {}, onOpenLicenses = {})
     }
 }

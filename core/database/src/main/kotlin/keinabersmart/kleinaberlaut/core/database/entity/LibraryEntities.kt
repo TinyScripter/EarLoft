@@ -22,6 +22,8 @@ data class SourceEntity(
     /** Zähler für Mark-and-Sweep beim Vollabgleich. */
     val syncGeneration: Long = 0,
     val lastFullSyncAt: Long = 0,
+    /** Ausgeschaltet: kein Abgleich, Inhalte ausgeblendet; Songs und Downloads bleiben erhalten. */
+    @ColumnInfo(defaultValue = "1") val enabled: Boolean = true,
 )
 
 @Entity(

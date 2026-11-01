@@ -26,6 +26,9 @@ sealed interface AddServerResult {
     data object NoBookLibrary : AddServerResult
 }
 
+/** Ein Server zum Bearbeiten; der API-Key selbst verlässt den [SecretStore] nicht. */
+data class EditableAbsServer(val name: String, val baseUrl: String, val hasKey: Boolean)
+
 /** Eingerichtete Audiobookshelf-Server (Konzept 12.1); der API-Key liegt im [SecretStore]. */
 @Singleton
 class AudiobookshelfServers @Inject constructor(
@@ -35,7 +38,7 @@ class AudiobookshelfServers @Inject constructor(
     private val registry: AbsServerRegistry,
 ) {
     val servers: Flow<List<SpokenServer>> = bookDao.observeServers().map { list ->
-        list.map { SpokenServer(it.serverId, it.name, it.baseUrl, it.lastFullSyncAt) }
+        list.map { SpokenServer(it.serverId, it.name, it.baseUrl, it.lastFullSyncAt, it.enabled) }
     }
 
     private val mutex = Mutex()
@@ -43,10 +46,10 @@ class AudiobookshelfServers @Inject constructor(
     @Volatile
     private var loaded = false
 
-    /** Alle Server, deren Key sich lesen lässt. */
+    /** Alle eingeschalteten Server, deren Key sich lesen lässt. */
     suspend fun all(): List<AbsServer> {
         ensureLoaded()
-        return bookDao.servers().mapNotNull { registry[it.serverId] }
+        return bookDao.servers().filter { it.enabled }.mapNotNull { registry[it.serverId] }
     }
 
     suspend fun server(serverId: String): AbsServer? {
@@ -54,11 +57,34 @@ class AudiobookshelfServers @Inject constructor(
         return registry[serverId]
     }
 
-    suspend fun add(name: String, baseUrlInput: String, apiKey: String): AddServerResult {
+    suspend fun add(name: String, baseUrlInput: String, apiKey: String): AddServerResult =
+        connect(null, name, baseUrlInput, apiKey)
+
+    /**
+     * Ändert Name, Adresse oder API-Key eines Servers, nur wenn die Verbindung mit den neuen Angaben klappt.
+     * Die `serverId` bleibt, damit Bücher, Fortschritt und Downloads erhalten bleiben. [apiKey] leer = der
+     * gespeicherte Key bleibt. Zeigt die Adresse auf eine andere Bibliothek, räumt der nächste Vollabgleich auf.
+     */
+    suspend fun update(serverId: String, name: String, baseUrlInput: String, apiKey: String): AddServerResult =
+        connect(serverId, name, baseUrlInput, apiKey)
+
+    /** Schaltet den Server ein oder aus; ausgeschaltet bleiben Bücher und Downloads erhalten, sind aber ausgeblendet. */
+    suspend fun setEnabled(serverId: String, enabled: Boolean) {
+        bookDao.setServerEnabled(serverId, enabled)
+    }
+
+    suspend fun editable(serverId: String): EditableAbsServer? {
+        val entity = bookDao.server(serverId) ?: return null
+        return EditableAbsServer(entity.name, entity.baseUrl, hasKey = secretStore.get(tokenKey(serverId)) != null)
+    }
+
+    private suspend fun connect(existingId: String?, name: String, baseUrlInput: String, apiKey: String): AddServerResult {
         val baseUrl = AbsServer.normalizeBaseUrl(baseUrlInput) ?: return AddServerResult.InvalidUrl
-        val key = apiKey.trim()
+        val existing = existingId?.let { bookDao.server(it) }
+        if (existingId != null && existing == null) return AddServerResult.InvalidUrl
+        val key = apiKey.trim().ifEmpty { existingId?.let { secretStore.get(tokenKey(it)) }.orEmpty() }
         if (key.isEmpty()) return AddServerResult.AuthFailed
-        val candidate = AbsServer(UUID.randomUUID().toString(), baseUrl, key)
+        val candidate = AbsServer(existingId ?: UUID.randomUUID().toString(), baseUrl, key)
         val library = try {
             api.ping(candidate)
             api.me(candidate)
@@ -72,9 +98,9 @@ class AudiobookshelfServers @Inject constructor(
         } ?: return AddServerResult.NoBookLibrary
 
         secretStore.put(tokenKey(candidate.serverId), key)
+        // Sync-Generation, Zeitpunkt und Schalter bleiben, sonst hielte der Mark-and-Sweep alles für neu.
         bookDao.upsertServer(
-            SpokenServerEntity(
-                serverId = candidate.serverId,
+            (existing ?: SpokenServerEntity(candidate.serverId, name, baseUrl.toString())).copy(
                 name = name.trim().ifEmpty { baseUrl.host },
                 baseUrl = baseUrl.toString(),
                 libraryId = library.id,

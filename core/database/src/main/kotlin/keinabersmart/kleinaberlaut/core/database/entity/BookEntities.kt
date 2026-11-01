@@ -19,6 +19,8 @@ data class SpokenServerEntity(
     /** Zähler für Mark-and-Sweep beim Vollabgleich. */
     val syncGeneration: Long = 0,
     val lastFullSyncAt: Long = 0,
+    /** Ausgeschaltet: kein Abgleich, Bücher ausgeblendet; Bücher und Downloads bleiben erhalten. */
+    @ColumnInfo(defaultValue = "1") val enabled: Boolean = true,
 )
 
 /** Abonnierter Podcast (Konzept 12.1). Seine Folgen sind `books`-Zeilen mit `serverId = feedId`. */

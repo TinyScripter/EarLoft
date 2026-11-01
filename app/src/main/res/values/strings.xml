@@ -104,11 +104,36 @@
 
     <!-- Settings & servers -->
     <string name="settings_title">Settings</string>
-    <string name="settings_servers">Servers</string>
     <string name="settings_no_servers">No server set up yet. Navidrome and other Subsonic servers are supported.</string>
     <string name="settings_add_server">Add server</string>
     <string name="settings_refresh_all">Sync all sources now</string>
     <string name="settings_general">General</string>
+    <string name="settings_music_sync_interval">Sync servers automatically</string>
+    <string name="settings_sync_never">Never</string>
+    <string name="settings_sync_daily">Daily</string>
+    <string name="settings_sync_weekly">Weekly</string>
+    <string name="settings_sync_monthly">Monthly</string>
+    <plurals name="settings_podcast_count">
+        <item quantity="one">%d subscription</item>
+        <item quantity="other">%d subscriptions</item>
+    </plurals>
+    <string name="settings_general_summary">Appearance, search, downloads</string>
+    <string name="settings_music">Music</string>
+    <string name="settings_music_summary_local">%1$s · local music</string>
+    <string name="settings_audiobooks">Audiobooks</string>
+    <string name="settings_about_summary">Version, licenses</string>
+    <plurals name="settings_server_count">
+        <item quantity="one">%d server</item>
+        <item quantity="other">%d servers</item>
+    </plurals>
+    <string name="settings_section_sources">Sources</string>
+    <string name="settings_section_refresh">Updating</string>
+    <string name="settings_section_images">Images</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_search">Search</string>
+    <string name="settings_refresh_music">Sync music now</string>
+    <string name="settings_refresh_audiobooks">Sync audiobooks now</string>
+    <string name="settings_refresh_podcasts">Refresh podcasts now</string>
     <string name="settings_theme">App appearance</string>
     <string name="theme_system">Follow system setting</string>
     <string name="theme_light">Light</string>
@@ -124,15 +149,13 @@
     <string name="settings_local_media">Use music on this device</string>
     <string name="settings_local_media_summary">Off: the library only shows music from servers.</string>
     <string name="settings_about">About</string>
-    <string name="settings_about_app">About the app</string>
     <string name="settings_licenses">Licenses</string>
-    <string name="settings_licenses_summary">Libraries in use and their licenses</string>
     <string name="server_auto_download">Everything is downloaded automatically</string>
     <string name="server_form_auto_download">Download everything automatically</string>
     <string name="server_form_auto_download_summary">Every track on this server is downloaded to the device, including newly added ones. Needs a lot of storage.</string>
     <string name="about_title">About the app</string>
     <string name="about_version">Version %1$s</string>
-    <string name="about_text">kleinaberlaut plays your own music collection – from the device and from your Navidrome or Subsonic servers – in one shared library, on your phone and on your watch.</string>
+    <string name="about_text">kleinaberlaut is a player for your own collection: music from this device and from your Navidrome or Subsonic servers in one shared library, podcasts from any feed, and audiobooks from your Audiobookshelf server. Everything can be downloaded for offline listening, audiobook progress is synced with your server, and your music also plays on your Wear OS watch.</string>
     <string name="about_more_info">For more information and the source code, see GitHub:</string>
     <string name="about_repository_url" translatable="false">https://github.com/TinyScripter/kleinaberlaut/</string>
     <string name="about_feedback">Please report bugs and feature requests in the issue tracker:</string>
@@ -161,6 +184,7 @@
     <string name="sync_notice_playlist_dropped">A playlist change could not be sent to the server.</string>
     <string name="server_remove">Remove server</string>
     <string name="server_edit">Edit</string>
+    <string name="server_disabled">Turned off – content hidden, downloads kept</string>
     <string name="server_remove_title">Remove “%1$s”?</string>
     <string name="server_remove_text">Songs that only exist on this server disappear from the library. Favorites and playlists on the server are not affected.</string>
     <string name="action_cancel">Cancel</string>
@@ -275,7 +299,6 @@
     <string name="watch_status_failed">On the watch: %1$d of %2$d, %3$d failed</string>
     <string name="watch_status_full">Watch storage full</string>
     <string name="settings_watch">Watch</string>
-    <string name="settings_watch_open">Music on the watch</string>
     <string name="settings_watch_open_summary">Selection, quality, storage</string>
     <string name="watch_settings_title">Watch</string>
     <string name="watch_selections">On the watch</string>
@@ -360,6 +383,9 @@
     <string name="spoken_abs_url_hint">https://audiobookshelf.example.org</string>
     <string name="spoken_abs_key">API key</string>
     <string name="spoken_abs_key_summary">Create it in Audiobookshelf under Settings → API Keys.</string>
+    <string name="spoken_abs_edit">Edit Audiobookshelf server</string>
+    <string name="spoken_abs_key_keep">Leave empty to keep the saved API key.</string>
+    <string name="spoken_abs_save">Save</string>
     <string name="spoken_abs_connect">Connect</string>
     <string name="spoken_abs_connecting">Connecting…</string>
     <string name="spoken_abs_error_url">That address is not valid.</string>
@@ -409,6 +435,18 @@
     <string name="book_download_failed">Download failed</string>
     <string name="downloads_section_music">Music</string>
     <string name="downloads_section_books">Books</string>
+    <string name="downloads_section_podcasts">Podcasts</string>
+    <string name="downloads_remove_category">Delete all downloads in this category</string>
+    <string name="downloads_remove_music_title">Delete all music downloads?</string>
+    <string name="downloads_remove_books_title">Delete all book downloads?</string>
+    <string name="downloads_remove_podcasts_title">Delete all podcast downloads?</string>
+    <string name="downloads_remove_category_text">The downloaded files are deleted from this device. The library stays and everything can still be streamed.</string>
+    <string name="podcast_downloads_delete_title">Delete downloads of “%1$s”?</string>
+    <string name="podcast_downloads_delete_message">This frees %1$s. The episodes stay in the list and can still be streamed.</string>
+    <plurals name="downloads_podcast_summary">
+        <item quantity="one">%1$d episode · %2$s</item>
+        <item quantity="other">%1$d episodes · %2$s</item>
+    </plurals>
     <string name="podcast_remove_heard_downloads">Delete downloads of heard episodes</string>
     <string name="podcast_continuous">Queue the next episode</string>
     <string name="podcast_continuous_summary">When you start an episode, the next unheard one is added right behind it in Continue listening.</string>

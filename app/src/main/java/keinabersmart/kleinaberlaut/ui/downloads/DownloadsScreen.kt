@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -47,7 +48,9 @@ import keinabersmart.kleinaberlaut.core.model.DownloadedAlbum
 import keinabersmart.kleinaberlaut.core.download.BookTransfer
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.ui.components.AlbumArt
+import keinabersmart.kleinaberlaut.core.data.podcast.FeedDownload
 import keinabersmart.kleinaberlaut.ui.spoken.BookArt
+import keinabersmart.kleinaberlaut.ui.spoken.PodcastArt
 import keinabersmart.kleinaberlaut.ui.spoken.transferText
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
@@ -61,6 +64,7 @@ fun DownloadsScreen(
     onBack: () -> Unit,
     onAlbumClick: (Long) -> Unit,
     onBookClick: (Long) -> Unit,
+    onPodcastClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
@@ -72,9 +76,18 @@ fun DownloadsScreen(
         onBack = onBack,
         onAlbumClick = onAlbumClick,
         onBookClick = onBookClick,
+        onPodcastClick = onPodcastClick,
         onRetryFailed = viewModel::retryFailed,
         onRemoveAlbum = viewModel::removeAlbum,
         onRemoveBook = viewModel::removeBook,
+        onRemoveFeed = viewModel::removeFeed,
+        onRemoveCategory = {
+            when (it) {
+                DownloadCategory.MUSIC -> viewModel.removeAllMusic()
+                DownloadCategory.BOOKS -> viewModel.removeAllBooks()
+                DownloadCategory.PODCASTS -> viewModel.removeAllPodcasts()
+            }
+        },
         onRemoveAll = viewModel::removeAll,
         modifier = modifier,
     )
@@ -88,15 +101,21 @@ private fun DownloadsContent(
     onBack: () -> Unit,
     onAlbumClick: (Long) -> Unit,
     onBookClick: (Long) -> Unit,
+    onPodcastClick: (String) -> Unit,
     onRetryFailed: () -> Unit,
     onRemoveAlbum: (Long) -> Unit,
     onRemoveBook: (Long) -> Unit,
+    onRemoveFeed: (String) -> Unit,
+    onRemoveCategory: (DownloadCategory) -> Unit,
     onRemoveAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var albumToRemove by rememberSaveable { mutableStateOf<Long?>(null) }
     var bookToRemove by rememberSaveable { mutableStateOf<Long?>(null) }
+    var feedToRemove by rememberSaveable { mutableStateOf<String?>(null) }
+    var categoryToRemove by rememberSaveable { mutableStateOf<DownloadCategory?>(null) }
     var confirmRemoveAll by rememberSaveable { mutableStateOf(false) }
+    val isEmpty = state.albums.isEmpty() && state.books.isEmpty() && state.podcasts.isEmpty()
     val overview = state.overview
 
     Column(modifier.fillMaxSize().readableWidth()) {
@@ -104,7 +123,7 @@ private fun DownloadsContent(
             title = { Text(stringResource(R.string.nav_downloads)) },
             navigationIcon = { BackButton(onBack) },
             actions = {
-                if (state.albums.isNotEmpty() || state.books.isNotEmpty()) {
+                if (!isEmpty) {
                     Box {
                         var menuOpen by remember { mutableStateOf(false) }
                         IconButton(onClick = { menuOpen = true }) {
@@ -126,13 +145,16 @@ private fun DownloadsContent(
         )
         when {
             state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            state.albums.isEmpty() && state.books.isEmpty() -> EmptyHint(stringResource(R.string.downloads_empty))
+            isEmpty -> EmptyHint(stringResource(R.string.downloads_empty))
             else -> LazyColumn(Modifier.fillMaxSize()) {
                 item(key = "storage") { StorageLine(overview) }
                 if (overview.pendingSongs > 0) item(key = "pending") { PendingRow(overview) }
                 if (overview.failedSongs > 0) item(key = "failed") { FailedRow(overview.failedSongs, onRetryFailed) }
-                val sections = state.albums.isNotEmpty() && state.books.isNotEmpty()
-                if (sections) item(key = "albums-header") { SectionHeader(stringResource(R.string.downloads_section_music)) }
+                if (state.albums.isNotEmpty()) {
+                    item(key = "albums-header") {
+                        CategoryHeader(stringResource(R.string.downloads_section_music)) { categoryToRemove = DownloadCategory.MUSIC }
+                    }
+                }
                 items(state.albums, key = { "album-${it.album.id}" }) { album ->
                     DownloadedAlbumRow(
                         album = album,
@@ -140,7 +162,11 @@ private fun DownloadsContent(
                         onRemove = { albumToRemove = album.album.id },
                     )
                 }
-                if (sections) item(key = "books-header") { SectionHeader(stringResource(R.string.downloads_section_books)) }
+                if (state.books.isNotEmpty()) {
+                    item(key = "books-header") {
+                        CategoryHeader(stringResource(R.string.downloads_section_books)) { categoryToRemove = DownloadCategory.BOOKS }
+                    }
+                }
                 items(state.books, key = { "book-${it.book.id}" }) { item ->
                     DownloadedBookRow(
                         item = item,
@@ -150,6 +176,18 @@ private fun DownloadsContent(
                         onRemove = {
                             if (item.download.state == TrackDownload.DONE) bookToRemove = item.book.id else onRemoveBook(item.book.id)
                         },
+                    )
+                }
+                if (state.podcasts.isNotEmpty()) {
+                    item(key = "podcasts-header") {
+                        CategoryHeader(stringResource(R.string.downloads_section_podcasts)) { categoryToRemove = DownloadCategory.PODCASTS }
+                    }
+                }
+                items(state.podcasts, key = { "podcast-${it.feed.id}" }) { item ->
+                    DownloadedFeedRow(
+                        item = item,
+                        onClick = { onPodcastClick(item.feed.id) },
+                        onRemove = { feedToRemove = item.feed.id },
                     )
                 }
             }
@@ -172,6 +210,29 @@ private fun DownloadsContent(
             text = stringResource(R.string.book_download_delete_message, formatBytes(removingBook.download.bytes)),
             onConfirm = { onRemoveBook(removingBook.book.id) },
             onDismiss = { bookToRemove = null },
+        )
+    }
+    val removingFeed = state.podcasts.firstOrNull { it.feed.id == feedToRemove }
+    if (removingFeed != null) {
+        ConfirmDialog(
+            title = stringResource(R.string.podcast_downloads_delete_title, removingFeed.feed.title),
+            text = stringResource(R.string.podcast_downloads_delete_message, formatBytes(removingFeed.bytes)),
+            onConfirm = { onRemoveFeed(removingFeed.feed.id) },
+            onDismiss = { feedToRemove = null },
+        )
+    }
+    categoryToRemove?.let { category ->
+        ConfirmDialog(
+            title = stringResource(
+                when (category) {
+                    DownloadCategory.MUSIC -> R.string.downloads_remove_music_title
+                    DownloadCategory.BOOKS -> R.string.downloads_remove_books_title
+                    DownloadCategory.PODCASTS -> R.string.downloads_remove_podcasts_title
+                },
+            ),
+            text = stringResource(R.string.downloads_remove_category_text),
+            onConfirm = { onRemoveCategory(category) },
+            onDismiss = { categoryToRemove = null },
         )
     }
     if (confirmRemoveAll) {
@@ -267,15 +328,59 @@ private fun DownloadedAlbumRow(album: DownloadedAlbum, onClick: () -> Unit, onRe
     )
 }
 
+/**
+ * Kategorie-Überschrift mit kleinem rotem Mülleimer rechts. Rand und Tippfläche entsprechen dem Mülleimer der
+ * Zeilen (ListItem: 16 dp Rand, 48 dp Knopf), damit beide untereinander auf einer Linie liegen.
+ */
 @Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+private fun CategoryHeader(text: String, onRemoveAll: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onRemoveAll) {
+            Icon(
+                painterResource(DesignR.drawable.ic_delete),
+                contentDescription = stringResource(R.string.downloads_remove_category),
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+/** Podcast-Abo mit Bild und der Summe seiner geladenen Folgen (ein Eintrag je Abo); Tipp öffnet den Podcast. */
+@Composable
+private fun DownloadedFeedRow(item: FeedDownload, onClick: () -> Unit, onRemove: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(item.feed.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = {
+            Column {
+                if (item.feed.author.isNotBlank()) Text(item.feed.author, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    pluralStringResource(R.plurals.downloads_podcast_summary, item.episodes, item.episodes, formatBytes(item.bytes)),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        },
+        leadingContent = { PodcastArt(item.feed.imageUrl, Modifier.size(56.dp), MaterialTheme.shapes.small) },
+        trailingContent = {
+            IconButton(onClick = onRemove) {
+                Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = stringResource(R.string.action_remove_download))
+            }
+        },
+        modifier = Modifier.clickable(onClick = onClick),
     )
 }
+
+/** Gruppen der Download-Übersicht, die sich als Ganzes löschen lassen. */
+enum class DownloadCategory { MUSIC, BOOKS, PODCASTS }
 
 /** Buch mit Cover und Stand: Größe, „32 MB von 500 MB geladen“, Wartet oder Fehler; Tipp öffnet die Buchseite. */
 @Composable
@@ -350,9 +455,12 @@ private fun DownloadsContentPreview() {
             onBack = {},
             onAlbumClick = {},
             onBookClick = {},
+            onPodcastClick = {},
             onRetryFailed = {},
             onRemoveAlbum = {},
             onRemoveBook = {},
+            onRemoveFeed = {},
+            onRemoveCategory = {},
             onRemoveAll = {},
         )
     }

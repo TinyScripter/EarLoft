@@ -33,6 +33,9 @@ interface SourceDao {
     @Query("UPDATE sources SET syncGeneration = :generation, lastFullSyncAt = :syncedAt WHERE sourceId = :sourceId")
     suspend fun setSyncGeneration(sourceId: String, generation: Long, syncedAt: Long)
 
+    @Query("UPDATE sources SET enabled = :enabled WHERE sourceId = :sourceId")
+    suspend fun setEnabled(sourceId: String, enabled: Boolean)
+
     /** Entfernt per CASCADE auch alle `song_sources`; danach [LibraryDao.cleanupOrphans] aufrufen. */
     @Query("DELETE FROM sources WHERE sourceId = :sourceId")
     suspend fun delete(sourceId: String)

@@ -8,4 +8,6 @@ data class ServerInfo(
     val username: String?,
     /** Epoch-Millis des letzten vollständigen Abgleichs, 0 = noch nie. */
     val lastFullSyncAt: Long,
+    /** Ausgeschaltet: kein Abgleich, Inhalte ausgeblendet, nichts gelöscht. */
+    val enabled: Boolean = true,
 )

@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -28,7 +29,20 @@ class LibrarySettings @Inject constructor(
         context.librarySettingsDataStore.edit { it[KEY_LOCAL_MEDIA] = enabled }
     }
 
-    private companion object {
-        val KEY_LOCAL_MEDIA = booleanPreferencesKey("use_local_media")
+    /** Abstand des automatischen Vollabgleichs der Server in Tagen: [SYNC_NEVER], 1, 7 oder 30. */
+    val syncIntervalDays: Flow<Int> = context.librarySettingsDataStore.data.map { it[KEY_SYNC_DAYS] ?: DEFAULT_SYNC_DAYS }
+
+    suspend fun setSyncIntervalDays(days: Int) {
+        context.librarySettingsDataStore.edit { it[KEY_SYNC_DAYS] = days.coerceAtLeast(SYNC_NEVER) }
+    }
+
+    companion object {
+        /** Kein automatischer Abgleich; nur von Hand (und beim Einrichten oder Einschalten eines Servers). */
+        const val SYNC_NEVER = 0
+        val SYNC_DAY_CHOICES = listOf(SYNC_NEVER, 1, 7, 30)
+        const val DEFAULT_SYNC_DAYS = 1
+
+        private val KEY_LOCAL_MEDIA = booleanPreferencesKey("use_local_media")
+        private val KEY_SYNC_DAYS = intPreferencesKey("sync_interval_days")
     }
 }

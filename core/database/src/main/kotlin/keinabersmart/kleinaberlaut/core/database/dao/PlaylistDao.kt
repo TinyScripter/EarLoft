@@ -15,7 +15,7 @@ private const val SELECT_PLAYLIST_ROWS = """
     FROM playlists p
     LEFT JOIN sources src ON src.sourceId = p.boundSourceId
     LEFT JOIN playlist_entries e ON e.playlistId = p.playlistId
-    LEFT JOIN songs s ON s.songId = e.songId
+    LEFT JOIN songs s ON s.songId = e.songId AND $SONG_VISIBLE
 """
 
 /** Playlists (Konzept 5.4); lokale und mit genau einem Server verknüpfte. */
@@ -38,7 +38,7 @@ interface PlaylistDao {
                )) AS missingOnServer
         FROM playlist_entries e
         JOIN playlists p ON p.playlistId = e.playlistId
-        JOIN songs s ON s.songId = e.songId
+        JOIN songs s ON s.songId = e.songId AND $SONG_VISIBLE
         JOIN albums a ON a.albumId = s.albumId
         WHERE e.playlistId = :playlistId
         ORDER BY e.position, e.entryId

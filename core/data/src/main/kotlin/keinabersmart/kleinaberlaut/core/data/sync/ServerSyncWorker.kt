@@ -16,7 +16,7 @@ import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
 import java.util.concurrent.TimeUnit
 
 /**
- * Täglicher Vollabgleich aller Server (Mark-and-Sweep findet gelöschte Songs nur so).
+ * Regelmäßiger Vollabgleich aller Server (täglich, wöchentlich oder monatlich, [LibrarySettings.syncIntervalDays]) (Mark-and-Sweep findet gelöschte Songs nur so).
  * Läuft nur im WLAN (ungetaktet) und beim Laden, weil große Bibliotheken viele Seiten abfragen.
  */
 class ServerSyncWorker(
@@ -43,8 +43,13 @@ class ServerSyncWorker(
         private const val WORK_NAME = "server-sync"
         private const val MAX_ATTEMPTS = 3
 
-        fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<ServerSyncWorker>(1, TimeUnit.DAYS)
+        /** [days] = [LibrarySettings.SYNC_NEVER] beendet die Planung. */
+        fun schedule(context: Context, days: Int) {
+            if (days <= LibrarySettings.SYNC_NEVER) {
+                WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+                return
+            }
+            val request = PeriodicWorkRequestBuilder<ServerSyncWorker>(days.toLong(), TimeUnit.DAYS)
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.UNMETERED)
@@ -53,7 +58,7 @@ class ServerSyncWorker(
                 )
                 .build()
             WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+                .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
     }
 }

@@ -103,11 +103,36 @@
 
     <!-- Einstellungen & Server -->
     <string name="settings_title">Einstellungen</string>
-    <string name="settings_servers">Server</string>
     <string name="settings_no_servers">Noch kein Server eingerichtet. Navidrome und andere Subsonic-Server werden unterstützt.</string>
     <string name="settings_add_server">Server hinzufügen</string>
     <string name="settings_refresh_all">Alle Quellen jetzt abgleichen</string>
     <string name="settings_general">Allgemein</string>
+    <string name="settings_music_sync_interval">Server automatisch abgleichen</string>
+    <string name="settings_sync_never">Nie</string>
+    <string name="settings_sync_daily">Täglich</string>
+    <string name="settings_sync_weekly">Wöchentlich</string>
+    <string name="settings_sync_monthly">Monatlich</string>
+    <plurals name="settings_podcast_count">
+        <item quantity="one">%d Abo</item>
+        <item quantity="other">%d Abos</item>
+    </plurals>
+    <string name="settings_general_summary">Darstellung, Suche, Downloads</string>
+    <string name="settings_music">Musik</string>
+    <string name="settings_music_summary_local">%1$s · lokale Musik</string>
+    <string name="settings_audiobooks">Hörbücher</string>
+    <string name="settings_about_summary">Version, Lizenzen</string>
+    <plurals name="settings_server_count">
+        <item quantity="one">%d Server</item>
+        <item quantity="other">%d Server</item>
+    </plurals>
+    <string name="settings_section_sources">Quellen</string>
+    <string name="settings_section_refresh">Aktualisierung</string>
+    <string name="settings_section_images">Bilder</string>
+    <string name="settings_section_appearance">Darstellung</string>
+    <string name="settings_section_search">Suche</string>
+    <string name="settings_refresh_music">Musik jetzt abgleichen</string>
+    <string name="settings_refresh_audiobooks">Hörbücher jetzt abgleichen</string>
+    <string name="settings_refresh_podcasts">Podcasts jetzt aktualisieren</string>
     <string name="settings_theme">App-Darstellung</string>
     <string name="theme_system">Systemeinstellung folgen</string>
     <string name="theme_light">Hell</string>
@@ -123,15 +148,13 @@
     <string name="settings_local_media">Musik auf diesem Gerät nutzen</string>
     <string name="settings_local_media_summary">Aus: Die Bibliothek zeigt nur Musik von Servern.</string>
     <string name="settings_about">Über</string>
-    <string name="settings_about_app">Über die App</string>
     <string name="settings_licenses">Lizenzen</string>
-    <string name="settings_licenses_summary">Genutzte Bibliotheken und ihre Lizenzen</string>
     <string name="server_auto_download">Alles wird automatisch heruntergeladen</string>
     <string name="server_form_auto_download">Alles automatisch herunterladen</string>
     <string name="server_form_auto_download_summary">Jeder Titel dieses Servers wird auf das Gerät geladen, auch neu hinzugekommene. Braucht entsprechend viel Speicher.</string>
     <string name="about_title">Über die App</string>
     <string name="about_version">Version %1$s</string>
-    <string name="about_text">kleinaberlaut spielt deine eigene Musiksammlung – vom Gerät und von deinen Navidrome- oder Subsonic-Servern – in einer gemeinsamen Bibliothek, auf dem Handy und auf der Uhr.</string>
+    <string name="about_text">kleinaberlaut ist ein Player für deine eigene Sammlung: Musik vom Gerät und von deinen Navidrome- oder Subsonic-Servern in einer gemeinsamen Bibliothek, Podcasts aus beliebigen Feeds und Hörbücher von deinem Audiobookshelf-Server. Alles lässt sich für unterwegs herunterladen, der Hörbuch-Fortschritt wird mit deinem Server abgeglichen, und deine Musik spielt auch auf der Wear-OS-Uhr.</string>
     <string name="about_more_info">Weitere Informationen und den Quellcode findest du auf GitHub:</string>
     <string name="about_feedback">Bugs und Feature-Wünsche bitte im Issue-Tracker melden:</string>
     <string name="licenses_title">Lizenzen</string>
@@ -158,6 +181,7 @@
     <string name="sync_notice_playlist_dropped">Eine Playlist-Änderung konnte nicht an den Server übertragen werden.</string>
     <string name="server_remove">Server entfernen</string>
     <string name="server_edit">Bearbeiten</string>
+    <string name="server_disabled">Ausgeschaltet – Inhalte ausgeblendet, Downloads bleiben erhalten</string>
     <string name="server_remove_title">„%1$s“ entfernen?</string>
     <string name="server_remove_text">Songs, die nur auf diesem Server liegen, verschwinden aus der Bibliothek. Favoriten und Playlists auf dem Server bleiben unberührt.</string>
     <string name="action_cancel">Abbrechen</string>
@@ -271,7 +295,6 @@
     <string name="watch_status_failed">Auf der Uhr: %1$d von %2$d, %3$d fehlgeschlagen</string>
     <string name="watch_status_full">Speicher der Uhr voll</string>
     <string name="settings_watch">Uhr</string>
-    <string name="settings_watch_open">Musik auf der Uhr</string>
     <string name="settings_watch_open_summary">Auswahl, Qualität, Speicher</string>
     <string name="watch_settings_title">Uhr</string>
     <string name="watch_selections">Auf der Uhr</string>
@@ -356,6 +379,9 @@
     <string name="spoken_abs_url_hint">https://audiobookshelf.example.org</string>
     <string name="spoken_abs_key">API-Schlüssel</string>
     <string name="spoken_abs_key_summary">In Audiobookshelf unter Einstellungen → API-Schlüssel erstellen.</string>
+    <string name="spoken_abs_edit">Audiobookshelf-Server bearbeiten</string>
+    <string name="spoken_abs_key_keep">Leer lassen, um den gespeicherten API-Schlüssel zu behalten.</string>
+    <string name="spoken_abs_save">Speichern</string>
     <string name="spoken_abs_connect">Verbinden</string>
     <string name="spoken_abs_connecting">Verbinde…</string>
     <string name="spoken_abs_error_url">Diese Adresse ist ungültig.</string>
@@ -405,6 +431,18 @@
     <string name="book_download_failed">Download fehlgeschlagen</string>
     <string name="downloads_section_music">Musik</string>
     <string name="downloads_section_books">Bücher</string>
+    <string name="downloads_section_podcasts">Podcasts</string>
+    <string name="downloads_remove_category">Alle Downloads dieser Kategorie löschen</string>
+    <string name="downloads_remove_music_title">Alle Musik-Downloads löschen?</string>
+    <string name="downloads_remove_books_title">Alle Buch-Downloads löschen?</string>
+    <string name="downloads_remove_podcasts_title">Alle Podcast-Downloads löschen?</string>
+    <string name="downloads_remove_category_text">Die heruntergeladenen Dateien werden von diesem Gerät gelöscht. Die Bibliothek bleibt erhalten, alles lässt sich weiter streamen.</string>
+    <string name="podcast_downloads_delete_title">Downloads von „%1$s“ löschen?</string>
+    <string name="podcast_downloads_delete_message">Das gibt %1$s frei. Die Folgen bleiben in der Liste und lassen sich weiter streamen.</string>
+    <plurals name="downloads_podcast_summary">
+        <item quantity="one">%1$d Folge · %2$s</item>
+        <item quantity="other">%1$d Folgen · %2$s</item>
+    </plurals>
     <string name="podcast_remove_heard_downloads">Downloads gehörter Folgen löschen</string>
     <string name="podcast_continuous">Nächste Folge einreihen</string>
     <string name="podcast_continuous_summary">Startest du eine Folge, kommt die nächste ungehörte direkt dahinter in „Weiterhören“.</string>
