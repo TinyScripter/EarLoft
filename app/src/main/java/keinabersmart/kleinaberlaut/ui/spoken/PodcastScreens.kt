@@ -719,16 +719,18 @@ fun PodcastInfoScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 8.dp),
             )
-            Text(stringResource(R.string.podcast_feed_url), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
-            Text(
-                current.url,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable {
-                    scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(current.title, current.url))) }
-                    Toast.makeText(context, R.string.podcast_url_copied, Toast.LENGTH_SHORT).show()
-                },
-            )
+            if (!current.isLocal) {
+                Text(stringResource(R.string.podcast_feed_url), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+                Text(
+                    current.url,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable {
+                        scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(current.title, current.url))) }
+                        Toast.makeText(context, R.string.podcast_url_copied, Toast.LENGTH_SHORT).show()
+                    },
+                )
+            }
         }
     }
 }
@@ -791,7 +793,8 @@ fun PodcastSettingsScreen(
                     onCheckedChange = viewModel::setNewestFirst,
                 )
             }
-            item(key = "auto-download") {
+            // Podcasts vom Gerät haben weder Feed noch Downloads und lassen sich nur durch Entfernen der Dateien beenden.
+            if (!current.isLocal) item(key = "auto-download") {
                 SwitchRow(
                     title = stringResource(R.string.podcast_auto_download),
                     summary = stringResource(R.string.podcast_auto_download_summary),
@@ -810,7 +813,7 @@ fun PodcastSettingsScreen(
                     )
                 }
             }
-            item(key = "unsubscribe") {
+            if (!current.isLocal) item(key = "unsubscribe") {
                 ActionRow(
                     title = stringResource(R.string.podcast_unsubscribe),
                     summary = stringResource(R.string.podcast_unsubscribe_summary),
@@ -908,7 +911,8 @@ private fun EpisodeRow(
             leadingContent = { BookArt(book.id, Modifier.size(56.dp), MaterialTheme.shapes.small) },
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    DownloadButton(download, downloadFraction, onDownload, onRemoveDownload)
+                    // Dateien vom Gerät sind schon da.
+                    if (!book.isLocal) DownloadButton(download, downloadFraction, onDownload, onRemoveDownload)
                     IconButton(onClick = onPlay) {
                         Icon(painterResource(DesignR.drawable.ic_play), contentDescription = stringResource(R.string.podcast_play_episode))
                     }

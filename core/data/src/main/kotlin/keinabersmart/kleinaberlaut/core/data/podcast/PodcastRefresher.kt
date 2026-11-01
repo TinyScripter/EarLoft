@@ -15,6 +15,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
+import keinabersmart.kleinaberlaut.core.data.spoken.LocalPodcasts
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.combine
@@ -36,6 +37,7 @@ class PodcastRefresher @Inject constructor(
     private val repository: PodcastRepository,
     private val dao: PodcastDao,
     private val settings: PodcastSettings,
+    private val localPodcasts: LocalPodcasts,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val started = AtomicBoolean(false)
@@ -56,7 +58,10 @@ class PodcastRefresher @Inject constructor(
     }
 
     fun refreshAll() {
-        scope.launch { repository.refreshAll() }
+        scope.launch {
+            localPodcasts.sync()
+            repository.refreshAll()
+        }
     }
 
     private fun schedule(hours: Int, mobile: Boolean) {

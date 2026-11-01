@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.data.spoken.toModel
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
+import keinabersmart.kleinaberlaut.core.model.LOCAL_PODCAST_PREFIX
 import keinabersmart.kleinaberlaut.core.model.PodcastFeed
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.network.podcast.FeedFetch
@@ -207,11 +208,13 @@ class PodcastRepository @Inject constructor(
         dao.episodeIdsOldestFirst(feed.feedId).let { if (feed.newestFirst) it.asReversed() else it }
 
     /** Gleicht alle Abos ab; `true`, wenn kein Feed fehlgeschlagen ist. */
-    suspend fun refreshAll(): Boolean = dao.feeds().map { refresh(it.feedId) != null }.all { it }
+    suspend fun refreshAll(): Boolean = dao.feeds().filter { !it.isLocal }.map { refresh(it.feedId) != null }.all { it }
 
     /** Gleicht einen Feed ab. `null`, wenn er nicht erreichbar oder unlesbar ist (die alten Folgen bleiben). */
     suspend fun refresh(feedId: String): RefreshResult? = mutex.withLock {
         val feed = dao.feed(feedId) ?: return@withLock RefreshResult(emptyList())
+        // Podcasts vom Gerät haben keinen Feed; ihre Folgen gleicht [LocalPodcasts] ab.
+        if (feed.isLocal) return@withLock RefreshResult(emptyList())
         val fetched = try {
             api.fetch(feed.url.toHttpUrlOrThrow(), feed.etag, feed.lastModified)
         } catch (e: CancellationException) {
@@ -319,6 +322,8 @@ class PodcastRepository @Inject constructor(
         const val MAX_NEW = 20
     }
 }
+
+private val PodcastFeedEntity.isLocal: Boolean get() = feedId.startsWith(LOCAL_PODCAST_PREFIX)
 
 private fun PodcastFeedEntity.toModel() = PodcastFeed(
     id = feedId,

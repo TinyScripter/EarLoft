@@ -9,6 +9,7 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import keinabersmart.kleinaberlaut.core.datasource.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.FileInputStream
@@ -38,8 +39,25 @@ data class LocalBookDetails(
  */
 data class LocalBook(val key: String, val fingerprint: Long, val addedAtMs: Long, val details: LocalBookDetails?)
 
+/** Eine Podcast-Datei. [details] fehlt, wenn der Aufrufer sie als unverändert bezeichnet hat. */
+data class LocalEpisode(val key: String, val fingerprint: Long, val details: LocalEpisodeDetails?)
+
+data class LocalEpisodeDetails(
+    val title: String,
+    val description: String,
+    /** Erscheinungsdatum aus dem Tag, sonst der Zeitpunkt, an dem die Datei aufs Gerät kam (Unix-ms). */
+    val publishedAtMs: Long,
+    val track: LocalBookTrack,
+    val chapters: List<LocalBookChapter>,
+    /** Die Datei trägt ein eingebettetes Bild. */
+    val hasCover: Boolean,
+)
+
+/** Ein Podcast aus dem Ordner „Podcasts“ mit seinen Folgen. */
+data class LocalPodcast(val name: String, val episodes: List<LocalEpisode>)
+
 /**
- * Findet Hörbücher auf dem Gerät über MediaStore (Konzept 12.1): `m4b` direkt in „Audiobooks“ und Ordner voller
+ * Findet Hörbücher und Podcast-Folgen auf dem Gerät über MediaStore (Konzept 12.1): `m4b` direkt in „Audiobooks“ und Ordner voller
  * MP3-Dateien darin. MediaStore genügt (kein SAF), weil die App die Audio-Berechtigung für die Musik ohnehin hat und
  * MediaStore Dateien in „Audiobooks“ als Audio führt – aber nicht als Musik, sodass sie nicht in der Bibliothek landen.
  */
@@ -47,6 +65,8 @@ data class LocalBook(val key: String, val fingerprint: Long, val addedAtMs: Long
 class LocalBookScanner @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
+    private val tagReader = LocalTagReader(context)
+
     /**
      * Alle Bücher. Für unveränderte (laut [isUnchanged]) werden weder Tags noch Kapitel gelesen.
      * Ohne Berechtigung wirft das eine `SecurityException`: MediaStore lieferte sonst eine leere Liste, und der
@@ -61,6 +81,47 @@ class LocalBookScanner @Inject constructor(
                 LocalBook(book.key, fingerprint, added, if (isUnchanged(book.key, fingerprint)) null else read(book))
             }
         }
+
+    /**
+     * Alle Podcasts aus „Podcasts“ (Unterordner oder Album-Tag, siehe [LocalPodcastLayout]); Fehler und Berechtigung wie bei
+     * [scan]. Unveränderte Folgen (laut [isUnchanged], mit dem Namen ihres Podcasts) werden nicht gelesen.
+     */
+    suspend fun scanPodcasts(isUnchanged: suspend (podcast: String, key: String, fingerprint: Long) -> Boolean): List<LocalPodcast> =
+        withContext(Dispatchers.IO) {
+            if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} fehlt")
+            val untitled = context.getString(R.string.local_source_name)
+            LocalPodcastLayout.group(queryRows(LocalPodcastLayout.ROOT), untitled).map { podcast ->
+                LocalPodcast(
+                    podcast.name,
+                    podcast.files.map { file ->
+                        val key = LocalPodcastLayout.key(file)
+                        val fingerprint = LocalPodcastLayout.fingerprint(file)
+                        LocalEpisode(key, fingerprint, if (isUnchanged(podcast.name, key, fingerprint)) null else readEpisode(file))
+                    },
+                )
+            }
+        }
+
+    private suspend fun readEpisode(file: AudioFileRow): LocalEpisodeDetails {
+        val uri = contentUri(file.id)
+        val tags = tagReader.readEpisode(uri) ?: EpisodeTags()
+        // Eingebettete Kapitel (ID3 CHAP, sonst MP4) haben die genauen Grenzen; die Spanne reicht bis ans Dateiende.
+        val chapters = tags.chapters.ifEmpty {
+            val marks = if (isMp4(file)) readMarks(uri) else emptyList()
+            marks.mapIndexed { index, mark ->
+                val end = marks.getOrNull(index + 1)?.startMs ?: file.durationMs
+                LocalBookChapter(mark.title.ifBlank { "${index + 1}" }, mark.startMs, end.coerceAtLeast(mark.startMs))
+            }
+        }
+        return LocalEpisodeDetails(
+            title = file.title?.trim()?.takeIf { it.isNotEmpty() } ?: file.fileName.substringBeforeLast('.'),
+            description = tags.description.orEmpty(),
+            publishedAtMs = LocalPodcastLayout.parseTagDate(tags.date) ?: (file.dateAddedSec * 1000),
+            track = LocalBookTrack(uri.toString(), 0, file.durationMs, file.mimeType),
+            chapters = chapters,
+            hasCover = withRetriever(uri) { it.embeddedPicture } != null,
+        )
+    }
 
     /** Eingebettetes Cover (Bilddatei) der Datei; `null`, wenn es keines gibt. */
     suspend fun cover(trackUri: String): ByteArray? = withContext(Dispatchers.IO) {
@@ -133,7 +194,7 @@ class LocalBookScanner @Inject constructor(
     private fun contentUri(id: Long): Uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
 
     @Suppress("DEPRECATION") // DATA (der Pfad) ist der einzige Weg, das Verzeichnis auf allen unterstützten Versionen zu erkennen.
-    private fun queryRows(): List<AudioFileRow> {
+    private fun queryRows(root: String = LocalBookLayout.ROOT): List<AudioFileRow> {
         val columns = buildList {
             add(MediaStore.Audio.Media._ID)
             add(MediaStore.Audio.Media.DATA)
@@ -152,7 +213,7 @@ class LocalBookScanner @Inject constructor(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             columns.toTypedArray(),
             "${MediaStore.Audio.Media.DATA} LIKE ?",
-            arrayOf("%/${LocalBookLayout.ROOT}/%"),
+            arrayOf("%/$root/%"),
             null,
         ) ?: throw IOException("MediaStore-Abfrage lieferte keinen Cursor")
         return cursor.use { c ->

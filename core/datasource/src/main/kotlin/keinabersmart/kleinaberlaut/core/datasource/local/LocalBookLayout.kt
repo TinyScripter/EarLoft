@@ -33,10 +33,10 @@ internal object LocalBookLayout {
 
     private const val UNKNOWN = "<unknown>"
 
-    /** Pfad ab dem Ordner „Audiobooks“ (auch auf Speicherkarten); `null`, wenn die Datei nicht darin liegt. */
-    fun relativePath(path: String): String? {
+    /** Pfad ab dem Ordner [rootName] (auch auf Speicherkarten); `null`, wenn die Datei nicht darin liegt. */
+    fun relativePath(path: String, rootName: String = ROOT): String? {
         val segments = path.split('/')
-        val root = segments.indexOfFirst { it.equals(ROOT, ignoreCase = true) }
+        val root = segments.indexOfFirst { it.equals(rootName, ignoreCase = true) }
         return if (root >= 0 && root < segments.lastIndex) segments.drop(root).joinToString("/") else null
     }
 

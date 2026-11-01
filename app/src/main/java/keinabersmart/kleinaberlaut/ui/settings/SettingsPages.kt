@@ -282,7 +282,7 @@ fun MusicSettingsScreen(
     }
 }
 
-/** Podcasts haben keine Server (die Feeds liegen in der Bibliothek) und keine abschaltbaren Bilder. */
+/** Podcasts haben keine Server (die Feeds liegen in der Bibliothek); Quelle ist nur der Ordner auf dem Gerät. */
 @Composable
 fun PodcastsSettingsScreen(
     onBack: () -> Unit,
@@ -293,8 +293,25 @@ fun PodcastsSettingsScreen(
     var choosingRefresh by rememberSaveable { mutableStateOf(false) }
     var choosingDeleteHeard by rememberSaveable { mutableStateOf(false) }
     var choosingAutoCount by rememberSaveable { mutableStateOf(false) }
+    // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
+    val requestAudioPermission = rememberAudioPermissionRequester { granted ->
+        if (granted) viewModel.setUseLocalPodcasts(true)
+    }
 
     SettingsPage(stringResource(R.string.settings_podcasts), onBack, modifier) {
+        item(key = "sources") { SectionHeader(stringResource(R.string.settings_section_sources)) }
+        item(key = "local-podcasts") {
+            SwitchRow(
+                title = stringResource(R.string.settings_local_podcasts),
+                summary = stringResource(R.string.settings_local_podcasts_summary),
+                icon = DesignR.drawable.ic_playlist_play,
+                checked = state.useLocalPodcasts,
+                onCheckedChange = { enabled ->
+                    if (enabled) requestAudioPermission() else viewModel.setUseLocalPodcasts(false)
+                },
+            )
+        }
+
         item(key = "refresh") { SectionHeader(stringResource(R.string.settings_section_refresh)) }
         item(key = "podcast-refresh") {
             ClickRow(

@@ -19,7 +19,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookProgress
-import keinabersmart.kleinaberlaut.core.model.LOCAL_BOOK_SERVER_ID
+import keinabersmart.kleinaberlaut.core.model.isLocalSource
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsMediaProgressDto
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsProgressUpdate
@@ -81,7 +81,7 @@ class BookProgressSync @Inject constructor(
         val progress = dao.progress(bookId) ?: return true
         if (!progress.dirty) return true
         val book = dao.book(bookId) ?: return true
-        if (book.kind == BookKind.EPISODE || book.serverId == LOCAL_BOOK_SERVER_ID) {
+        if (book.kind == BookKind.EPISODE || isLocalSource(book.serverId)) {
             // Folgen und Bücher vom Gerät haben keinen Server, der den Fortschritt kennen müsste.
             dao.markClean(bookId, progress.updatedAt)
             return true

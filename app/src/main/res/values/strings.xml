@@ -150,6 +150,8 @@
     <string name="settings_local_media_summary">Off: the library only shows music from servers.</string>
     <string name="settings_local_books">Use audiobooks on this device</string>
     <string name="settings_local_books_summary">From the “Audiobooks” folder: m4b files and folders of MP3 files (one chapter per file). Off: the books disappear along with their progress.</string>
+    <string name="settings_local_podcasts">Use podcasts on this device</string>
+    <string name="settings_local_podcasts_summary">From the “Podcasts” folder: each subfolder is a podcast; loose files are grouped by their album tag. Off: the episodes disappear along with their progress.</string>
     <string name="settings_about">About</string>
     <string name="settings_licenses">Licenses</string>
     <string name="server_auto_download">Everything is downloaded automatically</string>

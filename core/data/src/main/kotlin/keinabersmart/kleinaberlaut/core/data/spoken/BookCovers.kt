@@ -9,7 +9,7 @@ import keinabersmart.kleinaberlaut.core.data.repository.seedColorOf
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.datasource.local.LocalBookScanner
 import keinabersmart.kleinaberlaut.core.model.BookKind
-import keinabersmart.kleinaberlaut.core.model.LOCAL_BOOK_SERVER_ID
+import keinabersmart.kleinaberlaut.core.model.isLocalSource
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
 import kotlinx.coroutines.Dispatchers
@@ -34,14 +34,15 @@ class BookCovers @Inject constructor(
         val book = dao.book(bookId) ?: return@withContext null
         // Folgen eines Podcasts teilen sich meist ein Bild: die Datei heißt nach der Adresse, nicht nach der Folge.
         val coverUrl = book.coverUrl.takeIf { book.kind == BookKind.EPISODE }
-        val name = if (book.kind == BookKind.EPISODE) coverUrl?.let { "u${it.hashCode()}" } ?: return@withContext null else "$bookId"
+        val local = isLocalSource(book.serverId)
+        val name = if (book.kind == BookKind.EPISODE && !local) coverUrl?.let { "u${it.hashCode()}" } ?: return@withContext null else "$bookId"
         val file = File(File(context.cacheDir, DIRECTORY), "$name.img")
         if (!file.exists()) {
             val bytes = try {
                 if (coverUrl != null) {
                     podcastApi.image(coverUrl)
-                } else if (book.serverId == LOCAL_BOOK_SERVER_ID) {
-                    // Lokale Bücher tragen ihr Cover in der ersten Datei.
+                } else if (local) {
+                    // Lokale Bücher und Folgen tragen ihr Cover in der ersten Datei.
                     dao.tracks(bookId).firstOrNull()?.let { localScanner.cover(it.remoteFileId) } ?: return@withContext null
                 } else {
                     val server = servers.server(book.serverId) ?: return@withContext null

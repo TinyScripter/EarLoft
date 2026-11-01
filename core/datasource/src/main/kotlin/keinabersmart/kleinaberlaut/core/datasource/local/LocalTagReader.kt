@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Metadata
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.inspector.MetadataRetriever
 import kotlinx.coroutines.CancellationException
@@ -16,13 +17,16 @@ import kotlinx.coroutines.withTimeout
 internal class LocalTagReader(private val context: Context) {
 
     /** `null`, wenn die Datei nicht lesbar ist. */
-    suspend fun read(uri: Uri): EmbeddedTags? = try {
+    suspend fun read(uri: Uri): EmbeddedTags? = metadata(uri, EmbeddedTags::from)
+
+    /** Datum, Beschreibung und Kapitel einer Podcast-Folge; `null`, wenn die Datei nicht lesbar ist. */
+    suspend fun readEpisode(uri: Uri): EpisodeTags? = metadata(uri, EpisodeTags::from)
+
+    private suspend fun <T> metadata(uri: Uri, parse: (List<Metadata>) -> T): T? = try {
         withTimeout(TIMEOUT_MS) {
             MetadataRetriever.Builder(context, MediaItem.fromUri(uri)).build().use { retriever ->
                 val groups = retriever.retrieveTrackGroups().await()
-                EmbeddedTags.from(
-                    (0 until groups.length).mapNotNull { groups[it].takeIf { g -> g.length > 0 }?.getFormat(0)?.metadata },
-                )
+                parse((0 until groups.length).mapNotNull { groups[it].takeIf { g -> g.length > 0 }?.getFormat(0)?.metadata })
             }
         }
     } catch (e: CancellationException) {

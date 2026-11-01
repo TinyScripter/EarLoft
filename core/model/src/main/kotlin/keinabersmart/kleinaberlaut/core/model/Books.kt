@@ -12,6 +12,15 @@ enum class TrackDownload { NONE, QUEUED, RUNNING, DONE, FAILED, REMOVED }
 /** `serverId` der Bücher aus dem Ordner „Audiobooks“ auf diesem Gerät (Konzept 12.1); es gibt dazu keinen Server. */
 const val LOCAL_BOOK_SERVER_ID = "local"
 
+/**
+ * Anfang der `feedId` der Podcasts aus dem Ordner „Podcasts“ auf diesem Gerät (Konzept 12.1): Je Podcast ein Abo ohne
+ * Feed-Adresse, dessen Folgen die Dateien sind.
+ */
+const val LOCAL_PODCAST_PREFIX = "local:"
+
+/** Bücher und Folgen vom Gerät haben keinen Server: kein Download, kein Cast, Fortschritt nur lokal. */
+fun isLocalSource(serverId: String): Boolean = serverId == LOCAL_BOOK_SERVER_ID || serverId.startsWith(LOCAL_PODCAST_PREFIX)
+
 /** Schalter in der oberen Leiste von Start und Bibliothek (Konzept 12.5). */
 enum class SpokenMode { MUSIC, PODCASTS, BOOKS }
 
@@ -30,7 +39,7 @@ data class Book(
     val addedAt: Long = 0,
 ) {
     /** Liegt auf diesem Gerät: kein Server, kein Download, kein Cast. */
-    val isLocal: Boolean get() = serverId == LOCAL_BOOK_SERVER_ID
+    val isLocal: Boolean get() = isLocalSource(serverId)
 }
 
 /** Eine Serie eines Buchs, mit Band, falls der Server ihn mitliefert. */
@@ -112,7 +121,10 @@ data class PodcastFeed(
     val newestFirst: Boolean = false,
     /** Nach einer Folge von selbst die nächste spielen. */
     val continuous: Boolean = true,
-)
+) {
+    /** Aus dem Ordner „Podcasts“: keine Feed-Adresse, kein Abgleich, kein Download, kein Abo zu beenden. */
+    val isLocal: Boolean get() = id.startsWith(LOCAL_PODCAST_PREFIX)
+}
 
 /** Stelle in einer Datei des Buchs. */
 data class TrackPosition(val trackIndex: Int, val offsetMs: Long)

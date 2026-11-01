@@ -45,7 +45,15 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_LOCAL_BOOKS] = enabled }
     }
 
+    /** Podcast-Dateien aus dem Ordner „Podcasts“ auf diesem Gerät anzeigen (Standard: an). */
+    val useLocalPodcasts: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_LOCAL_PODCASTS] ?: true }
+
+    suspend fun setUseLocalPodcasts(enabled: Boolean) {
+        context.spokenSettingsDataStore.edit { it[KEY_LOCAL_PODCASTS] = enabled }
+    }
+
     private companion object {
+        val KEY_LOCAL_PODCASTS = booleanPreferencesKey("local_podcasts")
         val KEY_LOCAL_BOOKS = booleanPreferencesKey("local_books")
         val KEY_MODE = stringPreferencesKey("mode")
         val KEY_SEARCH_ALL = booleanPreferencesKey("search_all")

@@ -14,7 +14,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hält Hörbücher aktuell: Vollabgleich beim Start (> 6 h), beim Öffnen der App der Fortschritt des Kontos
+ * Hält Hörbücher (und die Podcast-Dateien vom Gerät) aktuell: Vollabgleich beim Start (> 6 h), beim Öffnen der App der Fortschritt des Kontos
  * (höchstens alle 10 min), auf Anforderung alles.
  */
 @Singleton
@@ -24,6 +24,7 @@ class SpokenRefresher @Inject constructor(
     private val servers: AudiobookshelfServers,
     private val dao: BookDao,
     private val localBooks: LocalBooks,
+    private val localPodcasts: LocalPodcasts,
     private val settings: SpokenSettings,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
@@ -35,6 +36,9 @@ class SpokenRefresher @Inject constructor(
         // Bücher vom Gerät: beim Start abgleichen und jedes Mal, wenn der Schalter wechselt (aus = entfernen).
         scope.launch {
             settings.useLocalBooks.distinctUntilChanged().collect { enabled -> if (enabled) localBooks.sync() else localBooks.remove() }
+        }
+        scope.launch {
+            settings.useLocalPodcasts.distinctUntilChanged().collect { enabled -> if (enabled) localPodcasts.sync() else localPodcasts.remove() }
         }
         scope.launch {
             val now = System.currentTimeMillis()
@@ -53,6 +57,7 @@ class SpokenRefresher @Inject constructor(
         scope.launch {
             // Neue Dateien in „Audiobooks“; unveränderte Bücher kosten nur die MediaStore-Abfrage.
             localBooks.sync()
+            localPodcasts.sync()
             progressSync.pushPending()
             servers.all().forEach { server ->
                 try {
