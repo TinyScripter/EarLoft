@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -69,6 +70,13 @@ class PodcastRepository @Inject constructor(
     val refreshed: SharedFlow<String> = _refreshed.asSharedFlow()
 
     val feeds: Flow<List<PodcastFeed>> = dao.observeFeeds().map { list -> list.map { it.toModel() } }
+
+    /** Abos, deren Titel oder Autor [query] enthält (ohne Rücksicht auf Groß-/Kleinschreibung und Akzente). */
+    suspend fun searchFeeds(query: String): List<PodcastFeed> {
+        val needle = query.normalizeForMerge()
+        if (needle.isEmpty()) return emptyList()
+        return feeds.first().filter { it.title.normalizeForMerge().contains(needle) || it.author.normalizeForMerge().contains(needle) }
+    }
 
     /** Podcasts, von denen mindestens eine Folge geladen ist, nach Titel. */
     fun feedDownloads(): Flow<List<FeedDownload>> = combine(feeds, dao.observeFeedDownloads()) { feeds, rows ->

@@ -67,17 +67,6 @@ fun GeneralSettingsScreen(
             )
         }
 
-        item(key = "search") { SectionHeader(stringResource(R.string.settings_section_search)) }
-        item(key = "search-all") {
-            SwitchRow(
-                title = stringResource(R.string.settings_search_all),
-                summary = stringResource(R.string.settings_search_all_summary),
-                icon = R.drawable.ic_nav_search,
-                checked = state.searchAll,
-                onCheckedChange = viewModel::setSearchAll,
-            )
-        }
-
         item(key = "downloads") { SectionHeader(stringResource(R.string.nav_downloads)) }
         item(key = "wifi-only") {
             SwitchRow(

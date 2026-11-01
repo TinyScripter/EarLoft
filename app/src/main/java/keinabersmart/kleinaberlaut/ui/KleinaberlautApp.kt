@@ -57,6 +57,7 @@ import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy.Companion.
 import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy.Companion.listPane
 import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy.Companion.nestedDetailPane
 import keinabersmart.kleinaberlaut.navigation.Navigator
+import keinabersmart.kleinaberlaut.navigation.BookGroupKind
 import keinabersmart.kleinaberlaut.navigation.BookGroupRoute
 import keinabersmart.kleinaberlaut.navigation.NowPlayingRoute
 import keinabersmart.kleinaberlaut.navigation.PlaylistRoute
@@ -114,6 +115,7 @@ import keinabersmart.kleinaberlaut.ui.spoken.SpokenLibraryScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenMiniPlayer
 import keinabersmart.kleinaberlaut.ui.spoken.BookGroupScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenModeHost
+import keinabersmart.kleinaberlaut.ui.spoken.SpokenModeScaffold
 import keinabersmart.kleinaberlaut.ui.spoken.LocalBookDownloads
 import keinabersmart.kleinaberlaut.ui.spoken.bookFraction
 import keinabersmart.kleinaberlaut.ui.spoken.rememberBookDownloads
@@ -234,7 +236,19 @@ fun KleinaberlautApp(
         entry<PlaylistRoute>(metadata = detailPane()) { route ->
             PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack)
         }
-        entry<SearchRoute> { SearchScreen(onAlbumClick = openAlbum, onArtistClick = openArtist, onBookClick = openBook) }
+        entry<SearchRoute> {
+            // Banner und Bereichswechsel wie bei Start und Bibliothek; der Bereich bestimmt, wo gesucht wird.
+            SpokenModeScaffold(onModeChange = {}, searchSwitch = true) {
+                SearchScreen(
+                    onAlbumClick = openAlbum,
+                    onArtistClick = openArtist,
+                    onBookClick = openBook,
+                    onFeedClick = openPodcast,
+                    onAuthorClick = { navigator.navigate(BookGroupRoute(BookGroupKind.AUTHOR, it)) },
+                    onSeriesClick = { navigator.navigate(BookGroupRoute(BookGroupKind.SERIES, it)) },
+                )
+            }
+        }
         entry<PodcastSearchRoute>(metadata = nestedDetailPane()) { route ->
             PodcastSearchScreen(feedId = route.feedId, onBack = navigator::goBack, onEpisodeClick = openBook)
         }

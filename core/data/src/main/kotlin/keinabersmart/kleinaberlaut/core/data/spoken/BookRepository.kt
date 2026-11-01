@@ -8,7 +8,9 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.model.Book
 import keinabersmart.kleinaberlaut.core.model.BookChapter
+import keinabersmart.kleinaberlaut.core.model.AuthorHit
 import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.model.SeriesHit
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
@@ -106,11 +108,28 @@ class BookRepository @Inject constructor(
     /** Dateien des Buchs mit ihren Server-IDs, für die Medien-URLs. */
     suspend fun trackFiles(bookId: Long): List<BookTrack> = dao.tracks(bookId).map { it.toModel() }
 
-    suspend fun search(query: String, limit: Int = 20): List<BookWithProgress> {
+    /** Sucht Bücher ([BookKind.BOOK]) bzw. Podcast-Folgen ([BookKind.EPISODE]) nach Titel und Autor. */
+    suspend fun search(query: String, kind: BookKind = BookKind.BOOK, limit: Int = 20): List<BookWithProgress> {
+        val pattern = likePattern(query) ?: return emptyList()
+        return dao.search(kind, pattern, limit).map { BookWithProgress(it.toModel(), dao.progress(it.bookId)?.toModel()) }
+    }
+
+    /** Sucht Autoren von Büchern nach dem Namen. */
+    suspend fun searchAuthors(query: String, limit: Int = 20): List<AuthorHit> {
+        val pattern = likePattern(query) ?: return emptyList()
+        return dao.searchAuthors(pattern, limit)
+    }
+
+    /** Sucht Serien nach dem Namen. */
+    suspend fun searchSeries(query: String, limit: Int = 20): List<SeriesHit> {
+        val pattern = likePattern(query) ?: return emptyList()
+        return seriesHits(dao.searchSeriesRows(pattern).map { it.toModel() }, query.normalizeForMerge(), limit)
+    }
+
+    private fun likePattern(query: String): String? {
         val normalized = query.normalizeForMerge()
-        if (normalized.isEmpty()) return emptyList()
-        val pattern = "%${normalized.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")}%"
-        return dao.search(pattern, limit).map { BookWithProgress(it.toModel(), dao.progress(it.bookId)?.toModel()) }
+        if (normalized.isEmpty()) return null
+        return "%${normalized.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")}%"
     }
 
     /**

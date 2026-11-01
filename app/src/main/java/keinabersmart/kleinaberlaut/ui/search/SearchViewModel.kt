@@ -8,6 +8,13 @@ import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
+import androidx.annotation.StringRes
+import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
+import keinabersmart.kleinaberlaut.core.model.SeriesHit
+import keinabersmart.kleinaberlaut.core.model.AuthorHit
+import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.model.PodcastFeed
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.model.SearchResults
 import keinabersmart.kleinaberlaut.core.model.SpokenMode
@@ -30,25 +37,30 @@ import javax.inject.Inject
 data class SearchUiState(
     val query: String = "",
     val results: SearchResults = SearchResults.EMPTY,
+    val feeds: List<PodcastFeed> = emptyList(),
+    val episodes: List<BookWithProgress> = emptyList(),
+    val series: List<SeriesHit> = emptyList(),
+    val authors: List<AuthorHit> = emptyList(),
     val books: List<BookWithProgress> = emptyList(),
     val scope: SearchScope = SearchScope.ALL,
 ) {
-    val isEmpty: Boolean get() = results.isEmpty && books.isEmpty()
+    val isEmpty: Boolean
+        get() = results.isEmpty && feeds.isEmpty() && episodes.isEmpty() && series.isEmpty() && authors.isEmpty() && books.isEmpty()
 }
 
 /** Worüber gesucht wird; folgt der Einstellung „gemeinsam durchsuchen“ und sonst dem Modus. */
-enum class SearchScope(val music: Boolean, val books: Boolean) {
-    ALL(true, true),
-    MUSIC(true, false),
-    SPOKEN(false, true),
+enum class SearchScope(val music: Boolean, val podcasts: Boolean, val books: Boolean, @StringRes val hint: Int) {
+    ALL(true, true, true, R.string.search_hint_all),
+    MUSIC(true, false, false, R.string.search_hint),
+    PODCASTS(false, true, false, R.string.search_hint_podcasts),
+    BOOKS(false, false, true, R.string.search_hint_books),
     ;
 
     companion object {
         fun of(searchAll: Boolean, mode: SpokenMode): SearchScope = when {
             searchAll -> ALL
-            mode == SpokenMode.BOOKS -> SPOKEN
-            // Podcasts haben noch keinen Inhalt, den man einschränken könnte.
-            mode == SpokenMode.PODCASTS -> ALL
+            mode == SpokenMode.BOOKS -> BOOKS
+            mode == SpokenMode.PODCASTS -> PODCASTS
             else -> MUSIC
         }
     }
@@ -59,6 +71,7 @@ class SearchViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val libraryRepository: LibraryRepository,
     private val bookRepository: BookRepository,
+    private val podcastRepository: PodcastRepository,
     spokenSettings: SpokenSettings,
     private val playbackConnection: PlaybackConnection,
     private val favoritesRepository: FavoritesRepository,
@@ -78,7 +91,11 @@ class SearchViewModel @Inject constructor(
             SearchUiState(
                 query = query,
                 results = if (scope.music) libraryRepository.search(query) else SearchResults.EMPTY,
-                books = if (scope.books) bookRepository.search(query) else emptyList(),
+                feeds = if (scope.podcasts) podcastRepository.searchFeeds(query) else emptyList(),
+                episodes = if (scope.podcasts) bookRepository.search(query, BookKind.EPISODE) else emptyList(),
+                series = if (scope.books) bookRepository.searchSeries(query) else emptyList(),
+                authors = if (scope.books) bookRepository.searchAuthors(query) else emptyList(),
+                books = if (scope.books) bookRepository.search(query, BookKind.BOOK) else emptyList(),
                 scope = scope,
             )
         }

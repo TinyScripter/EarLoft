@@ -11,6 +11,8 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SpokenServerEntity
+import keinabersmart.kleinaberlaut.core.model.AuthorHit
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import kotlinx.coroutines.flow.Flow
 
 /** Bücher (und Folgen) der ausgeschalteten Audiobookshelf-Server sind ausgeblendet; Podcast-Feeds stehen nicht in `spoken_servers`. */
@@ -65,8 +67,20 @@ abstract class BookDao {
     @Query("SELECT * FROM books WHERE serverId = :serverId")
     abstract suspend fun booksOf(serverId: String): List<BookEntity>
 
-    @Query("SELECT * FROM books WHERE (normTitle LIKE :pattern ESCAPE '\\' OR author LIKE :pattern ESCAPE '\\') AND $BOOK_VISIBLE ORDER BY normTitle LIMIT :limit")
-    abstract suspend fun search(pattern: String, limit: Int): List<BookEntity>
+    @Query("SELECT * FROM books WHERE kind = :kind AND (normTitle LIKE :pattern ESCAPE '\\' OR author LIKE :pattern ESCAPE '\\') AND $BOOK_VISIBLE ORDER BY normTitle LIMIT :limit")
+    abstract suspend fun search(kind: BookKind, pattern: String, limit: Int): List<BookEntity>
+
+    /** Bücher, in deren Serienangabe [pattern] vorkommt; welche Serie genau passt, entscheidet der Aufrufer. */
+    @Query("SELECT * FROM books WHERE kind = 'BOOK' AND series LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE ORDER BY normTitle")
+    abstract suspend fun searchSeriesRows(pattern: String): List<BookEntity>
+
+    /** Autoren von Büchern, deren Name zu [pattern] passt, mit dem kleinsten Buch (für das Cover) und der Anzahl. */
+    @Query(
+        "SELECT author AS name, MIN(bookId) AS firstBookId, COUNT(*) AS bookCount FROM books " +
+            "WHERE kind = 'BOOK' AND author != '' AND author LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE " +
+            "GROUP BY author ORDER BY author LIMIT :limit",
+    )
+    abstract suspend fun searchAuthors(pattern: String, limit: Int): List<AuthorHit>
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     abstract suspend fun insertBook(book: BookEntity): Long

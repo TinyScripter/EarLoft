@@ -60,7 +60,6 @@ data class SettingsUiState(
     val artistImages: Boolean = false,
     val albumCovers: Boolean = false,
     val authorImages: Boolean = false,
-    val searchAll: Boolean = true,
     val podcastRefreshHours: Int = PodcastSettings.DEFAULT_REFRESH_HOURS,
     val podcastMobileData: Boolean = false,
     val podcastDeleteHeardDays: Int = PodcastSettings.DEFAULT_DELETE_HEARD_DAYS,
@@ -73,7 +72,6 @@ private data class GeneralSettings(
     val useLocalMedia: Boolean,
     val artistImages: Boolean,
     val albumCovers: Boolean,
-    val searchAll: Boolean,
 )
 
 @HiltViewModel
@@ -125,9 +123,8 @@ class SettingsViewModel @Inject constructor(
         librarySettings.useLocalMedia,
         artworkSettings.artistImages,
         artworkSettings.albumCovers,
-        spokenSettings.searchAll,
-    ) { theme, local, artists, albums, searchAll ->
-        GeneralSettings(theme, local, artists, albums, searchAll)
+    ) { theme, local, artists, albums ->
+        GeneralSettings(theme, local, artists, albums)
     }
 
     val state: StateFlow<SettingsUiState> = combine(
@@ -151,7 +148,6 @@ class SettingsViewModel @Inject constructor(
             useLocalMedia = general.useLocalMedia,
             artistImages = general.artistImages,
             albumCovers = general.albumCovers,
-            searchAll = general.searchAll,
         )
     }.combine(artworkSettings.authorImages) { state, authors ->
         state.copy(authorImages = authors)
@@ -199,10 +195,6 @@ class SettingsViewModel @Inject constructor(
     /** Die Planung des periodischen Auftrags folgt der Einstellung ([keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher]). */
     fun setSyncIntervalDays(days: Int) {
         viewModelScope.launch { librarySettings.setSyncIntervalDays(days) }
-    }
-
-    fun setSearchAll(enabled: Boolean) {
-        viewModelScope.launch { spokenSettings.setSearchAll(enabled) }
     }
 
     fun setThemeMode(mode: ThemeMode) {

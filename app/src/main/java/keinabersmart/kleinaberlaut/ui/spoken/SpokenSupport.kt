@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -76,6 +77,13 @@ class SpokenModeViewModel @Inject constructor(
 ) : ViewModel() {
     val mode: StateFlow<SpokenMode> = settings.mode.stateIn(viewModelScope, SharingStarted.Eagerly, SpokenMode.MUSIC)
 
+    /** „Überall suchen“; derselbe Wert wie der Schalter in den allgemeinen Einstellungen. */
+    val searchAll: StateFlow<Boolean> = settings.searchAll.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun setSearchAll(enabled: Boolean) {
+        viewModelScope.launch { settings.setSearchAll(enabled) }
+    }
+
     fun setMode(mode: SpokenMode) {
         viewModelScope.launch { settings.setMode(mode) }
     }
@@ -90,7 +98,6 @@ class SpokenModeViewModel @Inject constructor(
  * (Konzept 12.5). Er schaltet nur den Inhalt dieser beiden Tabs um; Suche, Einstellungen, Mini-Player und
  * Wiedergabe-Ansicht hängen am laufenden Item.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpokenModeHost(
     music: @Composable () -> Unit,
@@ -99,9 +106,31 @@ fun SpokenModeHost(
     /** Nach dem Wechsel auf einen anderen Modus; schließt z. B. die Detailspalte des vorigen Modus. */
     onModeChange: () -> Unit,
     modifier: Modifier = Modifier,
+) {
+    SpokenModeScaffold(onModeChange, modifier) { mode ->
+        when (mode) {
+            SpokenMode.MUSIC -> music()
+            SpokenMode.PODCASTS -> podcasts()
+            SpokenMode.BOOKS -> books()
+        }
+    }
+}
+
+/**
+ * Banner und Modus-Schalter wie bei [SpokenModeHost], aber mit einem Inhalt, der den Modus selbst auswertet; mit
+ * [searchSwitch] sitzt oben rechts der Schalter „Überall suchen“ (für die Suche).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SpokenModeScaffold(
+    onModeChange: () -> Unit,
+    modifier: Modifier = Modifier,
+    searchSwitch: Boolean = false,
     viewModel: SpokenModeViewModel = hiltViewModel(),
+    content: @Composable (SpokenMode) -> Unit,
 ) {
     val mode by viewModel.mode.collectAsStateWithLifecycle()
+    val searchAll by viewModel.searchAll.collectAsStateWithLifecycle()
     // Die Statusleiste verbraucht das Banner; die Bildschirme darunter haben keine eigene Leiste mehr.
     Column(modifier.fillMaxSize()) {
         TopAppBar(
@@ -113,12 +142,19 @@ fun SpokenModeHost(
                 )
             },
             actions = {
-                if (mode == SpokenMode.BOOKS) {
+                if (searchSwitch) {
+                    FilterChip(
+                        selected = searchAll,
+                        onClick = { viewModel.setSearchAll(!searchAll) },
+                        label = { Text(stringResource(R.string.search_hint_all)) },
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                } else if (mode == SpokenMode.BOOKS) {
                     IconButton(onClick = viewModel::refreshBooks) {
                         Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
                     }
                 }
-                if (mode == SpokenMode.PODCASTS) {
+                if (!searchSwitch && mode == SpokenMode.PODCASTS) {
                     IconButton(onClick = viewModel::refreshPodcasts) {
                         Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.podcast_refresh))
                     }
@@ -141,13 +177,7 @@ fun SpokenModeHost(
                 }
             }
         }
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when (mode) {
-                SpokenMode.MUSIC -> music()
-                SpokenMode.PODCASTS -> podcasts()
-                SpokenMode.BOOKS -> books()
-            }
-        }
+        Box(Modifier.weight(1f).fillMaxWidth()) { content(mode) }
     }
 }
 

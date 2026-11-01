@@ -294,7 +294,7 @@ fun PodcastHomeScreen(
 
 /** Bild und Titel eines Abos. */
 @Composable
-private fun FeedCard(feed: PodcastFeed, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun FeedCard(feed: PodcastFeed, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.clickable(onClick = onClick)) {
         PodcastArt(feed.imageUrl, Modifier.fillMaxWidth())
         Text(

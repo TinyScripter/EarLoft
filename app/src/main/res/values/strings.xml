@@ -56,8 +56,9 @@
 
     <!-- Search -->
     <string name="search_hint">Songs, albums, artists</string>
-    <string name="search_hint_all">Songs, albums, artists, books</string>
-    <string name="search_hint_spoken">Books</string>
+    <string name="search_hint_all">Search everywhere</string>
+    <string name="search_hint_podcasts">Episodes, subscriptions</string>
+    <string name="search_hint_books">Books, series, authors</string>
     <string name="search_no_results">Nothing found for “%1$s”.</string>
 
     <!-- Player -->
@@ -130,7 +131,6 @@
     <string name="settings_section_refresh">Updating</string>
     <string name="settings_section_images">Images</string>
     <string name="settings_section_appearance">Appearance</string>
-    <string name="settings_section_search">Search</string>
     <string name="settings_refresh_music">Sync music now</string>
     <string name="settings_refresh_audiobooks">Sync audiobooks now</string>
     <string name="settings_refresh_podcasts">Refresh podcasts now</string>
@@ -138,8 +138,6 @@
     <string name="theme_system">Follow system setting</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
-    <string name="settings_search_all">Search music and books together</string>
-    <string name="settings_search_all_summary">When off, search only covers the content of the selected mode (Music or Books).</string>
     <string name="settings_artist_images">Download artist images</string>
     <string name="settings_artist_images_summary">Looks up photos on Deezer. Artist names are sent to Deezer for this.</string>
     <string name="settings_author_images">Download missing author images</string>
@@ -400,6 +398,10 @@
     <string name="spoken_abs_remove">Remove server</string>
     <string name="spoken_abs_remove_message">Books of “%1$s” are removed from this device. Your progress on the server is kept.</string>
     <string name="spoken_search_books">Books</string>
+    <string name="spoken_search_episodes">Podcast episodes</string>
+    <string name="spoken_search_feeds">Podcasts</string>
+    <string name="spoken_search_authors">Authors</string>
+    <string name="spoken_search_series">Series</string>
 
     <!-- Podcasts -->
     <string name="podcast_subscriptions">Subscriptions</string>

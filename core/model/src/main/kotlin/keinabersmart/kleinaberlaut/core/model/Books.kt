@@ -107,6 +107,12 @@ data class SpokenServer(
     val enabled: Boolean = true,
 )
 
+/** Ein Autor aus der Suche: sein Name, ein Buch für das Cover und die Anzahl seiner Bücher. */
+data class AuthorHit(val name: String, val firstBookId: Long, val bookCount: Int)
+
+/** Eine Serie aus der Suche: ihr Name, ein Buch für das Cover (der kleinste Band) und die Anzahl ihrer Bücher. */
+data class SeriesHit(val name: String, val firstBookId: Long, val bookCount: Int)
+
 /** Ein abonnierter Podcast (Konzept 12.1); seine Folgen sind [Book]s mit `kind = EPISODE` und `serverId = id`. */
 data class PodcastFeed(
     val id: String,

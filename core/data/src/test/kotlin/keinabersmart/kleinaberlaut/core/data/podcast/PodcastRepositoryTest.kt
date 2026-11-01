@@ -3,7 +3,9 @@ package keinabersmart.kleinaberlaut.core.data.podcast
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
+import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
+import keinabersmart.kleinaberlaut.core.model.AuthorHit
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
@@ -76,6 +78,33 @@ class PodcastRepositoryTest {
         assertEquals("https://example.com/A.mp3", track.remoteFileId)
         assertEquals(600_000, track.durationMs)
         assertTrue(db.bookDao().book(episodes.first().id)!!.detailsLoaded)
+    }
+
+    @Test
+    fun `feed search matches the title regardless of case and finds nothing for blank or foreign terms`() = runTest {
+        val feedId = subscribe()
+
+        assertEquals(listOf(feedId), repository.searchFeeds("test-POD").map { it.id })
+        assertEquals(emptyList<String>(), repository.searchFeeds("   ").map { it.id })
+        assertEquals(emptyList<String>(), repository.searchFeeds("Hörbuch").map { it.id })
+    }
+
+    @Test
+    fun `book search keeps episodes and books apart and lists book authors once`() = runTest {
+        subscribe()
+        val dao = db.bookDao()
+        fun book(title: String, author: String) = BookEntity(
+            serverId = "abs", remoteId = title, title = title, normTitle = title.lowercase(), author = author, durationMs = 1,
+        )
+        val first = dao.insertBook(book("Dune", "Frank Herbert"))
+        dao.insertBook(book("Dune Messiah", "Frank Herbert"))
+
+        assertEquals(listOf("A", "B", "C"), dao.search(BookKind.EPISODE, "%podcast%", 10).map { it.title }.sorted())
+        assertEquals(emptyList<String>(), dao.search(BookKind.BOOK, "%podcast%", 10).map { it.title })
+        assertEquals(listOf("Dune", "Dune Messiah"), dao.search(BookKind.BOOK, "%dune%", 10).map { it.title })
+        assertEquals(emptyList<String>(), dao.search(BookKind.EPISODE, "%dune%", 10).map { it.title })
+        assertEquals(listOf(AuthorHit("Frank Herbert", first, 2)), dao.searchAuthors("%herbert%", 10))
+        assertEquals(emptyList<AuthorHit>(), dao.searchAuthors("%podcast%", 10))
     }
 
     @Test
