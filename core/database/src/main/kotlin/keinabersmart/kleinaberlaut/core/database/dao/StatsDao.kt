@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import keinabersmart.kleinaberlaut.core.database.entity.ListeningDayEntity
 import keinabersmart.kleinaberlaut.core.database.entity.ListeningStatEntity
+import keinabersmart.kleinaberlaut.core.database.entity.ServerStatsCacheEntity
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import kotlinx.coroutines.flow.Flow
 
@@ -18,6 +19,9 @@ data class GroupListeningRow(
     val items: Int,
     val lastListenedAt: Long,
 )
+
+/** Gehörte Zeit eines Eintrags (Buch bzw. Folge), summiert über alle Quellen. */
+data class ItemListeningRow(val groupKey: String, val itemKey: String, val itemTitle: String, val listenedMs: Long)
 
 /** Gehörte Zeit an einem Tag, summiert über alle Gruppen. */
 data class DayListeningRow(val day: Long, val listenedMs: Long)
@@ -40,6 +44,20 @@ abstract class StatsDao {
             "FROM listening_stats s WHERE kind = :kind GROUP BY groupKey ORDER BY listenedMs DESC",
     )
     abstract fun observeByGroup(kind: BookKind): Flow<List<GroupListeningRow>>
+
+    /** Die meistgehörten Einträge der Art [kind], die meistgehörten zuerst. */
+    @Query(
+        "SELECT groupKey, itemKey, MAX(itemTitle) AS itemTitle, SUM(listenedMs) AS listenedMs FROM listening_stats " +
+            "WHERE kind = :kind GROUP BY groupKey, itemKey ORDER BY listenedMs DESC LIMIT :limit",
+    )
+    abstract fun observeTopItems(kind: BookKind, limit: Int): Flow<List<ItemListeningRow>>
+
+    /** Zu Ende gehörte Bücher (alle Server und vom Gerät). */
+    @Query(
+        "SELECT COUNT(*) FROM book_progress p JOIN books b ON b.bookId = p.bookId " +
+            "WHERE b.kind = 'BOOK' AND p.finished = 1",
+    )
+    abstract fun observeFinishedBooks(): Flow<Int>
 
     /** Zu Ende gehörte Folgen (alle Abos, auch die vom Gerät). */
     @Query(
@@ -94,6 +112,15 @@ abstract class StatsDao {
             insertDay(ListeningDayEntity(day, stat.kind, stat.groupKey, stat.listenedMs))
         }
     }
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun putServerStats(cache: ServerStatsCacheEntity)
+
+    @Query("SELECT * FROM server_stats_cache WHERE serverId = :serverId AND kind = :kind")
+    abstract fun observeServerStats(serverId: String, kind: String): Flow<ServerStatsCacheEntity?>
+
+    @Query("SELECT * FROM server_stats_cache WHERE serverId = :serverId AND kind = :kind")
+    abstract suspend fun serverStats(serverId: String, kind: String): ServerStatsCacheEntity?
 
     @Query("DELETE FROM listening_stats WHERE kind = :kind")
     protected abstract suspend fun deleteStats(kind: BookKind)

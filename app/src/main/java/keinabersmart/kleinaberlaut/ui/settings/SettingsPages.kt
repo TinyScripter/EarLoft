@@ -561,6 +561,7 @@ fun AudiobookSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var confirmingBookStatsReset by rememberSaveable { mutableStateOf(false) }
     // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalBooks(true)
@@ -610,5 +611,32 @@ fun AudiobookSettingsScreen(
                 onCheckedChange = viewModel::setAuthorImages,
             )
         }
+
+        item(key = "stats") { SectionHeader(stringResource(R.string.settings_section_stats)) }
+        item(key = "stats-reset") {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_book_stats_reset)) },
+                supportingContent = { Text(stringResource(R.string.settings_book_stats_reset_summary)) },
+                leadingContent = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                modifier = Modifier.clickable { confirmingBookStatsReset = true },
+            )
+        }
+    }
+
+    if (confirmingBookStatsReset) {
+        AlertDialog(
+            onDismissRequest = { confirmingBookStatsReset = false },
+            title = { Text(stringResource(R.string.settings_stats_reset_title)) },
+            text = { Text(stringResource(R.string.settings_book_stats_reset_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.resetBookStats()
+                    confirmingBookStatsReset = false
+                }) { Text(stringResource(R.string.settings_stats_reset_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingBookStatsReset = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
     }
 }

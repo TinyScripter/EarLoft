@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
+import keinabersmart.kleinaberlaut.core.database.dao.AbsSessionDao
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
@@ -17,6 +18,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.dao.StatsDao
 import keinabersmart.kleinaberlaut.core.database.dao.SyncDao
 import keinabersmart.kleinaberlaut.core.database.dao.WearDao
+import keinabersmart.kleinaberlaut.core.database.entity.AbsSessionEntity
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumArtistCrossRef
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumEntity
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumFtsEntity
@@ -35,6 +37,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntryEntity
 import keinabersmart.kleinaberlaut.core.database.entity.QueueItemEntity
+import keinabersmart.kleinaberlaut.core.database.entity.ServerStatsCacheEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SongArtistCrossRef
 import keinabersmart.kleinaberlaut.core.database.entity.SongEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SongFtsEntity
@@ -72,8 +75,10 @@ import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
         PodcastFeedEntity::class,
         ListeningStatEntity::class,
         ListeningDayEntity::class,
+        ServerStatsCacheEntity::class,
+        AbsSessionEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = KleinaberlautDatabase.AddSearchIndex::class),
@@ -86,6 +91,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11),
+        AutoMigration(from = 11, to = 12),
     ],
 )
 abstract class KleinaberlautDatabase : RoomDatabase() {
@@ -101,6 +107,7 @@ abstract class KleinaberlautDatabase : RoomDatabase() {
     abstract fun bookDao(): BookDao
     abstract fun podcastDao(): PodcastDao
     abstract fun statsDao(): StatsDao
+    abstract fun absSessionDao(): AbsSessionDao
 
     /** v1 → v2: FTS-Tabellen kommen hinzu und werden aus den vorhandenen Daten befüllt. */
     class AddSearchIndex : AutoMigrationSpec {

@@ -81,7 +81,11 @@ data class AbsAudioFileDto(
 )
 
 @Serializable
-data class AbsMeResponse(val mediaProgress: List<AbsMediaProgressDto> = emptyList())
+data class AbsMeResponse(
+    /** Kennung des Kontos; die Sitzungen, die die App meldet, gehören diesem Konto. */
+    val id: String = "",
+    val mediaProgress: List<AbsMediaProgressDto> = emptyList(),
+)
 
 @Serializable
 data class AbsMediaProgressDto(

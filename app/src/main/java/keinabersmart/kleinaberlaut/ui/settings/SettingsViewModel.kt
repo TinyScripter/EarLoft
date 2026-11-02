@@ -372,6 +372,14 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** Löscht die von der App gezählte Hörzeit der Bücher; die Zahlen des Servers bleiben. */
+    fun resetBookStats() {
+        viewModelScope.launch {
+            statsRepository.resetBookStats()
+            _transferMessages.send(TransferMessage.StatsReset)
+        }
+    }
+
     /** Löscht die gesamte Podcast-Statistik (gezählte und importierte Hörzeit). */
     fun resetPodcastStats() {
         viewModelScope.launch {

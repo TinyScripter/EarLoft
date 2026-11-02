@@ -6,6 +6,8 @@ import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import keinabersmart.kleinaberlaut.core.database.dao.StatsDao
 import keinabersmart.kleinaberlaut.core.database.entity.ListeningStatEntity
 import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.model.BookListening
+import keinabersmart.kleinaberlaut.core.model.DeviceBookStats
 import keinabersmart.kleinaberlaut.core.model.LOCAL_PODCAST_PREFIX
 import keinabersmart.kleinaberlaut.core.model.MonthListening
 import keinabersmart.kleinaberlaut.core.model.PodcastListening
@@ -51,6 +53,52 @@ class StatsRepository @Inject constructor(
         )
     }
 
+    /** Wie [recordEpisodeListening], für ein Buch. Die Gruppe ist der Server (bzw. das Gerät), der Eintrag das Buch. */
+    suspend fun recordBookListening(
+        bookId: Long,
+        ms: Long,
+        now: Long = System.currentTimeMillis(),
+        zone: ZoneId = ZoneId.systemDefault(),
+    ) {
+        if (ms <= 0) return
+        val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.BOOK } ?: return
+        val day = Instant.ofEpochMilli(now).atZone(zone).toLocalDate().toEpochDay()
+        statsDao.addListening(
+            ListeningStatEntity(
+                source = ListeningStatEntity.SOURCE_APP,
+                kind = BookKind.BOOK,
+                groupKey = book.serverId,
+                groupTitle = bookDao.server(book.serverId)?.name.orEmpty(),
+                itemKey = book.remoteId,
+                itemTitle = book.title,
+                listenedMs = ms,
+                lastListenedAt = now,
+            ),
+            day,
+        )
+    }
+
+    /** Die vom Gerät gezählte Hörzeit der Bücher. */
+    fun bookStats(today: () -> LocalDate = LocalDate::now): Flow<DeviceBookStats> {
+        val since = today().minusMonths(MONTHS - 1L).withDayOfMonth(1).toEpochDay()
+        return combine(
+            statsDao.observeTotalListenedMs(BookKind.BOOK),
+            statsDao.observeTopItems(BookKind.BOOK, TOP_BOOKS),
+            statsDao.observeFinishedBooks(),
+            statsDao.observeDays(BookKind.BOOK, since),
+        ) { total, items, finished, days ->
+            DeviceBookStats(
+                totalMs = total,
+                finishedBooks = finished,
+                books = items.map { BookListening("${it.groupKey}/${it.itemKey}", it.itemTitle, it.listenedMs, bookDao.bookByRemote(it.groupKey, it.itemKey)?.bookId) },
+                months = monthsOf(days, today()),
+            )
+        }
+    }
+
+    /** Löscht die vom Gerät gezählte und importierte Hörzeit der Bücher. Die Zahlen des Servers bleiben. */
+    suspend fun resetBookStats() = statsDao.clear(BookKind.BOOK)
+
     fun podcastStats(today: () -> LocalDate = LocalDate::now): Flow<PodcastStats> {
         val since = today().minusMonths(MONTHS - 1L).withDayOfMonth(1).toEpochDay()
         return combine(
@@ -79,6 +127,7 @@ class StatsRepository @Inject constructor(
 
     internal companion object {
         const val MONTHS = 12
+        const val TOP_BOOKS = 10
 
         /** Die letzten [MONTHS] Monate bis einschließlich dem von [today], älteste zuerst, ohne Lücken. */
         fun monthsOf(days: List<DayListeningRow>, today: LocalDate): List<MonthListening> {

@@ -36,6 +36,19 @@ class AbsApi @Inject constructor(
     /** Prüft den API-Key und liefert den Fortschritt des Kontos. */
     suspend fun me(server: AbsServer): AbsMeResponse = decode(execute(authorized(server, server.endpoint("api/me").build())))
 
+    /** Hörzeit des Kontos wie der Server sie aus den Sitzungen zählt; unverändert als Text, damit sie zwischengespeichert werden kann. */
+    suspend fun listeningStats(server: AbsServer): String =
+        execute(authorized(server, server.endpoint("api/me/listening-stats").build())).also { AbsStats.parse(it) }
+
+    /**
+     * Meldet (oder aktualisiert) eine Hörsitzung; der Server übernimmt dabei auch die Position. Er antwortet mit dem
+     * Text `OK` (kein JSON): maßgeblich ist der HTTP-Status.
+     */
+    suspend fun syncLocalSession(server: AbsServer, session: AbsLocalSession) {
+        val body = JSON.encodeToString(AbsLocalSession.serializer(), session).toRequestBody(JSON_MEDIA_TYPE)
+        execute(authorized(server, server.endpoint("api/session/local").build()) { post(body) })
+    }
+
     suspend fun libraries(server: AbsServer): List<AbsLibraryDto> =
         decode<AbsLibrariesResponse>(execute(authorized(server, server.endpoint("api/libraries").build()))).libraries
 

@@ -364,6 +364,28 @@
     <string name="spoken_tab_all">Alle</string>
     <string name="spoken_tab_series">Serien</string>
     <string name="spoken_tab_authors">Autoren</string>
+    <string name="spoken_tab_stats">Statistik</string>
+    <string name="book_stats_server_title">Audiobookshelf</string>
+    <string name="book_stats_server_loading">Statistik wird vom Server geladen …</string>
+    <string name="book_stats_server_failed">Die Statistik des Servers konnte nicht geladen werden.</string>
+    <string name="book_stats_today">%1$s heute</string>
+    <plurals name="book_stats_streak">
+        <item quantity="one">%1$d Tag in Folge</item>
+        <item quantity="other">%1$d Tage in Folge</item>
+    </plurals>
+    <string name="book_stats_weekdays">Wochentage</string>
+    <string name="book_stats_top">Meistgehört</string>
+    <string name="book_stats_updated">Stand: %1$s. Audiobookshelf zählt das Hören all deiner Geräte.</string>
+    <string name="book_stats_stale">Server nicht erreichbar. Letzter bekannter Stand: %1$s</string>
+    <string name="book_stats_device_title">Auf diesem Gerät</string>
+    <string name="book_stats_device_empty">Von dieser App gezählt, unabhängig vom Server. Noch nichts gezählt – deine Hörzeit erscheint hier, sobald du ein Buch abspielst.</string>
+    <plurals name="book_stats_finished">
+        <item quantity="one">%1$d Buch gehört</item>
+        <item quantity="other">%1$d Bücher gehört</item>
+    </plurals>
+    <string name="settings_book_stats_reset">Gezählte Statistik zurücksetzen</string>
+    <string name="settings_book_stats_reset_summary">Löscht die von dieser App gezählte Hörzeit</string>
+    <string name="settings_book_stats_reset_message">Die von dieser App gezählte Hörzeit der Bücher wird gelöscht, samt Verlauf. Die Statistik auf dem Audiobookshelf-Server bleibt unverändert. Das lässt sich nicht rückgängig machen.</string>
     <plurals name="book_count">
         <item quantity="one">%d Buch</item>
         <item quantity="other">%d Bücher</item>
@@ -501,6 +523,7 @@
     <string name="podcast_stats_empty">Noch nichts gehört. Deine Hörzeit erscheint hier, sobald du eine Folge abspielst oder unter Einstellungen → Podcasts eine Datenbank importierst.</string>
     <string name="podcast_stats_hours">%1$d h</string>
     <string name="podcast_stats_minutes">%1$d min</string>
+    <string name="podcast_stats_seconds">%1$d s</string>
     <string name="podcast_stats_listened">gehörte Zeit</string>
     <plurals name="podcast_stats_listened_days">
         <item quantity="one">gehörte Zeit (etwa %1$d Tag)</item>

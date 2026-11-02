@@ -368,6 +368,28 @@
     <string name="spoken_tab_all">All</string>
     <string name="spoken_tab_series">Series</string>
     <string name="spoken_tab_authors">Authors</string>
+    <string name="spoken_tab_stats">Statistics</string>
+    <string name="book_stats_server_title">Audiobookshelf</string>
+    <string name="book_stats_server_loading">Loading statistics from the server …</string>
+    <string name="book_stats_server_failed">The server\'s statistics could not be loaded.</string>
+    <string name="book_stats_today">%1$s today</string>
+    <plurals name="book_stats_streak">
+        <item quantity="one">%1$d day in a row</item>
+        <item quantity="other">%1$d days in a row</item>
+    </plurals>
+    <string name="book_stats_weekdays">Weekdays</string>
+    <string name="book_stats_top">Most listened</string>
+    <string name="book_stats_updated">As of %1$s. Audiobookshelf counts the listening of all your devices.</string>
+    <string name="book_stats_stale">Server not reachable. Last known state: %1$s</string>
+    <string name="book_stats_device_title">On this device</string>
+    <string name="book_stats_device_empty">Counted by this app, independent of the server. Nothing counted yet — your listening time appears here as soon as you play a book.</string>
+    <plurals name="book_stats_finished">
+        <item quantity="one">%1$d book finished</item>
+        <item quantity="other">%1$d books finished</item>
+    </plurals>
+    <string name="settings_book_stats_reset">Reset counted statistics</string>
+    <string name="settings_book_stats_reset_summary">Deletes the listening time counted by this app</string>
+    <string name="settings_book_stats_reset_message">The listening time of books counted by this app is deleted, including its history. The statistics on the Audiobookshelf server stay unchanged. This cannot be undone.</string>
     <plurals name="book_count">
         <item quantity="one">%d book</item>
         <item quantity="other">%d books</item>
@@ -505,6 +527,7 @@
     <string name="podcast_stats_empty">Nothing listened to yet. Your listening time appears here as soon as you play an episode or import a database under Settings → Podcasts.</string>
     <string name="podcast_stats_hours">%1$d h</string>
     <string name="podcast_stats_minutes">%1$d min</string>
+    <string name="podcast_stats_seconds">%1$d s</string>
     <string name="podcast_stats_listened">listening time</string>
     <plurals name="podcast_stats_listened_days">
         <item quantity="one">listening time (about %1$d day)</item>

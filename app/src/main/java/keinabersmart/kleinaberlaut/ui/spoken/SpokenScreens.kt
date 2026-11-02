@@ -186,9 +186,10 @@ private enum class BookTab(@StringRes val label: Int) {
     ALL(R.string.spoken_tab_all),
     SERIES(R.string.spoken_tab_series),
     AUTHORS(R.string.spoken_tab_authors),
+    STATS(R.string.spoken_tab_stats),
 }
 
-/** Bibliothek im Modus „Bücher“: Alle (Raster), Serien und Autoren (Listen) wie bei der Musik. */
+/** Bibliothek im Modus „Bücher“: Alle (Raster), Serien und Autoren (Listen) wie bei der Musik, dazu die Statistik. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpokenLibraryScreen(
@@ -226,6 +227,7 @@ fun SpokenLibraryScreen(
                         BookTab.ALL -> BookGrid(all, onBookClick, playingId, viewModel::playOrPause, fastScroll = true)
                         BookTab.SERIES -> BookGroupList(series) { onGroupClick(BookGroupKind.SERIES, it) }
                         BookTab.AUTHORS -> AuthorGrid(authors) { onGroupClick(BookGroupKind.AUTHOR, it) }
+                        BookTab.STATS -> BookStatsScreen(onBookClick)
                     }
                 }
             }

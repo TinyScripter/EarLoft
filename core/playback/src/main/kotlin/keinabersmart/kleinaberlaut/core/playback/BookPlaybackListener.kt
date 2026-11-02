@@ -7,6 +7,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import keinabersmart.kleinaberlaut.core.data.spoken.AbsSessionReporter
 import keinabersmart.kleinaberlaut.core.data.spoken.BookProgressSync
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.data.spoken.ResumeRule
@@ -31,6 +32,7 @@ internal class BookPlaybackListener(
     private val progressSync: BookProgressSync,
     settings: SpokenSettings,
     private val stats: StatsRepository,
+    private val sessions: AbsSessionReporter,
     private val scope: CoroutineScope,
     /** Eine Podcast-Folge ist bis zum Ende gelaufen und der Player wartet (Parameter: Buch-ID der Folge). */
     private val onEpisodeEnded: (Long) -> Unit,
@@ -40,9 +42,10 @@ internal class BookPlaybackListener(
     private var timeline: BookTimeline? = null
     private var loop: Job? = null
 
-    // Gehörte Zeit der laufenden Podcast-Folge (Statistik); [meterBookId] ist die Folge, der die gemessene Zeit gehört.
+    // Gehörte Zeit des laufenden Buchs bzw. der laufenden Folge (Statistik); [meterBookId] gehört die gemessene Zeit.
     private val meter = ListeningMeter()
     private var meterBookId: Long? = null
+    private var meterIsEpisode = false
 
     // Einstellungen zum Fortsetzen; mitgeführt, damit das Zurückspulen beim Drücken von Play ohne Verzögerung greift.
     private var bookRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S)
@@ -139,7 +142,7 @@ internal class BookPlaybackListener(
                 while (true) {
                     delay(SAVE_INTERVAL_MS)
                     recordCurrent(force = false)
-                    flushListening()
+                    flushListening(force = false)
                 }
             }
         } else {
@@ -172,24 +175,41 @@ internal class BookPlaybackListener(
     fun finish() {
         loop?.cancel()
         recordCurrent(force = true)
-        flushListening()
+        flushListening(force = true)
         meter.stop()
     }
 
-    /** Die Zeit, die seit dem letzten Mal an der Folge [meterBookId] gehört wurde, in die Statistik schreiben. */
-    private fun flushListening() {
+    /**
+     * Die Zeit, die seit dem letzten Mal an [meterBookId] gehört wurde, in die Statistik schreiben; bei Büchern auch als
+     * Sitzung an den Server melden ([force]: sofort statt gedrosselt).
+     */
+    private fun flushListening(force: Boolean = true) {
         val bookId = meterBookId ?: return
         val ms = meter.drain()
-        if (ms > 0) scope.launch { stats.recordEpisodeListening(bookId, ms) }
+        if (ms <= 0) return
+        if (meterIsEpisode) {
+            scope.launch { stats.recordEpisodeListening(bookId, ms) }
+            return
+        }
+        // Die Position kommt aus dem Player, solange er noch dieses Buch spielt; sonst bleibt die bisherige.
+        val item = player.currentMediaItem
+        val timeline = timeline.takeIf { timelineBookId == bookId && item?.bookId == bookId }
+        val position = timeline?.toBookPosition(item?.bookTrackIndex ?: 0, player.currentPosition)
+        val duration = timeline?.durationMs
+        scope.launch {
+            stats.recordBookListening(bookId, ms)
+            sessions.record(bookId, ms, position, duration, force)
+        }
     }
 
-    /** Richtet die Messung auf die aktuelle Folge und den Abspielzustand aus; die bisher gemessene Zeit wird zuerst verbucht. */
+    /** Richtet die Messung auf das aktuelle Buch bzw. die aktuelle Folge und den Abspielzustand aus; die bisher gemessene Zeit wird zuerst verbucht. */
     private fun syncMeter() {
         flushListening()
         val item = player.currentMediaItem
-        val episodeId = item?.takeIf { it.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE }?.bookId
-        meterBookId = episodeId
-        if (episodeId != null && player.isPlaying) meter.start(player.playbackParameters.speed) else meter.stop()
+        val bookId = item?.bookId
+        meterBookId = bookId
+        meterIsEpisode = item?.mediaMetadata?.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE
+        if (bookId != null && player.isPlaying) meter.start(player.playbackParameters.speed) else meter.stop()
     }
 
     private fun recordCurrent(force: Boolean) {

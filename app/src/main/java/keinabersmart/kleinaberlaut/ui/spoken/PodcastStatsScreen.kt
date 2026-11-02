@@ -51,9 +51,6 @@ class PodcastStatsViewModel @Inject constructor(repository: StatsRepository) : V
         repository.podcastStats().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
-private const val HOUR_MS = 60 * 60 * 1000L
-private const val CHART_HEIGHT_DP = 100
-
 /** Reiter „Statistik“ der Podcast-Bibliothek: gehörte Zeit insgesamt, je Podcast und im Verlauf der letzten Monate. */
 @Composable
 fun PodcastStatsScreen(
@@ -78,7 +75,11 @@ fun PodcastStatsScreen(
         item(key = "history") { SectionHeader(stringResource(R.string.podcast_stats_history)) }
         item(key = "chart") {
             if (current.hasHistory) {
-                MonthChart(current.months, Modifier.padding(horizontal = 16.dp))
+                BarChart(
+                    current.months.map { StatBar(Month.of(it.month).getDisplayName(TextStyle.SHORT, Locale.getDefault()), it.listenedMs) },
+                    stringResource(R.string.podcast_stats_hours_per_month),
+                    Modifier.padding(horizontal = 16.dp),
+                )
             } else {
                 EmptyHint(stringResource(R.string.podcast_stats_history_empty), Modifier.padding(horizontal = 16.dp))
             }
@@ -124,52 +125,3 @@ private fun PodcastRow(podcast: PodcastListening, share: Float, totalMs: Long, o
         modifier = if (feedId != null) Modifier.clickable { onFeedClick(feedId) } else Modifier,
     )
 }
-
-/** Balken je Monat mit den Stunden darüber. */
-@Composable
-private fun MonthChart(months: List<MonthListening>, modifier: Modifier = Modifier) {
-    val max = months.maxOf { it.listenedMs }.coerceAtLeast(1)
-    Column(modifier.fillMaxWidth()) {
-        Text(
-            stringResource(R.string.podcast_stats_hours_per_month),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-        Row(Modifier.fillMaxWidth()) {
-            months.forEach { month ->
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.height(CHART_HEIGHT_DP.dp + 16.dp).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                            if (month.listenedMs > 0) {
-                                Text(
-                                    (month.listenedMs / HOUR_MS).toString(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                val bar = (CHART_HEIGHT_DP * month.listenedMs.toFloat() / max).coerceAtLeast(2f)
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth(0.6f)
-                                        .height(bar.dp)
-                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)),
-                                )
-                            }
-                        }
-                    }
-                    Text(
-                        Month.of(month.month).getDisplayName(TextStyle.SHORT, Locale.getDefault()),
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** „913 h“ ab einer Stunde, sonst „45 min“. */
-@Composable
-private fun formatListened(ms: Long): String =
-    if (ms >= HOUR_MS) stringResource(R.string.podcast_stats_hours, ms / HOUR_MS)
-    else stringResource(R.string.podcast_stats_minutes, ms / 60_000)

@@ -36,6 +36,7 @@ import keinabersmart.kleinaberlaut.core.data.repository.PlaybackSourceResolver
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackStateRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
+import keinabersmart.kleinaberlaut.core.data.spoken.AbsSessionReporter
 import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.data.spoken.BookPlaybackSource
 import keinabersmart.kleinaberlaut.core.data.spoken.BookProgressSync
@@ -85,6 +86,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var bookProgressSync: BookProgressSync
     @Inject lateinit var spokenSettings: SpokenSettings
     @Inject lateinit var statsRepository: StatsRepository
+    @Inject lateinit var absSessionReporter: AbsSessionReporter
     @Inject lateinit var bookPlaybackSource: BookPlaybackSource
     @Inject lateinit var continueListening: ContinueListening
     @Inject lateinit var bookCovers: BookCovers
@@ -157,7 +159,7 @@ class PlaybackService : MediaLibraryService() {
         playTracker = PlayTracker(player, playbackStateRepository, ioScope)
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
-        bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, spokenSettings, statsRepository, mainScope) { endedId ->
+        bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, spokenSettings, statsRepository, absSessionReporter, mainScope) { endedId ->
             continueWithNextEpisode(player, endedId)
         }
         player.addListener(bookListener)
