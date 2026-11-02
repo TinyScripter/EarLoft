@@ -107,7 +107,7 @@ class EpisodeMenuViewModel @Inject constructor(
 
 val BookWithProgress.isEpisode: Boolean get() = book.kind == BookKind.EPISODE
 
-/** Kontextmenü einer Podcast-Folge oder eines Buchs (Langklick); die erste Zeile nennt Podcast bzw. Autor zur Orientierung. */
+/** Kontextmenü einer Podcast-Folge oder eines Buchs (Langklick); die erste Zeile nennt den Titel zur Orientierung. */
 @Composable
 fun EpisodeMenu(
     item: BookWithProgress,
@@ -123,9 +123,8 @@ fun EpisodeMenu(
     val played = item.progress?.finished == true
 
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        // Der Podcast-Titel steht als Folgen-Autor in der Datenbank.
         DropdownMenuItem(
-            text = { Text(item.book.author, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            text = { Text(item.book.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             onClick = {},
             enabled = false,
             colors = MenuDefaults.itemColors(disabledTextColor = MaterialTheme.colorScheme.primary),
