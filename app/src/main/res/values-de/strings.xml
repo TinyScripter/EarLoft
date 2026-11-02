@@ -619,4 +619,8 @@
     <string name="podcast_refresh_feed">Podcast aktualisieren</string>
     <string name="refresh_music_started">Musik wird aktualisiert …</string>
     <string name="refresh_music_done">Musik aktualisiert</string>
+    <plurals name="new_content_songs">
+        <item quantity="one">%1$d neuer Titel</item>
+        <item quantity="other">%1$d neue Titel</item>
+    </plurals>
 </resources>

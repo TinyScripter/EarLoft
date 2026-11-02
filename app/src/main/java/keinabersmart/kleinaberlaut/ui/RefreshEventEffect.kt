@@ -35,10 +35,12 @@ fun RefreshEventEffect(viewModel: RefreshEventViewModel = hiltViewModel()) {
                         RefreshKind.BOOKS -> R.string.refresh_books_started
                     },
                 )
-                // Musik zählt keine neuen Titel: nur „aktualisiert“ oder „fehlgeschlagen“.
                 is RefreshEvent.Finished -> when {
-                    event.kind == RefreshKind.MUSIC ->
-                        resources.getString(if (event.failed) R.string.refresh_failed else R.string.refresh_music_done)
+                    event.kind == RefreshKind.MUSIC -> when {
+                        event.newCount > 0 -> resources.getQuantityString(R.plurals.new_content_songs, event.newCount, event.newCount)
+                        event.failed -> resources.getString(R.string.refresh_failed)
+                        else -> resources.getString(R.string.refresh_music_done)
+                    }
                     event.newCount > 0 -> if (podcasts) {
                         resources.getQuantityString(R.plurals.new_content_episodes, event.newCount, event.newCount)
                     } else {

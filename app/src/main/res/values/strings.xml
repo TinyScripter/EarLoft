@@ -623,4 +623,8 @@
     <string name="podcast_refresh_feed">Refresh podcast</string>
     <string name="refresh_music_started">Updating music …</string>
     <string name="refresh_music_done">Music updated</string>
+    <plurals name="new_content_songs">
+        <item quantity="one">%1$d new song</item>
+        <item quantity="other">%1$d new songs</item>
+    </plurals>
 </resources>

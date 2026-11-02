@@ -156,6 +156,14 @@ abstract class LibraryDao {
     @Query("SELECT COUNT(DISTINCT s.albumId) FROM songs s WHERE $SONG_VISIBLE")
     abstract fun observeAlbumCount(): Flow<Int>
 
+    /** Höchste vergebene `songId` (0 ohne Songs); Ids werden nie wiederverwendet, spätere Songs haben also eine größere. */
+    @Query("SELECT COALESCE(MAX(songId), 0) FROM songs")
+    abstract suspend fun maxSongId(): Long
+
+    /** Sichtbare Songs, die nach [songId] angelegt wurden. */
+    @Query("SELECT COUNT(*) FROM songs s WHERE s.songId > :songId AND $SONG_VISIBLE")
+    abstract suspend fun countVisibleSongsAfter(songId: Long): Int
+
     @Query("$SELECT_ALBUM_ROWS GROUP BY a.albumId ORDER BY RANDOM() LIMIT :limit")
     abstract suspend fun getRandomAlbumRows(limit: Int): List<AlbumRow>
 
