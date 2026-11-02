@@ -405,11 +405,11 @@ private fun BookRow(
 /** Cover mit Fortschrittsbalken, darunter Titel und Autor; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts auf dem Cover. */
 @Composable
 fun BookCard(item: BookWithProgress, onClick: () -> Unit, modifier: Modifier = Modifier, onPlay: (() -> Unit)? = null, playing: Boolean = false) {
-    // Podcast-Folgen haben ein Kontextmenü (Langklick), Hörbücher nicht.
+    // Kontextmenü per Langklick, bei Folgen und Büchern.
     var menu by remember { mutableStateOf(false) }
     val episode = item.isEpisode
-    Column(modifier.combinedClickable(onClick = onClick, onLongClick = if (episode) ({ menu = true }) else null)) {
-        if (episode) EpisodeMenu(item, expanded = menu, onDismiss = { menu = false })
+    Column(modifier.combinedClickable(onClick = onClick, onLongClick = { menu = true })) {
+        EpisodeMenu(item, expanded = menu, onDismiss = { menu = false })
         Box {
             BookArt(item.book.id, Modifier.fillMaxWidth())
             if (!episode) BookDownloadBadge(item.book.id, Modifier.align(Alignment.TopStart).padding(6.dp))
