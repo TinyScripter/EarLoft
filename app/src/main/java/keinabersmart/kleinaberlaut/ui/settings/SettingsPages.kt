@@ -308,6 +308,9 @@ fun PodcastsSettingsScreen(
     // Beim Import fragt ein Dialog, ob die Abos hinzugefügt oder ersetzt werden.
     var opmlToImport by rememberSaveable { mutableStateOf<Uri?>(null) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { opmlToImport = it }
+    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importImportData(uri)
+    }
     val exportName = stringResource(R.string.settings_opml_title)
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-opml")) { uri ->
         if (uri != null) viewModel.exportOpml(uri, exportName)
@@ -315,18 +318,27 @@ fun PodcastsSettingsScreen(
     val context = LocalContext.current
     val resources = LocalResources.current
     LaunchedEffect(viewModel) {
-        viewModel.opmlMessages.collect { message ->
+        viewModel.transferMessages.collect { message ->
             val text = when (message) {
-                is OpmlMessage.Imported -> resources.getQuantityString(
+                is TransferMessage.Imported -> resources.getQuantityString(
                     R.plurals.settings_opml_imported,
                     message.result.added,
                     message.result.added,
                     message.result.skipped,
                     message.result.removed,
                 )
-                OpmlMessage.ImportFailed -> resources.getString(R.string.settings_opml_import_failed)
-                OpmlMessage.Exported -> resources.getString(R.string.settings_opml_exported)
-                OpmlMessage.ExportFailed -> resources.getString(R.string.settings_opml_export_failed)
+                TransferMessage.ImportFailed -> resources.getString(R.string.settings_opml_import_failed)
+                TransferMessage.Exported -> resources.getString(R.string.settings_opml_exported)
+                TransferMessage.ExportFailed -> resources.getString(R.string.settings_opml_export_failed)
+                TransferMessage.DatabaseImportStarted -> resources.getString(R.string.settings_db_import_started)
+                is TransferMessage.DatabaseImported -> resources.getString(
+                    R.string.settings_db_import_imported,
+                    message.result.feedsAdded,
+                    message.result.progressApplied,
+                    message.result.progressKept + message.result.progressMissing,
+                    message.result.statsImported,
+                )
+                TransferMessage.DatabaseImportFailed -> resources.getString(R.string.settings_db_import_failed)
             }
             Toast.makeText(context, text, Toast.LENGTH_LONG).show()
         }
@@ -364,6 +376,14 @@ fun PodcastsSettingsScreen(
                 supportingContent = { Text(stringResource(R.string.settings_opml_import_summary)) },
                 leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
                 modifier = Modifier.clickable { importLauncher.launch(arrayOf("*/*")) },
+            )
+        }
+        item(key = "db-import") {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_db_import)) },
+                supportingContent = { Text(stringResource(R.string.settings_db_import_summary)) },
+                leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                modifier = Modifier.clickable { backupLauncher.launch(arrayOf("*/*")) },
             )
         }
         item(key = "opml-export") {

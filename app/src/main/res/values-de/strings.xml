@@ -136,7 +136,7 @@
     <string name="settings_section_opml">Import &amp; Export</string>
     <string name="settings_opml_title">kleinaberlaut-Abos</string>
     <string name="settings_opml_import">Abos importieren (OPML)</string>
-    <string name="settings_opml_import_summary">Aus einer Datei, z. B. einem AntennaPod-Export</string>
+    <string name="settings_opml_import_summary">Aus einer Datei</string>
     <string name="settings_opml_import_message">Die Podcasts zu deinen Abos hinzufügen oder deine Abos durch sie ersetzen? Schon abonnierte Podcasts werden übersprungen. Beim Ersetzen entfallen alle anderen Abos samt Folgen und Hörfortschritt.</string>
     <string name="settings_opml_add">Hinzufügen</string>
     <string name="settings_opml_replace">Ersetzen</string>
@@ -147,6 +147,11 @@
     </plurals>
     <string name="settings_opml_export">Abos exportieren (OPML)</string>
     <string name="settings_opml_export_summary">Speichert deine Podcasts in einer Datei</string>
+    <string name="settings_db_import">Datenbank importieren</string>
+    <string name="settings_db_import_summary">Fehlende Abos, Hörfortschritt und gehörte Zeit aus einer Datenbank-Datei (.db)</string>
+    <string name="settings_db_import_started">Datenbank wird gelesen …</string>
+    <string name="settings_db_import_imported">%1$d Podcasts hinzugefügt, Fortschritt bei %2$d Folgen übernommen (%3$d nicht übernommen), gehörte Zeit von %4$d Folgen erfasst.</string>
+    <string name="settings_db_import_failed">Die Datei konnte nicht als Datenbank-Export gelesen werden.</string>
     <string name="settings_opml_exported">Abos exportiert.</string>
     <string name="settings_opml_export_failed">Exportieren fehlgeschlagen.</string>
     <string name="settings_theme">App-Darstellung</string>

@@ -10,6 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
+import keinabersmart.kleinaberlaut.core.database.dao.StatsDao
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
 import keinabersmart.kleinaberlaut.core.database.dao.LyricsDao
@@ -62,4 +63,7 @@ internal object DatabaseModule {
 
     @Provides
     fun providePodcastDao(database: KleinaberlautDatabase): PodcastDao = database.podcastDao()
+
+    @Provides
+    fun provideStatsDao(database: KleinaberlautDatabase): StatsDao = database.statsDao()
 }

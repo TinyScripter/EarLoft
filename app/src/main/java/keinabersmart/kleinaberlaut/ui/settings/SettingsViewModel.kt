@@ -7,6 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseReader
+import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseImporter
+import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseImportResult
 import keinabersmart.kleinaberlaut.core.data.podcast.OpmlImportResult
 import keinabersmart.kleinaberlaut.core.network.podcast.Opml
 import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
@@ -43,6 +46,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 import java.io.IOException
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -95,11 +99,14 @@ private data class GeneralSettings(
 )
 
 /** Ausgang eines OPML-Im- oder -Exports. */
-sealed interface OpmlMessage {
-    data class Imported(val result: OpmlImportResult) : OpmlMessage
-    data object ImportFailed : OpmlMessage
-    data object Exported : OpmlMessage
-    data object ExportFailed : OpmlMessage
+sealed interface TransferMessage {
+    data class Imported(val result: OpmlImportResult) : TransferMessage
+    data object ImportFailed : TransferMessage
+    data object Exported : TransferMessage
+    data object ExportFailed : TransferMessage
+    data object DatabaseImportStarted : TransferMessage
+    data class DatabaseImported(val result: DatabaseImportResult) : TransferMessage
+    data object DatabaseImportFailed : TransferMessage
 }
 
 private const val TAG = "SettingsViewModel"
@@ -123,6 +130,7 @@ class SettingsViewModel @Inject constructor(
     private val spokenRefresher: SpokenRefresher,
     private val podcastRefresher: PodcastRefresher,
     private val podcastRepository: PodcastRepository,
+    private val databaseImporter: DatabaseImporter,
     @param:ApplicationContext private val context: Context,
     audiobookServers: AudiobookshelfServers,
     syncer: LibrarySyncer,
@@ -299,10 +307,10 @@ class SettingsViewModel @Inject constructor(
 
     fun refreshPodcasts() = podcastRefresher.refreshAll()
 
-    private val _opmlMessages = Channel<OpmlMessage>(Channel.BUFFERED)
+    private val _transferMessages = Channel<TransferMessage>(Channel.BUFFERED)
 
     /** Ergebnis des letzten OPML-Im- oder -Exports, einmalig anzuzeigen. */
-    val opmlMessages: Flow<OpmlMessage> = _opmlMessages.receiveAsFlow()
+    val transferMessages: Flow<TransferMessage> = _transferMessages.receiveAsFlow()
 
     /** Liest die Abos aus [uri] und übernimmt sie ([replace]: alle anderen Abos entfallen); danach werden die Feeds abgeglichen. */
     fun importOpml(uri: Uri, replace: Boolean) {
@@ -313,14 +321,45 @@ class SettingsViewModel @Inject constructor(
                 }
                 val result = podcastRepository.importOpml(feeds, replace)
                 if (result.added > 0) refreshPodcasts()
-                OpmlMessage.Imported(result)
+                TransferMessage.Imported(result)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
                 Log.w(TAG, "OPML-Import fehlgeschlagen", e)
-                OpmlMessage.ImportFailed
+                TransferMessage.ImportFailed
             }
-            _opmlMessages.send(message)
+            _transferMessages.send(message)
+        }
+    }
+
+    private var backupRunning = false
+
+    /**
+     * Liest die Datenbank-Datei aus [uri]: fehlende aktive Abos, Hörfortschritt und gehörte Zeit (Statistik).
+     * Dauert, weil neue Feeds abgeglichen werden; ein zweiter Aufruf in der Zwischenzeit wird ignoriert.
+     */
+    fun importImportData(uri: Uri) {
+        if (backupRunning) return
+        backupRunning = true
+        viewModelScope.launch {
+            val file = File(context.cacheDir, "import.db")
+            try {
+                _transferMessages.send(TransferMessage.DatabaseImportStarted)
+                val backup = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } }
+                        ?: throw IOException("Datei nicht lesbar")
+                    DatabaseReader.read(file)
+                }
+                _transferMessages.send(TransferMessage.DatabaseImported(databaseImporter.import(backup)))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                Log.w(TAG, "Backup-Import fehlgeschlagen", e)
+                _transferMessages.send(TransferMessage.DatabaseImportFailed)
+            } finally {
+                file.delete()
+                backupRunning = false
+            }
         }
     }
 
@@ -334,14 +373,14 @@ class SettingsViewModel @Inject constructor(
                     context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
                         ?: throw IOException("Datei nicht beschreibbar")
                 }
-                OpmlMessage.Exported
+                TransferMessage.Exported
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
                 Log.w(TAG, "OPML-Export fehlgeschlagen", e)
-                OpmlMessage.ExportFailed
+                TransferMessage.ExportFailed
             }
-            _opmlMessages.send(message)
+            _transferMessages.send(message)
         }
     }
 

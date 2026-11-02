@@ -12,7 +12,7 @@ class OpmlException(message: String, cause: Throwable? = null) : IOException(mes
 /** Ein Abo in einer OPML-Datei. */
 data class OpmlFeed(val title: String, val url: String, val htmlUrl: String? = null)
 
-/** Liest und schreibt OPML 2.0, wie es Podcast-Apps (z. B. AntennaPod) zum Austausch von Abos nutzen. */
+/** Liest und schreibt OPML 2.0, wie es Podcast-Apps zum Austausch von Abos nutzen. */
 object Opml {
     /**
      * Alle `outline`-Einträge mit `xmlUrl`, auch in Gruppen verschachtelte, in Dateireihenfolge. Einträge ohne gültige

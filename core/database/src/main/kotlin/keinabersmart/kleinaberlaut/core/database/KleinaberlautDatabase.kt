@@ -14,6 +14,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.PlaybackDao
 import keinabersmart.kleinaberlaut.core.database.dao.PlaylistDao
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
+import keinabersmart.kleinaberlaut.core.database.dao.StatsDao
 import keinabersmart.kleinaberlaut.core.database.dao.SyncDao
 import keinabersmart.kleinaberlaut.core.database.dao.WearDao
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumArtistCrossRef
@@ -26,6 +27,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
+import keinabersmart.kleinaberlaut.core.database.entity.ListeningStatEntity
 import keinabersmart.kleinaberlaut.core.database.entity.LyricsEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlayEventEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntity
@@ -67,8 +69,9 @@ import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
         BookChapterEntity::class,
         BookProgressEntity::class,
         PodcastFeedEntity::class,
+        ListeningStatEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = KleinaberlautDatabase.AddSearchIndex::class),
@@ -79,6 +82,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9),
+        AutoMigration(from = 9, to = 10),
     ],
 )
 abstract class KleinaberlautDatabase : RoomDatabase() {
@@ -93,6 +97,7 @@ abstract class KleinaberlautDatabase : RoomDatabase() {
     abstract fun wearDao(): WearDao
     abstract fun bookDao(): BookDao
     abstract fun podcastDao(): PodcastDao
+    abstract fun statsDao(): StatsDao
 
     /** v1 → v2: FTS-Tabellen kommen hinzu und werden aus den vorhandenen Daten befüllt. */
     class AddSearchIndex : AutoMigrationSpec {
