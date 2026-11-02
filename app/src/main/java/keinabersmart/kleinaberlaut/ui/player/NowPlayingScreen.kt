@@ -67,7 +67,8 @@ fun NowPlayingScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isCurrentFavorite.collectAsStateWithLifecycle()
-    val position by rememberPlaybackPosition { viewModel.currentPositionMs }
+    // Erst in den Blättern (Slider, Zeit, Songtext) gelesen, damit nicht der ganze Screen alle 250 ms neu zusammengesetzt wird.
+    val position = rememberPlaybackPosition { viewModel.currentPositionMs }
     val lyricsVisible by viewModel.lyricsVisible.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
@@ -77,7 +78,7 @@ fun NowPlayingScreen(
             NowPlayingContent(
                 state = state,
                 isFavorite = isFavorite,
-                positionMs = position,
+                positionMs = { position.value },
                 lyricsVisible = lyricsVisible,
                 lyrics = lyrics,
                 onToggleLyrics = viewModel::toggleLyrics,
@@ -114,7 +115,7 @@ fun NowPlayingScreen(
 private fun NowPlayingContent(
     state: PlayerState,
     isFavorite: Boolean,
-    positionMs: Long,
+    positionMs: () -> Long,
     lyricsVisible: Boolean,
     lyrics: Lyrics?,
     onToggleLyrics: () -> Unit,
@@ -355,7 +356,7 @@ internal fun SleepTimerLine(remainingMs: Long?) {
 private fun TrackInfoAndControls(
     current: QueueEntry,
     state: PlayerState,
-    positionMs: Long,
+    positionMs: () -> Long,
     castDeviceName: String?,
     onSeek: (Long) -> Unit,
     onToggleShuffle: () -> Unit,
@@ -465,10 +466,11 @@ internal object CoverThenCentered : Arrangement.Vertical {
 }
 
 @Composable
-private fun SeekBar(durationMs: Long, positionMs: Long, onSeek: (Long) -> Unit) {
+private fun SeekBar(durationMs: Long, positionMs: () -> Long, onSeek: (Long) -> Unit) {
     // Während des Ziehens die Fingerposition zeigen, nicht die (verzögerte) Player-Position.
     var dragFraction by remember { mutableStateOf<Float?>(null) }
-    val fraction = dragFraction ?: if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+    val position = positionMs()
+    val fraction = dragFraction ?: if (durationMs > 0) (position.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
     val seekLabel = stringResource(R.string.player_seek)
 
     Column(Modifier.fillMaxWidth()) {
@@ -483,7 +485,7 @@ private fun SeekBar(durationMs: Long, positionMs: Long, onSeek: (Long) -> Unit) 
             modifier = Modifier.semantics { contentDescription = seekLabel },
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            val shownMs = dragFraction?.let { (it * durationMs).toLong() } ?: positionMs
+            val shownMs = dragFraction?.let { (it * durationMs).toLong() } ?: position
             Text(formatDuration(shownMs), style = MaterialTheme.typography.labelSmall)
             Text(formatDuration(durationMs), style = MaterialTheme.typography.labelSmall)
         }
@@ -516,7 +518,7 @@ private fun NowPlayingContentPreview() {
                 repeatMode = Player.REPEAT_MODE_ALL,
             ),
             isFavorite = true,
-            positionMs = 80_000,
+            positionMs = { 80_000 },
             lyricsVisible = false,
             lyrics = null,
             onToggleLyrics = {},

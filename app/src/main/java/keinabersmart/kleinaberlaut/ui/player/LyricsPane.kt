@@ -20,7 +20,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -40,7 +43,7 @@ import keinabersmart.kleinaberlaut.core.model.Lyrics
 @Composable
 fun LyricsPane(
     lyrics: Lyrics?,
-    positionMs: Long,
+    positionMs: () -> Long,
     onSeek: (Long) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -75,8 +78,10 @@ private fun Hint(text: String, modifier: Modifier, retry: (() -> Unit)? = null) 
 }
 
 @Composable
-private fun SyncedLyrics(lines: List<LyricLine>, positionMs: Long, onSeek: (Long) -> Unit, modifier: Modifier) {
-    val active = remember(lines, positionMs) { lines.indexOfLast { it.startMs <= positionMs } }
+private fun SyncedLyrics(lines: List<LyricLine>, positionMs: () -> Long, onSeek: (Long) -> Unit, modifier: Modifier) {
+    // Nur wenn die aktive Zeile wechselt, wird neu zusammengesetzt, nicht bei jedem Positions-Tick.
+    val currentPositionMs by rememberUpdatedState(positionMs)
+    val active by remember(lines) { derivedStateOf { lines.indexOfLast { it.startMs <= currentPositionMs() } } }
     val listState = rememberLazyListState()
     // Die aktive Zeile steht an zweiter Stelle, davor bleibt die vorige sichtbar; Polster unten erlaubt das auch bei den letzten Zeilen.
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -89,7 +94,7 @@ private fun SyncedLyrics(lines: List<LyricLine>, positionMs: Long, onSeek: (Long
             contentPadding = PaddingValues(top = 8.dp, bottom = maxHeight),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            itemsIndexed(lines) { index, line ->
+            itemsIndexed(lines, key = { index, _ -> index }) { index, line ->
                 val isActive = index == active
                 Text(
                     line.text.ifBlank { "♪" },
@@ -113,7 +118,7 @@ private fun SyncedLyricsPreview() {
     KleinaberlautTheme {
         LyricsPane(
             lyrics = Lyrics.Synced(listOf(LyricLine(0, "Mondlicht fällt aufs Dach"), LyricLine(5_000, "Nachtfalter tanzen leis"), LyricLine(10_000, "Die Stadt hält still"))),
-            positionMs = 6_000,
+            positionMs = { 6_000 },
             onSeek = {},
             onRetry = {},
         )
