@@ -7,7 +7,6 @@ import keinabersmart.kleinaberlaut.core.data.refresh.RefreshEvent
 import keinabersmart.kleinaberlaut.core.data.refresh.RefreshEvents
 import keinabersmart.kleinaberlaut.core.data.refresh.RefreshKind
 import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
-import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.datasource.local.LocalDataSource
 import keinabersmart.kleinaberlaut.core.datasource.local.MediaStoreChanges
@@ -49,7 +48,7 @@ class LibraryRefresher @Inject constructor(
     private val localDataSource: LocalDataSource,
     private val registry: DataSourceRegistry,
     private val sourceDao: SourceDao,
-    private val libraryDao: LibraryDao,
+    private val newSongs: NewSongsCounter,
     private val mediaStoreChanges: MediaStoreChanges,
     private val librarySettings: LibrarySettings,
     private val events: RefreshEvents,
@@ -129,14 +128,13 @@ class LibraryRefresher @Inject constructor(
             try {
                 events.emit(RefreshEvent.Started(RefreshKind.MUSIC))
                 // Neu heißt: nach dem Start angelegt. Beim ersten Einlesen einer Quelle ist alles neu und wird nicht gezählt.
-                val songsBefore = libraryDao.maxSongId()
-                val firstImport = anySourceNeverSynced()
+                val baseline = newSongs.begin(activeSourceIds())
                 refreshNow()
                 registry.servers().forEach { syncer.syncSafely(it) }
                 // Der lokale Scan startet erst nach der Entprellung; bis dahin soll der Spinner nicht kurz ausgehen.
                 if (librarySettings.useLocalMedia.first()) delay(DEBOUNCE_MS + LOCAL_START_SLACK_MS)
                 syncer.activeSyncs.first { it == 0 }
-                val fresh = if (firstImport) 0 else libraryDao.countVisibleSongsAfter(songsBefore)
+                val fresh = newSongs.newSongs(baseline)
                 events.emit(RefreshEvent.Finished(RefreshKind.MUSIC, fresh, failed = syncer.failures.value.isNotEmpty()))
             } finally {
                 _refreshing.value = false
@@ -144,12 +142,10 @@ class LibraryRefresher @Inject constructor(
         }
     }
 
-    /** Hat mindestens eine aktive Quelle (Server, lokale Musik wenn an) noch nie einen Vollabgleich gehabt? */
-    private suspend fun anySourceNeverSynced(): Boolean {
-        val ids = registry.servers().map { it.sourceId } +
+    /** Quellen, die ein Abgleich gerade berührt: alle Server und, wenn an, die lokale Musik. */
+    private suspend fun activeSourceIds(): List<String> =
+        registry.servers().map { it.sourceId } +
             if (librarySettings.useLocalMedia.first()) listOf(localDataSource.sourceId) else emptyList()
-        return ids.any { (sourceDao.get(it)?.lastFullSyncAt ?: 0L) == 0L }
-    }
 
     /**
      * Ab wann ein Vollabgleich beim Start fällig ist: bei „täglich“ nach 6 h, sonst nach dem eingestellten
