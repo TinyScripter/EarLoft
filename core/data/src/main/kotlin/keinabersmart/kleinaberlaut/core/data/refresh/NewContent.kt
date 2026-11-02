@@ -19,7 +19,7 @@ interface NewContentNotifier {
     fun show(content: NewContent)
 }
 
-enum class RefreshKind { PODCASTS, BOOKS }
+enum class RefreshKind { MUSIC, PODCASTS, BOOKS }
 
 /** Rückmeldung zu einem Abgleich, den die Oberfläche als Hinweis zeigt, solange die App sichtbar ist. */
 sealed interface RefreshEvent {

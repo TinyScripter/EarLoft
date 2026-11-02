@@ -621,4 +621,6 @@
     <string name="podcast_notify_new">Notify about new episodes</string>
     <string name="podcast_notify_new_summary">Shows a quiet notification when a background update finds new episodes of this podcast.</string>
     <string name="podcast_refresh_feed">Refresh podcast</string>
+    <string name="refresh_music_started">Updating music …</string>
+    <string name="refresh_music_done">Music updated</string>
 </resources>

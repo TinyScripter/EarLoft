@@ -617,4 +617,6 @@
     <string name="podcast_notify_new">Über neue Folgen benachrichtigen</string>
     <string name="podcast_notify_new_summary">Zeigt eine leise Benachrichtigung, wenn eine Aktualisierung im Hintergrund neue Folgen dieses Podcasts findet.</string>
     <string name="podcast_refresh_feed">Podcast aktualisieren</string>
+    <string name="refresh_music_started">Musik wird aktualisiert …</string>
+    <string name="refresh_music_done">Musik aktualisiert</string>
 </resources>

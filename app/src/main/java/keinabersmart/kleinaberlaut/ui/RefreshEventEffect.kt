@@ -29,9 +29,16 @@ fun RefreshEventEffect(viewModel: RefreshEventViewModel = hiltViewModel()) {
             val podcasts = event.kind == RefreshKind.PODCASTS
             val text = when (event) {
                 is RefreshEvent.Started -> resources.getString(
-                    if (podcasts) R.string.refresh_podcasts_started else R.string.refresh_books_started,
+                    when (event.kind) {
+                        RefreshKind.MUSIC -> R.string.refresh_music_started
+                        RefreshKind.PODCASTS -> R.string.refresh_podcasts_started
+                        RefreshKind.BOOKS -> R.string.refresh_books_started
+                    },
                 )
+                // Musik zählt keine neuen Titel: nur „aktualisiert“ oder „fehlgeschlagen“.
                 is RefreshEvent.Finished -> when {
+                    event.kind == RefreshKind.MUSIC ->
+                        resources.getString(if (event.failed) R.string.refresh_failed else R.string.refresh_music_done)
                     event.newCount > 0 -> if (podcasts) {
                         resources.getQuantityString(R.plurals.new_content_episodes, event.newCount, event.newCount)
                     } else {

@@ -55,6 +55,7 @@ import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
+import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import keinabersmart.kleinaberlaut.core.model.SpokenMode
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
@@ -77,6 +78,7 @@ class SpokenModeViewModel @Inject constructor(
     private val settings: SpokenSettings,
     private val refresher: SpokenRefresher,
     private val podcastRefresher: PodcastRefresher,
+    private val libraryRefresher: LibraryRefresher,
 ) : ViewModel() {
     val mode: StateFlow<SpokenMode> = settings.mode.stateIn(viewModelScope, SharingStarted.Eagerly, SpokenMode.MUSIC)
 
@@ -91,14 +93,21 @@ class SpokenModeViewModel @Inject constructor(
         viewModelScope.launch { settings.setMode(mode) }
     }
 
-    /** Läuft gerade ein von Hand angestoßener Abgleich des aktuellen Modus (Musik: nie)? */
-    val refreshing: StateFlow<Boolean> = combine(mode, refresher.refreshing, podcastRefresher.refreshing) { mode, books, podcasts ->
+    /** Läuft gerade ein von Hand angestoßener Abgleich des aktuellen Modus? */
+    val refreshing: StateFlow<Boolean> = combine(
+        mode,
+        libraryRefresher.refreshing,
+        refresher.refreshing,
+        podcastRefresher.refreshing,
+    ) { mode, music, books, podcasts ->
         when (mode) {
+            SpokenMode.MUSIC -> music
             SpokenMode.BOOKS -> books
             SpokenMode.PODCASTS -> podcasts
-            SpokenMode.MUSIC -> false
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun refreshMusic() = libraryRefresher.refreshAll()
 
     fun refreshBooks() = refresher.refreshAll()
 
@@ -162,6 +171,10 @@ fun SpokenModeScaffold(
                         label = { Text(stringResource(R.string.search_hint_all)) },
                         modifier = Modifier.padding(end = 8.dp),
                     )
+                } else if (mode == SpokenMode.MUSIC) {
+                    IconButton(onClick = viewModel::refreshMusic) {
+                        Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.settings_refresh_music))
+                    }
                 } else if (mode == SpokenMode.BOOKS) {
                     IconButton(onClick = viewModel::refreshBooks) {
                         Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
@@ -190,9 +203,10 @@ fun SpokenModeScaffold(
                 }
             }
         }
-        // Herunterziehen gleicht Podcasts bzw. Bücher ab (wie der Knopf oben); Musik und die Suche haben das nicht.
+        // Herunterziehen gleicht den Bereich ab (wie der Knopf oben); die Suche hat das nicht.
         val onRefresh = when {
             searchSwitch -> null
+            mode == SpokenMode.MUSIC -> viewModel::refreshMusic
             mode == SpokenMode.BOOKS -> viewModel::refreshBooks
             mode == SpokenMode.PODCASTS -> viewModel::refreshPodcasts
             else -> null

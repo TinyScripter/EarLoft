@@ -3,6 +3,9 @@ package keinabersmart.kleinaberlaut.core.data.sync
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
+import keinabersmart.kleinaberlaut.core.data.refresh.RefreshEvent
+import keinabersmart.kleinaberlaut.core.data.refresh.RefreshEvents
+import keinabersmart.kleinaberlaut.core.data.refresh.RefreshKind
 import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.datasource.local.LocalDataSource
@@ -10,7 +13,11 @@ import keinabersmart.kleinaberlaut.core.datasource.local.MediaStoreChanges
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -43,10 +50,15 @@ class LibraryRefresher @Inject constructor(
     private val sourceDao: SourceDao,
     private val mediaStoreChanges: MediaStoreChanges,
     private val librarySettings: LibrarySettings,
+    private val events: RefreshEvents,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val started = AtomicBoolean(false)
     private val lastQuickAttempt = AtomicLong(0)
+    private val _refreshing = MutableStateFlow(false)
+
+    /** `true`, solange ein Abgleich läuft, den der Nutzer angestoßen hat (für Pull-to-refresh). */
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
     private val localRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     @OptIn(FlowPreview::class)
@@ -105,10 +117,25 @@ class LibraryRefresher @Inject constructor(
         scope.launch { registry[sourceId]?.let { syncer.syncSafely(it) } }
     }
 
-    /** Alle Quellen sofort abgleichen; die lokale über den eigenen Ablauf (siehe [start]). */
+    /**
+     * Alle Quellen sofort abgleichen; die lokale über den eigenen Ablauf (siehe [start]). Meldet Start und Ende an die
+     * Oberfläche; [refreshing] bleibt an, bis auch der lokale Scan fertig ist.
+     */
     fun refreshAll() {
-        refreshNow()
-        scope.launch { registry.servers().forEach { syncer.syncSafely(it) } }
+        scope.launch {
+            _refreshing.value = true
+            try {
+                events.emit(RefreshEvent.Started(RefreshKind.MUSIC))
+                refreshNow()
+                registry.servers().forEach { syncer.syncSafely(it) }
+                // Der lokale Scan startet erst nach der Entprellung; bis dahin soll der Spinner nicht kurz ausgehen.
+                if (librarySettings.useLocalMedia.first()) delay(DEBOUNCE_MS + LOCAL_START_SLACK_MS)
+                syncer.activeSyncs.first { it == 0 }
+                events.emit(RefreshEvent.Finished(RefreshKind.MUSIC, newCount = 0, failed = syncer.failures.value.isNotEmpty()))
+            } finally {
+                _refreshing.value = false
+            }
+        }
     }
 
     /**
@@ -126,6 +153,7 @@ class LibraryRefresher @Inject constructor(
 
     private companion object {
         const val DEBOUNCE_MS = 1_500L
+        const val LOCAL_START_SLACK_MS = 300L
         const val DAY_MS = 24 * 60 * 60 * 1000L
         const val SERVER_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000L
         const val QUICK_SYNC_INTERVAL_MS = 10 * 60 * 1000L
