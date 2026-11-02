@@ -16,69 +16,38 @@ party.
 ## Features
 
 A switch at the top of **Home** and **Library** changes between the three areas: **Music**, **Podcasts** and
-**Books**. **Search** has the same switch and searches in the selected area, or everywhere (see below).
+**Books**.
 
 ### Everywhere
 
-- **Offline listening.** Download music, podcast episodes and books. Everything you browse comes from a local database,
-  so the app stays usable without a connection. **Settings → Downloads** lists and removes them.
-- **Material You design** with colors taken from the cover (albums, books and episodes), light and dark mode, phone and
-  tablet layouts (navigation rail and list/detail view on wide screens). English and German.
-- **Search** over music, podcasts and books, with accent-insensitive matching (searching for "Bjork" finds "Björk").
-  A chip in the search bar switches between **search everywhere** and searching only the selected area. Results are
-  grouped by area, each with its own categories:
-  - Music: artists, albums, songs
-  - Podcasts: subscriptions, episodes
-  - Books: series, authors, books
-- **Play / pause buttons on covers.** Every album, book and episode tile in the overviews (Home, Library, search) has
-  a play/pause button; the one that is playing shows pause.
-- **Sleep timer**, a **mini player** and a full **player screen** that fits the content (songs, episodes, books).
-- **Home screen widget** (4×1) with cover and playback controls: previous/next for music, −30 s / +10 s for books and
-  episodes, which also show the elapsed and total time. The widget takes its colors from the cover.
-- **Chromecast** for songs that are on a server, and for books and episodes (see [Known limitations](#known-limitations)).
+- **Offline listening.** Download music, episodes and books; everything you browse comes from a local database, so the
+  app stays usable without a connection.
+- **Search** across all three areas or only the selected one, ignoring accents ("Bjork" finds "Björk").
+- **Material You design** with colors from the cover, light and dark mode, phone and tablet layouts, English and German.
+- **Home screen widget** (4×1) with cover and playback controls, and **Chromecast** (see
+  [Known limitations](#known-limitations)).
 
 ### Music
 
-- **One library, no duplicates.** A song that exists on your phone *and* on your server shows up once. The app picks
-  the best source automatically: file on the device, then a downloaded copy, then the stream.
-- **Albums, artists, songs, playlists and favorites**, with "recently added" and "recently played" on Home.
-- **Gapless playback**, so live albums and DJ mixes play without a break between tracks.
-  Streams are played in their original quality by default, because server-side transcoding can introduce gaps.
-- **ReplayGain** (track, album or automatic) so quiet and loud albums play at a similar volume.
-- **Lyrics**, synchronized and scrolling along with the music when your files or server provide them.
-- **Smart downloads.** Download albums, playlists or single songs, or let the app download your favorites (or a whole
-  server) automatically, Wi-Fi only by default.
-- **Favorites, playlists and play counts sync with your server.** Changes you make offline are sent as soon as you
-  are online again. Scrobbling to the server is supported.
-- **Queue management:** reorder by drag and drop, shuffle, repeat, and continue where you stopped after a restart.
+- **One library, no duplicates.** A song on your phone *and* on your server shows up once; the app picks the best
+  source (device file, download, then stream).
+- **Gapless playback** and **ReplayGain**, so live albums play without breaks and all albums at a similar volume.
+- **Synchronized lyrics** when your files or server provide them.
+- **Favorites, playlists and play counts sync with your server**, also offline; scrobbling is supported.
 
 ### Podcasts
 
-- **Subscribe with a feed address.** Add any podcast by its RSS or Atom feed URL. Feeds refresh automatically in the
-  background (interval and mobile data are configurable).
-- **Continue listening.** Home shows the episodes you started (the most recent first) followed by new ones, as a row
-  you can edit: reorder by drag and drop or remove episodes. This row is also the queue: when an episode ends, the
-  next one starts (can be switched off).
-- **Per podcast:** newest or oldest first, "play the next episode automatically", automatic downloads of the newest
-  unheard episodes, search within the podcast's episodes, and a page with the full description.
-- **Episode details:** show notes with working links, **chapters** (from the feed's Podcasting 2.0 chapter list or
-  embedded in the file), and an episode menu (long press) to mark as played, reset the position or delete the download.
-- **Downloads** per episode, resumable, with an option to remove downloads of heard episodes after a chosen time.
-- **Podcast files on your phone.** Audio files in the **Podcasts** folder of your device show up as podcasts, one per
-  subfolder or album, including date, description and chapters from the file's tags.
+- **Subscribe with any RSS or Atom feed.** Feeds refresh automatically in the background.
+- **Continue listening** is an editable queue: the next episode starts when one ends.
+- **Chapters, show notes and downloads** per episode, with automatic downloads of new episodes per podcast.
+- **Podcast files on your phone** (folder **Podcasts**) show up as podcasts.
 
 ### Books (Audiobookshelf)
 
-- **Connect your Audiobookshelf server** with an API key (several servers are possible, each can be switched off).
-  Books, covers, descriptions and chapters are synced into the app.
-- **Your progress syncs both ways.** The position is sent to the server while you listen and offline changes are
-  delivered later; when you open a book the app jumps to the newest position, whether it was set here or elsewhere.
-- **Built for long listening:** speed from 0.5× to 3× per book, −30 s / +10 s jumps (also on the notification and
-  the widget), chapters with next/previous, remaining time for the book and for the chapter.
-- **Library views:** all books, **series** (ordered by volume) and **authors** (with author pictures from your server).
-- **Downloads** per book, resumable after interruptions, and playback from the file while offline.
-- **Books on your phone.** Audio files in the **Audiobooks** folder of your device show up as books: a single file
-  (e.g. m4b with chapters) or a folder of MP3 files, one chapter per file.
+- **Progress syncs both ways** with your Audiobookshelf server, also after listening offline.
+- **Made for long listening:** speed per book, −30 s / +10 s jumps, chapters, remaining time, sleep timer.
+- **Browse by series and authors**, download books for offline use.
+- **Books on your phone** (folder **Audiobooks**, m4b with chapters or folders of MP3 files) show up as books.
 
 ### Your sources
 
@@ -200,10 +169,6 @@ SDK levels: `minSdk` 26 (phone) and 30 (watch), `compileSdk` / `targetSdk` 37, J
   and a progress entry; a position in the whole book is converted to a file and offset when playback starts. The same
   player service, download workers and "continue listening" logic serve both.
 - **Browse tree for Auto, the watch and the system UI** comes from one `MediaLibraryService`.
-
-Details and decisions are in [`ideas/konzept_und_architektur.md`](ideas/konzept_und_architektur.md) (concept),
-[`ideas/wear_konzept.md`](ideas/wear_konzept.md) (watch) and [`ideas/stand.md`](ideas/stand.md) (current status and
-open points). Those documents are written in German.
 
 ## Project structure
 
