@@ -1,6 +1,14 @@
 package keinabersmart.kleinaberlaut.ui.settings
 
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
@@ -297,6 +305,32 @@ fun PodcastsSettingsScreen(
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalPodcasts(true)
     }
+    // Beim Import fragt ein Dialog, ob die Abos hinzugefügt oder ersetzt werden.
+    var opmlToImport by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { opmlToImport = it }
+    val exportName = stringResource(R.string.settings_opml_title)
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-opml")) { uri ->
+        if (uri != null) viewModel.exportOpml(uri, exportName)
+    }
+    val context = LocalContext.current
+    val resources = LocalResources.current
+    LaunchedEffect(viewModel) {
+        viewModel.opmlMessages.collect { message ->
+            val text = when (message) {
+                is OpmlMessage.Imported -> resources.getQuantityString(
+                    R.plurals.settings_opml_imported,
+                    message.result.added,
+                    message.result.added,
+                    message.result.skipped,
+                    message.result.removed,
+                )
+                OpmlMessage.ImportFailed -> resources.getString(R.string.settings_opml_import_failed)
+                OpmlMessage.Exported -> resources.getString(R.string.settings_opml_exported)
+                OpmlMessage.ExportFailed -> resources.getString(R.string.settings_opml_export_failed)
+            }
+            Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+        }
+    }
 
     SettingsPage(stringResource(R.string.settings_podcasts), onBack, modifier) {
         item(key = "sources") { SectionHeader(stringResource(R.string.settings_section_sources)) }
@@ -322,6 +356,24 @@ fun PodcastsSettingsScreen(
             )
         }
         item(key = "refresh-podcasts") { RefreshRow(stringResource(R.string.settings_refresh_podcasts), viewModel::refreshPodcasts) }
+
+        item(key = "opml") { SectionHeader(stringResource(R.string.settings_section_opml)) }
+        item(key = "opml-import") {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_opml_import)) },
+                supportingContent = { Text(stringResource(R.string.settings_opml_import_summary)) },
+                leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                modifier = Modifier.clickable { importLauncher.launch(arrayOf("*/*")) },
+            )
+        }
+        item(key = "opml-export") {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_opml_export)) },
+                supportingContent = { Text(stringResource(R.string.settings_opml_export_summary)) },
+                leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
+                modifier = Modifier.clickable { exportLauncher.launch("kleinaberlaut-podcasts.opml") },
+            )
+        }
 
         item(key = "playback") { SectionHeader(stringResource(R.string.settings_playback)) }
         item(key = "podcast-auto-play-next") {
@@ -371,6 +423,28 @@ fun PodcastsSettingsScreen(
         }
     }
 
+    opmlToImport?.let { uri ->
+        AlertDialog(
+            onDismissRequest = { opmlToImport = null },
+            title = { Text(stringResource(R.string.settings_opml_import)) },
+            text = { Text(stringResource(R.string.settings_opml_import_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.importOpml(uri, replace = false)
+                    opmlToImport = null
+                }) { Text(stringResource(R.string.settings_opml_add)) }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { opmlToImport = null }) { Text(stringResource(R.string.action_cancel)) }
+                    TextButton(onClick = {
+                        viewModel.importOpml(uri, replace = true)
+                        opmlToImport = null
+                    }) { Text(stringResource(R.string.settings_opml_replace)) }
+                }
+            },
+        )
+    }
     if (choosingRefresh) {
         ChoiceDialog(
             title = stringResource(R.string.settings_podcast_refresh),

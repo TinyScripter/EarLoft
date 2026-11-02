@@ -1,8 +1,14 @@
 package keinabersmart.kleinaberlaut.ui.settings
 
+import android.content.Context
+import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import keinabersmart.kleinaberlaut.core.data.podcast.OpmlImportResult
+import keinabersmart.kleinaberlaut.core.network.podcast.Opml
 import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
 import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
@@ -26,11 +32,20 @@ import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
 import keinabersmart.kleinaberlaut.ui.theme.ThemeMode
 import keinabersmart.kleinaberlaut.ui.theme.ThemeSettings
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.IOException
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 data class ServerItem(
@@ -79,6 +94,16 @@ private data class GeneralSettings(
     val albumCovers: Boolean,
 )
 
+/** Ausgang eines OPML-Im- oder -Exports. */
+sealed interface OpmlMessage {
+    data class Imported(val result: OpmlImportResult) : OpmlMessage
+    data object ImportFailed : OpmlMessage
+    data object Exported : OpmlMessage
+    data object ExportFailed : OpmlMessage
+}
+
+private const val TAG = "SettingsViewModel"
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val serverRepository: ServerRepository,
@@ -97,7 +122,8 @@ class SettingsViewModel @Inject constructor(
     private val registry: DataSourceRegistry,
     private val spokenRefresher: SpokenRefresher,
     private val podcastRefresher: PodcastRefresher,
-    podcastRepository: PodcastRepository,
+    private val podcastRepository: PodcastRepository,
+    @param:ApplicationContext private val context: Context,
     audiobookServers: AudiobookshelfServers,
     syncer: LibrarySyncer,
 ) : ViewModel() {
@@ -272,6 +298,52 @@ class SettingsViewModel @Inject constructor(
     fun refreshAudiobooks() = spokenRefresher.refreshAll()
 
     fun refreshPodcasts() = podcastRefresher.refreshAll()
+
+    private val _opmlMessages = Channel<OpmlMessage>(Channel.BUFFERED)
+
+    /** Ergebnis des letzten OPML-Im- oder -Exports, einmalig anzuzeigen. */
+    val opmlMessages: Flow<OpmlMessage> = _opmlMessages.receiveAsFlow()
+
+    /** Liest die Abos aus [uri] und übernimmt sie ([replace]: alle anderen Abos entfallen); danach werden die Feeds abgeglichen. */
+    fun importOpml(uri: Uri, replace: Boolean) {
+        viewModelScope.launch {
+            val message = try {
+                val feeds = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use(Opml::parse) ?: throw IOException("Datei nicht lesbar")
+                }
+                val result = podcastRepository.importOpml(feeds, replace)
+                if (result.added > 0) refreshPodcasts()
+                OpmlMessage.Imported(result)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                Log.w(TAG, "OPML-Import fehlgeschlagen", e)
+                OpmlMessage.ImportFailed
+            }
+            _opmlMessages.send(message)
+        }
+    }
+
+    /** Schreibt die Abos als OPML nach [uri]. */
+    fun exportOpml(uri: Uri, title: String) {
+        viewModelScope.launch {
+            val message = try {
+                val created = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now())
+                val text = podcastRepository.exportOpml(title, created)
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+                        ?: throw IOException("Datei nicht beschreibbar")
+                }
+                OpmlMessage.Exported
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                Log.w(TAG, "OPML-Export fehlgeschlagen", e)
+                OpmlMessage.ExportFailed
+            }
+            _opmlMessages.send(message)
+        }
+    }
 
     fun refreshAll() {
         refreshMusic()

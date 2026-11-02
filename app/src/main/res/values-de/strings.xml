@@ -133,6 +133,22 @@
     <string name="settings_refresh_music">Musik jetzt abgleichen</string>
     <string name="settings_refresh_audiobooks">Hörbücher jetzt abgleichen</string>
     <string name="settings_refresh_podcasts">Podcasts jetzt aktualisieren</string>
+    <string name="settings_section_opml">Import &amp; Export</string>
+    <string name="settings_opml_title">kleinaberlaut-Abos</string>
+    <string name="settings_opml_import">Abos importieren (OPML)</string>
+    <string name="settings_opml_import_summary">Aus einer Datei, z. B. einem AntennaPod-Export</string>
+    <string name="settings_opml_import_message">Die Podcasts zu deinen Abos hinzufügen oder deine Abos durch sie ersetzen? Schon abonnierte Podcasts werden übersprungen. Beim Ersetzen entfallen alle anderen Abos samt Folgen und Hörfortschritt.</string>
+    <string name="settings_opml_add">Hinzufügen</string>
+    <string name="settings_opml_replace">Ersetzen</string>
+    <string name="settings_opml_import_failed">Die Datei konnte nicht als OPML gelesen werden.</string>
+    <plurals name="settings_opml_imported">
+        <item quantity="one">%1$d Podcast hinzugefügt, %2$d übersprungen, %3$d entfernt.</item>
+        <item quantity="other">%1$d Podcasts hinzugefügt, %2$d übersprungen, %3$d entfernt.</item>
+    </plurals>
+    <string name="settings_opml_export">Abos exportieren (OPML)</string>
+    <string name="settings_opml_export_summary">Speichert deine Podcasts in einer Datei</string>
+    <string name="settings_opml_exported">Abos exportiert.</string>
+    <string name="settings_opml_export_failed">Exportieren fehlgeschlagen.</string>
     <string name="settings_theme">App-Darstellung</string>
     <string name="settings_always_navigation_bar">Navigationsleiste immer anzeigen</string>
     <string name="settings_always_navigation_bar_summary">Betrifft nur die Wiedergabefenster. Aus blendet die Leiste dort aus.</string>

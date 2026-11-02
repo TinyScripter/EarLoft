@@ -17,6 +17,8 @@ import keinabersmart.kleinaberlaut.core.model.LOCAL_PODCAST_PREFIX
 import keinabersmart.kleinaberlaut.core.model.PodcastFeed
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.network.podcast.FeedFetch
+import keinabersmart.kleinaberlaut.core.network.podcast.Opml
+import keinabersmart.kleinaberlaut.core.network.podcast.OpmlFeed
 import keinabersmart.kleinaberlaut.core.network.podcast.ParsedEpisode
 import keinabersmart.kleinaberlaut.core.network.podcast.ParsedFeed
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
@@ -45,6 +47,9 @@ sealed interface SubscribeResult {
     data object Unreachable : SubscribeResult
     data object NotAFeed : SubscribeResult
 }
+
+/** Was ein OPML-Import getan hat: neue Abos, übersprungene Dubletten, beim Ersetzen entfernte Abos. */
+data class OpmlImportResult(val added: Int, val skipped: Int, val removed: Int)
 
 /** Ergebnis eines Feed-Abgleichs: `null` bei Fehler, sonst die Folgen, die neu im Feed stehen. */
 data class RefreshResult(val newEpisodeIds: List<Long>)
@@ -195,6 +200,35 @@ class PodcastRepository @Inject constructor(
     }
 
     suspend fun unsubscribe(feedId: String) = dao.deleteFeed(feedId)
+
+    /** Die Abos als OPML-Text. Podcasts vom Gerät haben keinen Feed und fehlen. */
+    suspend fun exportOpml(title: String, createdAt: String): String =
+        Opml.write(
+            dao.feeds().filter { !it.isLocal }.sortedBy { it.title.lowercase() }.map { OpmlFeed(it.title, it.url) },
+            title,
+            createdAt,
+        )
+
+    /**
+     * Übernimmt die Abos aus [feeds]. Abos, die es schon gibt (oder die in der Datei mehrfach stehen), werden übersprungen.
+     * Mit [replace] fallen zuvor alle anderen Abos weg (samt Folgen und Hörfortschritt); Podcasts vom Gerät bleiben. Die Folgen
+     * der neuen Abos kommen erst mit dem nächsten Abgleich.
+     */
+    suspend fun importOpml(feeds: List<OpmlFeed>, replace: Boolean): OpmlImportResult = mutex.withLock {
+        val wanted = feeds.distinctBy { it.url }
+        var removed = 0
+        if (replace) {
+            val keep = wanted.mapTo(HashSet()) { it.url }
+            dao.feeds().filter { !it.isLocal && it.url !in keep }.forEach {
+                dao.deleteFeed(it.feedId)
+                removed++
+            }
+        }
+        val known = dao.feeds().mapTo(HashSet()) { it.url }
+        val fresh = wanted.filter { it.url !in known }
+        fresh.forEach { dao.upsertFeed(PodcastFeedEntity(feedId = UUID.randomUUID().toString(), url = it.url, title = it.title)) }
+        OpmlImportResult(added = fresh.size, skipped = feeds.size - fresh.size, removed = removed)
+    }
 
     suspend fun setAutoDownload(feedId: String, enabled: Boolean) = dao.setAutoDownload(feedId, enabled)
 

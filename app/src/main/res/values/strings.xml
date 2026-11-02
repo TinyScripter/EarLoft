@@ -134,6 +134,22 @@
     <string name="settings_refresh_music">Sync music now</string>
     <string name="settings_refresh_audiobooks">Sync audiobooks now</string>
     <string name="settings_refresh_podcasts">Refresh podcasts now</string>
+    <string name="settings_section_opml">Import &amp; export</string>
+    <string name="settings_opml_title">kleinaberlaut subscriptions</string>
+    <string name="settings_opml_import">Import subscriptions (OPML)</string>
+    <string name="settings_opml_import_summary">From a file, e.g. an AntennaPod export</string>
+    <string name="settings_opml_import_message">Add the podcasts to your subscriptions or replace your subscriptions with them? Podcasts you already follow are skipped. Replacing removes all other subscriptions with their episodes and listening progress.</string>
+    <string name="settings_opml_add">Add</string>
+    <string name="settings_opml_replace">Replace</string>
+    <string name="settings_opml_import_failed">The file could not be read as OPML.</string>
+    <plurals name="settings_opml_imported">
+        <item quantity="one">%1$d podcast added, %2$d skipped, %3$d removed.</item>
+        <item quantity="other">%1$d podcasts added, %2$d skipped, %3$d removed.</item>
+    </plurals>
+    <string name="settings_opml_export">Export subscriptions (OPML)</string>
+    <string name="settings_opml_export_summary">Saves your podcasts to a file</string>
+    <string name="settings_opml_exported">Subscriptions exported.</string>
+    <string name="settings_opml_export_failed">Exporting failed.</string>
     <string name="settings_theme">App appearance</string>
     <string name="settings_always_navigation_bar">Always show navigation bar</string>
     <string name="settings_always_navigation_bar_summary">Only affects the playback screens. Off hides the bar there.</string>

@@ -8,6 +8,9 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.model.AuthorHit
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
+import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
+import keinabersmart.kleinaberlaut.core.network.podcast.Opml
+import keinabersmart.kleinaberlaut.core.network.podcast.OpmlFeed
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -78,6 +81,40 @@ class PodcastRepositoryTest {
         assertEquals("https://example.com/A.mp3", track.remoteFileId)
         assertEquals(600_000, track.durationMs)
         assertTrue(db.bookDao().book(episodes.first().id)!!.detailsLoaded)
+    }
+
+    @Test
+    fun `opml import skips known and repeated feeds and replacing keeps matches and device podcasts`() = runTest {
+        val kept = subscribe()
+        val dropped = (repository.subscribe("https://example.com/other.xml") as SubscribeResult.Added).feedId
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "local:x", url = "local:x", title = "Gerät"))
+        val file = listOf(
+            OpmlFeed("Alt", "https://example.com/feed.xml"),
+            OpmlFeed("Neu", "https://example.com/new.xml"),
+            OpmlFeed("Neu nochmal", "https://example.com/new.xml"),
+        )
+
+        val added = repository.importOpml(file, replace = false)
+        assertEquals(OpmlImportResult(added = 1, skipped = 2, removed = 0), added)
+        assertEquals(4, db.podcastDao().feeds().size)
+
+        val replaced = repository.importOpml(file, replace = true)
+        assertEquals(OpmlImportResult(added = 0, skipped = 3, removed = 1), replaced)
+        val ids = db.podcastDao().feeds().map { it.feedId }
+        assertTrue(kept in ids && "local:x" in ids && dropped !in ids)
+        assertEquals(3, ids.size)
+        // Das bestehende Abo behielt seine Folgen.
+        assertEquals(3, db.bookDao().booksOf(kept).size)
+    }
+
+    @Test
+    fun `opml export lists subscriptions but not device podcasts`() = runTest {
+        subscribe()
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "local:x", url = "local:x", title = "Gerät"))
+
+        val feeds = Opml.parse(repository.exportOpml("Abos", "Mon, 2 Nov 2026 14:10:40 +0100").byteInputStream())
+
+        assertEquals(listOf(OpmlFeed("Test-Podcast", "https://example.com/feed.xml")), feeds)
     }
 
     @Test
