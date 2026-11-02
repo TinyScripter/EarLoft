@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.AnnotatedString
 import android.content.ClipData
@@ -90,6 +91,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.podcast.FeedEpisodes
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.SubscribeResult
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
@@ -130,6 +132,7 @@ sealed interface AddPodcastState {
 @HiltViewModel
 class PodcastViewModel @Inject constructor(
     private val podcasts: PodcastRepository,
+    private val refresher: PodcastRefresher,
     private val launcher: BookLauncher,
     private val playback: PlaybackConnection,
     continueListening: ContinueListening,
@@ -482,6 +485,10 @@ class PodcastFeedViewModel @AssistedInject constructor(
     private val refresher: PodcastRefresher,
 ) : ViewModel() {
 
+    val refreshing: StateFlow<Boolean> = refresher.refreshing
+
+    fun refresh() = refresher.refreshFeed(feedId)
+
     /** Die Folge, die gerade läuft (nicht: pausiert). */
     val playingBookId: StateFlow<Long?> = playback.state
         .map { if (it.isPlaying) it.spoken?.bookId else null }
@@ -574,6 +581,7 @@ fun PodcastScreen(
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.progress.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     LaunchedEffect(viewModel) {
@@ -585,58 +593,64 @@ fun PodcastScreen(
         TopAppBar(
             title = {},
             navigationIcon = { BackButton(onBack) },
+            // Der Aktualisieren-Knopf steht ganz rechts wie in den anderen Bildschirmen, die Suche links davon.
             actions = {
                 IconButton(onClick = onSearch, enabled = current != null) {
                     Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_search))
+                }
+                IconButton(onClick = viewModel::refresh, enabled = current != null) {
+                    Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.podcast_refresh_feed))
                 }
             },
         )
         if (current == null) return@Column
         val list = episodes.orEmpty()
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item(key = "header") {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    PodcastArt(current.imageUrl, Modifier.size(HEADER_ART_SIZE))
-                    // Titel und Autor mittig zur Bildhöhe, die Knöpfe bündig mit der Unterkante des Bildes.
-                    Box(Modifier.weight(1f).height(HEADER_ART_SIZE).padding(start = 16.dp)) {
-                        Column(Modifier.align(Alignment.Center).fillMaxWidth()) {
-                            Text(current.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            if (current.author.isNotBlank()) {
-                                Text(
-                                    current.author,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+        PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                item(key = "header") {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        PodcastArt(current.imageUrl, Modifier.size(HEADER_ART_SIZE))
+                        // Titel und Autor mittig zur Bildhöhe, die Knöpfe bündig mit der Unterkante des Bildes.
+                        Box(Modifier.weight(1f).height(HEADER_ART_SIZE).padding(start = 16.dp)) {
+                            Column(Modifier.align(Alignment.Center).fillMaxWidth()) {
+                                Text(current.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                if (current.author.isNotBlank()) {
+                                    Text(
+                                        current.author,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
-                        }
-                        Row(Modifier.align(Alignment.BottomStart).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = onInfo, modifier = Modifier.size(40.dp)) {
-                                Icon(painterResource(DesignR.drawable.ic_info), contentDescription = stringResource(R.string.podcast_info))
-                            }
-                            IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
-                                Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_settings))
+                            Row(Modifier.align(Alignment.BottomStart).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = onInfo, modifier = Modifier.size(40.dp)) {
+                                    Icon(painterResource(DesignR.drawable.ic_info), contentDescription = stringResource(R.string.podcast_info))
+                                }
+                                IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
+                                    Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_settings))
+                                }
                             }
                         }
                     }
                 }
-            }
-            item(key = "episodes-header") { SectionHeader(stringResource(R.string.podcast_episodes)) }
-            if (episodes != null && list.isEmpty()) {
-                item(key = "empty") { EmptyHint(stringResource(R.string.podcast_no_episodes)) }
-            }
-            items(list, key = { it.book.id }) { item ->
-                EpisodeRow(
-                    item,
-                    download = downloadStates[item.book.id] ?: TrackDownload.NONE,
-                    downloadFraction = downloadProgress[item.book.id],
-                    playing = item.book.id == playingId,
-                    onClick = { onEpisodeClick(item.book.id) },
-                    onPlay = { viewModel.playOrPause(item.book.id) },
-                    onDownload = { viewModel.download(item.book.id) },
-                    onRemoveDownload = { viewModel.removeDownload(item.book.id) },
-                )
+                item(key = "episodes-header") { SectionHeader(stringResource(R.string.podcast_episodes)) }
+                if (episodes != null && list.isEmpty()) {
+                    item(key = "empty") { EmptyHint(stringResource(R.string.podcast_no_episodes)) }
+                }
+                items(list, key = { it.book.id }) { item ->
+                    EpisodeRow(
+                        item,
+                        download = downloadStates[item.book.id] ?: TrackDownload.NONE,
+                        downloadFraction = downloadProgress[item.book.id],
+                        playing = item.book.id == playingId,
+                        onClick = { onEpisodeClick(item.book.id) },
+                        onPlay = { viewModel.playOrPause(item.book.id) },
+                        onDownload = { viewModel.download(item.book.id) },
+                        onRemoveDownload = { viewModel.removeDownload(item.book.id) },
+                    )
+                }
             }
         }
     }

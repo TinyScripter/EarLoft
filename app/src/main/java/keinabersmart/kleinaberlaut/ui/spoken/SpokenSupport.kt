@@ -5,6 +5,7 @@ import java.util.Date
 import java.util.Calendar
 import java.text.SimpleDateFormat
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.fromHtml
@@ -64,6 +65,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -88,6 +90,15 @@ class SpokenModeViewModel @Inject constructor(
     fun setMode(mode: SpokenMode) {
         viewModelScope.launch { settings.setMode(mode) }
     }
+
+    /** Läuft gerade ein von Hand angestoßener Abgleich des aktuellen Modus (Musik: nie)? */
+    val refreshing: StateFlow<Boolean> = combine(mode, refresher.refreshing, podcastRefresher.refreshing) { mode, books, podcasts ->
+        when (mode) {
+            SpokenMode.BOOKS -> books
+            SpokenMode.PODCASTS -> podcasts
+            SpokenMode.MUSIC -> false
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun refreshBooks() = refresher.refreshAll()
 
@@ -132,6 +143,7 @@ fun SpokenModeScaffold(
 ) {
     val mode by viewModel.mode.collectAsStateWithLifecycle()
     val searchAll by viewModel.searchAll.collectAsStateWithLifecycle()
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     // Die Statusleiste verbraucht das Banner; die Bildschirme darunter haben keine eigene Leiste mehr.
     Column(modifier.fillMaxSize()) {
         TopAppBar(
@@ -178,7 +190,20 @@ fun SpokenModeScaffold(
                 }
             }
         }
-        Box(Modifier.weight(1f).fillMaxWidth()) { content(mode) }
+        // Herunterziehen gleicht Podcasts bzw. Bücher ab (wie der Knopf oben); Musik und die Suche haben das nicht.
+        val onRefresh = when {
+            searchSwitch -> null
+            mode == SpokenMode.BOOKS -> viewModel::refreshBooks
+            mode == SpokenMode.PODCASTS -> viewModel::refreshPodcasts
+            else -> null
+        }
+        if (onRefresh != null) {
+            PullToRefreshBox(isRefreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
+                content(mode)
+            }
+        } else {
+            Box(Modifier.weight(1f).fillMaxWidth()) { content(mode) }
+        }
     }
 }
 

@@ -617,4 +617,5 @@
     <string name="refresh_failed">Update failed</string>
     <string name="podcast_notify_new">Notify about new episodes</string>
     <string name="podcast_notify_new_summary">Shows a quiet notification when a background update finds new episodes of this podcast.</string>
+    <string name="podcast_refresh_feed">Refresh podcast</string>
 </resources>
