@@ -48,6 +48,9 @@ abstract class PodcastDao {
     @Query("UPDATE podcast_feeds SET newestFirst = :newestFirst WHERE feedId = :feedId")
     abstract suspend fun setNewestFirst(feedId: String, newestFirst: Boolean)
 
+    @Query("UPDATE podcast_feeds SET notifyNew = :enabled WHERE feedId = :feedId")
+    abstract suspend fun setNotifyNew(feedId: String, enabled: Boolean)
+
     @Query("UPDATE podcast_feeds SET continuous = :continuous WHERE feedId = :feedId")
     abstract suspend fun setContinuous(feedId: String, continuous: Boolean)
 

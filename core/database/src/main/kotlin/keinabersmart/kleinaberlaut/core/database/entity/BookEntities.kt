@@ -44,6 +44,8 @@ data class PodcastFeedEntity(
     @ColumnInfo(defaultValue = "0") val newestFirst: Boolean = false,
     /** Nach dem Ende einer Folge startet von selbst die nächste. */
     @ColumnInfo(defaultValue = "1") val continuous: Boolean = true,
+    /** Über neue Folgen dieses Podcasts benachrichtigen, wenn der Abgleich im Hintergrund läuft. */
+    @ColumnInfo(defaultValue = "1") val notifyNew: Boolean = true,
 )
 
 @Entity(

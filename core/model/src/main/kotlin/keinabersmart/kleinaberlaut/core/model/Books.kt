@@ -127,6 +127,8 @@ data class PodcastFeed(
     val newestFirst: Boolean = false,
     /** Nach einer Folge von selbst die nächste spielen. */
     val continuous: Boolean = true,
+    /** Bei neuen Folgen im Hintergrund benachrichtigen. */
+    val notifyNew: Boolean = true,
 ) {
     /** Aus dem Ordner „Podcasts“: keine Feed-Adresse, kein Abgleich, kein Download, kein Abo zu beenden. */
     val isLocal: Boolean get() = id.startsWith(LOCAL_PODCAST_PREFIX)

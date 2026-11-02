@@ -596,4 +596,20 @@
     <string name="settings_resume_hours">%d h</string>
     <string name="settings_chapter_restart">Restart recent chapters</string>
     <string name="settings_chapter_restart_summary">If you stopped within 30 seconds of a chapter\'s start, it begins again from its start.</string>
+    <string name="new_content_channel_name">New episodes and books</string>
+    <string name="new_content_title">New in your library</string>
+    <plurals name="new_content_episodes">
+        <item quantity="one">%1$d new episode</item>
+        <item quantity="other">%1$d new episodes</item>
+    </plurals>
+    <plurals name="new_content_in_podcasts">
+        <item quantity="one">in %1$d podcast</item>
+        <item quantity="other">in %1$d podcasts</item>
+    </plurals>
+    <plurals name="new_content_books">
+        <item quantity="one">%1$d new book</item>
+        <item quantity="other">%1$d new books</item>
+    </plurals>
+    <string name="podcast_notify_new">Notify about new episodes</string>
+    <string name="podcast_notify_new_summary">Shows a quiet notification when a background update finds new episodes of this podcast.</string>
 </resources>

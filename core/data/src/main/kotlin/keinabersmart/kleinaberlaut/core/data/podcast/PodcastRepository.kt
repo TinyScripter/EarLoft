@@ -10,6 +10,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
+import keinabersmart.kleinaberlaut.core.data.refresh.NewEpisodes
 import keinabersmart.kleinaberlaut.core.data.spoken.toModel
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
@@ -53,6 +54,11 @@ data class OpmlImportResult(val added: Int, val skipped: Int, val removed: Int)
 
 /** Ergebnis eines Feed-Abgleichs: `null` bei Fehler, sonst die Folgen, die neu im Feed stehen. */
 data class RefreshResult(val newEpisodeIds: List<Long>)
+
+/** Ergebnis von [PodcastRepository.refreshAll]: `ok`, wenn kein Feed fehlgeschlagen ist, und die Abos mit neuen Folgen. */
+data class PodcastRefreshSummary(val ok: Boolean, val newEpisodes: List<NewEpisodes>) {
+    val newCount: Int get() = newEpisodes.sumOf { it.count }
+}
 
 /** Ein Abo mit einer Auswahl seiner Folgen. */
 data class FeedEpisodes(val feed: PodcastFeed, val episodes: List<BookWithProgress>)
@@ -236,6 +242,8 @@ class PodcastRepository @Inject constructor(
 
     suspend fun setContinuous(feedId: String, continuous: Boolean) = dao.setContinuous(feedId, continuous)
 
+    suspend fun setNotifyNew(feedId: String, enabled: Boolean) = dao.setNotifyNew(feedId, enabled)
+
     /**
      * Die ungehörte Folge, die in der Reihenfolge des Podcasts auf [bookId] folgt und in die Zeile „Weiterhören“
      * eingereiht wird. `null` bei Hörbüchern, wenn das Einreihen für den Podcast aus ist oder nichts Ungehörtes mehr folgt.
@@ -249,8 +257,23 @@ class PodcastRepository @Inject constructor(
     private suspend fun playOrder(feed: PodcastFeedEntity): List<Long> =
         dao.episodeIdsOldestFirst(feed.feedId).let { if (feed.newestFirst) it.asReversed() else it }
 
-    /** Gleicht alle Abos ab; `true`, wenn kein Feed fehlgeschlagen ist. */
-    suspend fun refreshAll(): Boolean = dao.feeds().filter { !it.isLocal }.map { refresh(it.feedId) != null }.all { it }
+    /**
+     * Gleicht alle Abos ab. Die Folgen eines Abos, das zum ersten Mal abgeglichen wird, zählen nicht als neu
+     * (sonst meldete jedes frische Abo seine ganze Folgenliste).
+     */
+    suspend fun refreshAll(): PodcastRefreshSummary {
+        var ok = true
+        val news = mutableListOf<NewEpisodes>()
+        dao.feeds().filter { !it.isLocal }.forEach { feed ->
+            val result = refresh(feed.feedId)
+            if (result == null) {
+                ok = false
+            } else if (feed.lastRefreshAt > 0 && result.newEpisodeIds.isNotEmpty()) {
+                news += NewEpisodes(feed.feedId, feed.title, result.newEpisodeIds.size, feed.notifyNew)
+            }
+        }
+        return PodcastRefreshSummary(ok, news)
+    }
 
     /** Gleicht einen Feed ab. `null`, wenn er nicht erreichbar oder unlesbar ist (die alten Folgen bleiben). */
     suspend fun refresh(feedId: String): RefreshResult? = mutex.withLock {
@@ -378,6 +401,7 @@ private fun PodcastFeedEntity.toModel() = PodcastFeed(
     lastRefreshAt = lastRefreshAt,
     newestFirst = newestFirst,
     continuous = continuous,
+    notifyNew = notifyNew,
 )
 
 /**

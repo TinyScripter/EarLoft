@@ -23,6 +23,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToLong
 
+/** Ergebnis eines Bücher-Abgleichs: `ok`, wenn nichts fehlgeschlagen ist, und die Zahl neuer Bücher. */
+data class BookSyncResult(val ok: Boolean, val newBooks: Int)
+
 /**
  * Gleicht die Bibliothek eines Audiobookshelf-Servers ab (Konzept 12.1/12.3): Bücher anlegen und aktualisieren,
  * Gelöschtes per Mark-and-Sweep entfernen, danach den Fortschritt des Kontos übernehmen und fehlende Kapitel laden.
@@ -37,35 +40,43 @@ class BookSyncer @Inject constructor(
 ) {
     private val syncMutex = Mutex()
 
-    /** `true`, wenn alle Server und der Ordner „Audiobooks“ abgeglichen werden konnten. */
-    suspend fun syncAll(): Boolean {
+    /** `ok`, wenn alle Server und der Ordner „Audiobooks“ abgeglichen werden konnten. */
+    suspend fun syncAll(): BookSyncResult {
         val local = localBooks.sync()
-        return servers.all().map { syncSafely(it) }.all { it } && local
+        val results = servers.all().map { syncSafely(it) }
+        return BookSyncResult(results.all { it.ok } && local, results.sumOf { it.newBooks })
     }
 
-    suspend fun syncSafely(server: AbsServer): Boolean =
+    suspend fun syncSafely(server: AbsServer): BookSyncResult =
         try {
-            sync(server)
-            true
+            BookSyncResult(ok = true, newBooks = sync(server))
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
             Log.w(TAG, "Abgleich mit ${server.baseUrl} fehlgeschlagen", e)
-            false
+            BookSyncResult(ok = false, newBooks = 0)
         }
 
-    private suspend fun sync(server: AbsServer) = syncMutex.withLock {
-        val entity = dao.server(server.serverId) ?: return@withLock
+    /** Gibt die Zahl der Bücher zurück, die es auf dem Server neu gibt (0 beim allerersten Abgleich). */
+    private suspend fun sync(server: AbsServer): Int = syncMutex.withLock {
+        val entity = dao.server(server.serverId) ?: return@withLock 0
         val libraryId = entity.libraryId
             ?: api.libraries(server).firstOrNull { it.mediaType == "book" }?.id
-            ?: return@withLock
+            ?: return@withLock 0
         val generation = entity.syncGeneration + 1
+        val firstSync = entity.lastFullSyncAt == 0L
+        val known = if (firstSync) emptySet() else dao.booksOf(server.serverId).mapTo(HashSet()) { it.remoteId }
+        var fresh = 0
         var page = 0
         while (true) {
             val result = api.libraryItems(server, libraryId, page, PAGE_SIZE)
             result.results
                 .filter { !it.isMissing && !it.isInvalid }
-                .forEach { dao.upsertBook(it.toEntity(server.serverId, generation)) }
+                .forEach {
+                    val entityToStore = it.toEntity(server.serverId, generation)
+                    if (!firstSync && entityToStore.remoteId !in known) fresh++
+                    dao.upsertBook(entityToStore)
+                }
             if (result.results.isEmpty() || (page + 1) * PAGE_SIZE >= result.total) break
             page++
         }
@@ -75,6 +86,7 @@ class BookSyncer @Inject constructor(
         progressSync.pushPending()
         progressSync.pullAll(server)
         loadMissingDetails(server)
+        fresh
     }
 
     /** Kapitel und Dateien aller Bücher, die sie noch nicht haben (wenige gleichzeitig). */

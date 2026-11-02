@@ -592,4 +592,20 @@
     <string name="settings_resume_hours">%d Std.</string>
     <string name="settings_chapter_restart">Neue Kapitel von vorn starten</string>
     <string name="settings_chapter_restart_summary">Wurde die Wiedergabe innerhalb von 30 Sekunden nach dem Kapitelanfang beendet, beginnt das Kapitel wieder von vorn.</string>
+    <string name="new_content_channel_name">Neue Folgen und Bücher</string>
+    <string name="new_content_title">Neu in deiner Bibliothek</string>
+    <plurals name="new_content_episodes">
+        <item quantity="one">%1$d neue Folge</item>
+        <item quantity="other">%1$d neue Folgen</item>
+    </plurals>
+    <plurals name="new_content_in_podcasts">
+        <item quantity="one">in %1$d Podcast</item>
+        <item quantity="other">in %1$d Podcasts</item>
+    </plurals>
+    <plurals name="new_content_books">
+        <item quantity="one">%1$d neues Buch</item>
+        <item quantity="other">%1$d neue Bücher</item>
+    </plurals>
+    <string name="podcast_notify_new">Über neue Folgen benachrichtigen</string>
+    <string name="podcast_notify_new_summary">Zeigt eine leise Benachrichtigung, wenn eine Aktualisierung im Hintergrund neue Folgen dieses Podcasts findet.</string>
 </resources>

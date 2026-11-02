@@ -15,9 +15,17 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
+import keinabersmart.kleinaberlaut.core.data.refresh.NewContent
+import keinabersmart.kleinaberlaut.core.data.refresh.NewContentNotifier
+import keinabersmart.kleinaberlaut.core.data.refresh.RefreshEvent
+import keinabersmart.kleinaberlaut.core.data.refresh.RefreshEvents
+import keinabersmart.kleinaberlaut.core.data.refresh.RefreshKind
 import keinabersmart.kleinaberlaut.core.data.spoken.LocalPodcasts
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -38,9 +46,14 @@ class PodcastRefresher @Inject constructor(
     private val dao: PodcastDao,
     private val settings: PodcastSettings,
     private val localPodcasts: LocalPodcasts,
+    private val events: RefreshEvents,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val started = AtomicBoolean(false)
+    private val _refreshing = MutableStateFlow(false)
+
+    /** `true`, solange ein Abgleich läuft, den der Nutzer angestoßen hat (für Pull-to-refresh). */
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
     fun start() {
         if (!started.compareAndSet(false, true)) return
@@ -53,14 +66,42 @@ class PodcastRefresher @Inject constructor(
             val hours = settings.refreshHours.first()
             if (hours == 0) return@launch
             val stale = System.currentTimeMillis() - hours * HOUR_MS
-            dao.feeds().filter { it.lastRefreshAt < stale }.forEach { repository.refresh(it.feedId) }
+            // Die Folgen eines Abos, das noch nie abgeglichen wurde, sind nicht neu.
+            val fresh = dao.feeds().filter { it.lastRefreshAt < stale }.sumOf { feed ->
+                val added = repository.refresh(feed.feedId)?.newEpisodeIds?.size ?: 0
+                if (feed.lastRefreshAt > 0) added else 0
+            }
+            if (fresh > 0) events.emit(RefreshEvent.Finished(RefreshKind.PODCASTS, fresh, failed = false))
         }
     }
 
+    /** Auf Anforderung: meldet Start und Ende (mit Zahl der neuen Folgen) an die Oberfläche. */
     fun refreshAll() {
         scope.launch {
-            localPodcasts.sync()
-            repository.refreshAll()
+            _refreshing.value = true
+            try {
+                events.emit(RefreshEvent.Started(RefreshKind.PODCASTS))
+                localPodcasts.sync()
+                val summary = repository.refreshAll()
+                events.emit(RefreshEvent.Finished(RefreshKind.PODCASTS, summary.newCount, failed = !summary.ok))
+            } finally {
+                _refreshing.value = false
+            }
+        }
+    }
+
+    /** Auf Anforderung: gleicht nur das Abo [feedId] ab (ein Podcast vom Gerät gleicht seine Dateien ab). */
+    fun refreshFeed(feedId: String) {
+        scope.launch {
+            _refreshing.value = true
+            try {
+                events.emit(RefreshEvent.Started(RefreshKind.PODCASTS))
+                localPodcasts.sync()
+                val result = repository.refresh(feedId)
+                events.emit(RefreshEvent.Finished(RefreshKind.PODCASTS, result?.newEpisodeIds?.size ?: 0, failed = result == null))
+            } finally {
+                _refreshing.value = false
+            }
         }
     }
 
@@ -92,13 +133,18 @@ class PodcastRefreshWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val repository = EntryPointAccessors.fromApplication(applicationContext, RefreshEntryPoint::class.java).repository()
-        return if (repository.refreshAll()) Result.success() else Result.retry()
+        val entryPoint = EntryPointAccessors.fromApplication(applicationContext, RefreshEntryPoint::class.java)
+        val summary = entryPoint.repository().refreshAll()
+        // Podcasts, für die der Nutzer keine Hinweise will, fehlen hier.
+        val content = NewContent(episodes = summary.newEpisodes.filter { it.notify })
+        if (!content.isEmpty) entryPoint.notifier().show(content)
+        return if (summary.ok) Result.success() else Result.retry()
     }
 
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     internal interface RefreshEntryPoint {
         fun repository(): PodcastRepository
+        fun notifier(): NewContentNotifier
     }
 }

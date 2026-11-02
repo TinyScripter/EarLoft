@@ -78,7 +78,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
         ServerStatsCacheEntity::class,
         AbsSessionEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = KleinaberlautDatabase.AddSearchIndex::class),
@@ -92,6 +92,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11),
         AutoMigration(from = 11, to = 12),
+        AutoMigration(from = 12, to = 13),
     ],
 )
 abstract class KleinaberlautDatabase : RoomDatabase() {

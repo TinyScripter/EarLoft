@@ -205,6 +205,35 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `refreshing all reports new episodes per feed and respects the notification switch`() = runTest {
+        val feedId = subscribe()
+        served = feed("D" to "Fri, 31 Oct 2025 06:00:00 GMT", "A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+
+        val summary = repository.refreshAll()
+
+        assertTrue(summary.ok)
+        assertEquals(1, summary.newCount)
+        val news = summary.newEpisodes.single()
+        assertEquals(feedId, news.feedId)
+        assertTrue(news.notify)
+
+        repository.setNotifyNew(feedId, false)
+        served = feed("E" to "Sat, 01 Nov 2025 06:00:00 GMT", "D" to "Fri, 31 Oct 2025 06:00:00 GMT")
+        assertEquals(false, repository.refreshAll().newEpisodes.single().notify)
+    }
+
+    @Test
+    fun `refreshing all reports a failure and counts nothing for an unreachable feed`() = runTest {
+        subscribe()
+        served = null
+
+        val summary = repository.refreshAll()
+
+        assertEquals(false, summary.ok)
+        assertEquals(0, summary.newCount)
+    }
+
+    @Test
     fun `an episode keeps its id and first-seen date across refreshes`() = runTest {
         served = feed("A" to "")
         val feedId = subscribe()

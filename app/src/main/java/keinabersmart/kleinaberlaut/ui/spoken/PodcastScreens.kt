@@ -537,6 +537,10 @@ class PodcastFeedViewModel @AssistedInject constructor(
         viewModelScope.launch { podcasts.setContinuous(feedId, enabled) }
     }
 
+    fun setNotifyNew(enabled: Boolean) {
+        viewModelScope.launch { podcasts.setNotifyNew(feedId, enabled) }
+    }
+
     fun unsubscribe() {
         viewModelScope.launch { podcasts.unsubscribe(feedId) }
     }
@@ -832,6 +836,15 @@ fun PodcastSettingsScreen(
                     icon = DesignR.drawable.ic_download,
                     checked = current.autoDownload,
                     onCheckedChange = viewModel::setAutoDownload,
+                )
+            }
+            if (!current.isLocal) item(key = "notify-new") {
+                SwitchRow(
+                    title = stringResource(R.string.podcast_notify_new),
+                    summary = stringResource(R.string.podcast_notify_new_summary),
+                    icon = DesignR.drawable.ic_notifications,
+                    checked = current.notifyNew,
+                    onCheckedChange = viewModel::setNotifyNew,
                 )
             }
             if (downloadStates.values.any { it == TrackDownload.DONE }) {
