@@ -134,6 +134,8 @@
     <string name="settings_refresh_audiobooks">Hörbücher jetzt abgleichen</string>
     <string name="settings_refresh_podcasts">Podcasts jetzt aktualisieren</string>
     <string name="settings_theme">App-Darstellung</string>
+    <string name="settings_always_navigation_bar">Navigationsleiste immer anzeigen</string>
+    <string name="settings_always_navigation_bar_summary">Betrifft nur die Wiedergabefenster. Aus blendet die Leiste dort aus.</string>
     <string name="theme_system">Systemeinstellung folgen</string>
     <string name="theme_light">Hell</string>
     <string name="theme_dark">Dunkel</string>

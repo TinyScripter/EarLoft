@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
             // Bis die Einstellungen gelesen sind (wenige Millisekunden): nichts zeichnen statt kurz falsch.
             val mode = themeMode ?: return@setContent
             val localMedia = useLocalMedia ?: return@setContent
+            val alwaysNavigationBar by themeSettings.alwaysShowNavigationBar.collectAsStateWithLifecycle(initialValue = true)
 
             val darkTheme = when (mode) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -83,7 +84,11 @@ class MainActivity : ComponentActivity() {
                     onGranted = libraryRefresher::refreshNow,
                     onSkip = { lifecycleScope.launch { librarySettings.setUseLocalMedia(false) } },
                 ) {
-                    KleinaberlautApp(openNowPlaying = openNowPlaying, onNowPlayingOpened = { openNowPlaying = false })
+                    KleinaberlautApp(
+                        openNowPlaying = openNowPlaying,
+                        onNowPlayingOpened = { openNowPlaying = false },
+                        alwaysShowNavigationBar = alwaysNavigationBar,
+                    )
                 }
             }
         }

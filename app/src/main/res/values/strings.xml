@@ -135,6 +135,8 @@
     <string name="settings_refresh_audiobooks">Sync audiobooks now</string>
     <string name="settings_refresh_podcasts">Refresh podcasts now</string>
     <string name="settings_theme">App appearance</string>
+    <string name="settings_always_navigation_bar">Always show navigation bar</string>
+    <string name="settings_always_navigation_bar_summary">Only affects the playback screens. Off hides the bar there.</string>
     <string name="theme_system">Follow system setting</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>

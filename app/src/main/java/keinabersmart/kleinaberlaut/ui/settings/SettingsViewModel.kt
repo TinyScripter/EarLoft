@@ -45,6 +45,7 @@ data class ServerItem(
 
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val alwaysShowNavigationBar: Boolean = true,
     val useLocalMedia: Boolean = true,
     val useLocalBooks: Boolean = true,
     val useLocalPodcasts: Boolean = true,
@@ -155,6 +156,8 @@ class SettingsViewModel @Inject constructor(
         )
     }.combine(artworkSettings.authorImages) { state, authors ->
         state.copy(authorImages = authors)
+    }.combine(themeSettings.alwaysShowNavigationBar) { state, always ->
+        state.copy(alwaysShowNavigationBar = always)
     }.combine(combine(spokenSettings.useLocalBooks, spokenSettings.useLocalPodcasts, ::Pair)) { state, (books, podcasts) ->
         state.copy(useLocalBooks = books, useLocalPodcasts = podcasts)
     }.combine(audiobookServers.servers) { state, list ->
@@ -217,6 +220,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { themeSettings.setMode(mode) }
+    }
+
+    fun setAlwaysShowNavigationBar(enabled: Boolean) {
+        viewModelScope.launch { themeSettings.setAlwaysShowNavigationBar(enabled) }
     }
 
     /** Einlesen bzw. Entfernen der lokalen Songs übernimmt der [LibraryRefresher]. */

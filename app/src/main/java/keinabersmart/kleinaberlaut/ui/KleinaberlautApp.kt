@@ -124,6 +124,7 @@ import keinabersmart.kleinaberlaut.ui.spoken.rememberBookDownloads
 fun KleinaberlautApp(
     openNowPlaying: Boolean = false,
     onNowPlayingOpened: () -> Unit = {},
+    alwaysShowNavigationBar: Boolean = true,
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
     val navigationState = rememberNavigationState(
@@ -311,10 +312,12 @@ fun KleinaberlautApp(
         }
     }
 
-    val showChrome = !navigator.currentRoute.isFullScreenPlayer
+    // Navigationsleiste (unten bzw. als Rail links) bleibt auf Wunsch auch im Player sichtbar; der Mini-Player entfällt dort immer.
+    val showMiniPlayer = !navigator.currentRoute.isFullScreenPlayer
+    val showNavigation = alwaysShowNavigationBar || showMiniPlayer
     val navigationSuiteState = rememberNavigationSuiteScaffoldState()
-    LaunchedEffect(showChrome) {
-        if (showChrome) navigationSuiteState.show() else navigationSuiteState.hide()
+    LaunchedEffect(showNavigation) {
+        if (showNavigation) navigationSuiteState.show() else navigationSuiteState.hide()
     }
 
     SyncNoticeEffect()
@@ -343,7 +346,7 @@ fun KleinaberlautApp(
         ) {
             // Mit Bottom-Bar ist der untere Rand schon verbraucht; mit Rail hält dies Listen und Mini-Player
             // von der Gestenleiste fern.
-            val bottomInsets = if (showChrome) WindowInsets.navigationBars.only(WindowInsetsSides.Bottom) else WindowInsets(0)
+            val bottomInsets = if (showNavigation) WindowInsets.navigationBars.only(WindowInsetsSides.Bottom) else WindowInsets(0)
             Column(Modifier.windowInsetsPadding(bottomInsets)) {
                 NavDisplay(
                     entries = navigationState.toDecoratedEntries(entryProvider),
@@ -354,7 +357,7 @@ fun KleinaberlautApp(
                     predictivePopTransitionSpec = { predictiveBack() },
                     modifier = Modifier.weight(1f),
                 )
-                if (showChrome && playerState.spoken != null) {
+                if (showMiniPlayer && playerState.spoken != null) {
                     val bookPlayer: BookPlayerViewModel = hiltViewModel()
                     val bookSeedColor by bookPlayer.seedColor.collectAsStateWithLifecycle()
                     AlbumColorTheme(bookSeedColor) {
@@ -367,7 +370,7 @@ fun KleinaberlautApp(
                             onSkipForward = bookPlayer::skipForward,
                         )
                     }
-                } else if (showChrome && playerState.hasMedia) {
+                } else if (showMiniPlayer && playerState.hasMedia) {
                     val seedColor by playerViewModel.seedColor.collectAsStateWithLifecycle()
                     AlbumColorTheme(seedColor) {
                         MiniPlayer(

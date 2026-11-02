@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.ui.theme
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -30,7 +31,15 @@ class ThemeSettings @Inject constructor(
         context.themeSettingsDataStore.edit { it[KEY_MODE] = mode.name }
     }
 
+    /** Navigationsleiste auch in den Wiedergabefenstern zeigen. Standard: ja. */
+    val alwaysShowNavigationBar: Flow<Boolean> = context.themeSettingsDataStore.data.map { it[KEY_ALWAYS_NAV] ?: true }
+
+    suspend fun setAlwaysShowNavigationBar(enabled: Boolean) {
+        context.themeSettingsDataStore.edit { it[KEY_ALWAYS_NAV] = enabled }
+    }
+
     private companion object {
         val KEY_MODE = stringPreferencesKey("mode")
+        val KEY_ALWAYS_NAV = booleanPreferencesKey("always_show_navigation_bar")
     }
 }

@@ -68,6 +68,16 @@ fun GeneralSettingsScreen(
             )
         }
 
+        item(key = "always-nav") {
+            SwitchRow(
+                title = stringResource(R.string.settings_always_navigation_bar),
+                summary = stringResource(R.string.settings_always_navigation_bar_summary),
+                icon = R.drawable.ic_nav_home,
+                checked = state.alwaysShowNavigationBar,
+                onCheckedChange = viewModel::setAlwaysShowNavigationBar,
+            )
+        }
+
         item(key = "downloads") { SectionHeader(stringResource(R.string.nav_downloads)) }
         item(key = "wifi-only") {
             SwitchRow(
