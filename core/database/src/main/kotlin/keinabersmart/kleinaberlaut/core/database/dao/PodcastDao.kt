@@ -74,7 +74,15 @@ abstract class PodcastDao {
         deleteFeedRow(feedId)
     }
 
-    @Query("SELECT * FROM books WHERE kind = 'EPISODE' ORDER BY addedAt DESC")
+    /**
+     * Alle Folgen, neueste zuerst, **ohne Beschreibung** (leer): Die Listen „Ungehört“ und „Weiterhören“ brauchen sie nicht,
+     * und bei über tausend Folgen sind die Texte mehrere MB, die bei jeder Änderung mehrfach neu geladen würden (OOM).
+     */
+    @Query(
+        "SELECT bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, '' AS description, durationMs, " +
+            "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration, coverUrl, chaptersUrl " +
+            "FROM books WHERE kind = 'EPISODE' ORDER BY addedAt DESC",
+    )
     abstract fun observeEpisodes(): Flow<List<BookEntity>>
 
     @Query("SELECT * FROM books WHERE kind = 'EPISODE' AND serverId = :feedId ORDER BY addedAt DESC")
