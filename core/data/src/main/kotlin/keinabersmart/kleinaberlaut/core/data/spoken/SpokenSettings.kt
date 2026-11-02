@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -52,7 +53,43 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_LOCAL_PODCASTS] = enabled }
     }
 
+    /** Zurückspulen beim Fortsetzen von Büchern. */
+    val bookResume: Flow<ResumeRule> = context.spokenSettingsDataStore.data.map {
+        ResumeRule(it[KEY_BOOK_REWIND_AFTER] ?: ResumeRule.DEFAULT_AFTER_S, it[KEY_BOOK_REWIND] ?: ResumeRule.DEFAULT_REWIND_S)
+    }
+
+    suspend fun setBookResume(rule: ResumeRule) {
+        context.spokenSettingsDataStore.edit {
+            it[KEY_BOOK_REWIND_AFTER] = rule.afterSeconds
+            it[KEY_BOOK_REWIND] = rule.rewindSeconds
+        }
+    }
+
+    /** Zurückspulen beim Fortsetzen von Podcast-Folgen. */
+    val podcastResume: Flow<ResumeRule> = context.spokenSettingsDataStore.data.map {
+        ResumeRule(it[KEY_PODCAST_REWIND_AFTER] ?: ResumeRule.DEFAULT_AFTER_S, it[KEY_PODCAST_REWIND] ?: ResumeRule.DEFAULT_REWIND_S)
+    }
+
+    suspend fun setPodcastResume(rule: ResumeRule) {
+        context.spokenSettingsDataStore.edit {
+            it[KEY_PODCAST_REWIND_AFTER] = rule.afterSeconds
+            it[KEY_PODCAST_REWIND] = rule.rewindSeconds
+        }
+    }
+
+    /** Ein Buch, das kurz nach einem Kapitelanfang beendet wurde, beginnt das Kapitel von vorn (Standard: aus). */
+    val restartChapter: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_CHAPTER_RESTART] ?: false }
+
+    suspend fun setRestartChapter(enabled: Boolean) {
+        context.spokenSettingsDataStore.edit { it[KEY_CHAPTER_RESTART] = enabled }
+    }
+
     private companion object {
+        val KEY_BOOK_REWIND_AFTER = intPreferencesKey("book_rewind_after_s")
+        val KEY_BOOK_REWIND = intPreferencesKey("book_rewind_s")
+        val KEY_PODCAST_REWIND_AFTER = intPreferencesKey("podcast_rewind_after_s")
+        val KEY_PODCAST_REWIND = intPreferencesKey("podcast_rewind_s")
+        val KEY_CHAPTER_RESTART = booleanPreferencesKey("book_chapter_restart")
         val KEY_LOCAL_PODCASTS = booleanPreferencesKey("local_podcasts")
         val KEY_LOCAL_BOOKS = booleanPreferencesKey("local_books")
         val KEY_MODE = stringPreferencesKey("mode")

@@ -505,4 +505,12 @@
         <item quantity="one">After %d day</item>
         <item quantity="other">After %d days</item>
     </plurals>
+    <string name="settings_resume_after">Rewind after a pause of</string>
+    <string name="settings_resume_rewind">Rewind by</string>
+    <string name="settings_resume_rewind_off">Off</string>
+    <string name="settings_resume_seconds">%d s</string>
+    <string name="settings_resume_minutes">%d min</string>
+    <string name="settings_resume_hours">%d h</string>
+    <string name="settings_chapter_restart">Restart recent chapters</string>
+    <string name="settings_chapter_restart_summary">If you stopped within 30 seconds of a chapter\'s start, it begins again from its start.</string>
 </resources>

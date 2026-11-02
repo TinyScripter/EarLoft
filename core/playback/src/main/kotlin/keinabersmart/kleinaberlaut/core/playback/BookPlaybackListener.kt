@@ -9,6 +9,10 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import keinabersmart.kleinaberlaut.core.data.spoken.BookProgressSync
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
+import keinabersmart.kleinaberlaut.core.data.spoken.ResumeRule
+import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
+import keinabersmart.kleinaberlaut.core.data.spoken.resumePosition
+import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -24,6 +28,7 @@ internal class BookPlaybackListener(
     private val player: Player,
     private val books: BookRepository,
     private val progressSync: BookProgressSync,
+    settings: SpokenSettings,
     private val scope: CoroutineScope,
     /** Eine Podcast-Folge ist bis zum Ende gelaufen und der Player wartet (Parameter: Buch-ID der Folge). */
     private val onEpisodeEnded: (Long) -> Unit,
@@ -32,6 +37,21 @@ internal class BookPlaybackListener(
     private var timelineBookId: Long? = null
     private var timeline: BookTimeline? = null
     private var loop: Job? = null
+
+    // Einstellungen zum Fortsetzen; mitgeführt, damit das Zurückspulen beim Drücken von Play ohne Verzögerung greift.
+    private var bookRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S)
+    private var podcastRule = bookRule
+    private var restartChapter = false
+
+    /** Wann und in welchem Buch der Nutzer die Wiedergabe zuletzt angehalten hat. */
+    private var pausedBookId: Long? = null
+    private var pausedAt = 0L
+
+    init {
+        scope.launch { settings.bookResume.collect { bookRule = it } }
+        scope.launch { settings.podcastResume.collect { podcastRule = it } }
+        scope.launch { settings.restartChapter.collect { restartChapter = it } }
+    }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         val bookId = mediaItem?.bookId
@@ -43,6 +63,8 @@ internal class BookPlaybackListener(
         // Innerhalb eines Buchs (nächste Datei) bleibt alles; bei einem anderen Buch gilt dessen Geschwindigkeit.
         if (timelineBookId == bookId) return
         timelineBookId = bookId
+        // Ein frisch geladenes Buch hat seine Startposition schon aus dem gespeicherten Stand bekommen.
+        pausedBookId = null
         timeline = null
         scope.launch {
             timeline = books.timeline(bookId)
@@ -50,6 +72,36 @@ internal class BookPlaybackListener(
                 if (speed != player.playbackParameters.speed && player.currentMediaItem?.bookId == bookId) player.setPlaybackSpeed(speed)
             }
         }
+    }
+
+    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        val item = player.currentMediaItem
+        val bookId = item?.bookId ?: return
+        if (!playWhenReady) {
+            pausedBookId = bookId
+            pausedAt = System.currentTimeMillis()
+        } else if (pausedBookId == bookId) {
+            pausedBookId = null
+            rewindAfterPause(item, bookId)
+        }
+    }
+
+    /** Wiedergabe nach einer Pause im selben Buch: nach langer Pause ein Stück zurück, ggf. an den Kapitelanfang. */
+    private fun rewindAfterPause(item: MediaItem, bookId: Long) {
+        val timeline = timeline.takeIf { timelineBookId == bookId } ?: return
+        val episode = item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE
+        val current = timeline.toBookPosition(item.bookTrackIndex ?: 0, player.currentPosition)
+        val target = resumePosition(
+            progress = BookProgress(current, timeline.durationMs, finished = false, updatedAt = pausedAt),
+            nowMs = System.currentTimeMillis(),
+            rule = if (episode) podcastRule else bookRule,
+            chapters = if (episode) emptyList() else timeline.chapters,
+            restartChapter = !episode && restartChapter,
+        )
+        if (target == current) return
+        val located = timeline.locate(target)
+        val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).bookTrackIndex == located.trackIndex } ?: return
+        player.seekTo(index, located.offsetMs)
     }
 
     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {

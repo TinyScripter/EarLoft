@@ -27,7 +27,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +41,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.core.data.spoken.ResumeRule
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
@@ -282,3 +285,57 @@ internal val ReplayGainMode.label: Int
         ReplayGainMode.ALBUM -> R.string.replay_gain_album
         ReplayGainMode.AUTO -> R.string.replay_gain_auto
     }
+
+/** „30 s“, „5 min“, „1 h“ – für Pausen- und Rückspulzeiten. */
+@Composable
+internal fun resumeSecondsLabel(seconds: Int): String = when {
+    seconds == 0 -> stringResource(R.string.settings_resume_rewind_off)
+    seconds % 3600 == 0 -> stringResource(R.string.settings_resume_hours, seconds / 3600)
+    seconds % 60 == 0 -> stringResource(R.string.settings_resume_minutes, seconds / 60)
+    else -> stringResource(R.string.settings_resume_seconds, seconds)
+}
+
+/** Die zwei Zeilen „Zurückspulen nach Pause von …“ und „Zurückspulen um …“ samt Auswahldialogen. */
+@Composable
+internal fun ResumeRows(rule: ResumeRule, icon: Int, keyPrefix: String, onChange: (ResumeRule) -> Unit) {
+    var choosingAfter by rememberSaveable(keyPrefix) { mutableStateOf(false) }
+    var choosingRewind by rememberSaveable(keyPrefix) { mutableStateOf(false) }
+    ClickRow(
+        title = stringResource(R.string.settings_resume_after),
+        value = resumeSecondsLabel(rule.afterSeconds),
+        icon = icon,
+        onClick = { choosingAfter = true },
+    )
+    ClickRow(
+        title = stringResource(R.string.settings_resume_rewind),
+        value = resumeSecondsLabel(rule.rewindSeconds),
+        icon = icon,
+        onClick = { choosingRewind = true },
+    )
+    if (choosingAfter) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_resume_after),
+            options = (ResumeRule.AFTER_CHOICES + rule.afterSeconds).distinct().sorted(),
+            selected = rule.afterSeconds,
+            label = { resumeSecondsLabel(it) },
+            onSelect = {
+                onChange(rule.copy(afterSeconds = it))
+                choosingAfter = false
+            },
+            onDismiss = { choosingAfter = false },
+        )
+    }
+    if (choosingRewind) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_resume_rewind),
+            options = (ResumeRule.REWIND_CHOICES + rule.rewindSeconds).distinct().sorted(),
+            selected = rule.rewindSeconds,
+            label = { resumeSecondsLabel(it) },
+            onSelect = {
+                onChange(rule.copy(rewindSeconds = it))
+                choosingRewind = false
+            },
+            onDismiss = { choosingRewind = false },
+        )
+    }
+}

@@ -39,6 +39,7 @@ import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.data.spoken.BookPlaybackSource
 import keinabersmart.kleinaberlaut.core.data.spoken.BookProgressSync
+import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
@@ -81,6 +82,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var sleepTimer: SleepTimer
     @Inject lateinit var bookRepository: BookRepository
     @Inject lateinit var bookProgressSync: BookProgressSync
+    @Inject lateinit var spokenSettings: SpokenSettings
     @Inject lateinit var bookPlaybackSource: BookPlaybackSource
     @Inject lateinit var continueListening: ContinueListening
     @Inject lateinit var bookCovers: BookCovers
@@ -153,7 +155,7 @@ class PlaybackService : MediaLibraryService() {
         playTracker = PlayTracker(player, playbackStateRepository, ioScope)
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
-        bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, mainScope) { endedId ->
+        bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, spokenSettings, mainScope) { endedId ->
             continueWithNextEpisode(player, endedId)
         }
         player.addListener(bookListener)

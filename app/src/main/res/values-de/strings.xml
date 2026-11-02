@@ -501,4 +501,12 @@
         <item quantity="one">Nach %d Tag</item>
         <item quantity="other">Nach %d Tagen</item>
     </plurals>
+    <string name="settings_resume_after">Zurückspulen nach einer Pause von</string>
+    <string name="settings_resume_rewind">Zurückspulen um</string>
+    <string name="settings_resume_rewind_off">Aus</string>
+    <string name="settings_resume_seconds">%d s</string>
+    <string name="settings_resume_minutes">%d min</string>
+    <string name="settings_resume_hours">%d Std.</string>
+    <string name="settings_chapter_restart">Neue Kapitel von vorn starten</string>
+    <string name="settings_chapter_restart_summary">Wurde die Wiedergabe innerhalb von 30 Sekunden nach dem Kapitelanfang beendet, beginnt das Kapitel wieder von vorn.</string>
 </resources>

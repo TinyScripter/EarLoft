@@ -8,6 +8,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -322,6 +323,11 @@ fun PodcastsSettingsScreen(
                 onCheckedChange = viewModel::setPodcastAutoPlayNext,
             )
         }
+        item(key = "podcast-resume") {
+            Column {
+                ResumeRows(state.podcastResume, DesignR.drawable.ic_playlist_play, "podcast", viewModel::setPodcastResume)
+            }
+        }
 
         item(key = "downloads") { SectionHeader(stringResource(R.string.nav_downloads)) }
         item(key = "podcast-mobile") {
@@ -425,6 +431,22 @@ fun AudiobookSettingsScreen(
             )
         }
         item(key = "audiobookshelf") { AudiobookshelfSection(onAdd = onAddServer, onEdit = onEditServer) }
+
+        item(key = "playback") { SectionHeader(stringResource(R.string.settings_playback)) }
+        item(key = "book-resume") {
+            Column {
+                ResumeRows(state.bookResume, DesignR.drawable.ic_book, "book", viewModel::setBookResume)
+            }
+        }
+        item(key = "chapter-restart") {
+            SwitchRow(
+                title = stringResource(R.string.settings_chapter_restart),
+                summary = stringResource(R.string.settings_chapter_restart_summary),
+                icon = DesignR.drawable.ic_book,
+                checked = state.restartChapter,
+                onCheckedChange = viewModel::setRestartChapter,
+            )
+        }
 
         item(key = "refresh") { SectionHeader(stringResource(R.string.settings_section_refresh)) }
         item(key = "refresh-audiobooks") { RefreshRow(stringResource(R.string.settings_refresh_audiobooks), viewModel::refreshAudiobooks) }

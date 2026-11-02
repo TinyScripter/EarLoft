@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
 import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
 import keinabersmart.kleinaberlaut.core.data.spoken.AuthorImages
+import keinabersmart.kleinaberlaut.core.data.spoken.ResumeRule
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
@@ -65,6 +66,9 @@ data class SettingsUiState(
     val podcastDeleteHeardDays: Int = PodcastSettings.DEFAULT_DELETE_HEARD_DAYS,
     val podcastAutoDownloadCount: Int = PodcastSettings.DEFAULT_AUTO_DOWNLOAD_COUNT,
     val podcastAutoPlayNext: Boolean = true,
+    val bookResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
+    val podcastResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
+    val restartChapter: Boolean = false,
 )
 
 private data class GeneralSettings(
@@ -167,6 +171,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(podcastAutoDownloadCount = count)
     }.combine(podcastSettings.autoPlayNext) { state, autoPlay ->
         state.copy(podcastAutoPlayNext = autoPlay)
+    }.combine(combine(spokenSettings.bookResume, spokenSettings.podcastResume, spokenSettings.restartChapter, ::Triple)) { state, (book, podcast, chapter) ->
+        state.copy(bookResume = book, podcastResume = podcast, restartChapter = chapter)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     /** Die Planung des periodischen Auftrags folgt der Einstellung (PodcastRefresher). */
@@ -186,6 +192,18 @@ class SettingsViewModel @Inject constructor(
 
     fun setPodcastAutoPlayNext(enabled: Boolean) {
         viewModelScope.launch { podcastSettings.setAutoPlayNext(enabled) }
+    }
+
+    fun setBookResume(rule: ResumeRule) {
+        viewModelScope.launch { spokenSettings.setBookResume(rule) }
+    }
+
+    fun setPodcastResume(rule: ResumeRule) {
+        viewModelScope.launch { spokenSettings.setPodcastResume(rule) }
+    }
+
+    fun setRestartChapter(enabled: Boolean) {
+        viewModelScope.launch { spokenSettings.setRestartChapter(enabled) }
     }
 
     fun setPodcastMobileData(enabled: Boolean) {

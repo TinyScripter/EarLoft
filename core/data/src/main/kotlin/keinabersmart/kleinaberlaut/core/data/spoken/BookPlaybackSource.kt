@@ -5,9 +5,9 @@ import keinabersmart.kleinaberlaut.core.data.podcast.EpisodeQueue
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.model.Book
 import keinabersmart.kleinaberlaut.core.model.BookKind
-import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
+import kotlinx.coroutines.flow.first
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -41,6 +41,7 @@ class BookPlaybackSource @Inject constructor(
     private val progressSync: BookProgressSync,
     private val podcasts: PodcastRepository,
     private val queue: EpisodeQueue,
+    private val settings: SpokenSettings,
 ) {
     /**
      * Gleicht den Fortschritt mit dem Server ab (ohne Verbindung gilt der lokale Stand) und baut die Medien-URLs.
@@ -66,7 +67,13 @@ class BookPlaybackSource @Inject constructor(
             if (server == null) track.remoteFileId else api.fileUrl(server, book.remoteId, track.remoteFileId).toString()
         }
         val progress = pulled.progress
-        val startPositionMs = progress.startPosition()
+        val startPositionMs = resumePosition(
+            progress = progress,
+            nowMs = System.currentTimeMillis(),
+            rule = (if (episode) settings.podcastResume else settings.bookResume).first(),
+            chapters = if (episode) emptyList() else timeline.chapters,
+            restartChapter = !episode && settings.restartChapter.first(),
+        )
         val speed = progress?.speed ?: 1f
         // Nach dem Abgleich: Das Buch steht ab jetzt ganz vorn in „Weiterhören“ (Folgen haben ihre eigene Zeile).
         if (!episode) {
@@ -86,17 +93,7 @@ class BookPlaybackSource @Inject constructor(
         )
     }
 
-    /** Ein beendetes Buch beginnt von vorn; sonst geht es kurz vor der letzten Stelle weiter. */
-    private fun BookProgress?.startPosition(): Long = when {
-        this == null || finished -> 0L
-        System.currentTimeMillis() - updatedAt > REWIND_AFTER_MS -> (positionMs - REWIND_MS).coerceAtLeast(0)
-        else -> positionMs
-    }
-
     private companion object {
-        /** Nach längerer Pause ein Stück zurück, damit man wieder hineinfindet. */
-        const val REWIND_AFTER_MS = 5 * 60 * 1000L
-        const val REWIND_MS = 2_000L
         const val CAST_COVER_PX = 512
     }
 }
