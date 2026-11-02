@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -63,7 +64,7 @@ class PlayerViewModel @Inject constructor(
             if (songId == null) flowOf<Lyrics?>(null) else flow<Lyrics?> {
                 emit(null)
                 emit(lyricsRepository.lyrics(songId))
-            }
+            }.catch { emit(Lyrics.Unavailable) }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

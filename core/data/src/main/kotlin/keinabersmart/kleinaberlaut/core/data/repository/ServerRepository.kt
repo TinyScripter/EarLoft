@@ -101,7 +101,7 @@ class ServerRepository @Inject constructor(
         val result = testConnection(url, username, password)
         if (result !is ConnectionResult.Success) return result
 
-        val baseUrl = SubsonicServer.normalizeBaseUrl(url)!!
+        val baseUrl = SubsonicServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
         val sourceId = UUID.randomUUID().toString()
         val server = SubsonicServer(sourceId, baseUrl, SubsonicCredentials.Password(username, password))
 
@@ -141,7 +141,7 @@ class ServerRepository @Inject constructor(
         val result = testConnection(url, username, password)
         if (result !is ConnectionResult.Success) return result
 
-        val baseUrl = SubsonicServer.normalizeBaseUrl(url)!!
+        val baseUrl = SubsonicServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
         val server = SubsonicServer(sourceId, baseUrl, SubsonicCredentials.Password(username, password))
         if (newPassword != null) secretStore.put(DataSourceRegistry.passwordKey(sourceId), newPassword)
         // Sync-Generation und Zeitpunkt bleiben, sonst hielte der Mark-and-Sweep alles für neu.
