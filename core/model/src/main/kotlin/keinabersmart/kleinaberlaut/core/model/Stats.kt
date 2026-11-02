@@ -1,6 +1,9 @@
 package keinabersmart.kleinaberlaut.core.model
 
-/** Gehörte Zeit eines Podcasts. [feedId] ist `null`, wenn er nicht (mehr) abonniert ist. */
+/**
+ * Gehörte Zeit eines Podcasts. [feedId] ist `null`, wenn er nicht (mehr) abonniert ist. [episodes] ist 0, wenn die Zahl
+ * nicht bekannt ist (Jahresansicht).
+ */
 data class PodcastListening(
     val key: String,
     val title: String,
@@ -12,13 +15,19 @@ data class PodcastListening(
 /** Gehörte Zeit in einem Kalendermonat (nur was die App selbst gezählt hat). */
 data class MonthListening(val year: Int, val month: Int, val listenedMs: Long)
 
-/** Statistik der Podcasts. [months] sind die letzten zwölf Monate, der aktuelle zuletzt. */
+/**
+ * Statistik der Podcasts. [year] ist `null` für „Gesamt“ (dann sind [months] die letzten zwölf Monate, der aktuelle
+ * zuletzt), sonst das gewählte Jahr (dann sind [months] Januar bis Dezember und nur selbst gezählte Zeit ist enthalten).
+ * [years] sind die wählbaren Jahre, das neueste zuerst.
+ */
 data class PodcastStats(
     val totalMs: Long,
     val finishedEpisodes: Int,
     val subscriptions: Int,
     val podcasts: List<PodcastListening>,
     val months: List<MonthListening>,
+    val years: List<Int> = emptyList(),
+    val year: Int? = null,
 ) {
     /** Ob der Verlauf überhaupt Zahlen hat (sonst zeigt die Oberfläche kein Diagramm). */
     val hasHistory: Boolean get() = months.any { it.listenedMs > 0 }
@@ -30,19 +39,22 @@ data class BookListening(val key: String, val title: String, val listenedMs: Lon
 /** Gehörte Zeit an einem Wochentag; [dayOfWeek] zählt von 1 (Montag) bis 7 (Sonntag). */
 data class WeekdayListening(val dayOfWeek: Int, val listenedMs: Long)
 
-/** Was die App selbst von Hörbüchern gezählt hat. [months] wie bei [PodcastStats]. */
+/** Was die App selbst von Hörbüchern gezählt hat. [months], [years] und [year] wie bei [PodcastStats]; in einem Jahr ist [books] leer. */
 data class DeviceBookStats(
     val totalMs: Long,
     val finishedBooks: Int,
     val books: List<BookListening>,
     val months: List<MonthListening>,
+    val years: List<Int> = emptyList(),
+    val year: Int? = null,
 ) {
     val hasHistory: Boolean get() = months.any { it.listenedMs > 0 }
 }
 
 /**
  * Die Hörzeit des Kontos, wie Audiobookshelf sie aus den Sitzungen aller Geräte zählt. [fetchedAt] ist der Zeitpunkt des
- * Abrufs (Unix-ms); [streakDays] sind die Tage in Folge bis heute (oder gestern), an denen gehört wurde.
+ * Abrufs (Unix-ms); [streakDays] sind die Tage in Folge bis heute (oder gestern), an denen gehört wurde. [months], [years]
+ * und [year] wie bei [PodcastStats]; in einem Jahr ist [books] leer und [weekdays] aus den Tagen dieses Jahres.
  */
 data class ServerBookStats(
     val totalMs: Long,
@@ -52,6 +64,8 @@ data class ServerBookStats(
     val months: List<MonthListening>,
     val weekdays: List<WeekdayListening>,
     val fetchedAt: Long,
+    val years: List<Int> = emptyList(),
+    val year: Int? = null,
 ) {
     val hasHistory: Boolean get() = months.any { it.listenedMs > 0 }
 }

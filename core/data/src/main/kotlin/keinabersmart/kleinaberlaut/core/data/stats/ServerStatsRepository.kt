@@ -2,6 +2,7 @@ package keinabersmart.kleinaberlaut.core.data.stats
 
 import android.util.Log
 import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
+import keinabersmart.kleinaberlaut.core.data.stats.StatsRepository.Companion.inYear
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.DayListeningRow
 import keinabersmart.kleinaberlaut.core.database.dao.StatsDao
@@ -35,11 +36,11 @@ class ServerStatsRepository @Inject constructor(
     private val api: AbsApi,
 ) {
     /** Letzter Stand des Servers; `null`, solange noch nie abgerufen. */
-    fun stats(serverId: String, today: () -> LocalDate = LocalDate::now): Flow<ServerBookStats?> =
+    fun stats(serverId: String, year: Int? = null, today: () -> LocalDate = LocalDate::now): Flow<ServerBookStats?> =
         statsDao.observeServerStats(serverId, KIND).map { cache ->
             cache?.let {
                 try {
-                    toStats(serverId, AbsStats.parse(it.json), it.fetchedAt, today())
+                    toStats(serverId, AbsStats.parse(it.json), it.fetchedAt, today(), year)
                 } catch (e: IOException) {
                     Log.w(TAG, "Zwischengespeicherte Statistik von $serverId unlesbar", e)
                     null
@@ -61,7 +62,7 @@ class ServerStatsRepository @Inject constructor(
         }
     }
 
-    private suspend fun toStats(serverId: String, stats: AbsListeningStats, fetchedAt: Long, today: LocalDate): ServerBookStats {
+    private suspend fun toStats(serverId: String, stats: AbsListeningStats, fetchedAt: Long, today: LocalDate, year: Int?): ServerBookStats {
         val days = stats.days.mapNotNull { (key, seconds) ->
             try {
                 DayListeningRow(LocalDate.parse(key).toEpochDay(), (seconds * 1000).roundToLong())
@@ -69,10 +70,15 @@ class ServerStatsRepository @Inject constructor(
                 null
             }
         }
-        val weekdays = stats.dayOfWeek.mapNotNull { (name, seconds) ->
-            runCatching { DayOfWeek.valueOf(name.trim().uppercase()) }.getOrNull()?.let { it to (seconds * 1000).roundToLong() }
-        }.toMap()
-        val books = stats.items.entries
+        val yearDays = if (year == null) days else days.inYear(year)
+        val weekdays = if (year == null) {
+            stats.dayOfWeek.mapNotNull { (name, seconds) ->
+                runCatching { DayOfWeek.valueOf(name.trim().uppercase()) }.getOrNull()?.let { it to (seconds * 1000).roundToLong() }
+            }.toMap()
+        } else {
+            yearDays.groupBy { LocalDate.ofEpochDay(it.day).dayOfWeek }.mapValues { (_, rows) -> rows.sumOf { it.listenedMs } }
+        }
+        val books = if (year != null) emptyList() else stats.items.entries
             .map { (id, item) -> Triple(item.id.ifEmpty { id }, item, (item.timeListening * 1000).roundToLong()) }
             .filter { it.third > 0 }
             .sortedByDescending { it.third }
@@ -81,13 +87,15 @@ class ServerStatsRepository @Inject constructor(
                 BookListening(id, item.mediaMetadata?.title.orEmpty(), ms, bookDao.bookByRemote(serverId, id)?.bookId)
             }
         return ServerBookStats(
-            totalMs = (stats.totalTime * 1000).roundToLong(),
+            totalMs = if (year == null) (stats.totalTime * 1000).roundToLong() else yearDays.sumOf { it.listenedMs },
             todayMs = (stats.today * 1000).roundToLong(),
             streakDays = streak(days.filter { it.listenedMs > 0 }.mapTo(HashSet()) { it.day }, today),
             books = books,
-            months = StatsRepository.monthsOf(days, today),
+            months = if (year == null) StatsRepository.monthsOf(days, today) else StatsRepository.monthsOfYear(days, year),
             weekdays = DayOfWeek.entries.map { WeekdayListening(it.value, weekdays[it] ?: 0) },
             fetchedAt = fetchedAt,
+            years = StatsRepository.yearsOf(days, year),
+            year = year,
         )
     }
 

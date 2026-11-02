@@ -546,6 +546,9 @@
     <string name="podcast_stats_history">Verlauf</string>
     <string name="podcast_stats_history_empty">Der Verlauf füllt sich, sobald du mit dieser App hörst. Importierte Zeit hat kein Datum und steht nur in den Summen.</string>
     <string name="podcast_stats_hours_per_month">Stunden pro Monat</string>
+    <string name="stats_year_all">Gesamt</string>
+    <string name="stats_year_note">Nur was diese App selbst gezählt hat, hat ein Datum. Importierte Zeit erscheint nur unter Gesamt.</string>
+    <string name="stats_year_empty">%1$d wurde nichts gezählt.</string>
     <string name="settings_section_stats">Statistik</string>
     <string name="settings_stats_reset">Statistik zurücksetzen</string>
     <string name="settings_stats_reset_summary">Löscht die gesamte Hörzeit, gezählte und importierte</string>

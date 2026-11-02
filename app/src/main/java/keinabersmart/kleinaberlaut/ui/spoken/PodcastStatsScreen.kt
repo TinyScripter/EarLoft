@@ -2,7 +2,10 @@ package keinabersmart.kleinaberlaut.ui.spoken
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,19 +39,45 @@ import keinabersmart.kleinaberlaut.core.model.PodcastListening
 import keinabersmart.kleinaberlaut.core.model.PodcastStats
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import java.time.Month
 import java.time.format.TextStyle
 import java.util.Locale
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class PodcastStatsViewModel @Inject constructor(repository: StatsRepository) : ViewModel() {
+    private val year = MutableStateFlow<Int?>(null)
+
     /** `null`, solange die Zahlen noch geladen werden. */
     val stats: StateFlow<PodcastStats?> =
-        repository.podcastStats().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        year.flatMapLatest { repository.podcastStats(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Zeigt die Zahlen dieses Jahres; `null` für „Gesamt“. */
+    fun selectYear(value: Int?) {
+        year.value = value
+    }
+}
+
+/** Auswahl „Gesamt“ und einzelne Jahre (beide Statistik-Reiter). */
+@Composable
+internal fun YearChips(years: List<Int>, selected: Int?, onSelect: (Int?) -> Unit, modifier: Modifier = Modifier) {
+    if (years.isEmpty()) return
+    Row(
+        modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(selected = selected == null, onClick = { onSelect(null) }, label = { Text(stringResource(R.string.stats_year_all)) })
+        years.forEach { year ->
+            FilterChip(selected = year == selected, onClick = { onSelect(year) }, label = { Text(year.toString()) })
+        }
+    }
 }
 
 /** Reiter „Statistik“ der Podcast-Bibliothek: gehörte Zeit insgesamt, je Podcast und im Verlauf der letzten Monate. */
@@ -60,12 +89,29 @@ fun PodcastStatsScreen(
 ) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val current = stats ?: return
-    if (current.totalMs == 0L && current.finishedEpisodes == 0) {
+    if (current.year == null && current.totalMs == 0L && current.finishedEpisodes == 0) {
         Box(modifier.fillMaxSize()) { EmptyHint(stringResource(R.string.podcast_stats_empty), Modifier.padding(16.dp)) }
         return
     }
     LazyColumn(modifier.fillMaxSize()) {
+        item(key = "years") { YearChips(current.years, current.year, viewModel::selectYear) }
+        current.year?.let { year ->
+            if (current.totalMs == 0L && current.finishedEpisodes == 0) {
+                item(key = "year-empty") { EmptyHint(stringResource(R.string.stats_year_empty, year), Modifier.padding(16.dp)) }
+                return@LazyColumn
+            }
+        }
         item(key = "summary") { Summary(current) }
+        if (current.year != null) {
+            item(key = "year-note") {
+                Text(
+                    stringResource(R.string.stats_year_note),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+        }
         if (current.podcasts.isNotEmpty()) {
             item(key = "by-podcast") { SectionHeader(stringResource(R.string.podcast_stats_by_podcast)) }
             items(current.podcasts, key = { it.key }) { podcast ->
@@ -115,9 +161,9 @@ private fun PodcastRow(podcast: PodcastListening, share: Float, totalMs: Long, o
         headlineContent = { Text(podcast.title) },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                val episodes = pluralStringResource(R.plurals.podcast_stats_episodes, podcast.episodes, podcast.episodes)
+                val episodes = if (podcast.episodes > 0) pluralStringResource(R.plurals.podcast_stats_episodes, podcast.episodes, podcast.episodes) + " · " else ""
                 val note = if (feedId == null) " · " + stringResource(R.string.podcast_stats_unsubscribed) else ""
-                Text("$episodes · $percent %$note")
+                Text("$episodes$percent %$note")
                 LinearProgressIndicator(progress = { share.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
             }
         },

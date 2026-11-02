@@ -550,6 +550,9 @@
     <string name="podcast_stats_history">History</string>
     <string name="podcast_stats_history_empty">The history fills up as you listen with this app. Imported time has no dates and appears only in the totals.</string>
     <string name="podcast_stats_hours_per_month">Hours per month</string>
+    <string name="stats_year_all">Total</string>
+    <string name="stats_year_note">Only time counted by this app has dates. Imported time appears only under Total.</string>
+    <string name="stats_year_empty">Nothing counted in %1$d.</string>
     <string name="settings_section_stats">Statistics</string>
     <string name="settings_stats_reset">Reset statistics</string>
     <string name="settings_stats_reset_summary">Deletes all listening time, counted and imported</string>

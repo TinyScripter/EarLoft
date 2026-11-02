@@ -26,6 +26,9 @@ data class ItemListeningRow(val groupKey: String, val itemKey: String, val itemT
 /** Gehörte Zeit an einem Tag, summiert über alle Gruppen. */
 data class DayListeningRow(val day: Long, val listenedMs: Long)
 
+/** Gehörte Zeit einer Gruppe in einem Zeitraum (aus den Tageswerten). */
+data class GroupDayRow(val groupKey: String, val listenedMs: Long)
+
 @Dao
 abstract class StatsDao {
 
@@ -65,6 +68,20 @@ abstract class StatsDao {
             "WHERE b.kind = 'EPISODE' AND p.finished = 1",
     )
     abstract fun observeFinishedEpisodes(): Flow<Int>
+
+    /** Wie [observeFinishedEpisodes], nur Einträge der Art [kind], deren Fortschritt in [fromMs] (einschließlich) bis [toMs] (ausschließlich) zuletzt geändert wurde. */
+    @Query(
+        "SELECT COUNT(*) FROM book_progress p JOIN books b ON b.bookId = p.bookId " +
+            "WHERE b.kind = :kind AND p.finished = 1 AND p.updatedAt >= :fromMs AND p.updatedAt < :toMs",
+    )
+    abstract fun observeFinishedBetween(kind: BookKind, fromMs: Long, toMs: Long): Flow<Int>
+
+    /** Pro Gruppe die Summe der Tage [fromDay] bis [toDay] (jeweils einschließlich), die meistgehörte zuerst. */
+    @Query(
+        "SELECT groupKey, SUM(listenedMs) AS listenedMs FROM listening_days " +
+            "WHERE kind = :kind AND day BETWEEN :fromDay AND :toDay GROUP BY groupKey ORDER BY listenedMs DESC",
+    )
+    abstract fun observeGroupDays(kind: BookKind, fromDay: Long, toDay: Long): Flow<List<GroupDayRow>>
 
     @Query("SELECT * FROM listening_stats")
     abstract suspend fun all(): List<ListeningStatEntity>

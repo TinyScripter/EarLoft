@@ -71,7 +71,10 @@ class BookStatsViewModel @Inject constructor(
     audiobookServers: AudiobookshelfServers,
 ) : ViewModel() {
     /** Was diese App selbst gezählt hat; `null`, solange es lädt. */
-    val device: StateFlow<DeviceBookStats?> = stats.bookStats().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    private val yearFlow = MutableStateFlow<Int?>(null)
+
+    val device: StateFlow<DeviceBookStats?> =
+        yearFlow.flatMapLatest { stats.bookStats(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Eingeschaltete Audiobookshelf-Server. */
     val servers: StateFlow<List<SpokenServer>> = audiobookServers.servers
@@ -87,8 +90,14 @@ class BookStatsViewModel @Inject constructor(
 
     /** Letzter bekannter Stand des gewählten Servers (auch offline). */
     val server: StateFlow<ServerBookStats?> = selectedServerId
-        .flatMapLatest { id -> if (id == null) flowOf(null) else serverStats.stats(id) }
+        .combine(yearFlow, ::Pair)
+        .flatMapLatest { (id, year) -> if (id == null) flowOf(null) else serverStats.stats(id, year) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Zeigt die Zahlen dieses Jahres; `null` für „Gesamt“. */
+    fun selectYear(value: Int?) {
+        yearFlow.value = value
+    }
 
     private val _refresh = MutableStateFlow(StatsRefresh.IDLE)
     val refresh: StateFlow<StatsRefresh> = _refresh.asStateFlow()
@@ -124,7 +133,21 @@ fun BookStatsScreen(
     val server by viewModel.server.collectAsStateWithLifecycle()
     val refresh by viewModel.refresh.collectAsStateWithLifecycle()
 
+    val year = device?.year ?: server?.year
+    val years = (device?.years.orEmpty() + server?.years.orEmpty() + listOfNotNull(year)).distinct().sortedDescending()
+
     LazyColumn(modifier.fillMaxSize()) {
+        item(key = "years") { YearChips(years, year, viewModel::selectYear) }
+        if (year != null) {
+            item(key = "year-note") {
+                Text(
+                    stringResource(R.string.stats_year_note),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+        }
         if (servers.isNotEmpty()) {
             item(key = "server-header") { SectionHeader(stringResource(R.string.book_stats_server_title)) }
             if (servers.size > 1) {
@@ -156,7 +179,12 @@ fun BookStatsScreen(
         val own = device
         if (own != null) {
             if (own.totalMs == 0L) {
-                item(key = "device-empty") { EmptyHint(stringResource(R.string.book_stats_device_empty), Modifier.padding(horizontal = 16.dp)) }
+                item(key = "device-empty") {
+                    EmptyHint(
+                        if (year != null) stringResource(R.string.stats_year_empty, year) else stringResource(R.string.book_stats_device_empty),
+                        Modifier.padding(horizontal = 16.dp),
+                    )
+                }
             } else {
                 deviceSection(own, onBookClick)
             }
@@ -174,12 +202,14 @@ private fun LazyListScope.serverSection(stats: ServerBookStats, stale: Boolean, 
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(
-                stringResource(R.string.book_stats_today, formatListened(stats.todayMs)) +
-                    (if (stats.streakDays > 0) " · " + pluralStringResource(R.plurals.book_stats_streak, stats.streakDays, stats.streakDays) else ""),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+            if (stats.year == null) {
+                Text(
+                    stringResource(R.string.book_stats_today, formatListened(stats.todayMs)) +
+                        (if (stats.streakDays > 0) " · " + pluralStringResource(R.plurals.book_stats_streak, stats.streakDays, stats.streakDays) else ""),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
         }
     }
     item(key = "server-months") {

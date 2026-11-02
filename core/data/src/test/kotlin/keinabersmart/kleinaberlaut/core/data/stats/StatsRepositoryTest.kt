@@ -115,6 +115,27 @@ class StatsRepositoryTest {
     }
 
     @Test
+    fun `a year counts only the days of that year`() = runTest {
+        val a = bookId("guid-A")
+        stats.recordEpisodeListening(a, 60_000, now = noon, zone = ZoneOffset.UTC)
+        stats.recordEpisodeListening(a, 30_000, now = Instant.parse("2025-03-10T12:00:00Z").toEpochMilli(), zone = ZoneOffset.UTC)
+        db.statsDao().upsertAll(
+            listOf(ListeningStatEntity(source = ListeningStatEntity.SOURCE_IMPORTED, kind = BookKind.EPISODE, groupKey = FEED_URL, groupTitle = "Test", itemKey = "x", itemTitle = "X", listenedMs = 5_000, lastListenedAt = 1)),
+        )
+
+        val all = stats.podcastStats(zone = ZoneOffset.UTC) { today }.first()
+        val y2025 = stats.podcastStats(2025, ZoneOffset.UTC) { today }.first()
+
+        assertEquals(listOf(2026, 2025), all.years)
+        assertEquals(95_000, all.totalMs)
+        assertEquals(30_000, y2025.totalMs)
+        assertEquals(listOf(30_000L), y2025.podcasts.map { it.listenedMs })
+        assertEquals("Test-Podcast", y2025.podcasts.single().title)
+        assertEquals(12, y2025.months.size)
+        assertEquals(30_000, y2025.months[2].listenedMs)
+    }
+
+    @Test
     fun `reset deletes counted and imported statistics but keeps progress`() = runTest {
         val a = bookId("guid-A")
         stats.recordEpisodeListening(a, 60_000, now = noon, zone = ZoneOffset.UTC)

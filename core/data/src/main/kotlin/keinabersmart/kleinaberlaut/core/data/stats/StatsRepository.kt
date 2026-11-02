@@ -78,20 +78,31 @@ class StatsRepository @Inject constructor(
         )
     }
 
-    /** Die vom Gerät gezählte Hörzeit der Bücher. */
-    fun bookStats(today: () -> LocalDate = LocalDate::now): Flow<DeviceBookStats> {
-        val since = today().minusMonths(MONTHS - 1L).withDayOfMonth(1).toEpochDay()
+    /**
+     * Die vom Gerät gezählte Hörzeit der Bücher. Mit [year] nur die dieses Jahres: Das kennen nur die Tageswerte, also ist
+     * nur selbst gezählte Zeit enthalten und es gibt keine „Meistgehört“-Liste.
+     */
+    fun bookStats(
+        year: Int? = null,
+        zone: ZoneId = ZoneId.systemDefault(),
+        today: () -> LocalDate = LocalDate::now,
+    ): Flow<DeviceBookStats> {
+        val (fromMs, toMs) = millisOf(year, zone)
         return combine(
             statsDao.observeTotalListenedMs(BookKind.BOOK),
             statsDao.observeTopItems(BookKind.BOOK, TOP_BOOKS),
-            statsDao.observeFinishedBooks(),
-            statsDao.observeDays(BookKind.BOOK, since),
+            statsDao.observeFinishedBetween(BookKind.BOOK, fromMs, toMs),
+            statsDao.observeDays(BookKind.BOOK, 0),
         ) { total, items, finished, days ->
             DeviceBookStats(
-                totalMs = total,
+                totalMs = if (year == null) total else days.inYear(year).sumOf { it.listenedMs },
                 finishedBooks = finished,
-                books = items.map { BookListening("${it.groupKey}/${it.itemKey}", it.itemTitle, it.listenedMs, bookDao.bookByRemote(it.groupKey, it.itemKey)?.bookId) },
-                months = monthsOf(days, today()),
+                books = if (year != null) emptyList() else items.map {
+                    BookListening("${it.groupKey}/${it.itemKey}", it.itemTitle, it.listenedMs, bookDao.bookByRemote(it.groupKey, it.itemKey)?.bookId)
+                },
+                months = if (year == null) monthsOf(days, today()) else monthsOfYear(days, year),
+                years = yearsOf(days, year),
+                year = year,
             )
         }
     }
@@ -99,25 +110,39 @@ class StatsRepository @Inject constructor(
     /** Löscht die vom Gerät gezählte und importierte Hörzeit der Bücher. Die Zahlen des Servers bleiben. */
     suspend fun resetBookStats() = statsDao.clear(BookKind.BOOK)
 
-    fun podcastStats(today: () -> LocalDate = LocalDate::now): Flow<PodcastStats> {
-        val since = today().minusMonths(MONTHS - 1L).withDayOfMonth(1).toEpochDay()
+    /** Wie [bookStats], für Podcasts; mit [year] ist die Liste je Podcast aus den Tageswerten und ohne Folgenzahl. */
+    fun podcastStats(
+        year: Int? = null,
+        zone: ZoneId = ZoneId.systemDefault(),
+        today: () -> LocalDate = LocalDate::now,
+    ): Flow<PodcastStats> {
+        val (fromMs, toMs) = millisOf(year, zone)
+        val fromDay = year?.let { LocalDate.of(it, 1, 1).toEpochDay() } ?: Long.MIN_VALUE
+        val toDay = year?.let { LocalDate.of(it, 12, 31).toEpochDay() } ?: Long.MAX_VALUE
         return combine(
             statsDao.observeTotalListenedMs(BookKind.EPISODE),
             statsDao.observeByGroup(BookKind.EPISODE),
-            statsDao.observeFinishedEpisodes(),
-            podcastDao.observeFeeds(),
-            statsDao.observeDays(BookKind.EPISODE, since),
-        ) { total, groups, finished, feeds, days ->
+            statsDao.observeFinishedBetween(BookKind.EPISODE, fromMs, toMs),
+            combine(podcastDao.observeFeeds(), statsDao.observeGroupDays(BookKind.EPISODE, fromDay, toDay), ::Pair),
+            statsDao.observeDays(BookKind.EPISODE, 0),
+        ) { total, groups, finished, (feeds, groupDays), days ->
             val subscribed = feeds.filter { !it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }
             val feedByUrl = feeds.associateBy { it.url }
+            val titles = groups.associate { it.groupKey to it.groupTitle }
             PodcastStats(
-                totalMs = total,
+                totalMs = if (year == null) total else days.inYear(year).sumOf { it.listenedMs },
                 finishedEpisodes = finished,
                 subscriptions = subscribed.size,
-                podcasts = groups.map {
-                    PodcastListening(it.groupKey, it.groupTitle, it.listenedMs, it.items, feedByUrl[it.groupKey]?.feedId)
+                podcasts = if (year == null) {
+                    groups.map { PodcastListening(it.groupKey, it.groupTitle, it.listenedMs, it.items, feedByUrl[it.groupKey]?.feedId) }
+                } else {
+                    groupDays.filter { it.listenedMs > 0 }.map {
+                        PodcastListening(it.groupKey, titles[it.groupKey] ?: it.groupKey, it.listenedMs, 0, feedByUrl[it.groupKey]?.feedId)
+                    }
                 },
-                months = monthsOf(days, today()),
+                months = if (year == null) monthsOf(days, today()) else monthsOfYear(days, year),
+                years = yearsOf(days, year),
+                year = year,
             )
         }
     }
@@ -128,6 +153,31 @@ class StatsRepository @Inject constructor(
     internal companion object {
         const val MONTHS = 12
         const val TOP_BOOKS = 10
+
+        /** Unix-ms-Grenzen (von einschließlich, bis ausschließlich) des Jahres [year]; ohne Jahr alles. */
+        fun millisOf(year: Int?, zone: ZoneId): Pair<Long, Long> =
+            if (year == null) {
+                Long.MIN_VALUE to Long.MAX_VALUE
+            } else {
+                LocalDate.of(year, 1, 1).atStartOfDay(zone).toInstant().toEpochMilli() to
+                    LocalDate.of(year + 1, 1, 1).atStartOfDay(zone).toInstant().toEpochMilli()
+            }
+
+        /** Die Tageswerte aus dem Jahr [year]. */
+        fun List<DayListeningRow>.inYear(year: Int): List<DayListeningRow> =
+            filter { LocalDate.ofEpochDay(it.day).year == year }
+
+        /** Die Jahre mit Tageswerten, das neueste zuerst; das gewählte [selected] ist immer dabei. */
+        fun yearsOf(days: List<DayListeningRow>, selected: Int?): List<Int> =
+            (days.filter { it.listenedMs > 0 }.map { LocalDate.ofEpochDay(it.day).year } + listOfNotNull(selected))
+                .distinct().sortedDescending()
+
+        /** Januar bis Dezember des Jahres [year], ohne Lücken. */
+        fun monthsOfYear(days: List<DayListeningRow>, year: Int): List<MonthListening> {
+            val sums = days.inYear(year).groupBy { LocalDate.ofEpochDay(it.day).monthValue }
+                .mapValues { (_, rows) -> rows.sumOf { it.listenedMs } }
+            return (1..12).map { MonthListening(year, it, sums[it] ?: 0) }
+        }
 
         /** Die letzten [MONTHS] Monate bis einschließlich dem von [today], älteste zuerst, ohne Lücken. */
         fun monthsOf(days: List<DayListeningRow>, today: LocalDate): List<MonthListening> {
