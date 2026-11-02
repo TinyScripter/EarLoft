@@ -1,8 +1,9 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.AnnotatedString
 import android.content.ClipData
-import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -70,7 +71,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -90,7 +90,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.podcast.FeedEpisodes
-import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.SubscribeResult
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
@@ -104,6 +103,7 @@ import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.settings.SwitchRow
+import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -130,7 +130,6 @@ sealed interface AddPodcastState {
 @HiltViewModel
 class PodcastViewModel @Inject constructor(
     private val podcasts: PodcastRepository,
-    private val refresher: PodcastRefresher,
     private val launcher: BookLauncher,
     private val playback: PlaybackConnection,
     continueListening: ContinueListening,
@@ -480,6 +479,7 @@ class PodcastFeedViewModel @AssistedInject constructor(
     private val playback: PlaybackConnection,
     private val downloads: EpisodeDownloads,
     downloadProgress: EpisodeDownloadProgress,
+    private val refresher: PodcastRefresher,
 ) : ViewModel() {
 
     /** Die Folge, die gerade läuft (nicht: pausiert). */
@@ -574,9 +574,10 @@ fun PodcastScreen(
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.progress.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
     LaunchedEffect(viewModel) {
-        viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+        viewModel.messages.collect { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
     }
     val current = feed
 
@@ -734,7 +735,8 @@ fun PodcastInfoScreen(
     val feed by viewModel.feed.collectAsStateWithLifecycle()
     val current = feed
     val clipboard = LocalClipboard.current
-    val context = LocalContext.current
+    val snackbars = LocalSnackbars.current
+    val copiedText = stringResource(R.string.podcast_url_copied)
     val scope = rememberCoroutineScope()
 
     Column(modifier.fillMaxSize()) {
@@ -762,7 +764,7 @@ fun PodcastInfoScreen(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.clickable {
                         scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(current.title, current.url))) }
-                        Toast.makeText(context, R.string.podcast_url_copied, Toast.LENGTH_SHORT).show()
+                        snackbars.show(copiedText)
                     },
                 )
             }

@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
@@ -98,6 +101,8 @@ import keinabersmart.kleinaberlaut.ui.settings.PodcastsSettingsScreen
 import keinabersmart.kleinaberlaut.ui.settings.ServerFormScreen
 import keinabersmart.kleinaberlaut.ui.settings.SettingsScreen
 import keinabersmart.kleinaberlaut.ui.settings.WatchSettingsScreen
+import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
+import keinabersmart.kleinaberlaut.ui.snackbar.SnackbarViewModel
 import keinabersmart.kleinaberlaut.ui.spoken.AudiobookshelfFormScreen
 import keinabersmart.kleinaberlaut.ui.spoken.BookLaunchEffect
 import keinabersmart.kleinaberlaut.ui.spoken.BookPlayerScreen
@@ -119,6 +124,7 @@ import keinabersmart.kleinaberlaut.ui.spoken.SpokenModeScaffold
 import keinabersmart.kleinaberlaut.ui.spoken.LocalBookDownloads
 import keinabersmart.kleinaberlaut.ui.spoken.bookFraction
 import keinabersmart.kleinaberlaut.ui.spoken.rememberBookDownloads
+import kotlinx.coroutines.launch
 
 @Composable
 fun KleinaberlautApp(
@@ -320,14 +326,28 @@ fun KleinaberlautApp(
         if (showNavigation) navigationSuiteState.show() else navigationSuiteState.hide()
     }
 
-    SyncNoticeEffect()
-    BookLaunchEffect()
+    val snackbars = hiltViewModel<SnackbarViewModel>().snackbars
+    val snackbarHost = remember { SnackbarHostState() }
+    LaunchedEffect(snackbars) {
+        snackbars.messages.collect { message ->
+            // Ein neuer Hinweis ersetzt den sichtbaren (etwa „Wird aktualisiert“ durch das Ergebnis).
+            snackbarHost.currentSnackbarData?.dismiss()
+            launch {
+                val result = snackbarHost.showSnackbar(message.text, message.actionLabel, duration = message.duration)
+                if (result == SnackbarResult.ActionPerformed) message.onAction?.invoke()
+            }
+        }
+    }
 
     CompositionLocalProvider(
+        LocalSnackbars provides snackbars,
         LocalOfflineController provides rememberOfflineController(),
         LocalWatchController provides rememberWatchController(),
         LocalBookDownloads provides rememberBookDownloads(),
     ) {
+        SyncNoticeEffect()
+        RefreshEventEffect()
+        BookLaunchEffect()
         // Die Bildschirme kümmern sich selbst um die Statusleiste und – im Vollbild-Player – um die Navigationsleiste.
         NavigationSuiteScaffold(
             navigationItems = {
@@ -357,6 +377,7 @@ fun KleinaberlautApp(
                     predictivePopTransitionSpec = { predictiveBack() },
                     modifier = Modifier.weight(1f),
                 )
+                SnackbarHost(snackbarHost)
                 if (showMiniPlayer && playerState.spoken != null) {
                     val bookPlayer: BookPlayerViewModel = hiltViewModel()
                     val bookSeedColor by bookPlayer.seedColor.collectAsStateWithLifecycle()

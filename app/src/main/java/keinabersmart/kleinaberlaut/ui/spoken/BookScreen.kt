@@ -1,8 +1,9 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.PaddingValues
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,7 +27,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -66,6 +66,7 @@ import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadStart
 import keinabersmart.kleinaberlaut.core.download.EpisodeDownloadProgress
 import keinabersmart.kleinaberlaut.core.download.EpisodeDownloads
+import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
@@ -171,9 +172,10 @@ fun BookScreen(
     val transfer by viewModel.transfer.collectAsStateWithLifecycle()
     val episodeFraction by viewModel.episodeFraction.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
-    val context = LocalContext.current
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
     LaunchedEffect(viewModel) {
-        viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+        viewModel.messages.collect { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
     }
     if (confirmDelete) {
         AlertDialog(

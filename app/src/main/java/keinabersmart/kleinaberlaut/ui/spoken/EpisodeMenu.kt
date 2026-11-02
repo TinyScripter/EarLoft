@@ -1,15 +1,15 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
-import android.widget.Toast
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -29,6 +29,7 @@ import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
+import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -117,7 +118,8 @@ fun EpisodeMenu(
 ) {
     val queued by viewModel.queued.collectAsStateWithLifecycle()
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
     val id = item.book.id
     val inQueue = id in queued
     val played = item.progress?.finished == true
@@ -165,7 +167,7 @@ fun EpisodeMenu(
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.action_download)) },
                     onClick = {
-                        viewModel.download(item) { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+                        viewModel.download(item) { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
                         onDismiss()
                     },
                 )

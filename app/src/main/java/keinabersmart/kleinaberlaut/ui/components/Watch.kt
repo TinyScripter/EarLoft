@@ -1,6 +1,5 @@
 package keinabersmart.kleinaberlaut.ui.components
 
-import android.widget.Toast
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconToggleButton
@@ -12,7 +11,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -25,6 +24,7 @@ import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearSelectionStatusDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearStatusDto
+import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import keinabersmart.kleinaberlaut.wear.WatchConnection
 import keinabersmart.kleinaberlaut.wear.WatchStatusRepository
 import kotlinx.coroutines.flow.SharingStarted
@@ -108,11 +108,12 @@ fun WatchStatusText(kind: WearSelectionKind, refId: Long?, modifier: Modifier = 
 fun WatchToggleButton(kind: WearSelectionKind, refId: Long?) {
     val controller = LocalWatchController.current ?: return
     if (!controller.isAvailable) return
-    val context = LocalContext.current
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
     val selected = controller.isSelected(kind, refId)
     val onToggle: (Boolean) -> Unit = { select ->
         controller.setSelected(kind, refId, select)
-        Toast.makeText(context, if (select) R.string.watch_added else R.string.watch_removed, Toast.LENGTH_SHORT).show()
+        snackbars.show(resources.getString(if (select) R.string.watch_added else R.string.watch_removed))
     }
     val icon: @Composable () -> Unit = {
         Icon(

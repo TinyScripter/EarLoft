@@ -1,6 +1,5 @@
 package keinabersmart.kleinaberlaut.ui.playlists
 
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -56,6 +54,7 @@ import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.Playlist
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
+import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -97,10 +96,10 @@ fun AddToPlaylistDialog(
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val servers by viewModel.servers.collectAsStateWithLifecycle()
     var creating by rememberSaveable { mutableStateOf(false) }
-    val context = LocalContext.current
+    val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     val confirm = { name: String ->
-        Toast.makeText(context, resources.getString(R.string.playlist_added, name), Toast.LENGTH_SHORT).show()
+        snackbars.show(resources.getString(R.string.playlist_added, name))
         onDismiss()
     }
 

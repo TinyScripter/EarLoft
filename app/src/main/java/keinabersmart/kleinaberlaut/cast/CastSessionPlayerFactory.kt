@@ -2,8 +2,8 @@ package keinabersmart.kleinaberlaut.cast
 
 import android.content.Context
 import android.os.Handler
-import android.widget.Toast
 import androidx.annotation.OptIn
+import androidx.compose.material3.SnackbarDuration
 import androidx.media3.cast.Cast
 import androidx.media3.cast.CastPlayer
 import androidx.media3.cast.RemoteCastPlayer
@@ -26,6 +26,7 @@ import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.playback.SessionPlayerFactory
 import keinabersmart.kleinaberlaut.core.playback.queueWindow
 import keinabersmart.kleinaberlaut.core.playback.songId
+import keinabersmart.kleinaberlaut.ui.snackbar.Snackbars
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -51,6 +52,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
     @param:ApplicationContext private val appContext: Context,
     private val cache: CastMediaCache,
     @param:ApplicationScope private val scope: CoroutineScope,
+    private val snackbars: Snackbars,
 ) : SessionPlayerFactory {
 
     private var sessionListener: SessionManagerListener<CastSession>? = null
@@ -82,7 +84,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         if (player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) MAX_REMOTE_QUEUE else Int.MAX_VALUE
 
     override fun onQueueLimited(kept: Int, requested: Int) {
-        Toast.makeText(appContext, appContext.getString(R.string.cast_queue_limited, kept, requested), Toast.LENGTH_LONG).show()
+        snackbars.show(appContext.getString(R.string.cast_queue_limited, kept, requested), SnackbarDuration.Long)
     }
 
     /**
@@ -124,7 +126,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
             val handedOver = handOver.state ?: return@Runnable
             if (player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE || player.mediaItemCount > 0) return@Runnable
             handOver.rescue = handedOver
-            Toast.makeText(appContext, R.string.cast_load_failed, Toast.LENGTH_LONG).show()
+            snackbars.show(appContext.getString(R.string.cast_load_failed), SnackbarDuration.Long)
             Cast.getSingletonInstance(appContext).endCurrentSession(true)
         }
         player.addListener(object : Player.Listener {
@@ -148,7 +150,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         } else {
             appContext.resources.getQuantityString(R.plurals.cast_skipped_local, skipped, skipped)
         }
-        Toast.makeText(appContext, text, Toast.LENGTH_LONG).show()
+        snackbars.show(text, SnackbarDuration.Long)
     }
 
     companion object {

@@ -4,13 +4,13 @@ import java.util.Locale
 import java.util.Date
 import java.util.Calendar
 import java.text.SimpleDateFormat
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.AnnotatedString
-import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -57,6 +57,7 @@ import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import keinabersmart.kleinaberlaut.core.model.SpokenMode
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
+import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -266,10 +267,11 @@ class BookLauncher @Inject constructor(
 @HiltViewModel
 class BookLaunchViewModel @Inject constructor(val launcher: BookLauncher) : ViewModel()
 
-/** Einmal an der Wurzel der App: zeigt die Hinweise des [BookLauncher] als Toast. */
+/** Einmal an der Wurzel der App: zeigt die Hinweise des [BookLauncher] als Snackbar. */
 @Composable
 fun BookLaunchEffect(viewModel: BookLaunchViewModel = hiltViewModel()) {
     val context = LocalContext.current
+    val snackbars = LocalSnackbars.current
     LaunchedEffect(viewModel) {
         viewModel.launcher.events.collect { event ->
             val text = when (event) {
@@ -277,7 +279,7 @@ fun BookLaunchEffect(viewModel: BookLaunchViewModel = hiltViewModel()) {
                 is BookLaunchEvent.ResumedFromServer ->
                     context.getString(R.string.spoken_resumed_from_server, formatClock(event.positionMs))
             }
-            Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+            snackbars.show(text, SnackbarDuration.Long)
         }
     }
 }

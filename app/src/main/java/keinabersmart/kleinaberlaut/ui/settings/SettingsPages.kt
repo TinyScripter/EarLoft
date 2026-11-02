@@ -1,13 +1,12 @@
 package keinabersmart.kleinaberlaut.ui.settings
 
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -37,6 +36,7 @@ import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.permission.rememberAudioPermissionRequester
+import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import keinabersmart.kleinaberlaut.ui.spoken.AudiobookshelfSection
 import keinabersmart.kleinaberlaut.ui.theme.ThemeMode
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
@@ -319,7 +319,7 @@ fun PodcastsSettingsScreen(
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-opml")) { uri ->
         if (uri != null) viewModel.exportOpml(uri, exportName)
     }
-    val context = LocalContext.current
+    val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     LaunchedEffect(viewModel) {
         viewModel.transferMessages.collect { message ->
@@ -351,7 +351,7 @@ fun PodcastsSettingsScreen(
                 TransferMessage.StatsReset -> resources.getString(R.string.settings_stats_reset_done)
                 TransferMessage.DatabaseImportFailed -> resources.getString(R.string.settings_db_import_failed)
             }
-            Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+            snackbars.show(text, SnackbarDuration.Long)
         }
     }
 
