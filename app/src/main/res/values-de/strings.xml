@@ -152,6 +152,10 @@
     <string name="settings_db_import_started">Datenbank wird gelesen …</string>
     <string name="settings_db_import_imported">%1$d Podcasts hinzugefügt, Fortschritt bei %2$d Folgen übernommen (%3$d nicht übernommen), gehörte Zeit von %4$d Folgen erfasst.</string>
     <string name="settings_db_import_failed">Die Datei konnte nicht als Datenbank-Export gelesen werden.</string>
+    <string name="settings_db_export">Datenbank exportieren</string>
+    <string name="settings_db_export_summary">Abos, Hörfortschritt und gehörte Zeit als Datenbank-Datei (.db)</string>
+    <string name="settings_db_export_done">Datenbank exportiert: %1$d Podcasts, %2$d Folgen.</string>
+    <string name="settings_db_export_failed">Exportieren der Datenbank fehlgeschlagen.</string>
     <string name="settings_opml_exported">Abos exportiert.</string>
     <string name="settings_opml_export_failed">Exportieren fehlgeschlagen.</string>
     <string name="settings_theme">App-Darstellung</string>

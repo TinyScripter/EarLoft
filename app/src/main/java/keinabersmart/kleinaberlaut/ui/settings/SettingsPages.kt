@@ -311,6 +311,9 @@ fun PodcastsSettingsScreen(
     val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.importImportData(uri)
     }
+    val databaseExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null) viewModel.exportDatabase(uri)
+    }
     val exportName = stringResource(R.string.settings_opml_title)
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-opml")) { uri ->
         if (uri != null) viewModel.exportOpml(uri, exportName)
@@ -338,6 +341,12 @@ fun PodcastsSettingsScreen(
                     message.result.progressKept + message.result.progressMissing,
                     message.result.statsImported,
                 )
+                is TransferMessage.DatabaseExported -> resources.getString(
+                    R.string.settings_db_export_done,
+                    message.result.feeds,
+                    message.result.episodes,
+                )
+                TransferMessage.DatabaseExportFailed -> resources.getString(R.string.settings_db_export_failed)
                 TransferMessage.DatabaseImportFailed -> resources.getString(R.string.settings_db_import_failed)
             }
             Toast.makeText(context, text, Toast.LENGTH_LONG).show()
@@ -384,6 +393,14 @@ fun PodcastsSettingsScreen(
                 supportingContent = { Text(stringResource(R.string.settings_db_import_summary)) },
                 leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
                 modifier = Modifier.clickable { backupLauncher.launch(arrayOf("*/*")) },
+            )
+        }
+        item(key = "db-export") {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_db_export)) },
+                supportingContent = { Text(stringResource(R.string.settings_db_export_summary)) },
+                leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
+                modifier = Modifier.clickable { databaseExportLauncher.launch("kleinaberlaut-podcasts.db") },
             )
         }
         item(key = "opml-export") {

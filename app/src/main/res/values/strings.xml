@@ -153,6 +153,10 @@
     <string name="settings_db_import_started">Reading database …</string>
     <string name="settings_db_import_imported">%1$d podcasts added, progress applied to %2$d episodes (%3$d not applied), listening time for %4$d episodes recorded.</string>
     <string name="settings_db_import_failed">The file could not be read as a database export.</string>
+    <string name="settings_db_export">Export database</string>
+    <string name="settings_db_export_summary">Subscriptions, listening progress and listening time as a database file (.db)</string>
+    <string name="settings_db_export_done">Database exported: %1$d podcasts, %2$d episodes.</string>
+    <string name="settings_db_export_failed">Exporting the database failed.</string>
     <string name="settings_opml_exported">Subscriptions exported.</string>
     <string name="settings_opml_export_failed">Exporting failed.</string>
     <string name="settings_theme">App appearance</string>

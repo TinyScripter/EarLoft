@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.ui.settings
 
 import android.content.Context
+import android.database.sqlite.SQLiteException
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -8,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseReader
+import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseExportResult
+import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseExporter
 import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseImporter
 import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseImportResult
 import keinabersmart.kleinaberlaut.core.data.podcast.OpmlImportResult
@@ -107,6 +110,8 @@ sealed interface TransferMessage {
     data object DatabaseImportStarted : TransferMessage
     data class DatabaseImported(val result: DatabaseImportResult) : TransferMessage
     data object DatabaseImportFailed : TransferMessage
+    data class DatabaseExported(val result: DatabaseExportResult) : TransferMessage
+    data object DatabaseExportFailed : TransferMessage
 }
 
 private const val TAG = "SettingsViewModel"
@@ -131,6 +136,7 @@ class SettingsViewModel @Inject constructor(
     private val podcastRefresher: PodcastRefresher,
     private val podcastRepository: PodcastRepository,
     private val databaseImporter: DatabaseImporter,
+    private val databaseExporter: DatabaseExporter,
     @param:ApplicationContext private val context: Context,
     audiobookServers: AudiobookshelfServers,
     syncer: LibrarySyncer,
@@ -360,6 +366,32 @@ class SettingsViewModel @Inject constructor(
                 file.delete()
                 backupRunning = false
             }
+        }
+    }
+
+    /** Schreibt Abos, Hörfortschritt und gehörte Zeit als Datenbank-Datei nach [uri]. */
+    fun exportDatabase(uri: Uri) {
+        viewModelScope.launch {
+            val file = File(context.cacheDir, "export.db")
+            val message = try {
+                val result = databaseExporter.export(file)
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")?.use { out -> file.inputStream().use { it.copyTo(out) } }
+                        ?: throw IOException("Datei nicht beschreibbar")
+                }
+                TransferMessage.DatabaseExported(result)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                Log.w(TAG, "Datenbank-Export fehlgeschlagen", e)
+                TransferMessage.DatabaseExportFailed
+            } catch (e: SQLiteException) {
+                Log.w(TAG, "Datenbank-Export fehlgeschlagen", e)
+                TransferMessage.DatabaseExportFailed
+            } finally {
+                file.delete()
+            }
+            _transferMessages.send(message)
         }
     }
 
