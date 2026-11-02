@@ -21,6 +21,7 @@ import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkSettings
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
+import keinabersmart.kleinaberlaut.core.data.stats.StatsRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
 import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
@@ -112,6 +113,7 @@ sealed interface TransferMessage {
     data object DatabaseImportFailed : TransferMessage
     data class DatabaseExported(val result: DatabaseExportResult) : TransferMessage
     data object DatabaseExportFailed : TransferMessage
+    data object StatsReset : TransferMessage
 }
 
 private const val TAG = "SettingsViewModel"
@@ -137,6 +139,7 @@ class SettingsViewModel @Inject constructor(
     private val podcastRepository: PodcastRepository,
     private val databaseImporter: DatabaseImporter,
     private val databaseExporter: DatabaseExporter,
+    private val statsRepository: StatsRepository,
     @param:ApplicationContext private val context: Context,
     audiobookServers: AudiobookshelfServers,
     syncer: LibrarySyncer,
@@ -366,6 +369,14 @@ class SettingsViewModel @Inject constructor(
                 file.delete()
                 backupRunning = false
             }
+        }
+    }
+
+    /** Löscht die gesamte Podcast-Statistik (gezählte und importierte Hörzeit). */
+    fun resetPodcastStats() {
+        viewModelScope.launch {
+            statsRepository.resetPodcastStats()
+            _transferMessages.send(TransferMessage.StatsReset)
         }
     }
 

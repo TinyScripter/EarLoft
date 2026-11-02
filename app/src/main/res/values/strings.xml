@@ -501,6 +501,39 @@
     <string name="podcast_feed_url">Feed address (tap to copy)</string>
     <string name="podcast_url_copied">Address copied</string>
     <string name="podcast_tab_feeds">Subscriptions</string>
+    <string name="podcast_tab_stats">Statistics</string>
+    <string name="podcast_stats_empty">Nothing listened to yet. Your listening time appears here as soon as you play an episode or import a database under Settings → Podcasts.</string>
+    <string name="podcast_stats_hours">%1$d h</string>
+    <string name="podcast_stats_minutes">%1$d min</string>
+    <string name="podcast_stats_listened">listening time</string>
+    <plurals name="podcast_stats_listened_days">
+        <item quantity="one">listening time (about %1$d day)</item>
+        <item quantity="other">listening time (about %1$d days)</item>
+    </plurals>
+    <plurals name="podcast_stats_finished">
+        <item quantity="one">%1$d episode finished</item>
+        <item quantity="other">%1$d episodes finished</item>
+    </plurals>
+    <plurals name="podcast_stats_subscriptions">
+        <item quantity="one">%1$d subscription</item>
+        <item quantity="other">%1$d subscriptions</item>
+    </plurals>
+    <string name="podcast_stats_by_podcast">By podcast</string>
+    <plurals name="podcast_stats_episodes">
+        <item quantity="one">%1$d episode</item>
+        <item quantity="other">%1$d episodes</item>
+    </plurals>
+    <string name="podcast_stats_unsubscribed">no longer subscribed</string>
+    <string name="podcast_stats_history">History</string>
+    <string name="podcast_stats_history_empty">The history fills up as you listen with this app. Imported time has no dates and appears only in the totals.</string>
+    <string name="podcast_stats_hours_per_month">Hours per month</string>
+    <string name="settings_section_stats">Statistics</string>
+    <string name="settings_stats_reset">Reset statistics</string>
+    <string name="settings_stats_reset_summary">Deletes all listening time, counted and imported</string>
+    <string name="settings_stats_reset_title">Reset statistics?</string>
+    <string name="settings_stats_reset_message">All podcast statistics are deleted: the listening time counted by this app and the imported values, including the history. Subscriptions and listening progress stay. Imported values can only be restored by importing the database again. This cannot be undone.</string>
+    <string name="settings_stats_reset_confirm">Reset</string>
+    <string name="settings_stats_reset_done">Statistics reset.</string>
     <string name="podcast_all_heard">All episodes heard.</string>
     <string name="podcast_no_episodes">This feed has no episodes.</string>
     <string name="podcast_unsubscribe">Unsubscribe</string>

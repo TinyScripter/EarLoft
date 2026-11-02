@@ -4,7 +4,10 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
+import keinabersmart.kleinaberlaut.core.database.entity.ListeningDayEntity
 import keinabersmart.kleinaberlaut.core.database.entity.ListeningStatEntity
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import kotlinx.coroutines.flow.Flow
 
 /** Gehörte Zeit je Gruppe (Podcast bzw. Server), summiert über alle Einträge. */
@@ -16,24 +19,92 @@ data class GroupListeningRow(
     val lastListenedAt: Long,
 )
 
+/** Gehörte Zeit an einem Tag, summiert über alle Gruppen. */
+data class DayListeningRow(val day: Long, val listenedMs: Long)
+
 @Dao
 abstract class StatsDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertAll(stats: List<ListeningStatEntity>)
 
-    @Query("SELECT COALESCE(SUM(listenedMs), 0) FROM listening_stats")
-    abstract fun observeTotalListenedMs(): Flow<Long>
+    @Query("SELECT COALESCE(SUM(listenedMs), 0) FROM listening_stats WHERE kind = :kind")
+    abstract fun observeTotalListenedMs(kind: BookKind): Flow<Long>
 
     /** Pro Gruppe die Summe, die meistgehörte zuerst. Der Titel ist der der zuletzt gehörten Zeile. */
     @Query(
         "SELECT groupKey, " +
-            "(SELECT s2.groupTitle FROM listening_stats s2 WHERE s2.groupKey = s.groupKey ORDER BY s2.lastListenedAt DESC LIMIT 1) AS groupTitle, " +
-            "SUM(listenedMs) AS listenedMs, COUNT(*) AS items, MAX(lastListenedAt) AS lastListenedAt " +
-            "FROM listening_stats s GROUP BY groupKey ORDER BY listenedMs DESC",
+            "(SELECT s2.groupTitle FROM listening_stats s2 WHERE s2.groupKey = s.groupKey AND s2.kind = :kind " +
+            "ORDER BY s2.lastListenedAt DESC LIMIT 1) AS groupTitle, " +
+            "SUM(listenedMs) AS listenedMs, COUNT(DISTINCT itemKey) AS items, MAX(lastListenedAt) AS lastListenedAt " +
+            "FROM listening_stats s WHERE kind = :kind GROUP BY groupKey ORDER BY listenedMs DESC",
     )
-    abstract fun observeByGroup(): Flow<List<GroupListeningRow>>
+    abstract fun observeByGroup(kind: BookKind): Flow<List<GroupListeningRow>>
+
+    /** Zu Ende gehörte Folgen (alle Abos, auch die vom Gerät). */
+    @Query(
+        "SELECT COUNT(*) FROM book_progress p JOIN books b ON b.bookId = p.bookId " +
+            "WHERE b.kind = 'EPISODE' AND p.finished = 1",
+    )
+    abstract fun observeFinishedEpisodes(): Flow<Int>
 
     @Query("SELECT * FROM listening_stats")
     abstract suspend fun all(): List<ListeningStatEntity>
+
+    @Query("SELECT day, SUM(listenedMs) AS listenedMs FROM listening_days WHERE kind = :kind AND day >= :sinceDay GROUP BY day")
+    abstract fun observeDays(kind: BookKind, sinceDay: Long): Flow<List<DayListeningRow>>
+
+    @Query("SELECT * FROM listening_days")
+    abstract suspend fun allDays(): List<ListeningDayEntity>
+
+    @Query(
+        "UPDATE listening_stats SET listenedMs = listenedMs + :ms, lastListenedAt = :at, groupTitle = :groupTitle, itemTitle = :itemTitle " +
+            "WHERE source = :source AND groupKey = :groupKey AND itemKey = :itemKey",
+    )
+    protected abstract suspend fun addToStat(
+        source: String,
+        groupKey: String,
+        itemKey: String,
+        groupTitle: String,
+        itemTitle: String,
+        ms: Long,
+        at: Long,
+    ): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    protected abstract suspend fun insertStat(stat: ListeningStatEntity): Long
+
+    @Query("UPDATE listening_days SET listenedMs = listenedMs + :ms WHERE day = :day AND kind = :kind AND groupKey = :groupKey")
+    protected abstract suspend fun addToDay(day: Long, kind: BookKind, groupKey: String, ms: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    protected abstract suspend fun insertDay(day: ListeningDayEntity): Long
+
+    /**
+     * Zählt [stat] zur Summe seines Eintrags (wird bei Bedarf angelegt) und zur Summe seines Tages [day] hinzu.
+     * [ListeningStatEntity.listenedMs] ist der Zuwachs.
+     */
+    @Transaction
+    open suspend fun addListening(stat: ListeningStatEntity, day: Long) {
+        val updated = addToStat(
+            stat.source, stat.groupKey, stat.itemKey, stat.groupTitle, stat.itemTitle, stat.listenedMs, stat.lastListenedAt,
+        )
+        if (updated == 0) insertStat(stat)
+        if (addToDay(day, stat.kind, stat.groupKey, stat.listenedMs) == 0) {
+            insertDay(ListeningDayEntity(day, stat.kind, stat.groupKey, stat.listenedMs))
+        }
+    }
+
+    @Query("DELETE FROM listening_stats WHERE kind = :kind")
+    protected abstract suspend fun deleteStats(kind: BookKind)
+
+    @Query("DELETE FROM listening_days WHERE kind = :kind")
+    protected abstract suspend fun deleteDays(kind: BookKind)
+
+    /** Löscht alle Zahlen der Art [kind] (gezählte und importierte). */
+    @Transaction
+    open suspend fun clear(kind: BookKind) {
+        deleteStats(kind)
+        deleteDays(kind)
+    }
 }

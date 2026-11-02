@@ -497,6 +497,39 @@
     <string name="podcast_feed_url">Feed-Adresse (Tipp kopiert sie)</string>
     <string name="podcast_url_copied">Adresse kopiert</string>
     <string name="podcast_tab_feeds">Abos</string>
+    <string name="podcast_tab_stats">Statistik</string>
+    <string name="podcast_stats_empty">Noch nichts gehört. Deine Hörzeit erscheint hier, sobald du eine Folge abspielst oder unter Einstellungen → Podcasts eine Datenbank importierst.</string>
+    <string name="podcast_stats_hours">%1$d h</string>
+    <string name="podcast_stats_minutes">%1$d min</string>
+    <string name="podcast_stats_listened">gehörte Zeit</string>
+    <plurals name="podcast_stats_listened_days">
+        <item quantity="one">gehörte Zeit (etwa %1$d Tag)</item>
+        <item quantity="other">gehörte Zeit (etwa %1$d Tage)</item>
+    </plurals>
+    <plurals name="podcast_stats_finished">
+        <item quantity="one">%1$d Folge gehört</item>
+        <item quantity="other">%1$d Folgen gehört</item>
+    </plurals>
+    <plurals name="podcast_stats_subscriptions">
+        <item quantity="one">%1$d Abo</item>
+        <item quantity="other">%1$d Abos</item>
+    </plurals>
+    <string name="podcast_stats_by_podcast">Pro Podcast</string>
+    <plurals name="podcast_stats_episodes">
+        <item quantity="one">%1$d Folge</item>
+        <item quantity="other">%1$d Folgen</item>
+    </plurals>
+    <string name="podcast_stats_unsubscribed">nicht mehr abonniert</string>
+    <string name="podcast_stats_history">Verlauf</string>
+    <string name="podcast_stats_history_empty">Der Verlauf füllt sich, sobald du mit dieser App hörst. Importierte Zeit hat kein Datum und steht nur in den Summen.</string>
+    <string name="podcast_stats_hours_per_month">Stunden pro Monat</string>
+    <string name="settings_section_stats">Statistik</string>
+    <string name="settings_stats_reset">Statistik zurücksetzen</string>
+    <string name="settings_stats_reset_summary">Löscht die gesamte Hörzeit, gezählte und importierte</string>
+    <string name="settings_stats_reset_title">Statistik zurücksetzen?</string>
+    <string name="settings_stats_reset_message">Die gesamte Podcast-Statistik wird gelöscht: die von dieser App gezählte Hörzeit und die importierten Werte, samt Verlauf. Abos und Hörfortschritt bleiben. Importierte Werte lassen sich nur durch einen erneuten Import der Datenbank wiederherstellen. Das lässt sich nicht rückgängig machen.</string>
+    <string name="settings_stats_reset_confirm">Zurücksetzen</string>
+    <string name="settings_stats_reset_done">Statistik zurückgesetzt.</string>
     <string name="podcast_all_heard">Alle Folgen gehört.</string>
     <string name="podcast_no_episodes">Dieser Feed enthält keine Folgen.</string>
     <string name="podcast_unsubscribe">Abo beenden</string>

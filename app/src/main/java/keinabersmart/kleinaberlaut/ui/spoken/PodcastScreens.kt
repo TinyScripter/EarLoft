@@ -310,9 +310,10 @@ fun FeedCard(feed: PodcastFeed, onClick: () -> Unit, modifier: Modifier = Modifi
 private enum class PodcastTab(@StringRes val label: Int) {
     EPISODES(R.string.podcast_episodes),
     FEEDS(R.string.podcast_tab_feeds),
+    STATS(R.string.podcast_tab_stats),
 }
 
-/** Bibliothek im Modus „Podcasts“: Reiter Folgen (ungehörte je Abo) und Abos (Raster mit schwebendem „+“). */
+/** Bibliothek im Modus „Podcasts“: Reiter Folgen (ungehörte je Abo), Abos (Raster mit schwebendem „+“) und Statistik. */
 @Composable
 fun PodcastLibraryScreen(
     onFeedClick: (String) -> Unit,
@@ -348,6 +349,7 @@ fun PodcastLibraryScreen(
                         viewModel::playOrPause,
                     )
                     PodcastTab.FEEDS -> FeedGrid(feeds.orEmpty(), onFeedClick, onAdd = addControl.show)
+                    PodcastTab.STATS -> PodcastStatsScreen(onFeedClick)
                 }
             }
         }

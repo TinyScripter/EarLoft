@@ -29,7 +29,7 @@ data class ListeningStatEntity(
     val groupTitle: String,
     val itemKey: String,
     val itemTitle: String,
-    /** Insgesamt gehörte Zeit (Echtzeit, nicht Inhaltszeit) in ms. */
+    /** Insgesamt gehörte Zeit in ms, gemessen am Inhalt (eine Stunde Inhalt zählt eine Stunde, egal bei welcher Geschwindigkeit). */
     val listenedMs: Long,
     /** Unix-ms des letzten Hörens; 0, wenn unbekannt. */
     val lastListenedAt: Long,
@@ -39,3 +39,16 @@ data class ListeningStatEntity(
         const val SOURCE_IMPORTED = "imported"
     }
 }
+
+/**
+ * Gehörte Zeit je Tag und Gruppe, nur von der App selbst gezählt (importierte Werte kennen keinen Tag). Grundlage für
+ * Verläufe; [day] ist der lokale Kalendertag als `LocalDate.toEpochDay()`.
+ */
+@Entity(tableName = "listening_days", primaryKeys = ["day", "kind", "groupKey"])
+data class ListeningDayEntity(
+    val day: Long,
+    val kind: BookKind,
+    val groupKey: String,
+    /** Gehörte Zeit in ms, gemessen am Inhalt (eine Stunde Inhalt zählt eine Stunde, egal bei welcher Geschwindigkeit). */
+    val listenedMs: Long,
+)

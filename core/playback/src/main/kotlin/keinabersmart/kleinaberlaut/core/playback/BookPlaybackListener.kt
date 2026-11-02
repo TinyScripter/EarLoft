@@ -12,6 +12,7 @@ import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.data.spoken.ResumeRule
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.data.spoken.resumePosition
+import keinabersmart.kleinaberlaut.core.data.stats.StatsRepository
 import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,7 @@ internal class BookPlaybackListener(
     private val books: BookRepository,
     private val progressSync: BookProgressSync,
     settings: SpokenSettings,
+    private val stats: StatsRepository,
     private val scope: CoroutineScope,
     /** Eine Podcast-Folge ist bis zum Ende gelaufen und der Player wartet (Parameter: Buch-ID der Folge). */
     private val onEpisodeEnded: (Long) -> Unit,
@@ -37,6 +39,10 @@ internal class BookPlaybackListener(
     private var timelineBookId: Long? = null
     private var timeline: BookTimeline? = null
     private var loop: Job? = null
+
+    // Gehörte Zeit der laufenden Podcast-Folge (Statistik); [meterBookId] ist die Folge, der die gemessene Zeit gehört.
+    private val meter = ListeningMeter()
+    private var meterBookId: Long? = null
 
     // Einstellungen zum Fortsetzen; mitgeführt, damit das Zurückspulen beim Drücken von Play ohne Verzögerung greift.
     private var bookRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S)
@@ -54,6 +60,7 @@ internal class BookPlaybackListener(
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        syncMeter()
         val bookId = mediaItem?.bookId
         if (bookId == null) {
             // Musik läuft immer mit normaler Geschwindigkeit.
@@ -105,6 +112,7 @@ internal class BookPlaybackListener(
     }
 
     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+        meter.setSpeed(playbackParameters.speed)
         val bookId = player.currentMediaItem?.bookId ?: return
         scope.launch { books.setSpeed(bookId, playbackParameters.speed) }
     }
@@ -121,6 +129,7 @@ internal class BookPlaybackListener(
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
+        syncMeter()
         val item = player.currentMediaItem
         val bookId = item?.bookId
         loop?.cancel()
@@ -130,6 +139,7 @@ internal class BookPlaybackListener(
                 while (true) {
                     delay(SAVE_INTERVAL_MS)
                     recordCurrent(force = false)
+                    flushListening()
                 }
             }
         } else {
@@ -162,6 +172,24 @@ internal class BookPlaybackListener(
     fun finish() {
         loop?.cancel()
         recordCurrent(force = true)
+        flushListening()
+        meter.stop()
+    }
+
+    /** Die Zeit, die seit dem letzten Mal an der Folge [meterBookId] gehört wurde, in die Statistik schreiben. */
+    private fun flushListening() {
+        val bookId = meterBookId ?: return
+        val ms = meter.drain()
+        if (ms > 0) scope.launch { stats.recordEpisodeListening(bookId, ms) }
+    }
+
+    /** Richtet die Messung auf die aktuelle Folge und den Abspielzustand aus; die bisher gemessene Zeit wird zuerst verbucht. */
+    private fun syncMeter() {
+        flushListening()
+        val item = player.currentMediaItem
+        val episodeId = item?.takeIf { it.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE }?.bookId
+        meterBookId = episodeId
+        if (episodeId != null && player.isPlaying) meter.start(player.playbackParameters.speed) else meter.stop()
     }
 
     private fun recordCurrent(force: Boolean) {

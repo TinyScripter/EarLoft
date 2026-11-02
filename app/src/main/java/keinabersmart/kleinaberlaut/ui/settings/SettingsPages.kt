@@ -301,6 +301,7 @@ fun PodcastsSettingsScreen(
     var choosingRefresh by rememberSaveable { mutableStateOf(false) }
     var choosingDeleteHeard by rememberSaveable { mutableStateOf(false) }
     var choosingAutoCount by rememberSaveable { mutableStateOf(false) }
+    var confirmingStatsReset by rememberSaveable { mutableStateOf(false) }
     // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalPodcasts(true)
@@ -347,6 +348,7 @@ fun PodcastsSettingsScreen(
                     message.result.episodes,
                 )
                 TransferMessage.DatabaseExportFailed -> resources.getString(R.string.settings_db_export_failed)
+                TransferMessage.StatsReset -> resources.getString(R.string.settings_stats_reset_done)
                 TransferMessage.DatabaseImportFailed -> resources.getString(R.string.settings_db_import_failed)
             }
             Toast.makeText(context, text, Toast.LENGTH_LONG).show()
@@ -458,8 +460,34 @@ fun PodcastsSettingsScreen(
                 onClick = { choosingDeleteHeard = true },
             )
         }
+
+        item(key = "stats") { SectionHeader(stringResource(R.string.settings_section_stats)) }
+        item(key = "stats-reset") {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_stats_reset)) },
+                supportingContent = { Text(stringResource(R.string.settings_stats_reset_summary)) },
+                leadingContent = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                modifier = Modifier.clickable { confirmingStatsReset = true },
+            )
+        }
     }
 
+    if (confirmingStatsReset) {
+        AlertDialog(
+            onDismissRequest = { confirmingStatsReset = false },
+            title = { Text(stringResource(R.string.settings_stats_reset_title)) },
+            text = { Text(stringResource(R.string.settings_stats_reset_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.resetPodcastStats()
+                    confirmingStatsReset = false
+                }) { Text(stringResource(R.string.settings_stats_reset_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingStatsReset = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
     opmlToImport?.let { uri ->
         AlertDialog(
             onDismissRequest = { opmlToImport = null },
