@@ -33,22 +33,24 @@ class HomeViewModel @Inject constructor(
     librarySyncer: LibrarySyncer,
 ) : ViewModel() {
 
+    // Verschachtelt statt über das Array-combine: Eine vertauschte Reihenfolge fällt so schon beim Kompilieren auf.
     val state: StateFlow<HomeUiState> = combine(
-        libraryRepository.recentlyAddedAlbums(),
-        libraryRepository.rediscoverAlbums(),
-        libraryRepository.recentlyPlayedAlbums(),
-        libraryRepository.randomArtists(),
-        libraryRepository.randomAlbums(),
+        combine(
+            libraryRepository.recentlyAddedAlbums(),
+            libraryRepository.rediscoverAlbums(),
+            libraryRepository.recentlyPlayedAlbums(),
+            ::Triple,
+        ),
+        combine(libraryRepository.randomArtists(), libraryRepository.randomAlbums(), ::Pair),
         librarySyncer.activeSyncs,
-    ) { values ->
-        @Suppress("UNCHECKED_CAST")
+    ) { (added, rediscover, played), (artists, albums), syncs ->
         HomeUiState(
-            recentlyAdded = values[0] as List<Album>,
-            rediscover = values[1] as List<Album>,
-            recentlyPlayed = values[2] as List<Album>,
-            randomArtists = values[3] as List<Artist>,
-            randomAlbums = values[4] as List<Album>,
-            isSyncing = (values[5] as Int) > 0,
+            recentlyAdded = added,
+            rediscover = rediscover,
+            recentlyPlayed = played,
+            randomArtists = artists,
+            randomAlbums = albums,
+            isSyncing = syncs > 0,
             isLoading = false,
         )
     }
