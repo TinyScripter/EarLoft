@@ -88,6 +88,7 @@ import keinabersmart.kleinaberlaut.ui.player.playPauseLabel
 import keinabersmart.kleinaberlaut.ui.player.rememberPlaybackPosition
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -111,6 +112,9 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
 ) : ViewModel() {
 
     val state: StateFlow<PlayerState> = playback.state
+
+    /** Sprünge der Position, damit die Anzeige auch pausiert nachzieht. */
+    val positionJumps: Flow<Unit> = playback.positionJumps
 
     private val bookId = state.map { it.spoken?.bookId }.distinctUntilChanged()
 
@@ -219,7 +223,8 @@ private fun BookPlayerContent(
     val hasNextEpisode by viewModel.hasNextEpisode.collectAsStateWithLifecycle()
     val bookWithProgress by viewModel.book.collectAsStateWithLifecycle()
     val entry = state.spoken
-    val position by rememberPlaybackPosition { viewModel.bookPositionMs() }
+    // Die Position im Buch braucht die Zeitachse; ist sie geladen, einmal neu lesen (auch pausiert).
+    val position by rememberPlaybackPosition(state.isPlaying, viewModel.positionJumps, entry, timeline) { viewModel.bookPositionMs() }
     var dragging by remember { mutableStateOf<Float?>(null) }
     // Ziehen am Kapitelbalken: Abstand zum Kapitelanfang.
     var chapterDragging by remember { mutableStateOf<Float?>(null) }
@@ -707,6 +712,9 @@ private fun DescriptionPane(description: String, modifier: Modifier = Modifier) 
 fun SpokenMiniPlayer(
     state: PlayerState,
     fractionProvider: () -> Float,
+    positionJumps: Flow<Unit>,
+    /** Ändert sich, sobald [fractionProvider] etwas Neues liefern kann (geladene Zeitachse). */
+    refreshKey: Any?,
     onClick: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onSkipBack: () -> Unit,
@@ -714,7 +722,7 @@ fun SpokenMiniPlayer(
     modifier: Modifier = Modifier,
 ) {
     val entry = state.spoken ?: return
-    val fraction by rememberPlaybackPosition { (fractionProvider() * 1000).toLong() }
+    val fraction by rememberPlaybackPosition(state.isPlaying, positionJumps, entry, refreshKey) { (fractionProvider() * 1000).toLong() }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),

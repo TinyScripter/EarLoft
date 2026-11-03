@@ -26,19 +26,22 @@ import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import keinabersmart.kleinaberlaut.core.playback.QueueEntry
 import keinabersmart.kleinaberlaut.ui.components.AlbumArt
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 @Composable
 fun MiniPlayer(
     state: PlayerState,
     positionProvider: () -> Long,
+    positionJumps: Flow<Unit>,
     onClick: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val current = state.current ?: return
-    val position by rememberPlaybackPosition(positionProvider)
+    val position by rememberPlaybackPosition(state.isPlaying, positionJumps, current, positionProvider = positionProvider)
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -101,6 +104,7 @@ private fun MiniPlayerPreview() {
                 durationMs = 200_000,
             ),
             positionProvider = { 80_000 },
+            positionJumps = emptyFlow(),
             onClick = {},
             onTogglePlayPause = {},
             onNext = {},

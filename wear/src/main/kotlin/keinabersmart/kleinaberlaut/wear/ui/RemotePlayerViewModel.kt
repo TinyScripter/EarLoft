@@ -9,12 +9,14 @@ import keinabersmart.kleinaberlaut.core.playback.QueueEntry
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteAction
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteStateDto
 import keinabersmart.kleinaberlaut.wear.sync.PhoneRemote
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -56,12 +58,19 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerState())
 
-    override val positionMs: StateFlow<Long> = flow {
-        while (true) {
-            emit(remoteState.value?.positionAt(System.currentTimeMillis()) ?: 0L)
-            delay(POSITION_INTERVAL_MS)
+    /** Aus dem gemeldeten Stand fortgerechnet; regelmäßig nur, solange das Handy spielt, sonst bei jeder neuen Meldung. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val positionMs: StateFlow<Long> = remoteState
+        .flatMapLatest { dto ->
+            flow {
+                emit(dto?.positionAt(System.currentTimeMillis()) ?: 0L)
+                while (dto?.isPlaying == true) {
+                    delay(POSITION_INTERVAL_MS)
+                    emit(dto.positionAt(System.currentTimeMillis()))
+                }
+            }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
     override val cover: StateFlow<Bitmap?> = combine(remoteState, remote.cover) { dto, cover ->
         cover?.takeIf { it.first == dto?.albumId }?.second

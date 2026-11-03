@@ -5,18 +5,39 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 
-/** Fragt die Position regelmäßig ab, solange der Aufrufer sichtbar ist. */
+/**
+ * Position für Fortschrittsanzeigen. Regelmäßig abgefragt wird nur, solange [isPlaying] und der Aufrufer mindestens
+ * STARTED ist – Compose hält Effekte bei gestoppter Activity nicht an, und der Mini-Player ist fast immer da. Pausiert
+ * einmal, bei jedem Sprung ([jumps], z. B. Spulen von außen) und wenn sich [keys] ändern (anderer Titel, Zeitachse geladen).
+ */
 @Composable
-fun rememberPlaybackPosition(positionProvider: () -> Long): State<Long> {
+fun rememberPlaybackPosition(
+    isPlaying: Boolean,
+    jumps: Flow<Unit>,
+    vararg keys: Any?,
+    positionProvider: () -> Long,
+): State<Long> {
     val provider by rememberUpdatedState(positionProvider)
-    return produceState(initialValue = positionProvider()) {
-        while (true) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    return produceState(initialValue = positionProvider(), isPlaying, jumps, lifecycle, *keys) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             value = provider()
-            delay(POSITION_POLL_MS)
+            if (isPlaying) {
+                while (true) {
+                    delay(POSITION_POLL_MS)
+                    value = provider()
+                }
+            } else {
+                jumps.collect { value = provider() }
+            }
         }
     }
 }

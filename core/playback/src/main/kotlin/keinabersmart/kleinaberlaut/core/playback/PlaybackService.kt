@@ -144,9 +144,10 @@ class PlaybackService : MediaLibraryService() {
             .setHandleAudioBecomingNoisy(true)
             // Uhr: nicht über den Lautsprecher; Wear OS bietet stattdessen die Bluetooth-Ausgabe an (Wear-Konzept 9).
             .setSuppressPlaybackOnUnsuitableOutput(playbackPolicy.requireSuitableOutput)
-            .setWakeMode(C.WAKE_MODE_NETWORK)
+            .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
         localPlayer.addListener(SourceErrorRecovery(localPlayer))
+        localPlayer.addListener(WakeModeListener(localPlayer, playbackPolicy.allowStreaming))
         localPlayer.addListener(object : Player.Listener {
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
                 replayGain.shuffleEnabled = shuffleModeEnabled
@@ -346,6 +347,31 @@ class PlaybackService : MediaLibraryService() {
         private companion object {
             const val TAG = "PlaybackService"
             val IO_ERROR_CODES = PlaybackException.ERROR_CODE_IO_UNSPECIFIED..PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE
+        }
+    }
+
+    /**
+     * Während der Wiedergabe hält Media3 die CPU wach; mit [C.WAKE_MODE_NETWORK] zusätzlich das WLAN (High-Perf-Lock), das nur
+     * Streams brauchen. Die Uhr streamt nie, Bücher und Folgen aus Dateien auch nicht. Songs (`kal://song/…`) werden erst
+     * beim Laden aufgelöst und können Streams sein; dafür bleibt es beim Netz-Modus.
+     */
+    private class WakeModeListener(private val player: ExoPlayer, private val allowStreaming: Boolean) : Player.Listener {
+        private var currentMode = C.WAKE_MODE_LOCAL
+
+        override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+            val mode = if (allowStreaming && !allLocal()) C.WAKE_MODE_NETWORK else C.WAKE_MODE_LOCAL
+            if (mode != currentMode) {
+                currentMode = mode
+                player.setWakeMode(mode)
+            }
+        }
+
+        private fun allLocal(): Boolean = (0 until player.mediaItemCount).all { index ->
+            player.getMediaItemAt(index).localConfiguration?.uri?.scheme in LOCAL_SCHEMES
+        }
+
+        private companion object {
+            val LOCAL_SCHEMES = setOf("file", "content")
         }
     }
 

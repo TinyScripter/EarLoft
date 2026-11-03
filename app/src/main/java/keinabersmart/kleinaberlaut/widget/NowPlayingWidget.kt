@@ -72,6 +72,7 @@ class NowPlayingWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val updater = context.widgetEntryPoint().widgetUpdater()
+        updater.onWidgetShown()
         provideContent {
             val state by updater.state.collectAsState()
             GlanceTheme(colors = state.seedColor?.let(::albumColorProviders) ?: GlanceTheme.colors) {
@@ -83,6 +84,12 @@ class NowPlayingWidget : GlanceAppWidget() {
 
 class NowPlayingWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = NowPlayingWidget()
+
+    /** Das letzte Widget ist weg: Die Spielzeit muss nicht mehr mitlaufen. */
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        context.widgetEntryPoint().widgetUpdater().onAllWidgetsRemoved()
+    }
 }
 
 private fun albumColorProviders(seedColor: Int): ColorProviders {
@@ -264,13 +271,16 @@ private fun ControlButton(
     }
 }
 
-/** „00:23:40 / 01:02:43“; ist die Gesamtlänge unbekannt (0), nur die Position. */
+/**
+ * „0:23 / 1:02 h“ (Stunden und Minuten, angefangene Minuten abgeschnitten); ist die Gesamtlänge unbekannt (0), nur die
+ * Position. Minuten statt Sekunden, weil jede neue Anzeige das ganze Widget neu baut.
+ */
 internal fun bookClockText(positionMs: Long, durationMs: Long): String =
-    if (durationMs > 0) "${clockOf(positionMs)} / ${clockOf(durationMs)}" else clockOf(positionMs)
+    if (durationMs > 0) "${clockOf(positionMs)} / ${clockOf(durationMs)} h" else "${clockOf(positionMs)} h"
 
 private fun clockOf(ms: Long): String {
-    val totalSeconds = (ms / 1000).coerceAtLeast(0)
-    return "%02d:%02d:%02d".format(totalSeconds / 3600, (totalSeconds % 3600) / 60, totalSeconds % 60)
+    val totalMinutes = (ms / 60_000).coerceAtLeast(0)
+    return "%d:%02d".format(totalMinutes / 60, totalMinutes % 60)
 }
 
 private fun playerCommand(command: String): Action =

@@ -381,10 +381,14 @@ fun KleinaberlautApp(
                 if (showMiniPlayer && playerState.spoken != null) {
                     val bookPlayer: BookPlayerViewModel = hiltViewModel()
                     val bookSeedColor by bookPlayer.seedColor.collectAsStateWithLifecycle()
+                    // Ohne Beobachter bliebe die Zeitachse leer und der Anteil am Buch 0.
+                    val bookTimeline by bookPlayer.timeline.collectAsStateWithLifecycle()
                     AlbumColorTheme(bookSeedColor) {
                         SpokenMiniPlayer(
                             state = playerState,
                             fractionProvider = bookPlayer::bookFraction,
+                            positionJumps = bookPlayer.positionJumps,
+                            refreshKey = bookTimeline,
                             onClick = { navigator.navigate(NowPlayingRoute) },
                             onTogglePlayPause = bookPlayer::togglePlayPause,
                             onSkipBack = bookPlayer::skipBack,
@@ -397,6 +401,7 @@ fun KleinaberlautApp(
                         MiniPlayer(
                             state = playerState,
                             positionProvider = { playerViewModel.currentPositionMs },
+                            positionJumps = playerViewModel.positionJumps,
                             onClick = { navigator.navigate(NowPlayingRoute) },
                             onTogglePlayPause = playerViewModel::togglePlayPause,
                             onNext = playerViewModel::next,

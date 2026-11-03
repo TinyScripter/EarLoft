@@ -10,6 +10,7 @@ import keinabersmart.kleinaberlaut.core.model.Lyrics
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -84,6 +85,9 @@ class PlayerViewModel @Inject constructor(
     fun cancelSleepTimer() = playbackConnection.cancelSleepTimer()
 
     val currentPositionMs: Long get() = playbackConnection.currentPositionMs
+
+    /** Sprünge der Position, damit die Anzeige auch pausiert nachzieht. */
+    val positionJumps: Flow<Unit> = playbackConnection.positionJumps
 
     fun togglePlayPause() = playbackConnection.togglePlayPause()
     fun next() = playbackConnection.next()

@@ -68,7 +68,7 @@ fun NowPlayingScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isCurrentFavorite.collectAsStateWithLifecycle()
     // Erst in den Blättern (Slider, Zeit, Songtext) gelesen, damit nicht der ganze Screen alle 250 ms neu zusammengesetzt wird.
-    val position = rememberPlaybackPosition { viewModel.currentPositionMs }
+    val position = rememberPlaybackPosition(state.isPlaying, viewModel.positionJumps, state.current) { viewModel.currentPositionMs }
     val lyricsVisible by viewModel.lyricsVisible.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()

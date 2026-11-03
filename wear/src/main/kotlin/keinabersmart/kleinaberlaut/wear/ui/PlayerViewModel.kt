@@ -42,13 +42,28 @@ class PlayerViewModel @Inject constructor(
 
     override val state: StateFlow<PlayerState> = playback.state
 
-    /** Position in Millisekunden; wird nur abgefragt, solange der Bildschirm sichtbar ist. */
-    override val positionMs: StateFlow<Long> = flow {
-        while (true) {
-            emit(playback.currentPositionMs)
-            delay(POSITION_INTERVAL_MS)
+    /**
+     * Position in Millisekunden; regelmäßig abgefragt nur, solange der Bildschirm sichtbar ist und es spielt. Pausiert einmal
+     * und nach jedem Sprung (Spulen mit der Krone, Titelwechsel).
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val positionMs: StateFlow<Long> = playback.state
+        .map { it.isPlaying to it.current }
+        .distinctUntilChanged()
+        .flatMapLatest { (playing, _) ->
+            flow {
+                emit(playback.currentPositionMs)
+                if (playing) {
+                    while (true) {
+                        delay(POSITION_INTERVAL_MS)
+                        emit(playback.currentPositionMs)
+                    }
+                } else {
+                    playback.positionJumps.collect { emit(playback.currentPositionMs) }
+                }
+            }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override val cover: StateFlow<Bitmap?> = playback.state

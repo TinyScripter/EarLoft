@@ -4,8 +4,8 @@ import androidx.media3.common.Player
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Datei eines Buchs bzw. einer Folge und die Position darin. */
-data class BookPlayerPosition(val trackIndex: Int, val positionInTrackMs: Long)
+/** Datei eines Buchs bzw. einer Folge, die Position darin und das Tempo. */
+data class BookPlayerPosition(val trackIndex: Int, val positionInTrackMs: Long, val speed: Float)
 
 /**
  * Der Player des laufenden [PlaybackService] für Beobachter im selben Prozess (Widget). Sie brauchen dadurch keinen
@@ -28,6 +28,6 @@ class ServicePlayer @Inject constructor() {
     fun bookPosition(bookId: Long): BookPlayerPosition? {
         val player = player ?: return null
         val item = player.currentMediaItem?.takeIf { it.bookId == bookId } ?: return null
-        return BookPlayerPosition(item.bookTrackIndex ?: 0, player.currentPosition)
+        return BookPlayerPosition(item.bookTrackIndex ?: 0, player.currentPosition, player.playbackParameters.speed)
     }
 }

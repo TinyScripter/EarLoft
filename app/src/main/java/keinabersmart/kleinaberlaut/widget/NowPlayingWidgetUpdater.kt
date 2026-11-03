@@ -1,8 +1,13 @@
 package keinabersmart.kleinaberlaut.widget
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.os.PowerManager
+import androidx.core.content.ContextCompat
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
 import dagger.Binds
 import dagger.Module
@@ -24,13 +29,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,15 +83,21 @@ class NowPlayingWidgetUpdater @Inject constructor(
     private val _state = MutableStateFlow(WidgetState())
     val state: StateFlow<WidgetState> = _state.asStateFlow()
 
+    /** Ist mindestens ein Widget platziert? Ohne Widget läuft keine Uhr. */
+    private val widgetsPlaced = MutableStateFlow(false)
+
     init {
+        scope.launch {
+            if (GlanceAppWidgetManager(context).getGlanceIds(NowPlayingWidget::class.java).isNotEmpty()) widgetsPlaced.value = true
+        }
         @OptIn(FlowPreview::class)
         nowPlaying
             .debounce(UPDATE_THROTTLE_MS)
             .onEach { update(it) }
             .launchIn(scope)
         @OptIn(ExperimentalCoroutinesApi::class)
-        nowPlaying
-            .flatMapLatest { clockUpdates(it) }
+        combine(nowPlaying, widgetsPlaced, ::Pair)
+            .flatMapLatest { (nowPlaying, placed) -> if (placed) clockUpdates(nowPlaying) else emptyFlow() }
             .onEach { clock ->
                 _state.value = _state.value.copy(clock = clock)
                 NowPlayingWidget().updateAll(context)
@@ -88,33 +105,71 @@ class NowPlayingWidgetUpdater @Inject constructor(
             .launchIn(scope)
     }
 
+    /** Ein Widget wird angezeigt (Glance baut es auf). */
+    fun onWidgetShown() {
+        widgetsPlaced.value = true
+    }
+
+    /** Das letzte Widget wurde entfernt. */
+    fun onAllWidgetsRemoved() {
+        widgetsPlaced.value = false
+    }
+
     /**
-     * Die Spielzeit eines Buchs bzw. einer Folge. Sie ruckelt nicht von selbst, deshalb ein Takt von einer Sekunde, solange
-     * es läuft und der Bildschirm an ist; pausiert, gibt es sie einmal.
+     * Die Spielzeit eines Buchs bzw. einer Folge in Minuten: aktualisiert beim Wechsel der Minute (in Buchzeit, also mit dem
+     * Tempo), solange es läuft und der Bildschirm an ist; pausiert, gibt es sie einmal. Jede Aktualisierung baut das ganze
+     * Widget samt Cover neu, ein Sekundentakt wäre dafür zu teuer.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun clockUpdates(nowPlaying: NowPlaying?): Flow<BookClock?> {
         val bookId = nowPlaying?.bookId ?: return flowOf(null)
         return flow {
             val timeline = books.timeline(bookId)
-            while (true) {
-                if (nowPlaying.isPlaying && !powerManager.isInteractive) {
-                    delay(CLOCK_INTERVAL_MS)
-                    continue
-                }
-                emit(currentClock(bookId, timeline))
-                if (!nowPlaying.isPlaying) break
-                delay(CLOCK_INTERVAL_MS)
+            if (!nowPlaying.isPlaying) {
+                emit(currentClock(bookId, timeline)?.first)
+                return@flow
             }
+            emitAll(
+                screenOn().flatMapLatest { on ->
+                    if (!on) {
+                        emptyFlow()
+                    } else {
+                        flow {
+                            while (true) {
+                                val (clock, waitMs) = currentClock(bookId, timeline) ?: break
+                                emit(clock)
+                                delay(waitMs)
+                            }
+                        }
+                    }
+                },
+            )
         }.distinctUntilChanged()
     }
 
-    private suspend fun currentClock(bookId: Long, timeline: BookTimeline?): BookClock? = withContext(Dispatchers.Main.immediate) {
+    /** An und aus des Bildschirms, mit dem jetzigen Stand zuerst. Der Empfänger ist nur registriert, solange ein Buch läuft. */
+    private fun screenOn(): Flow<Boolean> = callbackFlow {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                trySend(intent.action == Intent.ACTION_SCREEN_ON)
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        }
+        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        trySend(powerManager.isInteractive)
+        awaitClose { context.unregisterReceiver(receiver) }
+    }.distinctUntilChanged()
+
+    /** Spielzeit auf die Minute abgerundet und die Wartezeit bis zum nächsten Minutenwechsel; `null` ohne laufendes Buch. */
+    private suspend fun currentClock(bookId: Long, timeline: BookTimeline?): Pair<BookClock, Long>? = withContext(Dispatchers.Main.immediate) {
         val position = servicePlayer.bookPosition(bookId) ?: return@withContext null
         val inTrack = position.positionInTrackMs
-        BookClock(
-            positionMs = timeline?.toBookPosition(position.trackIndex, inTrack) ?: inTrack,
-            durationMs = timeline?.durationMs ?: 0,
-        )
+        val inBook = timeline?.toBookPosition(position.trackIndex, inTrack) ?: inTrack
+        BookClock(positionMs = inBook - inBook % MINUTE_MS, durationMs = timeline?.durationMs ?: 0) to
+            msUntilNextMinute(inBook, position.speed)
     }
 
 
@@ -157,10 +212,22 @@ class NowPlayingWidgetUpdater @Inject constructor(
 
     private companion object {
         const val UPDATE_THROTTLE_MS = 300L
-        const val CLOCK_INTERVAL_MS = 1_000L
         const val COVER_SIZE_PX = 256
     }
 }
+
+private const val MINUTE_MS = 60_000L
+
+/** Etwas nach dem Wechsel aufwachen, damit die neue Minute sicher erreicht ist. */
+private const val MINUTE_SLACK_MS = 200L
+
+/** Echtzeit bis zur nächsten vollen Minute Buchzeit bei [speed] (die Buchzeit läuft [speed]-mal so schnell). */
+internal fun msUntilNextMinute(positionMs: Long, speed: Float): Long {
+    val inBook = MINUTE_MS - positionMs.coerceAtLeast(0) % MINUTE_MS
+    return (inBook / speed.coerceAtLeast(MIN_SPEED)).toLong() + MINUTE_SLACK_MS
+}
+
+private const val MIN_SPEED = 0.1f
 
 @Module
 @InstallIn(SingletonComponent::class)
