@@ -14,13 +14,12 @@ import keinabersmart.kleinaberlaut.core.data.podcast.HeardDownload
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
 import keinabersmart.kleinaberlaut.core.data.podcast.expiredHeardDownloads
+import keinabersmart.kleinaberlaut.core.database.dao.FinishedDownloadRow
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
@@ -120,27 +119,28 @@ class EpisodeDownloads @Inject constructor(
                 if (dao.countPendingDownloads() > 0) enqueueWorker(replace = true)
             }
         }
-        // Zu Ende gehörte Folgen: der Download verfällt nach der eingestellten Zeit. Jede Änderung des Fortschritts, der
-        // Einstellung und eine stündliche Uhr lösen die Prüfung aus („sofort“ löscht beim Ende der Folge).
+        // Zu Ende gehörte Folgen: der Download verfällt nach der eingestellten Zeit. Solange die App läuft, prüft jede
+        // Änderung des Fortschritts und der Einstellung („sofort“ löscht beim Ende der Folge); abgelaufene Fristen
+        // räumt der tägliche HeardCleanupWorker auf.
         scope.launch {
-            combine(dao.observeFinishedDownloads(), settings.deleteHeardAfterDays, hourlyTick()) { finished, days, _ -> finished to days }
-                .collect { (finished, days) ->
-                    // Die Datei ist fertig, wenn sie zuletzt geschrieben wurde (Umbenennen ändert die Zeit nicht).
-                    val heard = finished.map { HeardDownload(it.bookId, it.finishedAt, it.filePath?.let(::File)?.lastModified() ?: 0L) }
-                    expiredHeardDownloads(heard, days, System.currentTimeMillis()).forEach { remove(it) }
-                }
+            combine(dao.observeFinishedDownloads(), settings.deleteHeardAfterDays, ::Pair)
+                .collect { (finished, days) -> removeExpired(finished, days) }
         }
+        HeardCleanupWorker.schedule(context)
         scope.launch {
             // Nach einem Prozessende stehen Einträge evtl. noch auf RUNNING/QUEUED.
             if (dao.countPendingDownloads() > 0) enqueueWorker()
         }
     }
 
-    private fun hourlyTick() = flow {
-        while (true) {
-            emit(Unit)
-            delay(HOUR_MS)
-        }
+    /** Löscht die Downloads zu Ende gehörter Folgen, deren Frist abgelaufen ist. @return Anzahl. */
+    suspend fun removeExpiredHeard(): Int =
+        removeExpired(dao.observeFinishedDownloads().first(), settings.deleteHeardAfterDays.first())
+
+    private suspend fun removeExpired(finished: List<FinishedDownloadRow>, days: Int): Int {
+        // Die Datei ist fertig, wenn sie zuletzt geschrieben wurde (Umbenennen ändert die Zeit nicht).
+        val heard = finished.map { HeardDownload(it.bookId, it.finishedAt, it.filePath?.let(::File)?.lastModified() ?: 0L) }
+        return expiredHeardDownloads(heard, days, System.currentTimeMillis()).onEach { remove(it) }.size
     }
 
     private suspend fun enqueueWorker(replace: Boolean = false) {
@@ -160,6 +160,5 @@ class EpisodeDownloads @Inject constructor(
 
     private companion object {
         const val WORK_NAME = "episode-downloads"
-        const val HOUR_MS = 60 * 60 * 1000L
     }
 }

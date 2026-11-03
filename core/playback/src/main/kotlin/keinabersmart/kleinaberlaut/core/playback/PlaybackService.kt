@@ -43,9 +43,9 @@ import keinabersmart.kleinaberlaut.core.data.spoken.BookProgressSync
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.data.stats.StatsRepository
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
+import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -92,11 +92,11 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var bookCovers: BookCovers
     @Inject lateinit var servicePlayer: ServicePlayer
 
+    /** Für Datenbankarbeit, die das Beenden des Service überleben darf (nur suspendierende DataStore-/Room-Aufrufe). */
+    @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
+
     /** Für Player-Zugriffe (Main-Thread). */
     private val mainScope = MainScope()
-
-    /** Für Datenbankarbeit, die das Beenden des Service überleben darf. */
-    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var session: MediaLibrarySession? = null
     private lateinit var playTracker: PlayTracker
@@ -154,7 +154,7 @@ class PlaybackService : MediaLibraryService() {
         val player = factory?.create(this, localPlayer) ?: localPlayer
         servicePlayer.attach(player)
         sleepTimer.attach(player.asSleepTimerTarget())
-        playTracker = PlayTracker(player, playbackStateRepository, ioScope)
+        playTracker = PlayTracker(player, playbackStateRepository, applicationScope)
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
         bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, spokenSettings, statsRepository, absSessionReporter, mainScope) { endedId ->
@@ -292,7 +292,7 @@ class PlaybackService : MediaLibraryService() {
         session?.let { session ->
             playTracker.finishCurrent()
             bookListener.finish()
-            queuePersistence.savePosition(session.player, ioScope)
+            queuePersistence.savePosition(session.player, applicationScope)
             session.player.release()
             session.release()
         }
@@ -395,25 +395,25 @@ class PlaybackService : MediaLibraryService() {
 
         override fun onTimelineChanged(timeline: Timeline, reason: Int) {
             if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED && !holdsSpoken) {
-                queuePersistence.saveQueueDebounced(player, ioScope)
+                queuePersistence.saveQueueDebounced(player, applicationScope)
             }
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            if (mediaItem != null) queuePersistence.saveLastBook(mediaItem.bookId, ioScope)
-            if (!holdsSpoken) queuePersistence.savePosition(player, ioScope)
+            if (mediaItem != null) queuePersistence.saveLastBook(mediaItem.bookId, applicationScope)
+            if (!holdsSpoken) queuePersistence.savePosition(player, applicationScope)
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            if (!isPlaying && !holdsSpoken) queuePersistence.savePosition(player, ioScope)
+            if (!isPlaying && !holdsSpoken) queuePersistence.savePosition(player, applicationScope)
         }
 
         override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-            if (!holdsSpoken) queuePersistence.savePosition(player, ioScope)
+            if (!holdsSpoken) queuePersistence.savePosition(player, applicationScope)
         }
 
         override fun onRepeatModeChanged(repeatMode: Int) {
-            if (!holdsSpoken) queuePersistence.savePosition(player, ioScope)
+            if (!holdsSpoken) queuePersistence.savePosition(player, applicationScope)
         }
 
         override fun onEvents(player: Player, events: Player.Events) {
