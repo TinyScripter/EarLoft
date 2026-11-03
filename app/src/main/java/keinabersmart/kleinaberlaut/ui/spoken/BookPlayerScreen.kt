@@ -40,7 +40,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SnapshotMutationPolicy
 import androidx.compose.runtime.derivedStateOf
@@ -264,7 +264,7 @@ private fun BookPlayerContent(
     }
     val hasChapters = tl?.hasChapters == true
     // Handy quer (wenig Höhe): kleinerer Abspielknopf, damit die Leiste darunter ohne Scrollen sichtbar bleibt.
-    val shortHeight = !currentWindowAdaptiveInfo().windowSizeClass
+    val shortHeight = !currentWindowAdaptiveInfoV2().windowSizeClass
         .isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
     val controls: @Composable () -> Unit = {
         Row(
