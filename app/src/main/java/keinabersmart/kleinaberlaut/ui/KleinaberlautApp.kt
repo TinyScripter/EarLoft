@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.ui
 
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -61,6 +62,7 @@ import keinabersmart.kleinaberlaut.navigation.FavoritesRoute
 import keinabersmart.kleinaberlaut.navigation.HomeRoute
 import keinabersmart.kleinaberlaut.navigation.LibraryRoute
 import keinabersmart.kleinaberlaut.navigation.LicensesRoute
+import keinabersmart.kleinaberlaut.navigation.LocalSharedTransitionScope
 import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy
 import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy.Companion.detailPane
 import keinabersmart.kleinaberlaut.navigation.ListDetailSceneStrategy.Companion.listPane
@@ -390,15 +392,19 @@ fun KleinaberlautApp(
             // von der Gestenleiste fern.
             val bottomInsets = if (showNavigation) WindowInsets.navigationBars.only(WindowInsetsSides.Bottom) else WindowInsets(0)
             Column(Modifier.windowInsetsPadding(bottomInsets)) {
-                NavDisplay(
-                    entries = navigationState.toDecoratedEntries(entryProvider),
-                    sceneStrategies = listOf(sceneStrategy),
-                    onBack = { navigator.goBack() },
-                    transitionSpec = { fadeThrough() },
-                    popTransitionSpec = { fadeThrough() },
-                    predictivePopTransitionSpec = { predictiveBack() },
-                    modifier = Modifier.weight(1f),
-                )
+                // Gemeinsame Elemente (der Kopf von Start und Bibliothek) bleiben beim Seitenwechsel stehen.
+                SharedTransitionLayout(Modifier.weight(1f)) {
+                    CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                        NavDisplay(
+                            entries = navigationState.toDecoratedEntries(entryProvider),
+                            sceneStrategies = listOf(sceneStrategy),
+                            onBack = { navigator.goBack() },
+                            transitionSpec = { fadeThrough() },
+                            popTransitionSpec = { fadeThrough() },
+                            predictivePopTransitionSpec = { predictiveBack() },
+                        )
+                    }
+                }
                 SnackbarHost(snackbarHost)
                 if (showMiniPlayer) {
                     MiniPlayerHost(playerViewModel, playerState, onOpen = { navigator.navigate(NowPlayingRoute) })

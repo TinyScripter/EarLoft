@@ -64,6 +64,7 @@ import kotlin.math.roundToInt
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import keinabersmart.kleinaberlaut.core.model.SpokenMode
+import keinabersmart.kleinaberlaut.navigation.SharedAcrossScreens
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
@@ -116,47 +117,51 @@ private fun SpokenModeScaffold(
             .windowInsetsPadding(TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Top))
             .nestedScroll(collapse),
     ) {
-        Column(Modifier.collapsingHeader(collapse)) {
-            TopAppBar(
-                windowInsets = TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Horizontal),
-                title = {
-                    Image(
-                        painter = painterResource(R.drawable.logo_wide),
-                        contentDescription = stringResource(R.string.app_name),
-                        modifier = Modifier.height(40.dp),
-                    )
-                },
-                // Wie im einzelnen Abo: Aktualisieren ganz rechts, die Suche links davon.
-                actions = {
-                    IconButton(onClick = onSearch) {
-                        Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(searchLabel(mode)))
-                    }
-                    when (mode) {
-                        SpokenMode.MUSIC -> IconButton(onClick = viewModel::refreshMusic) {
-                            Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.settings_refresh_music))
+        // Start und Bibliothek teilen sich den Kopf: Beim Wechsel zwischen ihnen bleibt er stehen, nur der Inhalt blendet über.
+        // Der geteilte Rahmen sitzt außerhalb des Einklappens, damit ein eingeklappter Kopf auch im Übergang eingeklappt bleibt.
+        SharedAcrossScreens(APP_HEADER_KEY) {
+            Column(Modifier.collapsingHeader(collapse)) {
+                TopAppBar(
+                    windowInsets = TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Horizontal),
+                    title = {
+                        Image(
+                            painter = painterResource(R.drawable.logo_wide),
+                            contentDescription = stringResource(R.string.app_name),
+                            modifier = Modifier.height(40.dp),
+                        )
+                    },
+                    // Wie im einzelnen Abo: Aktualisieren ganz rechts, die Suche links davon.
+                    actions = {
+                        IconButton(onClick = onSearch) {
+                            Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(searchLabel(mode)))
                         }
-                        SpokenMode.BOOKS -> IconButton(onClick = viewModel::refreshBooks) {
-                            Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
-                        }
-                        SpokenMode.PODCASTS -> IconButton(onClick = viewModel::refreshPodcasts) {
-                            Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.podcast_refresh))
-                        }
-                    }
-                },
-            )
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                SpokenMode.entries.forEachIndexed { index, entry ->
-                    SegmentedButton(
-                        selected = mode == entry,
-                        onClick = {
-                            if (entry != mode) {
-                                viewModel.setMode(entry)
-                                onModeChange()
+                        when (mode) {
+                            SpokenMode.MUSIC -> IconButton(onClick = viewModel::refreshMusic) {
+                                Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.settings_refresh_music))
                             }
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(index, SpokenMode.entries.size),
-                    ) {
-                        Text(stringResource(modeLabel(entry)))
+                            SpokenMode.BOOKS -> IconButton(onClick = viewModel::refreshBooks) {
+                                Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
+                            }
+                            SpokenMode.PODCASTS -> IconButton(onClick = viewModel::refreshPodcasts) {
+                                Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.podcast_refresh))
+                            }
+                        }
+                    },
+                )
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    SpokenMode.entries.forEachIndexed { index, entry ->
+                        SegmentedButton(
+                            selected = mode == entry,
+                            onClick = {
+                                if (entry != mode) {
+                                    viewModel.setMode(entry)
+                                    onModeChange()
+                                }
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index, SpokenMode.entries.size),
+                        ) {
+                            Text(stringResource(modeLabel(entry)))
+                        }
                     }
                 }
             }
@@ -197,6 +202,8 @@ private fun Modifier.collapsingHeader(state: HeaderCollapse): Modifier = clipToB
     val shown = (placeable.height + state.offset).roundToInt().coerceAtLeast(0)
     layout(placeable.width, shown) { placeable.placeRelative(0, state.offset.roundToInt()) }
 }
+
+private const val APP_HEADER_KEY = "app-header"
 
 private fun modeLabel(mode: SpokenMode): Int = when (mode) {
     SpokenMode.MUSIC -> R.string.spoken_mode_music
