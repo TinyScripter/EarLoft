@@ -60,6 +60,15 @@ dependencies {
     implementation(libs.androidx.media3.cast)
     implementation(libs.aboutlibraries.compose.m3)
 
+    // ViewModel-Tests (Review A3): echter Hilt-Graph unter Robolectric, nur die Wiedergabe als Fake.
+    testImplementation(libs.hilt.android.testing)
+    // Testdaten direkt in die Datenbank schreiben.
+    testImplementation(projects.core.database)
+    kspTest(libs.hilt.compiler)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.kotlinx.coroutines.test)
+
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
