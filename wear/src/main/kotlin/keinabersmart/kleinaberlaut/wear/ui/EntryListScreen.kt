@@ -34,6 +34,7 @@ import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.wear.R
+import keinabersmart.kleinaberlaut.wear.download.WatchStorageRepository
 import keinabersmart.kleinaberlaut.wear.sync.PhoneRemote
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -81,8 +82,8 @@ class LocalAlbumsViewModel @Inject constructor(
 
 /** Die Playlists der Auswahl vom Handy (Favoriten und Alben haben eigene Einträge). */
 @HiltViewModel
-class LocalPlaylistsViewModel @Inject constructor(selections: WatchSelections) : ViewModel() {
-    val state: StateFlow<EntryListState> = selections.selections.map { all ->
+class LocalPlaylistsViewModel @Inject constructor(storage: WatchStorageRepository) : ViewModel() {
+    val state: StateFlow<EntryListState> = storage.selections().map { all ->
         val entries = all.filter { it.kind == WearSelectionKind.PLAYLIST }
             .map { ListEntry(it.playlistId, it.title, it.songCount, loadedCount = it.downloadedCount) }
         if (entries.isEmpty()) EntryListState.Message(R.string.list_empty_watch) else EntryListState.Ready(entries)

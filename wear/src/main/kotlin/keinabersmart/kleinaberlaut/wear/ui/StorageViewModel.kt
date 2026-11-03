@@ -14,10 +14,7 @@ import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
 import keinabersmart.kleinaberlaut.wear.download.WatchState
-import keinabersmart.kleinaberlaut.wear.download.estimateBytes
-import keinabersmart.kleinaberlaut.core.database.dao.WearDao
-import keinabersmart.kleinaberlaut.core.model.SourceType
-import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
+import keinabersmart.kleinaberlaut.wear.download.WatchStorageRepository
 import keinabersmart.kleinaberlaut.wear.sync.PhoneCatalog
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -57,7 +54,7 @@ class StorageViewModel @Inject constructor(
     @ApplicationContext context: Context,
     private val downloads: DownloadRepository,
     private val catalog: PhoneCatalog,
-    private val wearDao: WearDao,
+    private val storage: WatchStorageRepository,
     private val watchState: WatchState,
 ) : ViewModel() {
 
@@ -73,14 +70,9 @@ class StorageViewModel @Inject constructor(
         watchState.lastError,
         context.chargingFlow().combine(watchState.waitingForWifi, ::Pair),
     ) { overview, settings: WearSettingsDto, missing, error, (charging, noWifi) ->
-        val backlog = if (overview.pendingSongs > 0) phoneBacklog(settings.quality) else 0
+        val backlog = if (overview.pendingSongs > 0) storage.phoneBacklogBytes(settings.quality) else 0
         StorageUiState(overview, settings.storageLimitBytes, missing, error, backlog, settings.requireCharging, charging, noWifi)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
-
-    /** Was über das Handy kommt: Songs nur vom Handy und Server-Songs, bei denen der Server zu oft scheiterte (Wear-Konzept 8.3). */
-    private suspend fun phoneBacklog(quality: WearQuality): Long = wearDao.getPendingCandidates()
-        .filter { it.sourceType == SourceType.PHONE || watchState.hasServerFailedTooOften(it.uid) }
-        .sumOf { estimateBytes(it, quality) }
 
     /** Das Handy bestimmt die Auswahl; lokal löschen würde beim nächsten Abgleich wieder geladen. */
     fun clearAll() {
