@@ -106,12 +106,18 @@ import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.settings.SwitchRow
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -505,6 +511,28 @@ class PodcastFeedViewModel @AssistedInject constructor(
         .map<List<BookWithProgress>, List<BookWithProgress>?> { it }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    private val searchQuery = MutableStateFlow("")
+
+    /** Suchtext der Seite [PodcastSearchScreen]; die Treffer kommen über [searchHits]. */
+    fun search(text: String) {
+        searchQuery.value = text.trim()
+    }
+
+    /**
+     * Treffer in Überschrift und Inhaltsangabe. Der Suchtext je Folge wird einmal je Änderung der Folgen normalisiert statt
+     * bei jedem Tastendruck; gefiltert wird abseits des Main-Threads und erst, wenn das Tippen kurz ruht.
+     */
+    @OptIn(FlowPreview::class)
+    val searchHits: StateFlow<EpisodeHits?> = combine(
+        episodes.filterNotNull().map { list -> list.map(::SearchEntry) },
+        searchQuery.debounce { if (it.isEmpty()) 0L else SEARCH_DEBOUNCE_MS },
+    ) { index, query ->
+        val needle = query.normalizeForMerge()
+        EpisodeHits(query, if (needle.isEmpty()) emptyList() else index.filter { it.matches(needle) }.map { it.episode })
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     /** Download-Zustand je Folge. */
     val downloadStates: StateFlow<Map<Long, TrackDownload>> = podcasts.downloadStates(feedId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
@@ -562,6 +590,19 @@ class PodcastFeedViewModel @AssistedInject constructor(
         fun create(feedId: String): PodcastFeedViewModel
     }
 }
+
+/** Treffer der Folgensuche; [query] ist der Suchtext, zu dem sie gehören. */
+data class EpisodeHits(val query: String, val hits: List<BookWithProgress>)
+
+/** Eine Folge mit normalisiertem Titel und Beschreibung; getrennt, damit kein Treffer über die Grenze der beiden reicht. */
+private class SearchEntry(val episode: BookWithProgress) {
+    private val title = episode.book.title.normalizeForMerge()
+    private val description = descriptionForSearch(episode.book.description).normalizeForMerge()
+
+    fun matches(needle: String): Boolean = needle in title || needle in description
+}
+
+private const val SEARCH_DEBOUNCE_MS = 150L
 
 /** Detailseite eines Podcasts: Kopf mit Bild, Titel und Knöpfen, darunter die Folgen. Info und Einstellungen liegen auf eigenen Seiten. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -668,24 +709,19 @@ fun PodcastSearchScreen(
     viewModel: PodcastFeedViewModel = hiltViewModel<PodcastFeedViewModel, PodcastFeedViewModel.Factory> { it.create(feedId) },
 ) {
     val feed by viewModel.feed.collectAsStateWithLifecycle()
-    val episodes by viewModel.episodes.collectAsStateWithLifecycle()
+    val result by viewModel.searchHits.collectAsStateWithLifecycle()
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.progress.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
+    LaunchedEffect(query) { viewModel.search(query) }
 
-    val needle = query.trim().normalizeForMerge()
-    val hits = remember(episodes, needle) {
-        if (needle.isEmpty()) {
-            emptyList()
-        } else {
-            episodes.orEmpty().filter {
-                it.book.title.normalizeForMerge().contains(needle) || descriptionForSearch(it.book.description).normalizeForMerge().contains(needle)
-            }
-        }
-    }
+    val trimmed = query.trim()
+    // Beim Tippen bleiben die letzten Treffer stehen, bis die neuen da sind; „Nichts gefunden“ erst für den aktuellen Text.
+    val hits = result?.hits.orEmpty()
+    val settled = result?.query == trimmed
 
     Column(modifier.fillMaxSize()) {
         Row(Modifier.statusBarsPadding().padding(end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -717,8 +753,8 @@ fun PodcastSearchScreen(
             )
         }
         when {
-            needle.isEmpty() -> Unit
-            hits.isEmpty() -> EmptyHint(stringResource(R.string.search_no_results, query.trim()))
+            trimmed.isEmpty() -> Unit
+            hits.isEmpty() -> if (settled) EmptyHint(stringResource(R.string.search_no_results, trimmed))
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                 items(hits, key = { it.book.id }) { item ->
                     EpisodeRow(
