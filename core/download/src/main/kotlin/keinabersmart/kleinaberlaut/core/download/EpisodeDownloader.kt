@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.core.download
 
+import android.net.Network
 import android.util.Log
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
@@ -26,15 +27,19 @@ class EpisodeDownloader @Inject constructor(
     private val client: OkHttpClient,
     private val storage: EpisodeStorage,
 ) {
-    /** Bei [DownloadOutcome.Retry] bleibt der Eintrag auf `RUNNING`; der Aufrufer reiht ihn neu ein oder markiert ihn. */
+    /**
+     * Bei [DownloadOutcome.Retry] bleibt der Eintrag auf `RUNNING`; der Aufrufer reiht ihn neu ein oder markiert ihn.
+     * Mit [network] läuft die Verbindung über genau dieses Netz (die Uhr lädt über WLAN, wie beim [Downloader]).
+     */
     suspend fun download(
         track: BookTrackEntity,
+        network: Network? = null,
         onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit = { _, _ -> },
     ): DownloadOutcome {
         val bookId = track.bookId
         if (dao.markDownloadRunning(bookId) == 0) return DownloadOutcome.Cancelled
         return try {
-            fetch(track, onProgress).also { outcome ->
+            fetch(track, network, onProgress).also { outcome ->
                 if (outcome is DownloadOutcome.Failed) dao.markDownloadFailed(bookId)
                 if (outcome !is DownloadOutcome.Done) storage.partFileFor(bookId).delete()
             }
@@ -48,9 +53,9 @@ class EpisodeDownloader @Inject constructor(
         }
     }
 
-    private suspend fun fetch(track: BookTrackEntity, onProgress: suspend (Long, Long?) -> Unit): DownloadOutcome {
+    private suspend fun fetch(track: BookTrackEntity, network: Network?, onProgress: suspend (Long, Long?) -> Unit): DownloadOutcome {
         val request = api.audioRequest(track.remoteFileId) ?: return DownloadOutcome.Failed("Ungültige Adresse")
-        val call = client.newCall(request)
+        val call = clientFor(network).newCall(request)
         val cancelCall = currentCoroutineContext().job.invokeOnCompletion { call.cancel() }
         try {
             return withContext(Dispatchers.IO) {
@@ -76,6 +81,16 @@ class EpisodeDownloader @Inject constructor(
             cancelCall.dispose()
         }
     }
+
+    private fun clientFor(network: Network?): OkHttpClient =
+        if (network == null) {
+            client
+        } else {
+            client.newBuilder()
+                .socketFactory(network.socketFactory)
+                .dns { host -> network.getAllByName(host).toList() }
+                .build()
+        }
 
     private suspend fun writeToPart(bookId: Long, input: java.io.InputStream, total: Long?, onProgress: suspend (Long, Long?) -> Unit) {
         storage.ensureDirectory()

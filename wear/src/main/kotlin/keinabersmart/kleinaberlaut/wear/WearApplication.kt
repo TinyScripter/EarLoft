@@ -8,6 +8,7 @@ import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
 import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
 import keinabersmart.kleinaberlaut.wear.download.WatchState
 import keinabersmart.kleinaberlaut.wear.sync.PhoneSyncWorker
+import keinabersmart.kleinaberlaut.wear.sync.WatchEpisodeReporter
 import keinabersmart.kleinaberlaut.wear.sync.WatchInfoPublisher
 import keinabersmart.kleinaberlaut.wear.sync.WatchStatusPublisher
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +26,7 @@ class WearApplication : Application() {
 
     @Inject lateinit var watchInfoPublisher: WatchInfoPublisher
     @Inject lateinit var watchStatusPublisher: WatchStatusPublisher
+    @Inject lateinit var episodeReporter: WatchEpisodeReporter
     @Inject lateinit var playbackPolicy: PlaybackPolicy
     @Inject lateinit var replayGainSettings: ReplayGainSettings
     @Inject lateinit var watchState: WatchState
@@ -44,6 +46,8 @@ class WearApplication : Application() {
         }
         applicationScope.launch { watchInfoPublisher.publish() }
         watchStatusPublisher.start(applicationScope)
+        // Auf der Uhr gehörte Folgen ans Handy (Wear-Konzept 16.1).
+        episodeReporter.start(applicationScope)
         // Holt nach, was ankam, während die App nicht lief bzw. der Listener nichts gemeldet hat.
         PhoneSyncWorker.enqueue(this)
     }

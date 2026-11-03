@@ -5,13 +5,11 @@ import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.model.BookProgress
-import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.isLocalSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,8 +35,6 @@ data class WatchEpisodeContent(
     val audioUrl: String?,
     val mimeType: String?,
     val coverUrl: String?,
-    val phoneHasFile: Boolean,
-    val sizeBytes: Long?,
     val progress: BookProgress?,
 )
 
@@ -66,7 +62,6 @@ class WatchEpisodes @Inject constructor(
                     val book = bookDao.book(entry.book.id) ?: return@mapNotNull null
                     val feed = feeds[book.serverId] ?: podcastDao.feed(book.serverId)?.also { feeds[book.serverId] = it } ?: return@mapNotNull null
                     val track = podcastDao.trackOf(book.bookId) ?: return@mapNotNull null
-                    val downloaded = track.downloadState == TrackDownload.DONE && track.filePath?.let { File(it).isFile } == true
                     // Folgen vom Gerät: Die Dateikennung ist eine `content://`-Adresse, die nur das Handy öffnen kann.
                     val local = isLocalSource(book.serverId)
                     WatchEpisodeContent(
@@ -77,15 +72,14 @@ class WatchEpisodes @Inject constructor(
                         durationMs = book.durationMs.takeIf { it > 0 } ?: track.durationMs,
                         audioUrl = track.remoteFileId.takeUnless { local },
                         mimeType = track.mimeType,
-                        coverUrl = book.coverUrl ?: feed.imageUrl,
-                        phoneHasFile = local || downloaded,
-                        sizeBytes = track.fileSize.takeIf { downloaded && it > 0 },
+                        // Bilder der Folgen vom Gerät sind `kal://`-Adressen dieses Handys; die Uhr kann damit nichts anfangen.
+                        coverUrl = (book.coverUrl ?: feed.imageUrl)?.takeIf { it.startsWith("http") },
                         progress = entry.progress,
                     )
                 }
                 WatchPodcastContent(
                     feeds = feeds.values.map {
-                        WatchFeedContent(it.feedId, it.url, it.title, it.author, it.imageUrl, it.newestFirst, it.continuous)
+                        WatchFeedContent(it.feedId, it.url, it.title, it.author, it.imageUrl?.takeIf { url -> url.startsWith("http") }, it.newestFirst, it.continuous)
                     },
                     episodes = episodes,
                 )

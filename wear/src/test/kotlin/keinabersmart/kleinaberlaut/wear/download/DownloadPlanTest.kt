@@ -92,4 +92,12 @@ class DownloadPlanTest {
         assertEquals(2, estimatePhoneTransferMinutes(6_144_001))
         assertEquals(10, estimatePhoneTransferMinutes(60_000_000))
     }
+
+    @Test
+    fun `episodes are estimated at 128 kbit per second, an hour without duration`() {
+        assertEquals(57_600_000, estimateEpisodeBytes(3_600_000))
+        assertEquals(57_600_000, estimateEpisodeBytes(0))
+        // Zwei Folgen von je einer Stunde passen in 120 MB, die dritte nicht mehr.
+        assertEquals(listOf(1, 2), takeWithinBudget(listOf(1, 2, 3), 120_000_000) { estimateEpisodeBytes(3_600_000) })
+    }
 }

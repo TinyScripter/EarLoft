@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.core.data.spoken
 import android.net.Uri
 import keinabersmart.kleinaberlaut.core.data.podcast.EpisodeQueue
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
+import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
 import keinabersmart.kleinaberlaut.core.model.Book
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
@@ -47,6 +48,7 @@ class BookPlaybackSource @Inject constructor(
     private val podcasts: PodcastRepository,
     private val queue: EpisodeQueue,
     private val settings: SpokenSettings,
+    private val policy: PlaybackPolicy,
 ) {
     /**
      * Zum Abspielen: gleicht den Fortschritt mit dem Server ab (ohne Verbindung gilt der lokale Stand), wendet die Regel
@@ -69,6 +71,8 @@ class BookPlaybackSource @Inject constructor(
         // Kapitel einer Folge kommen aus einer eigenen Liste; fehlt sie oder ist sie offline nicht erreichbar, geht es ohne.
         if (episode) podcasts.ensureChapters(bookId)
         val timeline = repository.timeline(bookId) ?: return null
+        // Ohne Streams (Uhr, Wear-Konzept 16.1) nur, wenn jede Datei auf dem Gerät liegt.
+        if (!policy.allowStreaming && timeline.tracks.any { track -> track.localPath?.let(::File)?.isFile != true }) return null
         // Eine geladene Datei geht vor dem Stream (Folgen und Bücher, auch gemischt, wenn nur ein Teil geladen ist).
         // Folgen und Bücher vom Gerät haben keinen Audiobookshelf-Server; ihre Dateikennung ist die Adresse selbst.
         val server = if (episode || book.isLocal) null else servers.server(book.serverId) ?: return null

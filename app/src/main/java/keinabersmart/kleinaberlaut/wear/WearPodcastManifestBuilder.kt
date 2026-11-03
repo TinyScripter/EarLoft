@@ -31,8 +31,6 @@ object WearPodcastManifestBuilder {
                 audioUrl = episode.audioUrl,
                 mimeType = episode.mimeType,
                 coverUrl = episode.coverUrl,
-                phoneHasFile = episode.phoneHasFile,
-                sizeBytes = episode.sizeBytes,
                 progress = episode.progress?.let {
                     WearEpisodeProgressDto(it.positionMs, it.durationMs, it.finished, it.speed, it.updatedAt)
                 },

@@ -188,10 +188,6 @@ data class WearEpisodeDto(
     val audioUrl: String? = null,
     val mimeType: String? = null,
     val coverUrl: String? = null,
-    /** Das Handy hat die Datei (Download oder Folge vom Gerät) und kann sie über den Datei-Kanal schicken. */
-    val phoneHasFile: Boolean = false,
-    /** Größe der Datei, soweit bekannt (geladene Folge am Handy); sonst schätzt die Uhr aus der Dauer. */
-    val sizeBytes: Long? = null,
     val progress: WearEpisodeProgressDto? = null,
 )
 

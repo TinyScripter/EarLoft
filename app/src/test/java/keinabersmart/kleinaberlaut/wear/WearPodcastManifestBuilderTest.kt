@@ -22,8 +22,6 @@ class WearPodcastManifestBuilderTest {
         audioUrl = audioUrl,
         mimeType = "audio/mpeg",
         coverUrl = null,
-        phoneHasFile = audioUrl == null,
-        sizeBytes = null,
         progress = BookProgress(positionMs, 3_600_000, finished = false, speed = 1.25f, updatedAt = positionMs),
     )
 
@@ -36,7 +34,6 @@ class WearPodcastManifestBuilderTest {
         assertEquals(1.25f, manifest.episodes.first().progress!!.speed)
         // Folgen vom Gerät gibt es nur über den Datei-Kanal.
         assertNull(manifest.episodes.last().audioUrl)
-        assertEquals(true, manifest.episodes.last().phoneHasFile)
     }
 
     @Test

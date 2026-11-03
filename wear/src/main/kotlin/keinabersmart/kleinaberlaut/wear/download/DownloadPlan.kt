@@ -17,12 +17,27 @@ data class DownloadPlan(val toQueue: List<PlannedDownload>, val missing: Int)
  * nichts ungefragt gelöscht oder vorgezogen.
  */
 fun planWithinBudget(ordered: List<PlannedDownload>, budgetBytes: Long): DownloadPlan {
-    var remaining = budgetBytes
-    val fitting = ordered.takeWhile { download ->
-        (download.estimatedBytes <= remaining).also { if (it) remaining -= download.estimatedBytes }
-    }
+    val fitting = takeWithinBudget(ordered, budgetBytes) { it.estimatedBytes }
     return DownloadPlan(fitting, missing = ordered.size - fitting.size)
 }
+
+/** Die vorderen Einträge von [ordered], solange ihre Größen ([bytes]) zusammen unter [budgetBytes] passen. */
+fun <T> takeWithinBudget(ordered: List<T>, budgetBytes: Long, bytes: (T) -> Long): List<T> {
+    var remaining = budgetBytes
+    return ordered.takeWhile { item ->
+        val size = bytes(item)
+        (size <= remaining).also { if (it) remaining -= size }
+    }
+}
+
+/**
+ * Geschätzte Größe einer Podcast-Folge (Wear-Konzept 16.1): Dauer × 128 kbit/s, wie sie viele Feeds anbieten. Ohne Dauer
+ * (der Feed nannte keine) eine Stunde.
+ */
+fun estimateEpisodeBytes(durationMs: Long): Long = (durationMs.takeIf { it > 0 } ?: UNKNOWN_EPISODE_MS) * EPISODE_BYTES_PER_MS
+
+private const val UNKNOWN_EPISODE_MS = 3_600_000L
+private const val EPISODE_BYTES_PER_MS = 16L // 128 kbit/s
 
 /**
  * Wie viel noch eingereiht werden darf: So viel, dass [WearSettingsDto.minFreeBytes] frei bleibt und die

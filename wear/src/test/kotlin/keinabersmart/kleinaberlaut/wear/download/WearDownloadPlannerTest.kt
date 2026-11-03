@@ -3,9 +3,14 @@ package keinabersmart.kleinaberlaut.wear.download
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import keinabersmart.kleinaberlaut.core.data.podcast.EpisodeQueue
 import keinabersmart.kleinaberlaut.core.data.repository.CoverFiles
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.AlbumEntity
+import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
+import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
+import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
+import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntryEntity
@@ -15,7 +20,9 @@ import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
 import keinabersmart.kleinaberlaut.core.download.DownloadScheduler
 import keinabersmart.kleinaberlaut.core.download.DownloadStorage
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.DownloadState
+import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
@@ -36,6 +43,7 @@ class WearDownloadPlannerTest {
     private lateinit var state: WatchState
     private lateinit var scheduler: RecordingScheduler
     private lateinit var planner: WearDownloadPlanner
+    private lateinit var episodeQueue: EpisodeQueue
     private var albumId = 0L
 
     @Before
@@ -47,6 +55,7 @@ class WearDownloadPlannerTest {
         // Der Emulator-Speicher soll das Ergebnis nicht bestimmen.
         state.updateSettings(WearSettingsDto(minFreeBytes = 0))
         scheduler = RecordingScheduler()
+        episodeQueue = EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())
         planner = WearDownloadPlanner(
             database = db,
             wearDao = db.wearDao(),
@@ -56,6 +65,9 @@ class WearDownloadPlannerTest {
             state = state,
             scheduler = scheduler,
             coverFiles = CoverFiles(ApplicationProvider.getApplicationContext()),
+            podcastDao = db.podcastDao(),
+            bookDao = db.bookDao(),
+            episodeQueue = episodeQueue,
         )
         db.sourceDao().upsert(SourceEntity("nd", SourceType.SUBSONIC, "Navidrome"))
         db.sourceDao().upsert(SourceEntity("phone", SourceType.PHONE, "Handy"))
@@ -82,6 +94,34 @@ class WearDownloadPlannerTest {
         assertEquals(setOf("wear:album:1"), downloads.map { it.pinnedBy }.toSet())
         assertEquals(0, state.missingForStorage.value)
         assertEquals(1, scheduler.calls)
+    }
+
+    @Test
+    fun `episodes from the phone come first, finished ones are not loaded`() = runTest {
+        // Eine Stunde Folge schätzt der Planer auf 57,6 MB; daneben passt kein Titel mehr (je 3,296 MB).
+        state.updateSettings(WearSettingsDto(minFreeBytes = 0, storageLimitBytes = 60_000_000))
+        db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast"))
+        val heard = episode("heard")
+        val next = episode("next")
+        db.bookDao().upsertProgress(BookProgressEntity(heard, 3_600_000, 3_600_000, finished = true, updatedAt = 1))
+        episodeQueue.setOrder(listOf(heard, next))
+        select("album:1", listOf(song("nd:t1")))
+
+        planner.plan()
+
+        assertEquals(TrackDownload.QUEUED, db.podcastDao().trackOf(next)!!.downloadState)
+        assertEquals(TrackDownload.NONE, db.podcastDao().trackOf(heard)!!.downloadState)
+        assertEquals(emptyList<String>(), db.downloadDao().getAll().map { it.sourceUid })
+        assertEquals(1, state.missingForStorage.value)
+        assertEquals(1, scheduler.calls)
+    }
+
+    private suspend fun episode(guid: String): Long {
+        val bookId = db.bookDao().insertBook(
+            BookEntity(serverId = "f1", kind = BookKind.EPISODE, remoteId = guid, title = guid, normTitle = guid, author = "Podcast", durationMs = 3_600_000),
+        )
+        db.podcastDao().insertTracks(listOf(BookTrackEntity(bookId, 0, "https://example.org/$guid.mp3", 0, 3_600_000)))
+        return bookId
     }
 
     @Test

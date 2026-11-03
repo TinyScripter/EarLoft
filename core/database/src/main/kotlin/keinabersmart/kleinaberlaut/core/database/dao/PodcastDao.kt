@@ -184,6 +184,13 @@ abstract class PodcastDao {
     )
     abstract suspend fun countPendingDownloads(): Int
 
+    /** Wartende und laufende Downloads von Folgen (für das Speicherbudget der Uhr). */
+    @Query(
+        "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND t.downloadState IN ('QUEUED', 'RUNNING')",
+    )
+    abstract suspend fun pendingTracks(): List<BookTrackEntity>
+
     @Query("UPDATE book_tracks SET downloadState = 'RUNNING' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState = 'QUEUED'")
     abstract suspend fun markDownloadRunning(bookId: Long): Int
 

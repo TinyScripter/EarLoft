@@ -1,12 +1,14 @@
 package keinabersmart.kleinaberlaut.core.data.spoken
 
 import android.content.Context
+import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.WorkManager
 import keinabersmart.kleinaberlaut.core.data.podcast.EpisodeQueue
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
+import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
 import keinabersmart.kleinaberlaut.core.data.security.SecretStore
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
@@ -27,6 +29,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 /** Laden zum Abspielen gegenüber pausiertem Wiederherstellen beim Start des Service (Review K1). */
 @RunWith(RobolectricTestRunner::class)
@@ -34,6 +37,7 @@ class BookPlaybackSourceTest {
 
     private lateinit var db: KleinaberlautDatabase
     private lateinit var source: BookPlaybackSource
+    private val policy = PlaybackPolicy()
     private var bookId = 0L
     private val pausedSince = System.currentTimeMillis() - HOUR_MS
 
@@ -69,6 +73,7 @@ class BookPlaybackSourceTest {
             PodcastRepository(db.podcastDao(), dao, PodcastFeedApi(client)),
             EpisodeQueue(context, dao),
             settings,
+            policy,
         )
         bookId = dao.upsertBook(
             BookEntity(
@@ -128,6 +133,19 @@ class BookPlaybackSourceTest {
 
         assertEquals(0L, restored.startPositionMs)
         assertNull(restored.pausedSinceMs)
+    }
+
+    @Test
+    fun `ohne Streams nur mit Datei auf dem Geraet`() = runTest {
+        policy.allowStreaming = false
+        assertNull(source.prepare(bookId))
+
+        val file = File.createTempFile("buch", ".m4b").apply { deleteOnExit() }
+        db.bookDao().queueBookDownload(bookId)
+        db.bookDao().markBookTrackRunning(bookId, 0)
+        db.bookDao().markBookTrackDone(bookId, 0, file.absolutePath, file.length())
+
+        assertEquals(listOf(Uri.fromFile(file).toString()), source.prepare(bookId)!!.trackUrls)
     }
 
     private companion object {

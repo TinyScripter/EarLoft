@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.room.withTransaction
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.MessageClient
+import keinabersmart.kleinaberlaut.core.data.podcast.EpisodeQueue
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
 import keinabersmart.kleinaberlaut.core.data.wear.MirroredServer
 import keinabersmart.kleinaberlaut.core.data.wear.WearServerMirror
@@ -20,6 +21,7 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearManifest
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
+import keinabersmart.kleinaberlaut.core.wearsync.WearPodcastManifest
 import keinabersmart.kleinaberlaut.core.wearsync.WearServersDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
 import keinabersmart.kleinaberlaut.core.wearsync.assetPayloadsAt
@@ -35,7 +37,7 @@ import javax.inject.Singleton
 
 /**
  * Übernimmt den Stand des Handys in die Datenbank der Uhr (Wear-Konzept 6/7): erst die Server, dann das
- * Manifest. Liest immer den aktuellen Stand der DataItems – mehrfaches Ausführen schadet nicht.
+ * Manifest, dann die Folgen (16.1). Liest immer den aktuellen Stand der DataItems – mehrfaches Ausführen schadet nicht.
  */
 @Singleton
 class PhoneLibrarySync @Inject constructor(
@@ -43,6 +45,8 @@ class PhoneLibrarySync @Inject constructor(
     private val messageClient: MessageClient,
     private val serverMirror: WearServerMirror,
     private val manifestApplier: ManifestApplier,
+    private val podcastMirror: PodcastMirror,
+    private val episodeQueue: EpisodeQueue,
     private val state: WatchState,
     private val planner: WearDownloadPlanner,
 ) {
@@ -55,7 +59,8 @@ class PhoneLibrarySync @Inject constructor(
         val servers = dataClient.payloadsAt(WearPaths.SERVERS).entries.firstOrNull()
         // Jeder Prozessstart der Uhr stößt einen Lauf an (Nachricht vom Handy, Download-Versuch, Kachel …). Ist seit der
         // letzten Übernahme nichts Neues gekommen, bleibt es beim Nachfragen nach Passwörtern und beim Planen.
-        val stamp = "${servers?.value?.let(WearCodec::hash)}:${dataClient.hashesAt(WearPaths.MANIFEST).values.firstOrNull()}"
+        val podcastsHash = dataClient.hashesAt(WearPaths.PODCASTS).values.firstOrNull()
+        val stamp = "${servers?.value?.let(WearCodec::hash)}:${dataClient.hashesAt(WearPaths.MANIFEST).values.firstOrNull()}:$podcastsHash"
         if (!settingsChanged && stamp == state.appliedPhoneStamp) {
             servers?.let { requestMissingPasswords(phoneNodeId = it.key) }
             planner.plan()
@@ -68,6 +73,8 @@ class PhoneLibrarySync @Inject constructor(
         }
         dataClient.assetPayloadsAt(WearPaths.MANIFEST).values.firstOrNull()
             ?.let { manifestApplier.apply(WearCodec.decodeManifest(it)) }
+        dataClient.assetPayloadsAt(WearPaths.PODCASTS).values.firstOrNull()
+            ?.let { episodeQueue.setOrder(podcastMirror.apply(WearCodec.decodeCompressed<WearPodcastManifest>(it))) }
         planner.plan(replaceSchedule = settingsChanged)
         state.appliedPhoneStamp = stamp
     }
