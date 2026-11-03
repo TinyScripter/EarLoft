@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Auto Backup bis API 30. Nicht gesichert werden (Konzept 10, Sicherheit):
-    - die Hauptdatenbank – sie wird aus den Quellen neu aufgebaut; was keine Quelle kennt (Server, Abos, Statistik, Fortschritt),
+    - die Hauptdatenbank – sie wird aus den Quellen neu aufgebaut; was keine Quelle kennt (Server, Abos, Statistik, Fortschritt, Musik-Nutzerdaten),
       steht zusätzlich in user.db und wird gesichert (Review K9);
     - die Datenbank von ExoPlayer – ein Zwischenspeicher dieses Geräts;
     - die verschlüsselten Zugangsdaten – der Schlüssel liegt im Keystore dieses Geräts;
-    - der Stand des MediaStore beim letzten lokalen Scan – er gehört zur Datenbank;
-    - der Wiedergabestand – er verweist auf IDs der Hauptdatenbank, die ein neues Gerät neu vergibt („Weiterhören“
-      speichert dagegen Schlüssel, die auch dort gelten, und wird gesichert).
+    - der Stand des MediaStore beim letzten lokalen Scan – er gehört zur Datenbank.
     Downloads liegen in noBackupFilesDir und sind dadurch ohnehin ausgenommen.
+    „Weiterhören“ und der Wiedergabestand speichern Schlüssel statt IDs der Hauptdatenbank und werden gesichert.
 -->
 <full-backup-content>
     <exclude domain="database" path="kleinaberlaut.db" />
@@ -19,5 +18,4 @@
     <exclude domain="database" path="exoplayer_internal.db-journal" />
     <exclude domain="file" path="datastore/secrets.preferences_pb" />
     <exclude domain="file" path="datastore/local_scan.preferences_pb" />
-    <exclude domain="file" path="datastore/playback_state.preferences_pb" />
 </full-backup-content>

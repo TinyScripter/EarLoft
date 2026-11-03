@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
+import keinabersmart.kleinaberlaut.core.data.spoken.BookKeys
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -148,11 +149,10 @@ class EpisodeQueue @Inject constructor(
         val LEGACY_ORDER = stringPreferencesKey("order")
         val LEGACY_HIDDEN = stringPreferencesKey("hidden")
 
-        /** Steuerzeichen, die weder in einer guid (XML) noch in einem Pfad oder einer Server-Kennung vorkommen. */
+        /** Steuerzeichen, das weder in einer guid (XML) noch in einem Pfad oder einer Server-Kennung vorkommt. */
         const val ENTRY_SEPARATOR = "\u001E"
-        const val KEY_SEPARATOR = "\u001F"
         const val MAX_ARGS = 500
 
-        fun key(serverId: String, remoteId: String) = serverId + KEY_SEPARATOR + remoteId
+        fun key(serverId: String, remoteId: String) = BookKeys.encode(serverId, remoteId)
     }
 }

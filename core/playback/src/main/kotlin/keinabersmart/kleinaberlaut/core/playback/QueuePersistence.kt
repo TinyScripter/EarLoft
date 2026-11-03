@@ -7,12 +7,14 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaybackStateRepository
+import keinabersmart.kleinaberlaut.core.data.spoken.BookKeys
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -38,6 +40,7 @@ class QueuePersistence @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val playbackStateRepository: PlaybackStateRepository,
     private val libraryRepository: LibraryRepository,
+    private val bookKeys: BookKeys,
 ) {
     private var queueSaveJob: Job? = null
 
@@ -67,14 +70,37 @@ class QueuePersistence @Inject constructor(
         }
     }
 
-    /** Merkt, ob zuletzt ein Buch/eine Folge ([bookId]) oder Musik (`null`) lief; so wird beim Start genau das geladen. */
+    /**
+     * Merkt, ob zuletzt ein Buch/eine Folge ([bookId]) oder Musik (`null`) lief; so wird beim Start genau das geladen.
+     * Gespeichert wird der Schlüssel des Buchs ([BookKeys]), damit die Datei mit dem Backup auf ein neues Gerät passt.
+     */
     fun saveLastBook(bookId: Long?, scope: CoroutineScope) {
-        scope.launch { context.playbackDataStore.edit { it[KEY_LAST_BOOK] = bookId ?: NO_BOOK } }
+        scope.launch {
+            val key = bookId?.let { bookKeys.keyOf(it) }.orEmpty()
+            context.playbackDataStore.edit {
+                it[KEY_LAST_BOOK] = key
+                it.remove(LEGACY_LAST_BOOK)
+            }
+        }
     }
 
-    /** Das Buch bzw. die Folge, die zuletzt lief; `null`, wenn zuletzt Musik lief. */
-    suspend fun lastBookId(): Long? =
-        context.playbackDataStore.data.first()[KEY_LAST_BOOK]?.takeIf { it != NO_BOOK }
+    /** Das Buch bzw. die Folge, die zuletzt lief; `null`, wenn zuletzt Musik lief oder es das Buch hier (noch) nicht gibt. */
+    suspend fun lastBookId(): Long? {
+        val prefs = context.playbackDataStore.data.first()
+        val key = prefs[KEY_LAST_BOOK] ?: migrateLegacyLastBook(prefs) ?: return null
+        return key.takeIf { it.isNotEmpty() }?.let { bookKeys.idOf(it) }
+    }
+
+    /** Frühere Versionen speicherten die `bookId`; sie wird einmal in den Schlüssel umgeschrieben. */
+    private suspend fun migrateLegacyLastBook(prefs: Preferences): String? {
+        val legacy = prefs[LEGACY_LAST_BOOK] ?: return null
+        val key = legacy.takeIf { it != LEGACY_NO_BOOK }?.let { bookKeys.keyOfLegacyId(it) }.orEmpty()
+        context.playbackDataStore.edit {
+            it[KEY_LAST_BOOK] = key
+            it.remove(LEGACY_LAST_BOOK)
+        }
+        return key
+    }
 
     suspend fun restore(): RestoredQueue? {
         val songs = libraryRepository.songs(playbackStateRepository.loadQueue())
@@ -96,7 +122,9 @@ class QueuePersistence @Inject constructor(
         val KEY_POSITION = longPreferencesKey("position_ms")
         val KEY_SHUFFLE = booleanPreferencesKey("shuffle")
         val KEY_REPEAT = intPreferencesKey("repeat_mode")
-        val KEY_LAST_BOOK = longPreferencesKey("last_book_id")
-        const val NO_BOOK = -1L
+        /** Schlüssel des Buchs ([BookKeys]); leer, wenn zuletzt Musik lief. */
+        val KEY_LAST_BOOK = stringPreferencesKey("last_book_key")
+        val LEGACY_LAST_BOOK = longPreferencesKey("last_book_id")
+        const val LEGACY_NO_BOOK = -1L
     }
 }
