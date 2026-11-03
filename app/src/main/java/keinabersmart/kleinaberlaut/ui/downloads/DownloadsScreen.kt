@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,6 +52,8 @@ import keinabersmart.kleinaberlaut.ui.spoken.BookArt
 import keinabersmart.kleinaberlaut.ui.spoken.PodcastArt
 import keinabersmart.kleinaberlaut.ui.spoken.transferText
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
+import keinabersmart.kleinaberlaut.ui.components.LoadingIndicator
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
 import keinabersmart.kleinaberlaut.ui.formatBytes
 import keinabersmart.kleinaberlaut.ui.library.BackButton
@@ -144,7 +145,8 @@ private fun DownloadsContent(
             },
         )
         when {
-            state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            state.isLoading -> LoadingIndicator()
+            state.isFailed -> LoadFailedHint()
             isEmpty -> EmptyHint(stringResource(R.string.downloads_empty))
             else -> LazyColumn(Modifier.fillMaxSize()) {
                 item(key = "storage") { StorageLine(overview) }

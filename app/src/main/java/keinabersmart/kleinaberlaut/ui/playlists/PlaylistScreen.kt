@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,6 +61,8 @@ import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.ui.LoadState
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
+import keinabersmart.kleinaberlaut.ui.components.LoadingIndicator
 import keinabersmart.kleinaberlaut.ui.components.NoSongActions
 import keinabersmart.kleinaberlaut.ui.components.PreviewSong
 import keinabersmart.kleinaberlaut.ui.components.SongActions
@@ -72,7 +73,7 @@ import keinabersmart.kleinaberlaut.ui.components.formatDuration
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.library.DownloadButton
 import keinabersmart.kleinaberlaut.ui.library.DownloadStatusLine
-import keinabersmart.kleinaberlaut.ui.toLoadState
+import keinabersmart.kleinaberlaut.ui.asLoadStateOrMissing
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -91,7 +92,7 @@ class PlaylistViewModel @AssistedInject constructor(
 ) : ViewModel(), SongActions {
 
     val playlist: StateFlow<LoadState<PlaylistDetails>> = playlistRepository.playlist(playlistId)
-        .map { it.toLoadState() }
+        .asLoadStateOrMissing()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     val offline: StateFlow<AlbumOfflineStatus> = combine(
@@ -208,8 +209,9 @@ private fun PlaylistContent(
             },
         )
         when (state) {
-            LoadState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            LoadState.Loading -> LoadingIndicator()
             LoadState.Missing -> EmptyHint(stringResource(R.string.item_missing))
+            LoadState.Failed -> LoadFailedHint()
             is LoadState.Ready -> PlaylistEntries(state.value, offline, onPlay, onShuffle, onDownload, onRemoveDownload, onRemoveEntry, actions)
         }
     }

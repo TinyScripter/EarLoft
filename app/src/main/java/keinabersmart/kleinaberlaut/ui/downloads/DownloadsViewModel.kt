@@ -16,6 +16,7 @@ import keinabersmart.kleinaberlaut.core.model.Book
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.model.DownloadedAlbum
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
+import keinabersmart.kleinaberlaut.ui.orOnError
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -33,6 +34,7 @@ data class DownloadsUiState(
     val books: List<DownloadedBook> = emptyList(),
     val podcasts: List<FeedDownload> = emptyList(),
     val isLoading: Boolean = true,
+    val isFailed: Boolean = false,
 )
 
 @HiltViewModel
@@ -65,7 +67,9 @@ class DownloadsViewModel @Inject constructor(
             podcasts = podcasts,
             isLoading = false,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadsUiState())
+    }
+        .orOnError(DownloadsUiState(isLoading = false, isFailed = true))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadsUiState())
 
     /** Bytes der gerade ladenden Bücher. */
     val transfers: StateFlow<Map<Long, BookTransfer>> = bookProgress.transfers

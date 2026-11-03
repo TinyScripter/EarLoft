@@ -26,6 +26,7 @@ import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.ui.components.AlbumCard
 import keinabersmart.kleinaberlaut.ui.components.ArtistCard
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
 import keinabersmart.kleinaberlaut.ui.components.PlayControlViewModel
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
@@ -62,6 +63,10 @@ private fun HomeContent(
     Column(modifier.fillMaxSize()) {
         if (state.isSyncing) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
+        if (state.isFailed) {
+            LoadFailedHint()
+            return@Column
         }
         if (state.isEmpty) {
             EmptyHint(stringResource(if (state.isSyncing) R.string.library_syncing else R.string.library_empty))

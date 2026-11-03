@@ -16,10 +16,9 @@ import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.ui.LoadState
 import keinabersmart.kleinaberlaut.ui.components.SongActions
-import keinabersmart.kleinaberlaut.ui.toLoadState
+import keinabersmart.kleinaberlaut.ui.asLoadStateOrMissing
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -38,7 +37,7 @@ class AlbumViewModel @AssistedInject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val album: StateFlow<LoadState<AlbumDetails>> = libraryRepository.album(albumId)
-        .map { it.toLoadState() }
+        .asLoadStateOrMissing()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     val offline: StateFlow<AlbumOfflineStatus> = downloadRepository.albumStatus(albumId)

@@ -34,6 +34,7 @@ import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.permission.rememberAudioPermissionRequester
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
@@ -154,7 +155,9 @@ fun MusicSettingsScreen(
                 },
             )
         }
-        if (state.servers.isEmpty()) {
+        if (state.isFailed) {
+            item(key = "servers-failed") { LoadFailedHint() }
+        } else if (!state.isLoading && state.servers.isEmpty()) {
             item(key = "no-servers") { EmptyHint(stringResource(R.string.settings_no_servers)) }
         }
         items(state.servers, key = { it.server.sourceId }) { item ->

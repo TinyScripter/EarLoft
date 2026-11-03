@@ -13,6 +13,9 @@ import keinabersmart.kleinaberlaut.core.model.Playlist
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
+import keinabersmart.kleinaberlaut.ui.LoadState
+import keinabersmart.kleinaberlaut.ui.asLoadState
+import keinabersmart.kleinaberlaut.ui.valueOrNull
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,25 +34,27 @@ class LibraryViewModel @Inject constructor(
     private val favoritesRepository: FavoritesRepository,
 ) : ViewModel(), SongActions {
 
-    /** `null`, solange noch geladen wird. */
-    val albums: StateFlow<List<Album>?> = libraryRepository.albums().stateInViewModel()
-    val artists: StateFlow<List<Artist>?> = libraryRepository.artists().stateInViewModel()
-    val songs: StateFlow<List<Song>?> = libraryRepository.songs().stateInViewModel()
+    val albums: StateFlow<LoadState<List<Album>>> = libraryRepository.albums().stateInViewModel()
+    val artists: StateFlow<LoadState<List<Artist>>> = libraryRepository.artists().stateInViewModel()
+    val songs: StateFlow<LoadState<List<Song>>> = libraryRepository.songs().stateInViewModel()
     val favoriteCount: StateFlow<Int> = favoritesRepository.favorites().map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), 0)
-    val playlists: StateFlow<List<Playlist>?> = playlistRepository.playlists().stateInViewModel()
-    val servers: StateFlow<List<ServerInfo>?> = serverRepository.servers().stateInViewModel()
+    val playlists: StateFlow<LoadState<List<Playlist>>> = playlistRepository.playlists().stateInViewModel()
+
+    /** `null`, solange noch geladen wird; nur für die Auswahl beim Anlegen einer Playlist. */
+    val servers: StateFlow<List<ServerInfo>?> = serverRepository.servers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     fun createPlaylist(name: String, serverSourceId: String?, onCreated: (Long) -> Unit) {
         viewModelScope.launch { onCreated(playlistRepository.create(name, serverSourceId)) }
     }
 
     fun playSongs(startIndex: Int) {
-        songs.value?.let { playbackConnection.play(it, startIndex) }
+        songs.value.valueOrNull?.let { playbackConnection.play(it, startIndex) }
     }
 
     fun shuffleSongs() {
-        songs.value?.let { playbackConnection.play(it, shuffle = true) }
+        songs.value.valueOrNull?.let { playbackConnection.play(it, shuffle = true) }
     }
 
     override fun playNext(song: Song) = playbackConnection.playNext(listOf(song))
@@ -60,8 +65,8 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch { favoritesRepository.setFavorite(song.id, !song.isFavorite) }
     }
 
-    private fun <T> Flow<List<T>>.stateInViewModel(): StateFlow<List<T>?> =
-        stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
+    private fun <T> Flow<List<T>>.stateInViewModel(): StateFlow<LoadState<List<T>>> =
+        asLoadState().stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), LoadState.Loading)
 
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L

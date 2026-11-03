@@ -9,10 +9,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.model.ArtistDetails
 import keinabersmart.kleinaberlaut.ui.LoadState
-import keinabersmart.kleinaberlaut.ui.toLoadState
+import keinabersmart.kleinaberlaut.ui.asLoadStateOrMissing
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel(assistedFactory = ArtistViewModel.Factory::class)
@@ -22,7 +21,7 @@ class ArtistViewModel @AssistedInject constructor(
 ) : ViewModel() {
 
     val artist: StateFlow<LoadState<ArtistDetails>> = libraryRepository.artist(artistId)
-        .map { it.toLoadState() }
+        .asLoadStateOrMissing()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     @AssistedFactory

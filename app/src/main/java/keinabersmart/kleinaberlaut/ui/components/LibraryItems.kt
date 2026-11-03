@@ -43,6 +43,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.ui.LoadState
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.Album
 import keinabersmart.kleinaberlaut.core.model.Artist
@@ -354,6 +355,28 @@ fun EmptyHint(text: String, modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .padding(32.dp),
     )
+}
+
+/** Ladekreis mittig im verfügbaren Platz. */
+@Composable
+fun LoadingIndicator(modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+}
+
+/** Hinweis, wenn ein Inhalt nicht gelesen werden konnte ([LoadState.Failed]). */
+@Composable
+fun LoadFailedHint(modifier: Modifier = Modifier) {
+    EmptyHint(stringResource(R.string.load_failed), modifier)
+}
+
+/** Liste mit Ladekreis, Fehler- und Leer-Hinweis; [content] bekommt nur nicht leere Listen. */
+@Composable
+fun <T> LoadableList(state: LoadState<List<T>>, emptyText: String, content: @Composable (List<T>) -> Unit) {
+    when (state) {
+        LoadState.Loading -> LoadingIndicator()
+        LoadState.Missing, LoadState.Failed -> LoadFailedHint()
+        is LoadState.Ready -> if (state.value.isEmpty()) EmptyHint(emptyText) else content(state.value)
+    }
 }
 
 /** `m:ss` bzw. `h:mm:ss`. */

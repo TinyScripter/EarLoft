@@ -37,6 +37,7 @@ import keinabersmart.kleinaberlaut.core.download.DownloadSettings
 import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
+import keinabersmart.kleinaberlaut.ui.orOnError
 import keinabersmart.kleinaberlaut.ui.theme.ThemeMode
 import keinabersmart.kleinaberlaut.ui.theme.ThemeSettings
 import kotlinx.coroutines.CancellationException
@@ -73,6 +74,9 @@ data class SettingsUiState(
     val useLocalBooks: Boolean = true,
     val useLocalPodcasts: Boolean = true,
     val servers: List<ServerItem> = emptyList(),
+    /** Bis die Quellen geantwortet haben; so blitzt „Keine Server“ beim Öffnen nicht auf. */
+    val isLoading: Boolean = true,
+    val isFailed: Boolean = false,
     val audiobookServerCount: Int = 0,
     val podcastFeedCount: Int = 0,
     val syncIntervalDays: Int = LibrarySettings.DEFAULT_SYNC_DAYS,
@@ -183,6 +187,7 @@ class SettingsViewModel @Inject constructor(
     ) { servers, syncs, (wifiOnly, autoFavorites), scrobble ->
         SettingsUiState(
             servers = servers,
+            isLoading = false,
             isSyncing = syncs > 0,
             downloadWifiOnly = wifiOnly,
             autoDownloadFavorites = autoFavorites,
@@ -219,7 +224,9 @@ class SettingsViewModel @Inject constructor(
         state.copy(podcastAutoPlayNext = autoPlay)
     }.combine(combine(spokenSettings.bookResume, spokenSettings.podcastResume, spokenSettings.restartChapter, ::Triple)) { state, (book, podcast, chapter) ->
         state.copy(bookResume = book, podcastResume = podcast, restartChapter = chapter)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
+    }
+        .orOnError(SettingsUiState(isLoading = false, isFailed = true))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     /** Die Planung des periodischen Auftrags folgt der Einstellung (PodcastRefresher). */
     fun setPodcastRefreshHours(hours: Int) {

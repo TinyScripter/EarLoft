@@ -101,8 +101,14 @@ import keinabersmart.kleinaberlaut.core.download.EpisodeDownloadProgress
 import keinabersmart.kleinaberlaut.core.download.EpisodeDownloads
 import keinabersmart.kleinaberlaut.core.model.PodcastFeed
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
+import keinabersmart.kleinaberlaut.ui.LoadState
+import keinabersmart.kleinaberlaut.ui.asLoadState
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
+import keinabersmart.kleinaberlaut.ui.components.LoadableList
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import keinabersmart.kleinaberlaut.ui.orOnError
+import keinabersmart.kleinaberlaut.ui.valueOrNull
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.settings.SwitchRow
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
@@ -116,9 +122,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -144,17 +150,19 @@ class PodcastViewModel @Inject constructor(
     continueListening: ContinueListening,
 ) : ViewModel() {
 
+    /** Nur eine Zeile über den Abos; ohne eigenen Hinweis, fällt sie bei einem Fehler einfach weg. */
     val continueListening: StateFlow<List<BookWithProgress>> = continueListening.episodes
+        .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Pro Abo die noch nicht zu Ende gehörten Folgen. */
-    val unheard: StateFlow<List<FeedEpisodes>> = podcasts.unheardByFeed()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val unheard: StateFlow<LoadState<List<FeedEpisodes>>> = podcasts.unheardByFeed()
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
-    /** `null`, solange noch geladen wird. */
-    val feeds: StateFlow<List<PodcastFeed>?> = podcasts.feeds
-        .map<List<PodcastFeed>, List<PodcastFeed>?> { it }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val feeds: StateFlow<LoadState<List<PodcastFeed>>> = podcasts.feeds
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     private val _add = MutableStateFlow<AddPodcastState>(AddPodcastState.Idle)
     val add: StateFlow<AddPodcastState> = _add
@@ -276,7 +284,10 @@ fun PodcastHomeScreen(
                 }
             }
             item(key = "subscriptions-header") { SectionHeader(stringResource(R.string.podcast_subscriptions)) }
-            if (feeds?.isEmpty() == true) {
+            val list = feeds.valueOrNull
+            if (feeds == LoadState.Failed) {
+                item(key = "failed") { LoadFailedHint() }
+            } else if (list?.isEmpty() == true) {
                 item(key = "empty") { EmptyHint(stringResource(R.string.podcast_none)) }
             } else {
                 item(key = "subscriptions") {
@@ -284,7 +295,7 @@ fun PodcastHomeScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        items(feeds.orEmpty(), key = { it.id }) { feed ->
+                        items(list.orEmpty(), key = { it.id }) { feed ->
                             FeedCard(feed, onClick = { onFeedClick(feed.id) }, modifier = Modifier.width(140.dp))
                         }
                     }
@@ -350,13 +361,13 @@ fun PodcastLibraryScreen(
                 when (PodcastTab.entries[page]) {
                     PodcastTab.EPISODES -> UnheardEpisodes(
                         unheard,
-                        hasFeeds = feeds?.isNotEmpty() == true,
+                        hasFeeds = feeds.valueOrNull?.isNotEmpty() == true,
                         onFeedClick,
                         onEpisodeClick,
                         playingId,
                         viewModel::playOrPause,
                     )
-                    PodcastTab.FEEDS -> FeedGrid(feeds.orEmpty(), onFeedClick, onAdd = addControl.show)
+                    PodcastTab.FEEDS -> FeedGrid(feeds, onFeedClick, onAdd = addControl.show)
                     PodcastTab.STATS -> PodcastStatsScreen(onFeedClick)
                 }
             }
@@ -367,17 +378,26 @@ fun PodcastLibraryScreen(
 /** Je Abo (untereinander) die ungehörten Folgen, horizontal scrollbar. */
 @Composable
 private fun UnheardEpisodes(
-    unheard: List<FeedEpisodes>,
+    state: LoadState<List<FeedEpisodes>>,
     hasFeeds: Boolean,
     onFeedClick: (String) -> Unit,
     onEpisodeClick: (Long) -> Unit,
     playingId: Long?,
     onPlay: (Long) -> Unit,
 ) {
-    if (unheard.isEmpty()) {
-        EmptyHint(stringResource(if (hasFeeds) R.string.podcast_all_heard else R.string.podcast_none))
-        return
+    LoadableList(state, stringResource(if (hasFeeds) R.string.podcast_all_heard else R.string.podcast_none)) { unheard ->
+        UnheardList(unheard, onFeedClick, onEpisodeClick, playingId, onPlay)
     }
+}
+
+@Composable
+private fun UnheardList(
+    unheard: List<FeedEpisodes>,
+    onFeedClick: (String) -> Unit,
+    onEpisodeClick: (Long) -> Unit,
+    playingId: Long?,
+    onPlay: (Long) -> Unit,
+) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         unheard.forEach { (feed, episodes) ->
             item(key = "header-${feed.id}") {
@@ -411,11 +431,9 @@ private fun UnheardEpisodes(
 
 /** Alle Abos als Bilder, drei nebeneinander; das „+“ schwebt unten rechts und bleibt beim Scrollen stehen. */
 @Composable
-private fun FeedGrid(feeds: List<PodcastFeed>, onFeedClick: (String) -> Unit, onAdd: () -> Unit) {
+private fun FeedGrid(state: LoadState<List<PodcastFeed>>, onFeedClick: (String) -> Unit, onAdd: () -> Unit) {
     Box(Modifier.fillMaxSize()) {
-        if (feeds.isEmpty()) {
-            EmptyHint(stringResource(R.string.podcast_none))
-        } else {
+        LoadableList(state, stringResource(R.string.podcast_none)) { feeds ->
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 // Unten Platz lassen, damit der Knopf das letzte Abo nicht verdeckt.
@@ -506,10 +524,9 @@ class PodcastFeedViewModel @AssistedInject constructor(
     val feed: StateFlow<PodcastFeed?> = podcasts.feed(feedId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** `null`, solange noch geladen wird. */
-    val episodes: StateFlow<List<BookWithProgress>?> = podcasts.episodes(feedId)
-        .map<List<BookWithProgress>, List<BookWithProgress>?> { it }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val episodes: StateFlow<LoadState<List<BookWithProgress>>> = podcasts.episodes(feedId)
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     private val searchQuery = MutableStateFlow("")
 
@@ -524,7 +541,7 @@ class PodcastFeedViewModel @AssistedInject constructor(
      */
     @OptIn(FlowPreview::class)
     val searchHits: StateFlow<EpisodeHits?> = combine(
-        episodes.filterNotNull().map { list -> list.map(::SearchEntry) },
+        episodes.mapNotNull { state -> state.valueOrNull?.map(::SearchEntry) },
         searchQuery.debounce { if (it.isEmpty()) 0L else SEARCH_DEBOUNCE_MS },
     ) { index, query ->
         val needle = query.normalizeForMerge()
@@ -645,7 +662,7 @@ fun PodcastScreen(
             },
         )
         if (current == null) return@Column
-        val list = episodes.orEmpty()
+        val list = episodes.valueOrNull.orEmpty()
         PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                 item(key = "header") {
@@ -677,7 +694,9 @@ fun PodcastScreen(
                     }
                 }
                 item(key = "episodes-header") { SectionHeader(stringResource(R.string.podcast_episodes)) }
-                if (episodes != null && list.isEmpty()) {
+                if (episodes == LoadState.Failed) {
+                    item(key = "failed") { LoadFailedHint() }
+                } else if (episodes is LoadState.Ready && list.isEmpty()) {
                     item(key = "empty") { EmptyHint(stringResource(R.string.podcast_no_episodes)) }
                 }
                 items(list, key = { it.book.id }) { item ->

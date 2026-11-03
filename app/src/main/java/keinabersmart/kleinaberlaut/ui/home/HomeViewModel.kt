@@ -7,6 +7,7 @@ import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
 import keinabersmart.kleinaberlaut.core.model.Album
 import keinabersmart.kleinaberlaut.core.model.Artist
+import keinabersmart.kleinaberlaut.ui.orOnError
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -21,8 +22,9 @@ data class HomeUiState(
     val randomAlbums: List<Album> = emptyList(),
     val isSyncing: Boolean = false,
     val isLoading: Boolean = true,
+    val isFailed: Boolean = false,
 ) {
-    val isEmpty: Boolean get() = !isLoading && recentlyAdded.isEmpty() && randomAlbums.isEmpty()
+    val isEmpty: Boolean get() = !isLoading && !isFailed && recentlyAdded.isEmpty() && randomAlbums.isEmpty()
 }
 
 @HiltViewModel
@@ -49,5 +51,7 @@ class HomeViewModel @Inject constructor(
             isSyncing = (values[5] as Int) > 0,
             isLoading = false,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+    }
+        .orOnError(HomeUiState(isLoading = false, isFailed = true))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 }

@@ -37,6 +37,7 @@
     <string name="library_empty">No music found. New files appear automatically.</string>
     <string name="library_syncing">Updating library …</string>
     <string name="item_missing">No longer in the library.</string>
+    <string name="load_failed">Could not be loaded. Please try again later.</string>
     <string name="disc_number">Disc %1$d</string>
     <plurals name="album_count">
         <item quantity="one">%1$d album</item>

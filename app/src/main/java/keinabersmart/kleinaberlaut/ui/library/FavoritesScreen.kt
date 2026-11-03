@@ -1,15 +1,12 @@
 package keinabersmart.kleinaberlaut.ui.library
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -22,10 +19,13 @@ import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
-import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.LoadState
+import keinabersmart.kleinaberlaut.ui.asLoadState
+import keinabersmart.kleinaberlaut.ui.components.LoadableList
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.WatchStatusText
 import keinabersmart.kleinaberlaut.ui.components.WatchToggleButton
+import keinabersmart.kleinaberlaut.ui.valueOrNull
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -38,16 +38,16 @@ class FavoritesViewModel @Inject constructor(
     private val playbackConnection: PlaybackConnection,
 ) : ViewModel(), SongActions {
 
-    /** `null`, solange noch geladen wird. */
-    val songs: StateFlow<List<Song>?> = favoritesRepository.favorites()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val songs: StateFlow<LoadState<List<Song>>> = favoritesRepository.favorites()
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     fun play(startIndex: Int) {
-        songs.value?.let { playbackConnection.play(it, startIndex) }
+        songs.value.valueOrNull?.let { playbackConnection.play(it, startIndex) }
     }
 
     fun shuffle() {
-        songs.value?.let { playbackConnection.play(it, shuffle = true) }
+        songs.value.valueOrNull?.let { playbackConnection.play(it, shuffle = true) }
     }
 
     override fun playNext(song: Song) = playbackConnection.playNext(listOf(song))
@@ -78,11 +78,8 @@ fun FavoritesScreen(
             navigationIcon = { BackButton(onBack) },
             actions = { WatchToggleButton(WearSelectionKind.FAVORITES, refId = null) },
         )
-        val current = songs
-        when {
-            current == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            current.isEmpty() -> EmptyHint(stringResource(R.string.favorites_empty))
-            else -> SongList(songs = current, onSongClick = viewModel::play, onShuffle = viewModel::shuffle, actions = viewModel)
+        LoadableList(songs, stringResource(R.string.favorites_empty)) {
+            SongList(songs = it, onSongClick = viewModel::play, onShuffle = viewModel::shuffle, actions = viewModel)
         }
     }
 }

@@ -44,7 +44,12 @@ import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
+import keinabersmart.kleinaberlaut.ui.LoadState
+import keinabersmart.kleinaberlaut.ui.asLoadState
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
+import keinabersmart.kleinaberlaut.ui.components.LoadingIndicator
+import keinabersmart.kleinaberlaut.ui.valueOrNull
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -61,8 +66,9 @@ class PodcastQueueViewModel @Inject constructor(
     playback: PlaybackConnection,
 ) : ViewModel() {
 
-    val episodes: StateFlow<List<BookWithProgress>> = continueListening.episodes
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val episodes: StateFlow<LoadState<List<BookWithProgress>>> = continueListening.episodes
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     /** Die gerade geladene Folge. */
     val currentBookId: StateFlow<Long?> = playback.state.map { it.spoken?.bookId }
@@ -96,9 +102,10 @@ fun PodcastQueueScreen(
     var draggedId by remember { mutableStateOf<Long?>(null) }
     var dragOffset by remember { mutableStateOf(0f) }
     LaunchedEffect(episodes) {
-        if (draggedId != null) return@LaunchedEffect
+        val loaded = episodes.valueOrNull
+        if (draggedId != null || loaded == null) return@LaunchedEffect
         rows.clear()
-        rows.addAll(episodes)
+        rows.addAll(loaded)
     }
 
     Column(modifier.fillMaxSize()) {
@@ -106,10 +113,15 @@ fun PodcastQueueScreen(
             title = { Text(stringResource(R.string.player_queue)) },
             navigationIcon = { BackButton(onBack) },
         )
-        if (rows.isEmpty()) {
-            EmptyHint(stringResource(R.string.podcast_queue_empty))
-            return@Column
+        when (episodes) {
+            LoadState.Loading -> LoadingIndicator()
+            LoadState.Missing, LoadState.Failed -> LoadFailedHint()
+            // Die Kopie zieht erst im nächsten Frame nach; leer ist die Liste erst, wenn auch die Quelle leer ist.
+            is LoadState.Ready -> if (rows.isEmpty() && episodes.valueOrNull.isNullOrEmpty()) {
+                EmptyHint(stringResource(R.string.podcast_queue_empty))
+            }
         }
+        if (rows.isEmpty()) return@Column
         LazyColumn(state = listState, modifier = Modifier.navigationBarsPadding()) {
             items(rows, key = { it.book.id }) { item ->
                 val id = item.book.id

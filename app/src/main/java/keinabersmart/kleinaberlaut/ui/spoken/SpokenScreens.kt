@@ -74,7 +74,12 @@ import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import androidx.compose.runtime.LaunchedEffect
+import keinabersmart.kleinaberlaut.ui.LoadState
+import keinabersmart.kleinaberlaut.ui.asLoadState
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
+import keinabersmart.kleinaberlaut.ui.components.LoadingIndicator
+import keinabersmart.kleinaberlaut.ui.valueOrNull
 import keinabersmart.kleinaberlaut.ui.components.PlayPauseButton
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import kotlinx.coroutines.flow.SharingStarted
@@ -105,16 +110,17 @@ class SpokenLibraryViewModel @Inject constructor(
         if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
     }
 
-    val continueListening: StateFlow<List<BookWithProgress>> = books.continueListening(startOrder = queue.order)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val continueListening: StateFlow<LoadState<List<BookWithProgress>>> = books.continueListening(startOrder = queue.order)
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
-    val recentlyAdded: StateFlow<List<BookWithProgress>> = books.recentlyAdded()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val recentlyAdded: StateFlow<LoadState<List<BookWithProgress>>> = books.recentlyAdded()
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
-    /** `null`, solange noch geladen wird. */
-    val allBooks: StateFlow<List<BookWithProgress>?> = books.books()
-        .map<List<BookWithProgress>, List<BookWithProgress>?> { it }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val allBooks: StateFlow<LoadState<List<BookWithProgress>>> = books.books()
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     /** `null`, solange noch geladen wird. */
     val hasServer: StateFlow<Boolean?> = servers.servers.map<_, Boolean?> { it.isNotEmpty() }
@@ -152,10 +158,12 @@ fun SpokenHomeScreen(
     modifier: Modifier = Modifier,
     viewModel: SpokenLibraryViewModel = hiltViewModel(),
 ) {
-    val continueListening by viewModel.continueListening.collectAsStateWithLifecycle()
-    val recent by viewModel.recentlyAdded.collectAsStateWithLifecycle()
+    val continueState by viewModel.continueListening.collectAsStateWithLifecycle()
+    val recentState by viewModel.recentlyAdded.collectAsStateWithLifecycle()
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
+    val continueListening = continueState.valueOrNull.orEmpty()
+    val recent = recentState.valueOrNull.orEmpty()
     val rowState = rememberLazyListState()
     // Springt ein anderes Buch an die erste Stelle, steht es wieder ganz links sichtbar.
     LaunchedEffect(continueListening.firstOrNull()?.book?.id) { rowState.scrollToItem(0) }
@@ -174,7 +182,11 @@ fun SpokenHomeScreen(
                     item(key = "recent-header") { SectionHeader(stringResource(R.string.spoken_recent)) }
                     item(key = "recent") { BookRow(recent, onBookClick, playingId = playingId, onPlay = viewModel::playOrPause) }
                 }
-                if (continueListening.isEmpty() && recent.isEmpty() && hasServer == true) {
+                if (continueState == LoadState.Failed || recentState == LoadState.Failed) {
+                    item(key = "failed") { LoadFailedHint() }
+                } else if (continueState is LoadState.Ready && recentState is LoadState.Ready &&
+                    continueListening.isEmpty() && recent.isEmpty() && hasServer == true
+                ) {
                     item(key = "empty") { EmptyHint(stringResource(R.string.spoken_no_books)) }
                 }
             }
@@ -199,7 +211,7 @@ fun SpokenLibraryScreen(
     modifier: Modifier = Modifier,
     viewModel: SpokenLibraryViewModel = hiltViewModel(),
 ) {
-    val books by viewModel.allBooks.collectAsStateWithLifecycle()
+    val booksState by viewModel.allBooks.collectAsStateWithLifecycle()
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { BookTab.entries.size }
@@ -208,9 +220,11 @@ fun SpokenLibraryScreen(
     Column(modifier.fillMaxSize()) {
         when {
             hasServer == false -> NoServerHint(onSetup)
-            books.isNullOrEmpty() && hasServer == true -> EmptyHint(stringResource(R.string.spoken_no_books))
+            booksState == LoadState.Failed -> LoadFailedHint()
+            booksState == LoadState.Loading || hasServer == null -> LoadingIndicator()
+            booksState.valueOrNull.isNullOrEmpty() -> EmptyHint(stringResource(R.string.spoken_no_books))
             else -> {
-                val all = books.orEmpty()
+                val all = booksState.valueOrNull.orEmpty()
                 val series = remember(all) { all.seriesGroups() }
                 val authors = remember(all) { all.authorGroups() }
                 PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
@@ -355,17 +369,25 @@ fun BookGroupScreen(
     modifier: Modifier = Modifier,
     viewModel: SpokenLibraryViewModel = hiltViewModel(),
 ) {
-    val books by viewModel.allBooks.collectAsStateWithLifecycle()
+    val booksState by viewModel.allBooks.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
-    val group = remember(books, kind, name) {
-        books.orEmpty().groups(kind).firstOrNull { it.name == name }
+    val group = remember(booksState, kind, name) {
+        booksState.valueOrNull?.groups(kind)?.firstOrNull { it.name == name }
     }
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
         )
-        BookGrid(group?.books.orEmpty(), onBookClick, playingId, viewModel::playOrPause)
+        when (booksState) {
+            LoadState.Loading -> LoadingIndicator()
+            LoadState.Missing, LoadState.Failed -> LoadFailedHint()
+            is LoadState.Ready -> if (group == null) {
+                EmptyHint(stringResource(R.string.item_missing))
+            } else {
+                BookGrid(group.books, onBookClick, playingId, viewModel::playOrPause)
+            }
+        }
     }
 }
 

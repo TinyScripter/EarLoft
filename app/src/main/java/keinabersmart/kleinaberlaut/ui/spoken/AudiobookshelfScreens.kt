@@ -48,7 +48,11 @@ import keinabersmart.kleinaberlaut.core.data.spoken.AddServerResult
 import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.model.SpokenServer
+import keinabersmart.kleinaberlaut.ui.LoadState
+import keinabersmart.kleinaberlaut.ui.asLoadState
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
+import keinabersmart.kleinaberlaut.ui.valueOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -71,8 +75,9 @@ class AudiobookshelfViewModel @Inject constructor(
     private val refresher: SpokenRefresher,
 ) : ViewModel() {
 
-    val list: StateFlow<List<SpokenServer>> = servers.servers
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val list: StateFlow<LoadState<List<SpokenServer>>> = servers.servers
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)
     val connect: StateFlow<ConnectState> = _connect.asStateFlow()
@@ -120,11 +125,13 @@ fun AudiobookshelfSection(
     modifier: Modifier = Modifier,
     viewModel: AudiobookshelfViewModel = hiltViewModel(),
 ) {
-    val servers by viewModel.list.collectAsStateWithLifecycle()
+    val state by viewModel.list.collectAsStateWithLifecycle()
     var removing by rememberSaveable { mutableStateOf<String?>(null) }
+    val servers = state.valueOrNull.orEmpty()
 
     Column(modifier) {
-        if (servers.isEmpty()) EmptyHint(stringResource(R.string.spoken_abs_none))
+        if (state == LoadState.Failed) LoadFailedHint()
+        if (state is LoadState.Ready && servers.isEmpty()) EmptyHint(stringResource(R.string.spoken_abs_none))
         servers.forEach { server ->
             ListItem(
                 modifier = Modifier.clickable(onClickLabel = stringResource(R.string.server_edit)) { onEdit(server.serverId) },

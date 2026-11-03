@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -52,7 +51,7 @@ import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.ui.components.AlbumCard
 import keinabersmart.kleinaberlaut.ui.components.PlayControlViewModel
 import keinabersmart.kleinaberlaut.ui.components.ArtistListItem
-import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.LoadableList
 import keinabersmart.kleinaberlaut.ui.components.LazyGridFastScroller
 import keinabersmart.kleinaberlaut.ui.components.LazyListFastScroller
 import keinabersmart.kleinaberlaut.ui.components.letterOf
@@ -61,6 +60,7 @@ import keinabersmart.kleinaberlaut.ui.components.SongListItem
 import keinabersmart.kleinaberlaut.ui.playlists.PlaylistIcon
 import keinabersmart.kleinaberlaut.ui.playlists.PlaylistNameDialog
 import keinabersmart.kleinaberlaut.ui.playlists.playlistLocation
+import keinabersmart.kleinaberlaut.ui.valueOrNull
 import kotlinx.coroutines.launch
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
@@ -107,9 +107,9 @@ fun LibraryScreen(
             key = { it },
         ) { page ->
             when (LibraryTab.entries[page]) {
-                LibraryTab.ALBUMS -> Loadable(albums) { AlbumGrid(it, onAlbumClick, fastScroll = true) }
-                LibraryTab.ARTISTS -> Loadable(artists) { ArtistList(it, onArtistClick) }
-                LibraryTab.SONGS -> Loadable(songs) {
+                LibraryTab.ALBUMS -> LoadableList(albums, stringResource(R.string.library_empty)) { AlbumGrid(it, onAlbumClick, fastScroll = true) }
+                LibraryTab.ARTISTS -> LoadableList(artists, stringResource(R.string.library_empty)) { ArtistList(it, onArtistClick) }
+                LibraryTab.SONGS -> LoadableList(songs, stringResource(R.string.library_empty)) {
                     SongList(
                         songs = it,
                         onSongClick = viewModel::playSongs,
@@ -120,7 +120,8 @@ fun LibraryScreen(
                 }
                 LibraryTab.PLAYLISTS -> PlaylistList(
                     favoriteCount = favoriteCount,
-                    playlists = playlists.orEmpty(),
+                    // „Neue Playlist“ und „Favoriten“ stehen immer da; die eigenen Playlists erscheinen, sobald sie geladen sind.
+                    playlists = playlists.valueOrNull.orEmpty(),
                     servers = servers,
                     onFavoritesClick = onFavoritesClick,
                     onPlaylistClick = onPlaylistClick,
@@ -198,15 +199,6 @@ private fun PlaylistList(
         }
         // Die ersten beiden Zeilen sind „Neue Playlist“ und „Favoriten“.
         LazyListFastScroller(state, labelAt = { index -> letterOf(playlists.getOrNull((index - 2).coerceAtLeast(0))?.name.orEmpty()) })
-    }
-}
-
-@Composable
-private fun <T> Loadable(items: List<T>?, content: @Composable (List<T>) -> Unit) {
-    when {
-        items == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        items.isEmpty() -> EmptyHint(stringResource(R.string.library_empty))
-        else -> content(items)
     }
 }
 
