@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.DeviceInfo
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -195,7 +196,13 @@ class PlaybackService : MediaLibraryService() {
                     bookPlaybackSource.prepare(next)
                 }
             } ?: return@launch
-            val stillWaiting = player.playbackState == Player.STATE_ENDED && player.currentMediaItem?.bookId == endedId
+            val stillWaiting = when (player.playbackState) {
+                Player.STATE_ENDED -> player.currentMediaItem?.bookId == endedId
+                // Cast: Der Empfänger steht nach dem Ende still und hat die Folge meist schon entladen.
+                Player.STATE_IDLE -> player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE &&
+                    player.currentMediaItem?.bookId.let { it == null || it == endedId }
+                else -> false
+            }
             if (stillWaiting) player.playBook(prepared)
         }
     }

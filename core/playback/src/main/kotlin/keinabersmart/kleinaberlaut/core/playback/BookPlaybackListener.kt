@@ -2,6 +2,7 @@ package keinabersmart.kleinaberlaut.core.playback
 
 import androidx.annotation.OptIn
 import androidx.media3.common.C
+import androidx.media3.common.DeviceInfo
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
@@ -65,6 +66,9 @@ internal class BookPlaybackListener(
      * neueren Stand eines anderen Geräts.
      */
     private val touched = mutableSetOf<Long>()
+
+    /** Cast meldet kein `STATE_ENDED`; die Wache erkennt das Ende am Stillstand des Empfängers. */
+    private val remoteEnd = RemoteEndWatch()
 
     init {
         scope.launch { settings.bookResume.collect { bookRule = it } }
@@ -143,6 +147,7 @@ internal class BookPlaybackListener(
 
     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
         meter.setSpeed(playbackParameters.speed)
+        if (player.isPlaying) sampleRemoteEnd()
         val bookId = player.currentMediaItem?.bookId ?: return
         scope.launch { books.setSpeed(bookId, playbackParameters.speed) }
     }
@@ -155,6 +160,9 @@ internal class BookPlaybackListener(
         if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) {
             newPosition.mediaItem?.bookId?.let { touched += it }
         }
+        if (reason != Player.DISCONTINUITY_REASON_REMOVE) {
+            if (player.isPlaying) sampleRemoteEnd() else remoteEnd.reset()
+        }
         // Ein anderes Buch (oder Musik) beginnt: den Stand des bisherigen festhalten.
         val oldBookId = oldPosition.mediaItem?.bookId ?: return
         if (oldBookId == newPosition.mediaItem?.bookId) return
@@ -163,25 +171,35 @@ internal class BookPlaybackListener(
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         syncMeter()
+        // Vor dem Festhalten: Nach dem Ende auf dem Empfänger stünde sonst Position 0 der entladenen Folge im Stand.
+        if (!isPlaying) checkRemoteEnd()
         val item = player.currentMediaItem
         val bookId = item?.bookId
         loop?.cancel()
-        if (bookId == null) return
+        if (bookId == null) {
+            remoteEnd.reset()
+            return
+        }
         if (isPlaying) {
             touched += bookId
+            sampleRemoteEnd()
             loop = scope.launch {
                 while (true) {
                     delay(SAVE_INTERVAL_MS)
                     recordCurrent(force = false)
+                    sampleRemoteEnd()
                     flushListening(force = false)
                 }
             }
         } else {
             recordCurrent(force = true)
+            // Puffern ist keine Pause: Der Empfänger kann kurz vor dem Ende noch einmal puffern.
+            if (player.playWhenReady && player.playbackState == Player.STATE_BUFFERING) sampleRemoteEnd() else remoteEnd.reset()
         }
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) {
+        if (playbackState == Player.STATE_IDLE) checkRemoteEnd()
         if (playbackState == Player.STATE_ENDED) {
             recordCurrent(force = true)
             val item = player.currentMediaItem
@@ -191,6 +209,38 @@ internal class BookPlaybackListener(
             }
         }
         if (playbackState == Player.STATE_READY) learnDuration()
+    }
+
+    /** Merkt sich für [remoteEnd], wo das laufende Buch gerade steht. */
+    private fun sampleRemoteEnd() {
+        val item = player.currentMediaItem
+        val bookId = item?.bookId
+        val timeline = timeline.takeIf { bookId != null && timelineBookId == bookId }
+        if (item == null || bookId == null || timeline == null) {
+            remoteEnd.reset()
+            return
+        }
+        remoteEnd.playing(
+            bookId = bookId,
+            isEpisode = item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE,
+            positionMs = timeline.toBookPosition(item.bookTrackIndex ?: 0, player.currentPosition),
+            durationMs = timeline.durationMs,
+            speed = player.playbackParameters.speed,
+        )
+    }
+
+    /**
+     * Der Cast-Empfänger steht ohne Fehler still: Lief das Buch dabei bis ans Ende, gilt es als zu Ende gehört, und eine
+     * Folge geht wie lokal in die nächste über.
+     */
+    private fun checkRemoteEnd() {
+        if (player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return
+        if (player.playbackState != Player.STATE_IDLE || player.playerError != null) return
+        val ended = remoteEnd.ended() ?: return
+        // Was danach noch kommt (Position 0 der entladenen Datei), darf diesen Stand nicht überschreiben.
+        touched -= ended.bookId
+        scope.launch { progressSync.record(ended.bookId, ended.durationMs, ended.durationMs, finished = true, force = true) }
+        if (ended.isEpisode) onEpisodeEnded(ended.bookId)
     }
 
     /** Folgen ohne (oder mit falscher) Dauer im Feed: die Datei sagt, wie lang sie wirklich ist. */
