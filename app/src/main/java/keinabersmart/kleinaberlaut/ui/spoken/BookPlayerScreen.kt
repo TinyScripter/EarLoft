@@ -41,6 +41,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SnapshotMutationPolicy
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -224,10 +226,12 @@ private fun BookPlayerContent(
     val bookWithProgress by viewModel.book.collectAsStateWithLifecycle()
     val entry = state.spoken
     // Die Position im Buch braucht die Zeitachse; ist sie geladen, einmal neu lesen (auch pausiert).
-    val position by rememberPlaybackPosition(state.isPlaying, viewModel.positionJumps, entry, timeline) { viewModel.bookPositionMs() }
-    var dragging by remember { mutableStateOf<Float?>(null) }
-    // Ziehen am Kapitelbalken: Abstand zum Kapitelanfang.
-    var chapterDragging by remember { mutableStateOf<Float?>(null) }
+    // Im Takt liest sie nur BookProgress; der übrige Player hängt nur am laufenden Kapitel.
+    val position = rememberPlaybackPosition(state.isPlaying, viewModel.positionJumps, entry, timeline) { viewModel.bookPositionMs() }
+    val dragging = remember { mutableStateOf<Float?>(null) }
+    val chapterIndex by remember(timeline) {
+        derivedStateOf { timeline?.chapterAt(dragging.value?.toLong() ?: position.value)?.index }
+    }
     var showSpeed by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
     var showChapters by remember { mutableStateOf(false) }
@@ -242,68 +246,20 @@ private fun BookPlayerContent(
     }
     val tl = timeline
     val duration = tl?.durationMs?.takeIf { it > 0 } ?: state.durationMs
-    val base = dragging?.toLong() ?: position
-    val chapter = tl?.chapterAt(base)
-    val shown = chapterDragging?.let { (chapter?.startMs ?: 0) + it.toLong() } ?: base
     val speed = state.speed
-    val remainingTotal = tl?.remainingBookMs(shown, speed) ?: ((duration - shown).coerceAtLeast(0) / speed).toLong()
-
-    val positionLabel = stringResource(R.string.spoken_position)
-    val positionState = stringResource(R.string.spoken_position_state, formatClock(shown), formatClock(duration))
     val speedLabel = stringResource(R.string.spoken_speed_description, formatSpeed(speed))
 
-    // Oben das ganze Buch (zum Spulen), darunter nur das Kapitel; jeweils links gespielt, rechts die Restzeit mit „-“.
     val progress: @Composable () -> Unit = {
-        Slider(
-            value = shown.coerceIn(0, duration.coerceAtLeast(1)).toFloat(),
-            onValueChange = { dragging = it },
-            onValueChangeFinished = {
-                dragging?.let { viewModel.seekToBook(it.toLong()) }
-                dragging = null
-            },
-            valueRange = 0f..duration.coerceAtLeast(1).toFloat(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics {
-                    contentDescription = positionLabel
-                    stateDescription = positionState
-                },
+        BookProgress(
+            positionMs = { position.value },
+            dragging = { dragging.value },
+            onDrag = { dragging.value = it },
+            timeline = tl,
+            durationMs = duration,
+            speed = speed,
+            episode = episode,
+            onSeek = viewModel::seekToBook,
         )
-        // Bei Folgen gibt es nur diesen einen Regler; ein Kapitelname steht dann zwischen den Zeiten.
-        TimeRow(
-            elapsed = formatClock(shown),
-            remaining = "-" + formatClock(remainingTotal),
-            center = if (episode && chapter != null) chapterTitle(chapter) else null,
-        )
-        // Nur bei Büchern mit Kapiteln.
-        val chapterRemaining = tl?.remainingChapterMs(shown, speed)
-        if (!episode && chapter != null && chapterRemaining != null) {
-            val chapterElapsed = (shown - chapter.startMs).coerceIn(0, chapter.durationMs)
-            val chapterLabel = stringResource(R.string.spoken_position_chapter)
-            val chapterState = stringResource(R.string.spoken_position_state, formatClock(chapterElapsed), formatClock(chapter.durationMs))
-            Slider(
-                value = chapterElapsed.toFloat(),
-                onValueChange = { chapterDragging = it },
-                onValueChangeFinished = {
-                    // Knapp vor dem Ende bleiben, damit der Sprung nicht schon im nächsten Kapitel landet.
-                    chapterDragging?.let { viewModel.seekToBook(chapter.startMs + it.toLong().coerceAtMost(chapter.durationMs - 1)) }
-                    chapterDragging = null
-                },
-                valueRange = 0f..chapter.durationMs.coerceAtLeast(1).toFloat(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp)
-                    .semantics {
-                        contentDescription = chapterLabel
-                        stateDescription = chapterState
-                    },
-            )
-            TimeRow(
-                elapsed = formatClock(chapterElapsed),
-                remaining = "-" + formatClock(chapterRemaining),
-                center = chapterTitle(chapter),
-            )
-        }
     }
     val hasChapters = tl?.hasChapters == true
     // Handy quer (wenig Höhe): kleinerer Abspielknopf, damit die Leiste darunter ohne Scrollen sichtbar bleibt.
@@ -522,7 +478,7 @@ private fun BookPlayerContent(
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
                     ) {
                         if (chaptersInPane && tl != null && hasChapters) {
-                            ChapterList(tl, chapter?.index, onChapter = viewModel::seekToBook, modifier = Modifier.fillMaxSize().padding(vertical = 8.dp))
+                            ChapterList(tl, chapterIndex, onChapter = viewModel::seekToBook, modifier = Modifier.fillMaxSize().padding(vertical = 8.dp))
                         } else {
                             DescriptionPane(description, Modifier.fillMaxSize())
                         }
@@ -553,11 +509,95 @@ private fun BookPlayerContent(
     if (showChapters && tl != null) {
         ChapterSheet(
             timeline = tl,
-            currentIndex = chapter?.index,
+            currentIndex = chapterIndex,
             onChapter = { viewModel.seekToBook(it) },
             onDismiss = { showChapters = false },
         )
     }
+}
+
+/**
+ * Oben das ganze Buch (zum Spulen), darunter nur das Kapitel; jeweils links gespielt, rechts die Restzeit mit „-“.
+ * Liest als einziger Teil des Players die laufende Position, und das nur bei Sekundenwechsel (so fein sind die Zeiten).
+ * [dragging] ist der Wert am Buchregler während des Ziehens; er liegt beim Aufrufer, weil das hervorgehobene Kapitel mitläuft.
+ */
+@Composable
+private fun BookProgress(
+    positionMs: () -> Long,
+    dragging: () -> Float?,
+    onDrag: (Float?) -> Unit,
+    timeline: BookTimeline?,
+    durationMs: Long,
+    speed: Float,
+    episode: Boolean,
+    onSeek: (Long) -> Unit,
+) {
+    // Ziehen am Kapitelbalken: Abstand zum Kapitelanfang.
+    var chapterDragging by remember { mutableStateOf<Float?>(null) }
+    // Genau bleiben (Sprünge auf einen Kapitelanfang), aber erst bei der nächsten Sekunde neu zusammensetzen.
+    val played by remember { derivedStateOf(SameSecond) { positionMs() } }
+    val base = dragging()?.toLong() ?: played
+    val chapter = timeline?.chapterAt(base)
+    val shown = chapterDragging?.let { (chapter?.startMs ?: 0) + it.toLong() } ?: base
+    val remainingTotal = timeline?.remainingBookMs(shown, speed) ?: ((durationMs - shown).coerceAtLeast(0) / speed).toLong()
+
+    val positionLabel = stringResource(R.string.spoken_position)
+    val positionState = stringResource(R.string.spoken_position_state, formatClock(shown), formatClock(durationMs))
+    Slider(
+        value = shown.coerceIn(0, durationMs.coerceAtLeast(1)).toFloat(),
+        onValueChange = onDrag,
+        onValueChangeFinished = {
+            dragging()?.let { onSeek(it.toLong()) }
+            onDrag(null)
+        },
+        valueRange = 0f..durationMs.coerceAtLeast(1).toFloat(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics {
+                contentDescription = positionLabel
+                stateDescription = positionState
+            },
+    )
+    // Bei Folgen gibt es nur diesen einen Regler; ein Kapitelname steht dann zwischen den Zeiten.
+    TimeRow(
+        elapsed = formatClock(shown),
+        remaining = "-" + formatClock(remainingTotal),
+        center = if (episode && chapter != null) chapterTitle(chapter) else null,
+    )
+    // Nur bei Büchern mit Kapiteln.
+    val chapterRemaining = timeline?.remainingChapterMs(shown, speed)
+    if (!episode && chapter != null && chapterRemaining != null) {
+        val chapterElapsed = (shown - chapter.startMs).coerceIn(0, chapter.durationMs)
+        val chapterLabel = stringResource(R.string.spoken_position_chapter)
+        val chapterState = stringResource(R.string.spoken_position_state, formatClock(chapterElapsed), formatClock(chapter.durationMs))
+        Slider(
+            value = chapterElapsed.toFloat(),
+            onValueChange = { chapterDragging = it },
+            onValueChangeFinished = {
+                // Knapp vor dem Ende bleiben, damit der Sprung nicht schon im nächsten Kapitel landet.
+                chapterDragging?.let { onSeek(chapter.startMs + it.toLong().coerceAtMost(chapter.durationMs - 1)) }
+                chapterDragging = null
+            },
+            valueRange = 0f..chapter.durationMs.coerceAtLeast(1).toFloat(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+                .semantics {
+                    contentDescription = chapterLabel
+                    stateDescription = chapterState
+                },
+        )
+        TimeRow(
+            elapsed = formatClock(chapterElapsed),
+            remaining = "-" + formatClock(chapterRemaining),
+            center = chapterTitle(chapter),
+        )
+    }
+}
+
+/** Positionen in derselben Sekunde gelten als gleich; die Anzeige hat Sekundenauflösung. */
+private object SameSecond : SnapshotMutationPolicy<Long> {
+    override fun equivalent(a: Long, b: Long): Boolean = a / 1000 == b / 1000
 }
 
 /**
