@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SnackbarVisuals
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
@@ -38,6 +40,7 @@ import keinabersmart.kleinaberlaut.core.designsystem.theme.AlbumColorTheme
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import keinabersmart.kleinaberlaut.navigation.AboutRoute
+import keinabersmart.kleinaberlaut.ui.snackbar.SnackbarMessage
 import keinabersmart.kleinaberlaut.navigation.AddAudiobookshelfRoute
 import keinabersmart.kleinaberlaut.navigation.BookRoute
 import keinabersmart.kleinaberlaut.navigation.PodcastInfoRoute
@@ -330,10 +333,12 @@ fun KleinaberlautApp(
     val snackbarHost = remember { SnackbarHostState() }
     LaunchedEffect(snackbars) {
         snackbars.messages.collect { message ->
-            // Ein neuer Hinweis ersetzt den sichtbaren (etwa „Wird aktualisiert“ durch das Ergebnis).
-            snackbarHost.currentSnackbarData?.dismiss()
+            // Ein neuer Hinweis ersetzt den sichtbaren (etwa „Wird aktualisiert“ durch das Ergebnis), außer der soll bleiben;
+            // dann wartet der neue dahinter.
+            val visible = snackbarHost.currentSnackbarData
+            if ((visible?.visuals as? AppSnackbarVisuals)?.keep != true) visible?.dismiss()
             launch {
-                val result = snackbarHost.showSnackbar(message.text, message.actionLabel, duration = message.duration)
+                val result = snackbarHost.showSnackbar(AppSnackbarVisuals(message))
                 if (result == SnackbarResult.ActionPerformed) message.onAction?.invoke()
             }
         }
@@ -347,6 +352,15 @@ fun KleinaberlautApp(
     ) {
         SyncNoticeEffect()
         RefreshEventEffect()
+        RestoreNoticeEffect(
+            onEnter = { missing ->
+                navigator.navigate(SettingsRoute)
+                when {
+                    missing.audiobookServers == 0 -> navigator.navigate(SettingsMusicRoute)
+                    missing.musicServers == 0 -> navigator.navigate(SettingsAudiobooksRoute)
+                }
+            },
+        )
         BookLaunchEffect()
         // Die Bildschirme kümmern sich selbst um die Statusleiste und – im Vollbild-Player – um die Navigationsleiste.
         NavigationSuiteScaffold(
@@ -430,3 +444,13 @@ private fun fadeThrough() = ContentTransform(
     targetContentEnter = fadeIn(tween(210, delayMillis = 90)) + scaleIn(tween(210, delayMillis = 90), initialScale = 0.92f),
     initialContentExit = fadeOut(tween(90)),
 )
+
+/** Die Snackbar-Darstellung eines [SnackbarMessage]; trägt [keep] mit, damit ein neuer Hinweis ihn nicht verdrängt. */
+private class AppSnackbarVisuals(message: SnackbarMessage) : SnackbarVisuals {
+    override val message: String = message.text
+    override val actionLabel: String? = message.actionLabel
+    /** Ein Hinweis ohne Ablaufzeit lässt sich immer auch ohne seine Aktion schließen. */
+    override val withDismissAction: Boolean = message.duration == SnackbarDuration.Indefinite
+    override val duration: SnackbarDuration = message.duration
+    val keep: Boolean = message.keep
+}

@@ -59,6 +59,7 @@ class MusicBackupTest {
         podcastDao = db.podcastDao(),
         statsDao = db.statsDao(),
         music = MusicBackup(db.backupDao(), db.playlistDao(), db.syncDao()),
+        restoreNotice = RestoreNotice(context, { error("nicht gebraucht") }, { error("nicht gebraucht") }),
         registry = Lazy<DataSourceRegistry> { error("nicht gebraucht") },
         scope = TestScope(),
     )

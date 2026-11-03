@@ -12,18 +12,21 @@ import javax.inject.Singleton
 
 /**
  * Ein Hinweis an den Nutzer. Mit [actionLabel] und [onAction] trägt die Snackbar eine Aktion (zum Beispiel „Rückgängig“);
- * [onAction] läuft auf dem Main-Thread, wenn die Aktion getippt wurde.
+ * [onAction] läuft auf dem Main-Thread, wenn die Aktion getippt wurde. [keep]: Ein neuer Hinweis ersetzt diesen nicht, sondern
+ * wartet, bis er abgelaufen ist (für Hinweise, die der Nutzer nicht verpassen soll).
  */
 data class SnackbarMessage(
     val text: String,
     val actionLabel: String? = null,
     val onAction: (() -> Unit)? = null,
     val duration: SnackbarDuration = SnackbarDuration.Short,
+    val keep: Boolean = false,
 )
 
 /**
  * Der eine Weg für Hinweise in der ganzen App (statt Toast): Oberfläche wie Hintergrunddienste rufen [show], die Wurzel der
- * Oberfläche zeigt sie in ihrer Snackbar. Ein neuer Hinweis ersetzt den gerade sichtbaren; ist die App nicht sichtbar, geht er verloren.
+ * Oberfläche zeigt sie in ihrer Snackbar. Ein neuer Hinweis ersetzt den gerade sichtbaren (außer [SnackbarMessage.keep]); ist die
+ * App nicht sichtbar, geht er verloren.
  */
 @Singleton
 class Snackbars @Inject constructor() {

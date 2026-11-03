@@ -74,6 +74,11 @@ class DataSourceRegistry @Inject constructor(
         return all.filterKeys { it !in disabled }.values.toList()
     }
 
+    /** Eingeschaltete Server ohne gespeichertes Passwort (nach dem Wiederherstellen auf einem neuen Gerät). */
+    suspend fun withoutPassword(): List<String> = sourceDao.getByType(SourceType.SUBSONIC)
+        .filter { it.enabled && secretStore.get(passwordKey(it.sourceId)) == null }
+        .map { it.sourceId }
+
     /** Nach dem Hinzufügen, Entfernen, Ein- oder Ausschalten eines Servers aufrufen. */
     suspend fun reload() {
         mutex.withLock { servers = load() }

@@ -57,6 +57,7 @@ class UserDataBackup @Inject constructor(
     private val podcastDao: PodcastDao,
     private val statsDao: StatsDao,
     private val music: MusicBackup,
+    private val restoreNotice: RestoreNotice,
     /** Erst gebraucht, wenn wirklich etwas zurückgespielt wurde. */
     private val registry: Lazy<DataSourceRegistry>,
     @param:ApplicationScope private val scope: CoroutineScope,
@@ -109,6 +110,7 @@ class UserDataBackup @Inject constructor(
             restore(saved)
             // Die Liste der Server ohne Passwort entsteht beim Laden; die Einstellungen sollen „Passwort neu eingeben“ zeigen.
             if (saved.servers.isNotEmpty()) registry.get().reload()
+            if (saved.servers.isNotEmpty() || saved.spokenServers.isNotEmpty()) restoreNotice.serversRestored()
             Log.i(
                 TAG,
                 "Nutzerdaten zurückgespielt: ${saved.servers.size} Musik-Server, ${saved.spokenServers.size} ABS-Server, " +

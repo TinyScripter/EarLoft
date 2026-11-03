@@ -73,6 +73,10 @@ class AudiobookshelfServers @Inject constructor(
         bookDao.setServerEnabled(serverId, enabled)
     }
 
+    /** Eingeschaltete Server ohne gespeicherten API-Key (nach dem Wiederherstellen auf einem neuen Gerät). */
+    suspend fun withoutKey(): List<String> =
+        bookDao.servers().filter { it.enabled && secretStore.get(tokenKey(it.serverId)) == null }.map { it.serverId }
+
     suspend fun editable(serverId: String): EditableAbsServer? {
         val entity = bookDao.server(serverId) ?: return null
         return EditableAbsServer(entity.name, entity.baseUrl, hasKey = secretStore.get(tokenKey(serverId)) != null)

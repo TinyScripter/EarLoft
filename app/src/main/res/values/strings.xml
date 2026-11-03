@@ -623,6 +623,11 @@
     <string name="podcast_refresh_feed">Refresh podcast</string>
     <string name="refresh_music_started">Updating music …</string>
     <string name="refresh_music_done">Music updated</string>
+    <plurals name="restore_missing_credentials">
+        <item quantity="one">Restored from your old device: one server needs its password or API key again.</item>
+        <item quantity="other">Restored from your old device: %d servers need their password or API key again.</item>
+    </plurals>
+    <string name="restore_missing_credentials_action">Enter</string>
     <plurals name="new_content_songs">
         <item quantity="one">%1$d new song</item>
         <item quantity="other">%1$d new songs</item>

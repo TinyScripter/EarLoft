@@ -619,6 +619,11 @@
     <string name="podcast_refresh_feed">Podcast aktualisieren</string>
     <string name="refresh_music_started">Musik wird aktualisiert …</string>
     <string name="refresh_music_done">Musik aktualisiert</string>
+    <plurals name="restore_missing_credentials">
+        <item quantity="one">Vom alten Gerät übernommen: Ein Server braucht sein Passwort bzw. seinen API-Key neu.</item>
+        <item quantity="other">Vom alten Gerät übernommen: %d Server brauchen ihr Passwort bzw. ihren API-Key neu.</item>
+    </plurals>
+    <string name="restore_missing_credentials_action">Eingeben</string>
     <plurals name="new_content_songs">
         <item quantity="one">%1$d neuer Titel</item>
         <item quantity="other">%1$d neue Titel</item>
