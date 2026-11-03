@@ -1,7 +1,11 @@
 package keinabersmart.kleinaberlaut.core.playback
 
 import android.content.Context
+import android.content.Intent
+import android.annotation.SuppressLint
+import android.content.res.Resources
 import android.os.Bundle
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -14,6 +18,7 @@ import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
@@ -128,11 +133,65 @@ internal class LibrarySessionCallback(
         LibraryResult.ofItemList(items.drop(page * pageSize).take(pageSize), params)
     }
 
+    /**
+     * Der Service ist für System, Uhr und Android Auto exportiert, damit aber für jede App erreichbar. Vertrauenswürdige
+     * Controller ([isTrustedController]) bekommen alles; fremde Apps dürfen die Wiedergabe steuern, aber weder die Bibliothek
+     * durchsuchen noch die Warteschlange ersetzen noch Favoriten setzen (die gingen per Sync-Queue an den Server).
+     */
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
+        val trusted = session.isTrustedController(controller)
+        Log.d(TAG, "Controller ${controller.packageName}: ${if (trusted) "vertraut" else "nur Abspielsteuerung"}")
+        if (!trusted) {
+            return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
+                .setAvailableSessionCommands(SessionCommands.EMPTY)
+                .setAvailablePlayerCommands(UNTRUSTED_PLAYER_COMMANDS)
+                .build()
+        }
+        grantCoverAccess(controller.packageName)
         val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
             .add(SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
             .build()
         return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller).setAvailableSessionCommands(commands).build()
+    }
+
+    /**
+     * Die eigene App, das System (Benachrichtigung, Sperrbildschirm, Fortsetzen nach dem Neustart; auch Apps mit
+     * Medien-Steuerrecht oder als Benachrichtigungs-Listener wie die Uhr-Begleit-App) und Android Auto/Automotive.
+     */
+    private fun MediaSession.isTrustedController(controller: MediaSession.ControllerInfo): Boolean =
+        controller.packageName == context.packageName ||
+            controller.isTrusted ||
+            isMediaNotificationController(controller) ||
+            isAutoCompanionController(controller) ||
+            isAutomotiveController(controller)
+
+    /**
+     * Der [CoverProvider] ist nicht exportiert: Vertrauenswürdige Controller bekommen Leserecht auf alle Cover (eine
+     * Präfix-Freigabe), damit Android Auto bzw. die System-Oberfläche die `content://`-Cover der Listen laden können.
+     */
+    /**
+     * Paket der System-Oberfläche aus der Geräte-Konfiguration (`config_systemUi`, nur über den Namen erreichbar), sonst der
+     * AOSP-Name. Nicht über den PackageManager prüfen: Die Paket-Sichtbarkeit ab API 30 verbirgt es; ein falscher Name lässt
+     * nur die Freigabe scheitern ([grantCoverAccess]).
+     */
+    @SuppressLint("DiscouragedApi")
+    private fun systemUiPackage(): String? {
+        val system = Resources.getSystem()
+        val id = system.getIdentifier("config_systemUi", "string", "android")
+        return (if (id != 0) system.getString(id) else null)?.takeIf { it.isNotBlank() } ?: DEFAULT_SYSTEM_UI_PACKAGE
+    }
+
+    private fun grantCoverAccess(packageName: String) {
+        if (packageName == context.packageName || packageName == MediaSession.ControllerInfo.LEGACY_CONTROLLER_PACKAGE_NAME) return
+        try {
+            context.grantUriPermission(
+                packageName,
+                CoverProvider.rootUri(context),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION,
+            )
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Cover für $packageName nicht freigegeben", e)
+        }
     }
 
     override fun onCustomCommand(
@@ -283,9 +342,15 @@ internal class LibrarySessionCallback(
         controller: MediaSession.ControllerInfo,
         isForPlayback: Boolean,
     ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
+        // Die Anfrage der System-Oberfläche kommt über den Benachrichtigungs-Controller der eigenen App (ohne onConnect der
+        // System-Oberfläche); das Cover der Karte lädt sie aber selbst über den nicht exportierten CoverProvider.
+        if (!isForPlayback) systemUiPackage()?.let(::grantCoverAccess)
         // Lief zuletzt ein Buch oder eine Folge, wird diese fortgesetzt statt der Musik-Warteschlange.
         queuePersistence.lastBookId()?.let { bookId ->
-            val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.prepare(bookId) }
+            // Nur Metadaten (System-Oberfläche): ohne Zurückspulen und ohne Schreiben, wie beim Start des Service.
+            val prepared = withContext(Dispatchers.IO) {
+                if (isForPlayback) bookPlaybackSource.prepare(bookId) else bookPlaybackSource.restore(bookId)
+            }
             if (prepared != null) {
                 val start = prepared.timeline.locate(prepared.startPositionMs)
                 val items = prepared.toMediaItems()
@@ -322,7 +387,14 @@ internal class LibrarySessionCallback(
     }
 
     private companion object {
+        const val TAG = "LibrarySession"
+        const val DEFAULT_SYSTEM_UI_PACKAGE = "com.android.systemui"
         const val RECENT_ALBUMS = 50
         const val VOICE_QUEUE_SIZE = 100
+
+        /** Abspielen, Spulen, Titel wechseln, Lautstärke – aber keine Titel setzen oder die Warteschlange ändern. */
+        val UNTRUSTED_PLAYER_COMMANDS: Player.Commands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
+            .removeAll(Player.COMMAND_SET_MEDIA_ITEM, Player.COMMAND_CHANGE_MEDIA_ITEMS)
+            .build()
     }
 }

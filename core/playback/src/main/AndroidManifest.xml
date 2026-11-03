@@ -17,11 +17,13 @@
             </intent-filter>
         </service>
 
-        <!-- Cover für die Browse-Listen von Android Auto (nur lesbar, siehe CoverProvider). -->
+        <!-- Cover für die Browse-Listen von Android Auto und die System-Oberfläche: nicht exportiert, Leserecht vergibt die
+             Session beim Verbinden an vertrauenswürdige Controller (siehe CoverProvider). -->
         <provider
             android:name=".CoverProvider"
             android:authorities="${applicationId}.covers"
-            android:exported="true" />
+            android:exported="false"
+            android:grantUriPermissions="true" />
 
         <!-- Medientasten (Kopfhörer, Widget) und Fortsetzen der Wiedergabe ohne laufende App. -->
         <receiver

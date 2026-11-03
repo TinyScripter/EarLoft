@@ -22,7 +22,9 @@ import java.io.FileOutputStream
  * selbst über eine solche URI; `kal://cover/…` kann es nicht lesen. Die Bilder kommen aus derselben Pipeline wie in der
  * App ([ArtworkRepository]), also auch von Servern mit Anmeldung.
  *
- * Der Provider ist exportiert und nur lesend – er gibt ausschließlich Cover heraus.
+ * Der Provider ist nicht exportiert und nur lesend: Lesen dürfen nur die eigene App und Controller, denen die Session
+ * beim Verbinden das Recht gibt ([LibrarySessionCallback.onConnect], Präfix-Freigabe auf [rootUri]). Sonst könnte jede App
+ * die Bibliothek über die Cover abfragen und dabei authentifizierte Abrufe beim eigenen Server auslösen.
  */
 class CoverProvider : ContentProvider() {
 
@@ -71,6 +73,9 @@ class CoverProvider : ContentProvider() {
         private const val JPEG_QUALITY = 90
 
         fun authority(context: Context): String = "${context.packageName}.covers"
+
+        /** Wurzel aller Cover-URIs, für eine Freigabe mit `FLAG_GRANT_PREFIX_URI_PERMISSION`. */
+        fun rootUri(context: Context): Uri = Uri.Builder().scheme("content").authority(authority(context)).build()
 
         fun albumCoverUri(context: Context, albumId: Long): Uri =
             Uri.Builder()
