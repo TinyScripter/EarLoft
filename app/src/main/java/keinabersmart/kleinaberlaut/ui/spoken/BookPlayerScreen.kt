@@ -71,6 +71,7 @@ import keinabersmart.kleinaberlaut.cast.rememberCastDeviceName
 import keinabersmart.kleinaberlaut.core.designsystem.theme.AlbumColorTheme
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
+import keinabersmart.kleinaberlaut.ui.components.FitSquare
 import keinabersmart.kleinaberlaut.ui.components.TwoColumnMinWidth
 import keinabersmart.kleinaberlaut.ui.player.CoverThenCentered
 import keinabersmart.kleinaberlaut.ui.player.PlayerTopBar
@@ -210,6 +211,8 @@ private fun BookPlayerContent(
         // links das Cover und rechts alles andere; schmal untereinander.
         val short = maxHeight < ShortHeight && maxWidth > maxHeight
         val wide = maxWidth >= TwoColumnMinWidth && !short
+        // Auf kleinen Handys bekommt das Hochformat unten etwas Rand, sonst klebt der Play-Knopf am Bildschirmrand.
+        val tight = maxHeight < 700.dp
 
         // Geschwindigkeit, Sleep-Timer, Kapitelliste, schmal auch die Beschreibung.
         val actionRow: @Composable () -> Unit = {
@@ -259,7 +262,7 @@ private fun BookPlayerContent(
         val titleBlock: @Composable () -> Unit = {
             Text(
                 entry.title,
-                style = MaterialTheme.typography.headlineSmall,
+                style = if (tight) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
@@ -283,7 +286,7 @@ private fun BookPlayerContent(
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(if (tight) 8.dp else 16.dp))
         }
         val titleAndControls: @Composable () -> Unit = {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -376,9 +379,18 @@ private fun BookPlayerContent(
                 }
             } else {
                 // Cover oben mit den Knöpfen darunter; Titel und Steuerung im übrigen Platz mittig.
-                Column(Modifier.weight(1f).widthIn(max = 560.dp).fillMaxWidth(), verticalArrangement = CoverThenCentered) {
+                Column(
+                    Modifier.weight(1f).widthIn(max = 560.dp).fillMaxWidth().padding(bottom = if (tight) 16.dp else 0.dp),
+                    verticalArrangement = CoverThenCentered,
+                ) {
                     Column(Modifier.weight(1f, fill = false).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                        BookArt(entry.bookId, Modifier.weight(1f, fill = false).widthIn(max = 420.dp).fillMaxWidth(), coverShape)
+                        // Quadrat im Restplatz; ein Cover, das nur nach Seitenverhältnis wächst, liegt sonst über Kopfzeile und Knopfreihe.
+                        FitSquare(
+                            Modifier.weight(1f, fill = false).fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                            maxSide = 420.dp,
+                        ) { fit ->
+                            BookArt(entry.bookId, fit, coverShape)
+                        }
                         actionRow()
                         SleepTimerLine(sleepRemaining)
                     }

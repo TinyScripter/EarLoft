@@ -41,7 +41,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -141,18 +143,28 @@ private fun AlbumSongs(
     onRemoveDownload: () -> Unit,
     actions: SongActions,
 ) {
-    val header = @Composable {
-        AlbumHeader(
-            details = details,
-            offline = offline,
-            onPlay = { onPlay(0) },
-            onShuffle = onShuffle,
-            onDownload = onDownload,
-            onRemoveDownload = onRemoveDownload,
-        )
-    }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        if (maxWidth >= TwoColumnMinWidth) {
+        // Handy quer: zu niedrig für Kopf über den Songs, daher wie auf breiten Fenstern nebeneinander.
+        val short = maxWidth > maxHeight && maxHeight < 480.dp
+        // Niedrig (kleines Handy hochkant): Das Cover schrumpft, damit „Abspielen“ ohne Scrollen sichtbar bleibt.
+        val coverMax = when {
+            short -> 64.dp
+            maxHeight < 560.dp -> minOf(240.dp, maxHeight * 0.38f)
+            else -> 240.dp
+        }
+        val header = @Composable {
+            AlbumHeader(
+                details = details,
+                offline = offline,
+                coverMax = coverMax,
+                compact = short,
+                onPlay = { onPlay(0) },
+                onShuffle = onShuffle,
+                onDownload = onDownload,
+                onRemoveDownload = onRemoveDownload,
+            )
+        }
+        if (maxWidth >= TwoColumnMinWidth || short) {
             // Breites Fenster: Cover und Knöpfe links, die Songs rechts daneben.
             val headerWidth = maxWidth * 0.4f
             Row(Modifier.fillMaxSize()) {
@@ -198,45 +210,73 @@ private fun LazyListScope.albumSongItems(details: AlbumDetails, onPlay: (Int) ->
 private fun AlbumHeader(
     details: AlbumDetails,
     offline: AlbumOfflineStatus,
+    coverMax: Dp,
+    compact: Boolean,
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
     onDownload: () -> Unit,
     onRemoveDownload: () -> Unit,
 ) {
     val album = details.album
+    val totalMs = details.songs.sumOf { it.durationMs }
+    val meta = listOfNotNull(
+        album.year?.toString(),
+        pluralStringResource(R.plurals.song_count, details.songs.size, details.songs.size),
+        formatDuration(totalMs),
+    ).joinToString(" · ")
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = if (compact) 12.dp else 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AlbumArt(albumId = album.id, modifier = Modifier.widthIn(max = 240.dp).fillMaxWidth(), shape = MaterialTheme.shapes.large)
-        Spacer(Modifier.height(16.dp))
-        Text(album.title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
-        Text(
-            album.artist,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-            textAlign = TextAlign.Center,
-        )
-        val totalMs = details.songs.sumOf { it.durationMs }
-        val meta = listOfNotNull(
-            album.year?.toString(),
-            pluralStringResource(R.plurals.song_count, details.songs.size, details.songs.size),
-            formatDuration(totalMs),
-        ).joinToString(" · ")
-        Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (compact) {
+            // Handy quer: Cover neben dem Titel, damit die Knöpfe in der niedrigen Spalte ohne Scrollen sichtbar bleiben.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AlbumArt(albumId = album.id, modifier = Modifier.size(coverMax), shape = MaterialTheme.shapes.medium)
+                Column(Modifier.weight(1f)) {
+                    Text(album.title, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        album.artist,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        } else {
+            AlbumArt(albumId = album.id, modifier = Modifier.widthIn(max = coverMax).fillMaxWidth(), shape = MaterialTheme.shapes.large)
+            Spacer(Modifier.height(16.dp))
+            Text(album.title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+            Text(
+                album.artist,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+            )
+            Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(16.dp))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Button(onClick = onPlay) {
                 Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.action_play))
             }
-            FilledTonalButton(onClick = onShuffle) {
-                Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.action_shuffle))
+            if (compact) {
+                // Nur das Symbol: Play, Zufall und Download passen sonst nicht in die schmale Spalte.
+                FilledTonalIconButton(onClick = onShuffle) {
+                    Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = stringResource(R.string.action_shuffle))
+                }
+            } else {
+                FilledTonalButton(onClick = onShuffle) {
+                    Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_shuffle))
+                }
             }
             // Rein lokale Alben brauchen keinen Download.
             if (offline.downloadableCount > 0) {

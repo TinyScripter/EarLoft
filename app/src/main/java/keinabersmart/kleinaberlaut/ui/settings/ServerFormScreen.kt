@@ -2,6 +2,7 @@ package keinabersmart.kleinaberlaut.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
@@ -99,11 +101,25 @@ private fun ServerFormContent(
             LinearProgressIndicator(Modifier.fillMaxWidth())
             return@Column
         }
+        // Auf niedrigen Fenstern stehen Ergebnis und Knöpfe fest unten, sonst lägen sie unter den Feldern außer Sicht.
+        val pinned = LocalConfiguration.current.screenHeightDp < 700
+        val actions: @Composable ColumnScope.() -> Unit = {
+            state.result?.let { ResultText(it) }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = onTest, enabled = state.canSubmit) {
+                    Text(stringResource(R.string.add_server_test))
+                }
+                Button(onClick = onSave, enabled = state.canSubmit) {
+                    Text(stringResource(R.string.add_server_save))
+                }
+                if (state.isBusy) CircularProgressIndicator(Modifier.size(24.dp))
+            }
+        }
         Column(
             modifier = Modifier
+                .then(if (pinned) Modifier.weight(1f) else Modifier.imePadding().navigationBarsPadding())
                 .verticalScroll(rememberScrollState())
-                .imePadding()
-                .navigationBarsPadding()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -185,18 +201,17 @@ private fun ServerFormContent(
                 Switch(checked = state.autoDownload, onCheckedChange = null)
             }
 
-            state.result?.let { ResultText(it) }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = onTest, enabled = state.canSubmit) {
-                    Text(stringResource(R.string.add_server_test))
-                }
-                Button(onClick = onSave, enabled = state.canSubmit) {
-                    Text(stringResource(R.string.add_server_save))
-                }
-                if (state.isBusy) CircularProgressIndicator(Modifier.size(24.dp))
+            if (!pinned) {
+                actions()
+                Spacer(Modifier.size(16.dp))
             }
-            Spacer(Modifier.size(16.dp))
+        }
+        if (pinned) {
+            Column(
+                Modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                content = actions,
+            )
         }
     }
 }

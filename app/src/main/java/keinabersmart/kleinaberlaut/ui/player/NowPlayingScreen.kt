@@ -54,6 +54,7 @@ import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import keinabersmart.kleinaberlaut.core.playback.QueueEntry
 import keinabersmart.kleinaberlaut.ui.components.AlbumArt
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.FitSquare
 import keinabersmart.kleinaberlaut.ui.components.TwoColumnMinWidth
 import keinabersmart.kleinaberlaut.ui.components.formatDuration
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
@@ -150,6 +151,8 @@ private fun NowPlayingContent(
         // Handy quer: zu niedrig für Cover über Titel und Steuerung, daher links Cover mit den Knöpfen, rechts der Rest.
         val short = maxHeight < ShortHeight && maxWidth > maxHeight
         val wide = maxWidth >= TwoColumnMinWidth && !short
+        // Auf kleinen Handys bekommt das Hochformat unten etwas Rand, sonst klebt der Play-Knopf am Bildschirmrand.
+        val tight = maxHeight < 700.dp
 
         // Läuft ein Timer, schaltet ein Tipp auf den Mond ihn aus; sonst öffnet er die Auswahl.
         val sleepActive = sleepTimerRemainingMs != null
@@ -283,7 +286,11 @@ private fun NowPlayingContent(
                 // gleich viel Luft). Mit Songtext bekommt dieser den ganzen Platz, und der Titelblock rückt nach unten.
                 // Auf Tablets im Hochformat nicht über die ganze Breite ziehen.
                 Column(
-                    Modifier.weight(1f).widthIn(max = 560.dp).fillMaxWidth(),
+                    Modifier
+                        .weight(1f)
+                        .widthIn(max = 560.dp)
+                        .fillMaxWidth()
+                        .padding(bottom = if (tight) 16.dp else 0.dp),
                     verticalArrangement = if (lyricsVisible) Arrangement.Top else CoverThenCentered,
                 ) {
                     Column(Modifier.weight(1f, fill = lyricsVisible).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -292,14 +299,13 @@ private fun NowPlayingContent(
                                 LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
                             }
                         } else {
-                            AlbumArt(
-                                albumId = current.albumId,
-                                modifier = Modifier
-                                    .weight(1f, fill = false)
-                                    .widthIn(max = 420.dp)
-                                    .fillMaxWidth(),
-                                shape = MaterialTheme.shapes.extraLarge,
-                            )
+                            // Quadrat im Restplatz, mit etwas Luft zur Kopfzeile und zur Knopfreihe.
+                            FitSquare(
+                                Modifier.weight(1f, fill = false).fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                                maxSide = 420.dp,
+                            ) { fit ->
+                                AlbumArt(albumId = current.albumId, modifier = fit, shape = MaterialTheme.shapes.extraLarge)
+                            }
                         }
                         actionRow()
                         SleepTimerLine(sleepTimerRemainingMs)

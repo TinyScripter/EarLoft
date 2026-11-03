@@ -16,7 +16,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.aspectRatio
@@ -32,14 +38,25 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -47,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import kotlin.math.roundToInt
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import keinabersmart.kleinaberlaut.core.model.SpokenMode
@@ -80,7 +98,7 @@ fun SpokenModeHost(
  * Banner und Modus-Schalter wie bei [SpokenModeHost], aber mit einem Inhalt, der den Modus selbst auswertet; mit
  * [searchSwitch] sitzt oben rechts der Schalter „Überall suchen“ (für die Suche).
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SpokenModeScaffold(
     onModeChange: () -> Unit,
@@ -92,53 +110,72 @@ fun SpokenModeScaffold(
     val mode by viewModel.mode.collectAsStateWithLifecycle()
     val searchAll by viewModel.searchAll.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    // Auf kleinen Handys (niedrig oder quer) klappt der Kopf beim Scrollen weg; sonst bliebe für die Listen kaum Platz.
+    val configuration = LocalConfiguration.current
+    val compactHeight = configuration.screenHeightDp < 480 ||
+        (configuration.screenWidthDp < 600 && configuration.screenHeightDp < 700)
+    val collapse = remember(compactHeight) { HeaderCollapse(compactHeight) }
+    // Bei geöffneter Tastatur (Suche) gehört der Platz den Ergebnissen.
+    val imeVisible = WindowInsets.isImeVisible
+    LaunchedEffect(imeVisible, searchSwitch, compactHeight) {
+        if (searchSwitch && compactHeight) collapse.offset = if (imeVisible) -collapse.height else 0f
+    }
     // Die Statusleiste verbraucht das Banner; die Bildschirme darunter haben keine eigene Leiste mehr.
-    Column(modifier.fillMaxSize()) {
-        TopAppBar(
-            title = {
-                Image(
-                    painter = painterResource(R.drawable.logo_wide),
-                    contentDescription = stringResource(R.string.app_name),
-                    modifier = Modifier.height(40.dp),
-                )
-            },
-            actions = {
-                if (searchSwitch) {
-                    FilterChip(
-                        selected = searchAll,
-                        onClick = { viewModel.setSearchAll(!searchAll) },
-                        label = { Text(stringResource(R.string.search_hint_all)) },
-                        modifier = Modifier.padding(end = 8.dp),
+    // Der Statuszeilen-Inset bleibt außerhalb des einklappbaren Kopfs, sonst rutscht der Inhalt beim Einklappen darunter.
+    Column(
+        modifier
+            .fillMaxSize()
+            .windowInsetsPadding(TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Top))
+            .nestedScroll(collapse),
+    ) {
+        Column(Modifier.collapsingHeader(collapse)) {
+            TopAppBar(
+                windowInsets = TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Horizontal),
+                title = {
+                    Image(
+                        painter = painterResource(R.drawable.logo_wide),
+                        contentDescription = stringResource(R.string.app_name),
+                        modifier = Modifier.height(40.dp),
                     )
-                } else if (mode == SpokenMode.MUSIC) {
-                    IconButton(onClick = viewModel::refreshMusic) {
-                        Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.settings_refresh_music))
-                    }
-                } else if (mode == SpokenMode.BOOKS) {
-                    IconButton(onClick = viewModel::refreshBooks) {
-                        Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
-                    }
-                }
-                if (!searchSwitch && mode == SpokenMode.PODCASTS) {
-                    IconButton(onClick = viewModel::refreshPodcasts) {
-                        Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.podcast_refresh))
-                    }
-                }
-            },
-        )
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-            SpokenMode.entries.forEachIndexed { index, entry ->
-                SegmentedButton(
-                    selected = mode == entry,
-                    onClick = {
-                        if (entry != mode) {
-                            viewModel.setMode(entry)
-                            onModeChange()
+                },
+                actions = {
+                    if (searchSwitch) {
+                        FilterChip(
+                            selected = searchAll,
+                            onClick = { viewModel.setSearchAll(!searchAll) },
+                            label = { Text(stringResource(R.string.search_hint_all)) },
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                    } else if (mode == SpokenMode.MUSIC) {
+                        IconButton(onClick = viewModel::refreshMusic) {
+                            Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.settings_refresh_music))
                         }
-                    },
-                    shape = SegmentedButtonDefaults.itemShape(index, SpokenMode.entries.size),
-                ) {
-                    Text(stringResource(modeLabel(entry)))
+                    } else if (mode == SpokenMode.BOOKS) {
+                        IconButton(onClick = viewModel::refreshBooks) {
+                            Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
+                        }
+                    }
+                    if (!searchSwitch && mode == SpokenMode.PODCASTS) {
+                        IconButton(onClick = viewModel::refreshPodcasts) {
+                            Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.podcast_refresh))
+                        }
+                    }
+                },
+            )
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                SpokenMode.entries.forEachIndexed { index, entry ->
+                    SegmentedButton(
+                        selected = mode == entry,
+                        onClick = {
+                            if (entry != mode) {
+                                viewModel.setMode(entry)
+                                onModeChange()
+                            }
+                        },
+                        shape = SegmentedButtonDefaults.itemShape(index, SpokenMode.entries.size),
+                    ) {
+                        Text(stringResource(modeLabel(entry)))
+                    }
                 }
             }
         }
@@ -158,6 +195,31 @@ fun SpokenModeScaffold(
             Box(Modifier.weight(1f).fillMaxWidth()) { content(mode) }
         }
     }
+}
+
+/**
+ * Zustand des einklappbaren Kopfs: [offset] läuft von 0 (ganz sichtbar) bis -[height]. Scrollt der Inhalt nach oben,
+ * verschwindet zuerst der Kopf; beim Zurückscrollen kommt er zuerst wieder. Ohne [enabled] bleibt alles unverändert.
+ */
+@Stable
+private class HeaderCollapse(private val enabled: Boolean) : NestedScrollConnection {
+    var height by mutableFloatStateOf(0f)
+    var offset by mutableFloatStateOf(0f)
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        if (!enabled || height <= 0f) return Offset.Zero
+        val target = (offset + available.y).coerceIn(-height, 0f)
+        val consumed = target - offset
+        offset = target
+        return Offset(0f, consumed)
+    }
+}
+
+private fun Modifier.collapsingHeader(state: HeaderCollapse): Modifier = clipToBounds().layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    state.height = placeable.height.toFloat()
+    val shown = (placeable.height + state.offset).roundToInt().coerceAtLeast(0)
+    layout(placeable.width, shown) { placeable.placeRelative(0, state.offset.roundToInt()) }
 }
 
 private fun modeLabel(mode: SpokenMode): Int = when (mode) {
@@ -195,15 +257,15 @@ fun BookArt(
     }
 }
 
-/** „5 h 12 min“, „12 min“, „45 s“. */
+/** „5 h 12 min“, „12 min“, „45 s“ – mit festen Leerzeichen, damit eine schmale Zeile nicht mitten in der Dauer umbricht. */
 fun formatDuration(ms: Long): String {
     val totalSeconds = (ms / 1000).coerceAtLeast(0)
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
     return when {
-        hours > 0 -> "$hours h $minutes min"
-        minutes > 0 -> "$minutes min"
-        else -> "$totalSeconds s"
+        hours > 0 -> "$hours h $minutes min"
+        minutes > 0 -> "$minutes min"
+        else -> "$totalSeconds s"
     }
 }
 

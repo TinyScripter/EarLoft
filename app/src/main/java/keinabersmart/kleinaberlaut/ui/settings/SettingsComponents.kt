@@ -1,9 +1,11 @@
 package keinabersmart.kleinaberlaut.ui.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -178,6 +181,25 @@ internal fun ServerRow(
     onRemove: () -> Unit,
 ) {
     val server = item.server
+    // Auf schmalen Handys stehen die Knöpfe unter dem Text, sonst bleibt für Name und Adresse kaum Breite.
+    val narrow = LocalConfiguration.current.screenWidthDp < 400
+    val actions: @Composable () -> Unit = {
+        Row {
+            if (server.enabled) {
+                IconButton(onClick = onSyncNow) {
+                    Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.server_sync_now))
+                }
+            }
+            IconButton(onClick = onRemove) {
+                Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = stringResource(R.string.server_remove))
+            }
+            Switch(
+                checked = server.enabled,
+                onCheckedChange = onEnabledChange,
+                modifier = Modifier.align(Alignment.CenterVertically).padding(start = 4.dp),
+            )
+        }
+    }
     ListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.server_edit), onClick = onEdit),
         headlineContent = { Text(server.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -212,26 +234,11 @@ internal fun ServerRow(
                 if (item.autoDownload) {
                     Text(stringResource(R.string.server_auto_download), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                if (narrow) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { actions() }
             }
         },
         leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
-        trailingContent = {
-            Row {
-                if (server.enabled) {
-                    IconButton(onClick = onSyncNow) {
-                        Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.server_sync_now))
-                    }
-                }
-                IconButton(onClick = onRemove) {
-                    Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = stringResource(R.string.server_remove))
-                }
-                Switch(
-                    checked = server.enabled,
-                    onCheckedChange = onEnabledChange,
-                    modifier = Modifier.align(Alignment.CenterVertically).padding(start = 4.dp),
-                )
-            }
-        },
+        trailingContent = if (narrow) null else actions,
     )
 }
 

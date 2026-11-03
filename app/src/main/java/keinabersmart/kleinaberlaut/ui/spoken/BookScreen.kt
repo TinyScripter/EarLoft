@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.PaddingValues
@@ -163,7 +164,10 @@ private fun BookHeader(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        BookArt(book.id, Modifier.widthIn(max = 280.dp).fillMaxWidth())
+        // Niedrig (kleines Handy, quer): kleineres Cover, damit „Fortsetzen“ ohne Scrollen sichtbar bleibt.
+        val screenHeight = LocalConfiguration.current.screenHeightDp
+        val coverMax = if (screenHeight < 700) (screenHeight * 0.2f).coerceIn(96f, 280f).dp else 280.dp
+        BookArt(book.id, Modifier.widthIn(max = coverMax).fillMaxWidth())
         Text(
             book.title,
             style = MaterialTheme.typography.titleLarge,
