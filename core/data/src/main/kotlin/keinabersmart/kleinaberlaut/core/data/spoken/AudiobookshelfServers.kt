@@ -10,6 +10,7 @@ import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsServer
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsServerRegistry
 import keinabersmart.kleinaberlaut.core.model.SpokenServer
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -39,6 +40,14 @@ class AudiobookshelfServers @Inject constructor(
 ) {
     val servers: Flow<List<SpokenServer>> = bookDao.observeServers().map { list ->
         list.map { SpokenServer(it.serverId, it.name, it.baseUrl, it.lastFullSyncAt, it.enabled) }
+    }
+
+    /**
+     * Server, deren API-Key fehlt (z. B. nach einer Wiederherstellung auf einem anderen Gerät); der Nutzer muss ihn beim
+     * Bearbeiten neu eingeben. Neu berechnet, wenn sich die Server ändern – das Speichern eines Keys ändert sie mit.
+     */
+    val serversWithoutKey: Flow<Set<String>> = bookDao.observeServers().map { list ->
+        list.filter { secretStore.get(tokenKey(it.serverId)) == null }.mapTo(HashSet()) { it.serverId }
     }
 
     private val mutex = Mutex()
@@ -74,8 +83,10 @@ class AudiobookshelfServers @Inject constructor(
     }
 
     /** Eingeschaltete Server ohne gespeicherten API-Key (nach dem Wiederherstellen auf einem neuen Gerät). */
-    suspend fun withoutKey(): List<String> =
-        bookDao.servers().filter { it.enabled && secretStore.get(tokenKey(it.serverId)) == null }.map { it.serverId }
+    suspend fun withoutKey(): List<String> {
+        val missing = serversWithoutKey.first()
+        return bookDao.servers().filter { it.enabled && it.serverId in missing }.map { it.serverId }
+    }
 
     suspend fun editable(serverId: String): EditableAbsServer? {
         val entity = bookDao.server(serverId) ?: return null

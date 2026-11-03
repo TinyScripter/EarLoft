@@ -37,6 +37,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -78,6 +79,10 @@ class AudiobookshelfViewModel @Inject constructor(
     val list: StateFlow<LoadState<List<SpokenServer>>> = servers.servers
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
+
+    /** Server ohne lesbaren API-Key; die Liste zeigt bei ihnen „API-Key neu eingeben“. */
+    val withoutKey: StateFlow<Set<String>> = servers.serversWithoutKey
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)
     val connect: StateFlow<ConnectState> = _connect.asStateFlow()
@@ -126,6 +131,7 @@ fun AudiobookshelfSection(
     viewModel: AudiobookshelfViewModel = hiltViewModel(),
 ) {
     val state by viewModel.list.collectAsStateWithLifecycle()
+    val withoutKey by viewModel.withoutKey.collectAsStateWithLifecycle()
     var removing by rememberSaveable { mutableStateOf<String?>(null) }
     val servers = state.valueOrNull.orEmpty()
 
@@ -141,6 +147,13 @@ fun AudiobookshelfSection(
                         Text(server.baseUrl)
                         if (!server.enabled) {
                             Text(stringResource(R.string.server_disabled), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else if (server.serverId in withoutKey) {
+                            Text(
+                                stringResource(R.string.spoken_abs_key_lost),
+                                color = MaterialTheme.colorScheme.error,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
                 },
