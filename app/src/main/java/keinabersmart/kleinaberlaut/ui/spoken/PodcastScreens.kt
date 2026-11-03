@@ -32,7 +32,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -149,9 +148,7 @@ fun PodcastHomeScreen(
     val episodes by viewModel.continueListening.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
-    val rowState = rememberLazyListState()
-    // Wird eine andere Folge zur aktivsten, steht sie wieder ganz links sichtbar (die Zeile bliebe sonst am alten Eintrag stehen).
-    LaunchedEffect(episodes.firstOrNull()?.book?.id) { rowState.scrollToItem(0) }
+    val rowState = rememberContinueRowState(episodes.map { it.book.id })
     AddPodcastHost(viewModel, onFeedClick) { addControl ->
         LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
             if (episodes.isNotEmpty()) {
@@ -173,7 +170,7 @@ fun PodcastHomeScreen(
                             BookCard(
                                 item,
                                 onClick = { onEpisodeClick(item.book.id) },
-                                modifier = Modifier.width(140.dp),
+                                modifier = Modifier.width(140.dp).rowItemAnimation(this),
                                 onPlay = { viewModel.playOrPause(item.book.id) },
                                 playing = item.book.id == playingId,
                             )

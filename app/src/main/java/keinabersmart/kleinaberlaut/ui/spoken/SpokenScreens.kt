@@ -57,6 +57,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.SideEffect
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -109,9 +113,7 @@ fun SpokenHomeScreen(
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val continueListening = continueState.valueOrNull.orEmpty()
     val recent = recentState.valueOrNull.orEmpty()
-    val rowState = rememberLazyListState()
-    // Springt ein anderes Buch an die erste Stelle, steht es wieder ganz links sichtbar.
-    LaunchedEffect(continueListening.firstOrNull()?.book?.id) { rowState.scrollToItem(0) }
+    val rowState = rememberContinueRowState(continueListening.map { it.book.id })
 
     Column(modifier.fillMaxSize()) {
         when {
@@ -363,13 +365,46 @@ private fun BookRow(
             BookCard(
                 item,
                 onClick = { onBookClick(item.book.id) },
-                modifier = Modifier.width(140.dp),
+                modifier = Modifier.width(140.dp).rowItemAnimation(this),
                 onPlay = onPlay?.let { play -> { play(item.book.id) } },
                 playing = item.book.id == playingId,
             )
         }
     }
 }
+
+/**
+ * Zustand der Zeile „Weiterhören“ ([ids] in ihrer Reihenfolge): Kommt ein Eintrag von weiter hinten nach vorn, zeigt die
+ * Zeile wieder ihren Anfang. Fällt nur der vorderste weg (zu Ende gehört, aus der Warteschlange genommen), rückt der
+ * Rest gleitend nach ([rowItemAnimation]); ein Sprung an den Anfang schnitte diese Animation ab.
+ */
+@Composable
+fun rememberContinueRowState(ids: List<Long>): LazyListState {
+    val state = rememberLazyListState()
+    val previous = remember { arrayOf(emptyList<Long>()) }
+    val before = previous[0]
+    val first = ids.firstOrNull()
+    LaunchedEffect(first) {
+        if (before.getOrNull(1) != first) state.scrollToItem(0)
+    }
+    SideEffect { previous[0] = ids }
+    return state
+}
+
+/**
+ * Kachel einer horizontalen Zeile: Ein entfernter Eintrag löst sich schnell auf, die Kacheln rechts davon gleiten
+ * danach nach links, als schiebe sich die Zeile zusammen.
+ */
+fun Modifier.rowItemAnimation(scope: LazyItemScope): Modifier = with(scope) {
+    this@rowItemAnimation.animateItem(
+        fadeInSpec = tween(ROW_FADE_MS),
+        placementSpec = tween(ROW_SLIDE_MS, delayMillis = ROW_FADE_MS / 2, easing = FastOutSlowInEasing),
+        fadeOutSpec = tween(ROW_FADE_MS),
+    )
+}
+
+private const val ROW_FADE_MS = 150
+private const val ROW_SLIDE_MS = 350
 
 /** Cover mit Fortschrittsbalken, darunter Titel und Autor; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts auf dem Cover. */
 @Composable
