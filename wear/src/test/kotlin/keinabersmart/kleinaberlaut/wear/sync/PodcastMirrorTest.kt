@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
+import keinabersmart.kleinaberlaut.core.download.EpisodeStorage
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeDto
@@ -15,12 +16,15 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearPodcastManifest
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.File
 
 /** Die Uhr übernimmt die Folgen aus „Weiterhören“ des Handys (Wear-Konzept 16.1). */
 @RunWith(RobolectricTestRunner::class)
@@ -30,6 +34,7 @@ class PodcastMirrorTest {
     private lateinit var db: KleinaberlautDatabase
     private lateinit var reported: ReportedEpisodes
     private lateinit var mirror: PodcastMirror
+    private lateinit var storage: EpisodeStorage
 
     private val feed = WearPodcastFeedDto("f1", "https://example.org/feed", "Podcast", newestFirst = true, continuous = false)
     private val local = WearPodcastFeedDto("local:1", "local:1", "Vom Handy")
@@ -40,7 +45,8 @@ class PodcastMirrorTest {
             .allowMainThreadQueries()
             .build()
         reported = ReportedEpisodes(ApplicationProvider.getApplicationContext())
-        mirror = PodcastMirror(db, db.podcastDao(), db.bookDao(), reported)
+        storage = EpisodeStorage(ApplicationProvider.getApplicationContext())
+        mirror = PodcastMirror(db, db.podcastDao(), db.bookDao(), reported, storage)
     }
 
     @After
@@ -72,17 +78,27 @@ class PodcastMirrorTest {
     fun `nicht mehr gelieferte Folgen und Abos verschwinden, gebliebene behalten ihren Download`() = runTest {
         mirror.apply(WearPodcastManifest(listOf(feed, local), listOf(episode("a"), episode("b"), episode("x", "local:1", audioUrl = null))))
         val a = bookId("a")!!
-        db.podcastDao().queueDownload(a)
-        db.podcastDao().markDownloadRunning(a)
-        db.podcastDao().markDownloadDone(a, "/data/episode-$a.mp3", 1_000)
+        val b = bookId("b")!!
+        val fileA = download(a)
+        val fileB = download(b)
 
         mirror.apply(WearPodcastManifest(listOf(feed), listOf(episode("a"))))
 
         assertEquals(a, bookId("a"))
+        assertTrue(fileA.isFile)
         assertNull(bookId("b"))
+        assertFalse(fileB.exists())
         assertNull(bookId("x", "local:1"))
         assertNull(db.podcastDao().feed("local:1"))
         assertEquals(TrackDownload.DONE, db.podcastDao().trackOf(a)!!.downloadState)
+    }
+
+    private suspend fun download(bookId: Long): File {
+        val file = storage.fileFor(bookId, "audio/mpeg").apply { parentFile?.mkdirs(); writeBytes(ByteArray(10)) }
+        db.podcastDao().queueDownload(bookId)
+        db.podcastDao().markDownloadRunning(bookId)
+        db.podcastDao().markDownloadDone(bookId, file.absolutePath, file.length())
+        return file
     }
 
     @Test

@@ -22,6 +22,7 @@
     <string name="list_playlists">Playlists</string>
     <string name="list_continue">Continue listening</string>
     <string name="list_continue_empty">No book or episode started on the phone</string>
+    <string name="list_continue_empty_watch">No episodes on the watch yet. Set how many on the phone under Settings → Watch.</string>
     <string name="list_empty_watch">Nothing on the watch yet. Choose music on the phone or under “Add music”.</string>
     <string name="list_empty_phone">Nothing on the phone</string>
 

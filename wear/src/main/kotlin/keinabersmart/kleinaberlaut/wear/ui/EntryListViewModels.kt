@@ -4,10 +4,13 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
+import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
 import keinabersmart.kleinaberlaut.wear.R
@@ -24,7 +27,7 @@ import javax.inject.Inject
 
 /**
  * Ein Eintrag einer Liste von Alben, Playlists oder Büchern. [artist] ist beim Album der Künstler; ohne ihn steht die Zahl der Titel
- * da, bei teilweise geladenen Listen der Stand ([loadedCount] von [songCount]).
+ * da, bei teilweise geladenen Listen der Stand ([loadedCount] von [songCount]). Nicht [enabled]: noch nicht geladen.
  */
 data class ListEntry(
     val key: Long,
@@ -32,6 +35,7 @@ data class ListEntry(
     val songCount: Int,
     val artist: String? = null,
     val loadedCount: Int? = null,
+    val enabled: Boolean = true,
 )
 
 sealed interface EntryListState {
@@ -79,6 +83,30 @@ class RemoteAlbumsViewModel @Inject constructor(remote: PhoneRemote) : ViewModel
             else -> EntryListState.Ready(library.albums.map { ListEntry(it.id, it.title, it.songCount, artist = it.artist) })
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+}
+
+/**
+ * „Weiterhören“ auf der Uhr (Wear-Konzept 16.1): die Folgen vom Handy in dessen Reihenfolge; noch nicht geladene sind
+ * ausgegraut. Ein Tipp spielt die Folge auf der Uhr.
+ */
+@HiltViewModel
+class LocalContinueViewModel @Inject constructor(
+    continueListening: ContinueListening,
+    podcasts: PodcastRepository,
+    private val playback: PlaybackConnection,
+) : ViewModel() {
+    val state: StateFlow<EntryListState> = combine(continueListening.episodes, podcasts.downloadedIds()) { episodes, downloaded ->
+        if (episodes.isEmpty()) {
+            EntryListState.Message(R.string.list_continue_empty_watch)
+        } else {
+            EntryListState.Ready(
+                episodes.map { ListEntry(it.book.id, it.book.title, songCount = 0, artist = it.book.author, enabled = it.book.id in downloaded) },
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+
+    /** @return `false`, wenn die Folge sich nicht laden ließ (z. B. Datei inzwischen weg). */
+    suspend fun play(bookId: Long): Boolean = playback.playBook(bookId) != null
 }
 
 /**

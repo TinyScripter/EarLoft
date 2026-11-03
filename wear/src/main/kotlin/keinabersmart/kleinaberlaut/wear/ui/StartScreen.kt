@@ -52,7 +52,7 @@ fun StartScreen(
     onPlaylistsClick: (remote: Boolean) -> Unit,
     onFavoritesClick: (playlistId: Long) -> Unit,
     onPhoneFavoritesClick: () -> Unit,
-    onPhoneContinueClick: () -> Unit,
+    onContinueClick: (remote: Boolean) -> Unit,
     viewModel: StartViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -67,7 +67,7 @@ fun StartScreen(
         onPlaylistsClick = onPlaylistsClick,
         onFavoritesClick = onFavoritesClick,
         onPhoneFavoritesClick = onPhoneFavoritesClick,
-        onPhoneContinueClick = onPhoneContinueClick,
+        onContinueClick = onContinueClick,
         onShuffleAll = { viewModel.shuffleAll { onNowPlayingClick(false) } },
         onShuffleAllOnPhone = { viewModel.shuffleAllOnPhone { onNowPlayingClick(true) } },
         onOpenOnPhone = viewModel::openStoreOnPhone,
@@ -85,7 +85,7 @@ private fun StartContent(
     onPlaylistsClick: (Boolean) -> Unit,
     onFavoritesClick: (Long) -> Unit,
     onPhoneFavoritesClick: () -> Unit,
-    onPhoneContinueClick: () -> Unit,
+    onContinueClick: (Boolean) -> Unit,
     onShuffleAll: () -> Unit,
     onShuffleAllOnPhone: () -> Unit,
     onOpenOnPhone: (nodeId: String) -> Unit,
@@ -100,9 +100,11 @@ private fun StartContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = contentPadding,
         ) {
-            if (state.hasSelections || state.phoneConnected) {
+            if (state.hasSelections || state.hasEpisodes || state.phoneConnected) {
                 header(R.string.start_section_watch, transformationSpec)
-                action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(false) }, secondary = state.nowPlaying?.title)
+                action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(false) }, secondary = state.nowPlaying)
+                // Folgen vom Handy (Wear-Konzept 16.1); ohne Folgen kein Eintrag.
+                if (state.hasEpisodes) action(R.string.list_continue, transformationSpec, onClick = { onContinueClick(false) })
                 action(R.string.list_albums, transformationSpec, onClick = { onAlbumsClick(false) })
                 val favorites = state.favoritesPlaylistId
                 action(R.string.list_favorites, transformationSpec, enabled = favorites != null, onClick = { favorites?.let(onFavoritesClick) })
@@ -114,7 +116,7 @@ private fun StartContent(
                     header(R.string.start_section_phone, transformationSpec)
                     action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(true) }, secondary = state.phoneNowPlaying)
                     // Bücher und Podcasts nur über „Weiterhören“, ohne eigene Bibliothek auf der Uhr.
-                    action(R.string.list_continue, transformationSpec, onClick = onPhoneContinueClick)
+                    action(R.string.list_continue, transformationSpec, onClick = { onContinueClick(true) })
                     action(R.string.list_albums, transformationSpec, onClick = { onAlbumsClick(true) })
                     action(R.string.list_favorites, transformationSpec, onClick = onPhoneFavoritesClick)
                     action(R.string.list_playlists, transformationSpec, onClick = { onPlaylistsClick(true) })
@@ -220,7 +222,7 @@ private val previewCallbacks: @Composable (StartUiState) -> Unit = { state ->
             onPlaylistsClick = {},
             onFavoritesClick = {},
             onPhoneFavoritesClick = {},
-            onPhoneContinueClick = {},
+            onContinueClick = {},
             onShuffleAll = {},
             onShuffleAllOnPhone = {},
             onOpenOnPhone = {},

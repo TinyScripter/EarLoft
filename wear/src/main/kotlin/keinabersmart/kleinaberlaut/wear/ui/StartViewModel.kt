@@ -3,9 +3,9 @@ package keinabersmart.kleinaberlaut.wear.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
-import keinabersmart.kleinaberlaut.core.playback.QueueEntry
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
 import keinabersmart.kleinaberlaut.wear.download.SelectionItem
@@ -30,10 +30,12 @@ data class StartUiState(
     /** Auswahlen vom Handy in dessen Reihenfolge; dann zeigt die Uhr sie, auch ohne Handy. */
     val selections: List<SelectionItem> = emptyList(),
     val openOnPhone: OpenOnPhoneResult? = null,
-    /** Der aktuelle Titel, solange die Warteschlange nicht leer ist. */
-    val nowPlaying: QueueEntry? = null,
+    /** Titel bzw. Folge, die gerade auf der Uhr läuft; `null`, solange nichts geladen ist. */
+    val nowPlaying: String? = null,
     /** Titel, der gerade auf dem Handy läuft (Fernsteuerung). */
     val phoneNowPlaying: String? = null,
+    /** Es liegen Folgen vom Handy auf der Uhr (Wear-Konzept 16.1). */
+    val hasEpisodes: Boolean = false,
 ) {
     /** Die Geräte-Playlist der Favoriten auf der Uhr; `null`, solange die Favoriten nicht übertragen sind. */
     val favoritesPlaylistId: Long? get() = selections.firstOrNull { it.kind == WearSelectionKind.FAVORITES }?.playlistId
@@ -53,23 +55,30 @@ class StartViewModel @Inject constructor(
     private val storage: WatchStorageRepository,
     private val remote: PhoneRemote,
     private val playback: PlaybackConnection,
+    continueListening: ContinueListening,
 ) : ViewModel() {
 
     private val openOnPhone = MutableStateFlow<OpenOnPhoneResult?>(null)
+
+    /** Was gerade auf dem Handy läuft und ob Folgen auf der Uhr liegen; zusammengefasst, damit `combine` typsicher bleibt. */
+    private val phoneAndEpisodes = combine(remote.state, continueListening.episodes) { phonePlayer, episodes ->
+        phonePlayer?.takeIf { it.hasMedia }?.title to episodes.isNotEmpty()
+    }
 
     val state: StateFlow<StartUiState> = combine(
         phoneConnection.status,
         storage.selections(),
         openOnPhone,
         playback.state,
-        remote.state,
-    ) { phone, selections, opened, player, phonePlayer ->
+        phoneAndEpisodes,
+    ) { phone, selections, opened, player, (phoneTitle, hasEpisodes) ->
         StartUiState(
             phone = phone,
             selections = selections,
             openOnPhone = opened,
-            nowPlaying = player.current,
-            phoneNowPlaying = phonePlayer?.takeIf { it.hasMedia }?.title,
+            nowPlaying = player.current?.title ?: player.spoken?.title,
+            phoneNowPlaying = phoneTitle,
+            hasEpisodes = hasEpisodes,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StartUiState())
 

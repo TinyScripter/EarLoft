@@ -9,6 +9,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
+import keinabersmart.kleinaberlaut.core.download.EpisodeStorage
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeFile
@@ -19,17 +20,25 @@ import javax.inject.Inject
 /**
  * Übernimmt das Folgen-Manifest des Handys in die Datenbank der Uhr (Wear-Konzept 16.1): Abos und Folgen mit denselben
  * Schlüsseln wie am Handy (`feedId`, guid), je Folge die Audio-Adresse als einzige Datei. Der Fortschritt des Handys gilt,
- * wenn er neuer ist. Was nicht mehr im Manifest steht, verschwindet samt Fortschritt; die Dateien räumt der
- * Download-Auftrag auf ([keinabersmart.kleinaberlaut.core.download.EpisodeStorage.deleteOrphans]).
+ * wenn er neuer ist. Was nicht mehr im Manifest steht, verschwindet samt Fortschritt und Datei.
  */
 class PodcastMirror @Inject constructor(
     private val database: KleinaberlautDatabase,
     private val podcastDao: PodcastDao,
     private val bookDao: BookDao,
     private val reported: ReportedEpisodes,
+    private val episodeStorage: EpisodeStorage,
 ) {
     /** @return die IDs der Folgen auf der Uhr in der Reihenfolge des Handys (für die Warteschlange). */
-    suspend fun apply(manifest: WearPodcastManifest): List<Long> = database.withTransaction {
+    suspend fun apply(manifest: WearPodcastManifest): List<Long> {
+        val (ids, removedFiles) = applyRows(manifest)
+        // Erst nach der Transaktion: Eine gerade laufende Übertragung einer entfernten Folge verwirft ihre Datei selbst.
+        removedFiles.forEach { (bookId, path) -> episodeStorage.delete(bookId, path) }
+        return ids
+    }
+
+    /** @return die IDs in Reihenfolge und die Dateien der entfernten Folgen. */
+    private suspend fun applyRows(manifest: WearPodcastManifest): Pair<List<Long>, List<Pair<Long, String>>> = database.withTransaction {
         val generation = System.currentTimeMillis()
         val feeds = manifest.feeds.associateBy { it.feedId }
         manifest.feeds.forEach { dto ->
@@ -72,11 +81,13 @@ class PodcastMirror @Inject constructor(
             }
             bookId
         }
+        val kept = ids.toSet()
+        val removedFiles = podcastDao.downloadedTracks().filter { it.bookId !in kept }.mapNotNull { track -> track.filePath?.let { track.bookId to it } }
         val removedFeeds = podcastDao.feeds().map { it.feedId }.filter { it !in feeds }
         removedFeeds.forEach { podcastDao.deleteFeed(it) }
         feeds.keys.forEach { bookDao.deleteUnseen(it, generation) }
-        Log.d(TAG, "Folgen übernommen: ${ids.size} in ${feeds.size} Abos, ${removedFeeds.size} Abos entfernt")
-        ids
+        Log.d(TAG, "Folgen übernommen: ${ids.size} in ${feeds.size} Abos, ${removedFeeds.size} Abos und ${removedFiles.size} Dateien entfernt")
+        ids to removedFiles
     }
 
     private fun WearEpisodeDto.toEntity(feedTitle: String, generation: Long) = BookEntity(

@@ -3,12 +3,14 @@ package keinabersmart.kleinaberlaut.wear.ui
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.AudioManager
+import androidx.core.graphics.scale
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.data.repository.AlbumColorRepository
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
+import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -29,13 +31,17 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 
-/** Wiedergabe-Bildschirm (Wear-Konzept 11): Zustand des Players, Fortschritt, Cover und Lautstärke der Krone. */
+/**
+ * Wiedergabe-Bildschirm (Wear-Konzept 11): Zustand des Players, Fortschritt, Cover und Lautstärke der Krone. Spielt eine
+ * Podcast-Folge (16.1), kommen Bild und Farbe von der Folge; eine Folge ist immer eine Datei, die Zeiten sind die des Players.
+ */
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     @ApplicationContext context: Context,
     private val playback: PlaybackConnection,
     artwork: ArtworkRepository,
     albumColors: AlbumColorRepository,
+    bookCovers: BookCovers,
 ) : ViewModel(), NowPlayingModel {
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
@@ -48,9 +54,9 @@ class PlayerViewModel @Inject constructor(
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     override val positionMs: StateFlow<Long> = playback.state
-        .map { it.isPlaying to it.current }
+        .map { Triple(it.isPlaying, it.current, it.spoken) }
         .distinctUntilChanged()
-        .flatMapLatest { (playing, _) ->
+        .flatMapLatest { (playing, _, _) ->
             flow {
                 emit(playback.currentPositionMs)
                 if (playing) {
@@ -67,17 +73,29 @@ class PlayerViewModel @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override val cover: StateFlow<Bitmap?> = playback.state
-        .map { it.current?.albumId }
+        .map { it.current?.albumId to it.spoken?.bookId }
         .distinctUntilChanged()
-        .mapLatest { albumId -> albumId?.let { withContext(Dispatchers.IO) { artwork.albumCover(it, COVER_SIZE_PX) } } }
+        .mapLatest { (albumId, bookId) ->
+            when {
+                bookId != null -> bookCovers.cover(bookId)?.scaledTo(COVER_SIZE_PX)
+                albumId != null -> withContext(Dispatchers.IO) { artwork.albumCover(albumId, COVER_SIZE_PX) }
+                else -> null
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Akzentfarbe des laufenden Albums (ARGB); `null`, solange sie fehlt oder nichts läuft. */
+    /** Akzentfarbe des laufenden Albums bzw. der Folge (ARGB); `null`, solange sie fehlt oder nichts läuft. */
     @OptIn(ExperimentalCoroutinesApi::class)
     override val seedColor: StateFlow<Int?> = playback.state
-        .map { it.current?.albumId }
+        .map { it.current?.albumId to it.spoken?.bookId }
         .distinctUntilChanged()
-        .flatMapLatest { albumId -> if (albumId == null) flowOf(null) else albumColors.seedColor(albumId) }
+        .flatMapLatest { (albumId, bookId) ->
+            when {
+                bookId != null -> flow { emit(bookCovers.seedColor(bookId)) }
+                albumId != null -> albumColors.seedColor(albumId)
+                else -> flowOf(null)
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _volume = MutableStateFlow(readVolume())
@@ -93,7 +111,7 @@ class PlayerViewModel @Inject constructor(
 
     override fun toggleShuffle() = playback.toggleShuffle()
 
-    // Die Uhr selbst spielt bisher keine Bücher; die Ansicht zeigt die Knöpfe nur bei Gesprochenem.
+    // Podcast-Folgen auf der Uhr (Wear-Konzept 16.1); die Ansicht zeigt die Knöpfe nur bei Gesprochenem.
     override fun skipBack() = playback.skipBack()
 
     override fun skipForward() = playback.skipForward()
@@ -143,6 +161,14 @@ class PlayerViewModel @Inject constructor(
     private fun readVolume(): Float {
         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         return if (max > 0) audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat() else 0f
+    }
+
+    /** Bilder der Folgen kommen mit bis zu 800 px; die Uhr zeigt sie unscharf im Hintergrund, so groß wie Albumcover. */
+    private fun Bitmap.scaledTo(maxPx: Int): Bitmap {
+        val longest = maxOf(width, height)
+        if (longest <= maxPx) return this
+        val factor = maxPx.toFloat() / longest
+        return scale((width * factor).toInt().coerceAtLeast(1), (height * factor).toInt().coerceAtLeast(1))
     }
 
     private companion object {

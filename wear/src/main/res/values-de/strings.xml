@@ -20,6 +20,7 @@
     <string name="list_playlists">Playlists</string>
     <string name="list_continue">Weiterhören</string>
     <string name="list_continue_empty">Am Telefon ist kein Buch und keine Folge angefangen</string>
+    <string name="list_continue_empty_watch">Noch keine Folgen auf der Uhr. Wie viele, stellst du am Telefon unter Einstellungen → Uhr ein.</string>
     <string name="list_empty_watch">Noch nichts auf der Uhr. Wähle Musik am Telefon oder unter „Musik hinzufügen“.</string>
     <string name="list_empty_phone">Nichts auf dem Telefon</string>
 

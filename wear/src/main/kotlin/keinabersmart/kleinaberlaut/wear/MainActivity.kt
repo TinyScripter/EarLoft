@@ -29,6 +29,7 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
 import keinabersmart.kleinaberlaut.wear.ui.AddMusicScreen
 import keinabersmart.kleinaberlaut.wear.ui.AlbumScreen
 import keinabersmart.kleinaberlaut.wear.ui.LocalAlbumsScreen
+import keinabersmart.kleinaberlaut.wear.ui.LocalContinueScreen
 import keinabersmart.kleinaberlaut.wear.ui.LocalPlaylistsScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemoteAlbumsScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemoteContinueScreen
@@ -121,9 +122,12 @@ data class PlaylistsRoute(val remote: Boolean) : NavKey
 @Serializable
 data class AlbumRoute(val albumId: Long) : NavKey
 
-/** „Weiterhören“ des Handys: angefangene Bücher und die Warteschlange der Podcasts. */
+/**
+ * „Weiterhören“: die Folgen auf der Uhr bzw., mit [remote], angefangene Bücher und die Warteschlange der Podcasts des
+ * Handys (Wear-Konzept 16).
+ */
 @Serializable
-data object RemoteContinueRoute : NavKey
+data class ContinueRoute(val remote: Boolean) : NavKey
 
 /** Eine Titelliste des Handys: Album, Playlist oder Favoriten ([refId] fehlt bei Favoriten). */
 @Serializable
@@ -171,10 +175,16 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                             onPlaylistsClick = { backStack.add(PlaylistsRoute(it)) },
                             onFavoritesClick = { backStack.add(SelectionRoute(it)) },
                             onPhoneFavoritesClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.FAVORITES)) },
-                            onPhoneContinueClick = { backStack.add(RemoteContinueRoute) },
+                            onContinueClick = { backStack.add(ContinueRoute(it)) },
                         )
                     }
-                    entry<RemoteContinueRoute> { RemoteContinueScreen(onPlayed = { backStack.openNowPlaying(remote = true) }) }
+                    entry<ContinueRoute> { route ->
+                        if (route.remote) {
+                            RemoteContinueScreen(onPlayed = { backStack.openNowPlaying(remote = true) })
+                        } else {
+                            LocalContinueScreen(onPlayed = { backStack.openNowPlaying() })
+                        }
+                    }
                     entry<NowPlayingRoute> { route ->
                         if (route.remote) {
                             RemoteNowPlayingScreen()

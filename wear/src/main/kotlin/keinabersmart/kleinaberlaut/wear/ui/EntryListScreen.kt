@@ -54,6 +54,16 @@ fun RemotePlaylistsScreen(onClick: (Long) -> Unit, viewModel: RemotePlaylistsVie
     EntryListContent(R.string.list_playlists, state, onClick)
 }
 
+/** „Weiterhören“ auf der Uhr; ein Tipp spielt die Folge hier, [onPlayed] öffnet danach die Wiedergabe-Ansicht. */
+@Composable
+fun LocalContinueScreen(onPlayed: () -> Unit, viewModel: LocalContinueViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    EntryListContent(R.string.list_continue, state) { bookId ->
+        scope.launch { if (viewModel.play(bookId)) onPlayed() }
+    }
+}
+
 /** „Weiterhören“ des Handys; ein Tipp startet das Buch bzw. die Folge dort, [onPlayed] öffnet danach die Wiedergabe-Ansicht. */
 @Composable
 fun RemoteContinueScreen(onPlayed: () -> Unit, viewModel: RemoteContinueViewModel = hiltViewModel()) {
@@ -98,6 +108,7 @@ private fun EntryListContent(@StringRes titleRes: Int, state: EntryListState, on
                 is EntryListState.Ready -> items(state.entries, key = { it.key }) { entry ->
                     Button(
                         onClick = { onClick(entry.key) },
+                        enabled = entry.enabled,
                         modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
                         transformation = SurfaceTransformation(transformationSpec),
                         label = { Text(entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
@@ -105,6 +116,7 @@ private fun EntryListContent(@StringRes titleRes: Int, state: EntryListState, on
                             val loaded = entry.loadedCount
                             Text(
                                 when {
+                                    !entry.enabled -> stringResource(R.string.selection_not_loaded)
                                     loaded != null && loaded < entry.songCount ->
                                         stringResource(R.string.selection_progress, loaded, entry.songCount)
                                     entry.artist != null -> entry.artist
