@@ -60,6 +60,7 @@ fun WatchSettingsScreen(
         onQualityChange = viewModel::setQuality,
         onStorageLimitChange = viewModel::setStorageLimitGb,
         onRequireChargingChange = viewModel::setRequireCharging,
+        onPodcastEpisodesChange = viewModel::setPodcastEpisodes,
         onRemove = viewModel::remove,
         onClear = viewModel::clear,
         modifier = modifier,
@@ -74,11 +75,13 @@ private fun WatchSettingsContent(
     onQualityChange: (WearQuality) -> Unit,
     onStorageLimitChange: (Int?) -> Unit,
     onRequireChargingChange: (Boolean) -> Unit,
+    onPodcastEpisodesChange: (Int) -> Unit,
     onRemove: (WatchSelectionItem) -> Unit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var choosingQuality by rememberSaveable { mutableStateOf(false) }
+    var choosingEpisodes by rememberSaveable { mutableStateOf(false) }
     var choosingLimit by rememberSaveable { mutableStateOf(false) }
     var confirmClear by rememberSaveable { mutableStateOf(false) }
     val settings = state.settings
@@ -117,6 +120,14 @@ private fun WatchSettingsContent(
                             Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.watch_remove))
                         }
                     },
+                )
+            }
+            item(key = "podcasts") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.watch_podcasts)) },
+                    supportingContent = { Text(podcastEpisodesLabel(settings.podcastEpisodes)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_playlist_play), contentDescription = null) },
+                    modifier = Modifier.clickable { choosingEpisodes = true },
                 )
             }
             item(key = "downloads") { SectionHeader(stringResource(R.string.watch_downloads)) }
@@ -166,6 +177,19 @@ private fun WatchSettingsContent(
                 choosingQuality = false
             },
             onDismiss = { choosingQuality = false },
+        )
+    }
+    if (choosingEpisodes) {
+        ChoiceDialog(
+            title = stringResource(R.string.watch_podcasts),
+            options = PODCAST_EPISODE_COUNTS,
+            selected = settings.podcastEpisodes,
+            label = { podcastEpisodesLabel(it) },
+            onSelect = {
+                onPodcastEpisodesChange(it)
+                choosingEpisodes = false
+            },
+            onDismiss = { choosingEpisodes = false },
         )
     }
     if (choosingLimit) {
@@ -241,6 +265,13 @@ private fun WatchStatusRows(status: WearStatusDto?) {
 /** `null` = automatisch (W1). */
 private val STORAGE_LIMITS_GB = listOf(null, 2, 4, 8, 16, 32)
 
+/** 0 = keine Folgen auf der Uhr (Wear-Konzept 16.1). */
+private val PODCAST_EPISODE_COUNTS = listOf(0, 1, 3, 5, 10)
+
+@Composable
+private fun podcastEpisodesLabel(count: Int): String =
+    if (count == 0) stringResource(R.string.watch_podcasts_off) else pluralStringResource(R.plurals.watch_podcasts_count, count, count)
+
 @Composable
 private fun storageLimitLabel(gigabytes: Int?): String =
     if (gigabytes == null) stringResource(R.string.watch_storage_auto) else stringResource(R.string.watch_storage_gb, gigabytes)
@@ -303,6 +334,7 @@ private fun WatchSettingsContentPreview() {
             onQualityChange = {},
             onStorageLimitChange = {},
             onRequireChargingChange = {},
+            onPodcastEpisodesChange = {},
             onRemove = {},
             onClear = {},
         )

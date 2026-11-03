@@ -77,12 +77,19 @@
                     android:pathPrefix="/kal/"
                     android:scheme="wear" />
             </intent-filter>
-            <!-- Wiedergabe-Pakete der Uhr (/kal/plays/<uuid>), auch wenn die App nicht läuft. -->
+            <!-- Pakete der Uhr (/kal/plays/<uuid>, /kal/episodes/<uuid>), auch wenn die App nicht läuft. -->
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data
                     android:host="*"
                     android:pathPrefix="/kal/plays/"
+                    android:scheme="wear" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/kal/episodes/"
                     android:scheme="wear" />
             </intent-filter>
         </service>

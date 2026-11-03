@@ -12,6 +12,9 @@ import com.google.android.gms.wearable.WearableListenerService
 import dagger.hilt.android.AndroidEntryPoint
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.data.wear.PhoneFileLocator
+import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodeImporter
+import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodeListening
+import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodeProgress
 import keinabersmart.kleinaberlaut.core.data.wear.WatchPlay
 import keinabersmart.kleinaberlaut.core.data.wear.WatchPlayImporter
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
@@ -20,6 +23,8 @@ import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsRequest
+import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeFile
+import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeReportDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearPlaysDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteCommand
@@ -49,6 +54,7 @@ class PhoneWearListenerService : WearableListenerService() {
     @Inject lateinit var fileLocator: PhoneFileLocator
     @Inject lateinit var dataClient: DataClient
     @Inject lateinit var playImporter: WatchPlayImporter
+    @Inject lateinit var episodeImporter: WatchEpisodeImporter
     @Inject lateinit var selections: WearSelectionRepository
     @Inject lateinit var remote: WearRemoteHandler
     @Inject lateinit var remotePublisher: WearRemotePublisher
@@ -84,12 +90,18 @@ class PhoneWearListenerService : WearableListenerService() {
         }
     }
 
-    /** Wiedergabe-Pakete der Uhr (Wear-Konzept 10): importieren, dann das DataItem löschen. */
+    /** Pakete der Uhr – Wiedergaben (Wear-Konzept 10) und gehörte Folgen (16.1): importieren, dann das DataItem löschen. */
     override fun onDataChanged(events: DataEventBuffer) {
         // Die Ereignisse nur hier lesen; der Puffer wird danach freigegeben.
-        val packets = events.filter { it.type == DataEvent.TYPE_CHANGED && it.dataItem.uri.path?.startsWith(WearPaths.PLAYS_PREFIX) == true }
+        val packets = events.filter { it.type == DataEvent.TYPE_CHANGED }
             .mapNotNull { event -> event.dataItem.payloadOrNull()?.let { event.dataItem.uri to it } }
-        packets.forEach { (uri, payload) -> applicationScope.launch { importPlays(uri, payload) } }
+        packets.forEach { (uri, payload) ->
+            val path = uri.path.orEmpty()
+            when {
+                path.startsWith(WearPaths.PLAYS_PREFIX) -> applicationScope.launch { importPlays(uri, payload) }
+                path.startsWith(WearPaths.EPISODES_PREFIX) -> applicationScope.launch { importEpisodes(uri, payload) }
+            }
+        }
     }
 
     private suspend fun importPlays(uri: Uri, payload: ByteArray) {
@@ -106,16 +118,37 @@ class PhoneWearListenerService : WearableListenerService() {
         dataClient.delete(uri)
     }
 
+    private suspend fun importEpisodes(uri: Uri, payload: ByteArray) {
+        val report = try {
+            WearCodec.decode<WearEpisodeReportDto>(payload)
+        } catch (e: SerializationException) {
+            Log.w(TAG, "$uri nicht lesbar", e)
+            dataClient.delete(uri)
+            return
+        }
+        val applied = episodeImporter.import(
+            packetId = report.packetId,
+            progress = report.progress.map {
+                val p = it.progress
+                WatchEpisodeProgress(it.feedId, it.guid, p.positionMs, p.durationMs, p.finished, p.speed, p.updatedAt)
+            },
+            listening = report.listening.map { WatchEpisodeListening(it.feedId, it.guid, it.listenedMs, it.at) },
+        )
+        Log.d(TAG, "Folgen-Paket ${report.packetId}: $applied von ${report.progress.size} Fortschritten, ${report.listening.size} Zeiten")
+        dataClient.delete(uri)
+    }
+
     /**
-     * Die Uhr holt eine Datei (`/kal/file/<sourceUid>`, Wear-Konzept 8.4): Das Handy schickt die lokale Datei oder
-     * den fertigen Download im Original, ohne Datei nur die Kopfzeile „keine Datei“.
+     * Die Uhr holt eine Datei (`/kal/file/<sourceUid>`, Wear-Konzept 8.4; Folgen: [WearEpisodeFile], 16.1): Das Handy
+     * schickt die lokale Datei oder den fertigen Download im Original, ohne Datei nur die Kopfzeile „keine Datei“.
      */
     override fun onChannelOpened(channel: ChannelClient.Channel) {
         val path = channel.path
         if (!path.startsWith(WearPaths.FILE_CHANNEL_PREFIX)) return
         val sourceUid = path.removePrefix(WearPaths.FILE_CHANNEL_PREFIX)
         applicationScope.launch {
-            val file = fileLocator.open(sourceUid)
+            val episode = WearEpisodeFile.parse(sourceUid)
+            val file = if (episode != null) fileLocator.openEpisode(episode.first, episode.second) else fileLocator.open(sourceUid)
             Log.d(TAG, "Datei $sourceUid für die Uhr: ${file?.length?.let { "$it Bytes" } ?: "keine Datei"}")
             channelClient.sendFile(channel, file?.length ?: 0, file?.input)
         }

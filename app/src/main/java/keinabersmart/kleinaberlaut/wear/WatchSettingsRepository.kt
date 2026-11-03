@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
+import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -21,6 +22,8 @@ data class WatchSettings(
     /** Feste Obergrenze in GB; `null` = bis auf 1 GB freien Speicher (W1). */
     val storageLimitGb: Int? = null,
     val requireCharging: Boolean = true,
+    /** Folgen aus „Weiterhören“ auf der Uhr (Wear-Konzept 16.1); 0 = keine. */
+    val podcastEpisodes: Int = WearSettingsDto.DEFAULT_PODCAST_EPISODES,
 )
 
 private val Context.watchSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "watch_settings")
@@ -34,6 +37,7 @@ class WatchSettingsRepository @Inject constructor(
             quality = prefs[KEY_QUALITY]?.let { name -> WearQuality.entries.firstOrNull { it.name == name } } ?: WearQuality.OPUS_128,
             storageLimitGb = prefs[KEY_STORAGE_LIMIT_GB],
             requireCharging = prefs[KEY_REQUIRE_CHARGING] ?: true,
+            podcastEpisodes = prefs[KEY_PODCAST_EPISODES] ?: WearSettingsDto.DEFAULT_PODCAST_EPISODES,
         )
     }
 
@@ -49,7 +53,12 @@ class WatchSettingsRepository @Inject constructor(
         context.watchSettingsDataStore.edit { it[KEY_REQUIRE_CHARGING] = requireCharging }
     }
 
+    suspend fun setPodcastEpisodes(count: Int) {
+        context.watchSettingsDataStore.edit { it[KEY_PODCAST_EPISODES] = count.coerceAtLeast(0) }
+    }
+
     private companion object {
+        val KEY_PODCAST_EPISODES = intPreferencesKey("podcast_episodes")
         val KEY_QUALITY = stringPreferencesKey("quality")
         val KEY_STORAGE_LIMIT_GB = intPreferencesKey("storage_limit_gb")
         val KEY_REQUIRE_CHARGING = booleanPreferencesKey("require_charging")

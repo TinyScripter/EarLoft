@@ -16,7 +16,7 @@ data class WatchPlay(val songUid: String, val playedAt: Long, val listenedMs: Lo
 /**
  * Übernimmt die Wiedergaben der Uhr in den Hörverlauf des Handys und scrobbelt sie wie eigene (Wear-Konzept 10).
  * Ein Paket wird nur einmal importiert: Stürzt das Handy zwischen Import und Löschen des DataItems ab, kommt
- * es erneut an. Die Kennungen der letzten [REMEMBERED_PACKETS] Pakete bleiben dafür erhalten.
+ * es erneut an ([ImportedPackets]).
  */
 @Singleton
 class WatchPlayImporter @Inject constructor(
@@ -24,7 +24,7 @@ class WatchPlayImporter @Inject constructor(
     private val wearDao: WearDao,
     private val playbackState: PlaybackStateRepository,
 ) {
-    private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    private val importedPackets = ImportedPackets(context, PREFERENCES)
     private val mutex = Mutex()
 
     /**
@@ -32,8 +32,7 @@ class WatchPlayImporter @Inject constructor(
      *   Abgleich entfernt), und schon importierte Pakete zählen nicht.
      */
     suspend fun import(packetId: String, plays: List<WatchPlay>): Int = mutex.withLock {
-        val seen = preferences.getString(KEY_PACKETS, null)?.split(SEPARATOR).orEmpty().filter { it.isNotEmpty() }
-        if (packetId in seen) return 0
+        if (packetId in importedPackets) return 0
         val songIds = plays.map { it.songUid }.distinct().chunked(MAX_SQL_VARIABLES)
             .flatMap { wearDao.getSongIdsOfSources(it) }
             .associate { it.uid to it.songId }
@@ -47,17 +46,13 @@ class WatchPlayImporter @Inject constructor(
             playbackState.recordPlay(songId, play.playedAt, play.listenedMs)
             imported++
         }
-        // Erst nach dem Import merken: Ein Absturz dazwischen lässt das Paket lieber doppelt als gar nicht ankommen.
-        preferences.edit().putString(KEY_PACKETS, (seen + packetId).takeLast(REMEMBERED_PACKETS).joinToString(SEPARATOR)).apply()
+        importedPackets.remember(packetId)
         imported
     }
 
     private companion object {
         const val TAG = "WatchPlayImporter"
         const val PREFERENCES = "watch_plays"
-        const val KEY_PACKETS = "imported_packets"
-        const val SEPARATOR = ","
-        const val REMEMBERED_PACKETS = 100
         const val MAX_SQL_VARIABLES = 900
     }
 }

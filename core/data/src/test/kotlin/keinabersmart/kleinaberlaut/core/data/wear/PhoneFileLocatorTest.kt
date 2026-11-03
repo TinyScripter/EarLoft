@@ -9,13 +9,18 @@ import keinabersmart.kleinaberlaut.core.data.sync.FixedSources
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
 import keinabersmart.kleinaberlaut.core.data.sync.librarySyncer
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
+import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
+import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
+import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.datasource.RawArtist
 import keinabersmart.kleinaberlaut.core.datasource.RawTrack
 import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.DownloadState
+import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -54,7 +59,7 @@ class PhoneFileLocatorTest {
         localFile = folder.newFile("lokal.mp3").apply { writeBytes(ByteArray(300_000) { (it % 251).toByte() }) }
         // „A“ gibt es auch lokal (wird mit dem Server-Song zusammengeführt), „Sommerlied“ nur lokal.
         val local = FileLocalSource(listOf(track("1", "A", 1), track("2", "Sommerlied", 1, album = "Lokal")), localFile)
-        locator = PhoneFileLocator(ApplicationProvider.getApplicationContext(), db.wearDao(), FixedSources(nd, local))
+        locator = PhoneFileLocator(ApplicationProvider.getApplicationContext(), db.wearDao(), FixedSources(nd, local), db.bookDao(), db.podcastDao())
         syncer.sync(nd)
         syncer.sync(local)
     }
@@ -99,6 +104,28 @@ class PhoneFileLocatorTest {
         assertNull(locator.open("nd:b"))
         assertNull(locator.open("nd:gibtsnicht"))
     }
+
+    @Test
+    fun `downloaded episode is sent, an episode only in the feed is not`() = runTest {
+        db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast"))
+        val loaded = episode("g1")
+        val streamOnly = episode("g2")
+        val file = folder.newFile("episode.mp3").apply { writeBytes(ByteArray(4_321) { 3 }) }
+        db.podcastDao().insertTracks(
+            listOf(
+                BookTrackEntity(loaded, 0, "https://example.org/g1.mp3", 0, 1_000, downloadState = TrackDownload.DONE, filePath = file.absolutePath),
+                BookTrackEntity(streamOnly, 0, "https://example.org/g2.mp3", 0, 1_000),
+            ),
+        )
+
+        assertArrayEquals(file.readBytes(), locator.openEpisode("f1", "g1")!!.input.use { it.readBytes() })
+        assertNull(locator.openEpisode("f1", "g2"))
+        assertNull(locator.openEpisode("f1", "gibtsnicht"))
+    }
+
+    private suspend fun episode(guid: String): Long = db.bookDao().insertBook(
+        BookEntity(serverId = "f1", kind = BookKind.EPISODE, remoteId = guid, title = guid, normTitle = guid, author = "Podcast", durationMs = 1_000),
+    )
 
     private fun track(remoteId: String, title: String, trackNumber: Int, album: String = "Album") = RawTrack(
         remoteId = remoteId,

@@ -335,6 +335,12 @@
     <string name="watch_selection_album">Album</string>
     <string name="watch_selection_playlist">Playlist</string>
     <string name="watch_selection_favorites">Favorites</string>
+    <string name="watch_podcasts">Podcasts on the watch</string>
+    <string name="watch_podcasts_off">Off</string>
+    <plurals name="watch_podcasts_count">
+        <item quantity="one">First episode of Continue listening</item>
+        <item quantity="other">First %d episodes of Continue listening</item>
+    </plurals>
     <string name="watch_downloads">Loading on the watch</string>
     <string name="watch_quality">Quality</string>
     <string name="watch_quality_opus">Opus 128 kbit/s (saves storage)</string>

@@ -57,6 +57,8 @@ class WatchSettingsViewModel @Inject constructor(
 
     fun setRequireCharging(requireCharging: Boolean) = launch { watchSettings.setRequireCharging(requireCharging) }
 
+    fun setPodcastEpisodes(count: Int) = launch { watchSettings.setPodcastEpisodes(count) }
+
     fun remove(item: WatchSelectionItem) = launch { selections.setSelected(item.kind, item.refId, selected = false) }
 
     fun clear() = launch { selections.clear() }

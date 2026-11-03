@@ -146,11 +146,80 @@ data class WearSettingsDto(
     /** Wie am Handy (W2). */
     val replayGainMode: ReplayGainMode = ReplayGainMode.AUTO,
     val preAmpDb: Float = 0f,
+    /** So viele Folgen aus „Weiterhören“ hält die Uhr bereit (Wear-Konzept 16.1); 0 = keine. */
+    val podcastEpisodes: Int = DEFAULT_PODCAST_EPISODES,
 ) {
     companion object {
         const val DEFAULT_MIN_FREE_BYTES = 1_000_000_000L
+        const val DEFAULT_PODCAST_EPISODES = 3
     }
 }
+
+// ---- Podcast-Folgen auf der Uhr (Wear-Konzept 16.1) ----
+
+/** Die ersten Folgen aus „Weiterhören“ des Handys in dessen Reihenfolge, mit ihren Abos (Handy → Uhr, gzip-Asset). */
+@Serializable
+data class WearPodcastManifest(
+    val feeds: List<WearPodcastFeedDto> = emptyList(),
+    val episodes: List<WearEpisodeDto> = emptyList(),
+)
+
+/** Ein Abo; [feedId] und [url] sind die des Handys, damit Fortschritt und Statistik auf beiden Geräten passen. */
+@Serializable
+data class WearPodcastFeedDto(
+    val feedId: String,
+    val url: String,
+    val title: String,
+    val author: String = "",
+    val imageUrl: String? = null,
+    val newestFirst: Boolean = false,
+    val continuous: Boolean = true,
+)
+
+@Serializable
+data class WearEpisodeDto(
+    val feedId: String,
+    val guid: String,
+    val title: String,
+    /** Veröffentlichung (bzw. erstes Auftauchen), wie `books.addedAt` am Handy. */
+    val publishedAt: Long = 0,
+    val durationMs: Long = 0,
+    /** Adresse der Audiodatei im Feed; `null` bei Folgen vom Handy selbst (nur über den Datei-Kanal). */
+    val audioUrl: String? = null,
+    val mimeType: String? = null,
+    val coverUrl: String? = null,
+    /** Das Handy hat die Datei (Download oder Folge vom Gerät) und kann sie über den Datei-Kanal schicken. */
+    val phoneHasFile: Boolean = false,
+    /** Größe der Datei, soweit bekannt (geladene Folge am Handy); sonst schätzt die Uhr aus der Dauer. */
+    val sizeBytes: Long? = null,
+    val progress: WearEpisodeProgressDto? = null,
+)
+
+@Serializable
+data class WearEpisodeProgressDto(
+    val positionMs: Long,
+    val durationMs: Long,
+    val finished: Boolean = false,
+    val speed: Float = 1f,
+    /** Zeitpunkt der letzten Änderung; die neuere Seite gewinnt. */
+    val updatedAt: Long,
+)
+
+/** Was auf der Uhr gehört wurde (Uhr → Handy); das Handy löscht das DataItem nach dem Import. */
+@Serializable
+data class WearEpisodeReportDto(
+    /** Gegen doppelten Import, wie bei [WearPlaysDto]. */
+    val packetId: String,
+    val progress: List<WearEpisodeStateDto> = emptyList(),
+    val listening: List<WearEpisodeListeningDto> = emptyList(),
+)
+
+@Serializable
+data class WearEpisodeStateDto(val feedId: String, val guid: String, val progress: WearEpisodeProgressDto)
+
+/** [listenedMs] Inhaltszeit seit der letzten Meldung, gehört bis [at]. */
+@Serializable
+data class WearEpisodeListeningDto(val feedId: String, val guid: String, val listenedMs: Long, val at: Long)
 
 // ---- Uhr → Handy ----
 

@@ -46,8 +46,17 @@ object WearPaths {
     /** Message, Handy → Uhr: [WearCredentialsDto]. */
     const val CREDENTIALS = "/kal/credentials"
 
-    /** Channel, von der Uhr geöffnet: `/kal/file/<sourceUid>`; das Handy schreibt die Datei im Original. */
+    /**
+     * Channel, von der Uhr geöffnet: `/kal/file/<sourceUid>` bzw. für eine Folge `/kal/file/`[WearEpisodeFile.uid]; das
+     * Handy schreibt die Datei im Original.
+     */
     const val FILE_CHANNEL_PREFIX = "/kal/file/"
+
+    /** DataItem mit Asset, Handy → Uhr: [WearPodcastManifest] (gzip) – die Folgen für die Uhr (Wear-Konzept 16.1). */
+    const val PODCASTS = "/kal/podcasts"
+
+    /** DataItem je Paket, Uhr → Handy: [WearEpisodeReportDto]; das Handy löscht es nach dem Import. */
+    const val EPISODES_PREFIX = "/kal/episodes/"
 
     // ---- Fernsteuerung des Handys von der Uhr aus ----
 
@@ -80,7 +89,32 @@ object WearPaths {
 
     fun plays(packetId: String) = "$PLAYS_PREFIX$packetId"
 
+    fun episodes(packetId: String) = "$EPISODES_PREFIX$packetId"
+
     fun fileChannel(sourceUid: String) = "$FILE_CHANNEL_PREFIX$sourceUid"
+}
+
+/**
+ * Kennung einer Folge im Datei-Kanal: `episode:<feedId>:<guid>`, beide Teile URL-kodiert (eine guid kann beliebige
+ * Zeichen enthalten, auch `:` und `/`).
+ */
+object WearEpisodeFile {
+    private const val PREFIX = "episode:"
+
+    fun uid(feedId: String, guid: String): String = "$PREFIX${encode(feedId)}:${encode(guid)}"
+
+    /** @return (feedId, guid); `null`, wenn [uid] keine Folge bezeichnet. */
+    fun parse(uid: String): Pair<String, String>? {
+        if (!uid.startsWith(PREFIX)) return null
+        val parts = uid.removePrefix(PREFIX).split(':')
+        if (parts.size != 2) return null
+        return decode(parts[0]) to decode(parts[1])
+    }
+
+    // Die Varianten mit `Charset` gibt es erst ab API 33.
+    private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
+
+    private fun decode(value: String) = java.net.URLDecoder.decode(value, "UTF-8")
 }
 
 /** Capabilities aus `res/values/wear.xml` der beiden Apps. */
