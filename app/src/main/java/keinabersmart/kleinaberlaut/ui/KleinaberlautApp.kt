@@ -28,6 +28,8 @@ import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -37,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.core.designsystem.theme.AlbumColorTheme
+import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import keinabersmart.kleinaberlaut.navigation.AboutRoute
@@ -147,7 +150,11 @@ fun KleinaberlautApp(
             onNowPlayingOpened()
         }
     }
-    val playerState by playerViewModel.state.collectAsStateWithLifecycle()
+    // Hier nur ableiten: Jede Änderung am Player (Play/Pause, Titel, Warteschlange, Tempo) setzte sonst Navigation und
+    // Scaffold neu zusammen. Den ganzen Zustand liest erst der Mini-Player.
+    val playerState = playerViewModel.state.collectAsStateWithLifecycle()
+    val currentBookId by remember { derivedStateOf { playerState.value.spoken?.bookId } }
+    val playsSpoken by remember { derivedStateOf { playerState.value.spoken != null } }
 
     // Ab mittlerer Breite (Tablet, Foldable, Handy quer) Navigation Rail statt Bottom-Bar,
     // ab großer Breite zusätzlich Liste und Detail nebeneinander.
@@ -207,7 +214,7 @@ fun KleinaberlautApp(
             BookScreen(
                 bookId = route.bookId,
                 onBack = navigator::goBack,
-                isCurrent = playerState.spoken?.bookId == route.bookId,
+                isCurrent = currentBookId == route.bookId,
                 onOpenPlayer = navigator::showNowPlaying,
             )
         }
@@ -276,7 +283,7 @@ fun KleinaberlautApp(
         }
         entry<NowPlayingRoute> {
             // Das laufende Item entscheidet, nicht der Modus: ein Hörbuch hat seine eigene Ansicht.
-            if (playerState.spoken != null) {
+            if (playsSpoken) {
                 BookPlayerScreen(onClose = navigator::goBack)
             } else {
                 NowPlayingScreen(onClose = navigator::goBack, onOpenQueue = { navigator.navigate(QueueRoute) })
@@ -392,37 +399,46 @@ fun KleinaberlautApp(
                     modifier = Modifier.weight(1f),
                 )
                 SnackbarHost(snackbarHost)
-                if (showMiniPlayer && playerState.spoken != null) {
-                    val bookPlayer: BookPlayerViewModel = hiltViewModel()
-                    val bookSeedColor by bookPlayer.seedColor.collectAsStateWithLifecycle()
-                    // Ohne Beobachter bliebe die Zeitachse leer und der Anteil am Buch 0.
-                    val bookTimeline by bookPlayer.timeline.collectAsStateWithLifecycle()
-                    AlbumColorTheme(bookSeedColor) {
-                        SpokenMiniPlayer(
-                            state = playerState,
-                            fractionProvider = bookPlayer::bookFraction,
-                            positionJumps = bookPlayer.positionJumps,
-                            refreshKey = bookTimeline,
-                            onClick = { navigator.navigate(NowPlayingRoute) },
-                            onTogglePlayPause = bookPlayer::togglePlayPause,
-                            onSkipBack = bookPlayer::skipBack,
-                            onSkipForward = bookPlayer::skipForward,
-                        )
-                    }
-                } else if (showMiniPlayer && playerState.hasMedia) {
-                    val seedColor by playerViewModel.seedColor.collectAsStateWithLifecycle()
-                    AlbumColorTheme(seedColor) {
-                        MiniPlayer(
-                            state = playerState,
-                            positionProvider = { playerViewModel.currentPositionMs },
-                            positionJumps = playerViewModel.positionJumps,
-                            onClick = { navigator.navigate(NowPlayingRoute) },
-                            onTogglePlayPause = playerViewModel::togglePlayPause,
-                            onNext = playerViewModel::next,
-                        )
-                    }
+                if (showMiniPlayer) {
+                    MiniPlayerHost(playerViewModel, playerState, onOpen = { navigator.navigate(NowPlayingRoute) })
                 }
             }
+        }
+    }
+}
+
+/** Mini-Player für Musik bzw. Hörbuch. Liest [playerState] erst hier, damit Änderungen nur ihn neu zusammensetzen. */
+@Composable
+private fun MiniPlayerHost(playerViewModel: PlayerViewModel, playerState: State<PlayerState>, onOpen: () -> Unit) {
+    val state by playerState
+    if (state.spoken != null) {
+        val bookPlayer: BookPlayerViewModel = hiltViewModel()
+        val bookSeedColor by bookPlayer.seedColor.collectAsStateWithLifecycle()
+        // Ohne Beobachter bliebe die Zeitachse leer und der Anteil am Buch 0.
+        val bookTimeline by bookPlayer.timeline.collectAsStateWithLifecycle()
+        AlbumColorTheme(bookSeedColor) {
+            SpokenMiniPlayer(
+                state = state,
+                fractionProvider = bookPlayer::bookFraction,
+                positionJumps = bookPlayer.positionJumps,
+                refreshKey = bookTimeline,
+                onClick = onOpen,
+                onTogglePlayPause = bookPlayer::togglePlayPause,
+                onSkipBack = bookPlayer::skipBack,
+                onSkipForward = bookPlayer::skipForward,
+            )
+        }
+    } else if (state.hasMedia) {
+        val seedColor by playerViewModel.seedColor.collectAsStateWithLifecycle()
+        AlbumColorTheme(seedColor) {
+            MiniPlayer(
+                state = state,
+                positionProvider = { playerViewModel.currentPositionMs },
+                positionJumps = playerViewModel.positionJumps,
+                onClick = onOpen,
+                onTogglePlayPause = playerViewModel::togglePlayPause,
+                onNext = playerViewModel::next,
+            )
         }
     }
 }

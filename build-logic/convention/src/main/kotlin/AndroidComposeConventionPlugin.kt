@@ -6,6 +6,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
+import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
 
 /**
  * Compose-Compiler + BOM. Bewusst ohne Material-Bibliothek, damit das Plugin
@@ -15,6 +16,10 @@ class AndroidComposeConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
+            extensions.configure<ComposeCompilerGradlePluginExtension> {
+                // Modellklassen aus Modulen ohne Compose-Compiler als stabil (Review C4).
+                stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("compose_stability.conf"))
+            }
 
             pluginManager.withPlugin("com.android.application") {
                 extensions.configure<ApplicationExtension> { buildFeatures.compose = true }
