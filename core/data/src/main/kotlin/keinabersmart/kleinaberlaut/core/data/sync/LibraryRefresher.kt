@@ -33,13 +33,15 @@ import javax.inject.Singleton
 /**
  * Hält die Bibliothek aktuell.
  *
- * - **Lokal:** beim Start, auf Anforderung (z. B. nach Erteilen der Berechtigung) und gebündelt
- *   nach Änderungen im MediaStore – nur mit [LibrarySettings.useLocalMedia]. Wird die Einstellung
- *   abgeschaltet, bricht ein laufender Scan ab und die lokalen Songs verschwinden sofort aus der
+ * - **Lokal:** beim Start des Prozesses nur, wenn sich der MediaStore seit dem letzten Scan geändert hat
+ *   ([LocalScanStamp], ab API 30; darunter beim Öffnen der App), auf Anforderung (z. B. nach Erteilen der
+ *   Berechtigung) und gebündelt nach Änderungen im MediaStore – nur mit [LibrarySettings.useLocalMedia]. Wird die
+ *   Einstellung abgeschaltet, bricht ein laufender Scan ab und die lokalen Songs verschwinden sofort aus der
  *   Bibliothek. Lokal abgeglichen wird ausschließlich hier.
- * - **Server:** beim Start, wenn der letzte Vollabgleich länger als [SERVER_SYNC_INTERVAL_MS] her
- *   ist, regelmäßig (täglich/wöchentlich/monatlich/nie, [LibrarySettings.syncIntervalDays]) per [ServerSyncWorker] und auf Anforderung; sonst beim Öffnen der App ein
- *   Zwischenabgleich ([refreshQuick]).
+ * - **Server:** beim Öffnen der App ([refreshQuick]) ein Vollabgleich, wenn der letzte länger als
+ *   [SERVER_SYNC_INTERVAL_MS] her ist, sonst ein Zwischenabgleich; regelmäßig (täglich/wöchentlich/monatlich/nie,
+ *   [LibrarySettings.syncIntervalDays]) per [ServerSyncWorker] und auf Anforderung. Nicht beim bloßen Start des
+ *   Prozesses: Der kommt auch für Hintergrund-Jobs und Nachrichten der Uhr, und dort gelten die Netz-Bedingungen der Worker.
  */
 @Singleton
 class LibraryRefresher @Inject constructor(
@@ -51,6 +53,7 @@ class LibraryRefresher @Inject constructor(
     private val newSongs: NewSongsCounter,
     private val mediaStoreChanges: MediaStoreChanges,
     private val librarySettings: LibrarySettings,
+    private val scanStamp: LocalScanStamp,
     private val events: RefreshEvents,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
@@ -60,7 +63,8 @@ class LibraryRefresher @Inject constructor(
 
     /** `true`, solange ein Abgleich läuft, den der Nutzer angestoßen hat (für Pull-to-refresh). */
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
-    private val localRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    // replay = 1: Eine Anforderung, bevor der Scan-Ablauf läuft (Öffnen der App direkt nach dem Prozessstart), geht nicht verloren.
+    private val localRequests = MutableSharedFlow<Unit>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     @OptIn(FlowPreview::class)
     fun start() {
@@ -68,24 +72,21 @@ class LibraryRefresher @Inject constructor(
         // Abschalten bricht den Scan ab (collectLatest wartet, bis er beendet ist) und entfernt dann – so kann
         // kein Scan danach noch lokale Songs anlegen, und niemand wartet auf einen langen Server-Abgleich.
         scope.launch {
+            var atProcessStart = true
             librarySettings.useLocalMedia.distinctUntilChanged().collectLatest { enabled ->
+                val initial = atProcessStart
+                atProcessStart = false
                 if (!enabled) {
+                    scanStamp.clear()
                     syncer.removeSource(localDataSource.sourceId)
                     return@collectLatest
                 }
                 merge(localRequests, mediaStoreChanges.observe())
-                    .onStart { emit(Unit) }
+                    // Beim Einschalten immer; beim Prozessstart nur bei geändertem MediaStore (unbekannt: refreshQuick).
+                    .onStart { if (!initial || scanStamp.changedSinceLastScan() == true) emit(Unit) }
                     .debounce(DEBOUNCE_MS)
-                    .collect { syncer.syncSafely(localDataSource) }
+                    .collect { syncLocal() }
             }
-        }
-
-        scope.launch {
-            val threshold = fullSyncThresholdMs() ?: return@launch
-            val now = System.currentTimeMillis()
-            registry.servers()
-                .filter { now - (sourceDao.get(it.sourceId)?.lastFullSyncAt ?: 0) > threshold }
-                .forEach { syncer.syncSafely(it) }
         }
         scope.launch {
             librarySettings.syncIntervalDays.distinctUntilChanged().collect { ServerSyncWorker.schedule(context, it) }
@@ -97,19 +98,27 @@ class LibraryRefresher @Inject constructor(
         localRequests.tryEmit(Unit)
     }
 
+    /** Der Stand von vor dem Scan wird gemerkt: Was sich währenddessen ändert, scannt der nächste Start. */
+    private suspend fun syncLocal() {
+        val stamp = scanStamp.current()
+        if (syncer.syncSafely(localDataSource)) scanStamp.save(stamp)
+    }
+
     /**
-     * Zwischenabgleich aller Server, deren Vollabgleich nicht ohnehin ansteht (neue Alben, Favoriten und
-     * Playlists anderer Clients). Für den Start der App gedacht; höchstens alle [QUICK_SYNC_INTERVAL_MS].
+     * Beim Öffnen der App, höchstens alle [QUICK_SYNC_INTERVAL_MS]: Vollabgleich der Server, die ihn nötig haben, und
+     * Zwischenabgleich der übrigen (neue Alben, Favoriten und Playlists anderer Clients). Unter API 30 außerdem die
+     * lokale Musik, weil der Prozessstart dort nicht erkennt, ob sie sich geändert hat.
      */
     fun refreshQuick() {
         val now = System.currentTimeMillis()
         val last = lastQuickAttempt.get()
         if (now - last < QUICK_SYNC_INTERVAL_MS || !lastQuickAttempt.compareAndSet(last, now)) return
         scope.launch {
+            if (librarySettings.useLocalMedia.first() && scanStamp.changedSinceLastScan() == null) refreshNow()
             val threshold = fullSyncThresholdMs() ?: return@launch
-            registry.servers()
-                .filter { now - (sourceDao.get(it.sourceId)?.lastFullSyncAt ?: 0) <= threshold }
-                .forEach { syncer.quickSync(it) }
+            val (due, recent) = registry.servers().partition { now - (sourceDao.get(it.sourceId)?.lastFullSyncAt ?: 0) > threshold }
+            due.forEach { syncer.syncSafely(it) }
+            recent.forEach { syncer.quickSync(it) }
         }
     }
 

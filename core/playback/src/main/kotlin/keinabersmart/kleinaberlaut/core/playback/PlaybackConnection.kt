@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -65,6 +66,9 @@ data class PlayerState(
 /**
  * Verbindung der App-UI zum [PlaybackService]. Alle Methoden müssen auf dem Main-Thread
  * aufgerufen werden (Vorgabe von [MediaController]).
+ *
+ * Verbunden wird erst, wenn jemand [state] beobachtet oder den Player steuert – nicht schon beim Erzeugen. Sonst
+ * startete jeder Prozessstart (Hintergrund-Job, Nachricht der Uhr) den Service samt Player und Wiederherstellen.
  */
 @Singleton
 class PlaybackConnection @Inject constructor(
@@ -75,6 +79,7 @@ class PlaybackConnection @Inject constructor(
 ) {
     private val scope = MainScope()
     private val controller = CompletableDeferred<MediaController>()
+    private var connecting = false
     private val _state = MutableStateFlow(PlayerState())
 
     val state: StateFlow<PlayerState> = _state.asStateFlow()
@@ -89,6 +94,16 @@ class PlaybackConnection @Inject constructor(
         get() = if (controller.isCompleted) controller.getCompleted().currentPosition else 0
 
     init {
+        scope.launch {
+            _state.subscriptionCount.first { it > 0 }
+            connect()
+        }
+    }
+
+    /** Baut den [MediaController] einmal auf; nur auf dem Main-Thread. */
+    private fun connect() {
+        if (connecting) return
+        connecting = true
         scope.launch {
             val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
             val mediaController = MediaController.Builder(context, token).buildAsync().await()
@@ -126,6 +141,7 @@ class PlaybackConnection @Inject constructor(
         val prepared = bookPlaybackSource.prepare(bookId) ?: return null
         // Der MediaController darf nur vom Main-Thread angesprochen werden.
         withContext(Dispatchers.Main.immediate) {
+            connect()
             controller.await().playBook(prepared, startPositionMs)
         }
         return prepared
@@ -197,6 +213,7 @@ class PlaybackConnection @Inject constructor(
     fun cancelSleepTimer() = sleepTimer.cancel()
 
     private fun withController(block: MediaController.() -> Unit) {
+        connect()
         scope.launch { controller.await().block() }
     }
 

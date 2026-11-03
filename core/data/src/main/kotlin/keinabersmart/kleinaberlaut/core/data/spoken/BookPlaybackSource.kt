@@ -31,6 +31,11 @@ data class PreparedBook(
     /** Der Audiobookshelf-Server der Adressen; `null` bei Podcast-Folgen (öffentliche Adressen). */
     val absServerId: String? = null,
     val castCoverUrl: String? = null,
+    /**
+     * Nur bei [BookPlaybackSource.restore]: seit wann pausiert ist (`book_progress.updatedAt`). Die Regel zum Fortsetzen
+     * greift dann erst beim Drücken von Play; `null` = schon angewendet bzw. kein Stand.
+     */
+    val pausedSinceMs: Long? = null,
 )
 
 @Singleton
@@ -44,10 +49,20 @@ class BookPlaybackSource @Inject constructor(
     private val settings: SpokenSettings,
 ) {
     /**
-     * Gleicht den Fortschritt mit dem Server ab (ohne Verbindung gilt der lokale Stand) und baut die Medien-URLs.
+     * Zum Abspielen: gleicht den Fortschritt mit dem Server ab (ohne Verbindung gilt der lokale Stand), wendet die Regel
+     * zum Fortsetzen an und stellt das Buch nach vorn in „Weiterhören“.
      * `null`, wenn das Buch oder seine Dateien nicht zu bekommen sind.
      */
-    suspend fun prepare(bookId: Long): PreparedBook? {
+    suspend fun prepare(bookId: Long): PreparedBook? = build(bookId, forPlayback = true)
+
+    /**
+     * Zum pausierten Wiederherstellen beim Start des Service: wie [prepare], aber ohne Zurückspulen und ohne zu
+     * schreiben. Sonst rückte jeder Start, auf den kein Abspielen folgt, die gespeicherte Position ein Stück zurück und
+     * setzte die Pause neu an. Die Regel zum Fortsetzen greift beim ersten Play ([PreparedBook.pausedSinceMs]).
+     */
+    suspend fun restore(bookId: Long): PreparedBook? = build(bookId, forPlayback = false)
+
+    private suspend fun build(bookId: Long, forPlayback: Boolean): PreparedBook? {
         val book = repository.bookNow(bookId) ?: return null
         val pulled = progressSync.pull(bookId)
         val episode = book.kind == BookKind.EPISODE
@@ -67,16 +82,21 @@ class BookPlaybackSource @Inject constructor(
             if (server == null) track.remoteFileId else api.fileUrl(server, book.remoteId, track.remoteFileId).toString()
         }
         val progress = pulled.progress
-        val startPositionMs = resumePosition(
-            progress = progress,
-            nowMs = System.currentTimeMillis(),
-            rule = (if (episode) settings.podcastResume else settings.bookResume).first(),
-            chapters = if (episode) emptyList() else timeline.chapters,
-            restartChapter = !episode && settings.restartChapter.first(),
-        )
+        val startPositionMs = if (forPlayback) {
+            resumePosition(
+                progress = progress,
+                nowMs = System.currentTimeMillis(),
+                rule = (if (episode) settings.podcastResume else settings.bookResume).first(),
+                chapters = if (episode) emptyList() else timeline.chapters,
+                restartChapter = !episode && settings.restartChapter.first(),
+            )
+        } else {
+            // Wie resumePosition ohne Regel: Ein beendetes Stück beginnt von vorn.
+            progress?.takeUnless { it.finished }?.positionMs ?: 0L
+        }
         val speed = progress?.speed ?: 1f
         // Nach dem Abgleich: Das Buch steht ab jetzt ganz vorn in „Weiterhören“ (Folgen haben ihre eigene Zeile).
-        if (!episode) {
+        if (forPlayback && !episode) {
             repository.touchProgress(bookId, startPositionMs, timeline.durationMs, speed)
             queue.moveToFront(bookId)
         }
@@ -90,6 +110,7 @@ class BookPlaybackSource @Inject constructor(
             castUrls = castUrls,
             absServerId = server?.serverId,
             castCoverUrl = server?.let { api.coverUrl(it, book.remoteId, CAST_COVER_PX).toString() },
+            pausedSinceMs = if (forPlayback) null else progress?.takeUnless { it.finished }?.updatedAt,
         )
     }
 

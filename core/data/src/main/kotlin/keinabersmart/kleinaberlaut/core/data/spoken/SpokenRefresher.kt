@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -37,8 +38,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hält Hörbücher (und die Podcast-Dateien vom Gerät) aktuell: Vollabgleich beim Start (> 6 h), beim Öffnen der App der Fortschritt des Kontos
- * (höchstens alle 10 min), auf Anforderung alles.
+ * Hält Hörbücher (und die Podcast-Dateien vom Gerät) aktuell: beim Öffnen der App (höchstens alle 10 min) die Dateien vom
+ * Gerät und je Server ein Vollabgleich (> 6 h) bzw. der Fortschritt des Kontos, im Hintergrund per [BookRefreshWorker]
+ * (nur WLAN), auf Anforderung alles. Der bloße Start des Prozesses gleicht nichts ab: Er kommt auch für Hintergrund-Jobs
+ * und Nachrichten der Uhr.
  */
 @Singleton
 class SpokenRefresher @Inject constructor(
@@ -62,22 +65,15 @@ class SpokenRefresher @Inject constructor(
 
     fun start() {
         if (!started.compareAndSet(false, true)) return
-        // Bücher vom Gerät: beim Start abgleichen und jedes Mal, wenn der Schalter wechselt (aus = entfernen).
+        // Bücher vom Gerät: jedes Mal, wenn der Schalter wechselt (aus = entfernen). Den Stand beim Start gleicht
+        // [refreshQuick] ab, sobald die App sichtbar wird.
         scope.launch {
-            settings.useLocalBooks.distinctUntilChanged().collect { enabled -> if (enabled) localBooks.sync() else localBooks.remove() }
+            settings.useLocalBooks.distinctUntilChanged().drop(1).collect { enabled -> if (enabled) localBooks.sync() else localBooks.remove() }
         }
         scope.launch {
-            settings.useLocalPodcasts.distinctUntilChanged().collect { enabled -> if (enabled) localPodcasts.sync() else localPodcasts.remove() }
+            settings.useLocalPodcasts.distinctUntilChanged().drop(1).collect { enabled -> if (enabled) localPodcasts.sync() else localPodcasts.remove() }
         }
         schedule()
-        scope.launch {
-            val now = System.currentTimeMillis()
-            progressSync.pushPending()
-            val fresh = servers.all()
-                .filter { now - (dao.server(it.serverId)?.lastFullSyncAt ?: 0) > FULL_SYNC_INTERVAL_MS }
-                .sumOf { syncer.syncSafely(it).newBooks }
-            if (fresh > 0) events.emit(RefreshEvent.Finished(RefreshKind.BOOKS, fresh, failed = false))
-        }
     }
 
     /** Hält die Bibliothek auch ohne geöffnete App aktuell (nur im WLAN), damit neue Bücher gemeldet werden können. */
@@ -90,7 +86,10 @@ class SpokenRefresher @Inject constructor(
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
     }
 
-    /** Beim Öffnen der App: Fortschritt, den andere Geräte geschrieben haben, übernehmen. */
+    /**
+     * Beim Öffnen der App: Dateien vom Gerät, ausstehenden Fortschritt senden, dann je Server ein Vollabgleich, wenn der
+     * letzte länger als [FULL_SYNC_INTERVAL_MS] her ist, sonst nur den Fortschritt anderer Geräte übernehmen.
+     */
     fun refreshQuick() {
         val now = System.currentTimeMillis()
         val last = lastQuick.get()
@@ -100,7 +99,13 @@ class SpokenRefresher @Inject constructor(
             localBooks.sync()
             localPodcasts.sync()
             progressSync.pushPending()
+            var fresh = 0
             servers.all().forEach { server ->
+                if (now - (dao.server(server.serverId)?.lastFullSyncAt ?: 0) > FULL_SYNC_INTERVAL_MS) {
+                    // Der Vollabgleich übernimmt den Fortschritt des Kontos mit.
+                    fresh += syncer.syncSafely(server).newBooks
+                    return@forEach
+                }
                 try {
                     progressSync.pullAll(server)
                 } catch (e: CancellationException) {
@@ -109,6 +114,7 @@ class SpokenRefresher @Inject constructor(
                     Log.w(TAG, "Fortschritt von ${server.baseUrl} nicht abrufbar", e)
                 }
             }
+            if (fresh > 0) events.emit(RefreshEvent.Finished(RefreshKind.BOOKS, fresh, failed = false))
         }
     }
 

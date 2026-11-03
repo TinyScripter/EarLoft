@@ -17,9 +17,9 @@ import keinabersmart.kleinaberlaut.core.data.repository.seedColorOf
 import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
-import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.playback.NowPlaying
 import keinabersmart.kleinaberlaut.core.playback.NowPlayingObserver
+import keinabersmart.kleinaberlaut.core.playback.ServicePlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -63,7 +63,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
     private val albumColorRepository: AlbumColorRepository,
     private val bookCovers: BookCovers,
     private val books: BookRepository,
-    private val playback: PlaybackConnection,
+    private val servicePlayer: ServicePlayer,
     @ApplicationScope scope: CoroutineScope,
 ) : NowPlayingObserver {
 
@@ -109,10 +109,10 @@ class NowPlayingWidgetUpdater @Inject constructor(
     }
 
     private suspend fun currentClock(bookId: Long, timeline: BookTimeline?): BookClock? = withContext(Dispatchers.Main.immediate) {
-        val spoken = playback.state.value.spoken?.takeIf { it.bookId == bookId } ?: return@withContext null
-        val inTrack = playback.currentPositionMs
+        val position = servicePlayer.bookPosition(bookId) ?: return@withContext null
+        val inTrack = position.positionInTrackMs
         BookClock(
-            positionMs = timeline?.toBookPosition(spoken.trackIndex, inTrack) ?: inTrack,
+            positionMs = timeline?.toBookPosition(position.trackIndex, inTrack) ?: inTrack,
             durationMs = timeline?.durationMs ?: 0,
         )
     }

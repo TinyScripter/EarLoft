@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var libraryRefresher: LibraryRefresher
     @Inject lateinit var spokenRefresher: SpokenRefresher
+    @Inject lateinit var podcastRefresher: PodcastRefresher
 
     @Inject lateinit var themeSettings: ThemeSettings
 
@@ -45,10 +47,12 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)) openNowPlaying = true
     }
 
+    /** Abgleiche beim Öffnen der App; der bloße Start des Prozesses (Hintergrund-Jobs, Uhr) gleicht nichts ab. */
     override fun onStart() {
         super.onStart()
         libraryRefresher.refreshQuick()
         spokenRefresher.refreshQuick()
+        podcastRefresher.refreshStale()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

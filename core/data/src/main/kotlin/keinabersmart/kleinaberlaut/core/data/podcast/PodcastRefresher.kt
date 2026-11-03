@@ -1,6 +1,8 @@
 package keinabersmart.kleinaberlaut.core.data.podcast
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -32,12 +34,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Hält die Abos aktuell: ein periodischer Auftrag im eingestellten Abstand (nur im WLAN, außer „Mobilfunk“ ist erlaubt),
- * beim Start alles, was älter als dieser Abstand ist, und auf Anforderung alles.
+ * beim Öffnen der App alles, was älter als dieser Abstand ist ([refreshStale], gleiche Netz-Regel), und auf Anforderung
+ * alles. Nicht beim bloßen Start des Prozesses: Startet der periodische Auftrag ihn, lüde sonst beides jeden Feed.
  */
 @Singleton
 class PodcastRefresher @Inject constructor(
@@ -50,6 +54,7 @@ class PodcastRefresher @Inject constructor(
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val started = AtomicBoolean(false)
+    private val lastStaleCheck = AtomicLong(0)
     private val _refreshing = MutableStateFlow(false)
 
     /** `true`, solange ein Abgleich läuft, den der Nutzer angestoßen hat (für Pull-to-refresh). */
@@ -62,10 +67,21 @@ class PodcastRefresher @Inject constructor(
                 .distinctUntilChanged()
                 .collect { (hours, mobile) -> schedule(hours, mobile) }
         }
+    }
+
+    /**
+     * Beim Öffnen der App (höchstens alle [STALE_CHECK_INTERVAL_MS]): Abos abgleichen, deren letzter Abgleich länger als
+     * der eingestellte Abstand her ist – nur über ein Netz, das der periodische Auftrag auch nähme. Meldet nur, wenn es
+     * Neues gibt.
+     */
+    fun refreshStale() {
+        val now = System.currentTimeMillis()
+        val last = lastStaleCheck.get()
+        if (now - last < STALE_CHECK_INTERVAL_MS || !lastStaleCheck.compareAndSet(last, now)) return
         scope.launch {
             val hours = settings.refreshHours.first()
-            if (hours == 0) return@launch
-            val stale = System.currentTimeMillis() - hours * HOUR_MS
+            if (hours == 0 || !networkAllows(mobile = settings.useMobileData.first())) return@launch
+            val stale = now - hours * HOUR_MS
             // Die Folgen eines Abos, das noch nie abgeglichen wurde, sind nicht neu.
             val fresh = dao.feeds().filter { it.lastRefreshAt < stale }.sumOf { feed ->
                 val added = repository.refresh(feed.feedId)?.newEpisodeIds?.size ?: 0
@@ -121,9 +137,18 @@ class PodcastRefresher @Inject constructor(
         manager.enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
 
+    /** Wie die Bedingung des periodischen Auftrags: Internet, und ohne [mobile] nur ein Netz ohne Volumenbegrenzung. */
+    private fun networkAllows(mobile: Boolean): Boolean {
+        val manager = context.getSystemService(ConnectivityManager::class.java) ?: return false
+        val capabilities = manager.getNetworkCapabilities(manager.activeNetwork) ?: return false
+        if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return false
+        return mobile || capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+    }
+
     private companion object {
         const val WORK_NAME = "podcast-refresh"
         const val HOUR_MS = 60 * 60 * 1000L
+        const val STALE_CHECK_INTERVAL_MS = 10 * 60 * 1000L
     }
 }
 

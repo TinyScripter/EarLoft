@@ -90,6 +90,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var bookPlaybackSource: BookPlaybackSource
     @Inject lateinit var continueListening: ContinueListening
     @Inject lateinit var bookCovers: BookCovers
+    @Inject lateinit var servicePlayer: ServicePlayer
 
     /** Für Player-Zugriffe (Main-Thread). */
     private val mainScope = MainScope()
@@ -155,6 +156,7 @@ class PlaybackService : MediaLibraryService() {
         // Handy: Cast-fähiger Player um den ExoPlayer; Hörverlauf und Warteschlange folgen dem jeweils aktiven Player.
         val factory = sessionPlayerFactory.orElse(null)
         val player = factory?.create(this, localPlayer) ?: localPlayer
+        servicePlayer.attach(player)
         sleepTimer.attach(player.asSleepTimerTarget())
         playTracker = PlayTracker(player, playbackStateRepository, ioScope)
         player.addListener(playTracker)
@@ -254,10 +256,12 @@ class PlaybackService : MediaLibraryService() {
             // Lief zuletzt ein Buch oder eine Folge, wird diese (pausiert) geladen statt der Musik-Warteschlange.
             val lastBookId = queuePersistence.lastBookId()
             if (lastBookId != null) {
-                val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.prepare(lastBookId) }
+                // Ohne Zurückspulen und ohne Schreiben: Auf diesen Start folgt nicht unbedingt ein Abspielen.
+                val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.restore(lastBookId) }
                 if (player.mediaItemCount > 0) return@launch
                 if (prepared != null) {
                     player.playBook(prepared, autoPlay = false)
+                    prepared.pausedSinceMs?.let { bookListener.restoredPaused(lastBookId, it) }
                     return@launch
                 }
             }
@@ -288,6 +292,7 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onDestroy() {
         sleepTimer.detach()
+        servicePlayer.detach()
         session?.let { session ->
             playTracker.finishCurrent()
             bookListener.finish()

@@ -56,6 +56,8 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         // Vor dem Wiedergabe-Service und dem Cast-Knopf; lädt im Hintergrund, ohne Play-Dienste bleibt Cast aus.
         Cast.getSingletonInstance(this).initialize()
+        // Nur Beobachter und Zeitpläne: Der Prozess startet auch für Hintergrund-Jobs und Nachrichten der Uhr. Abgeglichen
+        // wird beim Öffnen der App (MainActivity.onStart) bzw. von den Workern mit ihren Netz-Bedingungen.
         libraryRefresher.start()
         spokenRefresher.start()
         podcastRefresher.start()

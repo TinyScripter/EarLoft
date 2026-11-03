@@ -56,6 +56,16 @@ internal class BookPlaybackListener(
     private var pausedBookId: Long? = null
     private var pausedAt = 0L
 
+    /** Pausiert wiederhergestellt ([restoredPaused]), aber [onMediaItemTransition] kam noch nicht: Buch und Pausenbeginn. */
+    private var pendingRestore: Pair<Long, Long>? = null
+
+    /**
+     * Bücher, die seit dem Laden gespielt oder gespult wurden. Nur deren Stand wird festgehalten: Ein nur geladenes Buch
+     * schriebe sonst beim Wechsel oder Beenden seine alte Position mit neuem Zeitstempel und überschriebe damit einen
+     * neueren Stand eines anderen Geräts.
+     */
+    private val touched = mutableSetOf<Long>()
+
     init {
         scope.launch { settings.bookResume.collect { bookRule = it } }
         scope.launch { settings.podcastResume.collect { podcastRule = it } }
@@ -73,8 +83,12 @@ internal class BookPlaybackListener(
         // Innerhalb eines Buchs (nächste Datei) bleibt alles; bei einem anderen Buch gilt dessen Geschwindigkeit.
         if (timelineBookId == bookId) return
         timelineBookId = bookId
-        // Ein frisch geladenes Buch hat seine Startposition schon aus dem gespeicherten Stand bekommen.
-        pausedBookId = null
+        // Ein frisch geladenes Buch hat seine Startposition schon aus dem gespeicherten Stand bekommen – außer es wurde
+        // pausiert wiederhergestellt; dann zählt die Pause seit dem gespeicherten Stand.
+        val restored = pendingRestore?.takeIf { it.first == bookId }
+        pendingRestore = null
+        pausedBookId = restored?.first
+        pausedAt = restored?.second ?: 0L
         timeline = null
         scope.launch {
             timeline = books.timeline(bookId)
@@ -93,6 +107,19 @@ internal class BookPlaybackListener(
         } else if (pausedBookId == bookId) {
             pausedBookId = null
             rewindAfterPause(item, bookId)
+        }
+    }
+
+    /**
+     * Das Buch [bookId] wurde pausiert wiederhergestellt (Start des Service); [pausedSinceMs] ist der Zeitpunkt des
+     * gespeicherten Stands. Beim ersten Play gilt dann die Regel zum Fortsetzen wie nach einer Pause im Player.
+     */
+    fun restoredPaused(bookId: Long, pausedSinceMs: Long) {
+        if (timelineBookId == bookId) {
+            pausedBookId = bookId
+            pausedAt = pausedSinceMs
+        } else {
+            pendingRestore = bookId to pausedSinceMs
         }
     }
 
@@ -125,6 +152,9 @@ internal class BookPlaybackListener(
         newPosition: Player.PositionInfo,
         reason: Int,
     ) {
+        if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) {
+            newPosition.mediaItem?.bookId?.let { touched += it }
+        }
         // Ein anderes Buch (oder Musik) beginnt: den Stand des bisherigen festhalten.
         val oldBookId = oldPosition.mediaItem?.bookId ?: return
         if (oldBookId == newPosition.mediaItem?.bookId) return
@@ -138,6 +168,7 @@ internal class BookPlaybackListener(
         loop?.cancel()
         if (bookId == null) return
         if (isPlaying) {
+            touched += bookId
             loop = scope.launch {
                 while (true) {
                     delay(SAVE_INTERVAL_MS)
@@ -219,6 +250,7 @@ internal class BookPlaybackListener(
     }
 
     private fun record(bookId: Long, trackIndex: Int, positionInTrackMs: Long, force: Boolean) {
+        if (bookId !in touched) return
         val timeline = timeline.takeIf { timelineBookId == bookId } ?: return
         val position = timeline.toBookPosition(trackIndex, positionInTrackMs)
         // Ohne bekannte Dauer (Folge, deren Länge noch nicht gelernt ist) kann es nicht zu Ende sein.
