@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.core.playback
 
 import android.content.Context
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 
@@ -19,9 +20,21 @@ interface SessionPlayerFactory {
      */
     suspend fun playableSongIds(player: Player, songIds: Collection<Long>): Set<Long> = songIds.toSet()
 
-    /** Höchstzahl Titel, die [player] in der Warteschlange hält (Cast: Größe einer Nachricht); siehe [queueWindow]. */
+    /**
+     * Höchstzahl Titel, die [player] auf einmal annimmt (Cast: Größe einer Nachricht); siehe [queueWindow].
+     * Was darüber liegt, hält die Fabrik zurück und reicht es nach ([onQueueReplaced], [appendPending]).
+     */
     fun maxQueueSize(player: Player): Int = Int.MAX_VALUE
 
-    /** Main-Thread. Von [requested] Titeln kamen nur [kept] in die Warteschlange. */
-    fun onQueueLimited(kept: Int, requested: Int) = Unit
+    /**
+     * Main-Thread. Eine neue Warteschlange wurde gesetzt; was nicht hineinpasste, liegt in [before] (vor dem
+     * Ausschnitt) und [after] (dahinter). Beides leer, wenn alles passte.
+     */
+    fun onQueueReplaced(before: List<MediaItem>, after: List<MediaItem>) = Unit
+
+    /** Main-Thread. Liegen noch Titel zurück, gehören neue Titel ans Ende davon ([appendPending]) statt direkt in den Player. */
+    fun hasPendingItems(): Boolean = false
+
+    /** Main-Thread. Hängt [items] hinter die zurückgehaltenen Titel. */
+    fun appendPending(items: List<MediaItem>) = Unit
 }

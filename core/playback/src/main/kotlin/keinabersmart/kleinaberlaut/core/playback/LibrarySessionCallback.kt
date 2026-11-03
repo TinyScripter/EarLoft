@@ -163,15 +163,22 @@ internal class LibrarySessionCallback(
     ): ListenableFuture<List<MediaItem>> = scope.future {
         val player = mediaSession.player
         val items = resolve(player, mediaItems).map { it.second }
-        val room = (maxQueueSize(player) - player.mediaItemCount).coerceAtLeast(0)
-        if (items.size <= room) return@future items
-        playerFactory?.onQueueLimited(room, items.size)
-        items.take(room)
+        val factory = playerFactory ?: return@future items
+        if (factory.hasPendingItems()) {
+            // Hinter dem, was der Player hält, liegt noch mehr: neue Titel kommen an dessen Ende.
+            factory.appendPending(items)
+            return@future emptyList()
+        }
+        val maxSize = maxQueueSize(player)
+        if (items.size <= maxSize) return@future items
+        factory.appendPending(items.drop(maxSize))
+        items.take(maxSize)
     }
 
     /**
      * Wie [onAddMediaItems]; fällt der Starttitel weg, beginnt die Wiedergabe beim nächsten verbliebenen.
-     * Ist die Liste länger als der Player erlaubt, kommt ein Ausschnitt mit dem Starttitel ([queueWindow]).
+     * Ist die Liste länger als der Player erlaubt, kommt ein Ausschnitt mit dem Starttitel ([queueWindow]);
+     * den Rest reicht die Fabrik später nach ([SessionPlayerFactory.onQueueReplaced]).
      */
     override fun onSetMediaItems(
         mediaSession: MediaSession,
@@ -196,10 +203,11 @@ internal class LibrarySessionCallback(
         }
         val maxSize = maxQueueSize(player)
         if (items.size <= maxSize) {
+            playerFactory?.onQueueReplaced(emptyList(), emptyList())
             return@future MediaItemsWithStartPosition(items, newIndex?.coerceAtLeast(0) ?: C.INDEX_UNSET, position)
         }
         val window = queueWindow(items, newIndex?.coerceAtLeast(0) ?: 0, maxSize, player.shuffleModeEnabled)
-        playerFactory?.onQueueLimited(window.items.size, items.size)
+        playerFactory?.onQueueReplaced(window.before, window.after)
         MediaItemsWithStartPosition(window.items, window.startIndex, position)
     }
 

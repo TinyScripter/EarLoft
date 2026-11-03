@@ -56,6 +56,15 @@ internal class DeferredRemotePlayPlayer(player: Player) : ForwardingPlayer(playe
         super.setMediaItems(mediaItems, startIndex, startPositionMs)
     }
 
+    /** Leere Listen (alles ging in die Reserve) wären eine leere Cast-Nachricht. */
+    override fun addMediaItems(mediaItems: List<MediaItem>) {
+        if (mediaItems.isNotEmpty()) super.addMediaItems(mediaItems)
+    }
+
+    override fun addMediaItems(index: Int, mediaItems: List<MediaItem>) {
+        if (mediaItems.isNotEmpty()) super.addMediaItems(index, mediaItems)
+    }
+
     override fun play() {
         if (loading) playAfterLoad = true else super.play()
     }

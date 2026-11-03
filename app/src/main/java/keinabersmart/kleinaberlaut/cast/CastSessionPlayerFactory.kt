@@ -9,6 +9,7 @@ import androidx.media3.cast.CastPlayer
 import androidx.media3.cast.RemoteCastPlayer
 import androidx.media3.common.C
 import androidx.media3.common.DeviceInfo
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.PlayerTransferState
 import androidx.media3.common.Timeline
@@ -23,12 +24,15 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
+import keinabersmart.kleinaberlaut.core.playback.QueueReserve
 import keinabersmart.kleinaberlaut.core.playback.SessionPlayerFactory
 import keinabersmart.kleinaberlaut.core.playback.queueWindow
 import keinabersmart.kleinaberlaut.core.playback.songId
 import keinabersmart.kleinaberlaut.ui.snackbar.Snackbars
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,8 +43,10 @@ import javax.inject.Singleton
  *
  * Die Warteschlange geht als eine Nachricht an den Empfänger, und Cast-Nachrichten dürfen höchstens
  * 64 KB groß sein – ein Eintrag braucht etwa 700 Byte (zwei URLs mit Zugangsdaten plus Metadaten).
- * Größere Warteschlangen verwirft der Empfänger ohne Fehlermeldung (am Gerät gesehen: 620 Titel).
- * Deshalb hält die Warteschlange beim Casten höchstens [MAX_REMOTE_QUEUE] Titel.
+ * Größere Nachrichten verwirft der Empfänger ohne Fehlermeldung (am Gerät gesehen: 620 Titel).
+ * Deshalb geht beim Verbinden nur ein Fenster von höchstens [MAX_REMOTE_QUEUE] Titeln hinaus; der Rest liegt in
+ * [reserve] und wird in kleinen Stücken ([REFILL_CHUNK]) angehängt, sobald weniger als [REFILL_BELOW] Titel
+ * folgen ([refillIfNeeded]). Beim Wechsel zurück aufs Handy kommt die ganze Warteschlange wieder zusammen.
  *
  * Kann der Empfänger die Titel nicht laden (zum Beispiel weil er den Server nicht erreicht oder dessen
  * Zertifikat ablehnt), bleibt seine Warteschlange leer und der Player zeigt nichts mehr an. Dann beendet
@@ -57,6 +63,11 @@ internal class CastSessionPlayerFactory @Inject constructor(
 
     private var sessionListener: SessionManagerListener<CastSession>? = null
     private val handOver = HandOver()
+    private val reserve = QueueReserve<MediaItem>()
+
+    /** Zählt jede neue Warteschlange; ein Nachladen, das auf eine ältere zurückgeht, wird verworfen. */
+    private var generation = 0
+    private var refilling = false
 
     override fun create(context: Context, localPlayer: ExoPlayer): Player {
         val remotePlayer = RemoteCastPlayer.Builder(context)
@@ -65,10 +76,11 @@ internal class CastSessionPlayerFactory @Inject constructor(
         val player = CastPlayer.Builder(context)
             .setLocalPlayer(localPlayer)
             .setRemotePlayer(remotePlayer)
-            .setTransferCallback(CastTransferCallback(cache, handOver, ::showSkipped, ::onQueueLimited))
+            .setTransferCallback(CastTransferCallback(cache, handOver, reserve, ::showSkipped))
             .build()
         prepareOnSessionStart(player)
         watchRemoteLoad(player)
+        keepQueueFilled(player)
         return DeferredRemotePlayPlayer(player)
     }
 
@@ -83,8 +95,58 @@ internal class CastSessionPlayerFactory @Inject constructor(
     override fun maxQueueSize(player: Player): Int =
         if (player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) MAX_REMOTE_QUEUE else Int.MAX_VALUE
 
-    override fun onQueueLimited(kept: Int, requested: Int) {
-        snackbars.show(appContext.getString(R.string.cast_queue_limited, kept, requested), SnackbarDuration.Long)
+    override fun onQueueReplaced(before: List<MediaItem>, after: List<MediaItem>) {
+        generation++
+        reserve.reset(before, after)
+    }
+
+    override fun hasPendingItems(): Boolean = reserve.remaining > 0
+
+    override fun appendPending(items: List<MediaItem>) = reserve.append(items)
+
+    private fun keepQueueFilled(player: Player) {
+        player.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = refillIfNeeded(player)
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) = refillIfNeeded(player)
+            override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = refillIfNeeded(player)
+            override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) = refillIfNeeded(player)
+        })
+    }
+
+    /** Main-Thread. Hängt das nächste Stück der [reserve] an, sobald dem Empfänger die Titel auszugehen drohen. */
+    private fun refillIfNeeded(player: Player) {
+        if (refilling || reserve.remaining == 0 || player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return
+        if (itemsAhead(player) >= REFILL_BELOW) return
+        refilling = true
+        val expected = generation
+        val songIds = reserve.peek(REFILL_CHUNK).mapNotNull { it.songId }
+        scope.launch {
+            // Der Konverter muss synchron liefern; die Adressen werden deshalb vorher aufgelöst.
+            cache.prepare(songIds)
+            withContext(Dispatchers.Main) {
+                refilling = false
+                val stillValid = expected == generation && player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+                if (!stillValid) return@withContext
+                val next = reserve.take(REFILL_CHUNK)
+                if (next.isEmpty()) return@withContext
+                player.addMediaItems(next)
+                refillIfNeeded(player)
+            }
+        }
+    }
+
+    /** Wie viele Titel nach dem aktuellen noch kommen (in Wiedergabereihenfolge), gezählt bis [REFILL_BELOW]. */
+    private fun itemsAhead(player: Player): Int {
+        val timeline = player.currentTimeline
+        if (timeline.isEmpty) return 0
+        var index = player.currentMediaItemIndex
+        var count = 0
+        while (count < REFILL_BELOW) {
+            index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
+            if (index == C.INDEX_UNSET) break
+            count++
+        }
+        return count
     }
 
     /**
@@ -155,6 +217,8 @@ internal class CastSessionPlayerFactory @Inject constructor(
 
     companion object {
         const val MAX_REMOTE_QUEUE = 50
+        private const val REFILL_BELOW = 15
+        private const val REFILL_CHUNK = 25
         private const val REMOTE_LOAD_TIMEOUT_MS = 8_000L
     }
 }
@@ -174,8 +238,8 @@ private class HandOver {
 private class CastTransferCallback(
     private val cache: CastMediaCache,
     private val handOver: HandOver,
+    private val reserve: QueueReserve<MediaItem>,
     private val onSkipped: (skipped: Int, total: Int) -> Unit,
-    private val onLimited: (kept: Int, requested: Int) -> Unit,
 ) : CastPlayer.TransferCallback {
 
     override fun transferState(sourcePlayer: Player, targetPlayer: Player) {
@@ -183,15 +247,22 @@ private class CastTransferCallback(
             val rescue = handOver.rescue
             handOver.state = null
             handOver.rescue = null
+            val remaining = reserve.takeUnless { it.isEmpty() }
             if (rescue != null) {
                 rescue.buildUpon().setPlayWhenReady(false).build().setToPlayer(targetPlayer)
+            } else if (remaining != null) {
+                val state = PlayerTransferState.fromPlayer(sourcePlayer)
+                val (all, index) = remaining.complete(state.mediaItems, state.currentMediaItemIndex)
+                state.buildUpon().setMediaItems(all).setCurrentMediaItemIndex(index).build().setToPlayer(targetPlayer)
             } else {
                 CastPlayer.TransferCallback.DEFAULT.transferState(sourcePlayer, targetPlayer)
             }
+            reserve.clear()
             return
         }
         val state = PlayerTransferState.fromPlayer(sourcePlayer)
         handOver.rescue = null
+        reserve.clear()
         handOver.state = state.takeIf { it.mediaItems.isNotEmpty() }
         val items = state.mediaItems
         cache.prepareBlocking(items.mapNotNull { it.songId })
@@ -208,7 +279,7 @@ private class CastTransferCallback(
         val current = state.currentMediaItemIndex
         val startInCastable = castable.indexOfFirst { it >= current }.takeIf { it >= 0 } ?: 0
         val window = queueWindow(castable, startInCastable, CastSessionPlayerFactory.MAX_REMOTE_QUEUE, sourcePlayer.shuffleModeEnabled)
-        if (window.items.size < castable.size) onLimited(window.items.size, castable.size)
+        reserve.reset(window.before.map(items::get), window.after.map(items::get))
         state.buildUpon()
             .setMediaItems(window.items.map(items::get))
             .setCurrentMediaItemIndex(window.startIndex)

@@ -92,7 +92,6 @@
     <!-- Chromecast -->
     <string name="cast_playing_on">Wird auf %1$s gespielt</string>
     <string name="cast_load_failed">Das Cast-Gerät konnte die Titel nicht laden. Die Wiedergabe ist wieder auf dem Handy.</string>
-    <string name="cast_queue_limited">Beim Casten passen höchstens %1$d von %2$d Titeln in die Warteschlange.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Dieser Titel liegt nur auf dem Handy und lässt sich nicht casten.</item>
         <item quantity="other">Diese Titel liegen nur auf dem Handy und lassen sich nicht casten.</item>

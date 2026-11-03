@@ -93,7 +93,6 @@
     <!-- Chromecast -->
     <string name="cast_playing_on">Playing on %1$s</string>
     <string name="cast_load_failed">The Cast device could not load the tracks. Playback is back on this phone.</string>
-    <string name="cast_queue_limited">When casting, the queue holds at most %1$d of %2$d tracks.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">This track is only on the phone and cannot be cast.</item>
         <item quantity="other">These tracks are only on the phone and cannot be cast.</item>
