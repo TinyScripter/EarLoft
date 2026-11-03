@@ -101,7 +101,7 @@ internal class LibrarySessionCallback(
             MediaIds.artistId(parentId) != null ->
                 libraryRepository.artist(MediaIds.artistId(parentId)!!).first()?.albums.orEmpty().map { it.toBrowsableMediaItem(context) }
             else -> songsOf(parentId)?.map { it.toBrowsableSongItem(context, parentId) }
-                ?: return@future LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE)
+                ?: return@future LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
         }
         val paged = children.drop(page * pageSize).take(pageSize)
         LibraryResult.ofItemList(paged, params)
@@ -212,7 +212,7 @@ internal class LibrarySessionCallback(
     ): ListenableFuture<LibraryResult<MediaItem>> = scope.future {
         val songId = MediaIds.songId(mediaId)
         val item = songId?.let { libraryRepository.songs(listOf(it)).firstOrNull()?.toMediaItem() }
-        if (item != null) LibraryResult.ofItem(item, null) else LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE)
+        if (item != null) LibraryResult.ofItem(item, null) else LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
     }
 
     override fun onAddMediaItems(
