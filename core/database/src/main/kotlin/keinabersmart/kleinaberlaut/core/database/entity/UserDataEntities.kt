@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.core.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -41,6 +42,8 @@ data class PlaylistEntity(
     val remotePlaylistId: String? = null,
     val updatedAt: Long,
     val remoteUpdatedAt: Long? = null,
+    /** Kennung lokaler Playlists in der Sicherung (`user.db`, Review K9); die `playlistId` vergibt ein neues Gerät neu. */
+    @ColumnInfo(defaultValue = "NULL") val backupKey: String? = null,
 )
 
 @Entity(

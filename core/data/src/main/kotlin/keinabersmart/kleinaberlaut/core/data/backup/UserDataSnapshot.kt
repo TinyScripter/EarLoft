@@ -1,20 +1,31 @@
 package keinabersmart.kleinaberlaut.core.data.backup
 
+import keinabersmart.kleinaberlaut.core.database.dao.KeyedFavorite
+import keinabersmart.kleinaberlaut.core.database.dao.KeyedPlayEvent
+import keinabersmart.kleinaberlaut.core.database.dao.KeyedPlaylistEntry
 import keinabersmart.kleinaberlaut.core.database.dao.KeyedProgress
+import keinabersmart.kleinaberlaut.core.database.dao.KeyedSong
 import keinabersmart.kleinaberlaut.core.database.dao.RowChanges
 import keinabersmart.kleinaberlaut.core.database.dao.UserDataChanges
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.ListeningDayEntity
 import keinabersmart.kleinaberlaut.core.database.entity.ListeningStatEntity
+import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SpokenServerEntity
 import keinabersmart.kleinaberlaut.core.database.entity.UserBookProgressEntity
+import keinabersmart.kleinaberlaut.core.database.entity.UserFavoriteEntity
 import keinabersmart.kleinaberlaut.core.database.entity.UserListeningDayEntity
 import keinabersmart.kleinaberlaut.core.database.entity.UserListeningStatEntity
+import keinabersmart.kleinaberlaut.core.database.entity.UserPlayEventEntity
+import keinabersmart.kleinaberlaut.core.database.entity.UserPlaylistEntity
+import keinabersmart.kleinaberlaut.core.database.entity.UserPlaylistEntryEntity
 import keinabersmart.kleinaberlaut.core.database.entity.UserPodcastEntity
 import keinabersmart.kleinaberlaut.core.database.entity.UserServerEntity
+import keinabersmart.kleinaberlaut.core.database.entity.UserSongKey
 import keinabersmart.kleinaberlaut.core.database.entity.UserSpokenServerEntity
+import keinabersmart.kleinaberlaut.core.database.entity.UserWearSelectionEntity
 import keinabersmart.kleinaberlaut.core.model.LOCAL_PODCAST_PREFIX
 import keinabersmart.kleinaberlaut.core.model.SourceType
 
@@ -26,10 +37,34 @@ data class UserDataSnapshot(
     val listeningStats: Map<StatKey, UserListeningStatEntity> = emptyMap(),
     val listeningDays: Map<DayKey, UserListeningDayEntity> = emptyMap(),
     val progress: Map<BookKey, UserBookProgressEntity> = emptyMap(),
+    val playlists: Map<String, UserPlaylistEntity> = emptyMap(),
+    val playlistEntries: Map<EntryKey, UserPlaylistEntryEntity> = emptyMap(),
+    val favorites: Map<UserSongKey, UserFavoriteEntity> = emptyMap(),
+    val playEvents: Map<PlayKey, UserPlayEventEntity> = emptyMap(),
+    val wearSelections: Map<String, UserWearSelectionEntity> = emptyMap(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty() && spokenServers.isEmpty() && podcasts.isEmpty() && listeningStats.isEmpty() &&
-            listeningDays.isEmpty() && progress.isEmpty()
+            listeningDays.isEmpty() && progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() &&
+            playEvents.isEmpty() && wearSelections.isEmpty()
+
+    /** Einträge der gesicherten Playlists, in ihrer Reihenfolge. */
+    fun entriesOf(playlistKey: String): List<UserSongKey> =
+        playlistEntries.values.filter { it.playlistKey == playlistKey }.sortedBy { it.position }.map { it.song }
+
+    /**
+     * Playlists, deren Stand ([UserPlaylistEntity.updatedAt]) seit [saved] gleich ist, behalten ihre gesicherten Einträge:
+     * Fehlen Songs (noch nicht wieder da oder aus der Bibliothek verschwunden), gehen sie so nicht verloren. Erst eine
+     * Änderung der Playlist ersetzt die gesicherte Fassung.
+     */
+    fun keepingUnchangedPlaylists(saved: UserDataSnapshot): UserDataSnapshot {
+        val unchanged = playlists.filter { (key, playlist) -> saved.playlists[key] == playlist }.keys
+        if (unchanged.isEmpty()) return this
+        return copy(
+            playlistEntries = playlistEntries.filterKeys { it.playlistKey !in unchanged } +
+                saved.playlistEntries.filterKeys { it.playlistKey in unchanged },
+        )
+    }
 
     /** Was sich von [previous] zu diesem Stand geändert hat. */
     fun changesSince(previous: UserDataSnapshot): UserDataChanges = UserDataChanges(
@@ -39,6 +74,11 @@ data class UserDataSnapshot(
         listeningStats = rowChanges(previous.listeningStats, listeningStats),
         listeningDays = rowChanges(previous.listeningDays, listeningDays),
         progress = rowChanges(previous.progress, progress),
+        playlists = rowChanges(previous.playlists, playlists),
+        playlistEntries = rowChanges(previous.playlistEntries, playlistEntries),
+        favorites = rowChanges(previous.favorites, favorites),
+        playEvents = rowChanges(previous.playEvents, playEvents),
+        wearSelections = rowChanges(previous.wearSelections, wearSelections),
     )
 
     companion object {
@@ -50,6 +90,11 @@ data class UserDataSnapshot(
             listeningStats: List<UserListeningStatEntity>,
             listeningDays: List<UserListeningDayEntity>,
             progress: List<UserBookProgressEntity> = emptyList(),
+            playlists: List<UserPlaylistEntity> = emptyList(),
+            playlistEntries: List<UserPlaylistEntryEntity> = emptyList(),
+            favorites: List<UserFavoriteEntity> = emptyList(),
+            playEvents: List<UserPlayEventEntity> = emptyList(),
+            wearSelections: List<UserWearSelectionEntity> = emptyList(),
         ) = UserDataSnapshot(
             servers = servers.associateBy { it.sourceId },
             spokenServers = spokenServers.associateBy { it.serverId },
@@ -57,11 +102,17 @@ data class UserDataSnapshot(
             listeningStats = listeningStats.associateBy { StatKey(it.source, it.groupKey, it.itemKey) },
             listeningDays = listeningDays.associateBy { DayKey(it.day, it.kind.name, it.groupKey) },
             progress = progress.associateBy { BookKey(it.serverId, it.remoteId) },
+            playlists = playlists.associateBy { it.playlistKey },
+            playlistEntries = playlistEntries.associateBy { EntryKey(it.playlistKey, it.position) },
+            favorites = favorites.associateBy { it.song },
+            playEvents = playEvents.associateBy { PlayKey(it.song, it.playedAt) },
+            wearSelections = wearSelections.associateBy { it.key },
         )
 
         /**
          * Was aus der Hauptdatenbank gesichert wird: Musik-Server, ABS-Server, abonnierte Podcasts, die Statistik und der
-         * Fortschritt (bei Audiobookshelf nur der noch nicht gemeldete).
+         * Fortschritt (bei Audiobookshelf nur der noch nicht gemeldete), lokale Playlists (mit `backupKey`), Favoriten von
+         * Songs ohne Server, der Hörverlauf und die Auswahl für die Uhr (schon mit Schlüsseln, siehe `UserDataBackup`).
          */
         fun ofMain(
             sources: List<SourceEntity>,
@@ -70,6 +121,11 @@ data class UserDataSnapshot(
             listeningStats: List<ListeningStatEntity>,
             listeningDays: List<ListeningDayEntity>,
             progress: List<KeyedProgress> = emptyList(),
+            playlists: List<PlaylistEntity> = emptyList(),
+            playlistEntries: List<KeyedPlaylistEntry> = emptyList(),
+            favorites: List<KeyedFavorite> = emptyList(),
+            playEvents: List<KeyedPlayEvent> = emptyList(),
+            wearSelections: List<UserWearSelectionEntity> = emptyList(),
         ) = ofUser(
             servers = sources.filter { it.type == SourceType.SUBSONIC }.map { it.toUser() },
             spokenServers = spokenServers.map { it.toUser() },
@@ -80,6 +136,18 @@ data class UserDataSnapshot(
             progress = spokenServers.map { it.serverId }.toSet().let { abs ->
                 progress.filter { it.serverId !in abs || it.progress.dirty }.map { it.toUser() }
             },
+            playlists = playlists.mapNotNull { playlist ->
+                playlist.backupKey?.takeIf { playlist.boundSourceId == null }?.let { UserPlaylistEntity(it, playlist.name, playlist.updatedAt) }
+            },
+            playlistEntries = playlists.mapNotNull { p -> p.backupKey?.let { p.playlistId to it } }.toMap().let { keys ->
+                playlistEntries.groupBy { it.playlistId }.flatMap { (playlistId, entries) ->
+                    val key = keys[playlistId] ?: return@flatMap emptyList()
+                    entries.mapIndexed { position, entry -> UserPlaylistEntryEntity(key, position, entry.song.key) }
+                }
+            },
+            favorites = favorites.map { UserFavoriteEntity(it.song.key, it.changedAt) },
+            playEvents = playEvents.map { UserPlayEventEntity(it.song.key, it.playedAt, it.listenedMs) },
+            wearSelections = wearSelections,
         )
     }
 }
@@ -90,6 +158,13 @@ data class DayKey(val day: Long, val kind: String, val groupKey: String)
 
 /** Ein Buch oder eine Folge, unabhängig von der `bookId` dieses Geräts. */
 data class BookKey(val serverId: String, val remoteId: String)
+
+data class EntryKey(val playlistKey: String, val position: Int)
+
+data class PlayKey(val song: UserSongKey, val playedAt: Long)
+
+/** Der geräteübergreifende Schlüssel des Songs. */
+val KeyedSong.key: UserSongKey get() = UserSongKey(albumArtist, album, disc, track, title)
 
 private fun <K, V> rowChanges(old: Map<K, V>, new: Map<K, V>): RowChanges<V> = RowChanges(
     upserts = new.filter { (key, value) -> old[key] != value }.values.toList(),

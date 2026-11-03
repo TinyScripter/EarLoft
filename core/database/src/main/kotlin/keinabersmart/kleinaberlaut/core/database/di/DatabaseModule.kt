@@ -12,6 +12,7 @@ import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.UserDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.AbsSessionDao
+import keinabersmart.kleinaberlaut.core.database.dao.BackupDao
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import keinabersmart.kleinaberlaut.core.database.dao.StatsDao
@@ -83,6 +84,9 @@ internal object DatabaseModule {
 
     @Provides
     fun provideAbsSessionDao(database: KleinaberlautDatabase): AbsSessionDao = database.absSessionDao()
+
+    @Provides
+    fun provideBackupDao(database: KleinaberlautDatabase): BackupDao = database.backupDao()
 
     /** Nur das Handy nutzt sie; auf der Uhr wird sie nie angefordert und daher nie angelegt. */
     @Provides

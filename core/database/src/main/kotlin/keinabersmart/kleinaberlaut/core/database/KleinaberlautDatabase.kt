@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.AbsSessionDao
+import keinabersmart.kleinaberlaut.core.database.dao.BackupDao
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.LibraryDao
@@ -80,7 +81,7 @@ import java.io.File
         ServerStatsCacheEntity::class,
         AbsSessionEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = KleinaberlautDatabase.AddSearchIndex::class),
@@ -95,6 +96,7 @@ import java.io.File
         AutoMigration(from = 10, to = 11),
         AutoMigration(from = 11, to = 12),
         AutoMigration(from = 12, to = 13),
+        AutoMigration(from = 13, to = 14),
     ],
 )
 abstract class KleinaberlautDatabase : RoomDatabase() {
@@ -111,6 +113,7 @@ abstract class KleinaberlautDatabase : RoomDatabase() {
     abstract fun podcastDao(): PodcastDao
     abstract fun statsDao(): StatsDao
     abstract fun absSessionDao(): AbsSessionDao
+    abstract fun backupDao(): BackupDao
 
     /** v1 → v2: FTS-Tabellen kommen hinzu und werden aus den vorhandenen Daten befüllt. */
     class AddSearchIndex : AutoMigrationSpec {

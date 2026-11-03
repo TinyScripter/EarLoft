@@ -58,6 +58,7 @@ class UserDataBackupTest {
         bookDao = db.bookDao(),
         podcastDao = db.podcastDao(),
         statsDao = db.statsDao(),
+        music = MusicBackup(db.backupDao(), db.playlistDao(), db.syncDao()),
         registry = Lazy<DataSourceRegistry> { error("nicht gebraucht") },
         scope = TestScope(),
     )

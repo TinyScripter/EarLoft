@@ -1,9 +1,11 @@
 package keinabersmart.kleinaberlaut.core.database.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.SourceType
+import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 
 /*
  * Zeilen der gesicherten Datenbank `user.db` (Review K9): nur das, was keine Quelle wiederherstellt, mit Schlüsseln, die
@@ -85,4 +87,65 @@ data class UserBookProgressEntity(
     val speed: Float,
     val updatedAt: Long,
     val dirty: Boolean,
+)
+
+/**
+ * Ein Song über seine Metadaten statt der `songId` (siehe `KeyedSong`): Album-Künstler, Album, CD, Titelnummer und Titel,
+ * normalisiert wie beim Zusammenführen.
+ */
+data class UserSongKey(
+    val albumArtist: String,
+    val album: String,
+    val disc: Int,
+    val track: Int,
+    val title: String,
+)
+
+/** Eine Playlist nur auf diesem Gerät (`playlists` ohne Server); Server-Playlists kommen mit dem Abgleich. */
+@Entity(tableName = "playlists")
+data class UserPlaylistEntity(
+    /** `playlists.backupKey` der Hauptdatenbank. */
+    @PrimaryKey val playlistKey: String,
+    val name: String,
+    /** Stand der Playlist; nur wenn er sich ändert, wird die gesicherte Fassung ersetzt. */
+    val updatedAt: Long,
+)
+
+@Entity(tableName = "playlist_entries", primaryKeys = ["playlistKey", "position"])
+data class UserPlaylistEntryEntity(
+    val playlistKey: String,
+    val position: Int,
+    @Embedded(prefix = "song_") val song: UserSongKey,
+)
+
+/** Favorit eines Songs ohne Server-Quelle; Server-Favoriten kommen mit dem Abgleich. */
+@Entity(tableName = "favorites", primaryKeys = ["song_albumArtist", "song_album", "song_disc", "song_track", "song_title"])
+data class UserFavoriteEntity(
+    @Embedded(prefix = "song_") val song: UserSongKey,
+    val changedAt: Long,
+)
+
+/** Hörverlauf der Musik (`play_events`): „Zuletzt gehört“, „Wiederentdecken“. */
+@Entity(
+    tableName = "play_events",
+    primaryKeys = ["song_albumArtist", "song_album", "song_disc", "song_track", "song_title", "playedAt"],
+)
+data class UserPlayEventEntity(
+    @Embedded(prefix = "song_") val song: UserSongKey,
+    val playedAt: Long,
+    val listenedMs: Long,
+)
+
+/**
+ * Was auf die Uhr soll (`wear_selections`). Ziel über [albumArtist]/[album] (normalisiert) bzw. [playlistRef]
+ * (`local` + `backupKey` oder Server + `remotePlaylistId`) statt der `albumId`/`playlistId`.
+ */
+@Entity(tableName = "wear_selections")
+data class UserWearSelectionEntity(
+    @PrimaryKey val key: String,
+    val kind: WearSelectionKind,
+    val albumArtist: String?,
+    val album: String?,
+    val playlistRef: String?,
+    val addedAt: Long,
 )
