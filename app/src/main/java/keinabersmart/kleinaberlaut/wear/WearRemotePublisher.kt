@@ -11,11 +11,17 @@ import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
+import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
+import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
+import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
+import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteAlbumDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteLibraryDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteMediaKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlaylistDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteStateDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteSubscription
@@ -32,6 +38,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -42,8 +49,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hält für die Fernsteuerung von der Uhr aus (Wear-Konzept 15) drei DataItems aktuell: was das Handy spielt, dessen
- * Cover sowie Alben und Playlists. Geschrieben wird nur, solange die Uhr sich angemeldet hat ([subscribe]) – jede Änderung
+ * Hält für die Fernsteuerung von der Uhr aus (Wear-Konzept 15) drei DataItems aktuell: was das Handy spielt (Musik, Buch
+ * oder Folge), dessen Cover sowie Alben und Playlists. Geschrieben wird nur, solange die Uhr sich angemeldet hat ([subscribe]) – jede Änderung
  * weckt sonst die Uhr-App, auch wenn niemand sie benutzt.
  */
 @Singleton
@@ -56,6 +63,8 @@ class WearRemotePublisher @Inject constructor(
     private val library: LibraryRepository,
     private val playlists: PlaylistRepository,
     private val favorites: FavoritesRepository,
+    private val books: BookRepository,
+    private val bookCovers: BookCovers,
 ) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
 
@@ -74,8 +83,11 @@ class WearRemotePublisher @Inject constructor(
         }
     }
 
-    /** Album, dessen Cover zuletzt geschrieben wurde; ändert sich nur beim Albumwechsel. */
-    private var publishedCoverAlbumId: Long? = null
+    /** [WearRemoteStateDto.coverKey] des zuletzt geschriebenen Covers; ändert sich nur beim Album- bzw. Buchwechsel. */
+    private var publishedCoverKey: Long? = null
+
+    /** Zeitachse des laufenden Buchs, damit nicht jede Meldung Dateien und Kapitel neu liest. */
+    private var timelineCache: Pair<Long, BookTimeline?>? = null
 
     /** Zuletzt geschriebener Bibliotheksindex; `null` = noch beim Data Layer nachsehen. */
     private var publishedLibraryHash: String? = null
@@ -112,17 +124,25 @@ class WearRemotePublisher @Inject constructor(
 
     private suspend fun publishState() {
         val state = playback.state.value
+        val positionInTrack = withContext(Dispatchers.Main) { playback.currentPositionMs }
+        val dto = if (state.spoken != null) spokenState(state, positionInTrack) else musicState(state, positionInTrack)
+        dataClient.putPayload(WearPaths.REMOTE_STATE, WearCodec.encode(dto))
+        // Nach einer Pause ohne Anmeldung kann die Uhr ein altes Cover haben: bei neuer Anmeldung neu schreiben.
+        val coverKey = dto.coverKey
+        if (coverKey != null && coverKey != publishedCoverKey) publishCover(dto, coverKey)
+    }
+
+    private suspend fun musicState(state: PlayerState, positionMs: Long): WearRemoteStateDto {
         val current = state.current
-        val position = withContext(Dispatchers.Main) { playback.currentPositionMs }
         val albumId = current?.albumId
-        val dto = WearRemoteStateDto(
+        return WearRemoteStateDto(
             hasMedia = current != null,
             title = current?.title.orEmpty(),
             artist = current?.artist.orEmpty(),
             albumId = albumId,
             albumTitle = current?.albumTitle.orEmpty(),
             durationMs = state.durationMs,
-            positionMs = position,
+            positionMs = positionMs,
             sampledAt = System.currentTimeMillis(),
             isPlaying = state.isPlaying,
             shuffle = state.shuffle,
@@ -130,15 +150,44 @@ class WearRemotePublisher @Inject constructor(
             volume = musicVolume(),
             volumeMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
         )
-        dataClient.putPayload(WearPaths.REMOTE_STATE, WearCodec.encode(dto))
-        // Nach einer Pause ohne Anmeldung kann die Uhr ein altes Cover haben: bei neuer Anmeldung neu schreiben.
-        if (albumId != null && albumId != publishedCoverAlbumId) publishCover(albumId)
     }
 
-    private suspend fun publishCover(albumId: Long) {
-        val bitmap = artwork.albumCover(albumId, COVER_SIZE_PX)
-        val jpeg = bitmap?.let { withContext(Dispatchers.Default) { it.toJpeg() } } ?: ByteArray(0)
-        if (dataClient.putPayload(WearPaths.REMOTE_COVER, WearCodec.encodeCover(albumId, jpeg))) publishedCoverAlbumId = albumId
+    /** Buch oder Folge: Position und Länge im ganzen Buch, wie im Buch-Player der App. */
+    private suspend fun spokenState(state: PlayerState, positionInTrackMs: Long): WearRemoteStateDto {
+        val spoken = checkNotNull(state.spoken)
+        val timeline = timeline(spoken.bookId)
+        val kind = if (books.book(spoken.bookId).first()?.book?.kind == BookKind.EPISODE) WearRemoteMediaKind.EPISODE else WearRemoteMediaKind.BOOK
+        return WearRemoteStateDto(
+            hasMedia = true,
+            kind = kind,
+            title = spoken.title,
+            artist = spoken.author,
+            bookId = spoken.bookId,
+            durationMs = timeline?.durationMs?.takeIf { it > 0 } ?: state.durationMs,
+            positionMs = timeline?.toBookPosition(spoken.trackIndex, positionInTrackMs) ?: positionInTrackMs,
+            sampledAt = System.currentTimeMillis(),
+            isPlaying = state.isPlaying,
+            speed = state.speed,
+            seedColor = bookCovers.seedColor(spoken.bookId),
+            volume = musicVolume(),
+            volumeMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
+        )
+    }
+
+    private suspend fun timeline(bookId: Long): BookTimeline? {
+        timelineCache?.takeIf { it.first == bookId }?.let { return it.second }
+        return books.timeline(bookId).also { timelineCache = bookId to it }
+    }
+
+    private suspend fun publishCover(dto: WearRemoteStateDto, coverKey: Long) {
+        val bookId = dto.bookId
+        val bitmap = if (dto.isSpoken && bookId != null) {
+            bookCovers.cover(bookId)
+        } else {
+            dto.albumId?.let { artwork.albumCover(it, COVER_SIZE_PX) }
+        }
+        val jpeg = bitmap?.let { withContext(Dispatchers.Default) { it.scaledToCover().toJpeg() } } ?: ByteArray(0)
+        if (dataClient.putPayload(WearPaths.REMOTE_COVER, WearCodec.encodeCover(coverKey, jpeg))) publishedCoverKey = coverKey
     }
 
     /** Nur bei geändertem Inhalt – ein Abgleich ändert die Bibliothek oft, ohne dass sich etwas Sichtbares ändert. */
@@ -155,6 +204,14 @@ class WearRemotePublisher @Inject constructor(
     private fun musicVolume(): Float {
         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         return if (max > 0) audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat() else 0f
+    }
+
+    /** Buchcover kommen mit 800 px; die Uhr braucht wie bei Albumcovern nur [COVER_SIZE_PX] (und die 100-KB-Grenze gilt). */
+    private fun Bitmap.scaledToCover(): Bitmap {
+        val longest = maxOf(width, height)
+        if (longest <= COVER_SIZE_PX) return this
+        val factor = COVER_SIZE_PX.toFloat() / longest
+        return Bitmap.createScaledBitmap(this, (width * factor).toInt().coerceAtLeast(1), (height * factor).toInt().coerceAtLeast(1), true)
     }
 
     private fun Bitmap.toJpeg(): ByteArray =

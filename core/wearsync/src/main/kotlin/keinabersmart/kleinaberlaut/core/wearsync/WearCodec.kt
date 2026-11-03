@@ -40,11 +40,14 @@ object WearCodec {
 
     inline fun <reified T> decodeCompressed(bytes: ByteArray): T = decode(gunzip(bytes))
 
-    /** Cover für die Fernsteuerung: die Album-ID (8 Byte) vor den JPEG-Bytes; ohne JPEG-Bytes gibt es kein Cover. */
-    fun encodeCover(albumId: Long, jpeg: ByteArray): ByteArray =
-        ByteBuffer.allocate(Long.SIZE_BYTES + jpeg.size).putLong(albumId).put(jpeg).array()
+    /**
+     * Cover für die Fernsteuerung: der Schlüssel ([WearRemoteStateDto.coverKey], 8 Byte) vor den JPEG-Bytes; ohne
+     * JPEG-Bytes gibt es kein Cover.
+     */
+    fun encodeCover(coverKey: Long, jpeg: ByteArray): ByteArray =
+        ByteBuffer.allocate(Long.SIZE_BYTES + jpeg.size).putLong(coverKey).put(jpeg).array()
 
-    /** @return Album-ID und JPEG-Bytes; `null`, wenn [bytes] zu kurz sind. */
+    /** @return Schlüssel und JPEG-Bytes; `null`, wenn [bytes] zu kurz sind. */
     fun decodeCover(bytes: ByteArray): Pair<Long, ByteArray>? {
         if (bytes.size < Long.SIZE_BYTES) return null
         return ByteBuffer.wrap(bytes).getLong() to bytes.copyOfRange(Long.SIZE_BYTES, bytes.size)

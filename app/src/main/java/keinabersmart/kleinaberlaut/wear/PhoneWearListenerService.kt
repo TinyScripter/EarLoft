@@ -31,6 +31,7 @@ import keinabersmart.kleinaberlaut.core.wearsync.payloadOrNull
 import keinabersmart.kleinaberlaut.core.wearsync.sendFile
 import keinabersmart.kleinaberlaut.core.wearsync.sendPayload
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerializationException
 import javax.inject.Inject
@@ -67,7 +68,11 @@ class PhoneWearListenerService : WearableListenerService() {
             }
             WearPaths.CLEAR_SELECTIONS -> applicationScope.launch { selections.clear() }
             WearPaths.REMOTE_SUBSCRIBE -> remotePublisher.subscribe(applicationScope)
-            WearPaths.REMOTE_COMMAND -> decodeOrNull<WearRemoteCommand>(event)?.let(remote::command)
+            WearPaths.REMOTE_COMMAND -> {
+                val command = decodeOrNull<WearRemoteCommand>(event) ?: return
+                // Sofort im Thread der Nachricht: Befehle bleiben in ihrer Reihenfolge, nur das Spulen im Buch wartet auf die Zeitachse.
+                applicationScope.launch(start = CoroutineStart.UNDISPATCHED) { remote.command(command) }
+            }
             WearPaths.REMOTE_PLAY -> {
                 val request = decodeOrNull<WearRemotePlayRequest>(event) ?: return
                 applicationScope.launch { remote.play(request) }

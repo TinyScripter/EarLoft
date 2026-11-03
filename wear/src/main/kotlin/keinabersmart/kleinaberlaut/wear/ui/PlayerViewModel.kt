@@ -93,6 +93,11 @@ class PlayerViewModel @Inject constructor(
 
     override fun toggleShuffle() = playback.toggleShuffle()
 
+    // Die Uhr selbst spielt bisher keine Bücher; die Ansicht zeigt die Knöpfe nur bei Gesprochenem.
+    override fun skipBack() = playback.skipBack()
+
+    override fun skipForward() = playback.skipForward()
+
     override fun seekTo(positionMs: Long) = playback.seekTo(positionMs)
 
     /** Restzeit des Sleep-Timers; `null`, solange keiner läuft. */

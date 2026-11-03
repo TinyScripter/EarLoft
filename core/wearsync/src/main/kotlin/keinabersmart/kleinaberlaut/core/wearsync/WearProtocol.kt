@@ -54,7 +54,7 @@ object WearPaths {
     /** DataItem, Handy → Uhr: [WearRemoteStateDto] – was das Handy gerade spielt. */
     const val REMOTE_STATE = "/kal/remote/state"
 
-    /** DataItem, Handy → Uhr: Cover des laufenden Albums, siehe [WearCodec.encodeCover]. */
+    /** DataItem, Handy → Uhr: Cover des laufenden Albums bzw. Buchs, siehe [WearCodec.encodeCover]. */
     const val REMOTE_COVER = "/kal/remote/cover"
 
     /** DataItem mit Asset, Handy → Uhr: [WearRemoteLibraryDto] (gzip) – Alben und Playlists des Handys. */

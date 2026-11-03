@@ -8,18 +8,22 @@ import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
 import keinabersmart.kleinaberlaut.wear.R
 import keinabersmart.kleinaberlaut.wear.download.WatchStorageRepository
 import keinabersmart.kleinaberlaut.wear.sync.PhoneRemote
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Ein Eintrag einer Liste von Alben oder Playlists. [artist] ist beim Album der Künstler; ohne ihn steht die Zahl der Titel
+ * Ein Eintrag einer Liste von Alben, Playlists oder Büchern. [artist] ist beim Album der Künstler; ohne ihn steht die Zahl der Titel
  * da, bei teilweise geladenen Listen der Stand ([loadedCount] von [songCount]).
  */
 data class ListEntry(
@@ -75,6 +79,30 @@ class RemoteAlbumsViewModel @Inject constructor(remote: PhoneRemote) : ViewModel
             else -> EntryListState.Ready(library.albums.map { ListEntry(it.id, it.title, it.songCount, artist = it.artist) })
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+}
+
+/**
+ * „Weiterhören“ des Handys (Fernsteuerung): angefangene Bücher und die Warteschlange der Podcasts, einmal beim Öffnen
+ * abgefragt. [ListEntry.key] ist die Buch- bzw. Folgen-ID am Handy, [ListEntry.artist] Autor bzw. Podcast.
+ */
+@HiltViewModel
+class RemoteContinueViewModel @Inject constructor(private val remote: PhoneRemote) : ViewModel() {
+    private val _state = MutableStateFlow<EntryListState>(EntryListState.Loading)
+    val state: StateFlow<EntryListState> = _state
+
+    init {
+        viewModelScope.launch {
+            val result = remote.tracks(WearRemoteListKind.CONTINUE, null)
+            _state.value = when {
+                result == null -> EntryListState.Message(R.string.remote_unreachable)
+                result.tracks.isEmpty() -> EntryListState.Message(R.string.list_continue_empty)
+                else -> EntryListState.Ready(result.tracks.map { ListEntry(it.songId, it.title, songCount = 0, artist = it.artist) })
+            }
+        }
+    }
+
+    /** Das Handy startet das Buch bzw. die Folge an der gemerkten Stelle. @return `false`, wenn es nicht erreichbar war. */
+    suspend fun play(bookId: Long): Boolean = remote.play(WearRemotePlayRequest(WearRemoteListKind.CONTINUE, refId = bookId))
 }
 
 /** Alle Playlists des Handys (Fernsteuerung). */

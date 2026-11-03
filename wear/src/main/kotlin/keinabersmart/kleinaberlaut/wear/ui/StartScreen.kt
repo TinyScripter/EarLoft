@@ -52,6 +52,7 @@ fun StartScreen(
     onPlaylistsClick: (remote: Boolean) -> Unit,
     onFavoritesClick: (playlistId: Long) -> Unit,
     onPhoneFavoritesClick: () -> Unit,
+    onPhoneContinueClick: () -> Unit,
     viewModel: StartViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -66,6 +67,7 @@ fun StartScreen(
         onPlaylistsClick = onPlaylistsClick,
         onFavoritesClick = onFavoritesClick,
         onPhoneFavoritesClick = onPhoneFavoritesClick,
+        onPhoneContinueClick = onPhoneContinueClick,
         onShuffleAll = { viewModel.shuffleAll { onNowPlayingClick(false) } },
         onShuffleAllOnPhone = { viewModel.shuffleAllOnPhone { onNowPlayingClick(true) } },
         onOpenOnPhone = viewModel::openStoreOnPhone,
@@ -83,6 +85,7 @@ private fun StartContent(
     onPlaylistsClick: (Boolean) -> Unit,
     onFavoritesClick: (Long) -> Unit,
     onPhoneFavoritesClick: () -> Unit,
+    onPhoneContinueClick: () -> Unit,
     onShuffleAll: () -> Unit,
     onShuffleAllOnPhone: () -> Unit,
     onOpenOnPhone: (nodeId: String) -> Unit,
@@ -110,6 +113,8 @@ private fun StartContent(
                 if (state.phoneConnected) {
                     header(R.string.start_section_phone, transformationSpec)
                     action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(true) }, secondary = state.phoneNowPlaying)
+                    // Bücher und Podcasts nur über „Weiterhören“, ohne eigene Bibliothek auf der Uhr.
+                    action(R.string.list_continue, transformationSpec, onClick = onPhoneContinueClick)
                     action(R.string.list_albums, transformationSpec, onClick = { onAlbumsClick(true) })
                     action(R.string.list_favorites, transformationSpec, onClick = onPhoneFavoritesClick)
                     action(R.string.list_playlists, transformationSpec, onClick = { onPlaylistsClick(true) })
@@ -215,6 +220,7 @@ private val previewCallbacks: @Composable (StartUiState) -> Unit = { state ->
             onPlaylistsClick = {},
             onFavoritesClick = {},
             onPhoneFavoritesClick = {},
+            onPhoneContinueClick = {},
             onShuffleAll = {},
             onShuffleAllOnPhone = {},
             onOpenOnPhone = {},

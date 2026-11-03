@@ -30,6 +30,27 @@ class WearRemoteTest {
     }
 
     @Test
+    fun `Position zaehlt im Tempo des Buchs weiter`() {
+        val book = playing.copy(kind = WearRemoteMediaKind.BOOK, bookId = 3, speed = 1.5f)
+        assertEquals(17_500, book.positionAt(now = 6_000))
+    }
+
+    @Test
+    fun `Cover-Schluessel trennt Alben und Buecher`() {
+        assertEquals(12L, WearRemoteStateDto(hasMedia = true, albumId = 12).coverKey)
+        assertEquals(-12L, WearRemoteStateDto(hasMedia = true, kind = WearRemoteMediaKind.EPISODE, bookId = 12).coverKey)
+        assertNull(WearRemoteStateDto(hasMedia = true, kind = WearRemoteMediaKind.BOOK).coverKey)
+    }
+
+    @Test
+    fun `Aeltere Zustaende ohne Art gelten als Musik`() {
+        val decoded = WearCodec.decode<WearRemoteStateDto>("""{"hasMedia":true,"title":"Mondlicht","albumId":4}""".encodeToByteArray())
+        assertEquals(WearRemoteMediaKind.MUSIC, decoded.kind)
+        assertEquals(1f, decoded.speed)
+        assertEquals(4L, decoded.coverKey)
+    }
+
+    @Test
     fun `Titelliste uebersteht gzip`() {
         val result = WearRemoteTracksResult("r1", title = "Album", tracks = (1L..300).map { WearRemoteTrackDto(it, "Titel $it", "Künstler") })
         val decoded = WearCodec.decodeCompressed<WearRemoteTracksResult>(WearCodec.encodeCompressed(result))

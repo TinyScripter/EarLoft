@@ -18,6 +18,8 @@
     <string name="list_albums">Alben</string>
     <string name="list_favorites">Favoriten</string>
     <string name="list_playlists">Playlists</string>
+    <string name="list_continue">Weiterhören</string>
+    <string name="list_continue_empty">Am Telefon ist kein Buch und keine Folge angefangen</string>
     <string name="list_empty_watch">Noch nichts auf der Uhr. Wähle Musik am Telefon oder unter „Musik hinzufügen“.</string>
     <string name="list_empty_phone">Nichts auf dem Telefon</string>
 
@@ -42,6 +44,9 @@
     <string name="player_shuffle">Zufällige Reihenfolge</string>
     <string name="player_output">Bluetooth-Ausgabe</string>
     <string name="player_position">Position im Titel</string>
+    <string name="player_position_spoken">Wiedergabeposition</string>
+    <string name="player_skip_back_30">30 Sekunden zurück</string>
+    <string name="player_skip_forward_10">10 Sekunden vor</string>
     <string name="player_volume">Lautstärke</string>
     <string name="player_volume_percent">%d %%</string>
 

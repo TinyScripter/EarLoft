@@ -47,7 +47,10 @@ class PhoneRemote @Inject constructor(
         .map { dataClient.payloadsAt(WearPaths.REMOTE_STATE).values.firstOrNull()?.let(::decodeState) }
         .distinctUntilChanged()
 
-    /** Cover des laufenden Albums als (Album-ID, Bild); das Bild ist `null`, wenn das Handy keines hat. */
+    /**
+     * Cover des laufenden Albums bzw. Buchs als ([WearRemoteStateDto.coverKey], Bild); das Bild ist `null`, wenn das
+     * Handy keines hat.
+     */
     val cover: Flow<Pair<Long, Bitmap?>?> = dataClient.changesAt(WearPaths.REMOTE_COVER)
         .subscribed()
         .map {

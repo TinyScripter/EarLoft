@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -27,6 +28,7 @@ import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.material3.MaterialTheme
 import keinabersmart.kleinaberlaut.wear.R
+import kotlinx.coroutines.launch
 
 @Composable
 fun LocalAlbumsScreen(onClick: (Long) -> Unit, viewModel: LocalAlbumsViewModel = hiltViewModel()) {
@@ -50,6 +52,16 @@ fun RemoteAlbumsScreen(onClick: (Long) -> Unit, viewModel: RemoteAlbumsViewModel
 fun RemotePlaylistsScreen(onClick: (Long) -> Unit, viewModel: RemotePlaylistsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     EntryListContent(R.string.list_playlists, state, onClick)
+}
+
+/** „Weiterhören“ des Handys; ein Tipp startet das Buch bzw. die Folge dort, [onPlayed] öffnet danach die Wiedergabe-Ansicht. */
+@Composable
+fun RemoteContinueScreen(onPlayed: () -> Unit, viewModel: RemoteContinueViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    EntryListContent(R.string.list_continue, state) { bookId ->
+        scope.launch { if (viewModel.play(bookId)) onPlayed() }
+    }
 }
 
 @Composable

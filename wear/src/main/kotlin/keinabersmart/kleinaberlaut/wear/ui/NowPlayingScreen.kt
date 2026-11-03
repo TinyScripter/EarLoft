@@ -49,6 +49,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.selected
@@ -77,6 +78,7 @@ import kotlin.math.abs
  * Wiedergabe (Wear-Konzept 11): Das Cover füllt, leicht unscharf, den Kreis innerhalb des Fortschrittsrings; darauf Titel und
  * Steuerung, Wiedergabe/Pause genau in der Mitte. Akzentfarben kommen aus dem Cover, die Krone ändert die Lautstärke.
  * Ohne passende Ausgabe (Kopfhörer) hält die Wiedergabe an; ein Tipp auf den Hinweis öffnet die Bluetooth-Einstellungen.
+ * Bei einem Buch oder einer Folge springen die Knöpfe neben Wiedergabe/Pause −30 s / +10 s, Zufall gibt es dann nicht.
  */
 @Composable
 fun NowPlayingScreen(onOpenSleepTimer: () -> Unit = {}, viewModel: PlayerViewModel = hiltViewModel()) {
@@ -116,6 +118,8 @@ private fun NowPlayingHost(model: NowPlayingModel, onOpenSleepTimer: () -> Unit,
             onPrevious = model::previous,
             onPlayPause = model::togglePlayPause,
             onNext = model::next,
+            onSkipBack = model::skipBack,
+            onSkipForward = model::skipForward,
             onShuffle = model::toggleShuffle,
             onOutput = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
             onCrown = model::onCrown,
@@ -137,12 +141,15 @@ private fun NowPlayingContent(
     onPrevious: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
+    onSkipBack: () -> Unit,
+    onSkipForward: () -> Unit,
     onShuffle: () -> Unit,
     onOutput: () -> Unit,
     onCrown: (Float) -> Unit,
     onSeek: (Long) -> Unit,
 ) {
     val duration = state.durationMs
+    val spoken = state.spoken
     var dragProgress by remember { mutableStateOf<Float?>(null) }
     var seekTarget by remember { mutableStateOf<Long?>(null) }
     // Nach dem Loslassen bleibt die Anzeige am Ziel, bis der Player nachgekommen ist (die Position wird nur alle 500 ms gelesen).
@@ -180,7 +187,7 @@ private fun NowPlayingContent(
             contentAlignment = Alignment.Center,
         ) {
             val progress = if (duration > 0) (shownPositionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
-            val positionLabel = stringResource(R.string.player_position)
+            val positionLabel = stringResource(if (spoken != null) R.string.player_position_spoken else R.string.player_position)
             CoverBackground(cover)
             // Vor der Steuerung gezeichnet: Berührungen auf den Knöpfen gehen an die Knöpfe, nicht an den Ring.
             ProgressRing(
@@ -221,14 +228,14 @@ private fun NowPlayingContent(
                     verticalArrangement = Arrangement.Bottom,
                 ) {
                     Text(
-                        current?.title ?: stringResource(R.string.player_nothing),
+                        current?.title ?: spoken?.title ?: stringResource(R.string.player_nothing),
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleSmall,
                     )
                     Text(
-                        if (state.outputSuppressed) stringResource(R.string.player_no_output) else current?.artist.orEmpty(),
+                        if (state.outputSuppressed) stringResource(R.string.player_no_output) else current?.artist ?: spoken?.author.orEmpty(),
                         modifier = if (state.outputSuppressed) {
                             Modifier.clickable(onClickLabel = stringResource(R.string.player_output), onClick = onOutput)
                         } else {
@@ -241,7 +248,11 @@ private fun NowPlayingContent(
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(CONTROL_SPACING)) {
-                    ControlButton(R.drawable.ic_skip_previous, R.string.player_previous, SKIP_BUTTON_SIZE, onPrevious)
+                    if (spoken != null) {
+                        SeekButton(R.drawable.ic_replay, "30", R.string.player_skip_back_30, onSkipBack)
+                    } else {
+                        ControlButton(R.drawable.ic_skip_previous, R.string.player_previous, SKIP_BUTTON_SIZE, onPrevious)
+                    }
                     ControlButton(
                         if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
                         if (state.isPlaying) R.string.player_pause else R.string.player_play,
@@ -249,18 +260,24 @@ private fun NowPlayingContent(
                         onPlayPause,
                         active = true,
                     )
-                    ControlButton(R.drawable.ic_skip_next, R.string.player_next, SKIP_BUTTON_SIZE, onNext)
+                    if (spoken != null) {
+                        SeekButton(R.drawable.ic_forward, "10", R.string.player_skip_forward_10, onSkipForward)
+                    } else {
+                        ControlButton(R.drawable.ic_skip_next, R.string.player_next, SKIP_BUTTON_SIZE, onNext)
+                    }
                 }
                 Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(horizontalArrangement = Arrangement.spacedBy(CONTROL_SPACING)) {
-                        ControlButton(
-                            R.drawable.ic_shuffle,
-                            R.string.player_shuffle,
-                            SHUFFLE_BUTTON_SIZE,
-                            onShuffle,
-                            active = state.shuffle,
-                            toggle = true,
-                        )
+                        if (spoken == null) {
+                            ControlButton(
+                                R.drawable.ic_shuffle,
+                                R.string.player_shuffle,
+                                SHUFFLE_BUTTON_SIZE,
+                                onShuffle,
+                                active = state.shuffle,
+                                toggle = true,
+                            )
+                        }
                         if (sleepTimerAvailable) {
                             ControlButton(
                                 R.drawable.ic_bedtime,
@@ -346,6 +363,7 @@ private val TEXT_PADDING = 12.dp
 private val PLAY_BUTTON_SIZE = 64.dp
 private val SKIP_BUTTON_SIZE = 52.dp
 private val SHUFFLE_BUTTON_SIZE = 44.dp
+private val SEEK_ICON_SIZE = 38.dp
 private val CONTROL_SPACING = 2.dp
 
 /** Lautstärkebalken in der Mitte, solange an der Krone gedreht wird. */
@@ -421,6 +439,27 @@ private fun ControlButton(
     }
 }
 
+/** Zurück- oder Vorspringen mit der Sekundenzahl im Pfeil (wie im Buch-Player am Handy). */
+@Composable
+private fun SeekButton(iconRes: Int, seconds: String, descriptionRes: Int, onClick: () -> Unit) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(SKIP_BUTTON_SIZE),
+        colors = IconButtonDefaults.filledTonalIconButtonColors(),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                painterResource(iconRes),
+                contentDescription = stringResource(descriptionRes),
+                // Größer als die anderen Symbole: Die Zahl muss in den Kreis des Pfeils passen.
+                modifier = Modifier.size(SEEK_ICON_SIZE),
+            )
+            // Die Zahl steckt schon in der Beschreibung des Symbols; TalkBack soll sie nicht noch einmal vorlesen.
+            Text(seconds, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp).clearAndSetSemantics {})
+        }
+    }
+}
+
 /** Buntes Beispiel-Cover für die Vorschau (Verlauf mit einem hellen Fleck, wie echte Cover es oft haben). */
 private fun previewCover(): android.graphics.Bitmap {
     val size = 200
@@ -461,6 +500,8 @@ private fun NowPlayingPreview() {
                 onPrevious = {},
                 onPlayPause = {},
                 onNext = {},
+                onSkipBack = {},
+                onSkipForward = {},
                 onShuffle = {},
                 onOutput = {},
                 onCrown = {},

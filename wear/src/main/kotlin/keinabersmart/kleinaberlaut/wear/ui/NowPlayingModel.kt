@@ -33,6 +33,11 @@ interface NowPlayingModel {
 
     fun toggleShuffle()
 
+    /** Buch oder Folge: 30 s zurück bzw. 10 s vor. */
+    fun skipBack()
+
+    fun skipForward()
+
     fun seekTo(positionMs: Long)
 
     fun cancelSleepTimer()

@@ -31,6 +31,7 @@ import keinabersmart.kleinaberlaut.wear.ui.AlbumScreen
 import keinabersmart.kleinaberlaut.wear.ui.LocalAlbumsScreen
 import keinabersmart.kleinaberlaut.wear.ui.LocalPlaylistsScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemoteAlbumsScreen
+import keinabersmart.kleinaberlaut.wear.ui.RemoteContinueScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemoteNowPlayingScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemotePlaylistsScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemoteTracksScreen
@@ -120,6 +121,10 @@ data class PlaylistsRoute(val remote: Boolean) : NavKey
 @Serializable
 data class AlbumRoute(val albumId: Long) : NavKey
 
+/** „Weiterhören“ des Handys: angefangene Bücher und die Warteschlange der Podcasts. */
+@Serializable
+data object RemoteContinueRoute : NavKey
+
 /** Eine Titelliste des Handys: Album, Playlist oder Favoriten ([refId] fehlt bei Favoriten). */
 @Serializable
 data class RemoteTracksRoute(val kind: WearRemoteListKind, val refId: Long? = null) : NavKey
@@ -166,8 +171,10 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                             onPlaylistsClick = { backStack.add(PlaylistsRoute(it)) },
                             onFavoritesClick = { backStack.add(SelectionRoute(it)) },
                             onPhoneFavoritesClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.FAVORITES)) },
+                            onPhoneContinueClick = { backStack.add(RemoteContinueRoute) },
                         )
                     }
+                    entry<RemoteContinueRoute> { RemoteContinueScreen(onPlayed = { backStack.openNowPlaying(remote = true) }) }
                     entry<NowPlayingRoute> { route ->
                         if (route.remote) {
                             RemoteNowPlayingScreen()

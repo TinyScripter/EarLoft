@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import keinabersmart.kleinaberlaut.core.playback.QueueEntry
+import keinabersmart.kleinaberlaut.core.playback.SpokenEntry
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteAction
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteStateDto
 import keinabersmart.kleinaberlaut.wear.sync.PhoneRemote
@@ -50,8 +51,12 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
 
     override val state: StateFlow<PlayerState> = combine(remoteState, pendingPlaying, pendingShuffle) { remote, playing, shuffle ->
         val dto = remote ?: return@combine PlayerState()
+        val spoken = dto.hasMedia && dto.isSpoken
         PlayerState(
-            current = if (dto.hasMedia) QueueEntry(0, dto.title, dto.artist, dto.albumId, dto.albumTitle) else null,
+            current = if (dto.hasMedia && !spoken) QueueEntry(0, dto.title, dto.artist, dto.albumId, dto.albumTitle) else null,
+            // Position und Länge sind schon Buchzeiten; eine Datei (trackIndex) gibt es für die Uhr nicht.
+            spoken = if (spoken) SpokenEntry(dto.bookId ?: 0, 0, dto.title, dto.artist) else null,
+            speed = dto.speed,
             isPlaying = playing ?: dto.isPlaying,
             durationMs = dto.durationMs,
             shuffle = shuffle ?: dto.shuffle,
@@ -73,7 +78,7 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
     override val cover: StateFlow<Bitmap?> = combine(remoteState, remote.cover) { dto, cover ->
-        cover?.takeIf { it.first == dto?.albumId }?.second
+        cover?.takeIf { it.first == dto?.coverKey }?.second
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     override val seedColor: StateFlow<Int?> = remoteState.map { it?.seedColor }
@@ -103,6 +108,10 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
         pending { pendingShuffle.value = !state.value.shuffle }
         send(WearRemoteAction.TOGGLE_SHUFFLE)
     }
+
+    override fun skipBack() = send(WearRemoteAction.SKIP_BACK)
+
+    override fun skipForward() = send(WearRemoteAction.SKIP_FORWARD)
 
     override fun seekTo(positionMs: Long) = send(WearRemoteAction.SEEK, positionMs)
 

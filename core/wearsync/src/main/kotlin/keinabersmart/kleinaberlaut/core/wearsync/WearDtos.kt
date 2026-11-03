@@ -205,20 +205,33 @@ data class WearCredentialsDto(val sourceId: String, val password: String)
 
 // ---- Fernsteuerung des Handys von der Uhr aus ----
 
-/** Was das Handy gerade spielt (Handy → Uhr). Die Position rechnet die Uhr mit [positionAt] weiter. */
+/** Was das Handy spielt: Musik oder Gesprochenes (Konzept 12). */
+@Serializable
+enum class WearRemoteMediaKind { MUSIC, BOOK, EPISODE }
+
+/**
+ * Was das Handy gerade spielt (Handy → Uhr). Die Position rechnet die Uhr mit [positionAt] weiter.
+ * Bei Büchern und Folgen sind [positionMs] und [durationMs] Zeiten im ganzen Buch (nicht in der Datei), [artist] ist
+ * der Autor bzw. der Podcast.
+ */
 @Serializable
 data class WearRemoteStateDto(
     val hasMedia: Boolean = false,
+    val kind: WearRemoteMediaKind = WearRemoteMediaKind.MUSIC,
     val title: String = "",
     val artist: String = "",
-    /** Album-ID am Handy; gehört zum Cover unter [WearPaths.REMOTE_COVER]. */
+    /** Album-ID am Handy (nur Musik). */
     val albumId: Long? = null,
+    /** Buch- bzw. Folgen-ID am Handy (nur Gesprochenes). */
+    val bookId: Long? = null,
     val albumTitle: String = "",
     val durationMs: Long = 0,
     /** Position zum Zeitpunkt [sampledAt] (Handy-Uhrzeit, Millisekunden seit 1970). */
     val positionMs: Long = 0,
     val sampledAt: Long = 0,
     val isPlaying: Boolean = false,
+    /** Wiedergabetempo; bei Musik immer 1. */
+    val speed: Float = 1f,
     val shuffle: Boolean = false,
     /** Akzentfarbe des Albums (ARGB); `null`, solange sie fehlt. */
     val seedColor: Int? = null,
@@ -227,10 +240,18 @@ data class WearRemoteStateDto(
     /** Höchste Lautstärkestufe des Handys; [volume] ist ein Vielfaches von 1/[volumeMax]. */
     val volumeMax: Int = 15,
 ) {
-    /** Position zum Zeitpunkt [now]: läuft die Wiedergabe, zählt sie seit [sampledAt] weiter (höchstens bis zum Ende). */
+    val isSpoken: Boolean get() = kind != WearRemoteMediaKind.MUSIC
+
+    /**
+     * Schlüssel des Covers unter [WearPaths.REMOTE_COVER]: die Album-ID, bei Gesprochenem die negative Buch-ID
+     * (Room-IDs sind positiv, die beiden kommen sich so nicht in die Quere).
+     */
+    val coverKey: Long? get() = if (isSpoken) bookId?.let { -it } else albumId
+
+    /** Position zum Zeitpunkt [now]: läuft die Wiedergabe, zählt sie seit [sampledAt] im Tempo [speed] weiter (höchstens bis zum Ende). */
     fun positionAt(now: Long): Long {
         if (!isPlaying || sampledAt == 0L) return positionMs
-        val elapsed = (now - sampledAt).coerceAtLeast(0)
+        val elapsed = ((now - sampledAt).coerceAtLeast(0) * speed.toDouble()).toLong()
         val position = positionMs + elapsed
         return if (durationMs > 0) position.coerceAtMost(durationMs) else position
     }
@@ -250,9 +271,12 @@ data class WearRemoteAlbumDto(val id: Long, val title: String, val artist: Strin
 @Serializable
 data class WearRemotePlaylistDto(val id: Long, val name: String, val songCount: Int)
 
-/** Welche Titelliste am Handy gemeint ist. */
+/**
+ * Welche Titelliste am Handy gemeint ist. [CONTINUE] ist „Weiterhören“: angefangene Bücher und die Warteschlange der
+ * Podcasts; die Einträge sind dort Bücher bzw. Folgen statt Songs.
+ */
 @Serializable
-enum class WearRemoteListKind { ALBUM, PLAYLIST, FAVORITES, ALL }
+enum class WearRemoteListKind { ALBUM, PLAYLIST, FAVORITES, ALL, CONTINUE }
 
 enum class WearRemoteAction {
     PLAY_PAUSE,
@@ -260,8 +284,12 @@ enum class WearRemoteAction {
     PREVIOUS,
     TOGGLE_SHUFFLE,
 
-    /** [WearRemoteCommand.value] = Position in Millisekunden. */
+    /** [WearRemoteCommand.value] = Position in Millisekunden, bei Gesprochenem im ganzen Buch. */
     SEEK,
+
+    /** Gesprochenes: 30 s zurück bzw. 10 s vor (wie in der App). */
+    SKIP_BACK,
+    SKIP_FORWARD,
 
     /** [WearRemoteCommand.value] = Schritte der Medienlautstärke, negativ = leiser. */
     VOLUME_STEPS,
@@ -270,7 +298,10 @@ enum class WearRemoteAction {
 @Serializable
 data class WearRemoteCommand(val action: WearRemoteAction, val value: Long = 0)
 
-/** Das Handy soll eine Titelliste abspielen, ab [startIndex] bzw. dem Titel [startSongId] (falls die Liste sich verschoben hat). */
+/**
+ * Das Handy soll eine Titelliste abspielen, ab [startIndex] bzw. dem Titel [startSongId] (falls die Liste sich verschoben hat).
+ * Bei [WearRemoteListKind.CONTINUE] ist [refId] das Buch bzw. die Folge, die starten soll.
+ */
 @Serializable
 data class WearRemotePlayRequest(
     val kind: WearRemoteListKind,
@@ -299,6 +330,7 @@ data class WearRemoteTracksResult(
     }
 }
 
+/** Ein Eintrag einer Titelliste; bei [WearRemoteListKind.CONTINUE] ist [songId] die Buch- bzw. Folgen-ID, [artist] Autor bzw. Podcast. */
 @Serializable
 data class WearRemoteTrackDto(val songId: Long, val title: String, val artist: String)
 
