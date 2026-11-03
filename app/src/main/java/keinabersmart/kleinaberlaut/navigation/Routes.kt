@@ -105,8 +105,9 @@ data object FavoritesRoute : NavKey
 @Serializable
 data object NowPlayingRoute : NavKey
 
+/** Die Musik-Warteschlange; [overPlayer]: über der Wiedergabe-Ansicht geöffnet (Vollbild), sonst von Start aus. */
 @Serializable
-data object QueueRoute : NavKey
+data class QueueRoute(val overPlayer: Boolean) : NavKey
 
 /** Die Warteschlange der Podcasts (Zeile „Weiterhören“) bearbeiten. */
 @Serializable
@@ -144,6 +145,6 @@ data object LicensesRoute : NavKey
 
 /** Bildschirme, auf denen Bottom-Bar und Mini-Player ausgeblendet werden. */
 val NavKey.isFullScreenPlayer: Boolean
-    get() = this == NowPlayingRoute || this == QueueRoute
+    get() = this == NowPlayingRoute || (this is QueueRoute && overPlayer)
 
 private fun newInstanceId(): String = UUID.randomUUID().toString()

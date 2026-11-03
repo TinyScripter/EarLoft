@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -109,12 +110,18 @@ class NavigatorTest {
     @Test
     fun `showNowPlaying closes the queue above the player`() {
         navigator.navigate(NowPlayingRoute)
-        navigator.navigate(QueueRoute)
+        navigator.navigate(QueueRoute(overPlayer = true))
 
         navigator.showNowPlaying()
 
         assertEquals(listOf(HomeRoute, NowPlayingRoute), state.backStacks.getValue(HomeRoute).toList())
         assertEquals(NowPlayingRoute, navigator.currentRoute)
+    }
+
+    @Test
+    fun `the queue is full screen only above the player`() {
+        assertTrue(QueueRoute(overPlayer = true).isFullScreenPlayer)
+        assertFalse(QueueRoute(overPlayer = false).isFullScreenPlayer)
     }
 
     @Test

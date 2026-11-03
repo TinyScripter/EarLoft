@@ -180,7 +180,13 @@ fun KleinaberlautApp(
     val entryProvider = entryProvider {
         entry<HomeRoute> {
             SpokenModeHost(
-                music = { HomeScreen(onAlbumClick = openAlbum, onArtistClick = openArtist) },
+                music = {
+                    HomeScreen(
+                        onAlbumClick = openAlbum,
+                        onArtistClick = openArtist,
+                        onOpenQueue = { navigator.navigate(QueueRoute(overPlayer = false)) },
+                    )
+                },
                 podcasts = { PodcastHomeScreen(
                         onEpisodeClick = openBook,
                         onFeedClick = openPodcast,
@@ -289,7 +295,7 @@ fun KleinaberlautApp(
             if (playsSpoken) {
                 BookPlayerScreen(onClose = navigator::goBack)
             } else {
-                NowPlayingScreen(onClose = navigator::goBack, onOpenQueue = { navigator.navigate(QueueRoute) })
+                NowPlayingScreen(onClose = navigator::goBack, onOpenQueue = { navigator.navigate(QueueRoute(overPlayer = true)) })
             }
         }
         entry<QueueRoute> { QueueScreen(onBack = navigator::goBack) }
