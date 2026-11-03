@@ -2,6 +2,7 @@ package keinabersmart.kleinaberlaut.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Box
@@ -50,6 +51,7 @@ import keinabersmart.kleinaberlaut.core.model.Artist
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
+import keinabersmart.kleinaberlaut.ui.library.AlbumMenu
 import keinabersmart.kleinaberlaut.ui.playlists.AddToPlaylistDialog
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 import coil3.compose.AsyncImage
@@ -239,6 +241,7 @@ fun ArtistListItem(
     )
 }
 
+/** Album-Zeile; Langklick öffnet das [AlbumMenu]. */
 @Composable
 fun AlbumListItem(
     album: Album,
@@ -247,18 +250,29 @@ fun AlbumListItem(
     onPlay: (() -> Unit)? = null,
     playing: Boolean = false,
 ) {
-    ListItem(
-        headlineContent = { Text(album.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { Text(album.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        leadingContent = {
-            AlbumArt(albumId = album.id, modifier = Modifier.size(48.dp), shape = MaterialTheme.shapes.small)
-        },
-        trailingContent = onPlay?.let { play -> { PlayPauseButton(playing, play) } },
-        modifier = modifier.clickable(onClick = onClick),
-    )
+    var menu by remember { mutableStateOf(false) }
+    Box(modifier) {
+        ListItem(
+            headlineContent = { Text(album.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            supportingContent = { Text(album.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            leadingContent = {
+                AlbumArt(albumId = album.id, modifier = Modifier.size(48.dp), shape = MaterialTheme.shapes.small)
+            },
+            trailingContent = onPlay?.let { play -> { PlayPauseButton(playing, play) } },
+            modifier = Modifier.combinedClickable(
+                onClick = onClick,
+                onLongClickLabel = stringResource(R.string.action_more),
+                onLongClick = { menu = true },
+            ),
+        )
+        if (menu) AlbumMenu(album, onDismiss = { menu = false })
+    }
 }
 
-/** Album-Kachel für Raster und horizontale Listen; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts auf dem Cover. */
+/**
+ * Album-Kachel für Raster und horizontale Listen; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts auf
+ * dem Cover. Langklick öffnet das [AlbumMenu].
+ */
 @Composable
 fun AlbumCard(
     album: Album,
@@ -268,13 +282,19 @@ fun AlbumCard(
     onPlay: (() -> Unit)? = null,
     playing: Boolean = false,
 ) {
+    var menu by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .then(if (width != null) Modifier.width(width) else Modifier.fillMaxWidth())
             .clip(MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClickLabel = stringResource(R.string.action_more),
+                onLongClick = { menu = true },
+            )
             .padding(4.dp),
     ) {
+        if (menu) AlbumMenu(album, onDismiss = { menu = false })
         Box {
             AlbumArt(albumId = album.id, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
             if (onPlay != null) {
