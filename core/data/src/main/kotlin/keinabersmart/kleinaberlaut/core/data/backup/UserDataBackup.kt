@@ -13,13 +13,17 @@ import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.dao.StatsDao
 import keinabersmart.kleinaberlaut.core.database.dao.UserDataDao
+import keinabersmart.kleinaberlaut.core.database.entity.UserBookProgressEntity
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
@@ -32,6 +36,9 @@ import javax.inject.Singleton
  * - **Zurückspielen:** Beim ersten Start mit dieser Installation (Merker in `noBackupFilesDir`, der nie gesichert wird)
  *   kommen die gesicherten Zeilen in die Hauptdatenbank, sofern sie dort fehlen. Nach einem Gerätewechsel ist das der
  *   einzige Weg zurück; bei einem Update ist `user.db` leer, und es passiert nichts.
+ * - **Fortschritt** hängt an Büchern, die es erst nach Scan bzw. Abgleich wieder gibt. Er wird deshalb bei jedem Start
+ *   und danach immer dann angewendet, wenn neue Bücher auftauchen, und zwar nur, wenn er neuer ist als der vorhandene.
+ *   Solange sein Buch fehlt, bleibt er in `user.db` stehen; mit seinem Abo oder Server fällt er weg.
  * - **Spiegeln:** Danach überträgt jede Änderung der betroffenen Tabellen nur die Unterschiede, höchstens einmal je
  *   [MIRROR_INTERVAL_MS]. Das Backup läuft ohnehin selten (Cloud etwa täglich); so kann kein Schreibweg vergessen werden.
  */
@@ -50,6 +57,9 @@ class UserDataBackup @Inject constructor(
 ) {
     private val started = AtomicBoolean(false)
 
+    /** Spiegeln und Anwenden des Fortschritts lesen und schreiben dieselben Zeilen. */
+    private val mutex = Mutex()
+
     /** Der zuletzt nach `user.db` geschriebene Stand; spart das erneute Lesen von `user.db` bei jedem Abgleich. */
     private var mirrored: UserDataSnapshot? = null
 
@@ -66,11 +76,13 @@ class UserDataBackup @Inject constructor(
                 Log.e(TAG, "Nutzerdaten konnten nicht zurückgespielt werden", e)
                 return@launch
             }
+            val pending = mutex.withLock { applyProgress(userDao.progress()) }
+            if (pending.isNotEmpty()) launch { applyWhenBooksAppear(pending) }
             database.invalidationTracker.createFlow(*MIRRORED_TABLES)
                 .conflate()
                 .collect {
                     try {
-                        mirror()
+                        mutex.withLock { mirror() }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -93,7 +105,8 @@ class UserDataBackup @Inject constructor(
             Log.i(
                 TAG,
                 "Nutzerdaten zurückgespielt: ${saved.servers.size} Musik-Server, ${saved.spokenServers.size} ABS-Server, " +
-                    "${saved.podcasts.size} Podcasts, ${saved.listeningStats.size} Statistik-Einträge",
+                    "${saved.podcasts.size} Podcasts, ${saved.listeningStats.size} Statistik-Einträge, " +
+                    "${saved.progress.size} Fortschritte (folgen mit ihren Büchern)",
             )
         }
         withContext(Dispatchers.IO) { marker.createNewFile() }
@@ -112,10 +125,62 @@ class UserDataBackup @Inject constructor(
         }
     }
 
+    /**
+     * Überträgt gesicherten Fortschritt in die Hauptdatenbank, wenn es sein Buch dort gibt und er neuer ist als der
+     * vorhandene. Liefert den Rest, dessen Buch (noch) fehlt.
+     */
+    internal suspend fun applyProgress(saved: Collection<UserBookProgressEntity>): List<UserBookProgressEntity> {
+        if (saved.isEmpty()) return emptyList()
+        val unresolved = mutableListOf<UserBookProgressEntity>()
+        var applied = 0
+        database.withTransaction {
+            saved.groupBy { it.serverId }.forEach { (serverId, rows) ->
+                val bookIds = rows.chunked(MAX_ARGS)
+                    .flatMap { chunk -> bookDao.bookRefs(serverId, chunk.map { it.remoteId }) }
+                    .associate { it.remoteId to it.bookId }
+                val current = bookIds.values.chunked(MAX_ARGS).flatMap { bookDao.progressOf(it) }.associateBy { it.bookId }
+                rows.forEach { row ->
+                    val bookId = bookIds[row.remoteId]
+                    when {
+                        bookId == null -> unresolved += row
+                        (current[bookId]?.updatedAt ?: Long.MIN_VALUE) < row.updatedAt -> {
+                            bookDao.upsertProgress(row.toMain(bookId))
+                            applied++
+                        }
+                    }
+                }
+            }
+        }
+        if (applied > 0) Log.i(TAG, "Fortschritt zurückgespielt: $applied, noch ohne Buch: ${unresolved.size}")
+        return unresolved
+    }
+
+    /** Wendet [initial] nach und nach an, sobald Scan oder Abgleich die Bücher anlegen. */
+    private suspend fun applyWhenBooksAppear(initial: List<UserBookProgressEntity>) {
+        var pending = initial
+        database.invalidationTracker.createFlow("books")
+            .conflate()
+            .takeWhile { pending.isNotEmpty() }
+            .collect {
+                try {
+                    pending = mutex.withLock { applyProgress(pending) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Fortschritt konnte nicht zurückgespielt werden", e)
+                }
+                delay(APPLY_INTERVAL_MS)
+            }
+    }
+
     internal suspend fun mirror() {
         val current = readMain()
         val previous = mirrored ?: readUser()
-        val changes = current.changesSince(previous)
+        val changes = current.changesSince(previous).let { changes ->
+            // Fehlt das Buch, ist sein Fortschritt noch nicht angewendet (oder die Folge steht nicht mehr im Feed): behalten.
+            val progressDeletes = changes.progress.deletes.filter { bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty() }
+            changes.copy(progress = changes.progress.copy(deletes = progressDeletes))
+        }
         if (!changes.isEmpty) userDao.apply(changes)
         mirrored = current
     }
@@ -126,6 +191,7 @@ class UserDataBackup @Inject constructor(
         feeds = podcastDao.feeds(),
         listeningStats = statsDao.all(),
         listeningDays = statsDao.allDays(),
+        progress = bookDao.keyedProgress(),
     )
 
     private suspend fun readUser() = UserDataSnapshot.ofUser(
@@ -134,12 +200,16 @@ class UserDataBackup @Inject constructor(
         podcasts = userDao.podcasts(),
         listeningStats = userDao.listeningStats(),
         listeningDays = userDao.listeningDays(),
+        progress = userDao.progress(),
     )
 
     private companion object {
         const val TAG = "UserDataBackup"
         const val RESTORED_MARKER = "user_data_restored"
         const val MIRROR_INTERVAL_MS = 60_000L
-        val MIRRORED_TABLES = arrayOf("sources", "spoken_servers", "podcast_feeds", "listening_stats", "listening_days")
+        const val APPLY_INTERVAL_MS = 5_000L
+        const val MAX_ARGS = 500
+        val MIRRORED_TABLES =
+            arrayOf("sources", "spoken_servers", "podcast_feeds", "listening_stats", "listening_days", "book_progress")
     }
 }

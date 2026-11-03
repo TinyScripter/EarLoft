@@ -67,7 +67,7 @@ class BookPlaybackSourceTest {
             api,
             progressSync,
             PodcastRepository(db.podcastDao(), dao, PodcastFeedApi(client)),
-            EpisodeQueue(context),
+            EpisodeQueue(context, dao),
             settings,
         )
         bookId = dao.upsertBook(

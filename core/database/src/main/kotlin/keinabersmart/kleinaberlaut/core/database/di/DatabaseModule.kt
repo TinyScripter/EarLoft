@@ -2,6 +2,8 @@ package keinabersmart.kleinaberlaut.core.database.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,6 +25,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.dao.SyncDao
 import keinabersmart.kleinaberlaut.core.database.dao.UserDataDao
 import keinabersmart.kleinaberlaut.core.database.dao.WearDao
+import java.io.File
 import javax.inject.Singleton
 
 @Module
@@ -32,7 +35,15 @@ internal object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): KleinaberlautDatabase =
-        Room.databaseBuilder(context, KleinaberlautDatabase::class.java, "kleinaberlaut.db").build()
+        Room.databaseBuilder(context, KleinaberlautDatabase::class.java, "kleinaberlaut.db")
+            .addCallback(
+                object : RoomDatabase.Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        File(context.noBackupFilesDir, KleinaberlautDatabase.CREATED_MARKER).createNewFile()
+                    }
+                },
+            )
+            .build()
 
     @Provides
     fun provideSourceDao(database: KleinaberlautDatabase): SourceDao = database.sourceDao()

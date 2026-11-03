@@ -69,3 +69,20 @@ data class UserListeningDayEntity(
     val groupKey: String,
     val listenedMs: Long,
 )
+
+/**
+ * Fortschritt eines Buchs oder einer Folge (`book_progress`) über `(serverId, remoteId)` des Buchs statt der laufenden
+ * `bookId`: Feed und guid, Audiobookshelf-Server und Item, bzw. „local“ und der Pfad im Ordner. Von Audiobookshelf-Büchern
+ * nur die Stände, die der Server noch nicht kennt (`dirty`); den Rest holt der Abgleich zurück.
+ */
+@Entity(tableName = "book_progress", primaryKeys = ["serverId", "remoteId"])
+data class UserBookProgressEntity(
+    val serverId: String,
+    val remoteId: String,
+    val positionMs: Long,
+    val durationMs: Long,
+    val finished: Boolean,
+    val speed: Float,
+    val updatedAt: Long,
+    val dirty: Boolean,
+)

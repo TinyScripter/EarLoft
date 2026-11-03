@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import keinabersmart.kleinaberlaut.core.database.entity.UserBookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.UserListeningDayEntity
 import keinabersmart.kleinaberlaut.core.database.entity.UserListeningStatEntity
 import keinabersmart.kleinaberlaut.core.database.entity.UserPodcastEntity
@@ -29,6 +30,9 @@ abstract class UserDataDao {
 
     @Query("SELECT * FROM listening_days")
     abstract suspend fun listeningDays(): List<UserListeningDayEntity>
+
+    @Query("SELECT * FROM book_progress")
+    abstract suspend fun progress(): List<UserBookProgressEntity>
 
     @Upsert
     protected abstract suspend fun upsertServers(rows: List<UserServerEntity>)
@@ -60,7 +64,19 @@ abstract class UserDataDao {
     @Delete
     protected abstract suspend fun deleteListeningDays(rows: List<UserListeningDayEntity>)
 
-    /** Schreibt alle Änderungen in einem Zug; [UserDataChanges.isEmpty] spart den Aufruf. */
+    @Upsert
+    protected abstract suspend fun upsertProgress(rows: List<UserBookProgressEntity>)
+
+    @Delete
+    protected abstract suspend fun deleteProgress(rows: List<UserBookProgressEntity>)
+
+    @Query("DELETE FROM book_progress WHERE serverId IN (:serverIds)")
+    protected abstract suspend fun deleteProgressOf(serverIds: List<String>)
+
+    /**
+     * Schreibt alle Änderungen in einem Zug; [UserDataChanges.isEmpty] spart den Aufruf. Mit einem Abo oder
+     * Audiobookshelf-Server fällt auch sein Fortschritt weg, auch der noch nicht angewendete.
+     */
     @Transaction
     open suspend fun apply(changes: UserDataChanges) {
         with(changes) {
@@ -74,7 +90,16 @@ abstract class UserDataDao {
             if (listeningStats.deletes.isNotEmpty()) deleteListeningStats(listeningStats.deletes)
             if (listeningDays.upserts.isNotEmpty()) upsertListeningDays(listeningDays.upserts)
             if (listeningDays.deletes.isNotEmpty()) deleteListeningDays(listeningDays.deletes)
+            if (progress.upserts.isNotEmpty()) upsertProgress(progress.upserts)
+            if (progress.deletes.isNotEmpty()) deleteProgress(progress.deletes)
+            val removedServers = podcasts.deletes.map { it.feedId } + spokenServers.deletes.map { it.serverId }
+            removedServers.chunked(MAX_ARGS).forEach { deleteProgressOf(it) }
         }
+    }
+
+    private companion object {
+        /** Unter der Grenze von SQLite für Parameter einer Abfrage. */
+        const val MAX_ARGS = 500
     }
 }
 
@@ -90,7 +115,9 @@ data class UserDataChanges(
     val podcasts: RowChanges<UserPodcastEntity> = RowChanges(),
     val listeningStats: RowChanges<UserListeningStatEntity> = RowChanges(),
     val listeningDays: RowChanges<UserListeningDayEntity> = RowChanges(),
+    val progress: RowChanges<UserBookProgressEntity> = RowChanges(),
 ) {
     val isEmpty: Boolean
-        get() = servers.isEmpty && spokenServers.isEmpty && podcasts.isEmpty && listeningStats.isEmpty && listeningDays.isEmpty
+        get() = servers.isEmpty && spokenServers.isEmpty && podcasts.isEmpty && listeningStats.isEmpty && listeningDays.isEmpty &&
+            progress.isEmpty
 }

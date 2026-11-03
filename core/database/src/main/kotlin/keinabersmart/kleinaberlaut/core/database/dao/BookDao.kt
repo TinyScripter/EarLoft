@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.core.database.dao
 
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -187,6 +188,24 @@ abstract class BookDao {
     @Query("UPDATE book_progress SET speed = :speed WHERE bookId = :bookId")
     abstract suspend fun setSpeed(bookId: Long, speed: Float)
 
+    @Query("SELECT * FROM book_progress WHERE bookId IN (:bookIds)")
+    abstract suspend fun progressOf(bookIds: List<Long>): List<BookProgressEntity>
+
+    /** Aller Fortschritt samt dem geräteübergreifenden Schlüssel seines Buchs (Backup, Review K9). */
+    @Query("SELECT b.serverId AS serverId, b.remoteId AS remoteId, p.* FROM book_progress p JOIN books b ON b.bookId = p.bookId")
+    abstract suspend fun keyedProgress(): List<KeyedProgress>
+
+    // --- Schlüssel der Bücher: (serverId, remoteId) bleibt auf einem neuen Gerät gleich, die bookId nicht ---
+
+    @Query("SELECT bookId, serverId, remoteId FROM books")
+    abstract fun observeBookRefs(): Flow<List<BookRef>>
+
+    @Query("SELECT bookId, serverId, remoteId FROM books WHERE bookId IN (:bookIds)")
+    abstract suspend fun bookRefsOf(bookIds: List<Long>): List<BookRef>
+
+    @Query("SELECT bookId, serverId, remoteId FROM books WHERE serverId = :serverId AND remoteId IN (:remoteIds)")
+    abstract suspend fun bookRefs(serverId: String, remoteIds: List<String>): List<BookRef>
+
     // --- Downloads der Bücher (je Datei; Folgen laufen über den PodcastDao) ---
 
     /** Download-Stand aller Bücher mit Dateien, zusammengezählt über deren Tracks. */
@@ -265,4 +284,14 @@ data class BookDownloadRow(
     val failed: Int,
     val removed: Int,
     val bytes: Long,
+)
+
+/** Ein Buch mit dem Schlüssel, der auf einem neuen Gerät gleich bleibt (Review K9). */
+data class BookRef(val bookId: Long, val serverId: String, val remoteId: String)
+
+/** Fortschritt mit dem Schlüssel seines Buchs. */
+data class KeyedProgress(
+    val serverId: String,
+    val remoteId: String,
+    @Embedded val progress: BookProgressEntity,
 )

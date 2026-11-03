@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.core.database
 
+import android.content.Context
 import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
@@ -46,6 +47,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SpokenServerEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SyncActionEntity
 import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
+import java.io.File
 
 @Database(
     entities = [
@@ -117,5 +119,15 @@ abstract class KleinaberlautDatabase : RoomDatabase() {
             db.execSQL("INSERT INTO albums_fts(albums_fts) VALUES('rebuild')")
             db.execSQL("INSERT INTO artists_fts(artists_fts) VALUES('rebuild')")
         }
+    }
+
+    companion object {
+        /**
+         * Liegt in `noBackupFilesDir`, wenn diese Installation die Datenbank selbst angelegt hat (frisch installiert oder
+         * Daten gelöscht). Gesicherte Dateien, die noch `bookId`s o. Ä. enthalten, stammen dann von einer anderen Datenbank.
+         */
+        const val CREATED_MARKER = "main_database_created"
+
+        fun createdOnThisInstall(context: Context): Boolean = File(context.noBackupFilesDir, CREATED_MARKER).exists()
     }
 }

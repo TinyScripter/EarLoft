@@ -7,18 +7,22 @@ import dagger.Lazy
 import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.UserDatabase
+import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
+import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.ListeningDayEntity
 import keinabersmart.kleinaberlaut.core.database.entity.ListeningStatEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SpokenServerEntity
 import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.model.LOCAL_BOOK_SERVER_ID
 import keinabersmart.kleinaberlaut.core.model.LOCAL_PODCAST_PREFIX
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -179,6 +183,99 @@ class UserDataBackupTest {
         assertEquals(5_000L, main.statsDao().all().single().listenedMs)
         // Der Tag aus der Sicherung fehlte und kommt dazu; der neue bleibt.
         assertEquals(setOf(20_000L, 20_001L), main.statsDao().allDays().map { it.day }.toSet())
+    }
+
+    private suspend fun book(db: KleinaberlautDatabase, serverId: String, remoteId: String, kind: BookKind = BookKind.EPISODE) =
+        db.bookDao().upsertBook(
+            BookEntity(serverId = serverId, kind = kind, remoteId = remoteId, title = remoteId, normTitle = remoteId, author = "", durationMs = 1_000_000),
+        )
+
+    private fun progress(bookId: Long, positionMs: Long, updatedAt: Long, dirty: Boolean = false) =
+        BookProgressEntity(bookId, positionMs = positionMs, durationMs = 1_000_000, updatedAt = updatedAt, dirty = dirty)
+
+    @Test
+    fun `progress is saved by book key, Audiobookshelf only while not reported`() = runTest {
+        fillMain()
+        val episode = book(main, "feed-1", "guid-1")
+        val local = book(main, LOCAL_BOOK_SERVER_ID, "Autor/Buch", BookKind.BOOK)
+        val reported = book(main, "abs", "item-1", BookKind.BOOK)
+        val unreported = book(main, "abs", "item-2", BookKind.BOOK)
+        main.bookDao().upsertProgress(progress(episode, 100, updatedAt = 10))
+        main.bookDao().upsertProgress(progress(local, 200, updatedAt = 20))
+        main.bookDao().upsertProgress(progress(reported, 300, updatedAt = 30))
+        main.bookDao().upsertProgress(progress(unreported, 400, updatedAt = 40, dirty = true))
+        val backup = backupFor(main)
+        backup.mirror()
+
+        val saved = user.userDataDao().progress().associate { (it.serverId to it.remoteId) to it.positionMs }
+        assertEquals(
+            mapOf(("feed-1" to "guid-1") to 100L, (LOCAL_BOOK_SERVER_ID to "Autor/Buch") to 200L, ("abs" to "item-2") to 400L),
+            saved,
+        )
+
+        // Gemeldet: Der Server hat ihn, die Sicherung braucht ihn nicht mehr.
+        main.bookDao().markClean(unreported, updatedAt = 40)
+        backup.mirror()
+        assertFalse(user.userDataDao().progress().any { it.remoteId == "item-2" })
+    }
+
+    @Test
+    fun `progress waits for its book on a new device and only wins when newer`() = runTest {
+        fillMain()
+        main.bookDao().upsertProgress(progress(book(main, "feed-1", "guid-1"), 100, updatedAt = 10))
+        main.bookDao().upsertProgress(progress(book(main, "feed-1", "guid-2"), 200, updatedAt = 20))
+        main.bookDao().upsertProgress(progress(book(main, "abs", "item-1", BookKind.BOOK), 300, updatedAt = 30, dirty = true))
+        backupFor(main).mirror()
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, KleinaberlautDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val backup = backupFor(newDevice)
+            backup.restore(UserDataSnapshot.ofUser(
+                user.userDataDao().servers(),
+                user.userDataDao().spokenServers(),
+                user.userDataDao().podcasts(),
+                user.userDataDao().listeningStats(),
+                user.userDataDao().listeningDays(),
+            ))
+            // Vor dem ersten Abgleich gibt es keine Folgen: Nichts wird angewendet, und der Spiegel löscht nichts.
+            assertEquals(3, backup.applyProgress(user.userDataDao().progress()).size)
+            backup.mirror()
+            assertEquals(3, user.userDataDao().progress().size)
+
+            // Der Abgleich legt die Folgen mit neuen Ids an; eine davon wurde hier schon weiter gehört.
+            book(newDevice, "feed-0", "andere")
+            val first = book(newDevice, "feed-1", "guid-1")
+            val second = book(newDevice, "feed-1", "guid-2")
+            newDevice.bookDao().upsertProgress(progress(second, 999, updatedAt = 99))
+            val pending = backup.applyProgress(user.userDataDao().progress())
+
+            assertEquals(listOf("item-1"), pending.map { it.remoteId })
+            assertEquals(100L, newDevice.bookDao().progress(first)!!.positionMs)
+            assertEquals(999L, newDevice.bookDao().progress(second)!!.positionMs)
+
+            // Der Audiobookshelf-Stand war noch nicht gemeldet und bleibt es auch nach dem Anwenden.
+            val absBook = book(newDevice, "abs", "item-1", BookKind.BOOK)
+            assertTrue(backup.applyProgress(pending).isEmpty())
+            assertTrue(newDevice.bookDao().progress(absBook)!!.dirty)
+        } finally {
+            newDevice.close()
+        }
+    }
+
+    @Test
+    fun `ending a subscription drops its saved progress, also the not yet applied`() = runTest {
+        fillMain()
+        val backup = backupFor(main)
+        main.bookDao().upsertProgress(progress(book(main, "feed-1", "guid-1"), 100, updatedAt = 10))
+        backup.mirror()
+        // Die Folge fällt aus dem Feed: Ihr Fortschritt bleibt gesichert, falls sie wiederkommt.
+        main.podcastDao().deleteEpisodesOf("feed-1")
+        backup.mirror()
+        assertEquals(1, user.userDataDao().progress().size)
+
+        main.podcastDao().deleteFeed("feed-1")
+        backup.mirror()
+        assertTrue(user.userDataDao().progress().isEmpty())
     }
 
     @Test
