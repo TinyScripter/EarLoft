@@ -217,7 +217,7 @@ private fun BookPlayerContent(
         // Geschwindigkeit, Sleep-Timer, Kapitelliste, schmal auch die Beschreibung.
         val actionRow: @Composable () -> Unit = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                CastButton()
+                CastButton(active = state.isRemote)
                 TextButton(
                     onClick = { showSpeed = true },
                     colors = ButtonDefaults.textButtonColors(

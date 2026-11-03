@@ -2,6 +2,7 @@ package keinabersmart.kleinaberlaut.core.playback
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.MediaItem
@@ -70,8 +71,10 @@ class MediaPlaybackConnection @Inject constructor(
 
     override val positionJumps: Flow<Unit> = _positionJumps.asSharedFlow()
 
+    private val remoteHandOver = RemoteHandOver()
+
     override val currentPositionMs: Long
-        get() = connectedController()?.currentPosition ?: 0
+        get() = remoteHandOver.positionMs(SystemClock.elapsedRealtime()) ?: connectedController()?.currentPosition ?: 0
 
     init {
         scope.launch {
@@ -122,9 +125,13 @@ class MediaPlaybackConnection @Inject constructor(
             mediaController.addListener(object : Player.Listener {
                 override fun onEvents(player: Player, events: Player.Events) {
                     if (events.contains(Player.EVENT_POSITION_DISCONTINUITY)) _positionJumps.tryEmit(Unit)
-                    _state.value = player.toState(
-                        previous = _state.value,
-                        queueChanged = events.contains(Player.EVENT_TIMELINE_CHANGED),
+                    val previous = _state.value
+                    _state.value = remoteHandOver.update(
+                        previous = previous,
+                        next = player.toState(previous, queueChanged = events.contains(Player.EVENT_TIMELINE_CHANGED)),
+                        queueEmpty = player.currentTimeline.isEmpty,
+                        positionMs = player.currentPosition,
+                        nowMs = SystemClock.elapsedRealtime(),
                     )
                 }
             })

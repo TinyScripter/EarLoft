@@ -97,7 +97,7 @@ fun NowPlayingScreen(
                 onStartSleepTimer = viewModel::startSleepTimer,
                 onCancelSleepTimer = viewModel::cancelSleepTimer,
                 castDeviceName = rememberCastDeviceName(state.isRemote),
-                castButton = { CastButton() },
+                castButton = { CastButton(active = state.isRemote) },
                 queuePane = { paneModifier ->
                     QueueList(
                         state = state,
