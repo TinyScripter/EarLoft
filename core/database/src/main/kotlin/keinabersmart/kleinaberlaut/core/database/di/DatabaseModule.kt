@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
+import keinabersmart.kleinaberlaut.core.database.UserDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.AbsSessionDao
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
@@ -20,6 +21,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.PlaybackDao
 import keinabersmart.kleinaberlaut.core.database.dao.PlaylistDao
 import keinabersmart.kleinaberlaut.core.database.dao.SourceDao
 import keinabersmart.kleinaberlaut.core.database.dao.SyncDao
+import keinabersmart.kleinaberlaut.core.database.dao.UserDataDao
 import keinabersmart.kleinaberlaut.core.database.dao.WearDao
 import javax.inject.Singleton
 
@@ -70,4 +72,13 @@ internal object DatabaseModule {
 
     @Provides
     fun provideAbsSessionDao(database: KleinaberlautDatabase): AbsSessionDao = database.absSessionDao()
+
+    /** Nur das Handy nutzt sie; auf der Uhr wird sie nie angefordert und daher nie angelegt. */
+    @Provides
+    @Singleton
+    fun provideUserDatabase(@ApplicationContext context: Context): UserDatabase =
+        Room.databaseBuilder(context, UserDatabase::class.java, UserDatabase.NAME).build()
+
+    @Provides
+    fun provideUserDataDao(database: UserDatabase): UserDataDao = database.userDataDao()
 }

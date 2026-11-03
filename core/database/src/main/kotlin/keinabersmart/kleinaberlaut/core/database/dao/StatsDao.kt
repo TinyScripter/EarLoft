@@ -35,6 +35,14 @@ abstract class StatsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertAll(stats: List<ListeningStatEntity>)
 
+    /** Legt fehlende Einträge an; vorhandene (gleiches `source`, `groupKey`, `itemKey`) bleiben, wie sie sind. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    abstract suspend fun insertAllIfAbsent(stats: List<ListeningStatEntity>)
+
+    /** Wie [insertAllIfAbsent], für die Tage. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    abstract suspend fun insertDaysIfAbsent(days: List<ListeningDayEntity>)
+
     @Query("SELECT COALESCE(SUM(listenedMs), 0) FROM listening_stats WHERE kind = :kind")
     abstract fun observeTotalListenedMs(kind: BookKind): Flow<Long>
 

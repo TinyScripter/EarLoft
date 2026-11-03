@@ -9,6 +9,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.request.crossfade
 import dagger.hilt.android.HiltAndroidApp
+import keinabersmart.kleinaberlaut.core.data.backup.UserDataBackup
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.data.spoken.AuthorImages
@@ -35,6 +36,7 @@ import javax.inject.Inject
 @HiltAndroidApp
 class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
 
+    @Inject lateinit var userDataBackup: UserDataBackup
     @Inject lateinit var libraryRefresher: LibraryRefresher
     @Inject lateinit var spokenRefresher: SpokenRefresher
     @Inject lateinit var podcastRefresher: PodcastRefresher
@@ -56,6 +58,8 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         // Vor dem Wiedergabe-Service und dem Cast-Knopf; lädt im Hintergrund, ohne Play-Dienste bleibt Cast aus.
         Cast.getSingletonInstance(this).initialize()
+        // Nach einem Gerätewechsel zuerst die gesicherten Nutzerdaten zurückspielen, danach Änderungen nach user.db spiegeln.
+        userDataBackup.start()
         // Nur Beobachter und Zeitpläne: Der Prozess startet auch für Hintergrund-Jobs und Nachrichten der Uhr. Abgeglichen
         // wird beim Öffnen der App (MainActivity.onStart) bzw. von den Workern mit ihren Netz-Bedingungen.
         libraryRefresher.start()
