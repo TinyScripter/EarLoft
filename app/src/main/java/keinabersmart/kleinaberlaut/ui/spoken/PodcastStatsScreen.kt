@@ -1,6 +1,5 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -15,55 +14,26 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
-import keinabersmart.kleinaberlaut.core.data.stats.StatsRepository
-import keinabersmart.kleinaberlaut.core.model.MonthListening
 import keinabersmart.kleinaberlaut.core.model.PodcastListening
 import keinabersmart.kleinaberlaut.core.model.PodcastStats
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.stateIn
 import java.time.Month
 import java.time.format.TextStyle
-import javax.inject.Inject
-
-@OptIn(ExperimentalCoroutinesApi::class)
-@HiltViewModel
-class PodcastStatsViewModel @Inject constructor(repository: StatsRepository) : ViewModel() {
-    private val year = MutableStateFlow<Int?>(null)
-
-    /** `null`, solange die Zahlen noch geladen werden. */
-    val stats: StateFlow<PodcastStats?> =
-        year.flatMapLatest { repository.podcastStats(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    /** Zeigt die Zahlen dieses Jahres; `null` für „Gesamt“. */
-    fun selectYear(value: Int?) {
-        year.value = value
-    }
-}
 
 /** Auswahl „Gesamt“ und einzelne Jahre (beide Statistik-Reiter). */
 @Composable

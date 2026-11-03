@@ -45,74 +45,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import coil3.compose.AsyncImage
-import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
-import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
-import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
-import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
-import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
-import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import keinabersmart.kleinaberlaut.core.model.SpokenMode
-import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import javax.inject.Inject
-import javax.inject.Singleton
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
-
-@HiltViewModel
-class SpokenModeViewModel @Inject constructor(
-    private val settings: SpokenSettings,
-    private val refresher: SpokenRefresher,
-    private val podcastRefresher: PodcastRefresher,
-    private val libraryRefresher: LibraryRefresher,
-) : ViewModel() {
-    val mode: StateFlow<SpokenMode> = settings.mode.stateIn(viewModelScope, SharingStarted.Eagerly, SpokenMode.MUSIC)
-
-    /** „Überall suchen“; derselbe Wert wie der Schalter in den allgemeinen Einstellungen. */
-    val searchAll: StateFlow<Boolean> = settings.searchAll.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-
-    fun setSearchAll(enabled: Boolean) {
-        viewModelScope.launch { settings.setSearchAll(enabled) }
-    }
-
-    fun setMode(mode: SpokenMode) {
-        viewModelScope.launch { settings.setMode(mode) }
-    }
-
-    /** Läuft gerade ein von Hand angestoßener Abgleich des aktuellen Modus? */
-    val refreshing: StateFlow<Boolean> = combine(
-        mode,
-        libraryRefresher.refreshing,
-        refresher.refreshing,
-        podcastRefresher.refreshing,
-    ) { mode, music, books, podcasts ->
-        when (mode) {
-            SpokenMode.MUSIC -> music
-            SpokenMode.BOOKS -> books
-            SpokenMode.PODCASTS -> podcasts
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-
-    fun refreshMusic() = libraryRefresher.refreshAll()
-
-    fun refreshBooks() = refresher.refreshAll()
-
-    fun refreshPodcasts() = podcastRefresher.refreshAll()
-}
 
 /**
  * Ganz oben das Banner der App, darunter der Schalter Musik / Podcasts / Bücher über Start und Bibliothek
@@ -276,35 +215,6 @@ fun formatClock(ms: Long): String {
     val seconds = totalSeconds % 60
     return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
 }
-
-sealed interface BookLaunchEvent {
-    data object Failed : BookLaunchEvent
-    data class ResumedFromServer(val positionMs: Long) : BookLaunchEvent
-}
-
-/** Startet Bücher aus der UI; meldet, wenn es nicht klappt oder der Stand eines anderen Geräts übernommen wurde. */
-@Singleton
-class BookLauncher @Inject constructor(
-    private val playbackConnection: PlaybackConnection,
-    @param:ApplicationScope private val scope: CoroutineScope,
-) {
-    private val _events = MutableSharedFlow<BookLaunchEvent>(extraBufferCapacity = 4)
-    val events: SharedFlow<BookLaunchEvent> = _events.asSharedFlow()
-
-    fun play(bookId: Long, startPositionMs: Long? = null) {
-        scope.launch {
-            val prepared = playbackConnection.playBook(bookId, startPositionMs)
-            when {
-                prepared == null -> _events.emit(BookLaunchEvent.Failed)
-                prepared.resumedFromServer && startPositionMs == null ->
-                    _events.emit(BookLaunchEvent.ResumedFromServer(prepared.startPositionMs))
-            }
-        }
-    }
-}
-
-@HiltViewModel
-class BookLaunchViewModel @Inject constructor(val launcher: BookLauncher) : ViewModel()
 
 /** Einmal an der Wurzel der App: zeigt die Hinweise des [BookLauncher] als Snackbar. */
 @Composable

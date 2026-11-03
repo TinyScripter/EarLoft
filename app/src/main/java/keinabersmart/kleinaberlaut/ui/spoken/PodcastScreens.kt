@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
-import keinabersmart.kleinaberlaut.core.common.normalizeForMerge
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -80,128 +79,27 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import coil3.compose.AsyncImage
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
-import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.podcast.FeedEpisodes
-import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
-import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
-import keinabersmart.kleinaberlaut.core.data.podcast.SubscribeResult
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
-import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
-import keinabersmart.kleinaberlaut.core.download.DownloadStart
 import keinabersmart.kleinaberlaut.core.download.EpisodeDownloadProgress
-import keinabersmart.kleinaberlaut.core.download.EpisodeDownloads
 import keinabersmart.kleinaberlaut.core.model.PodcastFeed
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.ui.LoadState
-import keinabersmart.kleinaberlaut.ui.asLoadState
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
 import keinabersmart.kleinaberlaut.ui.components.LoadableList
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
-import keinabersmart.kleinaberlaut.ui.orOnError
 import keinabersmart.kleinaberlaut.ui.valueOrNull
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.settings.SwitchRow
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
-import javax.inject.Inject
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
-
-/** Zustand des „Podcast hinzufügen“-Dialogs. */
-sealed interface AddPodcastState {
-    data object Idle : AddPodcastState
-    data object Working : AddPodcastState
-    data class Failed(@param:StringRes val message: Int) : AddPodcastState
-    data class Done(val feedId: String) : AddPodcastState
-}
-
-@HiltViewModel
-class PodcastViewModel @Inject constructor(
-    private val podcasts: PodcastRepository,
-    private val refresher: PodcastRefresher,
-    private val launcher: BookLauncher,
-    private val playback: PlaybackConnection,
-    continueListening: ContinueListening,
-) : ViewModel() {
-
-    /** Nur eine Zeile über den Abos; ohne eigenen Hinweis, fällt sie bei einem Fehler einfach weg. */
-    val continueListening: StateFlow<List<BookWithProgress>> = continueListening.episodes
-        .orOnError(emptyList())
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /** Pro Abo die noch nicht zu Ende gehörten Folgen. */
-    val unheard: StateFlow<LoadState<List<FeedEpisodes>>> = podcasts.unheardByFeed()
-        .asLoadState()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
-
-    val feeds: StateFlow<LoadState<List<PodcastFeed>>> = podcasts.feeds
-        .asLoadState()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
-
-    private val _add = MutableStateFlow<AddPodcastState>(AddPodcastState.Idle)
-    val add: StateFlow<AddPodcastState> = _add
-
-    fun subscribe(input: String) {
-        if (_add.value == AddPodcastState.Working) return
-        _add.value = AddPodcastState.Working
-        viewModelScope.launch {
-            _add.update {
-                when (val result = podcasts.subscribe(input)) {
-                    is SubscribeResult.Added -> AddPodcastState.Done(result.feedId)
-                    is SubscribeResult.AlreadySubscribed -> AddPodcastState.Failed(R.string.podcast_already)
-                    SubscribeResult.InvalidUrl -> AddPodcastState.Failed(R.string.podcast_error_invalid)
-                    SubscribeResult.Unreachable -> AddPodcastState.Failed(R.string.podcast_error_unreachable)
-                    SubscribeResult.NotAFeed -> AddPodcastState.Failed(R.string.podcast_error_not_feed)
-                }
-            }
-        }
-    }
-
-    fun resetAdd() {
-        _add.value = AddPodcastState.Idle
-    }
-
-    fun refreshAll() = refresher.refreshAll()
-
-    /** Die Folge, die gerade läuft (nicht: pausiert). */
-    val playingBookId: StateFlow<Long?> = playback.state
-        .map { if (it.isPlaying) it.spoken?.bookId else null }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    /**
-     * Läuft die Folge, pausiert sie; ist sie geladen und pausiert, geht es weiter; sonst startet oder setzt sie fort
-     * (und steht danach ganz vorn in „Weiterhören“).
-     */
-    fun playOrPause(bookId: Long) {
-        if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
-    }
-}
 
 /** Zustand und Dialog zum Abonnieren; nach dem Hinzufügen öffnet sich der neue Podcast. */
 private class AddPodcastControl(val show: () -> Unit)
@@ -497,129 +395,6 @@ private fun AddPodcastDialog(state: AddPodcastState, onSubscribe: (String) -> Un
         },
     )
 }
-
-@HiltViewModel(assistedFactory = PodcastFeedViewModel.Factory::class)
-class PodcastFeedViewModel @AssistedInject constructor(
-    @Assisted private val feedId: String,
-    private val podcasts: PodcastRepository,
-    private val launcher: BookLauncher,
-    private val playback: PlaybackConnection,
-    private val downloads: EpisodeDownloads,
-    downloadProgress: EpisodeDownloadProgress,
-    private val refresher: PodcastRefresher,
-) : ViewModel() {
-
-    val refreshing: StateFlow<Boolean> = refresher.refreshing
-
-    fun refresh() = refresher.refreshFeed(feedId)
-
-    /** Die Folge, die gerade läuft (nicht: pausiert). */
-    val playingBookId: StateFlow<Long?> = playback.state
-        .map { if (it.isPlaying) it.spoken?.bookId else null }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    /** Anteil der gerade ladenden Folgen (0..1, [EpisodeDownloadProgress.UNKNOWN] ohne bekannte Größe). */
-    val progress: StateFlow<Map<Long, Float>> = downloadProgress.fractions
-
-    val feed: StateFlow<PodcastFeed?> = podcasts.feed(feedId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    val episodes: StateFlow<LoadState<List<BookWithProgress>>> = podcasts.episodes(feedId)
-        .asLoadState()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
-
-    private val searchQuery = MutableStateFlow("")
-
-    /** Suchtext der Seite [PodcastSearchScreen]; die Treffer kommen über [searchHits]. */
-    fun search(text: String) {
-        searchQuery.value = text.trim()
-    }
-
-    /**
-     * Treffer in Überschrift und Inhaltsangabe. Der Suchtext je Folge wird einmal je Änderung der Folgen normalisiert statt
-     * bei jedem Tastendruck; gefiltert wird abseits des Main-Threads und erst, wenn das Tippen kurz ruht.
-     */
-    @OptIn(FlowPreview::class)
-    val searchHits: StateFlow<EpisodeHits?> = combine(
-        episodes.mapNotNull { state -> state.valueOrNull?.map(::SearchEntry) },
-        searchQuery.debounce { if (it.isEmpty()) 0L else SEARCH_DEBOUNCE_MS },
-    ) { index, query ->
-        val needle = query.normalizeForMerge()
-        EpisodeHits(query, if (needle.isEmpty()) emptyList() else index.filter { it.matches(needle) }.map { it.episode })
-    }
-        .flowOn(Dispatchers.Default)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    /** Download-Zustand je Folge. */
-    val downloadStates: StateFlow<Map<Long, TrackDownload>> = podcasts.downloadStates(feedId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
-
-    private val _messages = MutableSharedFlow<Int>(extraBufferCapacity = 2)
-
-    /** Hinweise für den Nutzer (String-Ressource), z. B. dass ein Download auf eine Verbindung wartet. */
-    val messages: SharedFlow<Int> = _messages.asSharedFlow()
-
-    fun download(bookId: Long) {
-        viewModelScope.launch {
-            when (downloads.download(bookId)) {
-                DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)
-                DownloadStart.WAITING_FOR_WIFI -> _messages.emit(R.string.podcast_download_waiting_wifi)
-                DownloadStart.STARTED -> Unit
-            }
-        }
-    }
-
-    fun removeDownload(bookId: Long) {
-        viewModelScope.launch { downloads.remove(bookId) }
-    }
-
-    fun removeHeardDownloads() {
-        viewModelScope.launch { downloads.removeHeard(feedId) }
-    }
-
-    fun setAutoDownload(enabled: Boolean) {
-        viewModelScope.launch { podcasts.setAutoDownload(feedId, enabled) }
-    }
-
-    fun setNewestFirst(enabled: Boolean) {
-        viewModelScope.launch { podcasts.setNewestFirst(feedId, enabled) }
-    }
-
-    fun setContinuous(enabled: Boolean) {
-        viewModelScope.launch { podcasts.setContinuous(feedId, enabled) }
-    }
-
-    fun setNotifyNew(enabled: Boolean) {
-        viewModelScope.launch { podcasts.setNotifyNew(feedId, enabled) }
-    }
-
-    fun unsubscribe() {
-        viewModelScope.launch { podcasts.unsubscribe(feedId) }
-    }
-
-    /** Wie [PodcastViewModel.playOrPause]. */
-    fun playOrPause(bookId: Long) {
-        if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
-    }
-
-    @AssistedFactory
-    interface Factory {
-        fun create(feedId: String): PodcastFeedViewModel
-    }
-}
-
-/** Treffer der Folgensuche; [query] ist der Suchtext, zu dem sie gehören. */
-data class EpisodeHits(val query: String, val hits: List<BookWithProgress>)
-
-/** Eine Folge mit normalisiertem Titel und Beschreibung; getrennt, damit kein Treffer über die Grenze der beiden reicht. */
-private class SearchEntry(val episode: BookWithProgress) {
-    private val title = episode.book.title.normalizeForMerge()
-    private val description = descriptionForSearch(episode.book.description).normalizeForMerge()
-
-    fun matches(needle: String): Boolean = needle in title || needle in description
-}
-
-private const val SEARCH_DEBOUNCE_MS = 150L
 
 /** Detailseite eines Podcasts: Kopf mit Bild, Titel und Knöpfen, darunter die Folgen. Info und Einstellungen liegen auf eigenen Seiten. */
 @OptIn(ExperimentalMaterial3Api::class)

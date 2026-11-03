@@ -44,47 +44,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
-import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
-import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
-import keinabersmart.kleinaberlaut.core.model.Playlist
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import javax.inject.Inject
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
-
-@HiltViewModel
-class AddToPlaylistViewModel @Inject constructor(
-    private val playlistRepository: PlaylistRepository,
-    serverRepository: ServerRepository,
-) : ViewModel() {
-
-    /** `null`, solange noch geladen wird. */
-    val playlists: StateFlow<List<Playlist>?> = playlistRepository.playlists()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    val servers: StateFlow<List<ServerInfo>?> = serverRepository.servers()
-        .map { list -> list.filter { it.enabled } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    fun add(playlistId: Long, songIds: List<Long>) {
-        viewModelScope.launch { playlistRepository.addSongs(playlistId, songIds) }
-    }
-
-    fun create(name: String, serverSourceId: String?, songIds: List<Long>) {
-        viewModelScope.launch { playlistRepository.create(name, serverSourceId, songIds) }
-    }
-}
 
 /** Wählt eine Playlist (oder legt eine neue an) und fügt [songIds] hinzu. */
 @Composable
