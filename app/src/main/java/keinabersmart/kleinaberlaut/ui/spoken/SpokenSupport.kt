@@ -16,11 +16,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,7 +26,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -73,8 +69,8 @@ import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 /**
  * Ganz oben das Banner der App, darunter der Schalter Musik / Podcasts / Bücher über Start und Bibliothek
- * (Konzept 12.5). Er schaltet nur den Inhalt dieser beiden Tabs um; Suche, Einstellungen, Mini-Player und
- * Wiedergabe-Ansicht hängen am laufenden Item.
+ * (Konzept 12.5). Er schaltet nur den Inhalt dieser beiden Tabs um; Einstellungen, Mini-Player und
+ * Wiedergabe-Ansicht hängen am laufenden Item. Die Lupe im Kopf ([onSearch]) sucht im gewählten Bereich.
  */
 @Composable
 fun SpokenModeHost(
@@ -83,9 +79,10 @@ fun SpokenModeHost(
     books: @Composable () -> Unit,
     /** Nach dem Wechsel auf einen anderen Modus; schließt z. B. die Detailspalte des vorigen Modus. */
     onModeChange: () -> Unit,
+    onSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SpokenModeScaffold(onModeChange, modifier) { mode ->
+    SpokenModeScaffold(onModeChange, onSearch, modifier) { mode ->
         when (mode) {
             SpokenMode.MUSIC -> music()
             SpokenMode.PODCASTS -> podcasts()
@@ -94,32 +91,23 @@ fun SpokenModeHost(
     }
 }
 
-/**
- * Banner und Modus-Schalter wie bei [SpokenModeHost], aber mit einem Inhalt, der den Modus selbst auswertet; mit
- * [searchSwitch] sitzt oben rechts der Schalter „Überall suchen“ (für die Suche).
- */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+/** Banner und Modus-Schalter über einem Inhalt, der den Modus selbst auswertet. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SpokenModeScaffold(
+private fun SpokenModeScaffold(
     onModeChange: () -> Unit,
+    onSearch: () -> Unit,
     modifier: Modifier = Modifier,
-    searchSwitch: Boolean = false,
     viewModel: SpokenModeViewModel = hiltViewModel(),
     content: @Composable (SpokenMode) -> Unit,
 ) {
     val mode by viewModel.mode.collectAsStateWithLifecycle()
-    val searchAll by viewModel.searchAll.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     // Auf kleinen Handys (niedrig oder quer) klappt der Kopf beim Scrollen weg; sonst bliebe für die Listen kaum Platz.
     val configuration = LocalConfiguration.current
     val compactHeight = configuration.screenHeightDp < 480 ||
         (configuration.screenWidthDp < 600 && configuration.screenHeightDp < 700)
     val collapse = remember(compactHeight) { HeaderCollapse(compactHeight) }
-    // Bei geöffneter Tastatur (Suche) gehört der Platz den Ergebnissen.
-    val imeVisible = WindowInsets.isImeVisible
-    LaunchedEffect(imeVisible, searchSwitch, compactHeight) {
-        if (searchSwitch && compactHeight) collapse.offset = if (imeVisible) -collapse.height else 0f
-    }
     // Die Statusleiste verbraucht das Banner; die Bildschirme darunter haben keine eigene Leiste mehr.
     // Der Statuszeilen-Inset bleibt außerhalb des einklappbaren Kopfs, sonst rutscht der Inhalt beim Einklappen darunter.
     Column(
@@ -138,25 +126,19 @@ fun SpokenModeScaffold(
                         modifier = Modifier.height(40.dp),
                     )
                 },
+                // Wie im einzelnen Abo: Aktualisieren ganz rechts, die Suche links davon.
                 actions = {
-                    if (searchSwitch) {
-                        FilterChip(
-                            selected = searchAll,
-                            onClick = { viewModel.setSearchAll(!searchAll) },
-                            label = { Text(stringResource(R.string.search_hint_all)) },
-                            modifier = Modifier.padding(end = 8.dp),
-                        )
-                    } else if (mode == SpokenMode.MUSIC) {
-                        IconButton(onClick = viewModel::refreshMusic) {
+                    IconButton(onClick = onSearch) {
+                        Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(searchLabel(mode)))
+                    }
+                    when (mode) {
+                        SpokenMode.MUSIC -> IconButton(onClick = viewModel::refreshMusic) {
                             Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.settings_refresh_music))
                         }
-                    } else if (mode == SpokenMode.BOOKS) {
-                        IconButton(onClick = viewModel::refreshBooks) {
+                        SpokenMode.BOOKS -> IconButton(onClick = viewModel::refreshBooks) {
                             Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.spoken_abs_sync))
                         }
-                    }
-                    if (!searchSwitch && mode == SpokenMode.PODCASTS) {
-                        IconButton(onClick = viewModel::refreshPodcasts) {
+                        SpokenMode.PODCASTS -> IconButton(onClick = viewModel::refreshPodcasts) {
                             Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.podcast_refresh))
                         }
                     }
@@ -179,20 +161,14 @@ fun SpokenModeScaffold(
                 }
             }
         }
-        // Herunterziehen gleicht den Bereich ab (wie der Knopf oben); die Suche hat das nicht.
-        val onRefresh = when {
-            searchSwitch -> null
-            mode == SpokenMode.MUSIC -> viewModel::refreshMusic
-            mode == SpokenMode.BOOKS -> viewModel::refreshBooks
-            mode == SpokenMode.PODCASTS -> viewModel::refreshPodcasts
-            else -> null
+        // Herunterziehen gleicht den Bereich ab (wie der Knopf oben).
+        val onRefresh = when (mode) {
+            SpokenMode.MUSIC -> viewModel::refreshMusic
+            SpokenMode.BOOKS -> viewModel::refreshBooks
+            SpokenMode.PODCASTS -> viewModel::refreshPodcasts
         }
-        if (onRefresh != null) {
-            PullToRefreshBox(isRefreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
-                content(mode)
-            }
-        } else {
-            Box(Modifier.weight(1f).fillMaxWidth()) { content(mode) }
+        PullToRefreshBox(isRefreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
+            content(mode)
         }
     }
 }
@@ -226,6 +202,13 @@ private fun modeLabel(mode: SpokenMode): Int = when (mode) {
     SpokenMode.MUSIC -> R.string.spoken_mode_music
     SpokenMode.PODCASTS -> R.string.spoken_mode_podcasts
     SpokenMode.BOOKS -> R.string.spoken_mode_books
+}
+
+/** „In Musik suchen“ usw. */
+fun searchLabel(mode: SpokenMode): Int = when (mode) {
+    SpokenMode.MUSIC -> R.string.search_in_music
+    SpokenMode.PODCASTS -> R.string.search_in_podcasts
+    SpokenMode.BOOKS -> R.string.search_in_books
 }
 
 /** Quadratisches Buchcover; solange keines geladen ist (oder keines existiert), bleibt das Buch-Symbol sichtbar. */

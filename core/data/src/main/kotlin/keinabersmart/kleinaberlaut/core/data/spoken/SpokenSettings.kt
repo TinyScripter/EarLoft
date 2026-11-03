@@ -32,8 +32,8 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_MODE] = mode.name }
     }
 
-    /** Suche über Musik und Bücher zugleich (Standard: an); aus = nur der Inhalt des gewählten Modus. */
-    val searchAll: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_SEARCH_ALL] ?: true }
+    /** Suche über Musik, Podcasts und Bücher zugleich; aus (Standard) = nur der Inhalt des gewählten Modus. */
+    val searchAll: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_SEARCH_ALL] ?: false }
 
     suspend fun setSearchAll(enabled: Boolean) {
         context.spokenSettingsDataStore.edit { it[KEY_SEARCH_ALL] = enabled }

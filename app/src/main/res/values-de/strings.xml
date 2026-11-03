@@ -2,7 +2,6 @@
 
     <string name="nav_home">Start</string>
     <string name="nav_library">Bibliothek</string>
-    <string name="nav_search">Suche</string>
     <string name="nav_settings">Einstellungen</string>
     <string name="nav_downloads">Downloads</string>
 
@@ -60,6 +59,9 @@
     <string name="search_hint_podcasts">Folgen, Abos</string>
     <string name="search_hint_books">Bücher, Serien, Autoren</string>
     <string name="search_no_results">Nichts gefunden für „%1$s“.</string>
+    <string name="search_in_music">In Musik suchen</string>
+    <string name="search_in_podcasts">In Podcasts suchen</string>
+    <string name="search_in_books">In Büchern suchen</string>
 
     <!-- Player -->
     <string name="player_now_playing">Wird gespielt</string>

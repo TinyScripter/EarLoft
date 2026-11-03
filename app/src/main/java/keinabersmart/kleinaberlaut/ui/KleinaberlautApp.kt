@@ -126,7 +126,6 @@ import keinabersmart.kleinaberlaut.ui.spoken.SpokenLibraryScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenMiniPlayer
 import keinabersmart.kleinaberlaut.ui.spoken.BookGroupScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenModeHost
-import keinabersmart.kleinaberlaut.ui.spoken.SpokenModeScaffold
 import keinabersmart.kleinaberlaut.ui.spoken.LocalBookDownloads
 import keinabersmart.kleinaberlaut.ui.spoken.bookFraction
 import keinabersmart.kleinaberlaut.ui.spoken.rememberBookDownloads
@@ -174,6 +173,7 @@ fun KleinaberlautApp(
     val setupAudiobookshelf: () -> Unit = { navigator.navigate(AddAudiobookshelfRoute) }
     // Modus gewechselt: die Detailspalte des vorigen Modus schließen (Tab auf seine Startseite zurück).
     val closeDetail: () -> Unit = { navigator.navigate(navigationState.topLevelRoute) }
+    val openSearch: () -> Unit = { navigator.navigate(SearchRoute()) }
 
     val entryProvider = entryProvider {
         entry<HomeRoute> {
@@ -186,6 +186,7 @@ fun KleinaberlautApp(
                     ) },
                 books = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
                 onModeChange = closeDetail,
+                onSearch = openSearch,
             )
         }
         entry<LibraryRoute>(metadata = listPane()) {
@@ -207,6 +208,7 @@ fun KleinaberlautApp(
                     )
                 },
                 onModeChange = closeDetail,
+                onSearch = openSearch,
             )
         }
         entry<BookRoute> { route ->
@@ -254,17 +256,16 @@ fun KleinaberlautApp(
             PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack)
         }
         entry<SearchRoute> {
-            // Banner und Bereichswechsel wie bei Start und Bibliothek; der Bereich bestimmt, wo gesucht wird.
-            SpokenModeScaffold(onModeChange = {}, searchSwitch = true) {
-                SearchScreen(
-                    onAlbumClick = openAlbum,
-                    onArtistClick = openArtist,
-                    onBookClick = openBook,
-                    onFeedClick = openPodcast,
-                    onAuthorClick = { navigator.navigate(BookGroupRoute(BookGroupKind.AUTHOR, it)) },
-                    onSeriesClick = { navigator.navigate(BookGroupRoute(BookGroupKind.SERIES, it)) },
-                )
-            }
+            // Der Bereich von Start bzw. Bibliothek bestimmt, wo gesucht wird.
+            SearchScreen(
+                onBack = navigator::goBack,
+                onAlbumClick = openAlbum,
+                onArtistClick = openArtist,
+                onBookClick = openBook,
+                onFeedClick = openPodcast,
+                onAuthorClick = { navigator.navigate(BookGroupRoute(BookGroupKind.AUTHOR, it)) },
+                onSeriesClick = { navigator.navigate(BookGroupRoute(BookGroupKind.SERIES, it)) },
+            )
         }
         entry<PodcastSearchRoute>(metadata = nestedDetailPane()) { route ->
             PodcastSearchScreen(feedId = route.feedId, onBack = navigator::goBack, onEpisodeClick = openBook)

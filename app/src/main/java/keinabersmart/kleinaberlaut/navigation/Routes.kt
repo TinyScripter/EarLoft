@@ -56,6 +56,16 @@ data class PodcastInfoRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
+/**
+ * Suche im aktuellen Bereich (Musik, Podcasts oder Bücher), geöffnet über die Lupe im Kopf von Start und Bibliothek;
+ * liegt im Stack des Tabs, aus dem sie kam.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class SearchRoute(
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
 /** Suche in den Folgen eines Podcasts (Überschrift und Inhaltsangabe). */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable

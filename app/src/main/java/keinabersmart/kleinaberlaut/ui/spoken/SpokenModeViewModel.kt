@@ -24,8 +24,8 @@ class SpokenModeViewModel @Inject constructor(
 ) : ViewModel() {
     val mode: StateFlow<SpokenMode> = settings.mode.stateIn(viewModelScope, SharingStarted.Eagerly, SpokenMode.MUSIC)
 
-    /** „Überall suchen“; derselbe Wert wie der Schalter in den allgemeinen Einstellungen. */
-    val searchAll: StateFlow<Boolean> = settings.searchAll.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    /** „Überall suchen“ statt nur im gewählten Bereich (Schalter auf der Such-Seite, bleibt gespeichert). */
+    val searchAll: StateFlow<Boolean> = settings.searchAll.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun setSearchAll(enabled: Boolean) {
         viewModelScope.launch { settings.setSearchAll(enabled) }

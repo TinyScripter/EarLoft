@@ -13,9 +13,6 @@ data object HomeRoute : NavKey
 data object LibraryRoute : NavKey
 
 @Serializable
-data object SearchRoute : NavKey
-
-@Serializable
 data object DownloadsRoute : NavKey
 
 /** Ziele der Bottom-Bar; jedes hat einen eigenen Back Stack. */
@@ -26,7 +23,6 @@ enum class TopLevelDestination(
 ) {
     HOME(HomeRoute, R.drawable.ic_nav_home, R.string.nav_home),
     LIBRARY(LibraryRoute, R.drawable.ic_nav_library, R.string.nav_library),
-    SEARCH(SearchRoute, R.drawable.ic_nav_search, R.string.nav_search),
     SETTINGS(SettingsRoute, R.drawable.ic_nav_settings, R.string.nav_settings),
 }
 

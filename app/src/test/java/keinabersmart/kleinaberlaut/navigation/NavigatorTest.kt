@@ -59,7 +59,7 @@ class NavigatorTest {
     fun `tab shows its root again when switching away and back`() {
         navigator.navigate(LibraryRoute)
         navigator.navigate(AlbumDetail)
-        navigator.navigate(SearchRoute)
+        navigator.navigate(SettingsRoute)
         navigator.navigate(LibraryRoute)
 
         assertEquals(listOf(LibraryRoute), state.backStacks.getValue(LibraryRoute).toList())

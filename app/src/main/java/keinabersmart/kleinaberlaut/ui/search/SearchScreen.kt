@@ -3,9 +3,10 @@ package keinabersmart.kleinaberlaut.ui.search
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.annotation.StringRes
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,14 +16,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -36,7 +43,10 @@ import androidx.compose.material3.ListItem
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.style.TextOverflow
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.spoken.BookArt
+import keinabersmart.kleinaberlaut.ui.spoken.SpokenModeViewModel
+import keinabersmart.kleinaberlaut.ui.spoken.searchLabel
 import keinabersmart.kleinaberlaut.ui.spoken.FeedCard
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.ui.components.AlbumListItem
@@ -77,8 +87,13 @@ private fun LazyListScope.spokenSection(
     }
 }
 
+/**
+ * Suche im aktuellen Bereich wie die Suche im einzelnen Abo: oben Zurück und Eingabefeld (mit Fokus beim Öffnen),
+ * darunter der Bereich und der Schalter „Überall suchen“, der sich seinen Zustand merkt.
+ */
 @Composable
 fun SearchScreen(
+    onBack: () -> Unit,
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
     onBookClick: (Long) -> Unit,
@@ -87,37 +102,57 @@ fun SearchScreen(
     onSeriesClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
+    modeViewModel: SpokenModeViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
     val state by viewModel.results.collectAsStateWithLifecycle()
+    val mode by modeViewModel.mode.collectAsStateWithLifecycle()
+    val searchAll by modeViewModel.searchAll.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current
     val playControl: PlayControlViewModel = hiltViewModel()
     val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
     val playingBookId by playControl.playingBookId.collectAsStateWithLifecycle()
+    val focus = remember { FocusRequester() }
+    // Nur beim ersten Öffnen; zurück aus einem Treffer bleibt die Tastatur zu.
+    LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
 
     Column(modifier.fillMaxSize()) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = viewModel::onQueryChange,
-            placeholder = {
-                Text(stringResource(state.scope.hint))
-            },
-            leadingIcon = { Icon(painterResource(R.drawable.ic_nav_search), contentDescription = null) },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { viewModel.onQueryChange("") }) {
-                        Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_clear_search))
+        Row(Modifier.statusBarsPadding().padding(end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            BackButton(onBack)
+            OutlinedTextField(
+                value = query,
+                onValueChange = viewModel::onQueryChange,
+                placeholder = { Text(stringResource(state.scope.hint)) },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.onQueryChange("") }) {
+                            Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_clear_search))
+                        }
                     }
-                }
-            },
-            singleLine = true,
-            shape = MaterialTheme.shapes.extraLarge,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        )
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.extraLarge,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+                modifier = Modifier.weight(1f).focusRequester(focus),
+            )
+        }
+        Row(Modifier.padding(start = 68.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Mit „Überall“ gilt der Bereich nicht; dann steht nur der Schalter da.
+            Text(
+                if (searchAll) "" else stringResource(searchLabel(mode)),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            FilterChip(
+                selected = searchAll,
+                onClick = { modeViewModel.setSearchAll(!searchAll) },
+                label = { Text(stringResource(R.string.search_hint_all)) },
+            )
+        }
 
         val results = state.results
         when {

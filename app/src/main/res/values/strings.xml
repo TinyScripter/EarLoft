@@ -3,7 +3,6 @@
 
     <string name="nav_home">Home</string>
     <string name="nav_library">Library</string>
-    <string name="nav_search">Search</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_downloads">Downloads</string>
 
@@ -61,6 +60,9 @@
     <string name="search_hint_podcasts">Episodes, subscriptions</string>
     <string name="search_hint_books">Books, series, authors</string>
     <string name="search_no_results">Nothing found for “%1$s”.</string>
+    <string name="search_in_music">Search music</string>
+    <string name="search_in_podcasts">Search podcasts</string>
+    <string name="search_in_books">Search books</string>
 
     <!-- Player -->
     <string name="player_now_playing">Now playing</string>
