@@ -349,6 +349,9 @@ private fun FeedGrid(state: LoadState<List<PodcastFeed>>, onFeedClick: (String) 
     }
 }
 
+/** Eingegeben oder gespeichert als `http://`; ohne Schema ergänzt die App `https://`. */
+private fun isUnencrypted(url: String): Boolean = url.trim().startsWith("http://", ignoreCase = true)
+
 @Composable
 private fun AddPodcastDialog(state: AddPodcastState, onSubscribe: (String) -> Unit, onDismiss: () -> Unit) {
     var url by rememberSaveable { mutableStateOf("") }
@@ -369,6 +372,14 @@ private fun AddPodcastDialog(state: AddPodcastState, onSubscribe: (String) -> Un
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (isUnencrypted(url)) {
+                    Text(
+                        stringResource(R.string.podcast_add_http_hint),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
                 when (state) {
                     is AddPodcastState.Failed -> Text(
                         stringResource(state.message),
@@ -611,6 +622,14 @@ fun PodcastInfoScreen(
                         snackbars.show(copiedText)
                     },
                 )
+                // Auch für per OPML oder Datenbank übernommene Abos, die nie durch den Abo-Dialog gingen.
+                if (isUnencrypted(current.url)) {
+                    Text(
+                        stringResource(R.string.podcast_feed_unencrypted),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
     }

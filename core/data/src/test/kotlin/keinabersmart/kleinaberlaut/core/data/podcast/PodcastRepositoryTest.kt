@@ -41,6 +41,12 @@ class PodcastRepositoryTest {
 
     private val now = Instant.parse("2025-10-31T00:00:00Z").toEpochMilli()
 
+    /** `false`: Der Host spricht kein HTTPS. */
+    private var httpsAvailable = true
+
+    /** Alle abgerufenen Adressen in Reihenfolge. */
+    private val requested = mutableListOf<String>()
+
     @Before
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KleinaberlautDatabase::class.java)
@@ -48,6 +54,8 @@ class PodcastRepositoryTest {
             .build()
         val client = OkHttpClient.Builder()
             .addInterceptor { chain ->
+                requested += chain.request().url.toString()
+                if (chain.request().url.isHttps && !httpsAvailable) throw IOException("no TLS")
                 val body = served ?: throw IOException("offline")
                 Response.Builder()
                     .request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
@@ -81,6 +89,41 @@ class PodcastRepositoryTest {
         assertEquals("https://example.com/A.mp3", track.remoteFileId)
         assertEquals(600_000, track.durationMs)
         assertTrue(db.bookDao().book(episodes.first().id)!!.detailsLoaded)
+    }
+
+    @Test
+    fun `an http address is subscribed over https when the host offers it`() = runTest {
+        val feedId = (repository.subscribe("http://example.com/feed.xml") as SubscribeResult.Added).feedId
+
+        assertEquals("https://example.com/feed.xml", db.podcastDao().feed(feedId)!!.url)
+        assertEquals(listOf("https://example.com/feed.xml"), requested)
+    }
+
+    @Test
+    fun `without https the feed is subscribed unencrypted`() = runTest {
+        httpsAvailable = false
+
+        val feedId = (repository.subscribe("http://example.com/feed.xml") as SubscribeResult.Added).feedId
+
+        assertEquals("http://example.com/feed.xml", db.podcastDao().feed(feedId)!!.url)
+        assertEquals(listOf("https://example.com/feed.xml", "http://example.com/feed.xml"), requested)
+    }
+
+    @Test
+    fun `an http address finds the same feed already subscribed over https`() = runTest {
+        val feedId = subscribe()
+        requested.clear()
+
+        assertEquals(SubscribeResult.AlreadySubscribed(feedId), repository.subscribe("http://example.com/feed.xml"))
+        assertEquals(emptyList<String>(), requested)
+    }
+
+    @Test
+    fun `an unreachable host stays unreachable after both attempts`() = runTest {
+        served = null
+
+        assertEquals(SubscribeResult.Unreachable, repository.subscribe("http://example.com/feed.xml"))
+        assertEquals(2, requested.size)
     }
 
     @Test

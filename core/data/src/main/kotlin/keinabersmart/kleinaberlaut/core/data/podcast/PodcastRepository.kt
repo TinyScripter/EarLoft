@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import okhttp3.HttpUrl
 import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
@@ -186,21 +187,46 @@ class PodcastRepository @Inject constructor(
     /** Setzt die Folge an den Anfang zurück (auch den Zustand „gespielt“). */
     suspend fun resetPosition(bookId: Long) = setPlayed(bookId, played = false)
 
+    /**
+     * Abonniert den Feed unter [input]. Eine `http://`-Adresse wird zuerst still per HTTPS versucht und bei Erfolg so
+     * gespeichert; die meisten Hosts liefern beides. Erst wenn das scheitert, wird unverschlüsselt abonniert.
+     */
     suspend fun subscribe(input: String): SubscribeResult {
-        val url = normalizeFeedUrl(input) ?: return SubscribeResult.InvalidUrl
-        dao.feedByUrl(url.toString())?.let { return SubscribeResult.AlreadySubscribed(it.feedId) }
-        val fetched = try {
-            api.fetch(url) as FeedFetch.Fetched
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: PodcastFeedException) {
-            // Nur der Host: Private Feeds tragen ihr Zugangstoken in Pfad oder Query.
-            Log.w(TAG, "Kein Feed: ${url.host}", e)
-            return SubscribeResult.NotAFeed
-        } catch (e: IOException) {
-            Log.w(TAG, "Feed nicht erreichbar: ${url.host}", e)
-            return SubscribeResult.Unreachable
+        val entered = normalizeFeedUrl(input) ?: return SubscribeResult.InvalidUrl
+        val secure = if (entered.isHttps) null else entered.newBuilder().scheme("https").build()
+        for (url in listOfNotNull(secure, entered)) {
+            dao.feedByUrl(url.toString())?.let { return SubscribeResult.AlreadySubscribed(it.feedId) }
         }
+        if (secure != null) {
+            val attempt = fetchForSubscribe(secure)
+            if (attempt is SubscribeFetch.Loaded) return add(secure, attempt.fetched)
+            Log.i(TAG, "Kein HTTPS bei ${secure.host}, abonniere unverschlüsselt")
+        }
+        return when (val attempt = fetchForSubscribe(entered)) {
+            is SubscribeFetch.Loaded -> add(entered, attempt.fetched)
+            is SubscribeFetch.Failed -> attempt.result
+        }
+    }
+
+    private sealed interface SubscribeFetch {
+        data class Loaded(val fetched: FeedFetch.Fetched) : SubscribeFetch
+        data class Failed(val result: SubscribeResult) : SubscribeFetch
+    }
+
+    private suspend fun fetchForSubscribe(url: HttpUrl): SubscribeFetch = try {
+        SubscribeFetch.Loaded(api.fetch(url) as FeedFetch.Fetched)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: PodcastFeedException) {
+        // Nur der Host: Private Feeds tragen ihr Zugangstoken in Pfad oder Query.
+        Log.w(TAG, "Kein Feed: ${url.host}", e)
+        SubscribeFetch.Failed(SubscribeResult.NotAFeed)
+    } catch (e: IOException) {
+        Log.w(TAG, "Feed nicht erreichbar: ${url.host}", e)
+        SubscribeFetch.Failed(SubscribeResult.Unreachable)
+    }
+
+    private suspend fun add(url: HttpUrl, fetched: FeedFetch.Fetched): SubscribeResult {
         val feed = PodcastFeedEntity(feedId = UUID.randomUUID().toString(), url = url.toString(), title = fetched.feed.title.ifBlank { url.host })
         mutex.withLock { apply(feed, fetched) }
         return SubscribeResult.Added(feed.feedId)

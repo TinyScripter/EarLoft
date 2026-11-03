@@ -225,7 +225,7 @@
     <string name="add_server_url_hint" translatable="false">https://music.example.com</string>
     <string name="add_server_username">Username</string>
     <string name="add_server_password">Password</string>
-    <string name="add_server_http_warning">Unencrypted connection: username and music are transmitted in readable form. Only use this on your own home network.</string>
+    <string name="add_server_http_warning">Unencrypted connection: username, music and the login token are transmitted in readable form – anyone listening can reuse the token to access your server. Only use this on your own home network.</string>
     <string name="add_server_allow_http">Connect unencrypted anyway</string>
     <string name="add_server_test">Test connection</string>
     <string name="add_server_save">Save</string>
@@ -437,6 +437,7 @@
     <string name="spoken_abs_key_summary">Create it in Audiobookshelf under Settings → API Keys.</string>
     <string name="spoken_abs_edit">Edit Audiobookshelf server</string>
     <string name="spoken_abs_key_keep">Leave empty to keep the saved API key.</string>
+    <string name="spoken_abs_http_warning">Unencrypted connection: the API key and your books are transmitted in readable form – anyone listening can use the key to access your server. Only use this on your own home network.</string>
     <string name="spoken_abs_save">Save</string>
     <string name="spoken_abs_connect">Connect</string>
     <string name="spoken_abs_connecting">Connecting…</string>
@@ -460,6 +461,7 @@
     <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Subscribe</string>
     <string name="podcast_adding">Reading feed …</string>
+    <string name="podcast_add_http_hint">Unencrypted address: the app tries HTTPS first. If the host doesn’t offer it, the feed is loaded unencrypted – anyone on the network can see what you listen to and, for private feeds, the access key in the address.</string>
     <string name="podcast_error_invalid">That is not a valid address.</string>
     <string name="podcast_error_unreachable">The feed cannot be reached.</string>
     <string name="podcast_error_not_feed">There is no podcast feed (RSS or Atom) at this address.</string>
@@ -523,6 +525,7 @@
     <string name="podcast_no_description">No description available.</string>
     <string name="podcast_feed_url">Feed address (tap to copy)</string>
     <string name="podcast_url_copied">Address copied</string>
+    <string name="podcast_feed_unencrypted">Unencrypted (HTTP): the feed and its address can be read on the network.</string>
     <string name="podcast_tab_feeds">Subscriptions</string>
     <string name="podcast_tab_stats">Statistics</string>
     <string name="podcast_stats_empty">Nothing listened to yet. Your listening time appears here as soon as you play an episode or import a database under Settings → Podcasts.</string>

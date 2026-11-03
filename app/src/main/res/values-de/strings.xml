@@ -221,7 +221,7 @@
     <string name="add_server_url">Adresse</string>
     <string name="add_server_username">Benutzername</string>
     <string name="add_server_password">Passwort</string>
-    <string name="add_server_http_warning">Unverschlüsselte Verbindung: Benutzername und Musik werden lesbar übertragen. Nur im eigenen Heimnetz verwenden.</string>
+    <string name="add_server_http_warning">Unverschlüsselte Verbindung: Benutzername, Musik und der Anmelde-Token werden lesbar übertragen – wer mitliest, kann mit dem Token auf deinen Server zugreifen. Nur im eigenen Heimnetz verwenden.</string>
     <string name="add_server_allow_http">Trotzdem unverschlüsselt verbinden</string>
     <string name="add_server_test">Verbindung testen</string>
     <string name="add_server_save">Speichern</string>
@@ -433,6 +433,7 @@
     <string name="spoken_abs_key_summary">In Audiobookshelf unter Einstellungen → API-Schlüssel erstellen.</string>
     <string name="spoken_abs_edit">Audiobookshelf-Server bearbeiten</string>
     <string name="spoken_abs_key_keep">Leer lassen, um den gespeicherten API-Schlüssel zu behalten.</string>
+    <string name="spoken_abs_http_warning">Unverschlüsselte Verbindung: API-Schlüssel und Bücher werden lesbar übertragen – wer mitliest, kann mit dem Schlüssel auf deinen Server zugreifen. Nur im eigenen Heimnetz verwenden.</string>
     <string name="spoken_abs_save">Speichern</string>
     <string name="spoken_abs_connect">Verbinden</string>
     <string name="spoken_abs_connecting">Verbinde…</string>
@@ -456,6 +457,7 @@
     <string name="podcast_add_url_hint">https://example.com/feed.xml</string>
     <string name="podcast_add_confirm">Abonnieren</string>
     <string name="podcast_adding">Feed wird gelesen …</string>
+    <string name="podcast_add_http_hint">Unverschlüsselte Adresse: Die App versucht zuerst HTTPS. Bietet der Host das nicht, wird der Feed unverschlüsselt geladen – wer im Netz mitliest, sieht, was du hörst, bei privaten Feeds auch den Zugangsschlüssel in der Adresse.</string>
     <string name="podcast_error_invalid">Das ist keine gültige Adresse.</string>
     <string name="podcast_error_unreachable">Der Feed ist nicht erreichbar.</string>
     <string name="podcast_error_not_feed">Unter dieser Adresse liegt kein Podcast-Feed (RSS oder Atom).</string>
@@ -519,6 +521,7 @@
     <string name="podcast_no_description">Keine Beschreibung vorhanden.</string>
     <string name="podcast_feed_url">Feed-Adresse (Tipp kopiert sie)</string>
     <string name="podcast_url_copied">Adresse kopiert</string>
+    <string name="podcast_feed_unencrypted">Unverschlüsselt (HTTP): Feed und Adresse sind im Netz lesbar.</string>
     <string name="podcast_tab_feeds">Abos</string>
     <string name="podcast_tab_stats">Statistik</string>
     <string name="podcast_stats_empty">Noch nichts gehört. Deine Hörzeit erscheint hier, sobald du eine Folge abspielst oder unter Einstellungen → Podcasts eine Datenbank importierst.</string>

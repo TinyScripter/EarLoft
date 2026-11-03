@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -31,9 +33,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -140,6 +144,9 @@ fun AudiobookshelfFormScreen(
     var key by rememberSaveable { mutableStateOf("") }
     // Beim Bearbeiten: leer = gespeicherter Schlüssel bleibt.
     var hasStoredKey by rememberSaveable { mutableStateOf(false) }
+    // HTTP nur nach ausdrücklicher Bestätigung (Konzept 10), wie im Formular der Musik-Server.
+    var allowHttp by rememberSaveable { mutableStateOf(false) }
+    val isHttp = url.trim().startsWith("http://", ignoreCase = true)
     LaunchedEffect(serverId) {
         if (serverId == null) return@LaunchedEffect
         val server = viewModel.editable(serverId)
@@ -149,6 +156,8 @@ fun AudiobookshelfFormScreen(
             name = server.name
             url = server.baseUrl
             hasStoredKey = server.hasKey
+            // Ein schon per HTTP eingerichteter Server war bestätigt.
+            allowHttp = server.baseUrl.startsWith("http://", ignoreCase = true)
         }
     }
     LaunchedEffect(connectState) { if (connectState == ConnectState.Connected) onDone() }
@@ -177,6 +186,24 @@ fun AudiobookshelfFormScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
+            if (isHttp) {
+                Text(
+                    stringResource(R.string.spoken_abs_http_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                // Die ganze Zeile schaltet um; die Checkbox selbst trägt keinen Klick und keinen eigenen Namen.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(value = allowHttp, role = Role.Checkbox, onValueChange = { allowHttp = it }),
+                ) {
+                    Checkbox(checked = allowHttp, onCheckedChange = null)
+                    Text(stringResource(R.string.add_server_allow_http), modifier = Modifier.padding(start = 8.dp))
+                }
+            }
             OutlinedTextField(
                 value = key,
                 onValueChange = { key = it },
@@ -199,7 +226,8 @@ fun AudiobookshelfFormScreen(
             }
             Button(
                 onClick = { viewModel.connect(serverId, name, url, key) },
-                enabled = url.isNotBlank() && (key.isNotBlank() || hasStoredKey) && connectState != ConnectState.Connecting,
+                enabled = url.isNotBlank() && (key.isNotBlank() || hasStoredKey) && (!isHttp || allowHttp) &&
+                    connectState != ConnectState.Connecting,
                 modifier = Modifier.padding(top = 16.dp),
             ) {
                 Text(
