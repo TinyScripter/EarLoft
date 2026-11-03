@@ -134,13 +134,7 @@ class PlaybackService : MediaLibraryService() {
         }
         val localPlayer = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .build(),
-                /* handleAudioFocus = */ true,
-            )
+            .setAudioAttributes(audioAttributes(C.AUDIO_CONTENT_TYPE_MUSIC), /* handleAudioFocus = */ true)
             .setHandleAudioBecomingNoisy(true)
             // Uhr: nicht über den Lautsprecher; Wear OS bietet stattdessen die Bluetooth-Ausgabe an (Wear-Konzept 9).
             .setSuppressPlaybackOnUnsuitableOutput(playbackPolicy.requireSuitableOutput)
@@ -148,6 +142,7 @@ class PlaybackService : MediaLibraryService() {
             .build()
         localPlayer.addListener(SourceErrorRecovery(localPlayer))
         localPlayer.addListener(WakeModeListener(localPlayer, playbackPolicy.allowStreaming))
+        localPlayer.addListener(ContentTypeListener(localPlayer))
         localPlayer.addListener(object : Player.Listener {
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
                 replayGain.shuffleEnabled = shuffleModeEnabled
@@ -375,6 +370,22 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    /**
+     * Bücher und Folgen als Sprache: Bei kurzem Fokusverlust (Navigationsansage) pausiert ExoPlayer dann, statt nur leiser
+     * zu werden; bei Sprache ginge sonst Inhalt verloren. Musik wird weiter nur leiser.
+     */
+    private class ContentTypeListener(private val player: ExoPlayer) : Player.Listener {
+        private var currentType = C.AUDIO_CONTENT_TYPE_MUSIC
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val type = if (mediaItem?.isSpoken == true) C.AUDIO_CONTENT_TYPE_SPEECH else C.AUDIO_CONTENT_TYPE_MUSIC
+            if (type != currentType) {
+                currentType = type
+                player.setAudioAttributes(audioAttributes(type), /* handleAudioFocus = */ true)
+            }
+        }
+    }
+
     /** Hält Warteschlange, Position und Beobachter (Widget) aktuell. */
     private inner class PersistenceListener(private val player: Player) : Player.Listener {
 
@@ -428,3 +439,9 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 }
+
+private fun audioAttributes(contentType: @C.AudioContentType Int): AudioAttributes =
+    AudioAttributes.Builder()
+        .setUsage(C.USAGE_MEDIA)
+        .setContentType(contentType)
+        .build()

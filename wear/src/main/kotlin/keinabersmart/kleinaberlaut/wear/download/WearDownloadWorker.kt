@@ -23,6 +23,7 @@ import keinabersmart.kleinaberlaut.core.download.DownloadOutcome
 import keinabersmart.kleinaberlaut.core.download.DownloadProfile
 import keinabersmart.kleinaberlaut.core.download.DownloadStorage
 import keinabersmart.kleinaberlaut.core.download.Downloader
+import keinabersmart.kleinaberlaut.core.download.ProgressThrottle
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
 import keinabersmart.kleinaberlaut.wear.R
 import kotlinx.coroutines.Dispatchers
@@ -86,13 +87,10 @@ class WearDownloadWorker(
                     return Result.success()
                 }
                 state.setWaitingForWifi(false)
-                var lastPercent = -1
+                val throttle = ProgressThrottle()
                 val outcome = downloader.download(next, profile, lease.network) { done, total ->
-                    val percent = total?.let { (done * 100 / it).toInt() } ?: -1
-                    if (percent != lastPercent) {
-                        lastPercent = percent
-                        notify(percent.takeIf { it >= 0 })
-                    }
+                    val percent = throttle.next(done, total)
+                    if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
                 }
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
@@ -164,13 +162,10 @@ class WearDownloadWorker(
         // Zurück auf QUEUED: aus RUNNING (Netzfehler) bzw. FAILED (Server hat abgelehnt).
         downloadDao.requeue(uid)
         downloadDao.retryFailed(listOf(uid))
-        var lastPercent = -1
+        val throttle = ProgressThrottle()
         return when (val outcome = phoneFetcher.fetch(download) { done, total ->
-            val percent = total?.let { (done * 100 / it).toInt() } ?: -1
-            if (percent != lastPercent) {
-                lastPercent = percent
-                notify(percent.takeIf { it >= 0 })
-            }
+            val percent = throttle.next(done, total)
+            if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
         }) {
             DownloadOutcome.Done -> {
                 state.clearServerFailures(uid)

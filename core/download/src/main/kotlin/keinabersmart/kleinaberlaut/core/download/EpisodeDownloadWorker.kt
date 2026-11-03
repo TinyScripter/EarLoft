@@ -39,16 +39,13 @@ class EpisodeDownloadWorker(
 
         while (true) {
             val next = dao.nextQueuedDownload() ?: break
-            var lastPercent = -1
+            val throttle = ProgressThrottle()
             progress.report(next.bookId, 0, null)
             val outcome = try {
                 downloader.download(next) { done, total ->
                     progress.report(next.bookId, done, total)
-                    val percent = total?.let { (done * 100 / it).toInt() } ?: -1
-                    if (percent != lastPercent) {
-                        lastPercent = percent
-                        notify(percent.takeIf { it >= 0 })
-                    }
+                    val percent = throttle.next(done, total)
+                    if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
                 }
             } finally {
                 progress.clear(next.bookId)

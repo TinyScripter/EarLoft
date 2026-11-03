@@ -194,10 +194,11 @@ class PodcastRepository @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: PodcastFeedException) {
-            Log.w(TAG, "Kein Feed: $url", e)
+            // Nur der Host: Private Feeds tragen ihr Zugangstoken in Pfad oder Query.
+            Log.w(TAG, "Kein Feed: ${url.host}", e)
             return SubscribeResult.NotAFeed
         } catch (e: IOException) {
-            Log.w(TAG, "Feed nicht erreichbar: $url", e)
+            Log.w(TAG, "Feed nicht erreichbar: ${url.host}", e)
             return SubscribeResult.Unreachable
         }
         val feed = PodcastFeedEntity(feedId = UUID.randomUUID().toString(), url = url.toString(), title = fetched.feed.title.ifBlank { url.host })

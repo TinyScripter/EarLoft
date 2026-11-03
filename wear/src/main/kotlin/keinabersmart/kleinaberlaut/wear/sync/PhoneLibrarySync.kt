@@ -23,6 +23,7 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearServersDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
 import keinabersmart.kleinaberlaut.core.wearsync.assetPayloadsAt
+import keinabersmart.kleinaberlaut.core.wearsync.hashesAt
 import keinabersmart.kleinaberlaut.core.wearsync.payloadsAt
 import keinabersmart.kleinaberlaut.core.wearsync.sendPayload
 import keinabersmart.kleinaberlaut.wear.download.WatchState
@@ -52,6 +53,14 @@ class PhoneLibrarySync @Inject constructor(
         val settingsChanged = dataClient.payloadsAt(WearPaths.SETTINGS).values.firstOrNull()
             ?.let { state.updateSettings(WearCodec.decode<WearSettingsDto>(it)) } == true
         val servers = dataClient.payloadsAt(WearPaths.SERVERS).entries.firstOrNull()
+        // Jeder Prozessstart der Uhr stößt einen Lauf an (Nachricht vom Handy, Download-Versuch, Kachel …). Ist seit der
+        // letzten Übernahme nichts Neues gekommen, bleibt es beim Nachfragen nach Passwörtern und beim Planen.
+        val stamp = "${servers?.value?.let(WearCodec::hash)}:${dataClient.hashesAt(WearPaths.MANIFEST).values.firstOrNull()}"
+        if (!settingsChanged && stamp == state.appliedPhoneStamp) {
+            servers?.let { requestMissingPasswords(phoneNodeId = it.key) }
+            planner.plan()
+            return@withLock
+        }
         if (servers != null) {
             val dto = WearCodec.decode<WearServersDto>(servers.value)
             serverMirror.apply(dto.servers.map { MirroredServer(it.sourceId, it.name, it.baseUrl, it.username, it.priority, it.formPost) })
@@ -60,6 +69,7 @@ class PhoneLibrarySync @Inject constructor(
         dataClient.assetPayloadsAt(WearPaths.MANIFEST).values.firstOrNull()
             ?.let { manifestApplier.apply(WearCodec.decodeManifest(it)) }
         planner.plan(replaceSchedule = settingsChanged)
+        state.appliedPhoneStamp = stamp
     }
 
     /**

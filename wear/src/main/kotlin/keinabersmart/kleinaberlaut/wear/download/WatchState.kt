@@ -40,6 +40,11 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     /** Der letzte Lauf bekam kein WLAN (aus oder außer Reichweite); die Downloads warten auf den nächsten Versuch. */
     val waitingForWifi: StateFlow<Boolean> = _waitingForWifi.asStateFlow()
 
+    /** Server und Manifest vom Handy, die zuletzt vollständig übernommen wurden (siehe `PhoneLibrarySync`). */
+    var appliedPhoneStamp: String?
+        get() = prefs.getString(KEY_APPLIED_STAMP, null)
+        set(value) = prefs.edit().putString(KEY_APPLIED_STAMP, value).apply()
+
     /** @return `true`, wenn sich etwas geändert hat. */
     fun updateSettings(settings: WearSettingsDto): Boolean {
         if (settings == _settings.value) return false
@@ -107,5 +112,6 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_MISSING = "missing_for_storage"
         private const val KEY_LAST_ERROR = "last_error"
         private const val KEY_WAITING_WIFI = "waiting_wifi"
+        private const val KEY_APPLIED_STAMP = "applied_phone_stamp"
     }
 }

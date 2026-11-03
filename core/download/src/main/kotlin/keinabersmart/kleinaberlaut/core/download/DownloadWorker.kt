@@ -44,13 +44,10 @@ class DownloadWorker(
 
         while (true) {
             val next = downloadDao.nextQueued() ?: break
-            var lastPercent = -1
+            val throttle = ProgressThrottle()
             val outcome = downloader.download(next) { done, total ->
-                val percent = total?.let { (done * 100 / it).toInt() } ?: -1
-                if (percent != lastPercent) {
-                    lastPercent = percent
-                    notify(percent.takeIf { it >= 0 })
-                }
+                val percent = throttle.next(done, total)
+                if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
             }
             when (outcome) {
                 is DownloadOutcome.Retry -> {

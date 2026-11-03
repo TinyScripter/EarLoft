@@ -46,16 +46,13 @@ class BookDownloadWorker(
             val finished = files.filter { it.downloadState == TrackDownload.DONE }
             val filesDone = finished.size
             val finishedBytes = finished.sumOf { it.fileSize }
-            var lastPercent = -1
+            val throttle = ProgressThrottle()
             progress.report(next.bookId, filesDone, files.size, finishedBytes, 0, null)
             val outcome = try {
                 downloader.download(next) { done, total ->
                     progress.report(next.bookId, filesDone, files.size, finishedBytes, done, total)
-                    val percent = total?.let { (done * 100 / it).toInt() } ?: -1
-                    if (percent != lastPercent) {
-                        lastPercent = percent
-                        notify(percent.takeIf { it >= 0 })
-                    }
+                    val percent = throttle.next(done, total)
+                    if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
                 }
             } finally {
                 progress.clear(next.bookId)
