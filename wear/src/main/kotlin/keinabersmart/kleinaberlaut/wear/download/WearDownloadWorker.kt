@@ -32,7 +32,7 @@ import kotlin.coroutines.cancellation.CancellationException
 /**
  * Lädt die eingereihten Songs der Auswahlen vom Server (Wear-Konzept 8.2): nur über ein ausdrücklich
  * angefordertes WLAN, nach Einstellung nur am Ladegerät (Bedingung des Auftrags, siehe [WearDownloadScheduler]).
- * Ohne WLAN versucht WorkManager es später mit Backoff erneut. Songs, die nur das Handy hat, und Songs, bei
+ * Ohne WLAN versucht WorkManager es später mit Backoff erneut, nach [MAX_WIFI_ATTEMPTS] Versuchen erst am Ladegerät. Songs, die nur das Handy hat, und Songs, bei
  * denen der Server dreimal gescheitert ist, kommen über das Handy ([PhoneFileFetcher], Konzept 8.3/8.4).
  */
 class WearDownloadWorker(
@@ -74,9 +74,16 @@ class WearDownloadWorker(
                 lease = lease ?: entryPoint.wifi().acquire()
                 if (lease == null) {
                     // Kein WLAN zählt nicht als Fehlversuch des Servers: Sonst käme die ganze Auswahl über Bluetooth.
-                    Log.i(TAG, "Kein WLAN, später erneut (Versuch ${runAttemptCount + 1})")
                     state.setWaitingForWifi(true)
-                    return Result.retry()
+                    if (runAttemptCount + 1 < MAX_WIFI_ATTEMPTS) {
+                        Log.i(TAG, "Kein WLAN, später erneut (Versuch ${runAttemptCount + 1})")
+                        return Result.retry()
+                    }
+                    // Jeder Versuch startet einen Vordergrunddienst und schaltet das WLAN bis zu 30 s ein: nach einigen
+                    // Versuchen erst am Ladegerät weiter.
+                    Log.i(TAG, "Kein WLAN nach ${runAttemptCount + 1} Versuchen, weiter am Ladegerät")
+                    entryPoint.scheduler().enqueueOnCharger()
+                    return Result.success()
                 }
                 state.setWaitingForWifi(false)
                 var lastPercent = -1
@@ -259,6 +266,7 @@ class WearDownloadWorker(
         fun artwork(): ArtworkRepository
         fun coverFiles(): CoverFiles
         fun phoneFetcher(): PhoneFileFetcher
+        fun scheduler(): WearDownloadScheduler
     }
 
     private companion object {
@@ -266,6 +274,9 @@ class WearDownloadWorker(
         const val CHANNEL_ID = "wear-downloads"
         const val NOTIFICATION_ID = 2002
         const val COVER_SIZE_PX = 400
+
+        /** Bei exponentiellem Backoff ab 30 s rund eine Viertelstunde. */
+        const val MAX_WIFI_ATTEMPTS = 5
     }
 }
 

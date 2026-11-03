@@ -20,6 +20,7 @@ import javax.inject.Singleton
 /**
  * Startet den [WearDownloadWorker]. Anders als am Handy gibt es keine Netz-Bedingung: Der Worker fordert
  * WLAN selbst an, weil der Bluetooth-Proxy des Handys für WorkManager ebenfalls als Netz gilt (Wear-Konzept 8.2).
+ * Nie bei niedrigem Akku; nach Einstellung oder nach mehreren Versuchen ohne WLAN ([enqueueOnCharger]) nur am Ladegerät.
  */
 @Singleton
 class WearDownloadScheduler @Inject constructor(
@@ -28,16 +29,29 @@ class WearDownloadScheduler @Inject constructor(
 ) : DownloadScheduler {
 
     override suspend fun enqueue(replace: Boolean) {
+        enqueue(requireCharging = state.settings.value.requireCharging, policy = if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE)
+    }
+
+    /**
+     * Aus dem laufenden Worker, wenn es wiederholt kein WLAN gab: erst am Ladegerät weiter (dort ist die Uhr meist im WLAN),
+     * statt alle paar Minuten das WLAN einzuschalten. Wird angehängt, läuft also nach dem jetzigen Auftrag; eine neue
+     * Auswahl ersetzt ihn wieder durch einen normalen.
+     */
+    fun enqueueOnCharger() {
+        enqueue(requireCharging = true, policy = ExistingWorkPolicy.APPEND_OR_REPLACE)
+    }
+
+    private fun enqueue(requireCharging: Boolean, policy: ExistingWorkPolicy) {
         val request = OneTimeWorkRequestBuilder<WearDownloadWorker>()
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
-                    .setRequiresCharging(state.settings.value.requireCharging)
+                    .setRequiresCharging(requireCharging)
+                    .setRequiresBatteryNotLow(true)
                     .build(),
             )
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        val policy = if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE
         WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request)
     }
 

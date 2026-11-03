@@ -129,6 +129,7 @@ class PodcastRefresher @Inject constructor(
         }
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(if (mobile) NetworkType.CONNECTED else NetworkType.UNMETERED)
+            .setRequiresBatteryNotLow(true)
             .build()
         val request = PeriodicWorkRequestBuilder<PodcastRefreshWorker>(hours.toLong(), TimeUnit.HOURS)
             .setConstraints(constraints)
