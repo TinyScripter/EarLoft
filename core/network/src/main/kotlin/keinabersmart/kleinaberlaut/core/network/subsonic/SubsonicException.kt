@@ -2,8 +2,8 @@ package keinabersmart.kleinaberlaut.core.network.subsonic
 
 import java.io.IOException
 
-/** Der Server hat mit `status = failed` geantwortet. */
-class SubsonicException(val code: Int, message: String?) : IOException("Subsonic-Fehler $code: $message") {
+/** Der Server hat mit `status = failed` geantwortet; [serverMessage] ist seine Meldung ohne Code. */
+class SubsonicException(val code: Int, val serverMessage: String?) : IOException("Subsonic-Fehler $code: $serverMessage") {
 
     val isAuthError: Boolean get() = code == WRONG_CREDENTIALS || code == TOKEN_AUTH_NOT_SUPPORTED || code == NOT_AUTHORIZED
 

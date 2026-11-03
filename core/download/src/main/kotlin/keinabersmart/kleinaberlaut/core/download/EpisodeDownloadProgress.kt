@@ -18,8 +18,12 @@ class EpisodeDownloadProgress @Inject constructor() {
     /** Folge → Anteil; nur für Folgen, die gerade laden. */
     val fractions: StateFlow<Map<Long, Float>> = _fractions.asStateFlow()
 
+    /**
+     * Auf ganze Prozent gerundet: Bleibt der Wert gleich, ist auch die Map gleich und der [StateFlow] meldet nichts –
+     * die Folgenliste setzt sich so höchstens hundertmal je Download neu zusammen (Review C5).
+     */
     internal fun report(bookId: Long, done: Long, total: Long?) {
-        val fraction = if (total != null && total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else UNKNOWN
+        val fraction = if (total != null && total > 0) (done * 100 / total).coerceIn(0, 100) / 100f else UNKNOWN
         _fractions.update { it + (bookId to fraction) }
     }
 

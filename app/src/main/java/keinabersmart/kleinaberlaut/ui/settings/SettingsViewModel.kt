@@ -31,6 +31,7 @@ import keinabersmart.kleinaberlaut.core.data.spoken.SpokenRefresher
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
+import keinabersmart.kleinaberlaut.core.data.sync.SyncFailure
 import keinabersmart.kleinaberlaut.core.data.sync.SyncSettings
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadSettings
@@ -59,8 +60,8 @@ import javax.inject.Inject
 
 data class ServerItem(
     val server: ServerInfo,
-    /** Meldung des letzten fehlgeschlagenen Abgleichs. */
-    val error: String?,
+    /** Grund des letzten fehlgeschlagenen Abgleichs. */
+    val error: SyncFailure?,
     /** Das gespeicherte Passwort ist nicht mehr lesbar; der Nutzer muss es beim Bearbeiten neu eingeben. */
     val passwordLost: Boolean = false,
     /** Von diesem Server wird alles automatisch heruntergeladen. */
@@ -163,7 +164,7 @@ class SettingsViewModel @Inject constructor(
         servers.map {
             ServerItem(
                 server = it,
-                error = failures[it.sourceId]?.let { e -> e.message ?: e.javaClass.simpleName },
+                error = failures[it.sourceId],
                 passwordLost = it.sourceId in unusable,
                 autoDownload = it.sourceId in autoServers,
             )

@@ -83,7 +83,7 @@ class ServerRepository @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: SubsonicException) {
-            if (e.isAuthError) ConnectionResult.WrongCredentials else ConnectionResult.ServerError(e.code, e.message)
+            if (e.isAuthError) ConnectionResult.WrongCredentials else ConnectionResult.ServerError(e.code, e.serverMessage)
         } catch (_: NotSubsonicException) {
             ConnectionResult.NotSubsonic
         } catch (e: HttpStatusException) {

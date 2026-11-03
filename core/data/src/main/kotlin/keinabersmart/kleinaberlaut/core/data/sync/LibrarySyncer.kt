@@ -38,7 +38,7 @@ class LibrarySyncer @Inject constructor(
 ) {
     private val mutex = Mutex()
     private val runningSyncs = MutableStateFlow(0)
-    private val failedSyncs = MutableStateFlow<Map<String, Exception>>(emptyMap())
+    private val failedSyncs = MutableStateFlow<Map<String, SyncFailure>>(emptyMap())
 
     /** Nur im Speicher: nach einem Neustart genügt `lastFullSyncAt` als Grenze. Zugriff nur unter [mutex]. */
     private val lastQuickSyncAt = HashMap<String, Long>()
@@ -47,7 +47,7 @@ class LibrarySyncer @Inject constructor(
     val activeSyncs: StateFlow<Int> = runningSyncs.asStateFlow()
 
     /** Fehler des jeweils letzten Abgleichs je `sourceId`; ein erfolgreicher Abgleich entfernt den Eintrag. */
-    val failures: StateFlow<Map<String, Exception>> = failedSyncs.asStateFlow()
+    val failures: StateFlow<Map<String, SyncFailure>> = failedSyncs.asStateFlow()
 
     /** Wie [sync], fängt aber Fehler ab und merkt sie sich in [failures]. @return `true` bei Erfolg. */
     suspend fun syncSafely(source: MusicDataSource): Boolean =
@@ -59,7 +59,7 @@ class LibrarySyncer @Inject constructor(
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Abgleich von ${source.sourceId} fehlgeschlagen", e)
-            failedSyncs.update { it + (source.sourceId to e) }
+            failedSyncs.update { it + (source.sourceId to SyncFailure.of(e)) }
             false
         }
 
