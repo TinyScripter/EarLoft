@@ -214,7 +214,7 @@ private fun LazyListScope.serverSection(stats: ServerBookStats, stale: Boolean, 
     }
     item(key = "server-months") {
         if (stats.hasHistory) {
-            BarChart(stats.months.toBars(), stringResource(R.string.podcast_stats_hours_per_month), Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            BarChart(stats.months.toBars(LocalConfiguration.current.locales[0]), stringResource(R.string.podcast_stats_hours_per_month), Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
         }
     }
     item(key = "server-weekdays") {
@@ -259,7 +259,7 @@ private fun LazyListScope.deviceSection(stats: DeviceBookStats, onBookClick: (Lo
     }
     item(key = "device-months") {
         if (stats.hasHistory) {
-            BarChart(stats.months.toBars(), stringResource(R.string.podcast_stats_hours_per_month), Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            BarChart(stats.months.toBars(LocalConfiguration.current.locales[0]), stringResource(R.string.podcast_stats_hours_per_month), Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
         }
     }
 }
@@ -274,5 +274,5 @@ private fun BookListeningRow(book: BookListening, onBookClick: (Long) -> Unit) {
     )
 }
 
-private fun List<MonthListening>.toBars() =
-    map { StatBar(Month.of(it.month).getDisplayName(TextStyle.SHORT, Locale.getDefault()), it.listenedMs) }
+private fun List<MonthListening>.toBars(locale: Locale) =
+    map { StatBar(Month.of(it.month).getDisplayName(TextStyle.SHORT, locale), it.listenedMs) }

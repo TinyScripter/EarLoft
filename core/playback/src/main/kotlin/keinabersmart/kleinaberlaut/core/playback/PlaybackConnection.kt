@@ -210,6 +210,17 @@ class PlaybackConnection @Inject constructor(
     }
 
     /**
+     * Sprachsuche („Spiele … mit kleinaberlaut“): ein Item ohne Media-ID mit [query] als Suchbegriff; die Session sucht die
+     * Songs aus (`LibrarySessionCallback.voiceSongs`, leerer Begriff = gemischte Favoriten), wie bei Android Auto.
+     */
+    fun playFromSearch(query: String) = withController {
+        val request = MediaItem.RequestMetadata.Builder().setSearchQuery(query).build()
+        setMediaItem(MediaItem.Builder().setRequestMetadata(request).build())
+        prepare()
+        play()
+    }
+
+    /**
      * Startet ein Hörbuch an der gespeicherten Stelle (oder bei [startPositionMs], z. B. einem Kapitel), nachdem der
      * Fortschritt mit dem Server abgeglichen ist.
      * `null`, wenn das Buch nicht zu laden ist (kein Netz und noch nie geladen).

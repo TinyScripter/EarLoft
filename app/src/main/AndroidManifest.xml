@@ -8,8 +8,11 @@
     <!-- Server im Heimnetz (z. B. http://192.168.x.x): ab Android 17 nur mit dieser Berechtigung erreichbar. -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
 
+    <!-- MissingMediaBrowserServiceIntentFilter: Der PlaybackService samt Filter steht im Manifest von core:playback, das
+         Lint hier nicht mitliest. -->
     <application
         android:name=".KleinaberlautApplication"
+        tools:ignore="MissingMediaBrowserServiceIntentFilter"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -31,6 +34,12 @@
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Sprachsuche („Spiele … mit kleinaberlaut“); Android Auto geht über die Session. -->
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 

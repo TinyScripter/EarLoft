@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -47,7 +48,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import java.time.Month
 import java.time.format.TextStyle
-import java.util.Locale
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -121,8 +121,9 @@ fun PodcastStatsScreen(
         item(key = "history") { SectionHeader(stringResource(R.string.podcast_stats_history)) }
         item(key = "chart") {
             if (current.hasHistory) {
+                val locale = LocalConfiguration.current.locales[0]
                 BarChart(
-                    current.months.map { StatBar(Month.of(it.month).getDisplayName(TextStyle.SHORT, Locale.getDefault()), it.listenedMs) },
+                    current.months.map { StatBar(Month.of(it.month).getDisplayName(TextStyle.SHORT, locale), it.listenedMs) },
                     stringResource(R.string.podcast_stats_hours_per_month),
                     Modifier.padding(horizontal = 16.dp),
                 )

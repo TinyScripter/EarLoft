@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Vorschau in der Widget-Auswahl (4×1); bildet NowPlayingWidget nach: Cover links, Text und Steuerung zentriert. -->
+<!-- Vorschau in der Widget-Auswahl (4×1); bildet NowPlayingWidget nach: Cover links, Text und Steuerung zentriert.
+     UseAppTint: Der Launcher bläht das Layout als RemoteViews ohne AppCompat auf, dort wirkt nur android:tint. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="UseAppTint"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/now_playing_widget_preview_bg"

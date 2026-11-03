@@ -40,7 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -309,14 +309,14 @@ class BookLaunchViewModel @Inject constructor(val launcher: BookLauncher) : View
 /** Einmal an der Wurzel der App: zeigt die Hinweise des [BookLauncher] als Snackbar. */
 @Composable
 fun BookLaunchEffect(viewModel: BookLaunchViewModel = hiltViewModel()) {
-    val context = LocalContext.current
+    val resources = LocalResources.current
     val snackbars = LocalSnackbars.current
     LaunchedEffect(viewModel) {
         viewModel.launcher.events.collect { event ->
             val text = when (event) {
-                BookLaunchEvent.Failed -> context.getString(R.string.spoken_play_failed)
+                BookLaunchEvent.Failed -> resources.getString(R.string.spoken_play_failed)
                 is BookLaunchEvent.ResumedFromServer ->
-                    context.getString(R.string.spoken_resumed_from_server, formatClock(event.positionMs))
+                    resources.getString(R.string.spoken_resumed_from_server, formatClock(event.positionMs))
             }
             snackbars.show(text, SnackbarDuration.Long)
         }
