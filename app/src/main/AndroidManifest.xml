@@ -8,6 +8,14 @@
     <!-- Server im Heimnetz (z. B. http://192.168.x.x): ab Android 17 nur mit dieser Berechtigung erreichbar. -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
 
+    <!-- Widget: Die Startbildschirm-App finden, damit sie das Cover laden darf (Paket-Sichtbarkeit ab API 30). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+    </queries>
+
     <!-- MissingMediaBrowserServiceIntentFilter: Der PlaybackService samt Filter steht im Manifest von core:playback, das
          Lint hier nicht mitliest. -->
     <application

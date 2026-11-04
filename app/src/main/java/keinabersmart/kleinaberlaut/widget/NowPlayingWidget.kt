@@ -30,6 +30,7 @@ import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.ImageProvider
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.LocalSize
 import androidx.glance.appwidget.SizeMode
@@ -128,13 +129,13 @@ private fun NowPlayingContent(state: WidgetState) {
         // 1. Cover: füllt die volle Höhe, die Breite folgt dem Seitenverhältnis (Album quadratisch, Buch hochkant), unverzerrt
         // und ohne Leerraum links. Ohne feste Breite würde ein quadratisches Cover in einem zu breiten Feld mittig stehen.
         val coverHeight = (LocalSize.current.height - WIDGET_PADDING * 2).coerceAtLeast(MIN_COVER)
-        val cover = state.cover
-        val coverWidth = if (cover != null && cover.height > 0) coverHeight * (cover.width.toFloat() / cover.height) else coverHeight
+        val coverUri = state.coverUri
+        val coverWidth = if (coverUri != null) coverHeight * state.coverAspectRatio else coverHeight
         Image(
-            provider = cover?.let { ImageProvider(it) } ?: ImageProvider(DesignR.drawable.ic_music_note),
+            provider = coverUri?.let { ImageProvider(it) } ?: ImageProvider(DesignR.drawable.ic_music_note),
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            colorFilter = if (cover == null) ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant) else null,
+            colorFilter = if (coverUri == null) ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant) else null,
             modifier = GlanceModifier
                 .size(width = coverWidth, height = coverHeight)
                 .cornerRadius(12.dp),

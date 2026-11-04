@@ -5,9 +5,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.PowerManager
 import android.os.SystemClock
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
@@ -26,6 +29,7 @@ import keinabersmart.kleinaberlaut.core.data.repository.seedColorOf
 import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
+import keinabersmart.kleinaberlaut.core.playback.CoverProvider
 import keinabersmart.kleinaberlaut.core.playback.NowPlaying
 import keinabersmart.kleinaberlaut.core.playback.NowPlayingObserver
 import keinabersmart.kleinaberlaut.core.playback.ServicePlayer
@@ -45,6 +49,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -94,7 +99,13 @@ data class BookClock(
 
 data class WidgetState(
     val nowPlaying: NowPlaying? = null,
-    val cover: Bitmap? = null,
+    /**
+     * Cover über den [CoverProvider]; `null` = keins. Der Launcher lädt es selbst, statt es mit jeder Aktualisierung als
+     * Bild zu bekommen (bei Tempo ≠ 1× alle 10 s).
+     */
+    val coverUri: Uri? = null,
+    /** Breite durch Höhe des Covers (Album quadratisch, Buch meist hochkant). */
+    val coverAspectRatio: Float = 1f,
     /** Grundfarbe des Covers (ARGB) für die Widget-Farben; `null` = Systemfarben. */
     val seedColor: Int? = null,
     /** Spielzeit bei Büchern und Folgen; `null` bei Musik oder solange sie nicht feststeht. */
@@ -120,6 +131,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
 
     private val powerManager = context.getSystemService(PowerManager::class.java)
     private val keyguardManager = context.getSystemService(KeyguardManager::class.java)
+    private val coverVersion = System.currentTimeMillis().toString()
     private val nowPlaying = MutableStateFlow<NowPlaying?>(null)
     private val _state = MutableStateFlow(WidgetState())
     val state: StateFlow<WidgetState> = _state.asStateFlow()
@@ -133,14 +145,13 @@ class NowPlayingWidgetUpdater @Inject constructor(
         }
         scope.launch {
             restore()
-            // Erst nach dem Laden speichern, sonst überschriebe der leere Anfangszustand den gemerkten. Verzögert, damit der
-            // Sekundentakt bei Tempo ≠ 1× nicht jede Sekunde schreibt; pausiert kommt der Stand so nach kurzer Zeit an.
-            @OptIn(FlowPreview::class)
+            // Erst nach dem Laden speichern, sonst überschriebe der leere Anfangszustand den gemerkten. Nur mit angehaltener
+            // Uhr, damit der Takt bei Tempo ≠ 1× nicht alle 10 s schreibt; Pause und Ende des Service halten sie an.
             _state
+                .filter { it.clock?.running != true }
                 .mapNotNull { state ->
                     state.nowPlaying?.let { SavedWidget(it.copy(isPlaying = false), state.clock?.positionMs, state.clock?.durationMs) }
                 }
-                .debounce(SAVE_DELAY_MS)
                 .distinctUntilChanged()
                 .collect { store.save(it) }
         }
@@ -197,7 +208,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
     /**
      * Eine Messung und, solange es läuft, der Takt danach. Bei 1× zählt der Chronometer im Launcher selbst, und zwar nur,
      * solange das Widget zu sehen ist; neu gemessen wird nur, wenn die Stunden eine Stelle dazubekommen. Bei anderem Tempo
-     * kann er nicht mitzählen (er läuft in Echtzeit): Dann setzt die App die Zeit jede Sekunde neu, solange das Widget zu
+     * kann er nicht mitzählen (er läuft in Echtzeit): Dann setzt die App die Zeit alle 10 s neu, solange das Widget zu
      * sehen sein kann ([widgetMaybeVisible]).
      */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -212,16 +223,16 @@ class NowPlayingWidgetUpdater @Inject constructor(
                 emit(clock)
             }
         } else {
-            emitAll(widgetMaybeVisible().flatMapLatest { visible -> if (visible) secondTicks(bookId, timeline) else emptyFlow() })
+            emitAll(widgetMaybeVisible().flatMapLatest { visible -> if (visible) periodicTicks(bookId, timeline) else emptyFlow() })
         }
     }
 
     /**
-     * Die Spielzeit einmal je Sekunde Echtzeit, bei 1,5× springt sie also um 1 bis 2 Sekunden. Hochgerechnet aus der
+     * Die Spielzeit alle [TICK_INTERVAL_MS] Echtzeit, bei 1,5× springt sie also um 15 Sekunden. Hochgerechnet aus der
      * letzten Messung, denn der Player meldet seine Position in Sprüngen von einigen hundert Millisekunden. Nachgemessen
      * wird jede Minute.
      */
-    private fun secondTicks(bookId: Long, timeline: BookTimeline?): Flow<BookClock?> = flow {
+    private fun periodicTicks(bookId: Long, timeline: BookTimeline?): Flow<BookClock?> = flow {
         var measured = currentClock(bookId, timeline, running = true)
         val start = SystemClock.elapsedRealtime()
         while (true) {
@@ -232,7 +243,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
             val clock = measured?.at(now)
             emit(clock)
             if (clock == null || !clock.running) break
-            delay(SECOND_MS - (SystemClock.elapsedRealtime() - start) % SECOND_MS)
+            delay(TICK_INTERVAL_MS - (SystemClock.elapsedRealtime() - start) % TICK_INTERVAL_MS)
         }
     }
 
@@ -283,30 +294,65 @@ class NowPlayingWidgetUpdater @Inject constructor(
         val previous = _state.value
         val albumId = nowPlaying?.albumId
         val bookId = nowPlaying?.bookId
+        val sameCover = previous.coverUri != null && when {
+            bookId != null -> bookId == previous.nowPlaying?.bookId
+            albumId != null -> albumId == previous.nowPlaying?.albumId
+            else -> false
+        }
+        // Das Bild selbst wird nur noch für Seitenverhältnis und Farbe geladen; anzeigen lädt es der Launcher.
         val cover = when {
-            bookId != null -> if (bookId == previous.nowPlaying?.bookId && previous.cover != null) previous.cover else bookCovers.cover(bookId)?.scaledToWidget()
-            albumId == null -> null
-            albumId == previous.nowPlaying?.albumId && previous.cover != null -> previous.cover
-            else -> artworkRepository.albumCover(albumId, COVER_SIZE_PX)
+            sameCover -> null
+            bookId != null -> bookCovers.cover(bookId)?.scaledToWidget()
+            albumId != null -> artworkRepository.albumCover(albumId, COVER_SIZE_PX)
+            else -> null
         }
+        val coverUri = when {
+            sameCover -> previous.coverUri
+            cover == null -> null
+            bookId != null -> CoverProvider.bookCoverUri(context, bookId).versioned()
+            else -> albumId?.let { CoverProvider.albumCoverUri(context, it).versioned() }
+        }
+        val aspectRatio = if (sameCover) previous.coverAspectRatio else cover?.let { it.width.toFloat() / it.height.coerceAtLeast(1) } ?: 1f
         val seedColor = when {
-            bookId != null -> when {
-                bookId == previous.nowPlaying?.bookId && previous.seedColor != null -> previous.seedColor
-                cover == null -> null
-                else -> withContext(Dispatchers.Default) { seedColorOf(cover) }
-            }
-            albumId == null -> null
-            albumId == previous.nowPlaying?.albumId && previous.seedColor != null -> previous.seedColor
-            else -> albumColorRepository.seedColorNow(albumId)
+            sameCover && previous.seedColor != null -> previous.seedColor
+            bookId != null -> cover?.let { withContext(Dispatchers.Default) { seedColorOf(it) } }
+            albumId != null -> albumColorRepository.seedColorNow(albumId)
+            else -> null
         }
-        // Die Restzeit kommt vom eigenen Takt; sie bleibt, bis der nächste Wert da ist. Der aktuelle Stand wird erst
+        // Bei jeder Aktualisierung: Freigaben überdauern keinen Neustart des Geräts.
+        coverUri?.let(::grantCoverAccess)
+        // Die Spielzeit kommt vom eigenen Takt; sie bleibt, bis der nächste Wert da ist. Der aktuelle Stand wird erst
         // jetzt gelesen, weil sie sich während des Ladens oben ändern kann.
         val clock = _state.value.clock?.takeIf { bookId != null && it.bookId == bookId }
-        _state.value = WidgetState(nowPlaying, cover, seedColor, clock)
+        _state.value = WidgetState(nowPlaying, coverUri, aspectRatio, seedColor, clock)
         NowPlayingWidget().updateAll(context)
     }
 
-    /** Buchcover kommen mit 800 px; das Widget braucht wie bei Albumcovern nur [COVER_SIZE_PX] (Größe der RemoteViews, Layout). */
+    /**
+     * Der [CoverProvider] ist nicht exportiert: Die Startbildschirm-App, die das Widget zeigt, bekommt Leserecht auf genau
+     * dieses Cover (keine Präfix-Freigabe wie für Android Auto). Andere Widget-Hosts sieht die App nicht; dort bliebe das
+     * Cover leer.
+     */
+    private fun grantCoverAccess(uri: Uri) {
+        val home = context.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY)
+            ?.activityInfo?.packageName
+            ?.takeIf { it != "android" } // Auswahldialog, keine Standard-App
+            ?: return
+        try {
+            context.grantUriPermission(home, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Cover für $home nicht freigegeben", e)
+        }
+    }
+
+    /**
+     * Je Prozess eine eigene URI (der Provider liest nur den Pfad): Ein `ImageView` lädt dieselbe URI nicht noch einmal. Nach
+     * einem Neustart des Geräts zeigt der Launcher das Widget, bevor die App die Freigabe erneuert hat; ohne neue URI bliebe
+     * das Cover dann leer.
+     */
+    private fun Uri.versioned(): Uri = buildUpon().appendQueryParameter("v", coverVersion).build()
+
+    /** Buchcover kommen mit 800 px; für Seitenverhältnis und Farbe reicht [COVER_SIZE_PX]. */
     private fun Bitmap.scaledToWidget(): Bitmap {
         val longest = maxOf(width, height)
         if (longest <= COVER_SIZE_PX) return this
@@ -315,8 +361,9 @@ class NowPlayingWidgetUpdater @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "WidgetUpdater"
         const val UPDATE_THROTTLE_MS = 300L
-        const val SAVE_DELAY_MS = 2_000L
+        const val TICK_INTERVAL_MS = 10_000L
         const val REMEASURE_MS = 60_000L
         const val COVER_SIZE_PX = 256
     }
