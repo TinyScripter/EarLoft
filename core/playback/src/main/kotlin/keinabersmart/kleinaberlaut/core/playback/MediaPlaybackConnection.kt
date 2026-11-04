@@ -261,6 +261,13 @@ class MediaPlaybackConnection @Inject constructor(
         }
     }
 
+    override fun changeRemoteVolume(up: Boolean) = withController {
+        if (deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return@withController
+        if (!isCommandAvailable(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)) return@withController
+        // Ohne C.VOLUME_FLAG_SHOW_UI: Die App zeigt die Lautstärke selbst an.
+        if (up) increaseDeviceVolume(0) else decreaseDeviceVolume(0)
+    }
+
     override val sleepTimerRemainingMs: Flow<Long?> get() = sleepTimer.remainingMs
 
     override fun startSleepTimer(minutes: Int) = sleepTimer.start(minutes * 60_000L)
@@ -285,6 +292,8 @@ class MediaPlaybackConnection @Inject constructor(
             currentIndex = currentMediaItemIndex,
             outputSuppressed = playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT,
             isRemote = deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE,
+            deviceVolume = deviceVolume,
+            maxDeviceVolume = deviceInfo.maxVolume,
         )
     }
 

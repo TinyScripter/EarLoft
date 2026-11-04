@@ -95,6 +95,8 @@
 
     <!-- Chromecast -->
     <string name="cast_playing_on">Playing on %1$s</string>
+    <string name="cast_volume">Volume</string>
+    <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">The Cast device could not load the tracks. Playback is back on this phone.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">This track is only on the phone and cannot be cast.</item>

@@ -94,6 +94,8 @@
 
     <!-- Chromecast -->
     <string name="cast_playing_on">Wird auf %1$s gespielt</string>
+    <string name="cast_volume">Lautstärke</string>
+    <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">Das Cast-Gerät konnte die Titel nicht laden. Die Wiedergabe ist wieder auf dem Handy.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">Dieser Titel liegt nur auf dem Handy und lässt sich nicht casten.</item>

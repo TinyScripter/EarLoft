@@ -37,6 +37,9 @@ data class PlayerState(
     val outputSuppressed: Boolean = false,
     /** Wiedergabe auf einem anderen Gerät (Chromecast). */
     val isRemote: Boolean = false,
+    /** Lautstärke des Cast-Geräts in Stufen von 0 bis [maxDeviceVolume]; nur bei [isRemote] aussagekräftig. */
+    val deviceVolume: Int = 0,
+    val maxDeviceVolume: Int = 0,
 ) {
     val hasMedia: Boolean get() = current != null || spoken != null
 }
@@ -106,6 +109,9 @@ interface PlaybackConnection {
     fun toggleShuffle()
 
     fun cycleRepeatMode()
+
+    /** Ändert die Lautstärke des Cast-Geräts um eine Stufe; ohne Cast nichts. */
+    fun changeRemoteVolume(up: Boolean)
 
     fun startSleepTimer(minutes: Int)
 
