@@ -15,7 +15,9 @@ import keinabersmart.kleinaberlaut.core.data.spoken.BookDownload
 import keinabersmart.kleinaberlaut.core.download.BookDownloadProgress
 import keinabersmart.kleinaberlaut.core.download.BookDownloads
 import keinabersmart.kleinaberlaut.core.download.BookTransfer
+import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
+import keinabersmart.kleinaberlaut.core.data.podcast.TrialPodcastPages
 import keinabersmart.kleinaberlaut.core.download.DownloadStart
 import keinabersmart.kleinaberlaut.core.download.EpisodeDownloadProgress
 import keinabersmart.kleinaberlaut.core.download.EpisodeDownloads
@@ -28,7 +30,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -43,10 +47,37 @@ class BookViewModel @AssistedInject constructor(
     private val episodeDownloads: EpisodeDownloads,
     downloadProgress: BookDownloadProgress,
     episodeProgress: EpisodeDownloadProgress,
+    private val continueListening: ContinueListening,
+    private val trialPages: TrialPodcastPages,
 ) : ViewModel() {
 
     val book: StateFlow<BookWithProgress?> = books.book(bookId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Der Podcast der Folge, wenn er nur ein Probeabo aus der Vorschau ist (Konzept 12.10); sonst `null`. Solange die
+     * Seite offen ist, bleibt das Probeabo bestehen, auch wenn die Folge die Warteschlange verlässt.
+     */
+    val trialFeedId: StateFlow<String?> = book
+        .map { it?.book?.takeIf { book -> book.kind == BookKind.EPISODE }?.serverId }
+        .distinctUntilChanged()
+        .flatMapLatest { feedId -> if (feedId == null) flowOf(null) else podcasts.feed(feedId) }
+        .map { feed -> feed?.takeIf { !it.subscribed }?.id }
+        .distinctUntilChanged()
+        .onEach(::keepTrialOpen)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private var openTrialFeedId: String? = null
+
+    private fun keepTrialOpen(feedId: String?) {
+        if (feedId == null || openTrialFeedId != null) return
+        openTrialFeedId = feedId
+        trialPages.opened(feedId)
+    }
+
+    override fun onCleared() {
+        openTrialFeedId?.let(trialPages::closed)
+    }
 
     private val isEpisode: Boolean get() = book.value?.book?.kind == BookKind.EPISODE
 
@@ -76,6 +107,8 @@ class BookViewModel @AssistedInject constructor(
 
     fun startDownload() {
         viewModelScope.launch {
+            // Probeabo: Was geladen wird, kommt in die Warteschlange und bleibt nur, solange es dort steht.
+            if (trialFeedId.value != null) continueListening.append(bookId)
             val start = if (isEpisode) episodeDownloads.download(bookId) else downloads.download(bookId)
             when (start) {
                 DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)

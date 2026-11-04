@@ -9,12 +9,11 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
-import keinabersmart.kleinaberlaut.core.data.podcast.FeedPreview
+import keinabersmart.kleinaberlaut.core.data.podcast.TrialPodcastPages
 import keinabersmart.kleinaberlaut.core.data.podcast.OpmlImportResult
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastDirectorySearch
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.SubscribeResult
-import keinabersmart.kleinaberlaut.core.network.podcast.ParsedFeed
 import keinabersmart.kleinaberlaut.core.network.podcast.directory.DirectoryPodcast
 import keinabersmart.kleinaberlaut.core.network.podcast.directory.PodcastDirectory
 import keinabersmart.kleinaberlaut.core.network.podcast.directory.feedKey
@@ -27,7 +26,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -131,28 +129,26 @@ class AddPodcastViewModel @Inject constructor(
 /** Laden des Feeds für die Vorschau. */
 sealed interface PreviewState {
     data object Loading : PreviewState
-    data class Loaded(val feed: ParsedFeed) : PreviewState
+
+    /** Als Probeabo angelegt (oder schon vorhanden): weiter auf seiner Seite. */
+    data class Opened(val feedId: String) : PreviewState
     data class Failed(@param:StringRes val message: Int) : PreviewState
 }
 
-/** Vorschau eines Treffers vor dem Abonnieren (Konzept 12.10). */
+/** Vorschau eines Treffers (Konzept 12.10): legt den Feed als Probeabo an, damit seine Folgen hör- und ladbar sind. */
 @HiltViewModel(assistedFactory = PodcastPreviewViewModel.Factory::class)
 class PodcastPreviewViewModel @AssistedInject constructor(
     @Assisted private val feedUrl: String,
     private val podcasts: PodcastRepository,
+    private val trialPages: TrialPodcastPages,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<PreviewState>(PreviewState.Loading)
     val state: StateFlow<PreviewState> = _state
 
-    /** Id des Abos, falls der Feed schon abonniert ist. */
-    val subscribedFeedId: StateFlow<String?> = podcasts.subscribedByKey
-        .map { it[feedKey(feedUrl)] }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    private val _add = MutableStateFlow<AddPodcastState>(AddPodcastState.Idle)
-    val add: StateFlow<AddPodcastState> = _add
+    /** Das geöffnete Probeabo; es gilt als offen, bis die Seite des Podcasts übernommen hat (sonst räumte es der Aufräumer weg). */
+    private var openedFeedId: String? = null
 
     init {
         load()
@@ -161,23 +157,26 @@ class PodcastPreviewViewModel @AssistedInject constructor(
     fun load() {
         _state.value = PreviewState.Loading
         viewModelScope.launch {
-            _state.value = when (val preview = podcasts.preview(feedUrl)) {
-                is FeedPreview.Loaded -> PreviewState.Loaded(preview.feed)
-                is FeedPreview.Failed -> PreviewState.Failed(preview.result.message)
+            // Im App-Scope: Ein großer Feed braucht einige Sekunden; wer vorher zurückgeht, bricht nur das Warten ab.
+            val result = applicationScope.async { podcasts.openPreview(feedUrl) }.await()
+            _state.value = when (result) {
+                is SubscribeResult.Added -> opened(result.feedId)
+                is SubscribeResult.AlreadySubscribed -> opened(result.feedId)
+                else -> PreviewState.Failed(result.message)
             }
         }
     }
 
-    fun subscribe() {
-        if (_add.value == AddPodcastState.Working) return
-        _add.value = AddPodcastState.Working
-        viewModelScope.launch {
-            _add.value = when (val result = subscribeOutlivingScreen(applicationScope, podcasts, feedUrl)) {
-                // Inzwischen anderswo abonniert: einfach öffnen.
-                is SubscribeResult.AlreadySubscribed -> AddPodcastState.Done(result.feedId)
-                else -> result.toState()
-            }
+    private fun opened(feedId: String): PreviewState {
+        if (openedFeedId == null) {
+            openedFeedId = feedId
+            trialPages.opened(feedId)
         }
+        return PreviewState.Opened(feedId)
+    }
+
+    override fun onCleared() {
+        openedFeedId?.let(trialPages::closed)
     }
 
     @AssistedFactory

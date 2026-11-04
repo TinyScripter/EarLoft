@@ -492,6 +492,8 @@
     <string name="podcast_directory_subscribed">Subscribed</string>
     <string name="podcast_preview_open">Open</string>
     <string name="podcast_preview_retry">Try again</string>
+    <string name="podcast_trial_notice">Not subscribed. Episodes you play or download here go into the queue and stay until they are finished or taken out; listening time is not counted in your statistics.</string>
+    <string name="book_trial_notice">Podcast not subscribed – this episode is not counted in your statistics and history. Tap to open the podcast.</string>
     <string name="directory_apple">Apple Podcasts</string>
     <string name="directory_apple_summary">The largest directory, results per country. Search terms are sent to Apple.</string>
     <string name="directory_podcast_index">Podcast Index</string>

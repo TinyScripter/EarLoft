@@ -488,6 +488,8 @@
     <string name="podcast_directory_subscribed">Abonniert</string>
     <string name="podcast_preview_open">Öffnen</string>
     <string name="podcast_preview_retry">Erneut versuchen</string>
+    <string name="podcast_trial_notice">Nicht abonniert. Folgen, die du hier hörst oder lädst, kommen in die Warteschlange und bleiben, bis sie zu Ende gehört oder herausgenommen sind; die Hörzeit zählt nicht in die Statistik.</string>
+    <string name="book_trial_notice">Podcast nicht abonniert – diese Folge zählt nicht in Statistik und Verlauf. Tippen, um zum Podcast zu gehen.</string>
     <string name="directory_apple">Apple Podcasts</string>
     <string name="directory_apple_summary">Das größte Verzeichnis, Treffer je Land. Suchbegriffe gehen an Apple.</string>
     <string name="directory_podcast_index">Podcast Index</string>

@@ -8,7 +8,9 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
+import keinabersmart.kleinaberlaut.core.data.podcast.TrialPodcastPages
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
@@ -45,7 +47,18 @@ class PodcastFeedViewModel @AssistedInject constructor(
     private val downloads: EpisodeDownloads,
     downloadProgress: EpisodeDownloadProgress,
     private val refresher: PodcastRefresher,
+    private val continueListening: ContinueListening,
+    private val trialPages: TrialPodcastPages,
 ) : ViewModel() {
+
+    init {
+        // Solange eine Seite des Podcasts offen ist, bleibt ein Probeabo bestehen (Konzept 12.10).
+        trialPages.opened(feedId)
+    }
+
+    override fun onCleared() {
+        trialPages.closed(feedId)
+    }
 
     val refreshing: StateFlow<Boolean> = refresher.refreshing
 
@@ -99,6 +112,8 @@ class PodcastFeedViewModel @AssistedInject constructor(
 
     fun download(bookId: Long) {
         viewModelScope.launch {
+            // Probeabo: Was geladen wird, kommt in die Warteschlange und bleibt nur, solange es dort steht.
+            if (feed.value?.subscribed == false) continueListening.append(bookId)
             when (downloads.download(bookId)) {
                 DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)
                 DownloadStart.WAITING_FOR_WIFI -> _messages.emit(R.string.podcast_download_waiting_wifi)
@@ -133,6 +148,11 @@ class PodcastFeedViewModel @AssistedInject constructor(
 
     fun unsubscribe() {
         viewModelScope.launch { podcasts.unsubscribe(feedId) }
+    }
+
+    /** Aus dem Probeabo wird ein Abo; Folgen, Stellen und Downloads bleiben. */
+    fun subscribe() {
+        viewModelScope.launch { podcasts.subscribeTrial(feedId) }
     }
 
     /** Wie [PodcastViewModel.playOrPause]. */

@@ -19,6 +19,9 @@ import kotlinx.coroutines.flow.Flow
 /** Bücher (und Folgen) der ausgeschalteten Audiobookshelf-Server sind ausgeblendet; Podcast-Feeds stehen nicht in `spoken_servers`. */
 private const val BOOK_VISIBLE = "serverId NOT IN (SELECT serverId FROM spoken_servers WHERE enabled = 0)"
 
+// Folgen von Probeabos aus der Podcast-Vorschau (Konzept 12.10) haben eine Seite, stehen aber in keiner Liste und Suche.
+private const val BOOK_LISTED = "$BOOK_VISIBLE AND serverId NOT IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0)"
+
 @Dao
 abstract class BookDao {
 
@@ -53,7 +56,7 @@ abstract class BookDao {
 
     // --- Bücher ---
 
-    @Query("SELECT * FROM books WHERE $BOOK_VISIBLE ORDER BY normTitle")
+    @Query("SELECT * FROM books WHERE $BOOK_LISTED ORDER BY normTitle")
     abstract fun observeBooks(): Flow<List<BookEntity>>
 
     @Query("SELECT * FROM books WHERE bookId = :bookId AND $BOOK_VISIBLE")
@@ -68,7 +71,7 @@ abstract class BookDao {
     @Query("SELECT * FROM books WHERE serverId = :serverId")
     abstract suspend fun booksOf(serverId: String): List<BookEntity>
 
-    @Query("SELECT * FROM books WHERE kind = :kind AND (normTitle LIKE :pattern ESCAPE '\\' OR author LIKE :pattern ESCAPE '\\') AND $BOOK_VISIBLE ORDER BY normTitle LIMIT :limit")
+    @Query("SELECT * FROM books WHERE kind = :kind AND (normTitle LIKE :pattern ESCAPE '\\' OR author LIKE :pattern ESCAPE '\\') AND $BOOK_LISTED ORDER BY normTitle LIMIT :limit")
     abstract suspend fun search(kind: BookKind, pattern: String, limit: Int): List<BookEntity>
 
     /** Bücher, in deren Serienangabe [pattern] vorkommt; welche Serie genau passt, entscheidet der Aufrufer. */

@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.network.podcast.Opml
 import keinabersmart.kleinaberlaut.core.network.podcast.OpmlFeed
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -237,6 +238,82 @@ class PodcastRepositoryTest {
         assertEquals(false, progress.finished)
         assertEquals(0L, progress.positionMs)
         assertTrue(continueListening.episodes.first().any { it.book.id == c })
+    }
+
+    @Test
+    fun `a preview stores a trial feed that is missing from all subscription lists`() = runTest {
+        val feedId = (repository.openPreview("https://example.com/feed.xml") as SubscribeResult.Added).feedId
+        listen(idOf(feedId, "B"), positionMs = 60_000, updatedAt = 100)
+
+        assertEquals(false, repository.feed(feedId).first()!!.subscribed)
+        assertEquals(listOf("A", "B", "C"), repository.episodes(feedId).first().map { it.book.title })
+        assertTrue(repository.feeds.first().isEmpty())
+        assertTrue(repository.unheardByFeed().first().isEmpty())
+        assertTrue(repository.recentEpisodes().first().isEmpty())
+        // Weder als neu noch als angefangen von selbst in „Weiterhören“.
+        assertTrue(repository.continueListening { now }.first().isEmpty())
+        assertTrue(repository.subscribedByKey.first().isEmpty())
+        assertTrue(repository.searchFeeds("Test").isEmpty())
+    }
+
+    @Test
+    fun `trial episodes appear in the queue only where they were put`() = runTest {
+        val feedId = (repository.openPreview("https://example.com/feed.xml") as SubscribeResult.Added).feedId
+        val b = idOf(feedId, "B")
+
+        val titles = repository.continueListening(flowOf(listOf(b))) { now }.first().map { it.book.title }
+
+        assertEquals(listOf("B"), titles)
+        assertEquals(null, repository.autoNextAfter(b))
+    }
+
+    @Test
+    fun `subscribing a trial feed keeps its episodes and progress`() = runTest {
+        val trialId = (repository.openPreview("https://example.com/feed.xml") as SubscribeResult.Added).feedId
+        val b = idOf(trialId, "B")
+        listen(b, positionMs = 60_000, updatedAt = 100)
+        requested.clear()
+
+        assertEquals(SubscribeResult.Added(trialId), repository.subscribe("http://example.com/feed.xml"))
+
+        assertEquals(emptyList<String>(), requested)
+        assertEquals(listOf(trialId), repository.feeds.first().map { it.id })
+        assertEquals(60_000L, db.bookDao().progress(b)!!.positionMs)
+        assertEquals(SubscribeResult.AlreadySubscribed(trialId), repository.openPreview("https://example.com/feed.xml"))
+    }
+
+    @Test
+    fun `opening the preview of a known trial feed refreshes it instead of adding another`() = runTest {
+        val trialId = (repository.openPreview("https://example.com/feed.xml") as SubscribeResult.Added).feedId
+
+        assertEquals(SubscribeResult.Added(trialId), repository.openPreview("https://example.com/feed.xml"))
+        assertEquals(1, db.podcastDao().observeAllFeeds().first().size)
+    }
+
+    @Test
+    fun `an opml entry turns a trial feed into a subscription`() = runTest {
+        val trialId = (repository.openPreview("https://example.com/feed.xml") as SubscribeResult.Added).feedId
+
+        repository.importOpml(listOf(OpmlFeed("Test", "https://example.com/feed.xml")), replace = false)
+
+        assertEquals(listOf(trialId), repository.feeds.first().map { it.id })
+        assertEquals(3, db.bookDao().booksOf(trialId).size)
+    }
+
+    @Test
+    fun `trial episodes report progress and downloads for the cleanup`() = runTest {
+        val trialId = (repository.openPreview("https://example.com/feed.xml") as SubscribeResult.Added).feedId
+        val a = idOf(trialId, "A")
+        listen(a, positionMs = 600_000, updatedAt = 100, finished = true)
+        db.podcastDao().queueDownload(idOf(trialId, "B"))
+
+        val byTitle = repository.trialEpisodes.first().associateBy { it.bookId }
+
+        assertEquals(listOf(trialId), repository.trialFeedIds.first())
+        assertEquals(TrialEpisode(a, trialId, finished = true, hasProgress = true, downloaded = false), byTitle[a])
+        assertEquals(true, byTitle[idOf(trialId, "B")]!!.downloaded)
+        repository.forgetProgress(a)
+        assertEquals(null, db.bookDao().progress(a))
     }
 
     @Test

@@ -27,6 +27,7 @@ import keinabersmart.kleinaberlaut.ui.image.ArtistImageFetcher
 import keinabersmart.kleinaberlaut.ui.image.AuthorImageFetcher
 import keinabersmart.kleinaberlaut.ui.image.BookCoverFetcher
 import keinabersmart.kleinaberlaut.wear.PhoneInfoPublisher
+import keinabersmart.kleinaberlaut.core.playback.TrialPodcastCleaner
 import keinabersmart.kleinaberlaut.wear.WearPublisher
 import keinabersmart.kleinaberlaut.wear.WearRemotePublisher
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +48,7 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var autoDownloads: AutoDownloads
     @Inject lateinit var episodeDownloads: EpisodeDownloads
     @Inject lateinit var bookDownloads: BookDownloads
+    @Inject lateinit var trialPodcastCleaner: TrialPodcastCleaner
     @Inject lateinit var syncQueueStarter: SyncQueueStarter
     @Inject lateinit var phoneInfoPublisher: PhoneInfoPublisher
     @Inject lateinit var wearPublisher: WearPublisher
@@ -68,6 +70,7 @@ class KleinaberlautApplication : Application(), SingletonImageLoader.Factory {
         autoDownloads.start(applicationScope)
         episodeDownloads.start(applicationScope)
         bookDownloads.start(applicationScope)
+        trialPodcastCleaner.start(applicationScope)
         applicationScope.launch {
             downloadRepository.resumePending()
             syncQueueStarter.startIfPending()

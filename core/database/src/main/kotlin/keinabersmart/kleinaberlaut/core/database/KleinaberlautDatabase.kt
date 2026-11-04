@@ -81,7 +81,7 @@ import java.io.File
         ServerStatsCacheEntity::class,
         AbsSessionEntity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = KleinaberlautDatabase.AddSearchIndex::class),
@@ -98,6 +98,7 @@ import java.io.File
         AutoMigration(from = 12, to = 13),
         AutoMigration(from = 13, to = 14),
         AutoMigration(from = 14, to = 15),
+        AutoMigration(from = 15, to = 16),
     ],
 )
 abstract class KleinaberlautDatabase : RoomDatabase() {

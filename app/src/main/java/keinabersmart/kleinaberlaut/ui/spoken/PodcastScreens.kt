@@ -406,10 +406,23 @@ fun PodcastScreen(
                                 IconButton(onClick = onInfo, modifier = Modifier.size(40.dp)) {
                                     Icon(painterResource(DesignR.drawable.ic_info), contentDescription = stringResource(R.string.podcast_info))
                                 }
-                                IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
-                                    Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_settings))
+                                // Ein Probeabo hat keine Einstellungen; es gilt nur, solange seine Folgen in der Warteschlange stehen.
+                                if (current.subscribed) {
+                                    IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
+                                        Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_settings))
+                                    }
                                 }
                             }
+                        }
+                    }
+                }
+                if (!current.subscribed) {
+                    item(key = "trial") {
+                        TrialNotice(
+                            text = stringResource(R.string.podcast_trial_notice),
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                        ) {
+                            FilledTonalButton(onClick = viewModel::subscribe) { Text(stringResource(R.string.podcast_add_confirm)) }
                         }
                     }
                 }

@@ -66,10 +66,12 @@ fun BookScreen(
     onBack: () -> Unit,
     isCurrent: Boolean,
     onOpenPlayer: () -> Unit,
+    onOpenFeed: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BookViewModel = hiltViewModel<BookViewModel, BookViewModel.Factory> { it.create(bookId) },
 ) {
     val item by viewModel.book.collectAsStateWithLifecycle()
+    val trialFeedId by viewModel.trialFeedId.collectAsStateWithLifecycle()
     val chapters by viewModel.chapters.collectAsStateWithLifecycle()
     val book = item?.book
     val progress = item?.progress
@@ -118,6 +120,15 @@ fun BookScreen(
                 onCancelDownload = viewModel::removeDownload,
                 // Eine Folge ist klein und wird wie in der Folgenliste ohne Rückfrage gelöscht.
                 onDeleteDownload = { if (book.kind == BookKind.EPISODE) viewModel.removeDownload() else confirmDelete = true },
+                trialNotice = trialFeedId?.let { feedId ->
+                    @Composable {
+                        TrialNotice(
+                            text = stringResource(R.string.book_trial_notice),
+                            modifier = Modifier.padding(top = 8.dp),
+                            onClick = { onOpenFeed(feedId) },
+                        )
+                    }
+                },
             )
         }
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -158,6 +169,7 @@ private fun BookHeader(
     onDownload: () -> Unit,
     onCancelDownload: () -> Unit,
     onDeleteDownload: () -> Unit,
+    trialNotice: (@Composable () -> Unit)? = null,
 ) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -195,6 +207,8 @@ private fun BookHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        // Folge eines nicht abonnierten Podcasts (Konzept 12.10): direkt über dem Abspielen, Tipp führt zum Podcast.
+        trialNotice?.invoke()
         // Abspielen nimmt zwei Drittel der Zeile, Download ein Drittel (Bücher und Folgen); Bücher vom Gerät haben keinen Download.
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalButton(onClick = onPlay, modifier = Modifier.weight(if (book.isLocal) 1f else 2f)) {

@@ -41,6 +41,13 @@ class Navigator(private val state: NavigationState) {
         stack.add(route)
     }
 
+    /** Öffnet die Seite des Podcasts [feedId]; liegt sie direkt unter der aktuellen Seite, geht es dorthin zurück. */
+    fun showFeed(feedId: String) {
+        val stack = currentStack()
+        val below = stack.getOrNull(stack.size - 2)
+        if (below is PodcastRoute && below.feedId == feedId) stack.removeLastOrNull() else stack.add(PodcastRoute(feedId))
+    }
+
     fun goBack() {
         val stack = currentStack()
         if (stack.last() == state.topLevelRoute) {

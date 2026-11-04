@@ -51,14 +51,6 @@ sealed interface SubscribeResult {
     data object NotAFeed : SubscribeResult
 }
 
-/** Ein Feed zur Vorschau, ohne Abo (Konzept 12.10). */
-sealed interface FeedPreview {
-    data class Loaded(val feed: ParsedFeed) : FeedPreview
-
-    /** Mit dem Grund wie beim Abonnieren ([SubscribeResult.InvalidUrl], `Unreachable` oder `NotAFeed`). */
-    data class Failed(val result: SubscribeResult) : FeedPreview
-}
-
 /** Was ein OPML-Import getan hat: neue Abos, übersprungene Dubletten, beim Ersetzen entfernte Abos. */
 data class OpmlImportResult(val added: Int, val skipped: Int, val removed: Int)
 
@@ -100,9 +92,9 @@ class PodcastRepository @Inject constructor(
     }
 
     /** Podcasts, von denen mindestens eine Folge geladen ist, nach Titel. */
-    fun feedDownloads(): Flow<List<FeedDownload>> = combine(feeds, dao.observeFeedDownloads()) { feeds, rows ->
+    fun feedDownloads(): Flow<List<FeedDownload>> = combine(dao.observeAllFeeds(), dao.observeFeedDownloads()) { feeds, rows ->
         val byFeed = rows.associateBy { it.feedId }
-        feeds.mapNotNull { feed -> byFeed[feed.id]?.let { FeedDownload(feed, it.episodes, it.bytes) } }
+        feeds.mapNotNull { feed -> byFeed[feed.feedId]?.let { FeedDownload(feed.toModel(), it.episodes, it.bytes) } }
     }
 
     fun feed(feedId: String): Flow<PodcastFeed?> = dao.observeFeed(feedId).map { it?.toModel() }
@@ -160,7 +152,12 @@ class PodcastRepository @Inject constructor(
         hidden: Flow<Set<Long>> = flowOf(emptySet()),
         now: () -> Long = System::currentTimeMillis,
     ): Flow<List<BookWithProgress>> =
-        combine(dao.observeEpisodes(), bookDao.observeAllProgress(), order, hidden) { episodes, progress, orderIds, hiddenIds ->
+        combine(
+            combine(dao.observeEpisodes(), dao.observeTrialEpisodes(), ::Pair),
+            bookDao.observeAllProgress(),
+            order,
+            hidden,
+        ) { (episodes, trial), progress, orderIds, hiddenIds ->
             val byBook = progress.associateBy { it.bookId }
             val started = episodes
                 .filter { it.bookId !in hiddenIds }
@@ -175,7 +172,8 @@ class PodcastRepository @Inject constructor(
                 }
                 .take(MAX_NEW)
                 .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
-            val byId = episodes.associateBy { it.bookId }
+            // Folgen der Probeabos stehen nur hier, wo sie ausdrücklich eingereiht wurden (Konzept 12.10).
+            val byId = (episodes + trial).associateBy { it.bookId }
             val ordered = orderIds.mapNotNull { id ->
                 byId[id]?.takeIf { id !in hiddenIds && byBook[id]?.finished != true }
                     ?.let { BookWithProgress(it.toModel(), byBook[id]?.toModel()) }
@@ -232,27 +230,53 @@ class PodcastRepository @Inject constructor(
      */
     suspend fun subscribe(input: String): SubscribeResult {
         val entered = normalizeFeedUrl(input) ?: return SubscribeResult.InvalidUrl
-        val secure = if (entered.isHttps) null else entered.newBuilder().scheme("https").build()
-        for (url in listOfNotNull(secure, entered)) {
-            dao.feedByUrl(url.toString())?.let { return SubscribeResult.AlreadySubscribed(it.feedId) }
+        knownFeed(entered)?.let { feed ->
+            if (feed.subscribed) return SubscribeResult.AlreadySubscribed(feed.feedId)
+            // Aus der Vorschau: Folgen, Fortschritt, Downloads und Warteschlange bleiben, es wird nur ein Abo daraus.
+            dao.setSubscribed(feed.feedId, true)
+            return SubscribeResult.Added(feed.feedId)
         }
-        if (secure != null) {
-            val attempt = fetchForSubscribe(secure)
-            if (attempt is SubscribeFetch.Loaded) return add(secure, attempt.fetched)
-            Log.i(TAG, "Kein HTTPS bei ${secure.host}, abonniere unverschlüsselt")
-        }
-        return when (val attempt = fetchForSubscribe(entered)) {
-            is SubscribeFetch.Loaded -> add(entered, attempt.fetched)
-            is SubscribeFetch.Failed -> attempt.result
-        }
+        return fetchAndAdd(entered, subscribed = true)
     }
 
-    /** Lädt den Feed unter [input] zur Vorschau, ohne etwas zu speichern. */
-    suspend fun preview(input: String): FeedPreview {
-        val url = normalizeFeedUrl(input) ?: return FeedPreview.Failed(SubscribeResult.InvalidUrl)
-        return when (val attempt = fetchForSubscribe(url)) {
-            is SubscribeFetch.Loaded -> FeedPreview.Loaded(attempt.fetched.feed)
-            is SubscribeFetch.Failed -> FeedPreview.Failed(attempt.result)
+    /**
+     * Öffnet die Vorschau des Feeds unter [input] (Konzept 12.10): Gibt es ihn schon (Abo oder Probeabo), dessen Id –
+     * ein Probeabo wird dabei neu abgeglichen; sonst wird er geladen und als Probeabo (`subscribed = false`) angelegt.
+     * Ergebnis wie bei [subscribe]: [SubscribeResult.Added] bzw. [SubscribeResult.AlreadySubscribed] tragen die Id.
+     */
+    suspend fun openPreview(input: String): SubscribeResult {
+        val entered = normalizeFeedUrl(input) ?: return SubscribeResult.InvalidUrl
+        knownFeed(entered)?.let { feed ->
+            if (feed.subscribed) return SubscribeResult.AlreadySubscribed(feed.feedId)
+            refresh(feed.feedId)
+            return SubscribeResult.Added(feed.feedId)
+        }
+        return fetchAndAdd(entered, subscribed = false)
+    }
+
+    /** Macht aus dem Probeabo [feedId] ein Abo. */
+    suspend fun subscribeTrial(feedId: String) = dao.setSubscribed(feedId, true)
+
+    /** Der gespeicherte Feed zu [entered], auch unter der `https://`-Variante einer `http://`-Adresse. */
+    private suspend fun knownFeed(entered: HttpUrl): PodcastFeedEntity? {
+        val secure = if (entered.isHttps) null else entered.newBuilder().scheme("https").build()
+        return listOfNotNull(secure, entered).firstNotNullOfOrNull { dao.feedByUrl(it.toString()) }
+    }
+
+    /**
+     * Lädt den Feed und legt ihn an. Eine `http://`-Adresse wird zuerst still per HTTPS versucht und bei Erfolg so
+     * gespeichert; erst wenn das scheitert, unverschlüsselt.
+     */
+    private suspend fun fetchAndAdd(entered: HttpUrl, subscribed: Boolean): SubscribeResult {
+        val secure = if (entered.isHttps) null else entered.newBuilder().scheme("https").build()
+        if (secure != null) {
+            val attempt = fetchForSubscribe(secure)
+            if (attempt is SubscribeFetch.Loaded) return add(secure, attempt.fetched, subscribed)
+            Log.i(TAG, "Kein HTTPS bei ${secure.host}, lade unverschlüsselt")
+        }
+        return when (val attempt = fetchForSubscribe(entered)) {
+            is SubscribeFetch.Loaded -> add(entered, attempt.fetched, subscribed)
+            is SubscribeFetch.Failed -> attempt.result
         }
     }
 
@@ -274,13 +298,29 @@ class PodcastRepository @Inject constructor(
         SubscribeFetch.Failed(SubscribeResult.Unreachable)
     }
 
-    private suspend fun add(url: HttpUrl, fetched: FeedFetch.Fetched): SubscribeResult {
-        val feed = PodcastFeedEntity(feedId = UUID.randomUUID().toString(), url = url.toString(), title = fetched.feed.title.ifBlank { url.host })
+    private suspend fun add(url: HttpUrl, fetched: FeedFetch.Fetched, subscribed: Boolean): SubscribeResult {
+        val feed = PodcastFeedEntity(
+            feedId = UUID.randomUUID().toString(),
+            url = url.toString(),
+            title = fetched.feed.title.ifBlank { url.host },
+            subscribed = subscribed,
+        )
         mutex.withLock { apply(feed, fetched) }
         return SubscribeResult.Added(feed.feedId)
     }
 
     suspend fun unsubscribe(feedId: String) = dao.deleteFeed(feedId)
+
+    /** Ids der Probeabos (Konzept 12.10). */
+    val trialFeedIds: Flow<List<String>> = dao.observeTrialFeedIds()
+
+    /** Folgen der Probeabos mit Fortschritt und Download-Zustand, für das Aufräumen. */
+    val trialEpisodes: Flow<List<TrialEpisode>> = dao.observeTrialEpisodeStates().map { rows ->
+        rows.map { TrialEpisode(it.bookId, it.feedId, it.finished, it.hasProgress, it.downloadState.isDownloadPresent()) }
+    }
+
+    /** Vergisst die Stelle einer Folge (ihre Datei löscht `EpisodeDownloads`). */
+    suspend fun forgetProgress(bookId: Long) = dao.deleteProgress(bookId)
 
     /** Die Abos als OPML-Text. Podcasts vom Gerät haben keinen Feed und fehlen. */
     suspend fun exportOpml(title: String, createdAt: String): String =
@@ -307,7 +347,15 @@ class PodcastRepository @Inject constructor(
         }
         val known = dao.feeds().mapTo(HashSet()) { it.url }
         val fresh = wanted.filter { it.url !in known }
-        fresh.forEach { dao.upsertFeed(PodcastFeedEntity(feedId = UUID.randomUUID().toString(), url = it.url, title = it.title)) }
+        fresh.forEach {
+            // Ein Probeabo derselben Adresse wird zum Abo (die Adresse ist eindeutig).
+            val trial = dao.feedByUrl(it.url)
+            if (trial != null) {
+                dao.setSubscribed(trial.feedId, true)
+            } else {
+                dao.upsertFeed(PodcastFeedEntity(feedId = UUID.randomUUID().toString(), url = it.url, title = it.title))
+            }
+        }
         OpmlImportResult(added = fresh.size, skipped = feeds.size - fresh.size, removed = removed)
     }
 
@@ -325,7 +373,8 @@ class PodcastRepository @Inject constructor(
      */
     suspend fun autoNextAfter(bookId: Long): Long? {
         val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.EPISODE } ?: return null
-        val feed = dao.feed(book.serverId)?.takeIf { it.continuous } ?: return null
+        // Probeabos reihen nichts von selbst ein: in der Warteschlange steht nur, was ausdrücklich gespielt oder geladen wurde.
+        val feed = dao.feed(book.serverId)?.takeIf { it.continuous && it.subscribed } ?: return null
         return nextEpisode(playOrder(feed), dao.finishedEpisodeIds(feed.feedId).toSet(), bookId)
     }
 
@@ -480,6 +529,7 @@ private fun PodcastFeedEntity.toModel() = PodcastFeed(
     newestFirst = newestFirst,
     continuous = continuous,
     notifyNew = notifyNew,
+    subscribed = subscribed,
 )
 
 /**

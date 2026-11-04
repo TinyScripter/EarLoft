@@ -20,15 +20,53 @@ data class FinishedDownloadRow(val bookId: Long, val finishedAt: Long, val fileP
 /** Download-Zustand einer Folge. */
 data class EpisodeDownloadRow(val bookId: Long, val state: TrackDownload)
 
-/** Podcast-Abos; ihre Folgen sind `books`-Zeilen mit `kind = 'EPISODE'` und `serverId = feedId` (Konzept 12.1). */
+/** Folge eines Probeabos mit dem, was beim Aufräumen zählt (Konzept 12.10). */
+data class TrialEpisodeRow(
+    val bookId: Long,
+    val feedId: String,
+    val finished: Boolean,
+    val hasProgress: Boolean,
+    val downloadState: TrackDownload?,
+)
+
+/** Folgen von Probeabos: alles außer abonnierten Feeds (Feeds ohne Zeile zählen als abonniert). */
+private const val NOT_TRIAL = "serverId NOT IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0)"
+
+/**
+ * Podcast-Abos; ihre Folgen sind `books`-Zeilen mit `kind = 'EPISODE'` und `serverId = feedId` (Konzept 12.1).
+ * Probeabos aus der Vorschau (`subscribed = 0`, Konzept 12.10) fehlen in allen Abo-Abfragen ([feeds], [observeFeeds],
+ * [observeEpisodes]); nur die Abfragen je `feedId` und die ausdrücklichen „Trial“-Abfragen sehen sie.
+ */
 @Dao
 abstract class PodcastDao {
 
-    @Query("SELECT * FROM podcast_feeds ORDER BY title COLLATE NOCASE")
+    @Query("SELECT * FROM podcast_feeds WHERE subscribed = 1 ORDER BY title COLLATE NOCASE")
     abstract fun observeFeeds(): Flow<List<PodcastFeedEntity>>
 
-    @Query("SELECT * FROM podcast_feeds")
+    @Query("SELECT * FROM podcast_feeds WHERE subscribed = 1")
     abstract suspend fun feeds(): List<PodcastFeedEntity>
+
+    /** Abos und Probeabos (für die Download-Übersicht). */
+    @Query("SELECT * FROM podcast_feeds ORDER BY title COLLATE NOCASE")
+    abstract fun observeAllFeeds(): Flow<List<PodcastFeedEntity>>
+
+    @Query("UPDATE podcast_feeds SET subscribed = :subscribed WHERE feedId = :feedId")
+    abstract suspend fun setSubscribed(feedId: String, subscribed: Boolean)
+
+    @Query("SELECT feedId FROM podcast_feeds WHERE subscribed = 0")
+    abstract fun observeTrialFeedIds(): Flow<List<String>>
+
+    @Query(
+        "SELECT b.bookId AS bookId, b.serverId AS feedId, COALESCE(p.finished, 0) AS finished, " +
+            "(p.bookId IS NOT NULL) AS hasProgress, t.downloadState AS downloadState FROM books b " +
+            "JOIN podcast_feeds f ON f.feedId = b.serverId AND f.subscribed = 0 " +
+            "LEFT JOIN book_progress p ON p.bookId = b.bookId " +
+            "LEFT JOIN book_tracks t ON t.bookId = b.bookId AND t.trackIndex = 0",
+    )
+    abstract fun observeTrialEpisodeStates(): Flow<List<TrialEpisodeRow>>
+
+    @Query("DELETE FROM book_progress WHERE bookId = :bookId")
+    abstract suspend fun deleteProgress(bookId: Long)
 
     @Query("SELECT * FROM podcast_feeds WHERE feedId = :feedId")
     abstract suspend fun feed(feedId: String): PodcastFeedEntity?
@@ -84,9 +122,18 @@ abstract class PodcastDao {
     @Query(
         "SELECT bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, '' AS description, durationMs, " +
             "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration, coverUrl, chaptersUrl " +
-            "FROM books WHERE kind = 'EPISODE' ORDER BY addedAt DESC",
+            "FROM books WHERE kind = 'EPISODE' AND $NOT_TRIAL ORDER BY addedAt DESC",
     )
     abstract fun observeEpisodes(): Flow<List<BookEntity>>
+
+    /** Wie [observeEpisodes], nur die Folgen der Probeabos (für die Warteschlange). */
+    @Query(
+        "SELECT bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, '' AS description, durationMs, " +
+            "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration, coverUrl, chaptersUrl " +
+            "FROM books WHERE kind = 'EPISODE' AND serverId IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0) " +
+            "ORDER BY addedAt DESC",
+    )
+    abstract fun observeTrialEpisodes(): Flow<List<BookEntity>>
 
     @Query("SELECT * FROM books WHERE kind = 'EPISODE' AND serverId = :feedId ORDER BY addedAt DESC")
     abstract fun observeEpisodesOf(feedId: String): Flow<List<BookEntity>>

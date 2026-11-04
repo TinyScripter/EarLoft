@@ -89,6 +89,16 @@ class StatsRepositoryTest {
     }
 
     @Test
+    fun `episodes of a podcast that is only previewed are not counted`() = runTest {
+        db.podcastDao().setSubscribed(feedId, false)
+
+        stats.recordEpisodeListening(bookId("guid-A"), 60_000, now = noon, zone = ZoneOffset.UTC)
+
+        assertTrue(db.statsDao().all().isEmpty())
+        assertTrue(db.statsDao().allDays().isEmpty())
+    }
+
+    @Test
     fun `statistics combine counted and imported time per podcast`() = runTest {
         stats.recordEpisodeListening(bookId("guid-A"), 3_600_000, now = noon, zone = ZoneOffset.UTC)
         db.statsDao().upsertAll(

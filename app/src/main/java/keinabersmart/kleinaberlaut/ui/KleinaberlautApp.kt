@@ -241,6 +241,7 @@ fun KleinaberlautApp(
                 onBack = navigator::goBack,
                 isCurrent = currentBookId == route.bookId,
                 onOpenPlayer = navigator::showNowPlaying,
+                onOpenFeed = navigator::showFeed,
             )
         }
         entry<PodcastRoute>(metadata = detailPane()) { route ->
@@ -264,15 +265,14 @@ fun KleinaberlautApp(
             )
         }
         entry<PodcastPreviewRoute>(metadata = nestedDetailPane()) { route ->
-            // Zurück aus dem Abo führt zu den Treffern, nicht noch einmal zur Vorschau.
+            // Die Vorschau lädt nur und macht dann der Seite des (Probe-)Abos Platz; Zurück führt zu den Treffern.
             PodcastPreviewScreen(
                 feedUrl = route.feedUrl,
                 title = route.title,
                 author = route.author,
                 imageUrl = route.imageUrl,
                 onBack = navigator::goBack,
-                onOpenFeed = { navigator.replaceTop(PodcastRoute(it)) },
-                onSubscribed = { navigator.replaceTop(PodcastRoute(it)) },
+                onOpened = { navigator.replaceTop(PodcastRoute(it)) },
             )
         }
         entry<PodcastInfoRoute>(metadata = nestedDetailPane()) { route ->

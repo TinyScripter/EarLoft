@@ -59,6 +59,23 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `v15 to v16 keeps existing podcasts as subscriptions`() {
+        helper.createDatabase(DB_NAME, 15).use { db ->
+            db.execSQL(
+                "INSERT INTO podcast_feeds (feedId, url, title, author, description, lastRefreshAt, syncGeneration, autoDownload) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'T', '', '', 0, 0, 0)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 16, true).use { db ->
+            db.query("SELECT subscribed FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

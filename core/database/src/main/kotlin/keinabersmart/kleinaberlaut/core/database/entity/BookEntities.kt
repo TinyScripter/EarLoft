@@ -23,7 +23,7 @@ data class SpokenServerEntity(
     @ColumnInfo(defaultValue = "1") val enabled: Boolean = true,
 )
 
-/** Abonnierter Podcast (Konzept 12.1). Seine Folgen sind `books`-Zeilen mit `serverId = feedId`. */
+/** Abonnierter Podcast oder Probeabo (Konzept 12.1, 12.10). Seine Folgen sind `books`-Zeilen mit `serverId = feedId`. */
 @Entity(tableName = "podcast_feeds", indices = [Index("url", unique = true)])
 data class PodcastFeedEntity(
     @PrimaryKey val feedId: String,
@@ -46,6 +46,8 @@ data class PodcastFeedEntity(
     @ColumnInfo(defaultValue = "1") val continuous: Boolean = true,
     /** Über neue Folgen dieses Podcasts benachrichtigen, wenn der Abgleich im Hintergrund läuft. */
     @ColumnInfo(defaultValue = "1") val notifyNew: Boolean = true,
+    /** `false`: Probeabo aus der Vorschau (Konzept 12.10); fehlt in allen Abo-Abfragen und wird aufgeräumt. */
+    @ColumnInfo(defaultValue = "1") val subscribed: Boolean = true,
 )
 
 @Entity(

@@ -36,7 +36,8 @@ class StatsRepository @Inject constructor(
     ) {
         if (ms <= 0) return
         val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.EPISODE } ?: return
-        val feed = podcastDao.feed(book.serverId) ?: return
+        // Probeabos aus der Vorschau zählen nicht (Konzept 12.10).
+        val feed = podcastDao.feed(book.serverId)?.takeIf { it.subscribed } ?: return
         val day = Instant.ofEpochMilli(now).atZone(zone).toLocalDate().toEpochDay()
         statsDao.addListening(
             ListeningStatEntity(

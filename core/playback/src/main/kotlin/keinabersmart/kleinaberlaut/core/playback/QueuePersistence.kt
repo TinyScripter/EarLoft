@@ -18,7 +18,12 @@ import keinabersmart.kleinaberlaut.core.data.spoken.BookKeys
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -90,6 +95,16 @@ class QueuePersistence @Inject constructor(
         val key = prefs[KEY_LAST_BOOK] ?: migrateLegacyLastBook(prefs) ?: return null
         return key.takeIf { it.isNotEmpty() }?.let { bookKeys.idOf(it) }
     }
+
+    /**
+     * Das Buch bzw. die Folge, die im Player geladen ist oder beim nächsten Start geladen wird, bei jeder Änderung; ohne
+     * Verbindung zum Player (die hält den Wiedergabe-Dienst wach). Frühere `bookId`-Einträge zählen hier nicht.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val lastBookIds: Flow<Long?> = context.playbackDataStore.data
+        .map { it[KEY_LAST_BOOK].orEmpty() }
+        .distinctUntilChanged()
+        .mapLatest { key -> key.takeIf { it.isNotEmpty() }?.let { bookKeys.idOf(it) } }
 
     /** Frühere Versionen speicherten die `bookId`; sie wird einmal in den Schlüssel umgeschrieben. */
     private suspend fun migrateLegacyLastBook(prefs: Preferences): String? {

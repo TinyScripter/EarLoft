@@ -90,6 +90,23 @@ class NavigatorTest {
     }
 
     @Test
+    fun `showing a feed goes back to its page when it lies directly below`() {
+        val podcast = PodcastRoute("feed")
+        val episode = BookRoute(7)
+        navigator.navigate(LibraryRoute)
+        navigator.navigate(podcast)
+        navigator.navigate(episode)
+
+        navigator.showFeed("feed")
+        assertEquals(listOf(LibraryRoute, podcast), state.backStacks.getValue(LibraryRoute).toList())
+
+        navigator.navigate(episode)
+        navigator.showFeed("other")
+        assertEquals(PodcastRoute("other").feedId, (navigator.currentRoute as PodcastRoute).feedId)
+        assertEquals(4, state.backStacks.getValue(LibraryRoute).size)
+    }
+
+    @Test
     fun `current route is the top of the selected tab`() {
         assertEquals(HomeRoute, navigator.currentRoute)
 

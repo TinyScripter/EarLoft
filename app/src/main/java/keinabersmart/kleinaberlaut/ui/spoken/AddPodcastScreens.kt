@@ -48,15 +48,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
-import keinabersmart.kleinaberlaut.core.network.podcast.ParsedEpisode
 import keinabersmart.kleinaberlaut.core.network.podcast.directory.DirectoryPodcast
 import keinabersmart.kleinaberlaut.core.network.podcast.directory.feedKey
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
-import java.text.DateFormat
-import java.util.Date
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 /**
@@ -288,8 +285,8 @@ private fun DirectoryHitRow(hit: DirectoryPodcast, subscribed: Boolean, onClick:
 }
 
 /**
- * Vorschau eines Treffers: Kopf mit den Angaben des Verzeichnisses, bis der Feed geladen ist; dann Beschreibung und
- * Folgen. „Abonnieren“ bzw. „Öffnen“, wenn er schon abonniert ist.
+ * Vorschau eines Treffers (Konzept 12.10): lädt den Feed als Probeabo und übergibt dann an die normale Podcast-Seite
+ * ([onOpened] mit der Id, auch wenn er schon abonniert ist). Bis dahin der Kopf mit den Angaben des Verzeichnisses.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -299,129 +296,47 @@ fun PodcastPreviewScreen(
     author: String,
     imageUrl: String?,
     onBack: () -> Unit,
-    onOpenFeed: (String) -> Unit,
-    onSubscribed: (String) -> Unit,
+    onOpened: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PodcastPreviewViewModel = hiltViewModel<PodcastPreviewViewModel, PodcastPreviewViewModel.Factory> { it.create(feedUrl) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val subscribedId by viewModel.subscribedFeedId.collectAsStateWithLifecycle()
-    val add by viewModel.add.collectAsStateWithLifecycle()
-    var descriptionExpanded by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(add) {
-        val done = add
-        if (done is AddPodcastState.Done) onSubscribed(done.feedId)
+    LaunchedEffect(state) {
+        val opened = state
+        if (opened is PreviewState.Opened) onOpened(opened.feedId)
     }
 
-    val feed = (state as? PreviewState.Loaded)?.feed
     Column(modifier.fillMaxSize()) {
         TopAppBar(title = {}, navigationIcon = { BackButton(onBack) })
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item(key = "header") {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    PodcastArt(feed?.imageUrl ?: imageUrl, Modifier.size(PREVIEW_ART_SIZE))
-                    Box(Modifier.weight(1f).height(PREVIEW_ART_SIZE).padding(start = 16.dp)) {
-                        Column(Modifier.align(Alignment.Center).fillMaxWidth()) {
-                            Text(
-                                feed?.title?.ifBlank { null } ?: title,
-                                style = MaterialTheme.typography.titleLarge,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            val by = feed?.author?.ifBlank { null } ?: author
-                            if (by.isNotBlank()) {
-                                Text(
-                                    by,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            item(key = "action") {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    val openId = subscribedId
-                    if (openId != null) {
-                        FilledTonalButton(onClick = { onOpenFeed(openId) }) { Text(stringResource(R.string.podcast_preview_open)) }
-                    } else {
-                        SubscribeButton(working = add == AddPodcastState.Working, enabled = feed != null, onClick = viewModel::subscribe)
-                    }
-                    (add as? AddPodcastState.Failed)?.let {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            PodcastArt(imageUrl, Modifier.size(PREVIEW_ART_SIZE))
+            Box(Modifier.weight(1f).height(PREVIEW_ART_SIZE).padding(start = 16.dp)) {
+                Column(Modifier.align(Alignment.Center).fillMaxWidth()) {
+                    Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    if (author.isNotBlank()) {
                         Text(
-                            stringResource(it.message),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
-                    if (isUnencrypted(feedUrl)) {
-                        Text(
-                            stringResource(R.string.podcast_add_http_hint),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 8.dp),
+                            author,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
             }
-            when (val current = state) {
-                PreviewState.Loading -> item(key = "loading") {
-                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                }
-                is PreviewState.Failed -> item(key = "failed") {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                        Text(stringResource(current.message), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                        TextButton(onClick = viewModel::load) { Text(stringResource(R.string.podcast_preview_retry)) }
-                    }
-                }
-                is PreviewState.Loaded -> {
-                    if (current.feed.description.isNotBlank()) {
-                        item(key = "description") {
-                            Text(
-                                rememberDescription(current.feed.description),
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = if (descriptionExpanded) Int.MAX_VALUE else DESCRIPTION_LINES,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .clickable { descriptionExpanded = !descriptionExpanded }
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp),
-                            )
-                        }
-                    }
-                    item(key = "episodes-header") { SectionHeader(stringResource(R.string.podcast_episodes)) }
-                    if (current.feed.episodes.isEmpty()) {
-                        item(key = "no-episodes") { EmptyHint(stringResource(R.string.podcast_no_episodes)) }
-                    }
-                    // Ohne Schlüssel: Manche Feeds wiederholen eine guid.
-                    items(current.feed.episodes.sortedByDescending { it.publishedAt }) { episode ->
-                        PreviewEpisodeRow(episode)
-                    }
-                }
+        }
+        when (val current = state) {
+            is PreviewState.Failed -> Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                Text(stringResource(current.message), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = viewModel::load) { Text(stringResource(R.string.podcast_preview_retry)) }
+            }
+            else -> Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                Text(stringResource(R.string.podcast_adding), modifier = Modifier.padding(start = 12.dp))
             }
         }
     }
 }
 
-/** Folge in der Vorschau: nur Titel, Datum und Dauer (noch nichts abspielbar). */
-@Composable
-private fun PreviewEpisodeRow(episode: ParsedEpisode) {
-    ListItem(
-        headlineContent = { Text(episode.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-        supportingContent = {
-            val facts = listOfNotNull(
-                episode.publishedAt.takeIf { it > 0 }?.let { DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it)) },
-                episode.durationMs.takeIf { it > 0 }?.let(::formatDuration),
-            ).joinToString(" · ")
-            if (facts.isNotEmpty()) Text(facts)
-        },
-    )
-}
-
 private val PREVIEW_ART_SIZE = 144.dp
-private const val DESCRIPTION_LINES = 5
