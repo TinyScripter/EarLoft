@@ -530,6 +530,21 @@ class PodcastRepositoryTest {
     private suspend fun stateOf(bookId: Long) = db.podcastDao().trackOf(bookId)!!.downloadState
 
     @Test
+    fun `download marks list episodes with a download and count the finished ones per feed`() = runTest {
+        val feedId = subscribe()
+        val (a, b, c) = listOf("A", "B", "C").map { idOf(feedId, it) }
+        val dao = db.podcastDao()
+        dao.queueDownload(a)
+        dao.markDownloadRunning(a)
+        dao.markDownloadDone(a, "/files/episode-$a.mp3", 1234)
+        dao.queueDownload(b)
+
+        assertEquals(mapOf(a to TrackDownload.DONE, b to TrackDownload.QUEUED), repository.episodeDownloadStates().first())
+        assertEquals(mapOf(feedId to 1), repository.downloadedEpisodeCounts().first())
+        assertEquals(TrackDownload.NONE, stateOf(c))
+    }
+
+    @Test
     fun `a refresh keeps the download of an episode whose file address is unchanged`() = runTest {
         val feedId = subscribe()
         val a = idOf(feedId, "A")

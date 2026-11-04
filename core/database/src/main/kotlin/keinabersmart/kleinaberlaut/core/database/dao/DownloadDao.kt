@@ -7,6 +7,7 @@ import androidx.room.Query
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SongSourceEntity
 import keinabersmart.kleinaberlaut.core.database.model.AlbumDownloadRow
+import keinabersmart.kleinaberlaut.core.database.model.AlbumDownloadSummaryRow
 import keinabersmart.kleinaberlaut.core.database.model.DownloadTotalsRow
 import keinabersmart.kleinaberlaut.core.database.model.SongOfflineRow
 import kotlinx.coroutines.flow.Flow
@@ -273,6 +274,26 @@ interface DownloadDao {
         """,
     )
     fun observeAlbumRows(): Flow<List<AlbumDownloadRow>>
+
+    /** Download-Stand aller Alben mit mindestens einem Download, für die Markierung auf Kacheln und Zeilen. */
+    @Query(
+        """
+        SELECT s.albumId,
+               (SELECT COUNT(*) FROM songs WHERE albumId = s.albumId) AS songCount,
+               (SELECT COUNT(DISTINCT ls.songId) FROM song_sources ls
+                    JOIN sources src ON src.sourceId = ls.sourceId
+                    JOIN songs ld ON ld.songId = ls.songId
+                WHERE ld.albumId = s.albumId AND src.type = 'LOCAL') AS localCount,
+               SUM(d.state = 'DONE') AS doneCount,
+               SUM(d.state IN ('QUEUED', 'RUNNING')) AS pendingCount,
+               SUM(d.state = 'FAILED') AS failedCount
+        FROM downloads d
+        JOIN song_sources ss ON ss.uid = d.sourceUid
+        JOIN songs s ON s.songId = ss.songId
+        GROUP BY s.albumId
+        """,
+    )
+    fun observeAlbumSummaries(): Flow<List<AlbumDownloadSummaryRow>>
 
     @Query(
         """

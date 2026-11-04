@@ -273,6 +273,11 @@
     <string name="download_state_downloaded">Heruntergeladen</string>
     <string name="download_state_pending">Wartet auf Download</string>
     <string name="download_state_failed">Download fehlgeschlagen</string>
+    <string name="download_state_partial">Teilweise heruntergeladen</string>
+    <plurals name="download_state_episodes">
+        <item quantity="one">%1$d Folge heruntergeladen</item>
+        <item quantity="other">%1$d Folgen heruntergeladen</item>
+    </plurals>
     <string name="downloads_empty">Noch nichts heruntergeladen. Öffne ein Album oder ein Buch vom Server und tippe auf den Download-Pfeil, um es ohne Netz zu hören.</string>
     <string name="downloads_storage">%1$s belegt · %2$s frei</string>
     <plurals name="downloads_pending">
@@ -524,8 +529,6 @@
     <string name="book_download_delete_title">Download löschen?</string>
     <string name="book_download_delete_message">Das gibt %1$s frei. Das Buch bleibt in der Bibliothek und lässt sich weiter streamen.</string>
     <string name="book_download_delete_confirm">Löschen</string>
-    <string name="book_download_done">Heruntergeladen</string>
-    <string name="book_download_running">Download läuft oder wartet</string>
     <string name="book_download_failed">Download fehlgeschlagen</string>
     <string name="downloads_section_music">Musik</string>
     <string name="downloads_section_books">Bücher</string>

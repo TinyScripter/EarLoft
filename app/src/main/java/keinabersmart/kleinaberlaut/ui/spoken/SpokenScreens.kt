@@ -423,7 +423,10 @@ fun Modifier.rowItemAnimation(scope: LazyItemScope): Modifier = with(scope) {
 private const val ROW_FADE_MS = 150
 private const val ROW_SLIDE_MS = 350
 
-/** Cover mit Fortschrittsbalken, darunter Titel und Autor; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts auf dem Cover. */
+/**
+ * Cover mit Fortschrittsbalken, darunter Titel und Autor; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts
+ * auf dem Cover, oben links die Download-Markierung ([BookDownloadBadge]).
+ */
 @Composable
 fun BookCard(
     item: BookWithProgress,
@@ -440,7 +443,7 @@ fun BookCard(
         EpisodeMenu(item, expanded = menu, onDismiss = { menu = false })
         Box {
             BookArt(item.book.id, Modifier.fillMaxWidth())
-            if (!episode) BookDownloadBadge(item.book.id, Modifier.align(Alignment.TopStart).padding(6.dp))
+            BookDownloadBadge(item.book.id, Modifier.align(Alignment.TopStart).padding(6.dp))
             if (onPlay != null) {
                 PlayPauseButton(
                     playing,

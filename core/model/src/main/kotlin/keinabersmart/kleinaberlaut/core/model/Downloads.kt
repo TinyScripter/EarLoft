@@ -64,6 +64,38 @@ class SongOfflineLookup(
     }
 }
 
+/** Markierung „heruntergeladen“ auf Covern und in Zeilen; ohne Download gibt es keine (`null`). */
+enum class OfflineMark {
+    /** Ganz geladen. */
+    DONE,
+
+    /** Nur ein Teil geladen (Album). */
+    PARTIAL,
+
+    /** Wartet oder lädt. */
+    PENDING,
+    FAILED,
+}
+
+/** Download-Stand eines Albums in Zahlen, für Kacheln und Zeilen; [localCount] zählt Songs mit lokaler Datei. */
+data class AlbumDownloadSummary(
+    val songCount: Int,
+    val localCount: Int,
+    val doneCount: Int,
+    val pendingCount: Int,
+    val failedCount: Int,
+) {
+    /** Laden geht vor Fehler, Fehler vor fertig; lokale Songs zählen als vorhanden, markieren aber allein nichts. */
+    val mark: OfflineMark?
+        get() = when {
+            pendingCount > 0 -> OfflineMark.PENDING
+            failedCount > 0 -> OfflineMark.FAILED
+            doneCount == 0 -> null
+            doneCount + localCount >= songCount -> OfflineMark.DONE
+            else -> OfflineMark.PARTIAL
+        }
+}
+
 /** Ein Album mit mindestens einem Download – für die Downloads-Übersicht. */
 data class DownloadedAlbum(
     val album: Album,

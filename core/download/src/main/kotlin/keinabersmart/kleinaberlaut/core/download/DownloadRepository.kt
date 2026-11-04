@@ -10,10 +10,12 @@ import keinabersmart.kleinaberlaut.core.database.dao.PlaylistDao
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
 import keinabersmart.kleinaberlaut.core.database.model.SongOfflineRow
 import keinabersmart.kleinaberlaut.core.model.Album
+import keinabersmart.kleinaberlaut.core.model.AlbumDownloadSummary
 import keinabersmart.kleinaberlaut.core.model.AlbumOfflineStatus
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.model.DownloadState
 import keinabersmart.kleinaberlaut.core.model.DownloadedAlbum
+import keinabersmart.kleinaberlaut.core.model.OfflineMark
 import keinabersmart.kleinaberlaut.core.model.SongOfflineLookup
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
@@ -177,6 +179,17 @@ class DownloadRepository @Inject constructor(
         downloadDao.observeOfflineRowsOfAlbum(albumId)
             .map { rows -> AlbumOfflineStatus(rows.associate { it.songId to it.toStatus() }) }
             .distinctUntilChanged()
+
+    /** Markierung je Album mit Download (Kacheln, Zeilen); Alben ohne Download fehlen. */
+    fun albumMarks(): Flow<Map<Long, OfflineMark>> =
+        downloadDao.observeAlbumSummaries().map { rows ->
+            buildMap {
+                rows.forEach { row ->
+                    val summary = AlbumDownloadSummary(row.songCount, row.localCount, row.doneCount, row.pendingCount, row.failedCount)
+                    summary.mark?.let { put(row.albumId, it) }
+                }
+            }
+        }.distinctUntilChanged()
 
     fun downloadedAlbums(): Flow<List<DownloadedAlbum>> =
         downloadDao.observeAlbumRows().map { rows ->

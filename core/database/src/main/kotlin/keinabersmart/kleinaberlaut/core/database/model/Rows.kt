@@ -74,6 +74,16 @@ data class AlbumDownloadRow(
     val doneBytes: Long,
 )
 
+/** Download-Stand eines Albums in Zahlen, für die Markierung auf Kacheln; `localCount` = Songs mit lokaler Quelle. */
+data class AlbumDownloadSummaryRow(
+    val albumId: Long,
+    val songCount: Int,
+    val localCount: Int,
+    val doneCount: Int,
+    val pendingCount: Int,
+    val failedCount: Int,
+)
+
 /** Summen über alle Downloads. */
 data class DownloadTotalsRow(
     val doneCount: Int,

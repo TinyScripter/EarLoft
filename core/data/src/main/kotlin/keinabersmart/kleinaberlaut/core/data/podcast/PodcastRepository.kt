@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -103,6 +104,14 @@ class PodcastRepository @Inject constructor(
         val byFeed = rows.associateBy { it.feedId }
         feeds.mapNotNull { feed -> byFeed[feed.feedId]?.let { FeedDownload(feed.toModel(), it.episodes, it.bytes) } }
     }
+
+    /** Zahl der fertig geladenen Folgen je Podcast (Markierung der Abo-Kacheln); Podcasts ohne fehlen. */
+    fun downloadedEpisodeCounts(): Flow<Map<String, Int>> =
+        dao.observeFeedDownloads().map { rows -> rows.associate { it.feedId to it.episodes } }.distinctUntilChanged()
+
+    /** Download-Zustand aller Folgen mit Download (Markierung der Kacheln); Folgen ohne Eintrag sind nicht geladen. */
+    fun episodeDownloadStates(): Flow<Map<Long, TrackDownload>> =
+        dao.observeEpisodeDownloads().map { rows -> rows.associate { it.bookId to it.state } }.distinctUntilChanged()
 
     fun feed(feedId: String): Flow<PodcastFeed?> = dao.observeFeed(feedId).map { it?.toModel() }
 

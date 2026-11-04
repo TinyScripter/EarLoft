@@ -51,6 +51,7 @@ import keinabersmart.kleinaberlaut.ui.LoadState
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.core.model.Album
 import keinabersmart.kleinaberlaut.core.model.Artist
+import keinabersmart.kleinaberlaut.core.model.OfflineMark
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
@@ -70,7 +71,7 @@ interface SongActions {
 
 /**
  * Eine Song-Zeile. Mit [trackNumber] wird statt des Covers die Titelnummer gezeigt
- * (Album-Ansicht). Die Zeile zeigt den Download-Zustand und das Menü „Herunterladen“ bzw.
+ * (Album-Ansicht). Die Zeile zeigt den Download-Zustand (vor der zweiten Zeile) und das Menü „Herunterladen“ bzw.
  * „Download entfernen“, sofern ein [LocalOfflineController] bereitsteht; [offline] überschreibt den Zustand (Vorschau). [onRemoveFromPlaylist] ergänzt das Menü in
  * Playlists, [warning] erscheint als zweite Zeile (z. B. „Nicht auf …“).
  */
@@ -95,7 +96,10 @@ fun SongListItem(
         supportingContent = {
             val text = if (trackNumber != null) song.artist else "${song.artist} · ${song.albumTitle}"
             Column {
-                Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (status != null) OfflineIndicator(status, Modifier.padding(end = MarkGap))
+                    Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
                 if (warning != null) Text(warning, color = MaterialTheme.colorScheme.error, maxLines = 1)
             }
         },
@@ -114,7 +118,6 @@ fun SongListItem(
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (status != null) OfflineIndicator(status)
                 Box {
                     var menuOpen by remember { mutableStateOf(false) }
                     IconButton(onClick = { menuOpen = true }) {
@@ -197,20 +200,17 @@ fun SongListItem(
     )
 }
 
-/** Kleines Symbol für den Download-Zustand eines Songs; lokale und reine Stream-Songs zeigen nichts. */
+/**
+ * Download-Zustand eines Songs vor der zweiten Zeile: wie [OfflineMarkIcon], beim Laden ein Fortschrittskreis.
+ * Lokale und reine Stream-Songs zeigen nichts.
+ */
 @Composable
-private fun OfflineIndicator(offline: SongOfflineStatus) {
-    val iconModifier = Modifier.size(18.dp)
+private fun OfflineIndicator(offline: SongOfflineStatus, modifier: Modifier = Modifier) {
     when (offline.state) {
-        SongOfflineState.DOWNLOADED -> Icon(
-            painterResource(DesignR.drawable.ic_download_done),
-            contentDescription = stringResource(R.string.download_state_downloaded),
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = iconModifier,
-        )
+        SongOfflineState.DOWNLOADED -> OfflineMarkIcon(OfflineMark.DONE, modifier)
         SongOfflineState.QUEUED, SongOfflineState.DOWNLOADING -> {
             val description = stringResource(R.string.download_state_pending)
-            val progressModifier = iconModifier.semantics { contentDescription = description }
+            val progressModifier = modifier.padding(1.dp).size(14.dp).semantics { contentDescription = description }
             val progress = offline.progress
             if (progress != null) {
                 CircularProgressIndicator(progress = { progress }, modifier = progressModifier, strokeWidth = 2.dp)
@@ -218,12 +218,7 @@ private fun OfflineIndicator(offline: SongOfflineStatus) {
                 CircularProgressIndicator(modifier = progressModifier, strokeWidth = 2.dp)
             }
         }
-        SongOfflineState.FAILED -> Icon(
-            painterResource(DesignR.drawable.ic_error),
-            contentDescription = stringResource(R.string.download_state_failed),
-            tint = MaterialTheme.colorScheme.error,
-            modifier = iconModifier,
-        )
+        SongOfflineState.FAILED -> OfflineMarkIcon(OfflineMark.FAILED, modifier)
         SongOfflineState.LOCAL, SongOfflineState.NONE -> Unit
     }
 }
@@ -244,7 +239,7 @@ fun ArtistListItem(
     )
 }
 
-/** Album-Zeile; Langklick öffnet das [AlbumMenu]. */
+/** Album-Zeile mit der Download-Markierung vor dem Interpreten; Langklick öffnet das [AlbumMenu]. */
 @Composable
 fun AlbumListItem(
     album: Album,
@@ -254,10 +249,11 @@ fun AlbumListItem(
     playing: Boolean = false,
 ) {
     var menu by remember { mutableStateOf(false) }
+    val mark = LocalOfflineController.current?.albumMarkOf(album.id)
     Box(modifier) {
         ListItem(
             headlineContent = { Text(album.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            supportingContent = { Text(album.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            supportingContent = { MarkedSupportingText(album.artist, mark) },
             leadingContent = {
                 AlbumArt(albumId = album.id, modifier = Modifier.size(48.dp), shape = MaterialTheme.shapes.small)
             },
@@ -274,7 +270,7 @@ fun AlbumListItem(
 
 /**
  * Album-Kachel für Raster und horizontale Listen; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts auf
- * dem Cover. Langklick öffnet das [AlbumMenu].
+ * dem Cover, oben links die Download-Markierung ([OfflineBadge]). Langklick öffnet das [AlbumMenu].
  */
 @Composable
 fun AlbumCard(
@@ -287,6 +283,7 @@ fun AlbumCard(
     contentPadding: Dp = 4.dp,
 ) {
     var menu by remember { mutableStateOf(false) }
+    val mark = LocalOfflineController.current?.albumMarkOf(album.id)
     Column(
         modifier = modifier
             .then(if (width != null) Modifier.width(width) else Modifier.fillMaxWidth())
@@ -301,6 +298,7 @@ fun AlbumCard(
         if (menu) AlbumMenu(album, onDismiss = { menu = false })
         Box {
             AlbumArt(albumId = album.id, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
+            OfflineBadge(mark, Modifier.align(Alignment.TopStart).padding(6.dp))
             if (onPlay != null) {
                 PlayPauseButton(playing, onPlay, Modifier.align(Alignment.BottomEnd).padding(6.dp))
             }

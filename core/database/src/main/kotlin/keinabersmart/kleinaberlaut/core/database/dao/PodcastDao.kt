@@ -188,6 +188,13 @@ abstract class PodcastDao {
     )
     abstract fun observeDownloadStates(feedId: String): Flow<List<EpisodeDownloadRow>>
 
+    /** Folgen aller Podcasts mit Download (fertig, wartend, ladend, fehlgeschlagen), für die Markierung auf Kacheln. */
+    @Query(
+        "SELECT t.bookId AS bookId, t.downloadState AS state FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND t.trackIndex = 0 AND t.downloadState IN ('DONE', 'QUEUED', 'RUNNING', 'FAILED')",
+    )
+    abstract fun observeEpisodeDownloads(): Flow<List<EpisodeDownloadRow>>
+
     /** Alle fertig geladenen Folgen (aller Podcasts), für das Kontextmenü. */
     @Query(
         "SELECT t.bookId FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +

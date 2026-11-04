@@ -6,6 +6,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PlaylistEntryEntity
 import keinabersmart.kleinaberlaut.core.model.DownloadState
+import keinabersmart.kleinaberlaut.core.model.OfflineMark
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import kotlinx.coroutines.flow.first
@@ -151,6 +152,39 @@ class DownloadRepositoryTest {
         assertEquals(SongOfflineState.QUEUED, lookup[queued].state)
         assertEquals(SongOfflineState.NONE, lookup[streamOnly].state)
         assertEquals(1, lookup.statusOf(listOf(local, queued, streamOnly, queued)).pendingCount)
+    }
+
+    @Test
+    fun `album marks count local songs as present but need a download`() = runTest {
+        val full = library.album("Takk")
+        library.song(full, "A", "local" to "a")
+        val fullRemote = library.song(full, "B", "home" to "b")
+        val partial = library.album("Kveikur")
+        val partialDone = library.song(partial, "C", "home" to "c")
+        library.song(partial, "D", "home" to "d")
+        val pending = library.album("Valtari")
+        library.song(pending, "E", "home" to "e")
+        val failed = library.album("Med sud")
+        val failedSong = library.song(failed, "F", "home" to "f")
+        val onlyLocal = library.album("( )")
+        library.song(onlyLocal, "G", "local" to "g")
+        val untouched = library.album("Heima")
+        library.song(untouched, "H", "home" to "h")
+        library.db.downloadDao().insertIfAbsent(
+            listOf(
+                DownloadEntity("home:b", fullRemote, DownloadState.DONE),
+                DownloadEntity("home:c", partialDone, DownloadState.DONE),
+                DownloadEntity("home:f", failedSong, DownloadState.FAILED),
+            ),
+        )
+        repository.downloadAlbum(pending)
+
+        val marks = repository.albumMarks().first()
+
+        assertEquals(
+            mapOf(full to OfflineMark.DONE, partial to OfflineMark.PARTIAL, pending to OfflineMark.PENDING, failed to OfflineMark.FAILED),
+            marks,
+        )
     }
 
     @Test

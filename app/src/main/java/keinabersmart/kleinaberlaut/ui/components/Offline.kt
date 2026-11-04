@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
+import keinabersmart.kleinaberlaut.core.model.OfflineMark
 import keinabersmart.kleinaberlaut.core.model.SongOfflineLookup
 import keinabersmart.kleinaberlaut.core.model.SongOfflineStatus
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,12 +22,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Offline-Zustand und Download-Aktionen für jede Song-Zeile der App. Die Zeile liest den Zustand über
- * [statusOf] und recomposed nur, wenn sich ihr eigener Zustand ändert – nicht bei jedem Fortschritt anderer Songs.
+ * Offline-Zustand und Download-Aktionen für jede Song-Zeile der App, dazu die Markierung der Alben. Zeile und Kachel
+ * lesen den Zustand über [statusOf] bzw. [albumMarkOf] und recomposen nur, wenn sich ihr eigener Zustand ändert –
+ * nicht bei jedem Fortschritt anderer Songs.
  */
 @Stable
 class OfflineController(
     private val lookup: State<SongOfflineLookup>,
+    private val albumMarks: State<Map<Long, OfflineMark>>,
     val download: (songId: Long) -> Unit,
     val removeDownload: (songId: Long) -> Unit,
 ) {
@@ -34,6 +37,12 @@ class OfflineController(
     fun statusOf(songId: Long): SongOfflineStatus {
         val status = remember(songId) { derivedStateOf { lookup.value[songId] } }
         return status.value
+    }
+
+    @Composable
+    fun albumMarkOf(albumId: Long): OfflineMark? {
+        val mark = remember(albumId) { derivedStateOf { albumMarks.value[albumId] } }
+        return mark.value
     }
 }
 
@@ -47,6 +56,9 @@ class OfflineViewModel @Inject constructor(
     val lookup: StateFlow<SongOfflineLookup> = downloadRepository.songStatuses()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SongOfflineLookup.EMPTY)
 
+    val albumMarks: StateFlow<Map<Long, OfflineMark>> = downloadRepository.albumMarks()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     fun download(songId: Long) {
         viewModelScope.launch { downloadRepository.downloadSongs(listOf(songId)) }
     }
@@ -59,5 +71,6 @@ class OfflineViewModel @Inject constructor(
 @Composable
 fun rememberOfflineController(viewModel: OfflineViewModel = hiltViewModel()): OfflineController {
     val lookup = viewModel.lookup.collectAsStateWithLifecycle()
-    return remember(viewModel) { OfflineController(lookup, viewModel::download, viewModel::removeDownload) }
+    val albumMarks = viewModel.albumMarks.collectAsStateWithLifecycle()
+    return remember(viewModel) { OfflineController(lookup, albumMarks, viewModel::download, viewModel::removeDownload) }
 }

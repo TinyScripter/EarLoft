@@ -200,7 +200,10 @@ fun PodcastHomeScreen(
     }
 }
 
-/** Bild und Titel eines Abos; Langklick öffnet das [FeedMenu], dessen letzter Eintrag die Einstellungen ([onSettings]). */
+/**
+ * Bild und Titel eines Abos, oben links auf dem Bild die Zahl der geladenen Folgen ([FeedDownloadBadge]); Langklick öffnet
+ * das [FeedMenu], dessen letzter Eintrag die Einstellungen ([onSettings]).
+ */
 @Composable
 fun FeedCard(
     feed: PodcastFeed,
@@ -220,7 +223,10 @@ fun FeedCard(
             .padding(contentPadding),
     ) {
         if (menu) FeedMenu(feed, onSettings = onSettings, onDismiss = { menu = false })
-        PodcastArt(feed.imageUrl, Modifier.fillMaxWidth())
+        Box {
+            PodcastArt(feed.imageUrl, Modifier.fillMaxWidth())
+            FeedDownloadBadge(feed.id, Modifier.align(Alignment.TopStart).padding(6.dp))
+        }
         // Immer zwei Zeilen hoch, damit Kacheln einer Reihe gleich hoch sind.
         Text(
             feed.title,
@@ -748,7 +754,7 @@ fun PodcastSettingsScreen(
 
 /**
  * Herunterladen; beim Laden ein Kreis, der sich füllt (leer = wartet, Tipp bricht ab), danach Haken (Tipp löscht).
- * Ist die Größe unbekannt, dreht sich der Kreis.
+ * Ist die Größe unbekannt, dreht sich der Kreis. Haken und Fehler in den Farben der Markierung ([OfflineMarkIcon]).
  */
 @Composable
 private fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: () -> Unit, onRemove: () -> Unit) {
@@ -764,10 +770,18 @@ private fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: (
             }
         }
         TrackDownload.DONE -> IconButton(onClick = onRemove) {
-            Icon(painterResource(DesignR.drawable.ic_download_done), contentDescription = stringResource(R.string.podcast_download_remove))
+            Icon(
+                painterResource(DesignR.drawable.ic_download_done),
+                contentDescription = stringResource(R.string.podcast_download_remove),
+                tint = MaterialTheme.colorScheme.primary,
+            )
         }
         TrackDownload.FAILED -> IconButton(onClick = onDownload) {
-            Icon(painterResource(DesignR.drawable.ic_error), contentDescription = stringResource(R.string.podcast_download_retry))
+            Icon(
+                painterResource(DesignR.drawable.ic_error),
+                contentDescription = stringResource(R.string.podcast_download_retry),
+                tint = MaterialTheme.colorScheme.error,
+            )
         }
         TrackDownload.NONE, TrackDownload.REMOVED -> IconButton(onClick = onDownload) {
             Icon(painterResource(DesignR.drawable.ic_download), contentDescription = stringResource(R.string.podcast_download_episode))

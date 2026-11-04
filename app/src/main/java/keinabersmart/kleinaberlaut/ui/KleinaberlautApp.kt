@@ -133,8 +133,10 @@ import keinabersmart.kleinaberlaut.ui.spoken.SpokenMiniPlayer
 import keinabersmart.kleinaberlaut.ui.spoken.BookGroupScreen
 import keinabersmart.kleinaberlaut.ui.spoken.SpokenModeHost
 import keinabersmart.kleinaberlaut.ui.spoken.LocalBookDownloads
+import keinabersmart.kleinaberlaut.ui.spoken.LocalFeedDownloads
 import keinabersmart.kleinaberlaut.ui.spoken.bookFraction
 import keinabersmart.kleinaberlaut.ui.spoken.rememberBookDownloads
+import keinabersmart.kleinaberlaut.ui.spoken.rememberFeedDownloads
 import kotlinx.coroutines.launch
 
 @Composable
@@ -400,6 +402,7 @@ fun KleinaberlautApp(
         LocalOfflineController provides rememberOfflineController(),
         LocalWatchController provides rememberWatchController(),
         LocalBookDownloads provides rememberBookDownloads(),
+        LocalFeedDownloads provides rememberFeedDownloads(),
     ) {
         SyncNoticeEffect()
         RefreshEventEffect()

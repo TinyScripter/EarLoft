@@ -277,6 +277,11 @@
     <string name="download_state_downloaded">Downloaded</string>
     <string name="download_state_pending">Waiting to download</string>
     <string name="download_state_failed">Download failed</string>
+    <string name="download_state_partial">Partly downloaded</string>
+    <plurals name="download_state_episodes">
+        <item quantity="one">%1$d episode downloaded</item>
+        <item quantity="other">%1$d episodes downloaded</item>
+    </plurals>
     <string name="downloads_empty">Nothing downloaded yet. Open an album or a book from the server and tap the download arrow to listen offline.</string>
     <string name="downloads_storage">%1$s used · %2$s free</string>
     <plurals name="downloads_pending">
@@ -528,8 +533,6 @@
     <string name="book_download_delete_title">Delete download?</string>
     <string name="book_download_delete_message">This frees %1$s. The book stays in your library and can still be streamed.</string>
     <string name="book_download_delete_confirm">Delete</string>
-    <string name="book_download_done">Downloaded</string>
-    <string name="book_download_running">Download pending</string>
     <string name="book_download_failed">Download failed</string>
     <string name="downloads_section_music">Music</string>
     <string name="downloads_section_books">Books</string>
