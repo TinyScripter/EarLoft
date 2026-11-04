@@ -81,7 +81,7 @@ fun FeedMenu(
                 text = { Text(stringResource(R.string.feed_menu_queue_next)) },
                 leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = null) },
                 onClick = {
-                    val message = if (current.nextQueued) R.string.feed_menu_already_queued else R.string.feed_menu_queued
+                    val message = if (current.nextQueued) R.string.feed_menu_already_queued else R.string.queue_added_at_end
                     if (!current.nextQueued) viewModel.queue(next.book.id)
                     snackbars.show(resources.getString(message, next.book.title))
                     onDismiss()

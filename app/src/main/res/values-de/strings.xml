@@ -636,7 +636,7 @@
     <string name="podcast_refresh_feed">Podcast aktualisieren</string>
     <string name="feed_menu_play_next">Nächste Folge abspielen</string>
     <string name="feed_menu_queue_next">Nächste Folge in Warteschlange</string>
-    <string name="feed_menu_queued">„%1$s“ steht jetzt in der Warteschlange.</string>
+    <string name="queue_added_at_end">„%1$s“ steht jetzt am Ende der Warteschlange.</string>
     <string name="feed_menu_already_queued">„%1$s“ steht schon in der Warteschlange.</string>
     <string name="feed_menu_mark_all_played">Alle als gehört markieren</string>
     <string name="feed_menu_mark_all_title">Alle Folgen als gehört markieren?</string>

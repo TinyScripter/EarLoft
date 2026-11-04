@@ -585,6 +585,20 @@ fun AudiobookSettingsScreen(
         }
         item(key = "audiobookshelf") { AudiobookshelfSection(onAdd = onAddServer, onEdit = onEditServer) }
 
+        item(key = "refresh") { SectionHeader(stringResource(R.string.settings_section_refresh)) }
+        item(key = "refresh-audiobooks") { RefreshRow(stringResource(R.string.settings_refresh_audiobooks), viewModel::refreshAudiobooks) }
+
+        item(key = "images") { SectionHeader(stringResource(R.string.settings_section_images)) }
+        item(key = "author-images") {
+            SwitchRow(
+                title = stringResource(R.string.settings_author_images),
+                summary = stringResource(R.string.settings_author_images_summary),
+                icon = DesignR.drawable.ic_book,
+                checked = state.authorImages,
+                onCheckedChange = viewModel::setAuthorImages,
+            )
+        }
+
         item(key = "playback") { SectionHeader(stringResource(R.string.settings_playback)) }
         item(key = "book-resume") {
             Column {
@@ -598,20 +612,6 @@ fun AudiobookSettingsScreen(
                 icon = DesignR.drawable.ic_book,
                 checked = state.restartChapter,
                 onCheckedChange = viewModel::setRestartChapter,
-            )
-        }
-
-        item(key = "refresh") { SectionHeader(stringResource(R.string.settings_section_refresh)) }
-        item(key = "refresh-audiobooks") { RefreshRow(stringResource(R.string.settings_refresh_audiobooks), viewModel::refreshAudiobooks) }
-
-        item(key = "images") { SectionHeader(stringResource(R.string.settings_section_images)) }
-        item(key = "author-images") {
-            SwitchRow(
-                title = stringResource(R.string.settings_author_images),
-                summary = stringResource(R.string.settings_author_images_summary),
-                icon = DesignR.drawable.ic_book,
-                checked = state.authorImages,
-                onCheckedChange = viewModel::setAuthorImages,
             )
         }
 

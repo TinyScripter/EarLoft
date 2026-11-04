@@ -640,7 +640,7 @@
     <string name="podcast_refresh_feed">Refresh podcast</string>
     <string name="feed_menu_play_next">Play next episode</string>
     <string name="feed_menu_queue_next">Add next episode to queue</string>
-    <string name="feed_menu_queued">“%1$s” is now in the queue.</string>
+    <string name="queue_added_at_end">“%1$s” was added to the end of the queue.</string>
     <string name="feed_menu_already_queued">“%1$s” is already in the queue.</string>
     <string name="feed_menu_mark_all_played">Mark all as played</string>
     <string name="feed_menu_mark_all_title">Mark all episodes as played?</string>

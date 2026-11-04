@@ -49,6 +49,8 @@ fun EpisodeMenu(
             text = { Text(stringResource(if (inQueue) R.string.episode_queue_remove else R.string.episode_queue_add)) },
             onClick = {
                 viewModel.setQueued(id, !inQueue)
+                // Hinten angehängt; bei langer Warteschlange sieht man das sonst nicht.
+                if (!inQueue) snackbars.show(resources.getString(R.string.queue_added_at_end, item.book.title))
                 onDismiss()
             },
         )
