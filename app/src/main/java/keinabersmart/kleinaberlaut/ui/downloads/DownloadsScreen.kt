@@ -4,12 +4,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -39,6 +39,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import keinabersmart.kleinaberlaut.ui.components.GroupMargin
+import keinabersmart.kleinaberlaut.ui.components.group
+import keinabersmart.kleinaberlaut.ui.components.groupedItems
 import keinabersmart.kleinaberlaut.ui.components.readableWidth
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
@@ -148,16 +151,18 @@ private fun DownloadsContent(
             state.isLoading -> LoadingIndicator()
             state.isFailed -> LoadFailedHint()
             isEmpty -> EmptyHint(stringResource(R.string.downloads_empty))
-            else -> LazyColumn(Modifier.fillMaxSize()) {
+            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                 item(key = "storage") { StorageLine(overview) }
-                if (overview.pendingSongs > 0) item(key = "pending") { PendingRow(overview) }
-                if (overview.failedSongs > 0) item(key = "failed") { FailedRow(overview.failedSongs, onRetryFailed) }
+                group("status") {
+                    if (overview.pendingSongs > 0) row("pending") { PendingRow(overview) }
+                    if (overview.failedSongs > 0) row("failed") { FailedRow(overview.failedSongs, onRetryFailed) }
+                }
                 if (state.albums.isNotEmpty()) {
                     item(key = "albums-header") {
                         CategoryHeader(stringResource(R.string.downloads_section_music)) { categoryToRemove = DownloadCategory.MUSIC }
                     }
                 }
-                items(state.albums, key = { "album-${it.album.id}" }) { album ->
+                groupedItems(state.albums, key = { "album-${it.album.id}" }) { album ->
                     DownloadedAlbumRow(
                         album = album,
                         onClick = { onAlbumClick(album.album.id) },
@@ -169,7 +174,7 @@ private fun DownloadsContent(
                         CategoryHeader(stringResource(R.string.downloads_section_books)) { categoryToRemove = DownloadCategory.BOOKS }
                     }
                 }
-                items(state.books, key = { "book-${it.book.id}" }) { item ->
+                groupedItems(state.books, key = { "book-${it.book.id}" }) { item ->
                     DownloadedBookRow(
                         item = item,
                         transfer = transfers[item.book.id],
@@ -185,7 +190,7 @@ private fun DownloadsContent(
                         CategoryHeader(stringResource(R.string.downloads_section_podcasts)) { categoryToRemove = DownloadCategory.PODCASTS }
                     }
                 }
-                items(state.podcasts, key = { "podcast-${it.feed.id}" }) { item ->
+                groupedItems(state.podcasts, key = { "podcast-${it.feed.id}" }) { item ->
                     DownloadedFeedRow(
                         item = item,
                         onClick = { onPodcastClick(item.feed.id) },
@@ -253,7 +258,7 @@ private fun StorageLine(overview: DownloadOverview) {
         stringResource(R.string.downloads_storage, formatBytes(overview.usedBytes), formatBytes(overview.freeBytes)),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
     )
 }
 
@@ -337,7 +342,8 @@ private fun DownloadedAlbumRow(album: DownloadedAlbum, onClick: () -> Unit, onRe
 @Composable
 private fun CategoryHeader(text: String, onRemoveAll: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+        // Der Mülleimer steht bündig mit denen der Zeilen in der Gruppe darunter.
+        Modifier.fillMaxWidth().padding(start = GroupMargin + 16.dp, end = GroupMargin + 16.dp, top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

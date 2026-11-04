@@ -78,6 +78,7 @@ import keinabersmart.kleinaberlaut.ui.components.PlayPauseButton
 import keinabersmart.kleinaberlaut.ui.components.GridTilePadding
 import keinabersmart.kleinaberlaut.ui.components.Shelf
 import keinabersmart.kleinaberlaut.ui.components.gridTile
+import keinabersmart.kleinaberlaut.ui.components.groupedItems
 import keinabersmart.kleinaberlaut.ui.components.ShelfInset
 
 /** Bücher mit gleichem Autor bzw. aus der gleichen Serie. */
@@ -307,8 +308,8 @@ private fun BookGroupList(groups: List<BookGroup>, onClick: (String) -> Unit) {
     }
     val state = rememberLazyListState()
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), state = state) {
-            items(groups, key = { it.name }) { group ->
+        LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(vertical = 8.dp)) {
+            groupedItems(groups, key = { it.name }) { group ->
                 ListItem(
                     headlineContent = { Text(group.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     supportingContent = { Text(pluralStringResource(R.plurals.book_count, group.books.size, group.books.size)) },

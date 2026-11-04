@@ -355,13 +355,13 @@ fun ArtistCard(
     }
 }
 
-/** Abschnittsüberschrift in Listen. */
+/** Abschnittsüberschrift in Listen, bündig mit dem Text der Gruppe darunter ([GroupedItem]). */
 @Composable
 fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = modifier.padding(start = GroupMargin + 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
     )
 }
 

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -31,16 +30,25 @@ import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.model.PodcastListening
 import keinabersmart.kleinaberlaut.core.model.PodcastStats
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.GroupMargin
+import keinabersmart.kleinaberlaut.ui.components.ListGroup
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import keinabersmart.kleinaberlaut.ui.components.groupedItems
 import java.time.Month
 import java.time.format.TextStyle
+
+/** Zusammenfassung oder Diagramm der Statistik als eigene Fläche (wie eine Listengruppe). */
+@Composable
+internal fun StatCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    ListGroup(modifier.padding(vertical = 4.dp)) { content() }
+}
 
 /** Auswahl „Gesamt“ und einzelne Jahre (beide Statistik-Reiter). */
 @Composable
 internal fun YearChips(years: List<Int>, selected: Int?, onSelect: (Int?) -> Unit, modifier: Modifier = Modifier) {
     if (years.isEmpty()) return
     Row(
-        modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier.horizontalScroll(rememberScrollState()).padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         FilterChip(selected = selected == null, onClick = { onSelect(null) }, label = { Text(stringResource(R.string.stats_year_all)) })
@@ -71,20 +79,20 @@ fun PodcastStatsScreen(
                 return@LazyColumn
             }
         }
-        item(key = "summary") { Summary(current) }
+        item(key = "summary") { StatCard { Summary(current) } }
         if (current.year != null) {
             item(key = "year-note") {
                 Text(
                     stringResource(R.string.stats_year_note),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 4.dp),
                 )
             }
         }
         if (current.podcasts.isNotEmpty()) {
             item(key = "by-podcast") { SectionHeader(stringResource(R.string.podcast_stats_by_podcast)) }
-            items(current.podcasts, key = { it.key }) { podcast ->
+            groupedItems(current.podcasts, key = { it.key }) { podcast ->
                 PodcastRow(podcast, share = podcast.listenedMs.toFloat() / current.totalMs.coerceAtLeast(1), current.totalMs, onFeedClick)
             }
         }
@@ -92,11 +100,13 @@ fun PodcastStatsScreen(
         item(key = "chart") {
             if (current.hasHistory) {
                 val locale = LocalConfiguration.current.locales[0]
-                BarChart(
-                    current.months.map { StatBar(Month.of(it.month).getDisplayName(TextStyle.SHORT, locale), it.listenedMs) },
-                    stringResource(R.string.podcast_stats_hours_per_month),
-                    Modifier.padding(horizontal = 16.dp),
-                )
+                StatCard {
+                    BarChart(
+                        current.months.map { StatBar(Month.of(it.month).getDisplayName(TextStyle.SHORT, locale), it.listenedMs) },
+                        stringResource(R.string.podcast_stats_hours_per_month),
+                        Modifier.padding(16.dp),
+                    )
+                }
             } else {
                 EmptyHint(stringResource(R.string.podcast_stats_history_empty), Modifier.padding(horizontal = 16.dp))
             }

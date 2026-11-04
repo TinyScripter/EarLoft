@@ -4,8 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.AlertDialog
@@ -32,6 +32,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import android.text.format.Formatter
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -43,7 +44,7 @@ import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
 import keinabersmart.kleinaberlaut.core.wearsync.WearStatusDto
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
-import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import keinabersmart.kleinaberlaut.ui.components.group
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
@@ -91,77 +92,83 @@ private fun WatchSettingsContent(
             title = { Text(stringResource(R.string.watch_settings_title)) },
             navigationIcon = { BackButton(onBack) },
         )
-        LazyColumn(Modifier.navigationBarsPadding()) {
-            item(key = "status") { WatchStatusRows(state.status) }
-            item(key = "selections") { SectionHeader(stringResource(R.string.watch_selections)) }
-            val selections = state.selections
-            if (selections != null && selections.isEmpty()) {
-                item(key = "empty") { EmptyHint(stringResource(R.string.watch_selections_empty)) }
+        LazyColumn(Modifier.navigationBarsPadding(), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
+            group("status-group") {
+                row("status") { WatchStatusRows(state.status) }
             }
-            items(selections.orEmpty(), key = { it.kind.key(it.refId) }) { item ->
-                ListItem(
-                    headlineContent = {
-                        Text(
-                            if (item.kind == WearSelectionKind.FAVORITES) stringResource(R.string.favorites_title) else item.title,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+            group("selections", R.string.watch_selections) {
+                val selections = state.selections
+                if (selections != null && selections.isEmpty()) {
+                    row("empty") { EmptyHint(stringResource(R.string.watch_selections_empty)) }
+                }
+                selections.orEmpty().forEach { item ->
+                    row(item.kind.key(item.refId)) {
+                        ListItem(
+                            headlineContent = {
+                                Text(
+                                    if (item.kind == WearSelectionKind.FAVORITES) stringResource(R.string.favorites_title) else item.title,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                            supportingContent = {
+                                val progress = state.status?.selections?.firstOrNull { it.key == item.kind.key(item.refId) }
+                                if (progress != null && progress.done < progress.total) {
+                                    Text(stringResource(R.string.watch_selection_progress, stringResource(item.kind.label), progress.done, progress.total))
+                                } else {
+                                    Text(pluralStringResource(R.plurals.watch_selection_songs, item.songCount, stringResource(item.kind.label), item.songCount))
+                                }
+                            },
+                            trailingContent = {
+                                IconButton(onClick = { onRemove(item) }) {
+                                    Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.watch_remove))
+                                }
+                            },
                         )
-                    },
-                    supportingContent = {
-                        val progress = state.status?.selections?.firstOrNull { it.key == item.kind.key(item.refId) }
-                        if (progress != null && progress.done < progress.total) {
-                            Text(stringResource(R.string.watch_selection_progress, stringResource(item.kind.label), progress.done, progress.total))
-                        } else {
-                            Text(pluralStringResource(R.plurals.watch_selection_songs, item.songCount, stringResource(item.kind.label), item.songCount))
-                        }
-                    },
-                    trailingContent = {
-                        IconButton(onClick = { onRemove(item) }) {
-                            Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.watch_remove))
-                        }
-                    },
-                )
+                    }
+                }
+                row("podcasts") {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.watch_podcasts)) },
+                        supportingContent = { Text(podcastEpisodesLabel(settings.podcastEpisodes)) },
+                        leadingContent = { Icon(painterResource(DesignR.drawable.ic_playlist_play), contentDescription = null) },
+                        modifier = Modifier.clickable { choosingEpisodes = true },
+                    )
+                }
             }
-            item(key = "podcasts") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.watch_podcasts)) },
-                    supportingContent = { Text(podcastEpisodesLabel(settings.podcastEpisodes)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_playlist_play), contentDescription = null) },
-                    modifier = Modifier.clickable { choosingEpisodes = true },
-                )
-            }
-            item(key = "downloads") { SectionHeader(stringResource(R.string.watch_downloads)) }
-            item(key = "quality") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.watch_quality)) },
-                    supportingContent = { Text(stringResource(settings.quality.label)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_music_note), contentDescription = null) },
-                    modifier = Modifier.clickable { choosingQuality = true },
-                )
-            }
-            item(key = "limit") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.watch_storage_limit)) },
-                    supportingContent = { Text(storageLimitLabel(settings.storageLimitGb)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download_done), contentDescription = null) },
-                    modifier = Modifier.clickable { choosingLimit = true },
-                )
-            }
-            item(key = "charging") {
-                SwitchRow(
-                    title = stringResource(R.string.watch_require_charging),
-                    summary = stringResource(R.string.watch_require_charging_summary),
-                    icon = DesignR.drawable.ic_download,
-                    checked = settings.requireCharging,
-                    onCheckedChange = onRequireChargingChange,
-                )
-            }
-            item(key = "clear") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.watch_clear), color = MaterialTheme.colorScheme.error) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
-                    modifier = Modifier.clickable { confirmClear = true },
-                )
+            group("downloads", R.string.watch_downloads) {
+                row("quality") {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.watch_quality)) },
+                        supportingContent = { Text(stringResource(settings.quality.label)) },
+                        leadingContent = { Icon(painterResource(DesignR.drawable.ic_music_note), contentDescription = null) },
+                        modifier = Modifier.clickable { choosingQuality = true },
+                    )
+                }
+                row("limit") {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.watch_storage_limit)) },
+                        supportingContent = { Text(storageLimitLabel(settings.storageLimitGb)) },
+                        leadingContent = { Icon(painterResource(DesignR.drawable.ic_download_done), contentDescription = null) },
+                        modifier = Modifier.clickable { choosingLimit = true },
+                    )
+                }
+                row("charging") {
+                    SwitchRow(
+                        title = stringResource(R.string.watch_require_charging),
+                        summary = stringResource(R.string.watch_require_charging_summary),
+                        icon = DesignR.drawable.ic_download,
+                        checked = settings.requireCharging,
+                        onCheckedChange = onRequireChargingChange,
+                    )
+                }
+                row("clear") {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.watch_clear), color = MaterialTheme.colorScheme.error) },
+                        leadingContent = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                        modifier = Modifier.clickable { confirmClear = true },
+                    )
+                }
             }
         }
     }

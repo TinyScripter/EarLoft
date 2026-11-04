@@ -2,6 +2,7 @@ package keinabersmart.kleinaberlaut.ui.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -19,11 +20,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.designsystem.theme.KleinaberlautTheme
 import keinabersmart.kleinaberlaut.ui.components.LocalWatchController
+import keinabersmart.kleinaberlaut.ui.components.group
 import keinabersmart.kleinaberlaut.ui.components.readableWidth
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
@@ -73,70 +76,72 @@ private fun SettingsContent(
         TopAppBar(title = { Text(stringResource(R.string.settings_title)) })
         if (state.isSyncing) LinearProgressIndicator(Modifier.fillMaxWidth())
 
-        LazyColumn(Modifier.navigationBarsPadding()) {
-            item(key = "general") {
-                NavRow(
-                    title = stringResource(R.string.settings_general),
-                    summary = stringResource(R.string.settings_general_summary),
-                    icon = DesignR.drawable.ic_settings,
-                    onClick = onOpenGeneral,
-                )
-            }
-            item(key = "music") {
-                val servers = pluralStringResource(R.plurals.settings_server_count, state.servers.size, state.servers.size)
-                NavRow(
-                    title = stringResource(R.string.settings_music),
-                    summary = if (state.useLocalMedia) {
-                        stringResource(R.string.settings_music_summary_local, servers)
-                    } else {
-                        servers
-                    },
-                    icon = DesignR.drawable.ic_music_note,
-                    onClick = onOpenMusic,
-                )
-            }
-            item(key = "podcasts") {
-                NavRow(
-                    title = stringResource(R.string.settings_podcasts),
-                    summary = pluralStringResource(
-                        R.plurals.settings_podcast_count,
-                        state.podcastFeedCount,
-                        state.podcastFeedCount,
-                    ),
-                    icon = DesignR.drawable.ic_playlist_play,
-                    onClick = onOpenPodcasts,
-                )
-            }
-            item(key = "audiobooks") {
-                NavRow(
-                    title = stringResource(R.string.settings_audiobooks),
-                    summary = pluralStringResource(
-                        R.plurals.settings_server_count,
-                        state.audiobookServerCount,
-                        state.audiobookServerCount,
-                    ),
-                    icon = DesignR.drawable.ic_book,
-                    onClick = onOpenAudiobooks,
-                )
-            }
-            // Nur mit gekoppelter Uhr, auf der kleinaberlaut installiert ist (Wear-Konzept 5).
-            if (watchAvailable) {
-                item(key = "watch") {
+        LazyColumn(Modifier.navigationBarsPadding(), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
+            group("sections") {
+                row("general") {
                     NavRow(
-                        title = stringResource(R.string.settings_watch),
-                        summary = stringResource(R.string.settings_watch_open_summary),
-                        icon = DesignR.drawable.ic_watch,
-                        onClick = onOpenWatch,
+                        title = stringResource(R.string.settings_general),
+                        summary = stringResource(R.string.settings_general_summary),
+                        icon = DesignR.drawable.ic_settings,
+                        onClick = onOpenGeneral,
                     )
                 }
-            }
-            item(key = "about") {
-                NavRow(
-                    title = stringResource(R.string.settings_about),
-                    summary = stringResource(R.string.settings_about_summary),
-                    icon = DesignR.drawable.ic_info,
-                    onClick = onOpenAbout,
-                )
+                row("music") {
+                    val servers = pluralStringResource(R.plurals.settings_server_count, state.servers.size, state.servers.size)
+                    NavRow(
+                        title = stringResource(R.string.settings_music),
+                        summary = if (state.useLocalMedia) {
+                            stringResource(R.string.settings_music_summary_local, servers)
+                        } else {
+                            servers
+                        },
+                        icon = DesignR.drawable.ic_music_note,
+                        onClick = onOpenMusic,
+                    )
+                }
+                row("podcasts") {
+                    NavRow(
+                        title = stringResource(R.string.settings_podcasts),
+                        summary = pluralStringResource(
+                            R.plurals.settings_podcast_count,
+                            state.podcastFeedCount,
+                            state.podcastFeedCount,
+                        ),
+                        icon = DesignR.drawable.ic_playlist_play,
+                        onClick = onOpenPodcasts,
+                    )
+                }
+                row("audiobooks") {
+                    NavRow(
+                        title = stringResource(R.string.settings_audiobooks),
+                        summary = pluralStringResource(
+                            R.plurals.settings_server_count,
+                            state.audiobookServerCount,
+                            state.audiobookServerCount,
+                        ),
+                        icon = DesignR.drawable.ic_book,
+                        onClick = onOpenAudiobooks,
+                    )
+                }
+                // Nur mit gekoppelter Uhr, auf der kleinaberlaut installiert ist (Wear-Konzept 5).
+                if (watchAvailable) {
+                    row("watch") {
+                        NavRow(
+                            title = stringResource(R.string.settings_watch),
+                            summary = stringResource(R.string.settings_watch_open_summary),
+                            icon = DesignR.drawable.ic_watch,
+                            onClick = onOpenWatch,
+                        )
+                    }
+                }
+                row("about") {
+                    NavRow(
+                        title = stringResource(R.string.settings_about),
+                        summary = stringResource(R.string.settings_about_summary),
+                        icon = DesignR.drawable.ic_info,
+                        onClick = onOpenAbout,
+                    )
+                }
             }
         }
     }

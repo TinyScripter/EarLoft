@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -36,7 +35,8 @@ import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
-import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import keinabersmart.kleinaberlaut.ui.components.GroupMargin
+import keinabersmart.kleinaberlaut.ui.components.group
 import keinabersmart.kleinaberlaut.ui.permission.rememberAudioPermissionRequester
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import keinabersmart.kleinaberlaut.core.network.podcast.directory.PodcastDirectory
@@ -74,58 +74,61 @@ fun GeneralSettingsScreen(
     var choosingTheme by rememberSaveable { mutableStateOf(false) }
 
     SettingsPage(stringResource(R.string.settings_general), onBack, modifier) {
-        item(key = "appearance") { SectionHeader(stringResource(R.string.settings_section_appearance)) }
-        item(key = "theme") {
-            ClickRow(
-                title = stringResource(R.string.settings_theme),
-                value = stringResource(state.themeMode.label),
-                icon = DesignR.drawable.ic_contrast,
-                onClick = { choosingTheme = true },
-            )
-        }
-        // Material You gibt es erst ab Android 12; davor gelten immer die App-Farben.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            item(key = "system-colors") {
+        group("appearance", R.string.settings_section_appearance) {
+            row("theme") {
+                ClickRow(
+                    title = stringResource(R.string.settings_theme),
+                    value = stringResource(state.themeMode.label),
+                    icon = DesignR.drawable.ic_contrast,
+                    onClick = { choosingTheme = true },
+                )
+            }
+            // Material You gibt es erst ab Android 12; davor gelten immer die App-Farben.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                row("system-colors") {
+                    SwitchRow(
+                        title = stringResource(R.string.settings_system_colors),
+                        summary = stringResource(R.string.settings_system_colors_summary),
+                        icon = DesignR.drawable.ic_palette,
+                        checked = state.systemColors,
+                        onCheckedChange = viewModel::setSystemColors,
+                    )
+                }
+            }
+            row("always-nav") {
                 SwitchRow(
-                    title = stringResource(R.string.settings_system_colors),
-                    summary = stringResource(R.string.settings_system_colors_summary),
-                    icon = DesignR.drawable.ic_palette,
-                    checked = state.systemColors,
-                    onCheckedChange = viewModel::setSystemColors,
+                    title = stringResource(R.string.settings_always_navigation_bar),
+                    summary = stringResource(R.string.settings_always_navigation_bar_summary),
+                    icon = R.drawable.ic_nav_home,
+                    checked = state.alwaysShowNavigationBar,
+                    onCheckedChange = viewModel::setAlwaysShowNavigationBar,
                 )
             }
         }
-        item(key = "always-nav") {
-            SwitchRow(
-                title = stringResource(R.string.settings_always_navigation_bar),
-                summary = stringResource(R.string.settings_always_navigation_bar_summary),
-                icon = R.drawable.ic_nav_home,
-                checked = state.alwaysShowNavigationBar,
-                onCheckedChange = viewModel::setAlwaysShowNavigationBar,
-            )
+
+        group("downloads", R.string.nav_downloads) {
+            row("wifi-only") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_wifi_only),
+                    summary = stringResource(R.string.settings_wifi_only_summary),
+                    icon = DesignR.drawable.ic_download,
+                    checked = state.downloadWifiOnly,
+                    onCheckedChange = viewModel::setDownloadWifiOnly,
+                )
+            }
+            row("downloads-open") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.nav_downloads)) },
+                    supportingContent = { Text(stringResource(R.string.settings_downloads_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                    modifier = Modifier.clickable(onClick = onOpenDownloads),
+                )
+            }
         }
 
-        item(key = "downloads") { SectionHeader(stringResource(R.string.nav_downloads)) }
-        item(key = "wifi-only") {
-            SwitchRow(
-                title = stringResource(R.string.settings_wifi_only),
-                summary = stringResource(R.string.settings_wifi_only_summary),
-                icon = DesignR.drawable.ic_download,
-                checked = state.downloadWifiOnly,
-                onCheckedChange = viewModel::setDownloadWifiOnly,
-            )
+        group("refresh", R.string.settings_section_refresh) {
+            row("refresh-all") { RefreshRow(stringResource(R.string.settings_refresh_all), viewModel::refreshAll) }
         }
-        item(key = "downloads-open") {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.nav_downloads)) },
-                supportingContent = { Text(stringResource(R.string.settings_downloads_summary)) },
-                leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                modifier = Modifier.clickable(onClick = onOpenDownloads),
-            )
-        }
-
-        item(key = "refresh") { SectionHeader(stringResource(R.string.settings_section_refresh)) }
-        item(key = "refresh-all") { RefreshRow(stringResource(R.string.settings_refresh_all), viewModel::refreshAll) }
     }
 
     if (choosingTheme) {
@@ -161,105 +164,112 @@ fun MusicSettingsScreen(
     }
 
     SettingsPage(stringResource(R.string.settings_music), onBack, modifier) {
-        item(key = "sources") { SectionHeader(stringResource(R.string.settings_section_sources)) }
-        item(key = "local-media") {
-            SwitchRow(
-                title = stringResource(R.string.settings_local_media),
-                summary = stringResource(R.string.settings_local_media_summary),
-                icon = DesignR.drawable.ic_music_note,
-                checked = state.useLocalMedia,
-                onCheckedChange = { enabled ->
-                    if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
-                },
-            )
-        }
-        if (state.isFailed) {
-            item(key = "servers-failed") { LoadFailedHint() }
-        } else if (!state.isLoading && state.servers.isEmpty()) {
-            item(key = "no-servers") { EmptyHint(stringResource(R.string.settings_no_servers)) }
-        }
-        items(state.servers, key = { it.server.sourceId }) { item ->
-            ServerRow(
-                item = item,
-                onEdit = { onEditServer(item.server.sourceId) },
-                onSyncNow = { viewModel.syncNow(item.server.sourceId) },
-                onEnabledChange = { viewModel.setServerEnabled(item.server.sourceId, it) },
-                onRemove = { serverToRemove = item.server.sourceId },
-            )
+        group("sources", R.string.settings_section_sources) {
+            row("local-media") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_local_media),
+                    summary = stringResource(R.string.settings_local_media_summary),
+                    icon = DesignR.drawable.ic_music_note,
+                    checked = state.useLocalMedia,
+                    onCheckedChange = { enabled ->
+                        if (enabled) requestAudioPermission() else viewModel.setUseLocalMedia(false)
+                    },
+                )
+            }
+            if (state.isFailed) {
+                row("servers-failed") { LoadFailedHint() }
+            } else if (!state.isLoading && state.servers.isEmpty()) {
+                row("no-servers") { EmptyHint(stringResource(R.string.settings_no_servers)) }
+            }
+            state.servers.forEach { item ->
+                row(item.server.sourceId) {
+                    ServerRow(
+                        item = item,
+                        onEdit = { onEditServer(item.server.sourceId) },
+                        onSyncNow = { viewModel.syncNow(item.server.sourceId) },
+                        onEnabledChange = { viewModel.setServerEnabled(item.server.sourceId, it) },
+                        onRemove = { serverToRemove = item.server.sourceId },
+                    )
+                }
+            }
         }
         item(key = "add") {
-            FilledTonalButton(onClick = onAddServer, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            FilledTonalButton(onClick = onAddServer, modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp)) {
                 Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
                 Text(stringResource(R.string.settings_add_server), modifier = Modifier.padding(start = 8.dp))
             }
         }
 
-        item(key = "refresh") { SectionHeader(stringResource(R.string.settings_section_refresh)) }
-        item(key = "sync-interval") {
-            ClickRow(
-                title = stringResource(R.string.settings_music_sync_interval),
-                value = syncIntervalLabel(state.syncIntervalDays),
-                icon = DesignR.drawable.ic_sync,
-                onClick = { choosingSyncInterval = true },
-            )
-        }
-        item(key = "refresh-music") { RefreshRow(stringResource(R.string.settings_refresh_music), viewModel::refreshMusic) }
-
-        item(key = "images") { SectionHeader(stringResource(R.string.settings_section_images)) }
-        item(key = "artist-images") {
-            SwitchRow(
-                title = stringResource(R.string.settings_artist_images),
-                summary = stringResource(R.string.settings_artist_images_summary),
-                icon = DesignR.drawable.ic_person,
-                checked = state.artistImages,
-                onCheckedChange = viewModel::setArtistImages,
-            )
-        }
-        item(key = "album-covers") {
-            SwitchRow(
-                title = stringResource(R.string.settings_album_covers),
-                summary = stringResource(R.string.settings_album_covers_summary),
-                icon = DesignR.drawable.ic_music_note,
-                checked = state.albumCovers,
-                onCheckedChange = viewModel::setAlbumCovers,
-            )
+        group("refresh", R.string.settings_section_refresh) {
+            row("sync-interval") {
+                ClickRow(
+                    title = stringResource(R.string.settings_music_sync_interval),
+                    value = syncIntervalLabel(state.syncIntervalDays),
+                    icon = DesignR.drawable.ic_sync,
+                    onClick = { choosingSyncInterval = true },
+                )
+            }
+            row("refresh-music") { RefreshRow(stringResource(R.string.settings_refresh_music), viewModel::refreshMusic) }
         }
 
-        item(key = "playback") { SectionHeader(stringResource(R.string.settings_playback)) }
-        item(key = "replay-gain") {
-            ClickRow(
-                title = stringResource(R.string.settings_replay_gain),
-                value = stringResource(state.replayGainMode.label),
-                icon = DesignR.drawable.ic_volume_up,
-                onClick = { choosingReplayGain = true },
-            )
-        }
-        item(key = "pre-amp") {
-            PreAmpRow(
-                preAmpDb = state.preAmpDb,
-                enabled = state.replayGainMode != ReplayGainMode.OFF,
-                onPreAmpChange = viewModel::setPreAmpDb,
-            )
-        }
-        item(key = "scrobble") {
-            SwitchRow(
-                title = stringResource(R.string.settings_scrobble),
-                summary = stringResource(R.string.settings_scrobble_summary),
-                icon = DesignR.drawable.ic_cloud,
-                checked = state.scrobble,
-                onCheckedChange = viewModel::setScrobble,
-            )
+        group("images", R.string.settings_section_images) {
+            row("artist-images") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_artist_images),
+                    summary = stringResource(R.string.settings_artist_images_summary),
+                    icon = DesignR.drawable.ic_person,
+                    checked = state.artistImages,
+                    onCheckedChange = viewModel::setArtistImages,
+                )
+            }
+            row("album-covers") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_album_covers),
+                    summary = stringResource(R.string.settings_album_covers_summary),
+                    icon = DesignR.drawable.ic_music_note,
+                    checked = state.albumCovers,
+                    onCheckedChange = viewModel::setAlbumCovers,
+                )
+            }
         }
 
-        item(key = "downloads") { SectionHeader(stringResource(R.string.nav_downloads)) }
-        item(key = "auto-favorites") {
-            SwitchRow(
-                title = stringResource(R.string.settings_auto_download_favorites),
-                summary = stringResource(R.string.settings_auto_download_favorites_summary),
-                icon = DesignR.drawable.ic_favorite,
-                checked = state.autoDownloadFavorites,
-                onCheckedChange = viewModel::setAutoDownloadFavorites,
-            )
+        group("playback", R.string.settings_playback) {
+            row("replay-gain") {
+                ClickRow(
+                    title = stringResource(R.string.settings_replay_gain),
+                    value = stringResource(state.replayGainMode.label),
+                    icon = DesignR.drawable.ic_volume_up,
+                    onClick = { choosingReplayGain = true },
+                )
+            }
+            row("pre-amp") {
+                PreAmpRow(
+                    preAmpDb = state.preAmpDb,
+                    enabled = state.replayGainMode != ReplayGainMode.OFF,
+                    onPreAmpChange = viewModel::setPreAmpDb,
+                )
+            }
+            row("scrobble") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_scrobble),
+                    summary = stringResource(R.string.settings_scrobble_summary),
+                    icon = DesignR.drawable.ic_cloud,
+                    checked = state.scrobble,
+                    onCheckedChange = viewModel::setScrobble,
+                )
+            }
+        }
+
+        group("downloads", R.string.nav_downloads) {
+            row("auto-favorites") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_auto_download_favorites),
+                    summary = stringResource(R.string.settings_auto_download_favorites_summary),
+                    icon = DesignR.drawable.ic_favorite,
+                    checked = state.autoDownloadFavorites,
+                    onCheckedChange = viewModel::setAutoDownloadFavorites,
+                )
+            }
         }
     }
 
@@ -372,23 +382,23 @@ fun PodcastsSettingsScreen(
     }
 
     SettingsPage(stringResource(R.string.settings_podcasts), onBack, modifier) {
-        item(key = "sources") { SectionHeader(stringResource(R.string.settings_section_sources)) }
-        item(key = "local-podcasts") {
-            SwitchRow(
-                title = stringResource(R.string.settings_local_podcasts),
-                summary = stringResource(R.string.settings_local_podcasts_summary),
-                icon = DesignR.drawable.ic_playlist_play,
-                checked = state.useLocalPodcasts,
-                onCheckedChange = { enabled ->
-                    if (enabled) requestAudioPermission() else viewModel.setUseLocalPodcasts(false)
-                },
-            )
+        group("sources", R.string.settings_section_sources) {
+            row("local-podcasts") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_local_podcasts),
+                    summary = stringResource(R.string.settings_local_podcasts_summary),
+                    icon = DesignR.drawable.ic_playlist_play,
+                    checked = state.useLocalPodcasts,
+                    onCheckedChange = { enabled ->
+                        if (enabled) requestAudioPermission() else viewModel.setUseLocalPodcasts(false)
+                    },
+                )
+            }
         }
 
-        if (state.podcastDirectories.isNotEmpty()) {
-            item(key = "directories") { SectionHeader(stringResource(R.string.settings_section_directories)) }
+        group("directories", R.string.settings_section_directories) {
             state.podcastDirectories.forEach { directory ->
-                item(key = "directory-${directory.name}") {
+                row("directory-${directory.name}") {
                     SwitchRow(
                         title = stringResource(directory.label),
                         summary = stringResource(directory.summary),
@@ -399,7 +409,7 @@ fun PodcastsSettingsScreen(
                 }
                 // Das Land gehört zu Apple und steht deshalb direkt unter seinem Schalter.
                 if (directory == PodcastDirectory.APPLE && directory in state.enabledPodcastDirectories) {
-                    item(key = "apple-country") {
+                    row("apple-country") {
                         ClickRow(
                             title = stringResource(R.string.settings_directory_apple_country),
                             value = countryName(state.appleCountry),
@@ -411,106 +421,111 @@ fun PodcastsSettingsScreen(
             }
         }
 
-        item(key = "refresh") { SectionHeader(stringResource(R.string.settings_section_refresh)) }
-        item(key = "podcast-refresh") {
-            ClickRow(
-                title = stringResource(R.string.settings_podcast_refresh),
-                value = podcastRefreshLabel(state.podcastRefreshHours),
-                icon = DesignR.drawable.ic_sync,
-                onClick = { choosingRefresh = true },
-            )
-        }
-        item(key = "refresh-podcasts") { RefreshRow(stringResource(R.string.settings_refresh_podcasts), viewModel::refreshPodcasts) }
-
-        item(key = "opml") { SectionHeader(stringResource(R.string.settings_section_opml)) }
-        item(key = "opml-import") {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_opml_import)) },
-                supportingContent = { Text(stringResource(R.string.settings_opml_import_summary)) },
-                leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                modifier = Modifier.clickable { importLauncher.launch(arrayOf("*/*")) },
-            )
-        }
-        item(key = "db-import") {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_db_import)) },
-                supportingContent = { Text(stringResource(R.string.settings_db_import_summary)) },
-                leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                modifier = Modifier.clickable { backupLauncher.launch(arrayOf("*/*")) },
-            )
-        }
-        item(key = "db-export") {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_db_export)) },
-                supportingContent = { Text(stringResource(R.string.settings_db_export_summary)) },
-                leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
-                modifier = Modifier.clickable { databaseExportLauncher.launch("kleinaberlaut-podcasts.db") },
-            )
-        }
-        item(key = "opml-export") {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_opml_export)) },
-                supportingContent = { Text(stringResource(R.string.settings_opml_export_summary)) },
-                leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
-                modifier = Modifier.clickable { exportLauncher.launch("kleinaberlaut-podcasts.opml") },
-            )
+        group("refresh", R.string.settings_section_refresh) {
+            row("podcast-refresh") {
+                ClickRow(
+                    title = stringResource(R.string.settings_podcast_refresh),
+                    value = podcastRefreshLabel(state.podcastRefreshHours),
+                    icon = DesignR.drawable.ic_sync,
+                    onClick = { choosingRefresh = true },
+                )
+            }
+            row("refresh-podcasts") { RefreshRow(stringResource(R.string.settings_refresh_podcasts), viewModel::refreshPodcasts) }
         }
 
-        item(key = "playback") { SectionHeader(stringResource(R.string.settings_playback)) }
-        item(key = "podcast-auto-play-next") {
-            SwitchRow(
-                title = stringResource(R.string.settings_podcast_auto_play_next),
-                summary = stringResource(R.string.settings_podcast_auto_play_next_summary),
-                icon = DesignR.drawable.ic_playlist_play,
-                checked = state.podcastAutoPlayNext,
-                onCheckedChange = viewModel::setPodcastAutoPlayNext,
-            )
-        }
-        item(key = "podcast-resume") {
-            Column {
-                ResumeRows(state.podcastResume, DesignR.drawable.ic_playlist_play, "podcast", viewModel::setPodcastResume)
+        group("opml", R.string.settings_section_opml) {
+            row("opml-import") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_opml_import)) },
+                    supportingContent = { Text(stringResource(R.string.settings_opml_import_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                    modifier = Modifier.clickable { importLauncher.launch(arrayOf("*/*")) },
+                )
+            }
+            row("db-import") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_db_import)) },
+                    supportingContent = { Text(stringResource(R.string.settings_db_import_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                    modifier = Modifier.clickable { backupLauncher.launch(arrayOf("*/*")) },
+                )
+            }
+            row("db-export") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_db_export)) },
+                    supportingContent = { Text(stringResource(R.string.settings_db_export_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
+                    modifier = Modifier.clickable { databaseExportLauncher.launch("kleinaberlaut-podcasts.db") },
+                )
+            }
+            row("opml-export") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_opml_export)) },
+                    supportingContent = { Text(stringResource(R.string.settings_opml_export_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
+                    modifier = Modifier.clickable { exportLauncher.launch("kleinaberlaut-podcasts.opml") },
+                )
             }
         }
 
-        item(key = "downloads") { SectionHeader(stringResource(R.string.nav_downloads)) }
-        item(key = "podcast-mobile") {
-            SwitchRow(
-                title = stringResource(R.string.settings_podcast_mobile),
-                summary = stringResource(R.string.settings_podcast_mobile_summary),
-                icon = DesignR.drawable.ic_cloud,
-                checked = state.podcastMobileData,
-                onCheckedChange = viewModel::setPodcastMobileData,
-            )
-        }
-        item(key = "podcast-auto-count") {
-            ClickRow(
-                title = stringResource(R.string.settings_podcast_auto_count),
-                value = pluralStringResource(
-                    R.plurals.settings_podcast_auto_count_value,
-                    state.podcastAutoDownloadCount,
-                    state.podcastAutoDownloadCount,
-                ),
-                icon = DesignR.drawable.ic_download,
-                onClick = { choosingAutoCount = true },
-            )
-        }
-        item(key = "podcast-delete-heard") {
-            ClickRow(
-                title = stringResource(R.string.settings_podcast_delete_heard),
-                value = podcastDeleteHeardLabel(state.podcastDeleteHeardDays),
-                icon = DesignR.drawable.ic_delete,
-                onClick = { choosingDeleteHeard = true },
-            )
+        group("playback", R.string.settings_playback) {
+            row("podcast-auto-play-next") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_podcast_auto_play_next),
+                    summary = stringResource(R.string.settings_podcast_auto_play_next_summary),
+                    icon = DesignR.drawable.ic_playlist_play,
+                    checked = state.podcastAutoPlayNext,
+                    onCheckedChange = viewModel::setPodcastAutoPlayNext,
+                )
+            }
+            row("podcast-resume") {
+                Column {
+                    ResumeRows(state.podcastResume, DesignR.drawable.ic_playlist_play, "podcast", viewModel::setPodcastResume)
+                }
+            }
         }
 
-        item(key = "stats") { SectionHeader(stringResource(R.string.settings_section_stats)) }
-        item(key = "stats-reset") {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_stats_reset)) },
-                supportingContent = { Text(stringResource(R.string.settings_stats_reset_summary)) },
-                leadingContent = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
-                modifier = Modifier.clickable { confirmingStatsReset = true },
-            )
+        group("downloads", R.string.nav_downloads) {
+            row("podcast-mobile") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_podcast_mobile),
+                    summary = stringResource(R.string.settings_podcast_mobile_summary),
+                    icon = DesignR.drawable.ic_cloud,
+                    checked = state.podcastMobileData,
+                    onCheckedChange = viewModel::setPodcastMobileData,
+                )
+            }
+            row("podcast-auto-count") {
+                ClickRow(
+                    title = stringResource(R.string.settings_podcast_auto_count),
+                    value = pluralStringResource(
+                        R.plurals.settings_podcast_auto_count_value,
+                        state.podcastAutoDownloadCount,
+                        state.podcastAutoDownloadCount,
+                    ),
+                    icon = DesignR.drawable.ic_download,
+                    onClick = { choosingAutoCount = true },
+                )
+            }
+            row("podcast-delete-heard") {
+                ClickRow(
+                    title = stringResource(R.string.settings_podcast_delete_heard),
+                    value = podcastDeleteHeardLabel(state.podcastDeleteHeardDays),
+                    icon = DesignR.drawable.ic_delete,
+                    onClick = { choosingDeleteHeard = true },
+                )
+            }
+        }
+
+        group("stats", R.string.settings_section_stats) {
+            row("stats-reset") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_stats_reset)) },
+                    supportingContent = { Text(stringResource(R.string.settings_stats_reset_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                    modifier = Modifier.clickable { confirmingStatsReset = true },
+                )
+            }
         }
     }
 
@@ -614,69 +629,75 @@ fun AudiobookSettingsScreen(
     }
 
     SettingsPage(stringResource(R.string.settings_audiobooks), onBack, modifier) {
-        item(key = "sources") { SectionHeader(stringResource(R.string.settings_section_sources)) }
-        item(key = "local-books") {
-            SwitchRow(
-                title = stringResource(R.string.settings_local_books),
-                summary = stringResource(R.string.settings_local_books_summary),
-                icon = DesignR.drawable.ic_book,
-                checked = state.useLocalBooks,
-                onCheckedChange = { enabled ->
-                    if (enabled) requestAudioPermission() else viewModel.setUseLocalBooks(false)
-                },
-            )
-        }
-        item(key = "audiobookshelf") { AudiobookshelfSection(onAdd = onAddServer, onEdit = onEditServer) }
-
-        item(key = "refresh") { SectionHeader(stringResource(R.string.settings_section_refresh)) }
-        item(key = "refresh-audiobooks") { RefreshRow(stringResource(R.string.settings_refresh_audiobooks), viewModel::refreshAudiobooks) }
-
-        item(key = "images") { SectionHeader(stringResource(R.string.settings_section_images)) }
-        item(key = "author-images") {
-            SwitchRow(
-                title = stringResource(R.string.settings_author_images),
-                summary = stringResource(R.string.settings_author_images_summary),
-                icon = DesignR.drawable.ic_book,
-                checked = state.authorImages,
-                onCheckedChange = viewModel::setAuthorImages,
-            )
+        group("sources", R.string.settings_section_sources) {
+            row("local-books") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_local_books),
+                    summary = stringResource(R.string.settings_local_books_summary),
+                    icon = DesignR.drawable.ic_book,
+                    checked = state.useLocalBooks,
+                    onCheckedChange = { enabled ->
+                        if (enabled) requestAudioPermission() else viewModel.setUseLocalBooks(false)
+                    },
+                )
+            }
+            row("audiobookshelf") { AudiobookshelfSection(onAdd = onAddServer, onEdit = onEditServer) }
         }
 
-        item(key = "playback") { SectionHeader(stringResource(R.string.settings_playback)) }
-        item(key = "book-resume") {
-            Column {
-                ResumeRows(state.bookResume, DesignR.drawable.ic_book, "book", viewModel::setBookResume)
+        group("refresh", R.string.settings_section_refresh) {
+            row("refresh-audiobooks") { RefreshRow(stringResource(R.string.settings_refresh_audiobooks), viewModel::refreshAudiobooks) }
+        }
+
+        group("images", R.string.settings_section_images) {
+            row("author-images") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_author_images),
+                    summary = stringResource(R.string.settings_author_images_summary),
+                    icon = DesignR.drawable.ic_book,
+                    checked = state.authorImages,
+                    onCheckedChange = viewModel::setAuthorImages,
+                )
             }
         }
-        item(key = "chapter-restart") {
-            SwitchRow(
-                title = stringResource(R.string.settings_chapter_restart),
-                summary = stringResource(R.string.settings_chapter_restart_summary),
-                icon = DesignR.drawable.ic_book,
-                checked = state.restartChapter,
-                onCheckedChange = viewModel::setRestartChapter,
-            )
+
+        group("playback", R.string.settings_playback) {
+            row("book-resume") {
+                Column {
+                    ResumeRows(state.bookResume, DesignR.drawable.ic_book, "book", viewModel::setBookResume)
+                }
+            }
+            row("chapter-restart") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_chapter_restart),
+                    summary = stringResource(R.string.settings_chapter_restart_summary),
+                    icon = DesignR.drawable.ic_book,
+                    checked = state.restartChapter,
+                    onCheckedChange = viewModel::setRestartChapter,
+                )
+            }
         }
 
-        item(key = "downloads") { SectionHeader(stringResource(R.string.nav_downloads)) }
-        item(key = "book-mobile") {
-            SwitchRow(
-                title = stringResource(R.string.settings_book_mobile),
-                summary = stringResource(R.string.settings_book_mobile_summary),
-                icon = DesignR.drawable.ic_cloud,
-                checked = state.bookMobileData,
-                onCheckedChange = viewModel::setBookMobileData,
-            )
+        group("downloads", R.string.nav_downloads) {
+            row("book-mobile") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_book_mobile),
+                    summary = stringResource(R.string.settings_book_mobile_summary),
+                    icon = DesignR.drawable.ic_cloud,
+                    checked = state.bookMobileData,
+                    onCheckedChange = viewModel::setBookMobileData,
+                )
+            }
         }
 
-        item(key = "stats") { SectionHeader(stringResource(R.string.settings_section_stats)) }
-        item(key = "stats-reset") {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_book_stats_reset)) },
-                supportingContent = { Text(stringResource(R.string.settings_book_stats_reset_summary)) },
-                leadingContent = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
-                modifier = Modifier.clickable { confirmingBookStatsReset = true },
-            )
+        group("stats", R.string.settings_section_stats) {
+            row("stats-reset") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_book_stats_reset)) },
+                    supportingContent = { Text(stringResource(R.string.settings_book_stats_reset_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                    modifier = Modifier.clickable { confirmingBookStatsReset = true },
+                )
+            }
         }
     }
 

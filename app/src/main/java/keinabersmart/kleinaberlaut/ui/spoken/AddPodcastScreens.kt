@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
@@ -51,7 +50,10 @@ import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.network.podcast.directory.DirectoryPodcast
 import keinabersmart.kleinaberlaut.core.network.podcast.directory.feedKey
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.GroupMargin
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import keinabersmart.kleinaberlaut.ui.components.group
+import keinabersmart.kleinaberlaut.ui.components.groupedItems
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
@@ -108,13 +110,15 @@ fun AddPodcastScreen(
             item(key = "url") {
                 FeedUrlForm(url, onUrlChange = { url = it }, state = add, onSubscribe = { viewModel.subscribe(url) })
             }
-            item(key = "opml") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_opml_import)) },
-                    supportingContent = { Text(stringResource(R.string.settings_opml_import_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                    modifier = Modifier.clickable { importLauncher.launch(arrayOf("*/*")) },
-                )
+            group("opml-group") {
+                row("opml") {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.settings_opml_import)) },
+                        supportingContent = { Text(stringResource(R.string.settings_opml_import_summary)) },
+                        leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                        modifier = Modifier.clickable { importLauncher.launch(arrayOf("*/*")) },
+                    )
+                }
             }
 
             item(key = "search-header") { SectionHeader(stringResource(R.string.podcast_add_search)) }
@@ -122,7 +126,7 @@ fun AddPodcastScreen(
             when {
                 enabled == null -> Unit
                 enabled.isEmpty() -> item(key = "no-directory") {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = GroupMargin + 16.dp)) {
                         Text(
                             stringResource(R.string.podcast_directory_none),
                             style = MaterialTheme.typography.bodyMedium,
@@ -150,13 +154,13 @@ fun AddPodcastScreen(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             keyboardActions = KeyboardActions(onSearch = { if (term.isNotBlank()) startSearch() }),
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = GroupMargin),
                         )
                     }
                     when (val state = search) {
                         DirectorySearchState.Idle -> Unit
                         DirectorySearchState.Searching -> item(key = "searching") {
-                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                                 Text(stringResource(R.string.podcast_directory_searching), modifier = Modifier.padding(start = 12.dp))
                             }
@@ -171,14 +175,14 @@ fun AddPodcastScreen(
                                         ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                        modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
                                     )
                                 }
                             }
                             if (state.hits.isEmpty() && state.failed.size < enabled.size) {
                                 item(key = "empty") { EmptyHint(stringResource(R.string.search_no_results, state.term)) }
                             }
-                            items(state.hits, key = { "hit-${feedKey(it.feedUrl)}" }) { hit ->
+                            groupedItems(state.hits, key = { "hit-${feedKey(it.feedUrl)}" }) { hit ->
                                 val feedId = subscribed[feedKey(hit.feedUrl)]
                                 DirectoryHitRow(hit, subscribed = feedId != null) {
                                     if (feedId != null) onOpenFeed(feedId) else onPreview(hit)
@@ -206,7 +210,7 @@ fun AddPodcastScreen(
 @Composable
 private fun FeedUrlForm(url: String, onUrlChange: (String) -> Unit, state: AddPodcastState, onSubscribe: () -> Unit) {
     val working = state == AddPodcastState.Working
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = GroupMargin)) {
         OutlinedTextField(
             value = url,
             onValueChange = onUrlChange,

@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.ui.settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -69,7 +70,7 @@ internal fun SettingsPage(
             title = { Text(title) },
             navigationIcon = { BackButton(onBack) },
         )
-        LazyColumn(Modifier.navigationBarsPadding(), content = content)
+        LazyColumn(Modifier.navigationBarsPadding(), contentPadding = PaddingValues(bottom = 16.dp), content = content)
     }
 }
 

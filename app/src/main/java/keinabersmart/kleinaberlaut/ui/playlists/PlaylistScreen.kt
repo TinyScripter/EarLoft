@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.ui.playlists
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -50,6 +51,8 @@ import keinabersmart.kleinaberlaut.core.model.PlaylistEntry
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.ui.LoadState
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.GroupMargin
+import keinabersmart.kleinaberlaut.ui.components.groupedItemsIndexed
 import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
 import keinabersmart.kleinaberlaut.ui.components.LoadingIndicator
 import keinabersmart.kleinaberlaut.ui.components.NoSongActions
@@ -144,9 +147,9 @@ private fun PlaylistEntries(
     actions: SongActions,
 ) {
     val playlist = details.playlist
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "header") {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = GroupMargin + 16.dp)) {
                 val meta = listOf(
                     pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount),
                     formatDuration(playlist.durationMs),
@@ -187,7 +190,7 @@ private fun PlaylistEntries(
         }
         // Ein Song kann mehrfach vorkommen – Schlüssel ist daher der Eintrag, nicht der Song.
         val serverName = playlist.serverName
-        itemsIndexed(details.entries, key = { _, entry -> entry.entryId }) { index, entry ->
+        groupedItemsIndexed(details.entries, key = { _, entry -> entry.entryId }) { index, entry ->
             SongListItem(
                 song = entry.song,
                 onClick = { onPlay(index) },

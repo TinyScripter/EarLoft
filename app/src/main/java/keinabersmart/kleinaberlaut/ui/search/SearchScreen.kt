@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
@@ -54,6 +53,10 @@ import keinabersmart.kleinaberlaut.ui.components.ArtistListItem
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.PlayControlViewModel
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import keinabersmart.kleinaberlaut.ui.components.Shelf
+import keinabersmart.kleinaberlaut.ui.components.ShelfInset
+import keinabersmart.kleinaberlaut.ui.components.groupedItems
+import keinabersmart.kleinaberlaut.ui.components.groupedItemsIndexed
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
 import keinabersmart.kleinaberlaut.ui.spoken.BookCard
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
@@ -68,20 +71,21 @@ private fun LazyListScope.spokenSection(
     playingBookId: Long?,
 ) {
     if (items.isEmpty()) return
-    item(key = key) { SectionHeader(stringResource(title)) }
-    item(key = "$key-row") {
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(items, key = { it.book.id }) { item ->
-                BookCard(
-                    item,
-                    onClick = { onClick(item.book.id) },
-                    modifier = Modifier.width(140.dp),
-                    onPlay = { playControl.playOrPauseBook(item.book.id) },
-                    playing = item.book.id == playingBookId,
-                )
+    item(key = key) {
+        Shelf(stringResource(title), Modifier.padding(top = 8.dp)) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = ShelfInset),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(items, key = { it.book.id }) { item ->
+                    BookCard(
+                        item,
+                        onClick = { onClick(item.book.id) },
+                        modifier = Modifier.width(140.dp),
+                        onPlay = { playControl.playOrPauseBook(item.book.id) },
+                        playing = item.book.id == playingBookId,
+                    )
+                }
             }
         }
     }
@@ -159,17 +163,17 @@ fun SearchScreen(
         when {
             state.query.isEmpty() -> Unit
             state.isEmpty -> EmptyHint(stringResource(R.string.search_no_results, state.query))
-            else -> LazyColumn(Modifier.fillMaxSize()) {
+            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                 // Reihenfolge wie die Bereiche der App: Musik, Podcasts, Bücher; darin jeweils vom Allgemeinen zum Einzelnen.
                 if (results.artists.isNotEmpty()) {
                     item(key = "artists") { SectionHeader(stringResource(R.string.library_artists)) }
-                    items(results.artists, key = { "artist-${it.id}" }) { artist ->
+                    groupedItems(results.artists, key = { "artist-${it.id}" }) { artist ->
                         ArtistListItem(artist = artist, onClick = { onArtistClick(artist.id) })
                     }
                 }
                 if (results.albums.isNotEmpty()) {
                     item(key = "albums") { SectionHeader(stringResource(R.string.library_albums)) }
-                    items(results.albums, key = { "album-${it.id}" }) { album ->
+                    groupedItems(results.albums, key = { "album-${it.id}" }) { album ->
                         AlbumListItem(
                             album = album,
                             onClick = { onAlbumClick(album.id) },
@@ -180,24 +184,25 @@ fun SearchScreen(
                 }
                 if (results.songs.isNotEmpty()) {
                     item(key = "songs") { SectionHeader(stringResource(R.string.library_songs)) }
-                    itemsIndexed(results.songs, key = { _, song -> "song-${song.id}" }) { index, song ->
+                    groupedItemsIndexed(results.songs, key = { _, song -> "song-${song.id}" }) { index, song ->
                         SongListItem(song = song, onClick = { viewModel.playSongs(index) }, actions = viewModel)
                     }
                 }
                 if (state.feeds.isNotEmpty()) {
-                    item(key = "feeds") { SectionHeader(stringResource(R.string.spoken_search_feeds)) }
-                    item(key = "feeds-row") {
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            items(state.feeds, key = { it.id }) { feed ->
-                                FeedCard(
-                                feed,
-                                onClick = { onFeedClick(feed.id) },
-                                onSettings = { onFeedSettings(feed.id) },
-                                modifier = Modifier.width(140.dp),
-                            )
+                    item(key = "feeds") {
+                        Shelf(stringResource(R.string.spoken_search_feeds), Modifier.padding(top = 8.dp)) {
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = ShelfInset),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                items(state.feeds, key = { it.id }) { feed ->
+                                    FeedCard(
+                                        feed,
+                                        onClick = { onFeedClick(feed.id) },
+                                        onSettings = { onFeedSettings(feed.id) },
+                                        modifier = Modifier.width(140.dp),
+                                    )
+                                }
                             }
                         }
                     }
@@ -205,7 +210,7 @@ fun SearchScreen(
                 spokenSection("episodes", R.string.spoken_search_episodes, state.episodes, onBookClick, playControl, playingBookId)
                 if (state.series.isNotEmpty()) {
                     item(key = "series") { SectionHeader(stringResource(R.string.spoken_search_series)) }
-                    items(state.series, key = { "series-${it.name}" }) { series ->
+                    groupedItems(state.series, key = { "series-${it.name}" }) { series ->
                         ListItem(
                             headlineContent = { Text(series.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             supportingContent = { Text(pluralStringResource(R.plurals.book_count, series.bookCount, series.bookCount)) },
@@ -216,7 +221,7 @@ fun SearchScreen(
                 }
                 if (state.authors.isNotEmpty()) {
                     item(key = "authors") { SectionHeader(stringResource(R.string.spoken_search_authors)) }
-                    items(state.authors, key = { "author-${it.name}" }) { author ->
+                    groupedItems(state.authors, key = { "author-${it.name}" }) { author ->
                         ListItem(
                             headlineContent = { Text(author.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             supportingContent = { Text(pluralStringResource(R.plurals.book_count, author.bookCount, author.bookCount)) },

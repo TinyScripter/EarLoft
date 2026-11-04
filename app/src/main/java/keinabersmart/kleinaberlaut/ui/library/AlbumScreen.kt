@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.ui.library
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -64,6 +65,7 @@ import keinabersmart.kleinaberlaut.ui.components.LoadingIndicator
 import keinabersmart.kleinaberlaut.ui.components.NoSongActions
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
 import keinabersmart.kleinaberlaut.ui.components.PreviewSong
+import keinabersmart.kleinaberlaut.ui.components.GroupedItem
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.components.SongActions
 import keinabersmart.kleinaberlaut.ui.components.SongListItem
@@ -175,10 +177,12 @@ private fun AlbumSongs(
                         .verticalScroll(rememberScrollState())
                         .padding(top = 8.dp, bottom = 24.dp),
                 ) { header() }
-                LazyColumn(Modifier.weight(1f).fillMaxHeight()) { albumSongItems(details, onPlay, actions) }
+                LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    albumSongItems(details, onPlay, actions)
+                }
             }
         } else {
-            LazyColumn(Modifier.fillMaxSize()) {
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                 item(key = "header") { header() }
                 albumSongItems(details, onPlay, actions)
             }
@@ -189,19 +193,34 @@ private fun AlbumSongs(
 private fun LazyListScope.albumSongItems(details: AlbumDetails, onPlay: (Int) -> Unit, actions: SongActions) {
     val songs = details.songs
     val multiDisc = songs.map { it.discNumber }.distinct().size > 1
-    songs.forEachIndexed { index, song ->
-        if (multiDisc && (index == 0 || songs[index - 1].discNumber != song.discNumber)) {
-            item(key = "disc-${song.discNumber}") {
-                SectionHeader(stringResource(R.string.disc_number, song.discNumber))
+    // Jede CD (aufeinanderfolgende Songs mit gleicher Nummer) bildet eine Gruppe, bei mehreren CDs mit Überschrift.
+    val discs = mutableListOf<IntRange>()
+    songs.indices.forEach { index ->
+        if (index == 0 || songs[index - 1].discNumber != songs[index].discNumber) {
+            discs += index..index
+        } else {
+            discs[discs.lastIndex] = discs.last().first..index
+        }
+    }
+    discs.forEach { disc ->
+        val discNumber = songs[disc.first].discNumber
+        if (multiDisc) {
+            item(key = "disc-$discNumber") {
+                SectionHeader(stringResource(R.string.disc_number, discNumber))
             }
         }
-        item(key = song.id) {
-            SongListItem(
-                song = song,
-                onClick = { onPlay(index) },
-                actions = actions,
-                trackNumber = song.trackNumber,
-            )
+        disc.forEach { index ->
+            val song = songs[index]
+            item(key = song.id) {
+                GroupedItem(index - disc.first, disc.count()) {
+                    SongListItem(
+                        song = song,
+                        onClick = { onPlay(index) },
+                        actions = actions,
+                        trackNumber = song.trackNumber,
+                    )
+                }
+            }
         }
     }
 }

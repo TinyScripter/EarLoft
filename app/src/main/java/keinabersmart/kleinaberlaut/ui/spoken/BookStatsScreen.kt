@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ListItem
@@ -33,7 +32,9 @@ import keinabersmart.kleinaberlaut.core.model.DeviceBookStats
 import keinabersmart.kleinaberlaut.core.model.MonthListening
 import keinabersmart.kleinaberlaut.core.model.ServerBookStats
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
+import keinabersmart.kleinaberlaut.ui.components.GroupMargin
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import keinabersmart.kleinaberlaut.ui.components.groupedItems
 import java.text.DateFormat
 import java.time.DayOfWeek
 import java.time.Month
@@ -68,7 +69,7 @@ fun BookStatsScreen(
                     stringResource(R.string.stats_year_note),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier.padding(horizontal = GroupMargin + 16.dp),
                 )
             }
         }
@@ -77,7 +78,7 @@ fun BookStatsScreen(
             if (servers.size > 1) {
                 item(key = "server-chips") {
                     Row(
-                        Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                        Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = GroupMargin + 16.dp).padding(bottom = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         servers.forEach { s ->
@@ -119,41 +120,47 @@ fun BookStatsScreen(
 
 private fun LazyListScope.serverSection(stats: ServerBookStats, stale: Boolean, onBookClick: (Long) -> Unit) {
     item(key = "server-summary") {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(formatListened(stats.totalMs), style = MaterialTheme.typography.displaySmall)
-            Text(
-                stringResource(R.string.podcast_stats_listened),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (stats.year == null) {
+        StatCard {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(formatListened(stats.totalMs), style = MaterialTheme.typography.displaySmall)
                 Text(
-                    stringResource(R.string.book_stats_today, formatListened(stats.todayMs)) +
-                        (if (stats.streakDays > 0) " · " + pluralStringResource(R.plurals.book_stats_streak, stats.streakDays, stats.streakDays) else ""),
+                    stringResource(R.string.podcast_stats_listened),
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (stats.year == null) {
+                    Text(
+                        stringResource(R.string.book_stats_today, formatListened(stats.todayMs)) +
+                            (if (stats.streakDays > 0) " · " + pluralStringResource(R.plurals.book_stats_streak, stats.streakDays, stats.streakDays) else ""),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+        }
+    }
+    if (stats.hasHistory) {
+        item(key = "server-months") {
+            StatCard {
+                BarChart(stats.months.toBars(LocalConfiguration.current.locales[0]), stringResource(R.string.podcast_stats_hours_per_month), Modifier.padding(16.dp))
+            }
+        }
+    }
+    if (stats.weekdays.any { it.listenedMs > 0 }) {
+        item(key = "server-weekdays") {
+            val locale = LocalConfiguration.current.locales[0]
+            StatCard {
+                BarChart(
+                    stats.weekdays.map { StatBar(DayOfWeek.of(it.dayOfWeek).getDisplayName(TextStyle.SHORT, locale), it.listenedMs) },
+                    stringResource(R.string.book_stats_weekdays),
+                    Modifier.padding(16.dp),
                 )
             }
         }
     }
-    item(key = "server-months") {
-        if (stats.hasHistory) {
-            BarChart(stats.months.toBars(LocalConfiguration.current.locales[0]), stringResource(R.string.podcast_stats_hours_per_month), Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        }
-    }
-    item(key = "server-weekdays") {
-        if (stats.weekdays.any { it.listenedMs > 0 }) {
-            val locale = LocalConfiguration.current.locales[0]
-            BarChart(
-                stats.weekdays.map { StatBar(DayOfWeek.of(it.dayOfWeek).getDisplayName(TextStyle.SHORT, locale), it.listenedMs) },
-                stringResource(R.string.book_stats_weekdays),
-                Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-        }
-    }
     if (stats.books.isNotEmpty()) {
         item(key = "server-top") { SectionHeader(stringResource(R.string.book_stats_top)) }
-        items(stats.books, key = { "server-" + it.key }) { BookListeningRow(it, onBookClick) }
+        groupedItems(stats.books, key = { "server-" + it.key }) { BookListeningRow(it, onBookClick) }
     }
     item(key = "server-updated") {
         val time = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(stats.fetchedAt))
@@ -161,29 +168,33 @@ private fun LazyListScope.serverSection(stats: ServerBookStats, stale: Boolean, 
             stringResource(if (stale) R.string.book_stats_stale else R.string.book_stats_updated, time),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
         )
     }
 }
 
 private fun LazyListScope.deviceSection(stats: DeviceBookStats, onBookClick: (Long) -> Unit) {
     item(key = "device-summary") {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(formatListened(stats.totalMs), style = MaterialTheme.typography.displaySmall)
-            Text(
-                pluralStringResource(R.plurals.book_stats_finished, stats.finishedBooks, stats.finishedBooks),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        StatCard {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(formatListened(stats.totalMs), style = MaterialTheme.typography.displaySmall)
+                Text(
+                    pluralStringResource(R.plurals.book_stats_finished, stats.finishedBooks, stats.finishedBooks),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
     if (stats.books.isNotEmpty()) {
         item(key = "device-top") { SectionHeader(stringResource(R.string.book_stats_top)) }
-        items(stats.books, key = { "device-" + it.key }) { BookListeningRow(it, onBookClick) }
+        groupedItems(stats.books, key = { "device-" + it.key }) { BookListeningRow(it, onBookClick) }
     }
-    item(key = "device-months") {
-        if (stats.hasHistory) {
-            BarChart(stats.months.toBars(LocalConfiguration.current.locales[0]), stringResource(R.string.podcast_stats_hours_per_month), Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+    if (stats.hasHistory) {
+        item(key = "device-months") {
+            StatCard(Modifier.padding(top = 8.dp)) {
+                BarChart(stats.months.toBars(LocalConfiguration.current.locales[0]), stringResource(R.string.podcast_stats_hours_per_month), Modifier.padding(16.dp))
+            }
         }
     }
 }

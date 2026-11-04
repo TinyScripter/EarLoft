@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -51,6 +50,9 @@ import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.ui.components.AlbumCard
 import keinabersmart.kleinaberlaut.ui.components.GridTilePadding
+import keinabersmart.kleinaberlaut.ui.components.GroupMargin
+import keinabersmart.kleinaberlaut.ui.components.group
+import keinabersmart.kleinaberlaut.ui.components.groupedItemsIndexed
 import keinabersmart.kleinaberlaut.ui.components.gridTile
 import keinabersmart.kleinaberlaut.ui.components.PlayControlViewModel
 import keinabersmart.kleinaberlaut.ui.components.ArtistAvatar
@@ -160,44 +162,48 @@ private fun PlaylistList(
 
     val state = rememberLazyListState()
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), state = state) {
-            item(key = "new") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.playlist_new)) },
-                    leadingContent = {
-                        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                            Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
-                        }
-                    },
-                    modifier = Modifier.clickable { creating = true },
-                )
-            }
-            item(key = "favorites") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.favorites_title)) },
-                    supportingContent = { Text(pluralStringResource(R.plurals.song_count, favoriteCount, favoriteCount)) },
-                    leadingContent = {
-                        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                            Icon(
-                                painterResource(DesignR.drawable.ic_favorite),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    },
-                    modifier = Modifier.clickable(onClick = onFavoritesClick),
-                )
-            }
-            items(playlists, key = { it.id }) { playlist ->
-                ListItem(
-                    headlineContent = { Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    supportingContent = {
-                        val songs = pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount)
-                        Text("$songs · ${playlistLocation(playlist.serverName)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    },
-                    leadingContent = { PlaylistIcon() },
-                    modifier = Modifier.clickable { onPlaylistClick(playlist.id) },
-                )
+        LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(vertical = 8.dp)) {
+            group("playlists") {
+                row("new") {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.playlist_new)) },
+                        leadingContent = {
+                            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                                Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
+                            }
+                        },
+                        modifier = Modifier.clickable { creating = true },
+                    )
+                }
+                row("favorites") {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.favorites_title)) },
+                        supportingContent = { Text(pluralStringResource(R.plurals.song_count, favoriteCount, favoriteCount)) },
+                        leadingContent = {
+                            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                                Icon(
+                                    painterResource(DesignR.drawable.ic_favorite),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        },
+                        modifier = Modifier.clickable(onClick = onFavoritesClick),
+                    )
+                }
+                playlists.forEach { playlist ->
+                    row(playlist.id) {
+                        ListItem(
+                            headlineContent = { Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = {
+                                val songs = pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount)
+                                Text("$songs · ${playlistLocation(playlist.serverName)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            },
+                            leadingContent = { PlaylistIcon() },
+                            modifier = Modifier.clickable { onPlaylistClick(playlist.id) },
+                        )
+                    }
+                }
             }
         }
         // Die ersten beiden Zeilen sind „Neue Playlist“ und „Favoriten“.
@@ -295,14 +301,14 @@ fun SongList(
 ) {
     val state = rememberLazyListState()
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), state = state) {
+        LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 16.dp)) {
             item(key = "shuffle") {
-                FilledTonalButton(onClick = onShuffle, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                FilledTonalButton(onClick = onShuffle, modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp)) {
                     Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = null)
                     Text(stringResource(R.string.action_shuffle), modifier = Modifier.padding(start = 8.dp))
                 }
             }
-            itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
+            groupedItemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
                 SongListItem(song = song, onClick = { onSongClick(index) }, actions = actions)
             }
         }

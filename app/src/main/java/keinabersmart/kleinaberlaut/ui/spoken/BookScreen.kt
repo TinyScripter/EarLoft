@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -50,7 +49,9 @@ import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.model.Book
 import keinabersmart.kleinaberlaut.core.model.BookChapter
 import keinabersmart.kleinaberlaut.core.model.BookProgress
+import keinabersmart.kleinaberlaut.ui.components.GroupMargin
 import keinabersmart.kleinaberlaut.ui.components.TwoColumnMinWidth
+import keinabersmart.kleinaberlaut.ui.components.groupedItems
 import keinabersmart.kleinaberlaut.core.download.BookTransfer
 import keinabersmart.kleinaberlaut.core.download.EpisodeDownloadProgress
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
@@ -143,12 +144,12 @@ fun BookScreen(
                             .verticalScroll(rememberScrollState())
                             .padding(bottom = 24.dp),
                     ) { header() }
-                    LazyColumn(Modifier.weight(1f).fillMaxHeight()) {
+                    LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(bottom = 16.dp)) {
                         bookDetailItems(book, chapters, onChapter = viewModel::playFrom)
                     }
                 }
             } else {
-                LazyColumn(Modifier.fillMaxSize()) {
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                     item(key = "header") { header() }
                     bookDetailItems(book, chapters, onChapter = viewModel::playFrom)
                 }
@@ -288,10 +289,10 @@ private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter
             Text(
                 stringResource(R.string.spoken_chapters),
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 4.dp),
+                modifier = Modifier.padding(start = GroupMargin + 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
             )
         }
-        itemsIndexed(chapters, key = { _, chapter -> chapter.index }) { _, chapter ->
+        groupedItems(chapters, key = { it.index }) { chapter ->
             ListItem(
                 headlineContent = { Text(chapterTitle(chapter)) },
                 trailingContent = { Text(formatDuration(chapter.durationMs), style = MaterialTheme.typography.bodySmall) },

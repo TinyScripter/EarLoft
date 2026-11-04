@@ -97,6 +97,8 @@ import keinabersmart.kleinaberlaut.ui.components.LoadableList
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.components.CoverOutlineWidth
 import keinabersmart.kleinaberlaut.ui.components.GridTilePadding
+import keinabersmart.kleinaberlaut.ui.components.group
+import keinabersmart.kleinaberlaut.ui.components.groupedItems
 import keinabersmart.kleinaberlaut.ui.components.Shelf
 import keinabersmart.kleinaberlaut.ui.components.coverOutlineColor
 import keinabersmart.kleinaberlaut.ui.components.gridTile
@@ -456,7 +458,7 @@ fun PodcastScreen(
                 } else if (episodes is LoadState.Ready && list.isEmpty()) {
                     item(key = "empty") { EmptyHint(stringResource(R.string.podcast_no_episodes)) }
                 }
-                items(list, key = { it.book.id }) { item ->
+                groupedItems(list, key = { it.book.id }) { item ->
                     EpisodeRow(
                         item,
                         download = downloadStates[item.book.id] ?: TrackDownload.NONE,
@@ -531,8 +533,8 @@ fun PodcastSearchScreen(
         when {
             trimmed.isEmpty() -> Unit
             hits.isEmpty() -> if (settled) EmptyHint(stringResource(R.string.search_no_results, trimmed))
-            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                items(hits, key = { it.book.id }) { item ->
+            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+                groupedItems(hits, key = { it.book.id }) { item ->
                     EpisodeRow(
                         item,
                         download = downloadStates[item.book.id] ?: TrackDownload.NONE,
@@ -652,62 +654,64 @@ fun PodcastSettingsScreen(
             navigationIcon = { BackButton(onBack) },
         )
         if (current == null) return@Column
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item(key = "continuous") {
-                SwitchRow(
-                    title = stringResource(R.string.podcast_continuous),
-                    summary = stringResource(R.string.podcast_continuous_summary),
-                    icon = DesignR.drawable.ic_playlist_play,
-                    checked = current.continuous,
-                    onCheckedChange = viewModel::setContinuous,
-                )
-            }
-            item(key = "newest-first") {
-                SwitchRow(
-                    title = stringResource(R.string.podcast_newest_first),
-                    summary = stringResource(R.string.podcast_newest_first_summary),
-                    icon = DesignR.drawable.ic_list,
-                    checked = current.newestFirst,
-                    onCheckedChange = viewModel::setNewestFirst,
-                )
-            }
-            // Podcasts vom Gerät haben weder Feed noch Downloads und lassen sich nur durch Entfernen der Dateien beenden.
-            if (!current.isLocal) item(key = "auto-download") {
-                SwitchRow(
-                    title = stringResource(R.string.podcast_auto_download),
-                    summary = stringResource(R.string.podcast_auto_download_summary),
-                    icon = DesignR.drawable.ic_download,
-                    checked = current.autoDownload,
-                    onCheckedChange = viewModel::setAutoDownload,
-                )
-            }
-            if (!current.isLocal) item(key = "notify-new") {
-                SwitchRow(
-                    title = stringResource(R.string.podcast_notify_new),
-                    summary = stringResource(R.string.podcast_notify_new_summary),
-                    icon = DesignR.drawable.ic_notifications,
-                    checked = current.notifyNew,
-                    onCheckedChange = viewModel::setNotifyNew,
-                )
-            }
-            if (downloadStates.values.any { it == TrackDownload.DONE }) {
-                item(key = "remove-heard") {
-                    ActionRow(
-                        title = stringResource(R.string.podcast_remove_heard_downloads),
-                        summary = stringResource(R.string.podcast_remove_heard_downloads_summary),
-                        icon = DesignR.drawable.ic_delete,
-                        onClick = viewModel::removeHeardDownloads,
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+            group("podcast-settings") {
+                row("continuous") {
+                    SwitchRow(
+                        title = stringResource(R.string.podcast_continuous),
+                        summary = stringResource(R.string.podcast_continuous_summary),
+                        icon = DesignR.drawable.ic_playlist_play,
+                        checked = current.continuous,
+                        onCheckedChange = viewModel::setContinuous,
                     )
                 }
-            }
-            if (!current.isLocal) item(key = "unsubscribe") {
-                ActionRow(
-                    title = stringResource(R.string.podcast_unsubscribe),
-                    summary = stringResource(R.string.podcast_unsubscribe_summary),
-                    icon = DesignR.drawable.ic_close,
-                    onClick = { confirmUnsubscribe = true },
-                    titleColor = MaterialTheme.colorScheme.error,
-                )
+                row("newest-first") {
+                    SwitchRow(
+                        title = stringResource(R.string.podcast_newest_first),
+                        summary = stringResource(R.string.podcast_newest_first_summary),
+                        icon = DesignR.drawable.ic_list,
+                        checked = current.newestFirst,
+                        onCheckedChange = viewModel::setNewestFirst,
+                    )
+                }
+                // Podcasts vom Gerät haben weder Feed noch Downloads und lassen sich nur durch Entfernen der Dateien beenden.
+                if (!current.isLocal) row("auto-download") {
+                    SwitchRow(
+                        title = stringResource(R.string.podcast_auto_download),
+                        summary = stringResource(R.string.podcast_auto_download_summary),
+                        icon = DesignR.drawable.ic_download,
+                        checked = current.autoDownload,
+                        onCheckedChange = viewModel::setAutoDownload,
+                    )
+                }
+                if (!current.isLocal) row("notify-new") {
+                    SwitchRow(
+                        title = stringResource(R.string.podcast_notify_new),
+                        summary = stringResource(R.string.podcast_notify_new_summary),
+                        icon = DesignR.drawable.ic_notifications,
+                        checked = current.notifyNew,
+                        onCheckedChange = viewModel::setNotifyNew,
+                    )
+                }
+                if (downloadStates.values.any { it == TrackDownload.DONE }) {
+                    row("remove-heard") {
+                        ActionRow(
+                            title = stringResource(R.string.podcast_remove_heard_downloads),
+                            summary = stringResource(R.string.podcast_remove_heard_downloads_summary),
+                            icon = DesignR.drawable.ic_delete,
+                            onClick = viewModel::removeHeardDownloads,
+                        )
+                    }
+                }
+                if (!current.isLocal) row("unsubscribe") {
+                    ActionRow(
+                        title = stringResource(R.string.podcast_unsubscribe),
+                        summary = stringResource(R.string.podcast_unsubscribe_summary),
+                        icon = DesignR.drawable.ic_close,
+                        onClick = { confirmUnsubscribe = true },
+                        titleColor = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
     }
