@@ -28,7 +28,7 @@ internal class ArtworkBitmapLoader(
     private val scope: CoroutineScope,
 ) : BitmapLoader {
 
-    private val fallback = DataSourceBitmapLoader(context)
+    private val fallback = DataSourceBitmapLoader.Builder(context).build()
 
     override fun supportsMimeType(mimeType: String): Boolean = fallback.supportsMimeType(mimeType)
 

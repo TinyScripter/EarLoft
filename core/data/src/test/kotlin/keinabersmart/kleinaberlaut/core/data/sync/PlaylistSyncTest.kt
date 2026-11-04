@@ -6,6 +6,7 @@ import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.datasource.RawArtist
 import keinabersmart.kleinaberlaut.core.datasource.RawTrack
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -92,6 +93,7 @@ class PlaylistSyncTest {
         assertEquals(0, db.syncDao().countActions())
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun `server change over an unsent local change is announced`() = runTest {
         val remoteId = nd.putPlaylist("Mix", listOf("a"))

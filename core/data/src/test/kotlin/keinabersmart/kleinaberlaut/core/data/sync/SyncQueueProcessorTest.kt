@@ -12,6 +12,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.model.SyncActionType
 import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -95,6 +96,7 @@ class SyncQueueProcessorTest {
         assertEquals(0, db.syncDao().countActions())
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun `dropped favorite is announced but a dropped scrobble is not`() = runTest {
         home.failure = SubsonicException(SubsonicException.NOT_FOUND, "Song not found")

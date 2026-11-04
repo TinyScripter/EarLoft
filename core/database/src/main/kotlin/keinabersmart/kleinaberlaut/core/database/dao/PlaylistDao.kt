@@ -92,17 +92,17 @@ interface PlaylistDao {
     suspend fun getSongIds(playlistId: Long): List<Long>
 
     /**
-     * Die Remote-IDs der Einträge auf [sourceId] in Playlist-Reihenfolge; `null` für Songs, die dort fehlen.
+     * Die Remote-IDs der Einträge auf [sourceId] in Playlist-Reihenfolge; Songs, die dort fehlen, entfallen.
      * Liefert ein Server einen Song doppelt, wird stets dieselbe Quelle gewählt.
      */
     @Query(
         """
-        SELECT (SELECT ss.remoteId FROM song_sources ss
-                WHERE ss.songId = e.songId AND ss.sourceId = :sourceId ORDER BY ss.uid LIMIT 1)
-        FROM playlist_entries e
+        SELECT ss.remoteId FROM playlist_entries e
+        JOIN song_sources ss ON ss.uid = (SELECT s.uid FROM song_sources s
+                WHERE s.songId = e.songId AND s.sourceId = :sourceId ORDER BY s.uid LIMIT 1)
         WHERE e.playlistId = :playlistId
         ORDER BY e.position, e.entryId
         """,
     )
-    suspend fun getRemoteSongIds(playlistId: Long, sourceId: String): List<String?>
+    suspend fun getRemoteSongIds(playlistId: Long, sourceId: String): List<String>
 }

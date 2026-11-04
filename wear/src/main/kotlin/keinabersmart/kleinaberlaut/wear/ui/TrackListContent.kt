@@ -75,74 +75,69 @@ fun TrackListContent(state: TrackListState, onPlay: (key: Long?, shuffle: Boolea
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = contentPadding,
         ) {
-            when (state) {
-                is TrackListState.Ready -> {
-                    if (state.title.isNotEmpty()) {
-                        item {
-                            ListHeader(
-                                modifier = Modifier.transformedHeight(this, transformationSpec),
-                                transformation = SurfaceTransformation(transformationSpec),
-                            ) {
-                                Text(state.title, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    }
-                    item {
-                        val loaded = state.loadedCount
-                        Text(
-                            if (loaded == null || loaded >= state.songCount) {
-                                pluralStringResource(R.plurals.song_count, state.songCount, state.songCount)
-                            } else {
-                                stringResource(R.string.selection_progress, loaded, state.songCount)
-                            },
-                            modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    if (state.canPlay) {
-                        item {
-                            Button(
-                                onClick = { onPlay(null, false) },
-                                modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                                transformation = SurfaceTransformation(transformationSpec),
-                                label = { Text(stringResource(R.string.selection_play)) },
-                            )
-                        }
-                        item {
-                            Button(
-                                onClick = { onPlay(null, true) },
-                                modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                                transformation = SurfaceTransformation(transformationSpec),
-                                label = { Text(stringResource(R.string.selection_shuffle)) },
-                            )
-                        }
-                    }
-                    items(state.items, key = { it.key }) { track ->
-                        Button(
-                            onClick = { onPlay(track.key, false) },
-                            enabled = track.enabled,
-                            modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                            transformation = SurfaceTransformation(transformationSpec),
-                            label = { Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            secondaryLabel = {
-                                val text = if (track.enabled) track.artist else stringResource(R.string.selection_not_loaded)
-                                Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            },
-                        )
-                    }
-                    if (state.truncated) {
-                        item {
-                            Text(
-                                stringResource(R.string.remote_truncated),
-                                modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                                textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
+            if (state.title.isNotEmpty()) {
+                item {
+                    ListHeader(
+                        modifier = Modifier.transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                    ) {
+                        Text(state.title, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                else -> Unit
+            }
+            item {
+                val loaded = state.loadedCount
+                Text(
+                    if (loaded == null || loaded >= state.songCount) {
+                        pluralStringResource(R.plurals.song_count, state.songCount, state.songCount)
+                    } else {
+                        stringResource(R.string.selection_progress, loaded, state.songCount)
+                    },
+                    modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            if (state.canPlay) {
+                item {
+                    Button(
+                        onClick = { onPlay(null, false) },
+                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                        label = { Text(stringResource(R.string.selection_play)) },
+                    )
+                }
+                item {
+                    Button(
+                        onClick = { onPlay(null, true) },
+                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                        label = { Text(stringResource(R.string.selection_shuffle)) },
+                    )
+                }
+            }
+            items(state.items, key = { it.key }) { track ->
+                Button(
+                    onClick = { onPlay(track.key, false) },
+                    enabled = track.enabled,
+                    modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                    transformation = SurfaceTransformation(transformationSpec),
+                    label = { Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    secondaryLabel = {
+                        val text = if (track.enabled) track.artist else stringResource(R.string.selection_not_loaded)
+                        Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    },
+                )
+            }
+            if (state.truncated) {
+                item {
+                    Text(
+                        stringResource(R.string.remote_truncated),
+                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
         }
     }

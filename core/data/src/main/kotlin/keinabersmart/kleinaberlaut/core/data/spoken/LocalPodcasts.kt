@@ -88,7 +88,7 @@ class LocalPodcasts @Inject constructor(
         val existing = dao.feed(feedId)
         // Das Bild des Podcasts ist das Cover einer seiner Folgen, solange diese Folge noch da ist.
         val keepImage = existing?.imageUrl?.let(AppUris::parseBookCoverId)?.let { bookDao.book(it) } != null
-        val image = if (keepImage) existing?.imageUrl else newestWithCover?.let { AppUris.bookCover(it.first) } ?: existing?.imageUrl
+        val image = if (keepImage) existing.imageUrl else newestWithCover?.let { AppUris.bookCover(it.first) } ?: existing?.imageUrl
         dao.upsertFeed(
             existing?.copy(title = podcast.name, imageUrl = image, lastRefreshAt = generation, syncGeneration = generation)
                 ?: PodcastFeedEntity(feedId = feedId, url = feedId, title = podcast.name, imageUrl = image, lastRefreshAt = generation, syncGeneration = generation),

@@ -150,7 +150,7 @@ class SyncQueueProcessor @Inject constructor(
      */
     private suspend fun upsertPlaylist(sourceId: String, playlistId: Long, remote: RemoteLibraryActions) {
         val local = playlistDao.getPlaylist(playlistId) ?: return
-        val songs = playlistDao.getRemoteSongIds(playlistId, sourceId).filterNotNull()
+        val songs = playlistDao.getRemoteSongIds(playlistId, sourceId)
         val remoteId = local.remotePlaylistId
         val info = if (remoteId == null) {
             remote.createPlaylist(local.name, songs)

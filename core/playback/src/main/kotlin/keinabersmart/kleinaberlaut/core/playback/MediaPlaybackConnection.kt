@@ -21,6 +21,7 @@ import keinabersmart.kleinaberlaut.core.model.Song
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
@@ -84,6 +85,7 @@ class MediaPlaybackConnection @Inject constructor(
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun connectedController(): MediaController? =
         connection?.takeIf { it.isCompleted && !it.isCancelled }?.getCompleted()
 
@@ -142,6 +144,7 @@ class MediaPlaybackConnection @Inject constructor(
     }
 
     /** Gibt den Controller nach [RELEASE_DELAY_MS] frei, wenn bis dahin niemand beobachtet und kein Befehl läuft. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun scheduleRelease() {
         if (_state.subscriptionCount.value > 0 || commandsInFlight > 0 || connection == null) return
         releaseJob?.cancel()
