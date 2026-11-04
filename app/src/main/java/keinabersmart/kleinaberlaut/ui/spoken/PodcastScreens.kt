@@ -100,42 +100,6 @@ import java.text.DateFormat
 import java.util.Date
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
-/** Zustand und Dialog zum Abonnieren; nach dem Hinzufügen öffnet sich der neue Podcast. */
-private class AddPodcastControl(val show: () -> Unit)
-
-/** Zeigt bei Bedarf den „Podcast hinzufügen“-Dialog; [content] bekommt den Auslöser. */
-@Composable
-private fun AddPodcastHost(
-    viewModel: PodcastViewModel,
-    onFeedClick: (String) -> Unit,
-    content: @Composable (AddPodcastControl) -> Unit,
-) {
-    val add by viewModel.add.collectAsStateWithLifecycle()
-    var adding by rememberSaveable { mutableStateOf(false) }
-
-    LaunchedEffect(add) {
-        val state = add
-        if (state is AddPodcastState.Done) {
-            adding = false
-            viewModel.resetAdd()
-            onFeedClick(state.feedId)
-        }
-    }
-
-    content(AddPodcastControl { adding = true })
-
-    if (adding) {
-        AddPodcastDialog(
-            state = add,
-            onSubscribe = viewModel::subscribe,
-            onDismiss = {
-                adding = false
-                viewModel.resetAdd()
-            },
-        )
-    }
-}
-
 /**
  * Start im Modus „Podcasts“: Weiterhören (angefangene Folgen, die zuletzt gehörte links, neue am Ende), zuletzt
  * hinzugefügte Folgen und die Abos.
@@ -146,6 +110,7 @@ fun PodcastHomeScreen(
     onFeedClick: (String) -> Unit,
     onFeedSettings: (String) -> Unit,
     onOpenQueue: () -> Unit,
+    onAddPodcast: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PodcastViewModel = hiltViewModel(),
 ) {
@@ -154,67 +119,65 @@ fun PodcastHomeScreen(
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
     val rowState = rememberContinueRowState(episodes.map { it.book.id })
-    AddPodcastHost(viewModel, onFeedClick) { addControl ->
-        LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-            if (episodes.isNotEmpty()) {
-                item(key = "continue-header") {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        SectionHeader(stringResource(R.string.spoken_continue), Modifier.weight(1f))
-                        IconButton(onClick = onOpenQueue, modifier = Modifier.padding(end = 8.dp)) {
-                            Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.player_queue))
-                        }
-                    }
-                }
-                item(key = "continue") {
-                    LazyRow(
-                        state = rowState,
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        items(episodes, key = { it.book.id }) { item ->
-                            BookCard(
-                                item,
-                                onClick = { onEpisodeClick(item.book.id) },
-                                modifier = Modifier.width(140.dp).rowItemAnimation(this),
-                                onPlay = { viewModel.playOrPause(item.book.id) },
-                                playing = item.book.id == playingId,
-                            )
-                        }
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+        if (episodes.isNotEmpty()) {
+            item(key = "continue-header") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SectionHeader(stringResource(R.string.spoken_continue), Modifier.weight(1f))
+                    IconButton(onClick = onOpenQueue, modifier = Modifier.padding(end = 8.dp)) {
+                        Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.player_queue))
                     }
                 }
             }
-            if (recent.isNotEmpty()) {
-                item(key = "recent-header") { SectionHeader(stringResource(R.string.spoken_recent)) }
-                item(key = "recent") { BookRow(recent, onEpisodeClick, playingId = playingId, onPlay = viewModel::playOrPause) }
-            }
-            item(key = "subscriptions-header") { SectionHeader(stringResource(R.string.podcast_subscriptions)) }
-            val list = feeds.valueOrNull
-            if (feeds == LoadState.Failed) {
-                item(key = "failed") { LoadFailedHint() }
-            } else if (list?.isEmpty() == true) {
-                item(key = "empty") { EmptyHint(stringResource(R.string.podcast_none)) }
-            } else {
-                item(key = "subscriptions") {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        items(list.orEmpty(), key = { it.id }) { feed ->
-                            FeedCard(
-                                feed,
-                                onClick = { onFeedClick(feed.id) },
-                                onSettings = { onFeedSettings(feed.id) },
-                                modifier = Modifier.width(140.dp),
-                            )
-                        }
+            item(key = "continue") {
+                LazyRow(
+                    state = rowState,
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(episodes, key = { it.book.id }) { item ->
+                        BookCard(
+                            item,
+                            onClick = { onEpisodeClick(item.book.id) },
+                            modifier = Modifier.width(140.dp).rowItemAnimation(this),
+                            onPlay = { viewModel.playOrPause(item.book.id) },
+                            playing = item.book.id == playingId,
+                        )
                     }
                 }
             }
-            item(key = "add") {
-                FilledTonalButton(onClick = addControl.show, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
-                    Text(stringResource(R.string.podcast_add), modifier = Modifier.padding(start = 8.dp))
+        }
+        if (recent.isNotEmpty()) {
+            item(key = "recent-header") { SectionHeader(stringResource(R.string.spoken_recent)) }
+            item(key = "recent") { BookRow(recent, onEpisodeClick, playingId = playingId, onPlay = viewModel::playOrPause) }
+        }
+        item(key = "subscriptions-header") { SectionHeader(stringResource(R.string.podcast_subscriptions)) }
+        val list = feeds.valueOrNull
+        if (feeds == LoadState.Failed) {
+            item(key = "failed") { LoadFailedHint() }
+        } else if (list?.isEmpty() == true) {
+            item(key = "empty") { EmptyHint(stringResource(R.string.podcast_none)) }
+        } else {
+            item(key = "subscriptions") {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(list.orEmpty(), key = { it.id }) { feed ->
+                        FeedCard(
+                            feed,
+                            onClick = { onFeedClick(feed.id) },
+                            onSettings = { onFeedSettings(feed.id) },
+                            modifier = Modifier.width(140.dp),
+                        )
+                    }
                 }
+            }
+        }
+        item(key = "add") {
+            FilledTonalButton(onClick = onAddPodcast, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
+                Text(stringResource(R.string.podcast_add), modifier = Modifier.padding(start = 8.dp))
             }
         }
     }
@@ -255,6 +218,7 @@ fun PodcastLibraryScreen(
     onFeedClick: (String) -> Unit,
     onFeedSettings: (String) -> Unit,
     onEpisodeClick: (Long) -> Unit,
+    onAddPodcast: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PodcastViewModel = hiltViewModel(),
 ) {
@@ -264,30 +228,28 @@ fun PodcastLibraryScreen(
     val pagerState = rememberPagerState { PodcastTab.entries.size }
     val scope = rememberCoroutineScope()
 
-    AddPodcastHost(viewModel, onFeedClick) { addControl ->
-        Column(modifier.fillMaxSize()) {
-            PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
-                PodcastTab.entries.forEachIndexed { index, tab ->
-                    Tab(
-                        selected = pagerState.currentPage == index,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                        text = { Text(stringResource(tab.label)) },
-                    )
-                }
+    Column(modifier.fillMaxSize()) {
+        PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
+            PodcastTab.entries.forEachIndexed { index, tab ->
+                Tab(
+                    selected = pagerState.currentPage == index,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                    text = { Text(stringResource(tab.label)) },
+                )
             }
-            HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth(), key = { it }) { page ->
-                when (PodcastTab.entries[page]) {
-                    PodcastTab.EPISODES -> UnheardEpisodes(
-                        unheard,
-                        hasFeeds = feeds.valueOrNull?.isNotEmpty() == true,
-                        onFeedClick,
-                        onEpisodeClick,
-                        playingId,
-                        viewModel::playOrPause,
-                    )
-                    PodcastTab.FEEDS -> FeedGrid(feeds, onFeedClick, onFeedSettings, onAdd = addControl.show)
-                    PodcastTab.STATS -> PodcastStatsScreen(onFeedClick)
-                }
+        }
+        HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth(), key = { it }) { page ->
+            when (PodcastTab.entries[page]) {
+                PodcastTab.EPISODES -> UnheardEpisodes(
+                    unheard,
+                    hasFeeds = feeds.valueOrNull?.isNotEmpty() == true,
+                    onFeedClick,
+                    onEpisodeClick,
+                    playingId,
+                    viewModel::playOrPause,
+                )
+                PodcastTab.FEEDS -> FeedGrid(feeds, onFeedClick, onFeedSettings, onAdd = onAddPodcast)
+                PodcastTab.STATS -> PodcastStatsScreen(onFeedClick)
             }
         }
     }
@@ -377,62 +339,7 @@ private fun FeedGrid(
 }
 
 /** Eingegeben oder gespeichert als `http://`; ohne Schema ergänzt die App `https://`. */
-private fun isUnencrypted(url: String): Boolean = url.trim().startsWith("http://", ignoreCase = true)
-
-@Composable
-private fun AddPodcastDialog(state: AddPodcastState, onSubscribe: (String) -> Unit, onDismiss: () -> Unit) {
-    var url by rememberSaveable { mutableStateOf("") }
-    val working = state == AddPodcastState.Working
-    AlertDialog(
-        onDismissRequest = { if (!working) onDismiss() },
-        title = { Text(stringResource(R.string.podcast_add)) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = url,
-                    onValueChange = { url = it },
-                    label = { Text(stringResource(R.string.podcast_add_url)) },
-                    placeholder = { Text(stringResource(R.string.podcast_add_url_hint)) },
-                    singleLine = true,
-                    enabled = !working,
-                    isError = state is AddPodcastState.Failed,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (isUnencrypted(url)) {
-                    Text(
-                        stringResource(R.string.podcast_add_http_hint),
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-                when (state) {
-                    is AddPodcastState.Failed -> Text(
-                        stringResource(state.message),
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    AddPodcastState.Working -> Text(
-                        stringResource(R.string.podcast_adding),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    else -> Unit
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSubscribe(url) }, enabled = url.isNotBlank() && !working) {
-                Text(stringResource(R.string.podcast_add_confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !working) { Text(stringResource(R.string.action_cancel)) }
-        },
-    )
-}
+internal fun isUnencrypted(url: String): Boolean = url.trim().startsWith("http://", ignoreCase = true)
 
 /** Detailseite eines Podcasts: Kopf mit Bild, Titel und Knöpfen, darunter die Folgen. Info und Einstellungen liegen auf eigenen Seiten. */
 @OptIn(ExperimentalMaterial3Api::class)

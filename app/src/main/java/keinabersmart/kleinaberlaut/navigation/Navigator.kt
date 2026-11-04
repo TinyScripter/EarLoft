@@ -34,6 +34,13 @@ class Navigator(private val state: NavigationState) {
         }
     }
 
+    /** Ersetzt die oberste Seite des aktuellen Tabs (z. B. die Vorschau durch das gerade abonnierte Abo). */
+    fun replaceTop(route: NavKey) {
+        val stack = currentStack()
+        if (stack.last() != state.topLevelRoute) stack.removeLastOrNull()
+        stack.add(route)
+    }
+
     fun goBack() {
         val stack = currentStack()
         if (stack.last() == state.topLevelRoute) {

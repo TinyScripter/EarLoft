@@ -76,6 +76,20 @@ class NavigatorTest {
     }
 
     @Test
+    fun `replacing the top swaps the page but never the tab root`() {
+        navigator.navigate(LibraryRoute)
+        navigator.navigate(AlbumDetail)
+        val podcast = PodcastRoute("feed")
+
+        navigator.replaceTop(podcast)
+        assertEquals(listOf(LibraryRoute, podcast), state.backStacks.getValue(LibraryRoute).toList())
+
+        navigator.goBack()
+        navigator.replaceTop(podcast)
+        assertEquals(listOf(LibraryRoute, podcast), state.backStacks.getValue(LibraryRoute).toList())
+    }
+
+    @Test
     fun `current route is the top of the selected tab`() {
         assertEquals(HomeRoute, navigator.currentRoute)
 

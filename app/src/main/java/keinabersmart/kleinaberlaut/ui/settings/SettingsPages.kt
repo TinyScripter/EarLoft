@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalResources
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -38,7 +38,13 @@ import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.permission.rememberAudioPermissionRequester
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
+import keinabersmart.kleinaberlaut.core.network.podcast.directory.PodcastDirectory
 import keinabersmart.kleinaberlaut.ui.spoken.AudiobookshelfSection
+import keinabersmart.kleinaberlaut.ui.spoken.OpmlImportDialog
+import keinabersmart.kleinaberlaut.ui.spoken.countryName
+import keinabersmart.kleinaberlaut.ui.spoken.label
+import keinabersmart.kleinaberlaut.ui.spoken.opmlImportMessage
+import keinabersmart.kleinaberlaut.ui.spoken.summary
 import keinabersmart.kleinaberlaut.ui.theme.ThemeMode
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
@@ -305,6 +311,7 @@ fun PodcastsSettingsScreen(
     var choosingDeleteHeard by rememberSaveable { mutableStateOf(false) }
     var choosingAutoCount by rememberSaveable { mutableStateOf(false) }
     var confirmingStatsReset by rememberSaveable { mutableStateOf(false) }
+    var choosingCountry by rememberSaveable { mutableStateOf(false) }
     // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalPodcasts(true)
@@ -327,14 +334,8 @@ fun PodcastsSettingsScreen(
     LaunchedEffect(viewModel) {
         viewModel.transferMessages.collect { message ->
             val text = when (message) {
-                is TransferMessage.Imported -> resources.getQuantityString(
-                    R.plurals.settings_opml_imported,
-                    message.result.added,
-                    message.result.added,
-                    message.result.skipped,
-                    message.result.removed,
-                )
-                TransferMessage.ImportFailed -> resources.getString(R.string.settings_opml_import_failed)
+                is TransferMessage.Imported -> opmlImportMessage(resources, message.result)
+                TransferMessage.ImportFailed -> opmlImportMessage(resources, null)
                 TransferMessage.Exported -> resources.getString(R.string.settings_opml_exported)
                 TransferMessage.ExportFailed -> resources.getString(R.string.settings_opml_export_failed)
                 TransferMessage.DatabaseImportStarted -> resources.getString(R.string.settings_db_import_started)
@@ -370,6 +371,29 @@ fun PodcastsSettingsScreen(
                     if (enabled) requestAudioPermission() else viewModel.setUseLocalPodcasts(false)
                 },
             )
+        }
+
+        if (state.podcastDirectories.isNotEmpty()) {
+            item(key = "directories") { SectionHeader(stringResource(R.string.settings_section_directories)) }
+            items(state.podcastDirectories, key = { "directory-${it.name}" }) { directory ->
+                SwitchRow(
+                    title = stringResource(directory.label),
+                    summary = stringResource(directory.summary),
+                    icon = R.drawable.ic_nav_search,
+                    checked = directory in state.enabledPodcastDirectories,
+                    onCheckedChange = { viewModel.setPodcastDirectory(directory, it) },
+                )
+            }
+            if (PodcastDirectory.APPLE in state.enabledPodcastDirectories) {
+                item(key = "apple-country") {
+                    ClickRow(
+                        title = stringResource(R.string.settings_directory_apple_country),
+                        value = countryName(state.appleCountry),
+                        icon = R.drawable.ic_nav_search,
+                        onClick = { choosingCountry = true },
+                    )
+                }
+            }
         }
 
         item(key = "refresh") { SectionHeader(stringResource(R.string.settings_section_refresh)) }
@@ -492,25 +516,29 @@ fun PodcastsSettingsScreen(
         )
     }
     opmlToImport?.let { uri ->
-        AlertDialog(
-            onDismissRequest = { opmlToImport = null },
-            title = { Text(stringResource(R.string.settings_opml_import)) },
-            text = { Text(stringResource(R.string.settings_opml_import_message)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.importOpml(uri, replace = false)
-                    opmlToImport = null
-                }) { Text(stringResource(R.string.settings_opml_add)) }
+        OpmlImportDialog(
+            onImport = { replace ->
+                viewModel.importOpml(uri, replace)
+                opmlToImport = null
             },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = { opmlToImport = null }) { Text(stringResource(R.string.action_cancel)) }
-                    TextButton(onClick = {
-                        viewModel.importOpml(uri, replace = true)
-                        opmlToImport = null
-                    }) { Text(stringResource(R.string.settings_opml_replace)) }
-                }
+            onDismiss = { opmlToImport = null },
+        )
+    }
+    if (choosingCountry) {
+        val choices = remember(state.appleCountry) {
+            (PodcastSettings.APPLE_COUNTRY_CHOICES + state.appleCountry + PodcastSettings.systemCountry()).distinct()
+                .sortedBy { countryName(it) }
+        }
+        ChoiceDialog(
+            title = stringResource(R.string.settings_directory_apple_country),
+            options = choices,
+            selected = state.appleCountry,
+            label = { countryName(it) },
+            onSelect = {
+                viewModel.setAppleCountry(it)
+                choosingCountry = false
             },
+            onDismiss = { choosingCountry = false },
         )
     }
     if (choosingRefresh) {

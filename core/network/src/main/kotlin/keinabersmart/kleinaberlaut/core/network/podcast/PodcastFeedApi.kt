@@ -77,13 +77,15 @@ class PodcastFeedApi @Inject constructor(
     }
 
     private companion object {
-        /** Manche Verzeichnisse (z. B. podcastindex.org) lehnen den Standard-User-Agent von OkHttp mit 403 ab. */
-        const val USER_AGENT = "kleinaberlaut/1.0 (Android podcast client)"
+        const val USER_AGENT = PODCAST_USER_AGENT
         const val MAX_FEED_BYTES = 20L * 1024 * 1024
         const val MAX_CHAPTERS_BYTES = 1L * 1024 * 1024
         const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
     }
 }
+
+/** Manche Verzeichnisse (z. B. podcastindex.org) lehnen den Standard-User-Agent von OkHttp mit 403 ab. */
+internal const val PODCAST_USER_AGENT = "kleinaberlaut/1.0 (Android podcast client)"
 
 /**
  * Macht aus einer Eingabe eine Feed-Adresse: Leerraum weg, `feed://`/`itpc://`/`pcast://` werden `https://`, ohne

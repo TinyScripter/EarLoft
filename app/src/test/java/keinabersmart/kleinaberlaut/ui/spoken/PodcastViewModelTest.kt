@@ -3,7 +3,6 @@ package keinabersmart.kleinaberlaut.ui.spoken
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
-import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
@@ -12,8 +11,6 @@ import keinabersmart.kleinaberlaut.core.playback.SpokenEntry
 import keinabersmart.kleinaberlaut.testing.FakePlaybackConnection
 import keinabersmart.kleinaberlaut.testing.FakePlaybackConnection.Command
 import keinabersmart.kleinaberlaut.testing.MainDispatcherRule
-import keinabersmart.kleinaberlaut.testing.awaitReal
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -24,7 +21,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import javax.inject.Inject
 
-/** Abspielen und Abonnieren auf der Podcast-Seite (Review A3). */
+/** Abspielen auf der Podcast-Seite (Review A3); Abonnieren steht in [AddPodcastViewModelTest]. */
 @HiltAndroidTest
 @Config(application = HiltTestApplication::class)
 @RunWith(RobolectricTestRunner::class)
@@ -68,13 +65,4 @@ class PodcastViewModelTest {
         assertEquals(listOf(Command.PlayBook(8, null)), playback.awaitCommands())
     }
 
-    @Test
-    fun `an invalid address fails without touching the network`() = runTest {
-        viewModel.subscribe("kein feed")
-
-        assertEquals(
-            AddPodcastState.Failed(R.string.podcast_error_invalid),
-            awaitReal { viewModel.add.first { it is AddPodcastState.Failed } },
-        )
-    }
 }

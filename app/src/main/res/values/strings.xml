@@ -130,6 +130,8 @@
         <item quantity="other">%d servers</item>
     </plurals>
     <string name="settings_section_sources">Sources</string>
+    <string name="settings_section_directories">Directories</string>
+    <string name="settings_directory_apple_country">Country for Apple Podcasts</string>
     <string name="settings_section_refresh">Updating</string>
     <string name="settings_section_images">Images</string>
     <string name="settings_section_appearance">Appearance</string>
@@ -479,7 +481,24 @@
     <string name="podcast_error_unreachable">The feed cannot be reached.</string>
     <string name="podcast_error_not_feed">There is no podcast feed (RSS or Atom) at this address.</string>
     <string name="podcast_already">You are already subscribed to this podcast.</string>
-    <string name="podcast_none">No subscriptions yet. Tap “Add podcast” and enter the feed address.</string>
+    <string name="podcast_add_direct">Add directly</string>
+    <string name="podcast_add_search">Search directories</string>
+    <string name="podcast_directory_search_label">Podcast name or topic</string>
+    <string name="podcast_directory_search">Search</string>
+    <string name="podcast_directory_none">No directory is switched on. Choose in the podcast settings which directories the app may search – your search terms are sent to them.</string>
+    <string name="podcast_directory_open_settings">Open settings</string>
+    <string name="podcast_directory_searching">Searching …</string>
+    <string name="podcast_directory_failed">No answer from %1$s.</string>
+    <string name="podcast_directory_subscribed">Subscribed</string>
+    <string name="podcast_preview_open">Open</string>
+    <string name="podcast_preview_retry">Try again</string>
+    <string name="directory_apple">Apple Podcasts</string>
+    <string name="directory_apple_summary">The largest directory, results per country. Search terms are sent to Apple.</string>
+    <string name="directory_podcast_index">Podcast Index</string>
+    <string name="directory_podcast_index_summary">Open directory, worldwide. Search terms are sent to Podcast Index.</string>
+    <string name="directory_fyyd">fyyd</string>
+    <string name="directory_fyyd_summary">Directory focused on German-language podcasts. Search terms are sent to fyyd.</string>
+    <string name="podcast_none">No subscriptions yet. Tap “Add podcast” to enter a feed address or search a directory.</string>
     <string name="podcast_nothing_to_continue">Nothing to continue yet. Subscribe to a podcast under “Subscriptions”.</string>
     <string name="podcast_refresh">Refresh podcasts</string>
     <string name="podcast_refresh_failed">Refreshing failed.</string>

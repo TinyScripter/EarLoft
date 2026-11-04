@@ -6,10 +6,14 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import keinabersmart.kleinaberlaut.core.network.podcast.directory.PodcastDirectory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -58,7 +62,38 @@ class PodcastSettings @Inject constructor(
         context.podcastSettingsDataStore.edit { it[KEY_AUTO_PLAY_NEXT] = enabled }
     }
 
+    /** In diesen Verzeichnissen sucht die Seite „Podcast hinzufügen“ (Standard: in keinem, Konzept 12.10). */
+    val directories: Flow<Set<PodcastDirectory>> = context.podcastSettingsDataStore.data.map { prefs ->
+        prefs[KEY_DIRECTORIES].orEmpty().mapNotNullTo(HashSet()) { name -> PodcastDirectory.entries.firstOrNull { it.name == name } }
+    }
+
+    suspend fun setDirectory(directory: PodcastDirectory, enabled: Boolean) {
+        context.podcastSettingsDataStore.edit {
+            val current = it[KEY_DIRECTORIES].orEmpty()
+            it[KEY_DIRECTORIES] = if (enabled) current + directory.name else current - directory.name
+        }
+    }
+
+    /** Land für die Suche bei Apple Podcasts (ISO 3166, z. B. `DE`); ohne Auswahl das Land des Systems. */
+    val appleCountry: Flow<String> = context.podcastSettingsDataStore.data.map { it[KEY_APPLE_COUNTRY] ?: systemCountry() }
+
+    suspend fun setAppleCountry(country: String) {
+        context.podcastSettingsDataStore.edit { it[KEY_APPLE_COUNTRY] = country }
+    }
+
     companion object {
+        /** Auswahl in den Einstellungen; das Land des Systems kommt dazu, wenn es fehlt. */
+        val APPLE_COUNTRY_CHOICES = listOf(
+            "DE", "AT", "CH", "LU", "LI", "BE", "NL", "DK", "PL", "CZ", "FR", "IT", "ES", "PT",
+            "SE", "NO", "FI", "GB", "IE", "US", "CA", "AU", "NZ",
+        )
+
+        /** Land aus den Systemeinstellungen; ohne Land (nur Sprache gesetzt) die USA, Apples Standard. */
+        fun systemCountry(): String = Locale.getDefault().country.takeIf { it.length == 2 }?.uppercase() ?: "US"
+
+        private val KEY_DIRECTORIES = stringSetPreferencesKey("directories")
+        private val KEY_APPLE_COUNTRY = stringPreferencesKey("apple_country")
+
         val AUTO_DOWNLOAD_COUNT_CHOICES = listOf(1, 2, 3, 5, 10)
         const val DEFAULT_AUTO_DOWNLOAD_COUNT = 3
 

@@ -129,6 +129,8 @@
         <item quantity="other">%d Server</item>
     </plurals>
     <string name="settings_section_sources">Quellen</string>
+    <string name="settings_section_directories">Verzeichnisse</string>
+    <string name="settings_directory_apple_country">Land für Apple Podcasts</string>
     <string name="settings_section_refresh">Aktualisierung</string>
     <string name="settings_section_images">Bilder</string>
     <string name="settings_section_appearance">Darstellung</string>
@@ -475,7 +477,24 @@
     <string name="podcast_error_unreachable">Der Feed ist nicht erreichbar.</string>
     <string name="podcast_error_not_feed">Unter dieser Adresse liegt kein Podcast-Feed (RSS oder Atom).</string>
     <string name="podcast_already">Dieser Podcast ist schon abonniert.</string>
-    <string name="podcast_none">Noch keine Abos. Tippe auf „Podcast hinzufügen“ und gib die Feed-Adresse ein.</string>
+    <string name="podcast_add_direct">Direkt hinzufügen</string>
+    <string name="podcast_add_search">In Verzeichnissen suchen</string>
+    <string name="podcast_directory_search_label">Name oder Thema</string>
+    <string name="podcast_directory_search">Suchen</string>
+    <string name="podcast_directory_none">Kein Verzeichnis eingeschaltet. In den Podcast-Einstellungen legst du fest, in welchen Verzeichnissen gesucht werden darf – die Suchbegriffe gehen an diese Dienste.</string>
+    <string name="podcast_directory_open_settings">Zu den Einstellungen</string>
+    <string name="podcast_directory_searching">Suche läuft …</string>
+    <string name="podcast_directory_failed">Keine Antwort von %1$s.</string>
+    <string name="podcast_directory_subscribed">Abonniert</string>
+    <string name="podcast_preview_open">Öffnen</string>
+    <string name="podcast_preview_retry">Erneut versuchen</string>
+    <string name="directory_apple">Apple Podcasts</string>
+    <string name="directory_apple_summary">Das größte Verzeichnis, Treffer je Land. Suchbegriffe gehen an Apple.</string>
+    <string name="directory_podcast_index">Podcast Index</string>
+    <string name="directory_podcast_index_summary">Offenes Verzeichnis, weltweit. Suchbegriffe gehen an Podcast Index.</string>
+    <string name="directory_fyyd">fyyd</string>
+    <string name="directory_fyyd_summary">Verzeichnis mit Schwerpunkt auf deutschsprachigen Podcasts. Suchbegriffe gehen an fyyd.</string>
+    <string name="podcast_none">Noch keine Abos. Tippe auf „Podcast hinzufügen“, um eine Feed-Adresse einzugeben oder in einem Verzeichnis zu suchen.</string>
     <string name="podcast_nothing_to_continue">Noch nichts zum Weiterhören. Abonniere unter „Abos“ einen Podcast.</string>
     <string name="podcast_refresh">Podcasts aktualisieren</string>
     <string name="podcast_refresh_failed">Aktualisieren fehlgeschlagen.</string>

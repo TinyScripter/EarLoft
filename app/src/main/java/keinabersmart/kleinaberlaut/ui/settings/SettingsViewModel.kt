@@ -14,7 +14,9 @@ import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseExporter
 import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseImporter
 import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseImportResult
 import keinabersmart.kleinaberlaut.core.data.podcast.OpmlImportResult
-import keinabersmart.kleinaberlaut.core.network.podcast.Opml
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastDirectorySearch
+import keinabersmart.kleinaberlaut.core.network.podcast.directory.PodcastDirectory
+import keinabersmart.kleinaberlaut.ui.spoken.OpmlImporter
 import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
 import keinabersmart.kleinaberlaut.core.data.source.DataSourceRegistry
 import keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher
@@ -99,6 +101,10 @@ data class SettingsUiState(
     val podcastResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val restartChapter: Boolean = false,
     val bookMobileData: Boolean = false,
+    /** Verzeichnisse, die dieser Build kennt, und die eingeschalteten (Konzept 12.10). */
+    val podcastDirectories: List<PodcastDirectory> = emptyList(),
+    val enabledPodcastDirectories: Set<PodcastDirectory> = emptySet(),
+    val appleCountry: String = "",
 )
 
 private data class GeneralSettings(
@@ -143,6 +149,8 @@ class SettingsViewModel @Inject constructor(
     private val spokenRefresher: SpokenRefresher,
     private val podcastRefresher: PodcastRefresher,
     private val podcastRepository: PodcastRepository,
+    private val opmlImporter: OpmlImporter,
+    private val directorySearch: PodcastDirectorySearch,
     private val databaseImporter: DatabaseImporter,
     private val databaseExporter: DatabaseExporter,
     private val statsRepository: StatsRepository,
@@ -228,6 +236,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(bookResume = book, podcastResume = podcast, restartChapter = chapter)
     }.combine(spokenSettings.bookMobileData) { state, mobile ->
         state.copy(bookMobileData = mobile)
+    }.combine(combine(podcastSettings.directories, podcastSettings.appleCountry, ::Pair)) { state, (directories, country) ->
+        state.copy(podcastDirectories = directorySearch.available, enabledPodcastDirectories = directories, appleCountry = country)
     }
         .orOnError(SettingsUiState(isLoading = false, isFailed = true))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
@@ -270,6 +280,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setPodcastMobileData(enabled: Boolean) {
         viewModelScope.launch { podcastSettings.setUseMobileData(enabled) }
+    }
+
+    fun setPodcastDirectory(directory: PodcastDirectory, enabled: Boolean) {
+        viewModelScope.launch { podcastSettings.setDirectory(directory, enabled) }
+    }
+
+    fun setAppleCountry(country: String) {
+        viewModelScope.launch { podcastSettings.setAppleCountry(country) }
     }
 
     /** Die Planung des periodischen Auftrags folgt der Einstellung ([keinabersmart.kleinaberlaut.core.data.sync.LibraryRefresher]). */
@@ -340,20 +358,8 @@ class SettingsViewModel @Inject constructor(
     /** Liest die Abos aus [uri] und übernimmt sie ([replace]: alle anderen Abos entfallen); danach werden die Feeds abgeglichen. */
     fun importOpml(uri: Uri, replace: Boolean) {
         viewModelScope.launch {
-            val message = try {
-                val feeds = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use(Opml::parse) ?: throw IOException("Datei nicht lesbar")
-                }
-                val result = podcastRepository.importOpml(feeds, replace)
-                if (result.added > 0) refreshPodcasts()
-                TransferMessage.Imported(result)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: IOException) {
-                Log.w(TAG, "OPML-Import fehlgeschlagen", e)
-                TransferMessage.ImportFailed
-            }
-            _transferMessages.send(message)
+            val result = opmlImporter.import(uri, replace)
+            _transferMessages.send(if (result != null) TransferMessage.Imported(result) else TransferMessage.ImportFailed)
         }
     }
 

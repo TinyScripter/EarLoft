@@ -25,6 +25,7 @@ import keinabersmart.kleinaberlaut.core.network.podcast.ParsedFeed
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedException
 import keinabersmart.kleinaberlaut.core.network.podcast.normalizeFeedUrl
+import keinabersmart.kleinaberlaut.core.network.podcast.directory.feedKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -48,6 +49,14 @@ sealed interface SubscribeResult {
     data object InvalidUrl : SubscribeResult
     data object Unreachable : SubscribeResult
     data object NotAFeed : SubscribeResult
+}
+
+/** Ein Feed zur Vorschau, ohne Abo (Konzept 12.10). */
+sealed interface FeedPreview {
+    data class Loaded(val feed: ParsedFeed) : FeedPreview
+
+    /** Mit dem Grund wie beim Abonnieren ([SubscribeResult.InvalidUrl], `Unreachable` oder `NotAFeed`). */
+    data class Failed(val result: SubscribeResult) : FeedPreview
 }
 
 /** Was ein OPML-Import getan hat: neue Abos, übersprungene Dubletten, beim Ersetzen entfernte Abos. */
@@ -97,6 +106,9 @@ class PodcastRepository @Inject constructor(
     }
 
     fun feed(feedId: String): Flow<PodcastFeed?> = dao.observeFeed(feedId).map { it?.toModel() }
+
+    /** Die Abos nach [feedKey] ihrer Adresse, um Verzeichnistreffer als schon abonniert zu erkennen. */
+    val subscribedByKey: Flow<Map<String, String>> = feeds.map { list -> list.filter { !it.isLocal }.associate { feedKey(it.url) to it.id } }
 
     /** Download-Zustand je Folge eines Podcasts (Folgen ohne Eintrag sind nicht geladen). */
     fun downloadStates(feedId: String): Flow<Map<Long, TrackDownload>> =
@@ -232,6 +244,15 @@ class PodcastRepository @Inject constructor(
         return when (val attempt = fetchForSubscribe(entered)) {
             is SubscribeFetch.Loaded -> add(entered, attempt.fetched)
             is SubscribeFetch.Failed -> attempt.result
+        }
+    }
+
+    /** Lädt den Feed unter [input] zur Vorschau, ohne etwas zu speichern. */
+    suspend fun preview(input: String): FeedPreview {
+        val url = normalizeFeedUrl(input) ?: return FeedPreview.Failed(SubscribeResult.InvalidUrl)
+        return when (val attempt = fetchForSubscribe(url)) {
+            is SubscribeFetch.Loaded -> FeedPreview.Loaded(attempt.fetched.feed)
+            is SubscribeFetch.Failed -> FeedPreview.Failed(attempt.result)
         }
     }
 

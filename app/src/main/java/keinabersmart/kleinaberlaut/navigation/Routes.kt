@@ -82,6 +82,24 @@ data class PodcastSettingsRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
+/** Seite „Podcast hinzufügen“: Feed-Adresse, OPML-Import und Suche in Verzeichnissen (Konzept 12.10). */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class AddPodcastRoute(
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
+/** Vorschau eines Verzeichnistreffers; Titel, Autor und Bild stammen aus dem Verzeichnis, bis der Feed geladen ist. */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class PodcastPreviewRoute(
+    val feedUrl: String,
+    val title: String,
+    val author: String,
+    val imageUrl: String?,
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
 enum class BookGroupKind { SERIES, AUTHOR }
 
 /** Alle Bücher einer Serie oder eines Autors. */

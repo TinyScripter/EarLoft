@@ -8,6 +8,7 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseExporter
 import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseImporter
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastDirectorySearch
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
@@ -36,6 +37,7 @@ import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
 import keinabersmart.kleinaberlaut.testing.MainDispatcherRule
 import keinabersmart.kleinaberlaut.testing.awaitReal
+import keinabersmart.kleinaberlaut.ui.spoken.OpmlImporter
 import keinabersmart.kleinaberlaut.ui.theme.ThemeSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
@@ -88,6 +90,8 @@ class SettingsViewModelTest {
     @Inject lateinit var spokenRefresher: SpokenRefresher
     @Inject lateinit var podcastRefresher: PodcastRefresher
     @Inject lateinit var podcastRepository: PodcastRepository
+    @Inject lateinit var opmlImporter: OpmlImporter
+    @Inject lateinit var directorySearch: PodcastDirectorySearch
     @Inject lateinit var databaseImporter: DatabaseImporter
     @Inject lateinit var databaseExporter: DatabaseExporter
     @Inject lateinit var statsRepository: StatsRepository
@@ -98,8 +102,8 @@ class SettingsViewModelTest {
         SettingsViewModel(
             serverRepository, refresher, downloadSettings, downloadRepository, syncSettings, replayGainSettings,
             themeSettings, librarySettings, spokenSettings, podcastSettings, artworkSettings, artworkRepository,
-            authorImages, registry, spokenRefresher, podcastRefresher, podcastRepository, databaseImporter,
-            databaseExporter, statsRepository, context, audiobookServers, syncer,
+            authorImages, registry, spokenRefresher, podcastRefresher, podcastRepository, opmlImporter, directorySearch,
+            databaseImporter, databaseExporter, statsRepository, context, audiobookServers, syncer,
         )
     }
 

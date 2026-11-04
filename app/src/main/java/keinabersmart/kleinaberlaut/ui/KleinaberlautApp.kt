@@ -52,6 +52,10 @@ import keinabersmart.kleinaberlaut.navigation.PodcastQueueRoute
 import keinabersmart.kleinaberlaut.navigation.PodcastRoute
 import keinabersmart.kleinaberlaut.navigation.PodcastSearchRoute
 import keinabersmart.kleinaberlaut.navigation.PodcastSettingsRoute
+import keinabersmart.kleinaberlaut.navigation.AddPodcastRoute
+import keinabersmart.kleinaberlaut.navigation.PodcastPreviewRoute
+import keinabersmart.kleinaberlaut.ui.spoken.AddPodcastScreen
+import keinabersmart.kleinaberlaut.ui.spoken.PodcastPreviewScreen
 import keinabersmart.kleinaberlaut.navigation.AddServerRoute
 import keinabersmart.kleinaberlaut.navigation.AlbumRoute
 import keinabersmart.kleinaberlaut.navigation.ArtistRoute
@@ -173,6 +177,7 @@ fun KleinaberlautApp(
     val openBook: (Long) -> Unit = { navigator.navigate(BookRoute(it)) }
     val openPodcast: (String) -> Unit = { navigator.navigate(PodcastRoute(it)) }
     val openPodcastSettings: (String) -> Unit = { navigator.navigate(PodcastSettingsRoute(it)) }
+    val openAddPodcast: () -> Unit = { navigator.navigate(AddPodcastRoute()) }
     val setupAudiobookshelf: () -> Unit = { navigator.navigate(AddAudiobookshelfRoute) }
     // Modus gewechselt: die Detailspalte des vorigen Modus schließen (Tab auf seine Startseite zurück).
     val closeDetail: () -> Unit = { navigator.navigate(navigationState.topLevelRoute) }
@@ -193,6 +198,7 @@ fun KleinaberlautApp(
                         onFeedClick = openPodcast,
                         onFeedSettings = openPodcastSettings,
                         onOpenQueue = { navigator.navigate(PodcastQueueRoute) },
+                        onAddPodcast = openAddPodcast,
                     ) },
                 books = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
                 onModeChange = closeDetail,
@@ -210,7 +216,12 @@ fun KleinaberlautApp(
                     )
                 },
                 podcasts = {
-                    PodcastLibraryScreen(onFeedClick = openPodcast, onFeedSettings = openPodcastSettings, onEpisodeClick = openBook)
+                    PodcastLibraryScreen(
+                        onFeedClick = openPodcast,
+                        onFeedSettings = openPodcastSettings,
+                        onEpisodeClick = openBook,
+                        onAddPodcast = openAddPodcast,
+                    )
                 },
                 books = {
                     SpokenLibraryScreen(
@@ -240,6 +251,28 @@ fun KleinaberlautApp(
                 onInfo = { navigator.navigate(PodcastInfoRoute(route.feedId)) },
                 onSettings = { navigator.navigate(PodcastSettingsRoute(route.feedId)) },
                 onSearch = { navigator.navigate(PodcastSearchRoute(route.feedId)) },
+            )
+        }
+        entry<AddPodcastRoute>(metadata = detailPane()) {
+            AddPodcastScreen(
+                onBack = navigator::goBack,
+                // Das neue Abo tritt an die Stelle der Seite, wie früher nach dem Dialog.
+                onFeedAdded = { navigator.replaceTop(PodcastRoute(it)) },
+                onOpenFeed = openPodcast,
+                onPreview = { navigator.navigate(PodcastPreviewRoute(it.feedUrl, it.title, it.author, it.imageUrl)) },
+                onOpenSettings = { navigator.navigate(SettingsPodcastsRoute) },
+            )
+        }
+        entry<PodcastPreviewRoute>(metadata = nestedDetailPane()) { route ->
+            // Zurück aus dem Abo führt zu den Treffern, nicht noch einmal zur Vorschau.
+            PodcastPreviewScreen(
+                feedUrl = route.feedUrl,
+                title = route.title,
+                author = route.author,
+                imageUrl = route.imageUrl,
+                onBack = navigator::goBack,
+                onOpenFeed = { navigator.replaceTop(PodcastRoute(it)) },
+                onSubscribed = { navigator.replaceTop(PodcastRoute(it)) },
             )
         }
         entry<PodcastInfoRoute>(metadata = nestedDetailPane()) { route ->
