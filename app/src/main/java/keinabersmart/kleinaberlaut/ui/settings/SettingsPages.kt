@@ -11,6 +11,8 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -337,6 +339,7 @@ fun PodcastsSettingsScreen(
     var confirmingStatsReset by rememberSaveable { mutableStateOf(false) }
     var choosingCountry by rememberSaveable { mutableStateOf(false) }
     var feedToReactivate by rememberSaveable { mutableStateOf<String?>(null) }
+    var feedToDelete by rememberSaveable { mutableStateOf<String?>(null) }
     // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalPodcasts(true)
@@ -539,6 +542,14 @@ fun PodcastsSettingsScreen(
                             headlineContent = { Text(feed.title) },
                             supportingContent = { Text(stringResource(R.string.settings_archived_summary)) },
                             leadingContent = { PodcastArt(feed.imageUrl, Modifier.size(40.dp)) },
+                            trailingContent = {
+                                IconButton(onClick = { feedToDelete = feed.id }) {
+                                    Icon(
+                                        painterResource(DesignR.drawable.ic_delete),
+                                        contentDescription = stringResource(R.string.settings_archived_delete),
+                                    )
+                                }
+                            },
                             modifier = Modifier.clickable { feedToReactivate = feed.id },
                         )
                     }
@@ -562,6 +573,23 @@ fun PodcastsSettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { feedToReactivate = null }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+
+    state.archivedPodcasts.firstOrNull { it.id == feedToDelete }?.let { feed ->
+        AlertDialog(
+            onDismissRequest = { feedToDelete = null },
+            title = { Text(stringResource(R.string.podcast_delete_archived_title)) },
+            text = { Text(stringResource(R.string.podcast_delete_archived_message, feed.title)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteArchivedPodcast(feed.id)
+                    feedToDelete = null
+                }) { Text(stringResource(R.string.podcast_unsubscribe), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { feedToDelete = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }

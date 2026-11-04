@@ -619,6 +619,9 @@
     <string name="podcast_reactivate_message">„%1$s“ erscheint wieder in Start und Bibliothek und wird abgeglichen.</string>
     <string name="settings_section_archived">Archivierte Abos</string>
     <string name="settings_archived_summary">Tippen zum Reaktivieren</string>
+    <string name="settings_archived_delete">Abo endgültig beenden</string>
+    <string name="podcast_delete_archived_title">Archiviertes Abo beenden?</string>
+    <string name="podcast_delete_archived_message">„%1$s“ wird mit allen Folgen und deinem Hörfortschritt entfernt. In der Statistik bleibt nur die gehörte Zeit.</string>
     <string name="podcast_play_episode">Folge abspielen</string>
     <string name="settings_podcasts">Podcasts</string>
     <string name="settings_podcast_refresh">Podcasts automatisch aktualisieren</string>

@@ -352,6 +352,18 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `unsubscribing an archived feed removes it with its episodes`() = runTest {
+        val feedId = subscribe()
+        repository.archive(feedId)
+
+        repository.unsubscribe(feedId)
+
+        assertTrue(repository.archivedFeeds.first().isEmpty())
+        assertTrue(db.bookDao().booksOf(feedId).isEmpty())
+        assertTrue(repository.subscribe("https://example.com/feed.xml") is SubscribeResult.Added)
+    }
+
+    @Test
     fun `an opml entry reactivates an archived feed`() = runTest {
         val feedId = subscribe()
         repository.archive(feedId)

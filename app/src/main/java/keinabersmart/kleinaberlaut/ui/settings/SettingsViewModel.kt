@@ -254,6 +254,11 @@ class SettingsViewModel @Inject constructor(
         applicationScope.launch { podcastRepository.reactivate(feedId) }
     }
 
+    /** Beendet ein archiviertes Abo endgültig (Folgen und Fortschritt weg; Downloads gibt es seit dem Archivieren keine). */
+    fun deleteArchivedPodcast(feedId: String) {
+        applicationScope.launch { podcastRepository.unsubscribe(feedId) }
+    }
+
     /** Die Planung des periodischen Auftrags folgt der Einstellung (PodcastRefresher). */
     fun setPodcastRefreshHours(hours: Int) {
         viewModelScope.launch { podcastSettings.setRefreshHours(hours) }

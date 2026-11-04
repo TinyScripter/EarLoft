@@ -623,6 +623,9 @@
     <string name="podcast_reactivate_message">“%1$s” will appear in Home and Library again and be refreshed.</string>
     <string name="settings_section_archived">Archived subscriptions</string>
     <string name="settings_archived_summary">Tap to reactivate</string>
+    <string name="settings_archived_delete">Unsubscribe for good</string>
+    <string name="podcast_delete_archived_title">Unsubscribe archived podcast?</string>
+    <string name="podcast_delete_archived_message">“%1$s” will be removed with all episodes and your listening progress. Only the listening time stays in the statistics.</string>
     <string name="podcast_play_episode">Play episode</string>
     <string name="settings_podcasts">Podcasts</string>
     <string name="settings_podcast_refresh">Refresh podcasts automatically</string>
