@@ -287,6 +287,8 @@ fun BookLaunchEffect(viewModel: BookLaunchViewModel = hiltViewModel()) {
 
 private val MARKUP = Regex("<[a-zA-Z/!][^>]*>|&(#x?[0-9a-fA-F]+|[a-zA-Z]+);")
 private val TAG = Regex("<[^>]*>")
+// Bilder zeigt die Beschreibung nicht; `fromHtml` machte aus ihnen ein Platzhalterzeichen (U+FFFC, „OBJ“).
+private val IMAGE = Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE)
 
 /**
  * Beschreibung eines Buchs oder einer Folge. Enthält sie HTML (Absätze, Fett/Kursiv, Links, Zeichencodes), wird es
@@ -296,14 +298,15 @@ private val TAG = Regex("<[^>]*>")
 fun rememberDescription(raw: String): AnnotatedString {
     val linkColor = MaterialTheme.colorScheme.primary
     return remember(raw, linkColor) {
-        val text = raw.trim()
-        if (!MARKUP.containsMatchIn(text)) {
-            AnnotatedString(text)
-        } else {
-            val links = TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))
-            AnnotatedString.fromHtml(text, linkStyles = links).trimmed()
-        }
+        formatDescription(raw, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)))
     }
+}
+
+/** Umsetzung zu [rememberDescription]. */
+internal fun formatDescription(raw: String, links: TextLinkStyles? = null): AnnotatedString {
+    val text = raw.trim()
+    if (!MARKUP.containsMatchIn(text)) return AnnotatedString(text)
+    return AnnotatedString.fromHtml(text.replace(IMAGE, ""), linkStyles = links).trimmed()
 }
 
 /** Beschreibung ohne Tags für die Suche; die Zeichencodes bleiben stehen (billiger als eine Umsetzung je Tastendruck). */

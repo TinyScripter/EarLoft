@@ -50,7 +50,9 @@ import javax.inject.Singleton
  *
  * Kann der Empfänger die Titel nicht laden (zum Beispiel weil er den Server nicht erreicht oder dessen
  * Zertifikat ablehnt), bleibt seine Warteschlange leer und der Player zeigt nichts mehr an. Dann beendet
- * [watchRemoteLoad] die Sitzung und die ursprüngliche Warteschlange kommt pausiert aufs Handy zurück.
+ * [watchRemoteLoad] die Sitzung und die ursprüngliche Warteschlange kommt pausiert aufs Handy zurück – beim
+ * Verbinden wie bei jeder neuen Warteschlange während der Sitzung ([RemoteQueueWatch]). Ein Empfänger in diesem
+ * Zustand lehnte sonst auch alles Weitere ab („Invalid Request“), und ein danach gestartetes Buch ginge ins Leere.
  */
 @OptIn(UnstableApi::class)
 @Singleton
@@ -69,6 +71,9 @@ internal class CastSessionPlayerFactory @Inject constructor(
     private var generation = 0
     private var refilling = false
 
+    /** Startet die Prüfung von [watchRemoteLoad] für eine während der Sitzung gesetzte Warteschlange. */
+    private var watchQueue: (PlayerTransferState) -> Unit = {}
+
     override fun create(context: Context, localPlayer: ExoPlayer): Player {
         val remotePlayer = RemoteCastPlayer.Builder(context)
             .setMediaItemConverter(CastMediaItemConverter(cache))
@@ -81,7 +86,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         prepareOnSessionStart(player)
         watchRemoteLoad(player)
         keepQueueFilled(player)
-        return DeferredRemotePlayPlayer(player)
+        return DeferredRemotePlayPlayer(player) { state -> watchQueue(state) }
     }
 
     override suspend fun playableSongIds(player: Player, songIds: Collection<Long>): Set<Long> {
@@ -179,27 +184,55 @@ internal class CastSessionPlayerFactory @Inject constructor(
     }
 
     /**
-     * Wurde eine nicht leere Warteschlange an den Empfänger übergeben und ist sie nach [REMOTE_LOAD_TIMEOUT_MS]
-     * dort immer noch leer, hat der Empfänger sie abgelehnt.
+     * Hat der Empfänger eine Warteschlange verworfen, die beim Verbinden oder während der Sitzung an ihn ging
+     * ([RemoteQueueWatch], Frist [QUEUE_WATCH_MS]), endet die Sitzung und sie kommt pausiert aufs Handy zurück.
+     * Bis 2026-11-04 galt beim Verbinden „nach 8 s noch leer“; Bücher von Audiobookshelf brauchen am Empfänger aber
+     * etwa 9 s, und das Verbinden scheiterte daran.
      */
     private fun watchRemoteLoad(player: Player) {
         val handler = Handler(player.applicationLooper)
-        val check = Runnable {
-            val handedOver = handOver.state ?: return@Runnable
-            if (player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE || player.mediaItemCount > 0) return@Runnable
+        val queueWatch = RemoteQueueWatch()
+        fun isRemote() = player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+        fun itemIds() = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+        fun rescue() {
+            val handedOver = handOver.state ?: return
+            queueWatch.stop()
             handOver.rescue = handedOver
             snackbars.show(appContext.getString(R.string.cast_load_failed), SnackbarDuration.Long)
             Cast.getSingletonInstance(appContext).endCurrentSession(true)
         }
+        val timeout = Runnable { if (queueWatch.onTimeout(player.mediaItemCount) && isRemote()) rescue() }
+        fun watch(state: PlayerTransferState) {
+            handler.removeCallbacks(timeout)
+            queueWatch.start(state.mediaItems.map { it.mediaId })
+            // Der Stand vor dem Senden (beim Verbinden: leer) zählt schon mit.
+            queueWatch.onItems(itemIds())
+            handler.postDelayed(timeout, QUEUE_WATCH_MS)
+        }
+        watchQueue = { state ->
+            // Was nicht in die Nachricht passte, liegt in der Reserve (gerade erst neu gesetzt); zurück aufs Handy geht alles.
+            handOver.state = if (reserve.isEmpty()) {
+                state
+            } else {
+                val (all, index) = reserve.complete(state.mediaItems, state.currentMediaItemIndex)
+                state.buildUpon().setMediaItems(all).setCurrentMediaItemIndex(index).build()
+            }
+            handOver.state?.let(::watch)
+        }
         player.addListener(object : Player.Listener {
             override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
-                handler.removeCallbacks(check)
-                val remote = deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
-                if (remote && handOver.state != null) handler.postDelayed(check, REMOTE_LOAD_TIMEOUT_MS)
+                handler.removeCallbacks(timeout)
+                queueWatch.stop()
+                val handedOver = handOver.state
+                if (isRemote() && handedOver != null) watch(handedOver)
             }
 
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-                if (player.mediaItemCount > 0) handler.removeCallbacks(check)
+                if (!queueWatch.isWatching || !isRemote()) return
+                if (queueWatch.onItems(itemIds())) {
+                    handler.removeCallbacks(timeout)
+                    rescue()
+                }
             }
         })
     }
@@ -219,7 +252,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         const val MAX_REMOTE_QUEUE = 50
         private const val REFILL_BELOW = 15
         private const val REFILL_CHUNK = 25
-        private const val REMOTE_LOAD_TIMEOUT_MS = 8_000L
+        private const val QUEUE_WATCH_MS = 20_000L
     }
 }
 

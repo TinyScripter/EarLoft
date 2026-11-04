@@ -425,6 +425,7 @@
     <string name="spoken_next_episode">Nächste Folge</string>
     <string name="spoken_close">Schließen</string>
     <string name="spoken_position">Position im Buch</string>
+    <string name="spoken_position_episode">Position in der Folge</string>
     <string name="spoken_position_chapter">Position im Kapitel</string>
     <string name="spoken_position_state">%1$s von %2$s</string>
     <string name="spoken_speed_description">Geschwindigkeit %1$s×</string>

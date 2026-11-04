@@ -2,11 +2,13 @@ package keinabersmart.kleinaberlaut.cast
 
 import android.os.Handler
 import androidx.annotation.OptIn
+import androidx.media3.common.C
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.PlayerTransferState
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -14,9 +16,15 @@ import androidx.media3.common.util.UnstableApi
  * `setMediaItems`, dann `play()` – war vorher pausiert, geht das LOAD ohne Autoplay hinaus und das `play()`
  * trifft den Empfänger mitten im Laden und verpufft (am Gerät gesehen: neue Warteschlange da, aber pausiert).
  * Deshalb wird „Abspielen“ zurückgehalten, bis der Empfänger nach dem Laden bereit ist. Lokal ändert sich nichts.
+ *
+ * Jede neue Warteschlange, die beim Casten hinausgeht, meldet [onRemoteQueue] (als Stand fürs Handy, falls der
+ * Empfänger sie nicht laden kann).
  */
 @OptIn(UnstableApi::class)
-internal class DeferredRemotePlayPlayer(player: Player) : ForwardingPlayer(player) {
+internal class DeferredRemotePlayPlayer(
+    player: Player,
+    private val onRemoteQueue: (PlayerTransferState) -> Unit = {},
+) : ForwardingPlayer(player) {
 
     private val handler = Handler(player.applicationLooper)
     private val giveUp = Runnable { finishLoad() }
@@ -43,17 +51,30 @@ internal class DeferredRemotePlayPlayer(player: Player) : ForwardingPlayer(playe
 
     override fun setMediaItems(mediaItems: List<MediaItem>) {
         startLoad()
+        reportRemoteQueue(mediaItems, 0, 0)
         super.setMediaItems(mediaItems)
     }
 
     override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
         startLoad()
+        reportRemoteQueue(mediaItems, 0, 0)
         super.setMediaItems(mediaItems, resetPosition)
     }
 
     override fun setMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long) {
         startLoad()
+        reportRemoteQueue(mediaItems, startIndex, startPositionMs)
         super.setMediaItems(mediaItems, startIndex, startPositionMs)
+    }
+
+    private fun reportRemoteQueue(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long) {
+        if (deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE || mediaItems.isEmpty()) return
+        val state = PlayerTransferState.builderFromPlayer(this)
+            .setMediaItems(mediaItems)
+            .setCurrentMediaItemIndex(startIndex.coerceIn(0, mediaItems.lastIndex))
+            .setCurrentPosition(if (startPositionMs == C.TIME_UNSET) 0 else startPositionMs)
+            .build()
+        onRemoteQueue(state)
     }
 
     /** Leere Listen (alles ging in die Reserve) wären eine leere Cast-Nachricht. */

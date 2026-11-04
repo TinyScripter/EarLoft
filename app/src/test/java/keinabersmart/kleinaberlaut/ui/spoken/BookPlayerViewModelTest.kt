@@ -125,6 +125,43 @@ class BookPlayerViewModelTest {
         assertEquals(listOf(Command.SeekToTrack(1, 20 * MINUTE_MS)), playback.commands.value)
     }
 
+    @Test
+    fun `previous chapter twice goes back although the player still reports the old position`() = runTest {
+        // 65 min = 15 min in „Zwei“: erst an dessen Anfang (50 min), dann – der Player meldet beim Casten noch 65 min – zu „Eins“.
+        playSecondFileAt(5 * MINUTE_MS)
+
+        viewModel.previousChapter()
+        viewModel.previousChapter()
+
+        assertEquals(listOf(Command.SeekToTrack(0, 50 * MINUTE_MS), Command.SeekToTrack(0, 0)), playback.commands.value)
+    }
+
+    @Test
+    fun `once the player has caught up its position counts again`() = runTest {
+        playSecondFileAt(5 * MINUTE_MS)
+        viewModel.previousChapter()
+        // Der Sprung ist angekommen und es lief 10 s weiter: wieder an den Anfang von „Zwei“.
+        playback.state.value = playback.state.value.copy(spoken = playback.state.value.spoken?.copy(trackIndex = 0))
+        playback.currentPositionMs = 50 * MINUTE_MS + 10_000
+
+        viewModel.previousChapter()
+
+        assertEquals(listOf(Command.SeekToTrack(0, 50 * MINUTE_MS), Command.SeekToTrack(0, 50 * MINUTE_MS)), playback.commands.value)
+    }
+
+    @Test
+    fun `an old jump no longer counts`() = runTest {
+        var now = 1_000_000L
+        viewModel.clock = { now }
+        playSecondFileAt(5 * MINUTE_MS)
+        viewModel.previousChapter()
+        now += 16_000
+
+        viewModel.previousChapter()
+
+        assertEquals(listOf(Command.SeekToTrack(0, 50 * MINUTE_MS), Command.SeekToTrack(0, 50 * MINUTE_MS)), playback.commands.value)
+    }
+
     private companion object {
         const val MINUTE_MS = 60_000L
         const val HOUR_MS = 60 * MINUTE_MS

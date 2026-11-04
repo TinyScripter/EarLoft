@@ -443,7 +443,7 @@ private fun BookProgress(
     val shown = chapterDragging?.let { (chapter?.startMs ?: 0) + it.toLong() } ?: base
     val remainingTotal = timeline?.remainingBookMs(shown, speed) ?: ((durationMs - shown).coerceAtLeast(0) / speed).toLong()
 
-    val positionLabel = stringResource(R.string.spoken_position)
+    val positionLabel = stringResource(if (episode) R.string.spoken_position_episode else R.string.spoken_position)
     val positionState = stringResource(R.string.spoken_position_state, formatClock(shown), formatClock(durationMs))
     Slider(
         value = shown.coerceIn(0, durationMs.coerceAtLeast(1)).toFloat(),

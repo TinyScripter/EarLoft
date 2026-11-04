@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.ui.spoken
 
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlin.math.abs
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -83,13 +85,40 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
 
     fun previousChapter() {
         val timeline = timeline.value ?: return
-        timeline.previousChapterStart(bookPositionMs())?.let(::seekToBook)
+        timeline.previousChapterStart(chapterPositionMs())?.let(::jumpToChapter)
     }
 
     fun nextChapter() {
         val timeline = timeline.value ?: return
-        timeline.nextChapter(bookPositionMs())?.let { seekToBook(it.startMs) }
+        timeline.nextChapter(chapterPositionMs())?.let { jumpToChapter(it.startMs) }
     }
+
+    /** Der letzte Kapitelsprung: von [fromMs] nach [toMs] (Buchposition), zur Zeit [atMs] (`elapsedRealtime`). */
+    private class ChapterJump(val fromMs: Long, val toMs: Long, val atMs: Long)
+
+    private var lastJump: ChapterJump? = null
+
+    private fun jumpToChapter(startMs: Long) {
+        lastJump = ChapterJump(fromMs = bookPositionMs(), toMs = startMs, atMs = clock())
+        seekToBook(startMs)
+    }
+
+    /**
+     * Position für die Kapitelknöpfe. Nach einem Sprung meldet der Player eine Weile noch die alte Stelle (beim Casten
+     * mehrere Sekunden, bis der Empfänger nachgeladen hat); ein zweiter Tipp ginge sonst wieder vom alten Kapitel aus
+     * („Kapitel zurück“ bliebe am Kapitelanfang hängen). Liegt die gemeldete Position näher an der alten als am Ziel,
+     * gilt deshalb das Ziel – längstens [JUMP_HOLD_MS].
+     */
+    private fun chapterPositionMs(): Long {
+        val reported = bookPositionMs()
+        val jump = lastJump ?: return reported
+        if (clock() - jump.atMs > JUMP_HOLD_MS) return reported
+        val stale = abs(reported - jump.fromMs) < abs(reported - jump.toMs)
+        return if (stale) jump.toMs else reported
+    }
+
+    /** Uhr für [lastJump]; im Test ersetzbar. */
+    internal var clock: () -> Long = SystemClock::elapsedRealtime
 
     /** Es gibt eine weitere Folge in der Warteschlange der Podcasts. */
     val hasNextEpisode: StateFlow<Boolean> = combine(continueListening.episodes, bookId) { queue, current ->
@@ -114,4 +143,8 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     fun setSpeed(speed: Float) = playback.setSpeed(speed)
     fun startSleepTimer(minutes: Int) = playback.startSleepTimer(minutes)
     fun cancelSleepTimer() = playback.cancelSleepTimer()
+
+    private companion object {
+        const val JUMP_HOLD_MS = 15_000L
+    }
 }
