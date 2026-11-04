@@ -19,8 +19,10 @@ import kotlinx.coroutines.flow.Flow
 /** Bücher (und Folgen) der ausgeschalteten Audiobookshelf-Server sind ausgeblendet; Podcast-Feeds stehen nicht in `spoken_servers`. */
 private const val BOOK_VISIBLE = "serverId NOT IN (SELECT serverId FROM spoken_servers WHERE enabled = 0)"
 
-// Folgen von Probeabos aus der Podcast-Vorschau (Konzept 12.10) haben eine Seite, stehen aber in keiner Liste und Suche.
-private const val BOOK_LISTED = "$BOOK_VISIBLE AND serverId NOT IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0)"
+// Folgen von Probeabos aus der Podcast-Vorschau (Konzept 12.10) haben eine Seite, stehen aber in keiner Liste und Suche;
+// Folgen archivierter Abos ebenso wenig.
+private const val BOOK_LISTED =
+    "$BOOK_VISIBLE AND serverId NOT IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0 OR archived = 1)"
 
 @Dao
 abstract class BookDao {

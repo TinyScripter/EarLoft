@@ -21,7 +21,8 @@ import keinabersmart.kleinaberlaut.core.database.entity.UserWearSelectionEntity
  * wird aus den Quellen neu aufgebaut; was keine Quelle kennt, steht zusätzlich hier und kommt so beim Gerätewechsel mit.
  * Die Hauptdatenbank bleibt die Arbeitskopie: Änderungen werden hierher gespiegelt und nach einem Neuaufbau zurückgespielt.
  *
- * Versionen: 1 Server, Abos, Statistik; 2 Fortschritt; 3 lokale Playlists, Favoriten, Hörverlauf, Auswahl für die Uhr.
+ * Versionen: 1 Server, Abos, Statistik; 2 Fortschritt; 3 lokale Playlists, Favoriten, Hörverlauf, Auswahl für die Uhr;
+ * 5 archivierte Abos.
  */
 @Database(
     entities = [
@@ -37,9 +38,14 @@ import keinabersmart.kleinaberlaut.core.database.entity.UserWearSelectionEntity
         UserPlayEventEntity::class,
         UserWearSelectionEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2),
+        AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 3, to = 4),
+        AutoMigration(from = 4, to = 5),
+    ],
 )
 abstract class UserDatabase : RoomDatabase() {
     abstract fun userDataDao(): UserDataDao

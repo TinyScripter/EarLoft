@@ -12,6 +12,7 @@ import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRefresher
 import keinabersmart.kleinaberlaut.core.data.podcast.TrialPodcastPages
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
+import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.download.DownloadStart
@@ -22,6 +23,7 @@ import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.ui.LoadState
 import keinabersmart.kleinaberlaut.ui.asLoadState
 import keinabersmart.kleinaberlaut.ui.valueOrNull
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -49,6 +51,7 @@ class PodcastFeedViewModel @AssistedInject constructor(
     private val refresher: PodcastRefresher,
     private val continueListening: ContinueListening,
     private val trialPages: TrialPodcastPages,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
     init {
@@ -148,6 +151,14 @@ class PodcastFeedViewModel @AssistedInject constructor(
 
     fun unsubscribe() {
         viewModelScope.launch { podcasts.unsubscribe(feedId) }
+    }
+
+    /** Archiviert das Abo und löscht seine Downloads; im App-Scope, denn die Seite schließt sich sofort. */
+    fun archive() {
+        applicationScope.launch {
+            podcasts.archive(feedId)
+            downloads.removeAllOf(feedId)
+        }
     }
 
     /** Aus dem Probeabo wird ein Abo; Folgen, Stellen und Downloads bleiben. */

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -204,6 +205,21 @@ fun AddPodcastScreen(
             onDismiss = { opmlToImport = null },
         )
     }
+    (add as? AddPodcastState.Archived)?.let { archived ->
+        ReactivateDialog(archived.title, onReactivate = { viewModel.reactivate(archived.feedId) }, onDismiss = viewModel::resetAdd)
+    }
+}
+
+/** Rückfrage, wenn ein Podcast abonniert werden soll, dessen Abo schon besteht, aber archiviert ist. */
+@Composable
+private fun ReactivateDialog(title: String, onReactivate: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.podcast_archived_title)) },
+        text = { Text(stringResource(R.string.podcast_archived_message, title)) },
+        confirmButton = { TextButton(onClick = onReactivate) { Text(stringResource(R.string.podcast_reactivate)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 /** Feld für die Feed-Adresse mit Hinweis bei `http://`, Fehlermeldung und „Abonnieren“. */
@@ -335,6 +351,12 @@ fun PodcastPreviewScreen(
                 Text(stringResource(current.message), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                 TextButton(onClick = viewModel::load) { Text(stringResource(R.string.podcast_preview_retry)) }
             }
+            // Abbrechen führt zurück zu den Treffern.
+            is PreviewState.Archived -> ReactivateDialog(
+                current.title,
+                onReactivate = { viewModel.reactivate(current.feedId) },
+                onDismiss = onBack,
+            )
             else -> Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 Text(stringResource(R.string.podcast_adding), modifier = Modifier.padding(start = 12.dp))

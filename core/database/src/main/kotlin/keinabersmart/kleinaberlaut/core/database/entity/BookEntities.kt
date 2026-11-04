@@ -48,6 +48,11 @@ data class PodcastFeedEntity(
     @ColumnInfo(defaultValue = "1") val notifyNew: Boolean = true,
     /** `false`: Probeabo aus der Vorschau (Konzept 12.10); fehlt in allen Abo-Abfragen und wird aufgeräumt. */
     @ColumnInfo(defaultValue = "1") val subscribed: Boolean = true,
+    /**
+     * Archiviertes Abo: fehlt wie ein Probeabo in allen Abo-Abfragen, wird nicht abgeglichen, behält aber Folgen,
+     * Fortschritt und Statistik, bis es reaktiviert wird.
+     */
+    @ColumnInfo(defaultValue = "0") val archived: Boolean = false,
 )
 
 @Entity(

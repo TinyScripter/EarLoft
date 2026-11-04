@@ -126,6 +126,22 @@ class StatsRepositoryTest {
     }
 
     @Test
+    fun `an archived podcast keeps its time and finished episodes and is marked as archived`() = runTest {
+        stats.recordEpisodeListening(bookId("guid-A"), 3_600_000, now = noon, zone = ZoneOffset.UTC)
+        db.bookDao().upsertProgress(BookProgressEntity(bookId("guid-B"), 600_000, 600_000, finished = true, updatedAt = 1))
+
+        db.podcastDao().setArchived(feedId, true)
+        val result = stats.podcastStats { today }.first()
+
+        assertEquals(3_600_000L, result.totalMs)
+        assertEquals(1, result.finishedEpisodes)
+        assertEquals(0, result.subscriptions)
+        val podcast = result.podcasts.single()
+        assertNull(podcast.feedId)
+        assertTrue(podcast.archived)
+    }
+
+    @Test
     fun `a year counts only the days of that year`() = runTest {
         val a = bookId("guid-A")
         stats.recordEpisodeListening(a, 60_000, now = noon, zone = ZoneOffset.UTC)

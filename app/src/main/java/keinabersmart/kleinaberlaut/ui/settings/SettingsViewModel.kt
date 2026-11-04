@@ -35,8 +35,10 @@ import keinabersmart.kleinaberlaut.core.data.sync.LibrarySettings
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
 import keinabersmart.kleinaberlaut.core.data.sync.SyncFailure
 import keinabersmart.kleinaberlaut.core.data.sync.SyncSettings
+import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadSettings
+import keinabersmart.kleinaberlaut.core.model.PodcastFeed
 import keinabersmart.kleinaberlaut.core.model.ReplayGainMode
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
@@ -44,6 +46,7 @@ import keinabersmart.kleinaberlaut.ui.orOnError
 import keinabersmart.kleinaberlaut.ui.theme.ThemeMode
 import keinabersmart.kleinaberlaut.ui.theme.ThemeSettings
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -83,6 +86,8 @@ data class SettingsUiState(
     val isFailed: Boolean = false,
     val audiobookServerCount: Int = 0,
     val podcastFeedCount: Int = 0,
+    /** Archivierte Abos, nach Titel; unter Einstellungen → Podcasts reaktivierbar. */
+    val archivedPodcasts: List<PodcastFeed> = emptyList(),
     val syncIntervalDays: Int = LibrarySettings.DEFAULT_SYNC_DAYS,
     val isSyncing: Boolean = false,
     val downloadWifiOnly: Boolean = true,
@@ -156,6 +161,7 @@ class SettingsViewModel @Inject constructor(
     private val databaseExporter: DatabaseExporter,
     private val statsRepository: StatsRepository,
     @param:ApplicationContext private val context: Context,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
     audiobookServers: AudiobookshelfServers,
     syncer: LibrarySyncer,
 ) : ViewModel() {
@@ -221,8 +227,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(useLocalBooks = books, useLocalPodcasts = podcasts)
     }.combine(audiobookServers.servers) { state, list ->
         state.copy(audiobookServerCount = list.size)
-    }.combine(podcastRepository.feeds) { state, feeds ->
-        state.copy(podcastFeedCount = feeds.size)
+    }.combine(combine(podcastRepository.feeds, podcastRepository.archivedFeeds, ::Pair)) { state, (feeds, archived) ->
+        state.copy(podcastFeedCount = feeds.size, archivedPodcasts = archived)
     }.combine(librarySettings.syncIntervalDays) { state, days ->
         state.copy(syncIntervalDays = days)
     }.combine(
@@ -242,6 +248,11 @@ class SettingsViewModel @Inject constructor(
     }
         .orOnError(SettingsUiState(isLoading = false, isFailed = true))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
+
+    /** Holt ein archiviertes Abo zurück; im App-Scope, damit der Abgleich auch nach Verlassen der Seite fertig wird. */
+    fun reactivatePodcast(feedId: String) {
+        applicationScope.launch { podcastRepository.reactivate(feedId) }
+    }
 
     /** Die Planung des periodischen Auftrags folgt der Einstellung (PodcastRefresher). */
     fun setPodcastRefreshHours(hours: Int) {

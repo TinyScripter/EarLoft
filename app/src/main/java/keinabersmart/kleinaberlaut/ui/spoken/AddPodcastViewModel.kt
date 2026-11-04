@@ -37,19 +37,23 @@ sealed interface AddPodcastState {
     data object Working : AddPodcastState
     data class Failed(@param:StringRes val message: Int) : AddPodcastState
     data class Done(val feedId: String) : AddPodcastState
+
+    /** Das Abo besteht schon, ist aber archiviert: Der Nutzer entscheidet, ob es reaktiviert wird. */
+    data class Archived(val feedId: String, val title: String) : AddPodcastState
 }
 
 /** Gelungen: das neue Abo; schon abonniert: Hinweis; sonst die Fehlermeldung. */
 private fun SubscribeResult.toState(): AddPodcastState = when (this) {
     is SubscribeResult.Added -> AddPodcastState.Done(feedId)
     is SubscribeResult.AlreadySubscribed -> AddPodcastState.Failed(R.string.podcast_already)
+    is SubscribeResult.Archived -> AddPodcastState.Archived(feedId, title)
     else -> AddPodcastState.Failed(message)
 }
 
 @get:StringRes
 private val SubscribeResult.message: Int
     get() = when (this) {
-        is SubscribeResult.Added, is SubscribeResult.AlreadySubscribed -> R.string.podcast_already
+        is SubscribeResult.Added, is SubscribeResult.AlreadySubscribed, is SubscribeResult.Archived -> R.string.podcast_already
         SubscribeResult.InvalidUrl -> R.string.podcast_error_invalid
         SubscribeResult.Unreachable -> R.string.podcast_error_unreachable
         SubscribeResult.NotAFeed -> R.string.podcast_error_not_feed
@@ -89,6 +93,15 @@ class AddPodcastViewModel @Inject constructor(
 
     fun resetAdd() {
         _add.value = AddPodcastState.Idle
+    }
+
+    /** Holt das archivierte Abo zurück und öffnet es danach (wie ein neues). */
+    fun reactivate(feedId: String) {
+        _add.value = AddPodcastState.Working
+        viewModelScope.launch {
+            applicationScope.async { podcasts.reactivate(feedId) }.await()
+            _add.value = AddPodcastState.Done(feedId)
+        }
     }
 
     /** Eingeschaltete Verzeichnisse; `null`, solange die Einstellung noch nicht gelesen ist. */
@@ -132,6 +145,9 @@ sealed interface PreviewState {
 
     /** Als Probeabo angelegt (oder schon vorhanden): weiter auf seiner Seite. */
     data class Opened(val feedId: String) : PreviewState
+
+    /** Schon abonniert, aber archiviert: Erst nach Rückfrage reaktivieren. */
+    data class Archived(val feedId: String, val title: String) : PreviewState
     data class Failed(@param:StringRes val message: Int) : PreviewState
 }
 
@@ -162,8 +178,18 @@ class PodcastPreviewViewModel @AssistedInject constructor(
             _state.value = when (result) {
                 is SubscribeResult.Added -> opened(result.feedId)
                 is SubscribeResult.AlreadySubscribed -> opened(result.feedId)
+                is SubscribeResult.Archived -> PreviewState.Archived(result.feedId, result.title)
                 else -> PreviewState.Failed(result.message)
             }
+        }
+    }
+
+    /** Reaktiviert das archivierte Abo und übergibt dann an seine Seite. */
+    fun reactivate(feedId: String) {
+        _state.value = PreviewState.Loading
+        viewModelScope.launch {
+            applicationScope.async { podcasts.reactivate(feedId) }.await()
+            _state.value = opened(feedId)
         }
     }
 

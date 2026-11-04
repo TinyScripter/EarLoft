@@ -306,6 +306,63 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `an archived feed is missing from all lists but keeps its episodes and progress`() = runTest {
+        val feedId = subscribe()
+        val b = idOf(feedId, "B")
+        listen(b, positionMs = 60_000, updatedAt = 100)
+
+        repository.archive(feedId)
+
+        assertTrue(repository.feeds.first().isEmpty())
+        assertTrue(repository.unheardByFeed().first().isEmpty())
+        assertTrue(repository.recentEpisodes().first().isEmpty())
+        assertTrue(repository.continueListening(flowOf(listOf(b))) { now }.first().isEmpty())
+        assertTrue(repository.subscribedByKey.first().isEmpty())
+        assertTrue(repository.searchFeeds("Test").isEmpty())
+        assertTrue(db.bookDao().search(BookKind.EPISODE, "%podcast%", 10).isEmpty())
+        assertEquals(listOf(feedId), repository.archivedFeeds.first().map { it.id })
+        assertEquals(3, db.bookDao().booksOf(feedId).size)
+        assertEquals(60_000L, db.bookDao().progress(b)!!.positionMs)
+        // Kein Abgleich mehr.
+        requested.clear()
+        repository.refreshAll()
+        assertEquals(emptyList<String>(), requested)
+    }
+
+    @Test
+    fun `subscribing or previewing an archived feed asks instead of adding and reactivating brings it back`() = runTest {
+        val feedId = subscribe()
+        val b = idOf(feedId, "B")
+        listen(b, positionMs = 60_000, updatedAt = 100)
+        repository.archive(feedId)
+        requested.clear()
+
+        assertEquals(SubscribeResult.Archived(feedId, "Test-Podcast"), repository.subscribe("http://example.com/feed.xml"))
+        assertEquals(SubscribeResult.Archived(feedId, "Test-Podcast"), repository.openPreview("https://example.com/feed.xml"))
+        assertEquals(emptyList<String>(), requested)
+        assertEquals(1, db.podcastDao().observeAllFeeds().first().size)
+
+        served = feed("D" to "Fri, 31 Oct 2025 06:00:00 GMT", "A" to "Thu, 30 Oct 2025 06:00:00 GMT", "B" to "Wed, 29 Oct 2025 06:00:00 GMT")
+        assertTrue(repository.reactivate(feedId))
+
+        assertEquals(listOf(feedId), repository.feeds.first().map { it.id })
+        assertTrue(repository.archivedFeeds.first().isEmpty())
+        assertEquals(listOf("D", "A", "B"), repository.episodes(feedId).first().map { it.book.title })
+        assertEquals(60_000L, db.bookDao().progress(b)!!.positionMs)
+    }
+
+    @Test
+    fun `an opml entry reactivates an archived feed`() = runTest {
+        val feedId = subscribe()
+        repository.archive(feedId)
+
+        val result = repository.importOpml(listOf(OpmlFeed("Test", "https://example.com/feed.xml")), replace = false)
+
+        assertEquals(1, result.added)
+        assertEquals(listOf(feedId), repository.feeds.first().map { it.id })
+    }
+
+    @Test
     fun `trial episodes report progress and downloads for the cleanup`() = runTest {
         val trialId = (repository.openPreview("https://example.com/feed.xml") as SubscribeResult.Added).feedId
         val a = idOf(trialId, "A")

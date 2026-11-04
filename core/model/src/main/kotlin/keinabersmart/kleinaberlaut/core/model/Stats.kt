@@ -1,8 +1,8 @@
 package keinabersmart.kleinaberlaut.core.model
 
 /**
- * Gehörte Zeit eines Podcasts. [feedId] ist `null`, wenn er nicht (mehr) abonniert ist. [episodes] ist 0, wenn die Zahl
- * nicht bekannt ist (Jahresansicht).
+ * Gehörte Zeit eines Podcasts. [feedId] ist `null`, wenn er nicht (mehr) abonniert ist; [archived], wenn sein Abo
+ * archiviert ist (dann auch ohne [feedId]). [episodes] ist 0, wenn die Zahl nicht bekannt ist (Jahresansicht).
  */
 data class PodcastListening(
     val key: String,
@@ -10,6 +10,7 @@ data class PodcastListening(
     val listenedMs: Long,
     val episodes: Int,
     val feedId: String?,
+    val archived: Boolean = false,
 )
 
 /** Gehörte Zeit in einem Kalendermonat (nur was die App selbst gezählt hat). */

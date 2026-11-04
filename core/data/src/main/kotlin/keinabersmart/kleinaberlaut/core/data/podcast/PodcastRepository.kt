@@ -49,6 +49,9 @@ import javax.inject.Singleton
 sealed interface SubscribeResult {
     data class Added(val feedId: String) : SubscribeResult
     data class AlreadySubscribed(val feedId: String) : SubscribeResult
+
+    /** Das Abo besteht schon, ist aber archiviert; es lässt sich mit [PodcastRepository.reactivate] zurückholen. */
+    data class Archived(val feedId: String, val title: String) : SubscribeResult
     data object InvalidUrl : SubscribeResult
     data object Unreachable : SubscribeResult
     data object NotAFeed : SubscribeResult
@@ -102,6 +105,9 @@ class PodcastRepository @Inject constructor(
     }
 
     fun feed(feedId: String): Flow<PodcastFeed?> = dao.observeFeed(feedId).map { it?.toModel() }
+
+    /** Archivierte Abos nach Titel (Einstellungen → Podcasts). */
+    val archivedFeeds: Flow<List<PodcastFeed>> = dao.observeArchivedFeeds().map { list -> list.map { it.toModel() } }
 
     /** Die Abos nach [feedKey] ihrer Adresse, um Verzeichnistreffer als schon abonniert zu erkennen. */
     val subscribedByKey: Flow<Map<String, String>> = feeds.map { list -> list.filter { !it.isLocal }.associate { feedKey(it.url) to it.id } }
@@ -231,10 +237,12 @@ class PodcastRepository @Inject constructor(
     /**
      * Abonniert den Feed unter [input]. Eine `http://`-Adresse wird zuerst still per HTTPS versucht und bei Erfolg so
      * gespeichert; die meisten Hosts liefern beides. Erst wenn das scheitert, wird unverschlüsselt abonniert.
+     * Ein archiviertes Abo derselben Adresse bleibt archiviert und meldet [SubscribeResult.Archived].
      */
     suspend fun subscribe(input: String): SubscribeResult {
         val entered = FeedAddress.of(input) ?: return SubscribeResult.InvalidUrl
         knownFeed(entered)?.let { feed ->
+            if (feed.archived) return SubscribeResult.Archived(feed.feedId, feed.title)
             if (feed.subscribed) return SubscribeResult.AlreadySubscribed(feed.feedId)
             // Aus der Vorschau: Folgen, Fortschritt, Downloads und Warteschlange bleiben, es wird nur ein Abo daraus.
             dao.setSubscribed(feed.feedId, true)
@@ -246,11 +254,13 @@ class PodcastRepository @Inject constructor(
     /**
      * Öffnet die Vorschau des Feeds unter [input] (Konzept 12.10): Gibt es ihn schon (Abo oder Probeabo), dessen Id –
      * ein Probeabo wird dabei neu abgeglichen; sonst wird er geladen und als Probeabo (`subscribed = false`) angelegt.
-     * Ergebnis wie bei [subscribe]: [SubscribeResult.Added] bzw. [SubscribeResult.AlreadySubscribed] tragen die Id.
+     * Ergebnis wie bei [subscribe]: [SubscribeResult.Added] bzw. [SubscribeResult.AlreadySubscribed] tragen die Id, ein
+     * archiviertes Abo meldet [SubscribeResult.Archived] (ohne Abgleich).
      */
     suspend fun openPreview(input: String): SubscribeResult {
         val entered = FeedAddress.of(input) ?: return SubscribeResult.InvalidUrl
         knownFeed(entered)?.let { feed ->
+            if (feed.archived) return SubscribeResult.Archived(feed.feedId, feed.title)
             if (feed.subscribed) return SubscribeResult.AlreadySubscribed(feed.feedId)
             refresh(feed.feedId)
             return SubscribeResult.Added(feed.feedId)
@@ -340,6 +350,21 @@ class PodcastRepository @Inject constructor(
 
     suspend fun unsubscribe(feedId: String) = dao.deleteFeed(feedId)
 
+    /**
+     * Archiviert das Abo: Es verschwindet aus allen Listen und wird nicht mehr abgeglichen; Folgen, Fortschritt und
+     * Statistik bleiben. Die Downloads löscht der Aufrufer (`EpisodeDownloads.removeAllOf`).
+     */
+    suspend fun archive(feedId: String) = dao.setArchived(feedId, true)
+
+    /**
+     * Holt ein archiviertes Abo zurück und gleicht es gleich ab. Was seit dem Archivieren erschienen ist, gilt damit
+     * als bekannt und löst keine Benachrichtigung aus. `false`, wenn der Abgleich fehlschlug (das Abo ist trotzdem aktiv).
+     */
+    suspend fun reactivate(feedId: String): Boolean {
+        dao.setArchived(feedId, false)
+        return refresh(feedId) != null
+    }
+
     /** Ids der Probeabos (Konzept 12.10). */
     val trialFeedIds: Flow<List<String>> = dao.observeTrialFeedIds()
 
@@ -378,10 +403,11 @@ class PodcastRepository @Inject constructor(
         val known = dao.feeds().mapTo(HashSet()) { it.url }
         val fresh = wanted.filter { it.url !in known }
         fresh.forEach {
-            // Ein Probeabo derselben Adresse wird zum Abo (die Adresse ist eindeutig).
-            val trial = dao.feedByUrl(it.url)
-            if (trial != null) {
-                dao.setSubscribed(trial.feedId, true)
+            // Ein Probeabo oder archiviertes Abo derselben Adresse wird (wieder) zum Abo (die Adresse ist eindeutig).
+            val stored = dao.feedByUrl(it.url)
+            if (stored != null) {
+                dao.setSubscribed(stored.feedId, true)
+                dao.setArchived(stored.feedId, false)
             } else {
                 dao.upsertFeed(PodcastFeedEntity(feedId = UUID.randomUUID().toString(), url = it.url, title = it.title))
             }
@@ -569,6 +595,7 @@ private fun PodcastFeedEntity.toModel() = PodcastFeed(
     continuous = continuous,
     notifyNew = notifyNew,
     subscribed = subscribed,
+    archived = archived,
 )
 
 /**

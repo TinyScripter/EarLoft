@@ -237,7 +237,7 @@ class UserDataBackup @Inject constructor(
         return UserDataSnapshot.ofMain(
             sources = sourceDao.getByType(SourceType.SUBSONIC),
             spokenServers = bookDao.servers(),
-            feeds = podcastDao.feeds(),
+            feeds = podcastDao.keptFeeds(),
             listeningStats = statsDao.all(),
             listeningDays = statsDao.allDays(),
             progress = bookDao.keyedProgress(),

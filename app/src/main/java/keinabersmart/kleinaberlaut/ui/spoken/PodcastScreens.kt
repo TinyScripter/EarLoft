@@ -633,7 +633,7 @@ private fun ActionRow(
     )
 }
 
-/** Einstellungen eines Podcasts: Wiedergabe, Downloads und Abo beenden. */
+/** Einstellungen eines Podcasts: Wiedergabe, Downloads und Abo beenden oder archivieren. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PodcastSettingsScreen(
@@ -717,6 +717,9 @@ fun PodcastSettingsScreen(
     }
 
     if (confirmUnsubscribe && current != null) {
+        val snackbars = LocalSnackbars.current
+        val archivedText = stringResource(R.string.podcast_archived_done, current.title)
+        // Archivieren links, Abo beenden ganz rechts mit „Abbrechen“ dazwischen: Das Löschen soll man nicht versehentlich treffen.
         AlertDialog(
             onDismissRequest = { confirmUnsubscribe = false },
             title = { Text(stringResource(R.string.podcast_unsubscribe_title)) },
@@ -726,9 +729,19 @@ fun PodcastSettingsScreen(
                     confirmUnsubscribe = false
                     viewModel.unsubscribe()
                     onUnsubscribed()
-                }) { Text(stringResource(R.string.podcast_unsubscribe)) }
+                }) { Text(stringResource(R.string.podcast_unsubscribe), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmUnsubscribe = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        confirmUnsubscribe = false
+                        viewModel.archive()
+                        snackbars.show(archivedText, SnackbarDuration.Long)
+                        onUnsubscribed()
+                    }) { Text(stringResource(R.string.podcast_archive)) }
+                    TextButton(onClick = { confirmUnsubscribe = false }) { Text(stringResource(R.string.action_cancel)) }
+                }
+            },
         )
     }
 }

@@ -143,7 +143,11 @@ private fun PodcastRow(podcast: PodcastListening, share: Float, totalMs: Long, o
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val episodes = if (podcast.episodes > 0) pluralStringResource(R.plurals.podcast_stats_episodes, podcast.episodes, podcast.episodes) + " · " else ""
-                val note = if (feedId == null) " · " + stringResource(R.string.podcast_stats_unsubscribed) else ""
+                val note = when {
+                    podcast.archived -> " · " + stringResource(R.string.podcast_stats_archived)
+                    feedId == null -> " · " + stringResource(R.string.podcast_stats_unsubscribed)
+                    else -> ""
+                }
                 Text("$episodes$percent %$note")
                 LinearProgressIndicator(progress = { share.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
             }

@@ -131,6 +131,8 @@ data class PodcastFeed(
     val notifyNew: Boolean = true,
     /** `false`: Probeabo aus der Vorschau (Konzept 12.10) – Folgen hörbar, aber kein Abo, keine Statistik. */
     val subscribed: Boolean = true,
+    /** Archiviert: nirgends gelistet, nicht abgeglichen; Folgen, Fortschritt und Statistik bleiben bis zum Reaktivieren. */
+    val archived: Boolean = false,
 ) {
     /** Aus dem Ordner „Podcasts“: keine Feed-Adresse, kein Abgleich, kein Download, kein Abo zu beenden. */
     val isLocal: Boolean get() = id.startsWith(LOCAL_PODCAST_PREFIX)

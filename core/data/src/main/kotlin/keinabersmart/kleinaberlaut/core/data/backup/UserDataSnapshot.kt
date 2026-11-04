@@ -177,7 +177,7 @@ fun SourceEntity.toUser() =
 fun SpokenServerEntity.toUser() = UserSpokenServerEntity(serverId, name, baseUrl, libraryId, enabled)
 
 fun PodcastFeedEntity.toUser() =
-    UserPodcastEntity(feedId, url, title, author, imageUrl, autoDownload, newestFirst, continuous, notifyNew)
+    UserPodcastEntity(feedId, url, title, author, imageUrl, autoDownload, newestFirst, continuous, notifyNew, archived)
 
 fun ListeningStatEntity.toUser() =
     UserListeningStatEntity(source, groupKey, itemKey, kind, groupTitle, itemTitle, listenedMs, lastListenedAt)
@@ -220,6 +220,7 @@ fun UserPodcastEntity.toMain() = PodcastFeedEntity(
     newestFirst = newestFirst,
     continuous = continuous,
     notifyNew = notifyNew,
+    archived = archived,
 )
 
 fun UserListeningStatEntity.toMain() = ListeningStatEntity(

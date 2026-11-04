@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.core.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -37,7 +38,10 @@ data class UserSpokenServerEntity(
     val enabled: Boolean,
 )
 
-/** Ein abonnierter Podcast (`podcast_feeds`) samt seinen Einstellungen; Podcasts vom Gerät baut der Scan neu auf. */
+/**
+ * Ein abonnierter (auch archivierter) Podcast (`podcast_feeds`) samt seinen Einstellungen; Podcasts vom Gerät baut der
+ * Scan neu auf.
+ */
 @Entity(tableName = "podcasts")
 data class UserPodcastEntity(
     @PrimaryKey val feedId: String,
@@ -49,6 +53,7 @@ data class UserPodcastEntity(
     val newestFirst: Boolean,
     val continuous: Boolean,
     val notifyNew: Boolean,
+    @ColumnInfo(defaultValue = "0") val archived: Boolean = false,
 )
 
 /** Gehörte Zeit je Eintrag (`listening_stats`), über den natürlichen Schlüssel statt der laufenden `statId`. */

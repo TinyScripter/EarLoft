@@ -124,21 +124,38 @@ class StatsRepository @Inject constructor(
             statsDao.observeTotalListenedMs(BookKind.EPISODE),
             statsDao.observeByGroup(BookKind.EPISODE),
             statsDao.observeFinishedBetween(BookKind.EPISODE, fromMs, toMs),
-            combine(podcastDao.observeFeeds(), statsDao.observeGroupDays(BookKind.EPISODE, fromDay, toDay), ::Pair),
+            combine(
+                podcastDao.observeFeeds(),
+                podcastDao.observeArchivedFeeds(),
+                statsDao.observeGroupDays(BookKind.EPISODE, fromDay, toDay),
+                ::Triple,
+            ),
             statsDao.observeDays(BookKind.EPISODE, 0),
-        ) { total, groups, finished, (feeds, groupDays), days ->
+        ) { total, groups, finished, (feeds, archived, groupDays), days ->
             val subscribed = feeds.filter { !it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }
             val feedByUrl = feeds.associateBy { it.url }
+            val archivedUrls = archived.mapTo(HashSet()) { it.url }
             val titles = groups.associate { it.groupKey to it.groupTitle }
             PodcastStats(
                 totalMs = if (year == null) total else days.inYear(year).sumOf { it.listenedMs },
                 finishedEpisodes = finished,
                 subscriptions = subscribed.size,
                 podcasts = if (year == null) {
-                    groups.map { PodcastListening(it.groupKey, it.groupTitle, it.listenedMs, it.items, feedByUrl[it.groupKey]?.feedId) }
+                    groups.map {
+                        PodcastListening(
+                            it.groupKey, it.groupTitle, it.listenedMs, it.items, feedByUrl[it.groupKey]?.feedId, it.groupKey in archivedUrls,
+                        )
+                    }
                 } else {
                     groupDays.filter { it.listenedMs > 0 }.map {
-                        PodcastListening(it.groupKey, titles[it.groupKey] ?: it.groupKey, it.listenedMs, 0, feedByUrl[it.groupKey]?.feedId)
+                        PodcastListening(
+                            it.groupKey,
+                            titles[it.groupKey] ?: it.groupKey,
+                            it.listenedMs,
+                            0,
+                            feedByUrl[it.groupKey]?.feedId,
+                            it.groupKey in archivedUrls,
+                        )
                     }
                 },
                 months = if (year == null) monthsOf(days, today()) else monthsOfYear(days, year),

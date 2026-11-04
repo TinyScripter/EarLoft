@@ -588,6 +588,7 @@
         <item quantity="other">%1$d Folgen</item>
     </plurals>
     <string name="podcast_stats_unsubscribed">nicht mehr abonniert</string>
+    <string name="podcast_stats_archived">archiviert</string>
     <string name="podcast_stats_history">Verlauf</string>
     <string name="podcast_stats_history_empty">Der Verlauf füllt sich, sobald du mit dieser App hörst. Importierte Zeit hat kein Datum und steht nur in den Summen.</string>
     <string name="podcast_stats_hours_per_month">Stunden pro Monat</string>
@@ -604,10 +605,20 @@
     <string name="podcast_all_heard">Alle Folgen gehört.</string>
     <string name="podcast_no_episodes">Dieser Feed enthält keine Folgen.</string>
     <string name="podcast_unsubscribe">Abo beenden</string>
-    <string name="podcast_unsubscribe_summary">Entfernt den Podcast und seine Folgen aus der App</string>
+    <string name="podcast_unsubscribe_summary">Archivieren oder samt Folgen und Fortschritt entfernen</string>
     <string name="podcast_remove_heard_downloads_summary">Gibt Speicher frei; die Folgen bleiben in der Liste</string>
     <string name="podcast_unsubscribe_title">Abo beenden?</string>
-    <string name="podcast_unsubscribe_message">„%1$s“ wird mit allen Folgen und deinem Hörfortschritt entfernt.</string>
+    <string name="podcast_unsubscribe_message">„%1$s“ wird mit allen Folgen und deinem Hörfortschritt entfernt.\n\nArchivieren blendet den Podcast stattdessen überall aus und löscht nur die Downloads; Hörfortschritt und Statistik bleiben. Zurückholen lässt er sich unter Einstellungen → Podcasts.</string>
+    <string name="podcast_archive">Archivieren</string>
+    <string name="podcast_archived_done">„%1$s“ archiviert. Reaktivieren unter Einstellungen → Podcasts.</string>
+    <string name="podcast_archived_title">Abo besteht bereits</string>
+    <string name="podcast_archived_message">„%1$s“ ist bereits abonniert, aber archiviert. Soll das Abo reaktiviert werden? Hörfortschritt und Statistik sind noch da.</string>
+    <string name="podcast_reactivate">Reaktivieren</string>
+    <string name="podcast_reactivated">„%1$s“ ist wieder abonniert.</string>
+    <string name="podcast_reactivate_title">Abo reaktivieren?</string>
+    <string name="podcast_reactivate_message">„%1$s“ erscheint wieder in Start und Bibliothek und wird abgeglichen.</string>
+    <string name="settings_section_archived">Archivierte Abos</string>
+    <string name="settings_archived_summary">Tippen zum Reaktivieren</string>
     <string name="podcast_play_episode">Folge abspielen</string>
     <string name="settings_podcasts">Podcasts</string>
     <string name="settings_podcast_refresh">Podcasts automatisch aktualisieren</string>

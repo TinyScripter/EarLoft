@@ -9,6 +9,8 @@ import kotlinx.coroutines.CoroutineScope
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastDirectorySearch
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
+import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
+import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.network.podcast.directory.PodcastDirectory
 import keinabersmart.kleinaberlaut.testing.MainDispatcherRule
 import keinabersmart.kleinaberlaut.testing.awaitReal
@@ -39,6 +41,7 @@ class AddPodcastViewModelTest {
     @Inject lateinit var directorySearch: PodcastDirectorySearch
     @Inject lateinit var settings: PodcastSettings
     @Inject lateinit var opmlImporter: OpmlImporter
+    @Inject lateinit var podcastDao: PodcastDao
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     private val viewModel by lazy { AddPodcastViewModel(podcasts, directorySearch, opmlImporter, applicationScope) }
@@ -55,6 +58,18 @@ class AddPodcastViewModelTest {
         assertEquals(
             AddPodcastState.Failed(R.string.podcast_error_invalid),
             awaitReal { viewModel.add.first { it is AddPodcastState.Failed } },
+        )
+    }
+
+    @Test
+    fun `an archived subscription asks to reactivate instead of failing`() = runTest {
+        podcastDao.upsertFeed(PodcastFeedEntity(feedId = "f", url = "https://example.com/feed.xml", title = "Alt", archived = true))
+
+        viewModel.subscribe("https://example.com/feed.xml")
+
+        assertEquals(
+            AddPodcastState.Archived("f", "Alt"),
+            awaitReal { viewModel.add.first { it is AddPodcastState.Archived } },
         )
     }
 

@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +43,7 @@ import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import keinabersmart.kleinaberlaut.core.network.podcast.directory.PodcastDirectory
 import keinabersmart.kleinaberlaut.ui.spoken.AudiobookshelfSection
 import keinabersmart.kleinaberlaut.ui.spoken.OpmlImportDialog
+import keinabersmart.kleinaberlaut.ui.spoken.PodcastArt
 import keinabersmart.kleinaberlaut.ui.spoken.countryName
 import keinabersmart.kleinaberlaut.ui.spoken.label
 import keinabersmart.kleinaberlaut.ui.spoken.opmlImportMessage
@@ -334,6 +336,7 @@ fun PodcastsSettingsScreen(
     var choosingAutoCount by rememberSaveable { mutableStateOf(false) }
     var confirmingStatsReset by rememberSaveable { mutableStateOf(false) }
     var choosingCountry by rememberSaveable { mutableStateOf(false) }
+    var feedToReactivate by rememberSaveable { mutableStateOf<String?>(null) }
     // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalPodcasts(true)
@@ -527,6 +530,40 @@ fun PodcastsSettingsScreen(
                 )
             }
         }
+
+        if (state.archivedPodcasts.isNotEmpty()) {
+            group("archived", R.string.settings_section_archived) {
+                state.archivedPodcasts.forEach { feed ->
+                    row("archived-${feed.id}") {
+                        ListItem(
+                            headlineContent = { Text(feed.title) },
+                            supportingContent = { Text(stringResource(R.string.settings_archived_summary)) },
+                            leadingContent = { PodcastArt(feed.imageUrl, Modifier.size(40.dp)) },
+                            modifier = Modifier.clickable { feedToReactivate = feed.id },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    state.archivedPodcasts.firstOrNull { it.id == feedToReactivate }?.let { feed ->
+        val reactivatedText = stringResource(R.string.podcast_reactivated, feed.title)
+        AlertDialog(
+            onDismissRequest = { feedToReactivate = null },
+            title = { Text(stringResource(R.string.podcast_reactivate_title)) },
+            text = { Text(stringResource(R.string.podcast_reactivate_message, feed.title)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.reactivatePodcast(feed.id)
+                    snackbars.show(reactivatedText)
+                    feedToReactivate = null
+                }) { Text(stringResource(R.string.podcast_reactivate)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { feedToReactivate = null }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
     }
 
     if (confirmingStatsReset) {

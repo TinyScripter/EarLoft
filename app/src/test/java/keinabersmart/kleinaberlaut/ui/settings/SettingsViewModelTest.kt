@@ -6,6 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseExporter
 import keinabersmart.kleinaberlaut.core.data.podcast.DatabaseImporter
 import keinabersmart.kleinaberlaut.core.data.podcast.PodcastDirectorySearch
@@ -39,6 +40,7 @@ import keinabersmart.kleinaberlaut.testing.MainDispatcherRule
 import keinabersmart.kleinaberlaut.testing.awaitReal
 import keinabersmart.kleinaberlaut.ui.spoken.OpmlImporter
 import keinabersmart.kleinaberlaut.ui.theme.ThemeSettings
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.first
@@ -96,6 +98,7 @@ class SettingsViewModelTest {
     @Inject lateinit var databaseExporter: DatabaseExporter
     @Inject lateinit var statsRepository: StatsRepository
     @Inject @ApplicationContext lateinit var context: Context
+    @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
     @Inject lateinit var audiobookServers: AudiobookshelfServers
 
     private val viewModel by lazy {
@@ -103,7 +106,7 @@ class SettingsViewModelTest {
             serverRepository, refresher, downloadSettings, downloadRepository, syncSettings, replayGainSettings,
             themeSettings, librarySettings, spokenSettings, podcastSettings, artworkSettings, artworkRepository,
             authorImages, registry, spokenRefresher, podcastRefresher, podcastRepository, opmlImporter, directorySearch,
-            databaseImporter, databaseExporter, statsRepository, context, audiobookServers, syncer,
+            databaseImporter, databaseExporter, statsRepository, context, applicationScope, audiobookServers, syncer,
         )
     }
 

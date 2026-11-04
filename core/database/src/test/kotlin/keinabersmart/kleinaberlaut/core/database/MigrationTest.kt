@@ -76,6 +76,23 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `v16 to v17 keeps existing podcasts active`() {
+        helper.createDatabase(DB_NAME, 16).use { db ->
+            db.execSQL(
+                "INSERT INTO podcast_feeds (feedId, url, title, author, description, lastRefreshAt, syncGeneration, autoDownload) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'T', '', '', 0, 0, 0)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 17, true).use { db ->
+            db.query("SELECT archived FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }
