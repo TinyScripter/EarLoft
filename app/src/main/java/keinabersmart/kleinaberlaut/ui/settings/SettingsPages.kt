@@ -42,7 +42,7 @@ import keinabersmart.kleinaberlaut.ui.spoken.AudiobookshelfSection
 import keinabersmart.kleinaberlaut.ui.theme.ThemeMode
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
-// Musik, Podcasts und Hörbücher gliedern sich gleich: Quellen · Aktualisierung · Bilder · Wiedergabe · Downloads.
+// Musik, Podcasts und Bücher gliedern sich gleich: Quellen · Aktualisierung · Bilder · Wiedergabe · Downloads.
 // Abschnitte ohne Inhalt entfallen (Konzept 6).
 
 /** „Jetzt abgleichen“ o. Ä. als Zeile des Abschnitts „Aktualisierung“. */
@@ -554,7 +554,7 @@ fun PodcastsSettingsScreen(
     }
 }
 
-/** Hörbücher: Quellen (Gerät, Server) und Autorenbilder; Wiedergabe und Downloads haben noch keine Einstellungen. */
+/** Bücher: Quellen (Gerät, Server) und Autorenbilder; Wiedergabe und Downloads haben noch keine Einstellungen. */
 @Composable
 fun AudiobookSettingsScreen(
     onBack: () -> Unit,

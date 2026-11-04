@@ -123,7 +123,7 @@
     <string name="settings_general_summary">Appearance, search, downloads</string>
     <string name="settings_music">Music</string>
     <string name="settings_music_summary_local">%1$s · local music</string>
-    <string name="settings_audiobooks">Audiobooks</string>
+    <string name="settings_audiobooks">Books</string>
     <string name="settings_about_summary">Version, licenses</string>
     <plurals name="settings_server_count">
         <item quantity="one">%d server</item>
@@ -134,7 +134,7 @@
     <string name="settings_section_images">Images</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_refresh_music">Sync music now</string>
-    <string name="settings_refresh_audiobooks">Sync audiobooks now</string>
+    <string name="settings_refresh_audiobooks">Sync books now</string>
     <string name="settings_refresh_podcasts">Refresh podcasts now</string>
     <string name="settings_section_opml">Import &amp; export</string>
     <string name="settings_opml_title">kleinaberlaut subscriptions</string>
@@ -175,7 +175,7 @@
     <string name="settings_album_covers_summary">Looks up covers on MusicBrainz and the Cover Art Archive. Album title and artist are sent for this.</string>
     <string name="settings_local_media">Use music on this device</string>
     <string name="settings_local_media_summary">Off: the library only shows music from servers.</string>
-    <string name="settings_local_books">Use audiobooks on this device</string>
+    <string name="settings_local_books">Use books on this device</string>
     <string name="settings_local_books_summary">From the “Audiobooks” folder: m4b files and folders of MP3 files (one chapter per file). Off: the books disappear along with their progress.</string>
     <string name="settings_local_podcasts">Use podcasts on this device</string>
     <string name="settings_local_podcasts_summary">From the “Podcasts” folder: each subfolder is a podcast; loose files are grouped by their album tag. Off: the episodes disappear along with their progress.</string>
@@ -186,7 +186,7 @@
     <string name="server_form_auto_download_summary">Every track on this server is downloaded to the device, including newly added ones. Needs a lot of storage.</string>
     <string name="about_title">About the app</string>
     <string name="about_version">Version %1$s</string>
-    <string name="about_text">kleinaberlaut is a player for your own collection: music from this device and from your Navidrome or Subsonic servers in one shared library, podcasts from any feed, and audiobooks from your Audiobookshelf server. Everything can be downloaded for offline listening, audiobook progress is synced with your server, and your music also plays on your Wear OS watch.</string>
+    <string name="about_text">kleinaberlaut is a player for your own collection: music from this device and from your Navidrome or Subsonic servers in one shared library, podcasts from any feed, and books from your Audiobookshelf server. Everything can be downloaded for offline listening, book progress is synced with your server, and your music also plays on your Wear OS watch.</string>
     <string name="about_more_info">For more information and the source code, see GitHub:</string>
     <string name="about_repository_url" translatable="false">https://github.com/TinyScripter/kleinaberlaut/</string>
     <string name="about_feedback">Please report bugs and feature requests in the issue tracker:</string>
@@ -369,7 +369,7 @@
         <item quantity="other">%1$s · %2$d tracks</item>
     </plurals>
 
-    <!-- Gesprochenes: Hörbücher & Podcasts (Konzept 12) -->
+    <!-- Gesprochenes: Bücher & Podcasts (Konzept 12) -->
     <string name="spoken_mode_music">Music</string>
     <string name="spoken_mode_podcasts">Podcasts</string>
     <string name="spoken_mode_books">Books</string>
@@ -627,7 +627,7 @@
         <item quantity="other">%1$d new books</item>
     </plurals>
     <string name="refresh_podcasts_started">Updating podcasts …</string>
-    <string name="refresh_books_started">Updating audiobooks …</string>
+    <string name="refresh_books_started">Updating books …</string>
     <string name="refresh_no_new_episodes">No new episodes</string>
     <string name="refresh_no_new_books">No new books</string>
     <string name="refresh_failed">Update failed</string>

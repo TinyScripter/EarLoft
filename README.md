@@ -5,7 +5,7 @@
 ![Wear OS](https://img.shields.io/badge/Wear_OS-3%2B-4285F4?logo=wearos&logoColor=white)
 ![Navidrome](https://img.shields.io/badge/Navidrome-supported-00A4EF)
 
-**kleinaberlaut** is an audio player for your *own* collection: **music**, **podcasts** and **audiobooks**. It plays the
+**kleinaberlaut** is an audio player for your *own* collection: **music**, **podcasts** and **books**. It plays the
 files on your phone together with your self-hosted [Navidrome](https://www.navidrome.org) music server and your
 [Audiobookshelf](https://www.audiobookshelf.org) server in **one app** – on your phone and, for music, on your
 Wear OS watch. Podcasts come straight from their public RSS feeds. No streaming subscription, no account with a third
@@ -113,8 +113,8 @@ application ID (`keinabersmart.kleinaberlaut`), so install both for the watch fe
 2. **Music:** **Settings → Music → Add server**, then enter the address (for example `https://music.example.com`) and
    your credentials. The first sync can take a while for large libraries.
 3. **Podcasts:** switch to **Podcasts** on Home or Library and tap **Add podcast**, then paste the feed address.
-4. **Books:** **Settings → Audiobooks → Add server**, then enter your Audiobookshelf address and an API key (created in
-   Audiobookshelf under *Settings → API Keys*). Or just copy audiobooks into the **Audiobooks** folder of your phone.
+4. **Books:** **Settings → Books → Add server**, then enter your Audiobookshelf address and an API key (created in
+   Audiobookshelf under *Settings → API Keys*). Or just copy books into the **Audiobooks** folder of your phone.
 5. Play something. On an album, playlist, book or episode you can download it (download arrow); music can also be
    loaded onto your watch. Downloads are listed under **Settings → Downloads**; the watch is managed under
    **Settings → Watch**.

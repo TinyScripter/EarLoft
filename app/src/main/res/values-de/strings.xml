@@ -122,7 +122,7 @@
     <string name="settings_general_summary">Darstellung, Suche, Downloads</string>
     <string name="settings_music">Musik</string>
     <string name="settings_music_summary_local">%1$s · lokale Musik</string>
-    <string name="settings_audiobooks">Hörbücher</string>
+    <string name="settings_audiobooks">Bücher</string>
     <string name="settings_about_summary">Version, Lizenzen</string>
     <plurals name="settings_server_count">
         <item quantity="one">%d Server</item>
@@ -133,7 +133,7 @@
     <string name="settings_section_images">Bilder</string>
     <string name="settings_section_appearance">Darstellung</string>
     <string name="settings_refresh_music">Musik jetzt abgleichen</string>
-    <string name="settings_refresh_audiobooks">Hörbücher jetzt abgleichen</string>
+    <string name="settings_refresh_audiobooks">Bücher jetzt abgleichen</string>
     <string name="settings_refresh_podcasts">Podcasts jetzt aktualisieren</string>
     <string name="settings_section_opml">Import &amp; Export</string>
     <string name="settings_opml_title">kleinaberlaut-Abos</string>
@@ -174,7 +174,7 @@
     <string name="settings_album_covers_summary">Sucht Cover bei MusicBrainz und im Cover Art Archive. Dafür werden Albumtitel und Interpret gesendet.</string>
     <string name="settings_local_media">Musik auf diesem Gerät nutzen</string>
     <string name="settings_local_media_summary">Aus: Die Bibliothek zeigt nur Musik von Servern.</string>
-    <string name="settings_local_books">Hörbücher auf diesem Gerät nutzen</string>
+    <string name="settings_local_books">Bücher auf diesem Gerät nutzen</string>
     <string name="settings_local_books_summary">Aus dem Ordner „Audiobooks“: m4b-Dateien und Ordner mit MP3-Dateien (ein Kapitel je Datei). Aus: Die Bücher verschwinden samt Fortschritt.</string>
     <string name="settings_local_podcasts">Podcasts auf diesem Gerät nutzen</string>
     <string name="settings_local_podcasts_summary">Aus dem Ordner „Podcasts“: Jeder Unterordner ist ein Podcast, lose Dateien gelten nach ihrem Album-Tag. Aus: Die Folgen verschwinden samt Fortschritt.</string>
@@ -185,7 +185,7 @@
     <string name="server_form_auto_download_summary">Jeder Titel dieses Servers wird auf das Gerät geladen, auch neu hinzugekommene. Braucht entsprechend viel Speicher.</string>
     <string name="about_title">Über die App</string>
     <string name="about_version">Version %1$s</string>
-    <string name="about_text">kleinaberlaut ist ein Player für deine eigene Sammlung: Musik vom Gerät und von deinen Navidrome- oder Subsonic-Servern in einer gemeinsamen Bibliothek, Podcasts aus beliebigen Feeds und Hörbücher von deinem Audiobookshelf-Server. Alles lässt sich für unterwegs herunterladen, der Hörbuch-Fortschritt wird mit deinem Server abgeglichen, und deine Musik spielt auch auf der Wear-OS-Uhr.</string>
+    <string name="about_text">kleinaberlaut ist ein Player für deine eigene Sammlung: Musik vom Gerät und von deinen Navidrome- oder Subsonic-Servern in einer gemeinsamen Bibliothek, Podcasts aus beliebigen Feeds und Bücher von deinem Audiobookshelf-Server. Alles lässt sich für unterwegs herunterladen, der Fortschritt der Bücher wird mit deinem Server abgeglichen, und deine Musik spielt auch auf der Wear-OS-Uhr.</string>
     <string name="about_more_info">Weitere Informationen und den Quellcode findest du auf GitHub:</string>
     <string name="about_feedback">Bugs und Feature-Wünsche bitte im Issue-Tracker melden:</string>
     <string name="licenses_title">Lizenzen</string>
@@ -365,7 +365,7 @@
         <item quantity="other">%1$s · %2$d Titel</item>
     </plurals>
 
-    <!-- Gesprochenes: Hörbücher & Podcasts (Konzept 12) -->
+    <!-- Gesprochenes: Bücher & Podcasts (Konzept 12) -->
     <string name="spoken_mode_music">Musik</string>
     <string name="spoken_mode_podcasts">Podcasts</string>
     <string name="spoken_mode_books">Bücher</string>
@@ -623,7 +623,7 @@
         <item quantity="other">%1$d neue Bücher</item>
     </plurals>
     <string name="refresh_podcasts_started">Podcasts werden aktualisiert …</string>
-    <string name="refresh_books_started">Hörbücher werden aktualisiert …</string>
+    <string name="refresh_books_started">Bücher werden aktualisiert …</string>
     <string name="refresh_no_new_episodes">Keine neuen Folgen</string>
     <string name="refresh_no_new_books">Keine neuen Bücher</string>
     <string name="refresh_failed">Aktualisierung fehlgeschlagen</string>

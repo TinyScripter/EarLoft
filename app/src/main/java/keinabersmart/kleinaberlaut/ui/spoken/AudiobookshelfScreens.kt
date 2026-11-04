@@ -51,7 +51,7 @@ import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
 import keinabersmart.kleinaberlaut.ui.valueOrNull
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
-/** Die Audiobookshelf-Server in den Hörbuch-Einstellungen: auflisten, ein-/ausschalten, bearbeiten, abgleichen, entfernen, hinzufügen. */
+/** Die Audiobookshelf-Server in den Bücher-Einstellungen: auflisten, ein-/ausschalten, bearbeiten, abgleichen, entfernen, hinzufügen. */
 @Composable
 fun AudiobookshelfSection(
     onAdd: () -> Unit,

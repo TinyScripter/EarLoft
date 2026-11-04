@@ -28,7 +28,7 @@ import keinabersmart.kleinaberlaut.ui.components.readableWidth
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 /**
- * Übersicht der Einstellungen: Allgemein, Musik, Podcasts, Hörbücher, Uhr (nur mit gekoppelter Uhr), Über.
+ * Übersicht der Einstellungen: Allgemein, Musik, Podcasts, Bücher, Uhr (nur mit gekoppelter Uhr), Über.
  * Jeder Eintrag öffnet eine Unterseite und zeigt eine Zeile Status.
  */
 @Composable

@@ -7,6 +7,7 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -125,9 +126,10 @@ private fun BookPlayerContent(
     var showSpeed by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
     var showChapters by remember { mutableStateOf(false) }
+    var showQueue by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
-    // Breit: die Kapitelliste ersetzt im rechten Panel die Beschreibung.
-    var chaptersInPane by remember { mutableStateOf(false) }
+    // Breit: Kapitelliste oder Warteschlange ersetzen im rechten Panel die Beschreibung.
+    var pane by remember { mutableStateOf(SidePane.DESCRIPTION) }
 
     if (entry == null) {
         // Das Buch wurde beendet oder entfernt: zurück, statt eine leere Seite zu zeigen.
@@ -152,6 +154,12 @@ private fun BookPlayerContent(
         )
     }
     val hasChapters = tl?.hasChapters == true
+    // Fehlt, was gewählt war (Buch ohne Kapitel, Buch statt Folge), steht wieder die Beschreibung rechts.
+    val shownPane = when {
+        pane == SidePane.CHAPTERS && hasChapters -> SidePane.CHAPTERS
+        pane == SidePane.QUEUE && episode -> SidePane.QUEUE
+        else -> SidePane.DESCRIPTION
+    }
     // Handy quer (wenig Höhe): kleinerer Abspielknopf, damit die Leiste darunter ohne Scrollen sichtbar bleibt.
     val shortHeight = !currentWindowAdaptiveInfoV2().windowSizeClass
         .isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
@@ -214,7 +222,8 @@ private fun BookPlayerContent(
         // Auf kleinen Handys bekommt das Hochformat unten etwas Rand, sonst klebt der Play-Knopf am Bildschirmrand.
         val tight = maxHeight < 700.dp
 
-        // Geschwindigkeit, Sleep-Timer, Kapitelliste, schmal auch die Beschreibung.
+        // Geschwindigkeit, Sleep-Timer, Kapitelliste, bei Folgen die Warteschlange, schmal auch die Beschreibung.
+        val togglePane: (SidePane) -> Unit = { pane = if (shownPane == it) SidePane.DESCRIPTION else it }
         val actionRow: @Composable () -> Unit = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                 CastButton(active = state.isRemote)
@@ -236,18 +245,26 @@ private fun BookPlayerContent(
                 if (hasChapters) {
                     ToggleIconButton(
                         icon = DesignR.drawable.ic_list,
-                        active = wide && chaptersInPane,
+                        active = wide && shownPane == SidePane.CHAPTERS,
                         label = stringResource(R.string.spoken_chapters),
-                        onClick = { if (wide) chaptersInPane = !chaptersInPane else showChapters = true },
+                        onClick = { if (wide) togglePane(SidePane.CHAPTERS) else showChapters = true },
+                    )
+                }
+                if (episode) {
+                    ToggleIconButton(
+                        icon = DesignR.drawable.ic_queue_music,
+                        active = wide && shownPane == SidePane.QUEUE,
+                        label = stringResource(R.string.player_open_queue),
+                        onClick = { if (wide) togglePane(SidePane.QUEUE) else showQueue = true },
                     )
                 }
                 if (wide) {
-                    // Die Beschreibung steht schon rechts; der Knopf holt sie nur hinter den Kapiteln hervor.
+                    // Die Beschreibung steht schon rechts; der Knopf holt sie nur hinter Kapiteln oder Warteschlange hervor.
                     ToggleIconButton(
                         icon = DesignR.drawable.ic_info,
-                        active = !chaptersInPane || !hasChapters,
+                        active = shownPane == SidePane.DESCRIPTION,
                         label = stringResource(R.string.spoken_description),
-                        onClick = { chaptersInPane = false },
+                        onClick = { pane = SidePane.DESCRIPTION },
                     )
                 } else {
                     ToggleIconButton(
@@ -370,10 +387,12 @@ private fun BookPlayerContent(
                         shape = MaterialTheme.shapes.extraLarge,
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
                     ) {
-                        if (chaptersInPane && tl != null && hasChapters) {
-                            ChapterList(tl, chapterIndex, onChapter = viewModel::seekToBook, modifier = Modifier.fillMaxSize().padding(vertical = 8.dp))
-                        } else {
-                            DescriptionPane(description, Modifier.fillMaxSize())
+                        when {
+                            shownPane == SidePane.CHAPTERS && tl != null ->
+                                ChapterList(tl, chapterIndex, onChapter = viewModel::seekToBook, modifier = Modifier.fillMaxSize().padding(vertical = 8.dp))
+                            shownPane == SidePane.QUEUE ->
+                                PodcastQueueList(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp), transparent = true)
+                            else -> DescriptionPane(description, Modifier.fillMaxSize())
                         }
                     }
                 }
@@ -416,7 +435,15 @@ private fun BookPlayerContent(
             onDismiss = { showChapters = false },
         )
     }
+    if (showQueue && episode) {
+        ModalBottomSheet(onDismissRequest = { showQueue = false }) {
+            PodcastQueueList(Modifier.navigationBarsPadding(), transparent = true, onPlayed = { showQueue = false })
+        }
+    }
 }
+
+/** Was breit im rechten Panel steht. */
+private enum class SidePane { DESCRIPTION, CHAPTERS, QUEUE }
 
 /**
  * Oben das ganze Buch (zum Spulen), darunter nur das Kapitel; jeweils links gespielt, rechts die Restzeit mit „-“.
