@@ -375,23 +375,26 @@ fun PodcastsSettingsScreen(
 
         if (state.podcastDirectories.isNotEmpty()) {
             item(key = "directories") { SectionHeader(stringResource(R.string.settings_section_directories)) }
-            items(state.podcastDirectories, key = { "directory-${it.name}" }) { directory ->
-                SwitchRow(
-                    title = stringResource(directory.label),
-                    summary = stringResource(directory.summary),
-                    icon = R.drawable.ic_nav_search,
-                    checked = directory in state.enabledPodcastDirectories,
-                    onCheckedChange = { viewModel.setPodcastDirectory(directory, it) },
-                )
-            }
-            if (PodcastDirectory.APPLE in state.enabledPodcastDirectories) {
-                item(key = "apple-country") {
-                    ClickRow(
-                        title = stringResource(R.string.settings_directory_apple_country),
-                        value = countryName(state.appleCountry),
+            state.podcastDirectories.forEach { directory ->
+                item(key = "directory-${directory.name}") {
+                    SwitchRow(
+                        title = stringResource(directory.label),
+                        summary = stringResource(directory.summary),
                         icon = R.drawable.ic_nav_search,
-                        onClick = { choosingCountry = true },
+                        checked = directory in state.enabledPodcastDirectories,
+                        onCheckedChange = { viewModel.setPodcastDirectory(directory, it) },
                     )
+                }
+                // Das Land gehört zu Apple und steht deshalb direkt unter seinem Schalter.
+                if (directory == PodcastDirectory.APPLE && directory in state.enabledPodcastDirectories) {
+                    item(key = "apple-country") {
+                        ClickRow(
+                            title = stringResource(R.string.settings_directory_apple_country),
+                            value = countryName(state.appleCountry),
+                            icon = R.drawable.ic_nav_search,
+                            onClick = { choosingCountry = true },
+                        )
+                    }
                 }
             }
         }
@@ -526,7 +529,7 @@ fun PodcastsSettingsScreen(
     }
     if (choosingCountry) {
         val choices = remember(state.appleCountry) {
-            (PodcastSettings.APPLE_COUNTRY_CHOICES + state.appleCountry + PodcastSettings.systemCountry()).distinct()
+            (PodcastSettings.APPLE_COUNTRY_CHOICES + state.appleCountry).distinct()
                 .sortedBy { countryName(it) }
         }
         ChoiceDialog(

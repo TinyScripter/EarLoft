@@ -1,6 +1,11 @@
 package keinabersmart.kleinaberlaut.core.data.podcast
 
+import android.app.LocaleManager
 import android.content.Context
+import android.content.res.Resources
+import android.icu.util.ULocale
+import android.os.Build
+import android.os.LocaleList
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -74,11 +79,29 @@ class PodcastSettings @Inject constructor(
         }
     }
 
-    /** Land für die Suche bei Apple Podcasts (ISO 3166, z. B. `DE`); ohne Auswahl das Land des Systems. */
-    val appleCountry: Flow<String> = context.podcastSettingsDataStore.data.map { it[KEY_APPLE_COUNTRY] ?: systemCountry() }
+    /**
+     * Land für die Suche bei Apple Podcasts (ISO 3166, z. B. `DE`). Beim ersten Start aus den Sprachen von App und System
+     * gesetzt ([rememberAppleCountry]); bis dahin dasselbe, nur ungespeichert.
+     */
+    val appleCountry: Flow<String> = context.podcastSettingsDataStore.data.map { it[KEY_APPLE_COUNTRY] ?: deviceCountry() }
 
     suspend fun setAppleCountry(country: String) {
         context.podcastSettingsDataStore.edit { it[KEY_APPLE_COUNTRY] = country }
+    }
+
+    /** Beim ersten Start: Speichert das Land aus den Spracheinstellungen, solange noch keins gewählt ist. */
+    suspend fun rememberAppleCountry() {
+        context.podcastSettingsDataStore.edit { if (it[KEY_APPLE_COUNTRY] == null) it[KEY_APPLE_COUNTRY] = deviceCountry() }
+    }
+
+    /** Land aus der Sprache der App (Android 13+, Einstellungen des Systems je App) und den Sprachen des Systems. */
+    private fun deviceCountry(): String {
+        val app = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.getSystemService(LocaleManager::class.java)?.applicationLocales?.toList().orEmpty()
+        } else {
+            emptyList()
+        }
+        return countryFromLocales(app, Resources.getSystem().configuration.locales.toList())
     }
 
     companion object {
@@ -88,8 +111,32 @@ class PodcastSettings @Inject constructor(
             "SE", "NO", "FI", "GB", "IE", "US", "CA", "AU", "NZ",
         )
 
-        /** Land aus den Systemeinstellungen; ohne Land (nur Sprache gesetzt) die USA, Apples Standard. */
-        fun systemCountry(): String = Locale.getDefault().country.takeIf { it.length == 2 }?.uppercase() ?: "US"
+        /**
+         * Land zu den Sprachen von App ([app], leer = wie das System) und System ([system], in Reihenfolge der Vorliebe):
+         * Nennt die Sprache der App eine Region, gilt sie. Sonst die erste Systemsprache derselben Sprache mit Region
+         * (App Deutsch, System `de-AT` → Österreich), sonst das übliche Land der App-Sprache (Deutsch → Deutschland).
+         * Ohne eigene App-Sprache die erste Systemsprache mit Region, sonst das übliche Land ihrer Sprache. Zuletzt die
+         * USA, Apples Standard.
+         */
+        fun countryFromLocales(app: List<Locale>, system: List<Locale>): String {
+            app.firstOrNull()?.let { language ->
+                return language.region()
+                    ?: system.firstNotNullOfOrNull { it.takeIf { it.language == language.language }?.region() }
+                    ?: language.likelyRegion()
+                    ?: DEFAULT_COUNTRY
+            }
+            return system.firstNotNullOfOrNull { it.region() } ?: system.firstNotNullOfOrNull { it.likelyRegion() } ?: DEFAULT_COUNTRY
+        }
+
+        private const val DEFAULT_COUNTRY = "US"
+
+        /** Nur Länder (zwei Buchstaben), keine Gebiete wie `419` (Lateinamerika). */
+        private fun Locale.region(): String? = country.takeIf { it.length == 2 }?.uppercase()
+
+        private fun Locale.likelyRegion(): String? =
+            language.takeIf { it.isNotEmpty() }?.let { ULocale.addLikelySubtags(ULocale(it)).country }?.takeIf { it.length == 2 }
+
+        private fun LocaleList.toList(): List<Locale> = (0 until size()).map(::get)
 
         private val KEY_DIRECTORIES = stringSetPreferencesKey("directories")
         private val KEY_APPLE_COUNTRY = stringPreferencesKey("apple_country")
