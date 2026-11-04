@@ -135,6 +135,34 @@ class NavigatorTest {
     }
 
     @Test
+    fun `ending a subscription from the menu closes only its settings`() {
+        // Langklick auf das Abo in der Bibliothek → Einstellungen → Abo beenden.
+        navigator.navigate(LibraryRoute)
+        navigator.navigate(PodcastSettingsRoute("a"))
+
+        navigator.closeFeed("a")
+
+        assertEquals(listOf<NavKey>(LibraryRoute), state.backStacks.getValue(LibraryRoute).toList())
+        assertEquals(LibraryRoute, state.topLevelRoute)
+    }
+
+    @Test
+    fun `ending a subscription closes all its pages in every tab and keeps others`() {
+        val other = PodcastRoute("b")
+        navigator.navigate(PodcastRoute("a"))
+        navigator.navigate(LibraryRoute)
+        navigator.navigate(other)
+        navigator.navigate(PodcastRoute("a"))
+        navigator.navigate(PodcastInfoRoute("a"))
+        navigator.navigate(PodcastSettingsRoute("a"))
+
+        navigator.closeFeed("a")
+
+        assertEquals(listOf(LibraryRoute, other), state.backStacks.getValue(LibraryRoute).toList())
+        assertEquals(listOf<NavKey>(HomeRoute), state.backStacks.getValue(HomeRoute).toList())
+    }
+
+    @Test
     fun `the same album opened twice gets distinct routes`() {
         assertNotEquals(AlbumRoute(albumId = 5), AlbumRoute(albumId = 5))
     }

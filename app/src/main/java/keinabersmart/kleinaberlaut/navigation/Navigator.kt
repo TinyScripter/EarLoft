@@ -44,6 +44,22 @@ class Navigator(private val state: NavigationState) {
         }
     }
 
+    /**
+     * Ein Abo wurde beendet: Seine Seiten (Abo, Info, Einstellungen, Suche) verschwinden aus allen Stacks, egal ob die
+     * Einstellungen über die Abo-Seite oder direkt aus dem Langklick-Menü geöffnet wurden.
+     */
+    fun closeFeed(feedId: String) {
+        state.backStacks.values.forEach { stack -> stack.removeAll { it.belongsToFeed(feedId) } }
+    }
+
+    private fun NavKey.belongsToFeed(feedId: String): Boolean = when (this) {
+        is PodcastRoute -> this.feedId == feedId
+        is PodcastInfoRoute -> this.feedId == feedId
+        is PodcastSettingsRoute -> this.feedId == feedId
+        is PodcastSearchRoute -> this.feedId == feedId
+        else -> false
+    }
+
     private fun currentStack() =
         state.backStacks[state.topLevelRoute] ?: error("Kein Back Stack für ${state.topLevelRoute}")
 }

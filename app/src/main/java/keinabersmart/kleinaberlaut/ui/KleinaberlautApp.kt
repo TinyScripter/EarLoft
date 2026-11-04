@@ -172,6 +172,7 @@ fun KleinaberlautApp(
     val openArtist: (Long) -> Unit = { navigator.navigate(ArtistRoute(it)) }
     val openBook: (Long) -> Unit = { navigator.navigate(BookRoute(it)) }
     val openPodcast: (String) -> Unit = { navigator.navigate(PodcastRoute(it)) }
+    val openPodcastSettings: (String) -> Unit = { navigator.navigate(PodcastSettingsRoute(it)) }
     val setupAudiobookshelf: () -> Unit = { navigator.navigate(AddAudiobookshelfRoute) }
     // Modus gewechselt: die Detailspalte des vorigen Modus schließen (Tab auf seine Startseite zurück).
     val closeDetail: () -> Unit = { navigator.navigate(navigationState.topLevelRoute) }
@@ -190,6 +191,7 @@ fun KleinaberlautApp(
                 podcasts = { PodcastHomeScreen(
                         onEpisodeClick = openBook,
                         onFeedClick = openPodcast,
+                        onFeedSettings = openPodcastSettings,
                         onOpenQueue = { navigator.navigate(PodcastQueueRoute) },
                     ) },
                 books = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
@@ -207,7 +209,9 @@ fun KleinaberlautApp(
                         onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
                     )
                 },
-                podcasts = { PodcastLibraryScreen(onFeedClick = openPodcast, onEpisodeClick = openBook) },
+                podcasts = {
+                    PodcastLibraryScreen(onFeedClick = openPodcast, onFeedSettings = openPodcastSettings, onEpisodeClick = openBook)
+                },
                 books = {
                     SpokenLibraryScreen(
                         onBookClick = openBook,
@@ -245,11 +249,8 @@ fun KleinaberlautApp(
             PodcastSettingsScreen(
                 feedId = route.feedId,
                 onBack = navigator::goBack,
-                // Das Abo ist weg: auch die Detailseite dahinter schließen.
-                onUnsubscribed = {
-                    navigator.goBack()
-                    navigator.goBack()
-                },
+                // Das Abo ist weg: alle seine Seiten schließen (die Einstellungen kommen auch direkt aus dem Langklick-Menü).
+                onUnsubscribed = { navigator.closeFeed(route.feedId) },
             )
         }
         entry<BookGroupRoute>(metadata = detailPane()) { route ->
@@ -271,6 +272,7 @@ fun KleinaberlautApp(
                 onArtistClick = openArtist,
                 onBookClick = openBook,
                 onFeedClick = openPodcast,
+                onFeedSettings = openPodcastSettings,
                 onAuthorClick = { navigator.navigate(BookGroupRoute(BookGroupKind.AUTHOR, it)) },
                 onSeriesClick = { navigator.navigate(BookGroupRoute(BookGroupKind.SERIES, it)) },
             )

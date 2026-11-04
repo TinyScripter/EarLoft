@@ -178,6 +178,10 @@ abstract class BookDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertProgress(progress: BookProgressEntity)
 
+    /** Mehrere Stände in einem Zug (eine Änderungsmeldung statt einer je Zeile). */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertAllProgress(progress: List<BookProgressEntity>)
+
     @Query("SELECT * FROM book_progress WHERE dirty = 1")
     abstract suspend fun dirtyProgress(): List<BookProgressEntity>
 

@@ -630,6 +630,17 @@
     <string name="podcast_notify_new">Über neue Folgen benachrichtigen</string>
     <string name="podcast_notify_new_summary">Zeigt eine leise Benachrichtigung, wenn eine Aktualisierung im Hintergrund neue Folgen dieses Podcasts findet.</string>
     <string name="podcast_refresh_feed">Podcast aktualisieren</string>
+    <string name="feed_menu_play_next">Nächste Folge abspielen</string>
+    <string name="feed_menu_queue_next">Nächste Folge in Warteschlange</string>
+    <string name="feed_menu_queued">„%1$s“ steht jetzt in der Warteschlange.</string>
+    <string name="feed_menu_already_queued">„%1$s“ steht schon in der Warteschlange.</string>
+    <string name="feed_menu_mark_all_played">Alle als gehört markieren</string>
+    <string name="feed_menu_mark_all_title">Alle Folgen als gehört markieren?</string>
+    <plurals name="feed_menu_mark_all_text">
+        <item quantity="one">%1$d ungehörte Folge von „%2$s“ gilt danach als gehört.</item>
+        <item quantity="other">%1$d ungehörte Folgen von „%2$s“ gelten danach als gehört.</item>
+    </plurals>
+    <string name="feed_menu_mark_all_confirm">Alle markieren</string>
     <string name="refresh_music_started">Musik wird aktualisiert …</string>
     <string name="refresh_music_done">Musik aktualisiert</string>
     <plurals name="restore_missing_credentials">

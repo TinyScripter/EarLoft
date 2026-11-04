@@ -98,6 +98,7 @@ fun SearchScreen(
     onArtistClick: (Long) -> Unit,
     onBookClick: (Long) -> Unit,
     onFeedClick: (String) -> Unit,
+    onFeedSettings: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
     onSeriesClick: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -191,7 +192,12 @@ fun SearchScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             items(state.feeds, key = { it.id }) { feed ->
-                                FeedCard(feed, onClick = { onFeedClick(feed.id) }, modifier = Modifier.width(140.dp))
+                                FeedCard(
+                                feed,
+                                onClick = { onFeedClick(feed.id) },
+                                onSettings = { onFeedSettings(feed.id) },
+                                modifier = Modifier.width(140.dp),
+                            )
                             }
                         }
                     }

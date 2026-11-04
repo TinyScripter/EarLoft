@@ -634,6 +634,17 @@
     <string name="podcast_notify_new">Notify about new episodes</string>
     <string name="podcast_notify_new_summary">Shows a quiet notification when a background update finds new episodes of this podcast.</string>
     <string name="podcast_refresh_feed">Refresh podcast</string>
+    <string name="feed_menu_play_next">Play next episode</string>
+    <string name="feed_menu_queue_next">Add next episode to queue</string>
+    <string name="feed_menu_queued">“%1$s” is now in the queue.</string>
+    <string name="feed_menu_already_queued">“%1$s” is already in the queue.</string>
+    <string name="feed_menu_mark_all_played">Mark all as played</string>
+    <string name="feed_menu_mark_all_title">Mark all episodes as played?</string>
+    <plurals name="feed_menu_mark_all_text">
+        <item quantity="one">%1$d unplayed episode of “%2$s” will count as played.</item>
+        <item quantity="other">%1$d unplayed episodes of “%2$s” will count as played.</item>
+    </plurals>
+    <string name="feed_menu_mark_all_confirm">Mark all</string>
     <string name="refresh_music_started">Updating music …</string>
     <string name="refresh_music_done">Music updated</string>
     <plurals name="restore_missing_credentials">

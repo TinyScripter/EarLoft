@@ -141,6 +141,7 @@ private fun AddPodcastHost(
 fun PodcastHomeScreen(
     onEpisodeClick: (Long) -> Unit,
     onFeedClick: (String) -> Unit,
+    onFeedSettings: (String) -> Unit,
     onOpenQueue: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PodcastViewModel = hiltViewModel(),
@@ -191,7 +192,12 @@ fun PodcastHomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(list.orEmpty(), key = { it.id }) { feed ->
-                            FeedCard(feed, onClick = { onFeedClick(feed.id) }, modifier = Modifier.width(140.dp))
+                            FeedCard(
+                                feed,
+                                onClick = { onFeedClick(feed.id) },
+                                onSettings = { onFeedSettings(feed.id) },
+                                modifier = Modifier.width(140.dp),
+                            )
                         }
                     }
                 }
@@ -206,10 +212,18 @@ fun PodcastHomeScreen(
     }
 }
 
-/** Bild und Titel eines Abos. */
+/** Bild und Titel eines Abos; Langklick öffnet das [FeedMenu], dessen letzter Eintrag die Einstellungen ([onSettings]). */
 @Composable
-fun FeedCard(feed: PodcastFeed, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.clickable(onClick = onClick)) {
+fun FeedCard(feed: PodcastFeed, onClick: () -> Unit, onSettings: () -> Unit, modifier: Modifier = Modifier) {
+    var menu by remember { mutableStateOf(false) }
+    Column(
+        modifier.combinedClickable(
+            onClick = onClick,
+            onLongClickLabel = stringResource(R.string.action_more),
+            onLongClick = { menu = true },
+        ),
+    ) {
+        if (menu) FeedMenu(feed, onSettings = onSettings, onDismiss = { menu = false })
         PodcastArt(feed.imageUrl, Modifier.fillMaxWidth())
         Text(
             feed.title,
@@ -231,6 +245,7 @@ private enum class PodcastTab(@StringRes val label: Int) {
 @Composable
 fun PodcastLibraryScreen(
     onFeedClick: (String) -> Unit,
+    onFeedSettings: (String) -> Unit,
     onEpisodeClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PodcastViewModel = hiltViewModel(),
@@ -262,7 +277,7 @@ fun PodcastLibraryScreen(
                         playingId,
                         viewModel::playOrPause,
                     )
-                    PodcastTab.FEEDS -> FeedGrid(feeds, onFeedClick, onAdd = addControl.show)
+                    PodcastTab.FEEDS -> FeedGrid(feeds, onFeedClick, onFeedSettings, onAdd = addControl.show)
                     PodcastTab.STATS -> PodcastStatsScreen(onFeedClick)
                 }
             }
@@ -326,7 +341,12 @@ private fun UnheardList(
 
 /** Alle Abos als Bilder, drei nebeneinander; das „+“ schwebt unten rechts und bleibt beim Scrollen stehen. */
 @Composable
-private fun FeedGrid(state: LoadState<List<PodcastFeed>>, onFeedClick: (String) -> Unit, onAdd: () -> Unit) {
+private fun FeedGrid(
+    state: LoadState<List<PodcastFeed>>,
+    onFeedClick: (String) -> Unit,
+    onFeedSettings: (String) -> Unit,
+    onAdd: () -> Unit,
+) {
     Box(Modifier.fillMaxSize()) {
         LoadableList(state, stringResource(R.string.podcast_none)) { feeds ->
             LazyVerticalGrid(
@@ -337,7 +357,9 @@ private fun FeedGrid(state: LoadState<List<PodcastFeed>>, onFeedClick: (String) 
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(feeds, key = { it.id }) { feed -> FeedCard(feed, onClick = { onFeedClick(feed.id) }) }
+                items(feeds, key = { it.id }) { feed ->
+                    FeedCard(feed, onClick = { onFeedClick(feed.id) }, onSettings = { onFeedSettings(feed.id) })
+                }
             }
         }
         FloatingActionButton(onClick = onAdd, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {

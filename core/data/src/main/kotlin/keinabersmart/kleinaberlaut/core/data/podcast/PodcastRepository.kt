@@ -170,17 +170,29 @@ class PodcastRepository @Inject constructor(
     /** Markiert die Folge als gespielt (Position ans Ende) oder als ungespielt (Position 0). Nur lokal, es gibt keinen Server. */
     suspend fun setPlayed(bookId: Long, played: Boolean) {
         val book = bookDao.book(bookId) ?: return
-        val old = bookDao.progress(bookId)
+        bookDao.upsertProgress(playedProgress(book, bookDao.progress(bookId), played, System.currentTimeMillis()))
+    }
+
+    /** „Alle als gehört markieren“: alle noch offenen Folgen des Abos in einem Zug; gibt ihre Anzahl zurück. */
+    suspend fun setAllPlayed(feedId: String): Int {
+        val finished = dao.finishedEpisodeIds(feedId).toSet()
+        val now = System.currentTimeMillis()
+        val rows = dao.episodeIdsOldestFirst(feedId)
+            .filter { it !in finished }
+            .mapNotNull { id -> bookDao.book(id)?.let { playedProgress(it, bookDao.progress(id), played = true, now) } }
+        if (rows.isNotEmpty()) bookDao.upsertAllProgress(rows)
+        return rows.size
+    }
+
+    private fun playedProgress(book: BookEntity, old: BookProgressEntity?, played: Boolean, now: Long): BookProgressEntity {
         val duration = book.durationMs.takeIf { it > 0 } ?: old?.durationMs ?: 0
-        bookDao.upsertProgress(
-            BookProgressEntity(
-                bookId = bookId,
-                positionMs = if (played) duration else 0,
-                durationMs = duration,
-                finished = played,
-                speed = old?.speed ?: 1f,
-                updatedAt = System.currentTimeMillis(),
-            ),
+        return BookProgressEntity(
+            bookId = book.bookId,
+            positionMs = if (played) duration else 0,
+            durationMs = duration,
+            finished = played,
+            speed = old?.speed ?: 1f,
+            updatedAt = now,
         )
     }
 

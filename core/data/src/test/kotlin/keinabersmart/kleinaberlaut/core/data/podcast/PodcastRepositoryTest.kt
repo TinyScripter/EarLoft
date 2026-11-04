@@ -324,6 +324,22 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `marking all as played finishes the open episodes and keeps the speed`() = runTest {
+        val feedId = subscribe()
+        val (a, b, c) = listOf("A", "B", "C").map { idOf(feedId, it) }
+        listen(a, positionMs = 600_000, updatedAt = 1, finished = true)
+        db.bookDao().upsertProgress(BookProgressEntity(b, 60_000, 600_000, finished = false, speed = 1.5f, updatedAt = 2))
+
+        assertEquals("A was already finished", 2, repository.setAllPlayed(feedId))
+
+        listOf(a, b, c).forEach { assertEquals(true, db.bookDao().progress(it)!!.finished) }
+        assertEquals(600_000, db.bookDao().progress(c)!!.positionMs)
+        assertEquals(1.5f, db.bookDao().progress(b)!!.speed)
+        assertEquals(0, repository.setAllPlayed(feedId))
+        assertEquals(emptyList<String>(), repository.continueListening { now }.first().map { it.book.title })
+    }
+
+    @Test
     fun `nothing is queued when queueing the next episode is off`() = runTest {
         val feedId = subscribe()
         repository.setContinuous(feedId, false)
