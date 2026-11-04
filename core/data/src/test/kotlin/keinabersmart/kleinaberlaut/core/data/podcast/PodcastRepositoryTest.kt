@@ -221,6 +221,25 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `queueing a finished episode marks it unheard and it shows in the queue`() = runTest {
+        val feedId = subscribe()
+        val c = idOf(feedId, "C")
+        listen(c, positionMs = 600_000, updatedAt = 100, finished = true)
+        val continueListening = ContinueListening(
+            EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()),
+            repository,
+            PodcastSettings(ApplicationProvider.getApplicationContext()),
+        )
+
+        continueListening.append(c)
+
+        val progress = db.bookDao().progress(c)!!
+        assertEquals(false, progress.finished)
+        assertEquals(0L, progress.positionMs)
+        assertTrue(continueListening.episodes.first().any { it.book.id == c })
+    }
+
+    @Test
     fun `recently added lists the newest episodes first without finished ones`() = runTest {
         val feedId = subscribe()
         listen(idOf(feedId, "B"), positionMs = 600_000, updatedAt = 100, finished = true)
