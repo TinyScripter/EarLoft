@@ -3,13 +3,13 @@ package keinabersmart.kleinaberlaut.core.network.podcast.directory
 import keinabersmart.kleinaberlaut.core.network.podcast.normalizeFeedUrl
 
 /** Öffentliche Podcast-Verzeichnisse, in denen die Seite „Podcast hinzufügen“ sucht (Konzept 12.10); in Anzeigereihenfolge. */
-enum class PodcastDirectory { APPLE, PODCAST_INDEX, FYYD }
+enum class PodcastDirectory { APPLE, PODCAST_INDEX, FYYD, ARD_SOUNDS }
 
 /** Ein Treffer der Verzeichnissuche. */
 data class DirectoryPodcast(
     val title: String,
     val author: String,
-    /** Abo-Adresse; bei allen heutigen Verzeichnissen eine http(s)-Adresse, später auch eigene Schemata (Konzept 12.10). */
+    /** Abo-Adresse: meist eine http(s)-Adresse, bei Sendungen aus ARD Sounds ohne RSS-Feed `ardsounds:<Kennung>` (Konzept 12.10). */
     val feedUrl: String,
     val imageUrl: String?,
     /** Alle Verzeichnisse, die diesen Feed kennen. */

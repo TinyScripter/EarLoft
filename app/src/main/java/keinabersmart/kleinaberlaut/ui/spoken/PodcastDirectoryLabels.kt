@@ -12,6 +12,7 @@ val PodcastDirectory.label: Int
         PodcastDirectory.APPLE -> R.string.directory_apple
         PodcastDirectory.PODCAST_INDEX -> R.string.directory_podcast_index
         PodcastDirectory.FYYD -> R.string.directory_fyyd
+        PodcastDirectory.ARD_SOUNDS -> R.string.directory_ard_sounds
     }
 
 /** Zeile unter dem Schalter in den Einstellungen: was das Verzeichnis ist und dass die Suchbegriffe dorthin gehen. */
@@ -21,6 +22,7 @@ val PodcastDirectory.summary: Int
         PodcastDirectory.APPLE -> R.string.directory_apple_summary
         PodcastDirectory.PODCAST_INDEX -> R.string.directory_podcast_index_summary
         PodcastDirectory.FYYD -> R.string.directory_fyyd_summary
+        PodcastDirectory.ARD_SOUNDS -> R.string.directory_ard_sounds_summary
     }
 
 /** Name eines Landes (ISO 3166) in der Sprache der App. */

@@ -6,6 +6,7 @@ import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.ListeningStatEntity
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ArdSoundsApi
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -42,7 +43,7 @@ class DatabaseImporterTest {
                     .build()
             }
             .build()
-        repository = PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client))
+        repository = PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client))
         importer = DatabaseImporter(repository, db.podcastDao(), db.bookDao(), db.statsDao())
         feedId = (repository.subscribe(FEED_URL) as SubscribeResult.Added).feedId
     }

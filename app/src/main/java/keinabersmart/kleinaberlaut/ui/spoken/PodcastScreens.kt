@@ -86,6 +86,8 @@ import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.download.EpisodeDownloadProgress
 import keinabersmart.kleinaberlaut.core.model.PodcastFeed
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ardSoundsPageUrl
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ardSoundsShowId
 import keinabersmart.kleinaberlaut.ui.LoadState
 import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
@@ -559,13 +561,20 @@ fun PodcastInfoScreen(
                 modifier = Modifier.padding(top = 8.dp),
             )
             if (!current.isLocal) {
-                Text(stringResource(R.string.podcast_feed_url), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+                // Sendungen aus ARD Sounds haben keinen Feed: Gezeigt wird der Link ihrer Seite, der sich auch wieder abonnieren lässt.
+                val ardShow = ardSoundsShowId(current.url)
+                val shownUrl = ardShow?.let(::ardSoundsPageUrl) ?: current.url
                 Text(
-                    current.url,
+                    stringResource(if (ardShow != null) R.string.podcast_ard_sounds_page else R.string.podcast_feed_url),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+                Text(
+                    shownUrl,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.clickable {
-                        scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(current.title, current.url))) }
+                        scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(current.title, shownUrl))) }
                         snackbars.show(copiedText)
                     },
                 )

@@ -85,7 +85,8 @@ class DatabaseExporter @Inject constructor(
 
         val result = LinkedHashMap<String, OutFeed>()
         for (feed in podcastDao.feeds().filter { !it.feedId.startsWith(LOCAL_FEED_PREFIX) }.sortedBy { it.title.lowercase() }) {
-            val out = OutFeed(feed.url, feed.title, feed.author, feed.description, feed.imageUrl, feed.autoDownload, active = true)
+            // Sendungen aus ARD Sounds kann keine andere App abonnieren: Sie gehen als archiviert mit, samt Folgen und Fortschritt.
+            val out = OutFeed(feed.url, feed.title, feed.author, feed.description, feed.imageUrl, feed.autoDownload, active = feed.hasRssFeed)
             result[feed.url] = out
             for (book in bookDao.booksOf(feed.feedId).filter { it.kind == BookKind.EPISODE }.sortedBy { it.addedAt }) {
                 val p = progress[book.bookId]

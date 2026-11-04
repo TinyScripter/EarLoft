@@ -496,6 +496,8 @@
     <string name="directory_podcast_index_summary">Offenes Verzeichnis, weltweit. Suchbegriffe gehen an Podcast Index.</string>
     <string name="directory_fyyd">fyyd</string>
     <string name="directory_fyyd_summary">Verzeichnis mit Schwerpunkt auf deutschsprachigen Podcasts. Suchbegriffe gehen an fyyd.</string>
+    <string name="directory_ard_sounds">ARD Sounds</string>
+    <string name="directory_ard_sounds_summary">Sendungen der ARD-Anstalten und des Deutschlandradios, auch solche ohne eigenen Feed. Nutzt eine inoffizielle Schnittstelle, die ausfallen kann. Suchbegriffe gehen an die ARD.</string>
     <string name="podcast_none">Noch keine Abos. Tippe auf „Podcast hinzufügen“, um eine Feed-Adresse einzugeben oder in einem Verzeichnis zu suchen.</string>
     <string name="podcast_nothing_to_continue">Noch nichts zum Weiterhören. Abonniere unter „Abos“ einen Podcast.</string>
     <string name="podcast_refresh">Podcasts aktualisieren</string>
@@ -554,6 +556,7 @@
     <string name="podcast_search">In diesem Podcast suchen</string>
     <string name="podcast_no_description">Keine Beschreibung vorhanden.</string>
     <string name="podcast_feed_url">Feed-Adresse (Tipp kopiert sie)</string>
+    <string name="podcast_ard_sounds_page">Sendung in ARD Sounds</string>
     <string name="podcast_url_copied">Adresse kopiert</string>
     <string name="podcast_feed_unencrypted">Unverschlüsselt (HTTP): Feed und Adresse sind im Netz lesbar.</string>
     <string name="podcast_tab_feeds">Abos</string>

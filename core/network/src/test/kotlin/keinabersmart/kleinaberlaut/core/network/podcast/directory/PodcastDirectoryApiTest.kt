@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.core.network.podcast.directory
 
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ArdSoundsApi
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -28,6 +29,7 @@ class PodcastDirectoryApiTest {
                 fyyd = mockServer.url("/0.2/search/podcast"),
             ),
             DirectoryAccess(podcastIndexKey = "KEY", podcastIndexSecret = "SECRET", fyydEnabled = true),
+            ArdSoundsApi(OkHttpClient(), mockServer.url("/graphql")),
             clock = { 1_700_000_000_123 },
         )
     }
@@ -114,8 +116,8 @@ class PodcastDirectoryApiTest {
 
     @Test
     fun `only directories the build unlocks are available`() {
-        val locked = PodcastDirectoryApi(OkHttpClient(), DirectoryEndpoints(), DirectoryAccess("", "", fyydEnabled = false), clock = { 0 })
-        assertEquals(listOf(PodcastDirectory.APPLE), locked.available)
+        val locked = PodcastDirectoryApi(OkHttpClient(), DirectoryEndpoints(), DirectoryAccess("", "", fyydEnabled = false), ArdSoundsApi(OkHttpClient()), clock = { 0 })
+        assertEquals(listOf(PodcastDirectory.APPLE, PodcastDirectory.ARD_SOUNDS), locked.available)
         assertEquals(PodcastDirectory.entries, api.available)
     }
 

@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ArdSoundsApi
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -43,7 +44,7 @@ class DatabaseExporterTest {
                     .build()
             }
             .build()
-        val repository = PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client))
+        val repository = PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client))
         importer = DatabaseImporter(repository, db.podcastDao(), db.bookDao(), db.statsDao())
         exporter = DatabaseExporter(db.podcastDao(), db.bookDao(), db.statsDao())
         repository.subscribe(FEED_URL)

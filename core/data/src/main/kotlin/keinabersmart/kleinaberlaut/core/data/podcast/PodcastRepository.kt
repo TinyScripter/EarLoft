@@ -24,6 +24,9 @@ import keinabersmart.kleinaberlaut.core.network.podcast.ParsedEpisode
 import keinabersmart.kleinaberlaut.core.network.podcast.ParsedFeed
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedException
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ArdSoundsApi
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ardSoundsShowId
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.parseArdSoundsInput
 import keinabersmart.kleinaberlaut.core.network.podcast.normalizeFeedUrl
 import keinabersmart.kleinaberlaut.core.network.podcast.directory.feedKey
 import kotlinx.coroutines.CancellationException
@@ -74,6 +77,7 @@ class PodcastRepository @Inject constructor(
     private val dao: PodcastDao,
     private val bookDao: BookDao,
     private val api: PodcastFeedApi,
+    private val ardSounds: ArdSoundsApi,
 ) {
     private val mutex = Mutex()
 
@@ -229,7 +233,7 @@ class PodcastRepository @Inject constructor(
      * gespeichert; die meisten Hosts liefern beides. Erst wenn das scheitert, wird unverschlüsselt abonniert.
      */
     suspend fun subscribe(input: String): SubscribeResult {
-        val entered = normalizeFeedUrl(input) ?: return SubscribeResult.InvalidUrl
+        val entered = FeedAddress.of(input) ?: return SubscribeResult.InvalidUrl
         knownFeed(entered)?.let { feed ->
             if (feed.subscribed) return SubscribeResult.AlreadySubscribed(feed.feedId)
             // Aus der Vorschau: Folgen, Fortschritt, Downloads und Warteschlange bleiben, es wird nur ein Abo daraus.
@@ -245,7 +249,7 @@ class PodcastRepository @Inject constructor(
      * Ergebnis wie bei [subscribe]: [SubscribeResult.Added] bzw. [SubscribeResult.AlreadySubscribed] tragen die Id.
      */
     suspend fun openPreview(input: String): SubscribeResult {
-        val entered = normalizeFeedUrl(input) ?: return SubscribeResult.InvalidUrl
+        val entered = FeedAddress.of(input) ?: return SubscribeResult.InvalidUrl
         knownFeed(entered)?.let { feed ->
             if (feed.subscribed) return SubscribeResult.AlreadySubscribed(feed.feedId)
             refresh(feed.feedId)
@@ -257,25 +261,50 @@ class PodcastRepository @Inject constructor(
     /** Macht aus dem Probeabo [feedId] ein Abo. */
     suspend fun subscribeTrial(feedId: String) = dao.setSubscribed(feedId, true)
 
+    /**
+     * Abo-Adresse aus einer Eingabe: ein RSS-/Atom-Feed oder eine Sendung aus ARD Sounds (Abo-Adresse `ardsounds:<Kennung>`
+     * oder Link der Sendungsseite, Konzept 12.10).
+     */
+    private sealed interface FeedAddress {
+        data class Http(val url: HttpUrl) : FeedAddress
+        data class ArdSounds(val url: String) : FeedAddress
+
+        companion object {
+            fun of(input: String): FeedAddress? =
+                parseArdSoundsInput(input)?.let(::ArdSounds) ?: normalizeFeedUrl(input)?.let(::Http)
+        }
+    }
+
     /** Der gespeicherte Feed zu [entered], auch unter der `https://`-Variante einer `http://`-Adresse. */
-    private suspend fun knownFeed(entered: HttpUrl): PodcastFeedEntity? {
-        val secure = if (entered.isHttps) null else entered.newBuilder().scheme("https").build()
-        return listOfNotNull(secure, entered).firstNotNullOfOrNull { dao.feedByUrl(it.toString()) }
+    private suspend fun knownFeed(entered: FeedAddress): PodcastFeedEntity? = when (entered) {
+        is FeedAddress.ArdSounds -> dao.feedByUrl(entered.url)
+        is FeedAddress.Http -> {
+            val secure = if (entered.url.isHttps) null else entered.url.newBuilder().scheme("https").build()
+            listOfNotNull(secure, entered.url).firstNotNullOfOrNull { dao.feedByUrl(it.toString()) }
+        }
     }
 
     /**
      * Lädt den Feed und legt ihn an. Eine `http://`-Adresse wird zuerst still per HTTPS versucht und bei Erfolg so
      * gespeichert; erst wenn das scheitert, unverschlüsselt.
      */
-    private suspend fun fetchAndAdd(entered: HttpUrl, subscribed: Boolean): SubscribeResult {
-        val secure = if (entered.isHttps) null else entered.newBuilder().scheme("https").build()
+    private suspend fun fetchAndAdd(entered: FeedAddress, subscribed: Boolean): SubscribeResult {
+        if (entered is FeedAddress.ArdSounds) {
+            val showId = checkNotNull(ardSoundsShowId(entered.url))
+            return when (val attempt = fetchForSubscribe("ARD Sounds") { FeedFetch.Fetched(ardSounds.fetch(showId), null, null) }) {
+                is SubscribeFetch.Loaded -> add(entered.url, "ARD Sounds", attempt.fetched, subscribed)
+                is SubscribeFetch.Failed -> attempt.result
+            }
+        }
+        val url = (entered as FeedAddress.Http).url
+        val secure = if (url.isHttps) null else url.newBuilder().scheme("https").build()
         if (secure != null) {
-            val attempt = fetchForSubscribe(secure)
-            if (attempt is SubscribeFetch.Loaded) return add(secure, attempt.fetched, subscribed)
+            val attempt = fetchForSubscribe(secure.host) { api.fetch(secure) }
+            if (attempt is SubscribeFetch.Loaded) return add(secure.toString(), secure.host, attempt.fetched, subscribed)
             Log.i(TAG, "Kein HTTPS bei ${secure.host}, lade unverschlüsselt")
         }
-        return when (val attempt = fetchForSubscribe(entered)) {
-            is SubscribeFetch.Loaded -> add(entered, attempt.fetched, subscribed)
+        return when (val attempt = fetchForSubscribe(url.host) { api.fetch(url) }) {
+            is SubscribeFetch.Loaded -> add(url.toString(), url.host, attempt.fetched, subscribed)
             is SubscribeFetch.Failed -> attempt.result
         }
     }
@@ -285,24 +314,24 @@ class PodcastRepository @Inject constructor(
         data class Failed(val result: SubscribeResult) : SubscribeFetch
     }
 
-    private suspend fun fetchForSubscribe(url: HttpUrl): SubscribeFetch = try {
-        SubscribeFetch.Loaded(api.fetch(url) as FeedFetch.Fetched)
+    /** [source] nennt im Log nur den Host: Private Feeds tragen ihr Zugangstoken in Pfad oder Query. */
+    private suspend fun fetchForSubscribe(source: String, fetch: suspend () -> FeedFetch): SubscribeFetch = try {
+        SubscribeFetch.Loaded(fetch() as FeedFetch.Fetched)
     } catch (e: CancellationException) {
         throw e
     } catch (e: PodcastFeedException) {
-        // Nur der Host: Private Feeds tragen ihr Zugangstoken in Pfad oder Query.
-        Log.w(TAG, "Kein Feed: ${url.host}", e)
+        Log.w(TAG, "Kein Feed: $source", e)
         SubscribeFetch.Failed(SubscribeResult.NotAFeed)
     } catch (e: IOException) {
-        Log.w(TAG, "Feed nicht erreichbar: ${url.host}", e)
+        Log.w(TAG, "Feed nicht erreichbar: $source", e)
         SubscribeFetch.Failed(SubscribeResult.Unreachable)
     }
 
-    private suspend fun add(url: HttpUrl, fetched: FeedFetch.Fetched, subscribed: Boolean): SubscribeResult {
+    private suspend fun add(url: String, fallbackTitle: String, fetched: FeedFetch.Fetched, subscribed: Boolean): SubscribeResult {
         val feed = PodcastFeedEntity(
             feedId = UUID.randomUUID().toString(),
-            url = url.toString(),
-            title = fetched.feed.title.ifBlank { url.host },
+            url = url,
+            title = fetched.feed.title.ifBlank { fallbackTitle },
             subscribed = subscribed,
         )
         mutex.withLock { apply(feed, fetched) }
@@ -322,17 +351,18 @@ class PodcastRepository @Inject constructor(
     /** Vergisst die Stelle einer Folge (ihre Datei löscht `EpisodeDownloads`). */
     suspend fun forgetProgress(bookId: Long) = dao.deleteProgress(bookId)
 
-    /** Die Abos als OPML-Text. Podcasts vom Gerät haben keinen Feed und fehlen. */
+    /** Die Abos als OPML-Text. Podcasts vom Gerät und Sendungen aus ARD Sounds haben keinen Feed und fehlen. */
     suspend fun exportOpml(title: String, createdAt: String): String =
         Opml.write(
-            dao.feeds().filter { !it.isLocal }.sortedBy { it.title.lowercase() }.map { OpmlFeed(it.title, it.url) },
+            dao.feeds().filter { it.hasRssFeed }.sortedBy { it.title.lowercase() }.map { OpmlFeed(it.title, it.url) },
             title,
             createdAt,
         )
 
     /**
      * Übernimmt die Abos aus [feeds]. Abos, die es schon gibt (oder die in der Datei mehrfach stehen), werden übersprungen.
-     * Mit [replace] fallen zuvor alle anderen Abos weg (samt Folgen und Hörfortschritt); Podcasts vom Gerät bleiben. Die Folgen
+     * Mit [replace] fallen zuvor alle anderen Abos weg (samt Folgen und Hörfortschritt); Podcasts vom Gerät und aus ARD Sounds
+     * bleiben, denn eine OPML-Datei kann sie nicht enthalten. Die Folgen
      * der neuen Abos kommen erst mit dem nächsten Abgleich.
      */
     suspend fun importOpml(feeds: List<OpmlFeed>, replace: Boolean): OpmlImportResult = mutex.withLock {
@@ -340,7 +370,7 @@ class PodcastRepository @Inject constructor(
         var removed = 0
         if (replace) {
             val keep = wanted.mapTo(HashSet()) { it.url }
-            dao.feeds().filter { !it.isLocal && it.url !in keep }.forEach {
+            dao.feeds().filter { it.hasRssFeed && it.url !in keep }.forEach {
                 dao.deleteFeed(it.feedId)
                 removed++
             }
@@ -405,7 +435,7 @@ class PodcastRepository @Inject constructor(
         // Podcasts vom Gerät haben keinen Feed; ihre Folgen gleicht [LocalPodcasts] ab.
         if (feed.isLocal) return@withLock RefreshResult(emptyList())
         val fetched = try {
-            api.fetch(feed.url.toHttpUrlOrThrow(), feed.etag, feed.lastModified)
+            fetch(feed)
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
@@ -419,6 +449,12 @@ class PodcastRepository @Inject constructor(
             }
             is FeedFetch.Fetched -> apply(feed, fetched)
         }.also { _refreshed.tryEmit(feedId) }
+    }
+
+    /** Sendungen aus ARD Sounds kommen über GraphQL, ohne bedingten Abruf; ein Fehler dort trifft nur sie. */
+    private suspend fun fetch(feed: PodcastFeedEntity): FeedFetch {
+        ardSoundsShowId(feed.url)?.let { return FeedFetch.Fetched(ardSounds.fetch(it), etag = null, lastModified = null) }
+        return api.fetch(feed.url.toHttpUrlOrThrow(), feed.etag, feed.lastModified)
     }
 
     private suspend fun apply(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult {
@@ -516,6 +552,9 @@ class PodcastRepository @Inject constructor(
 }
 
 private val PodcastFeedEntity.isLocal: Boolean get() = feedId.startsWith(LOCAL_PODCAST_PREFIX)
+
+/** Ein Abo mit RSS-/Atom-Feed, also weder vom Gerät noch aus ARD Sounds; nur solche kennen OPML und andere Apps. */
+internal val PodcastFeedEntity.hasRssFeed: Boolean get() = !isLocal && ardSoundsShowId(url) == null
 
 private fun PodcastFeedEntity.toModel() = PodcastFeed(
     id = feedId,

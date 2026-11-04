@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.core.network.podcast.directory
 import keinabersmart.kleinaberlaut.core.network.BuildConfig
 import keinabersmart.kleinaberlaut.core.network.await
 import keinabersmart.kleinaberlaut.core.network.podcast.PODCAST_USER_AGENT
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ArdSoundsApi
 import keinabersmart.kleinaberlaut.core.network.podcast.normalizeFeedUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,6 +30,7 @@ internal data class DirectoryAccess(
         PodcastDirectory.APPLE -> true
         PodcastDirectory.PODCAST_INDEX -> podcastIndexKey.isNotBlank() && podcastIndexSecret.isNotBlank()
         PodcastDirectory.FYYD -> fyydEnabled
+        PodcastDirectory.ARD_SOUNDS -> true
     }
 
     companion object {
@@ -50,10 +52,12 @@ class PodcastDirectoryApi internal constructor(
     private val client: OkHttpClient,
     private val endpoints: DirectoryEndpoints,
     private val access: DirectoryAccess,
+    private val ardSounds: ArdSoundsApi,
     private val clock: () -> Long,
 ) {
     @Inject
-    constructor(client: OkHttpClient) : this(client, DirectoryEndpoints(), DirectoryAccess.fromBuild(), System::currentTimeMillis)
+    constructor(client: OkHttpClient, ardSounds: ArdSoundsApi) :
+        this(client, DirectoryEndpoints(), DirectoryAccess.fromBuild(), ardSounds, System::currentTimeMillis)
 
     /** Die Verzeichnisse, die dieser Build nutzen darf, in Anzeigereihenfolge. */
     val available: List<PodcastDirectory> = PodcastDirectory.entries.filter(access::allows)
@@ -70,6 +74,7 @@ class PodcastDirectoryApi internal constructor(
                     PodcastDirectory.APPLE -> apple(term, country)
                     PodcastDirectory.PODCAST_INDEX -> podcastIndex(term)
                     PodcastDirectory.FYYD -> fyyd(term)
+                    PodcastDirectory.ARD_SOUNDS -> ardSounds.search(term)
                 }
             } catch (e: SerializationException) {
                 throw IOException("Unlesbare Antwort von $directory", e)

@@ -12,6 +12,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.network.podcast.Opml
 import keinabersmart.kleinaberlaut.core.network.podcast.OpmlFeed
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ArdSoundsApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -42,6 +43,9 @@ class PodcastRepositoryTest {
 
     private val now = Instant.parse("2025-10-31T00:00:00Z").toEpochMilli()
 
+    /** Was die GraphQL-Schnittstelle von ARD Sounds gerade ausliefert; `null` = nicht erreichbar. */
+    private var ardServed: String? = show("Fall 2", "Fall 1")
+
     /** `false`: Der Host spricht kein HTTPS. */
     private var httpsAvailable = true
 
@@ -57,14 +61,15 @@ class PodcastRepositoryTest {
             .addInterceptor { chain ->
                 requested += chain.request().url.toString()
                 if (chain.request().url.isHttps && !httpsAvailable) throw IOException("no TLS")
-                val body = served ?: throw IOException("offline")
+                val ard = chain.request().url.host == "api.ardaudiothek.de"
+                val body = (if (ard) ardServed else served) ?: throw IOException("offline")
                 Response.Builder()
                     .request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
                     .body(body.toResponseBody("application/rss+xml".toMediaType()))
                     .build()
             }
             .build()
-        repository = PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client))
+        repository = PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client))
     }
 
     @After
@@ -529,6 +534,55 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `a show from ARD Sounds is subscribed by its link and refreshed over graphql`() = runTest {
+        val feedId = (repository.subscribe("https://www.ardsounds.de/sendung/radio-tatort/urn:ard:show:abc/") as SubscribeResult.Added).feedId
+
+        val feed = db.podcastDao().feed(feedId)!!
+        assertEquals("ardsounds:urn:ard:show:abc", feed.url)
+        assertEquals("Radio Tatort", feed.title)
+        assertEquals("ARD", feed.author)
+        assertEquals(listOf("Fall 2", "Fall 1"), repository.episodes(feedId).first().map { it.book.title })
+        assertEquals("https://dl.example/Fall 2.mp3", db.bookDao().tracks(idOf(feedId, "Fall 2")).single().remoteFileId)
+        assertEquals(listOf("https://api.ardaudiothek.de/graphql"), requested)
+        assertEquals(SubscribeResult.AlreadySubscribed(feedId), repository.subscribe("ardsounds:urn:ard:show:abc"))
+        assertEquals(mapOf("ardsounds:urn:ard:show:abc" to feedId), repository.subscribedByKey.first())
+
+        ardServed = show("Fall 3", "Fall 2", "Fall 1")
+        val result = repository.refresh(feedId)!!
+
+        assertEquals(listOf(idOf(feedId, "Fall 3")), result.newEpisodeIds)
+    }
+
+    @Test
+    fun `a broken ARD Sounds answer fails only its own shows`() = runTest {
+        val rss = subscribe()
+        val ard = (repository.openPreview("ardsounds:urn:ard:show:abc") as SubscribeResult.Added).feedId
+        repository.subscribeTrial(ard)
+
+        ardServed = """{"data":{"show":{"items":{"nodes":"geändert"}}}}"""
+        val summary = repository.refreshAll()
+
+        assertEquals(false, summary.ok)
+        assertEquals(null, repository.refresh(ard))
+        assertNotNull(repository.refresh(rss))
+        assertEquals(2, db.bookDao().booksOf(ard).size)
+        ardServed = """{"data":{"show":null}}"""
+        assertEquals(SubscribeResult.NotAFeed, repository.subscribe("ardsounds:urn:ard:show:weg"))
+    }
+
+    @Test
+    fun `ARD Sounds shows stay out of opml and survive replacing`() = runTest {
+        subscribe()
+        val ard = (repository.subscribe("ardsounds:urn:ard:show:abc") as SubscribeResult.Added).feedId
+
+        val exported = Opml.parse(repository.exportOpml("Abos", "Mon, 2 Nov 2026 14:10:40 +0100").byteInputStream())
+        repository.importOpml(listOf(OpmlFeed("Alt", "https://example.com/feed.xml")), replace = true)
+
+        assertEquals(listOf(OpmlFeed("Test-Podcast", "https://example.com/feed.xml")), exported)
+        assertTrue(ard in db.podcastDao().feeds().map { it.feedId })
+    }
+
+    @Test
     fun `descriptions keep their html and doubly escaped markup is resolved`() {
         assertEquals("<p>Hallo <b>Welt</b></p>", " <p>Hallo <b>Welt</b></p>\n".toDescriptionHtml())
         assertEquals("<p>Hallo <b>Welt</b></p>", "&lt;p&gt;Hallo &lt;b&gt;Welt&lt;/b&gt;&lt;/p&gt;".toDescriptionHtml())
@@ -536,6 +590,18 @@ class PodcastRepositoryTest {
     }
 
     private companion object {
+        /** Antwort von ARD Sounds für eine Sendung mit den Folgen [titles], neueste zuerst. */
+        fun show(vararg titles: String): String = buildString {
+            append("""{"data":{"show":{"id":"9","coreId":"urn:ard:show:abc","title":"Radio Tatort","description":"Krimis",""")
+            append(""""publicationService":{"title":"ARD"},"items":{"nodes":[""")
+            titles.forEachIndexed { index, title ->
+                if (index > 0) append(',')
+                append("""{"coreId":"urn:ard:publication:$title","title":"$title","publishDate":"2026-10-${20 - index}T10:00:00+02:00","duration":600,""")
+                append(""""audios":[{"url":"https://dl.example/$title.mp3","downloadUrl":"https://dl.example/$title.mp3","allowDownload":true,"mimeType":"audio/mp3"}]}""")
+            }
+            append("]}}}}")
+        }
+
         fun feed(vararg episodes: Pair<String, String>): String = buildString {
             append("""<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>Test-Podcast</title>""")
             episodes.forEach { (title, date) ->

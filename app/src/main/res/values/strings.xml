@@ -500,6 +500,8 @@
     <string name="directory_podcast_index_summary">Open directory, worldwide. Search terms are sent to Podcast Index.</string>
     <string name="directory_fyyd">fyyd</string>
     <string name="directory_fyyd_summary">Directory focused on German-language podcasts. Search terms are sent to fyyd.</string>
+    <string name="directory_ard_sounds">ARD Sounds</string>
+    <string name="directory_ard_sounds_summary">Shows of the German public broadcasters, including those without their own feed. Uses an unofficial interface that may stop working. Search terms are sent to the ARD.</string>
     <string name="podcast_none">No subscriptions yet. Tap “Add podcast” to enter a feed address or search a directory.</string>
     <string name="podcast_nothing_to_continue">Nothing to continue yet. Subscribe to a podcast under “Subscriptions”.</string>
     <string name="podcast_refresh">Refresh podcasts</string>
@@ -558,6 +560,7 @@
     <string name="podcast_search">Search this podcast</string>
     <string name="podcast_no_description">No description available.</string>
     <string name="podcast_feed_url">Feed address (tap to copy)</string>
+    <string name="podcast_ard_sounds_page">Show in ARD Sounds</string>
     <string name="podcast_url_copied">Address copied</string>
     <string name="podcast_feed_unencrypted">Unencrypted (HTTP): the feed and its address can be read on the network.</string>
     <string name="podcast_tab_feeds">Subscriptions</string>

@@ -20,6 +20,7 @@ import keinabersmart.kleinaberlaut.core.model.LOCAL_BOOK_SERVER_ID
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsServerRegistry
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ArdSoundsApi
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.After
@@ -70,7 +71,7 @@ class BookPlaybackSourceTest {
             servers,
             api,
             progressSync,
-            PodcastRepository(db.podcastDao(), dao, PodcastFeedApi(client)),
+            PodcastRepository(db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client)),
             EpisodeQueue(context, dao),
             settings,
             policy,

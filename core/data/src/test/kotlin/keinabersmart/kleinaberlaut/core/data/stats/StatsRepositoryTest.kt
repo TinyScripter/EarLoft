@@ -10,6 +10,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.ListeningStatEntity
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
+import keinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ArdSoundsApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
@@ -53,7 +54,7 @@ class StatsRepositoryTest {
                     .build()
             }
             .build()
-        feedId = (PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client)).subscribe(FEED_URL) as SubscribeResult.Added).feedId
+        feedId = (PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client)).subscribe(FEED_URL) as SubscribeResult.Added).feedId
         stats = StatsRepository(db.statsDao(), db.bookDao(), db.podcastDao())
     }
 
