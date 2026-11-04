@@ -8,3 +8,6 @@ ideas/stand_erledigt.md und ideas/konzept_und_architektur_archiv.md nur lesen, w
 
 # Verhaltensregeln
 Wenn du ein Problem nach 3 Iterationen nicht gelöst hast, stoppe und frage, wie weiter vorgegangen werden soll.
+
+# Commits
+Neue Commits sollen die CI/CD-Pipeline von GitHub (`.github/workflows/ci.yml`) nicht auslösen: Jede Commit-Message endet mit `[skip ci]` in der ersten Zeile (GitHub prüft beim Push den obersten Commit, deshalb in jedem Commit).
