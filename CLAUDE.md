@@ -1,5 +1,5 @@
 # Die APP
-Dies ist eine Android App für selbstgehostete Musik (Navidrome) und lokal auf dem Gerät.
+Dies ist eine Android App für selbstgehostete Musik (Navidrome), Podcasts (RSS-Feeds) und Audiobücher (Audiobookshelf) und lokal auf dem Gerät.
 
 # Kontext und Fortschritt
 Alles, was über kleine Bugfixes allgemeine Fragen hinausgeht, muss gegen ideas/konzept_und_architektur.md geprüft werden.
@@ -7,7 +7,9 @@ Veränderungen und Stände werden in ideas/stand.md gepflegt; abgeschlossene Eta
 ideas/stand_erledigt.md und ideas/konzept_und_architektur_archiv.md nur lesen, wenn stand.md bzw. konzept_und_architektur.md für die Anforderung/das Thema nicht ausreichen.
 
 # Verhaltensregeln
+Erledige grundsätzlich alles auf dem Pixel 10 Pro im Emulator. Wenn ein Emulator nicht ausreicht, gib Rückmeldung.
+Falls ein Chromecast Gerät benötigt wird, frage welches genommen werden darf.
 Wenn du ein Problem nach 3 Iterationen nicht gelöst hast, stoppe und frage, wie weiter vorgegangen werden soll.
 
 # Commits
-Neue Commits sollen die CI/CD-Pipeline von GitHub (`.github/workflows/ci.yml`) nicht auslösen: Jede Commit-Message endet mit `[skip ci]` in der ersten Zeile (GitHub prüft beim Push den obersten Commit, deshalb in jedem Commit).
+Alle Commits werden grundsätzlich in Englisch verfasst.
