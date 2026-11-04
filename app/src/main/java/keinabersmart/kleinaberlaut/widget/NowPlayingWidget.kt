@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
-import android.text.format.DateUtils
 import android.view.KeyEvent
 import android.widget.RemoteViews
 import androidx.annotation.OptIn
@@ -162,11 +161,11 @@ private fun NowPlayingContent(state: WidgetState) {
                 ),
             )
 
-            // Untertitel: bei Musik der Künstler, bei Büchern und Folgen die Restzeit (statt Autor bzw. Abo); ist sie
-            // unbekannt (Länge fehlt), der Autor.
+            // Untertitel: bei Musik der Künstler, bei Büchern und Folgen die Spielzeit (statt Autor bzw. Abo); solange sie
+            // nicht feststeht, der Autor.
             val clock = state.clock?.takeIf { nowPlaying?.isBook == true }
             if (clock != null) {
-                RemainingTime(clock)
+                BookClockLine(clock)
             } else if (nowPlaying != null) {
                 Subtitle(nowPlaying.artist)
             }
@@ -287,22 +286,23 @@ private fun Subtitle(text: String) {
 }
 
 /**
- * „noch 1:02:03“ bzw. „noch 05:12“ (Format wie [DateUtils.formatElapsedTime]). Läuft das Buch, zählt ein Chronometer im
- * Launcher selbst herunter, und zwar nur, solange das Widget zu sehen ist; die App sendet dafür nichts. Pausiert reicht
- * fester Text – ein angehaltener Chronometer rechnete beim erneuten Aufbau durch den Launcher von seiner Basis aus neu.
+ * „00:45:12 / 03:12:01“ (gespielt / gesamt). Läuft das Buch bei 1×, zählt ein Chronometer im Launcher selbst hoch, und
+ * zwar nur, solange das Widget zu sehen ist; die App sendet dafür nichts. Sonst fester Text: pausiert, weil ein
+ * angehaltener Chronometer beim erneuten Aufbau durch den Launcher von seiner Basis aus neu rechnete; bei anderem Tempo,
+ * weil er nur in Echtzeit zählt (dann setzt der Updater die Zeit jede Sekunde neu).
  */
 @Composable
-private fun RemainingTime(clock: BookClock) {
+private fun BookClockLine(clock: BookClock) {
     val context = LocalContext.current
-    if (!clock.running) {
-        Subtitle(context.getString(R.string.widget_remaining, DateUtils.formatElapsedTime(clock.remainingMs / 1000)))
+    if (!clock.ticksItself) {
+        Subtitle(bookClockText(clock.positionMs, clock.durationMs))
         return
     }
     val color = GlanceTheme.colors.onSurfaceVariant
-    val views = RemoteViews(context.packageName, R.layout.widget_remaining_time).apply {
-        val id = R.id.widget_remaining_time
-        setChronometer(id, clock.measuredAtMs + clock.remainingMs, context.getString(R.string.widget_remaining, "%s"), true)
-        setChronometerCountDown(id, true)
+    val total = if (clock.durationMs > 0) " / ${clockText(clock.durationMs)}" else ""
+    val views = RemoteViews(context.packageName, R.layout.widget_book_clock).apply {
+        val id = R.id.widget_book_clock
+        setChronometer(id, clock.measuredAtMs - clock.positionMs, "${chronometerPrefix(clock.positionMs)}%s$total", true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // Wie bei Glance selbst: Hell/Dunkel wechselt der Launcher, ohne dass das Widget neu gebaut wird.
             setColorInt(id, "setTextColor", color.argb(context, night = false), color.argb(context, night = true))

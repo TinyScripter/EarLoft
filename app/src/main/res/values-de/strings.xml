@@ -297,7 +297,6 @@
     <string name="widget_name">Wiedergabe</string>
     <string name="widget_description">Zeigt den aktuellen Titel mit Steuerung.</string>
     <string name="player_nothing_playing">Nichts wird gespielt</string>
-    <string name="widget_remaining">noch %1$s</string>
 
     <!-- Playlists -->
     <string name="playlist_new">Neue Playlist</string>

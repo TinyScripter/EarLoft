@@ -16,8 +16,8 @@ import javax.inject.Singleton
 
 private val Context.widgetStateDataStore: DataStore<Preferences> by preferencesDataStore(name = "widget_state")
 
-/** Was das Widget zuletzt zeigte, pausiert; die Restzeit nur bei Büchern und Folgen. */
-data class SavedWidget(val nowPlaying: NowPlaying, val remainingMs: Long?)
+/** Was das Widget zuletzt zeigte, pausiert; Position und Länge (0 = unbekannt) nur bei Büchern und Folgen. */
+data class SavedWidget(val nowPlaying: NowPlaying, val positionMs: Long?, val durationMs: Long?)
 
 /**
  * Letzter Stand des Widgets über das Ende des Prozesses hinaus, damit es nach langer Pause nicht leer wird. Cover und
@@ -40,7 +40,8 @@ class WidgetStateStore @Inject constructor(
                 isPlaying = false,
                 bookId = bookId,
             ),
-            remainingMs = prefs[KEY_REMAINING_MS]?.takeIf { bookId != null },
+            positionMs = prefs[KEY_POSITION_MS]?.takeIf { bookId != null },
+            durationMs = prefs[KEY_DURATION_MS]?.takeIf { bookId != null },
         )
     }
 
@@ -52,7 +53,8 @@ class WidgetStateStore @Inject constructor(
             prefs.setOrRemove(KEY_SONG_ID, nowPlaying.songId)
             prefs.setOrRemove(KEY_ALBUM_ID, nowPlaying.albumId)
             prefs.setOrRemove(KEY_BOOK_ID, nowPlaying.bookId)
-            prefs.setOrRemove(KEY_REMAINING_MS, saved.remainingMs)
+            prefs.setOrRemove(KEY_POSITION_MS, saved.positionMs)
+            prefs.setOrRemove(KEY_DURATION_MS, saved.durationMs)
         }
     }
 
@@ -66,6 +68,7 @@ class WidgetStateStore @Inject constructor(
         val KEY_SONG_ID = longPreferencesKey("song_id")
         val KEY_ALBUM_ID = longPreferencesKey("album_id")
         val KEY_BOOK_ID = longPreferencesKey("book_id")
-        val KEY_REMAINING_MS = longPreferencesKey("remaining_ms")
+        val KEY_POSITION_MS = longPreferencesKey("position_ms")
+        val KEY_DURATION_MS = longPreferencesKey("duration_ms")
     }
 }
