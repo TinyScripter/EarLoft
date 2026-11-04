@@ -301,6 +301,8 @@
     <string name="widget_name">Playback</string>
     <string name="widget_description">Shows the current track with controls.</string>
     <string name="player_nothing_playing">Nothing is playing</string>
+    <!-- Restzeit eines Buchs bzw. einer Folge beim jetzigen Tempo, z. B. „1:02:03 left“ -->
+    <string name="widget_remaining">%1$s left</string>
 
     <!-- Playlists -->
     <string name="playlist_new">New playlist</string>

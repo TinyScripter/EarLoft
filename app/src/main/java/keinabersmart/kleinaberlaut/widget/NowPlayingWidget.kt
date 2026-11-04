@@ -3,12 +3,17 @@ package keinabersmart.kleinaberlaut.widget
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
+import android.os.Build
+import android.text.format.DateUtils
 import android.view.KeyEvent
+import android.widget.RemoteViews
 import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -24,6 +29,7 @@ import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.LocalSize
@@ -47,10 +53,12 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.layout.wrapContentSize
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
+import androidx.glance.unit.ColorProvider
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaButtonReceiver
 import dagger.hilt.EntryPoint
@@ -154,23 +162,13 @@ private fun NowPlayingContent(state: WidgetState) {
                 ),
             )
 
-            // Untertitel: bei Musik der Künstler, bei Büchern und Folgen die Spielzeit (statt Autor bzw. Abo)
-            val subtitle = when {
-                nowPlaying == null -> null
-                nowPlaying.isBook -> state.clock?.let { bookClockText(it.positionMs, it.durationMs) }
-                else -> nowPlaying.artist
-            }
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    maxLines = 1,
-                    style = TextStyle(
-                        color = GlanceTheme.colors.onSurfaceVariant,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    ),
-                    modifier = GlanceModifier.padding(top = 2.dp)
-                )
+            // Untertitel: bei Musik der Künstler, bei Büchern und Folgen die Restzeit (statt Autor bzw. Abo); ist sie
+            // unbekannt (Länge fehlt), der Autor.
+            val clock = state.clock?.takeIf { nowPlaying?.isBook == true }
+            if (clock != null) {
+                RemainingTime(clock)
+            } else if (nowPlaying != null) {
+                Subtitle(nowPlaying.artist)
             }
 
             Spacer(modifier = GlanceModifier.defaultWeight())
@@ -271,16 +269,57 @@ private fun ControlButton(
     }
 }
 
-/**
- * „0:23 / 1:02 h“ (Stunden und Minuten, angefangene Minuten abgeschnitten); ist die Gesamtlänge unbekannt (0), nur die
- * Position. Minuten statt Sekunden, weil jede neue Anzeige das ganze Widget neu baut.
- */
-internal fun bookClockText(positionMs: Long, durationMs: Long): String =
-    if (durationMs > 0) "${clockOf(positionMs)} / ${clockOf(durationMs)} h" else "${clockOf(positionMs)} h"
+private val SUBTITLE_TEXT_SIZE = 12.sp
+private val SUBTITLE_PADDING = 2.dp
 
-private fun clockOf(ms: Long): String {
-    val totalMinutes = (ms / 60_000).coerceAtLeast(0)
-    return "%d:%02d".format(totalMinutes / 60, totalMinutes % 60)
+@Composable
+private fun Subtitle(text: String) {
+    Text(
+        text = text,
+        maxLines = 1,
+        style = TextStyle(
+            color = GlanceTheme.colors.onSurfaceVariant,
+            fontSize = SUBTITLE_TEXT_SIZE,
+            textAlign = TextAlign.Center
+        ),
+        modifier = GlanceModifier.padding(top = SUBTITLE_PADDING)
+    )
+}
+
+/**
+ * „noch 1:02:03“ bzw. „noch 05:12“ (Format wie [DateUtils.formatElapsedTime]). Läuft das Buch, zählt ein Chronometer im
+ * Launcher selbst herunter, und zwar nur, solange das Widget zu sehen ist; die App sendet dafür nichts. Pausiert reicht
+ * fester Text – ein angehaltener Chronometer rechnete beim erneuten Aufbau durch den Launcher von seiner Basis aus neu.
+ */
+@Composable
+private fun RemainingTime(clock: BookClock) {
+    val context = LocalContext.current
+    if (!clock.running) {
+        Subtitle(context.getString(R.string.widget_remaining, DateUtils.formatElapsedTime(clock.remainingMs / 1000)))
+        return
+    }
+    val color = GlanceTheme.colors.onSurfaceVariant
+    val views = RemoteViews(context.packageName, R.layout.widget_remaining_time).apply {
+        val id = R.id.widget_remaining_time
+        setChronometer(id, clock.measuredAtMs + clock.remainingMs, context.getString(R.string.widget_remaining, "%s"), true)
+        setChronometerCountDown(id, true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Wie bei Glance selbst: Hell/Dunkel wechselt der Launcher, ohne dass das Widget neu gebaut wird.
+            setColorInt(id, "setTextColor", color.argb(context, night = false), color.argb(context, night = true))
+        } else {
+            setTextColor(id, color.getColor(context).toArgb())
+        }
+    }
+    // Ohne Größe füllt der Rahmen, den Glance um die RemoteViews legt, die ganze Spalte.
+    AndroidRemoteViews(views, GlanceModifier.wrapContentSize().padding(top = SUBTITLE_PADDING))
+}
+
+private fun ColorProvider.argb(context: Context, night: Boolean): Int {
+    val configuration = Configuration(context.resources.configuration).apply {
+        uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
+            if (night) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
+    }
+    return getColor(context.createConfigurationContext(configuration)).toArgb()
 }
 
 private fun playerCommand(command: String): Action =
