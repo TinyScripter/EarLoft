@@ -159,6 +159,8 @@ private fun SpokenModeScaffold(
                                 }
                             },
                             shape = SegmentedButtonDefaults.itemShape(index, SpokenMode.entries.size),
+                            // Kein Haken: Die Füllfarbe zeigt die Auswahl schon.
+                            icon = {},
                         ) {
                             Text(stringResource(modeLabel(entry)))
                         }

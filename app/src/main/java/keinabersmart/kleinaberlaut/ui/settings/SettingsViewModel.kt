@@ -71,7 +71,7 @@ data class ServerItem(
 )
 
 data class SettingsUiState(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val themeMode: ThemeMode = ThemeMode.DARK,
     val alwaysShowNavigationBar: Boolean = true,
     val useLocalMedia: Boolean = true,
     val useLocalBooks: Boolean = true,
