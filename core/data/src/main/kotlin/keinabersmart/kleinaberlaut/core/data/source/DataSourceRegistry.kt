@@ -110,6 +110,7 @@ class DataSourceRegistry @Inject constructor(
             credentials = SubsonicCredentials.Password(username, password),
             // JSON-Liste der OpenSubsonic-Extensions, siehe ServerRepository.addServer.
             supportsFormPost = entity.serverCapabilities?.contains("\"formPost\"") == true,
+            castBaseUrl = entity.castBaseUrl?.toHttpUrlOrNull(),
         )
     }
 

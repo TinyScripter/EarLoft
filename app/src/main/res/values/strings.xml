@@ -183,6 +183,10 @@
     <string name="settings_licenses">Licenses</string>
     <string name="server_auto_download">Everything is downloaded automatically</string>
     <string name="server_form_auto_download">Download everything automatically</string>
+    <string name="server_form_cast_url">Address for casting (optional)</string>
+    <string name="server_form_cast_url_hint">http://192.168.0.10:4533</string>
+    <string name="server_form_cast_url_summary">Cast devices load the music from this address, e.g. your home network address if they don’t play the public one. Empty: the address above. Not tested.</string>
+    <string name="server_form_cast_url_invalid">Not a valid address.</string>
     <string name="server_form_auto_download_summary">Every track on this server is downloaded to the device, including newly added ones. Needs a lot of storage.</string>
     <string name="about_title">About the app</string>
     <string name="about_version">Version %1$s</string>

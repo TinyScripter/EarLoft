@@ -30,6 +30,24 @@ class SubsonicServerTest {
     }
 
     @Test
+    fun `cast address defaults to http`() {
+        assertEquals("http://192.168.0.10:4533/", SubsonicServer.normalizeCastUrl("192.168.0.10:4533")?.toString())
+        assertEquals("https://lan.example/nd/", SubsonicServer.normalizeCastUrl("https://lan.example/nd/rest")?.toString())
+        assertNull(SubsonicServer.normalizeCastUrl("ftp://lan.example"))
+    }
+
+    @Test
+    fun `for cast the server uses its cast address if set`() {
+        val plain = SubsonicServer("s", "https://music.example.com/".toHttpUrl(), SubsonicCredentials.ApiKey("k"))
+        assertEquals(plain, plain.forCast())
+
+        val withCast = plain.copy(castBaseUrl = "http://192.168.0.10:4533/".toHttpUrl())
+        val cast = withCast.forCast()
+        assertEquals("http://192.168.0.10:4533/rest/stream", cast.endpoint("stream").build().toString())
+        assertEquals("s", cast.sourceId)
+    }
+
+    @Test
     fun `a server owns only its own rest endpoints`() {
         val server = SubsonicServer(
             sourceId = "s",

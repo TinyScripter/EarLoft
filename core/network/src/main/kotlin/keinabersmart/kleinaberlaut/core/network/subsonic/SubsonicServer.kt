@@ -23,7 +23,12 @@ data class SubsonicServer(
     val credentials: SubsonicCredentials,
     /** OpenSubsonic-Extension `formPost`: Parameter dürfen im POST-Body stehen (lange Song-Listen). */
     val supportsFormPost: Boolean = false,
+    /** Basis-URL für Cast-Empfänger, z. B. die Adresse im Heimnetz; `null` = [baseUrl]. */
+    val castBaseUrl: HttpUrl? = null,
 ) {
+    /** Derselbe Server, wie ihn ein Cast-Empfänger erreicht: mit [castBaseUrl], sonst unverändert. */
+    fun forCast(): SubsonicServer = castBaseUrl?.let { copy(baseUrl = it, castBaseUrl = null) } ?: this
+
     fun endpoint(name: String): HttpUrl.Builder = baseUrl.newBuilder().addPathSegments("rest/$name")
 
     /** Gehört [url] zur REST-API dieses Servers? */
@@ -38,10 +43,18 @@ data class SubsonicServer(
          * Macht aus einer Nutzereingabe eine Basis-URL: ergänzt `https://`, entfernt angehängtes
          * `/rest` oder `/app` und sorgt für einen abschließenden `/`. `null` bei ungültiger Eingabe.
          */
-        fun normalizeBaseUrl(input: String): HttpUrl? {
+        fun normalizeBaseUrl(input: String): HttpUrl? = normalize(input, defaultScheme = "https")
+
+        /**
+         * Wie [normalizeBaseUrl], aber für die Cast-Adresse: Ohne Schema gilt `http://`, denn gemeint ist meist die
+         * Adresse im Heimnetz (z. B. `192.168.0.10:4533`).
+         */
+        fun normalizeCastUrl(input: String): HttpUrl? = normalize(input, defaultScheme = "http")
+
+        private fun normalize(input: String, defaultScheme: String): HttpUrl? {
             val trimmed = input.trim()
             if (trimmed.isEmpty()) return null
-            val withScheme = if ("://" in trimmed) trimmed else "https://$trimmed"
+            val withScheme = if ("://" in trimmed) trimmed else "$defaultScheme://$trimmed"
             val url = withScheme.toHttpUrlOrNull()?.takeIf { it.host.isNotEmpty() } ?: return null
             if (url.scheme != "http" && url.scheme != "https") return null
             val segments = url.pathSegments.filter { it.isNotEmpty() }

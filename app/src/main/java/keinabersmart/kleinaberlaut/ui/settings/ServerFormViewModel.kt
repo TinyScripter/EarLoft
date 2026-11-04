@@ -10,6 +10,7 @@ import keinabersmart.kleinaberlaut.core.data.repository.ConnectionResult
 import keinabersmart.kleinaberlaut.core.data.repository.ServerRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadSettings
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
+import keinabersmart.kleinaberlaut.core.network.subsonic.SubsonicServer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +32,8 @@ data class ServerFormUiState(
     val allowHttp: Boolean = false,
     /** Alles von diesem Server automatisch herunterladen. */
     val autoDownload: Boolean = false,
+    /** Adresse für Cast-Empfänger, leer = die normale Adresse. */
+    val castUrl: String = "",
     val isBusy: Boolean = false,
     val result: ConnectionResult? = null,
     /** Gespeichert oder der Server existiert nicht mehr → Formular schließen. */
@@ -40,9 +43,11 @@ data class ServerFormUiState(
 
     val keepsStoredPassword: Boolean get() = isEditing && hasStoredPassword && password.isEmpty()
 
+    val isCastUrlInvalid: Boolean get() = castUrl.isNotBlank() && SubsonicServer.normalizeCastUrl(castUrl) == null
+
     val canSubmit: Boolean
         get() = !isBusy && !isLoading && url.isNotBlank() && username.isNotBlank() &&
-            (password.isNotEmpty() || keepsStoredPassword) && (!isHttp || allowHttp)
+            (password.isNotEmpty() || keepsStoredPassword) && (!isHttp || allowHttp) && !isCastUrlInvalid
 }
 
 /** Formular zum Anlegen ([sourceId] `null`) oder Bearbeiten eines Servers. */
@@ -82,6 +87,7 @@ class ServerFormViewModel @AssistedInject constructor(
                     // Die unverschlüsselte Verbindung wurde beim Einrichten schon bestätigt.
                     allowHttp = server.info.baseUrl.startsWith("http://", ignoreCase = true),
                     autoDownload = autoDownload,
+                    castUrl = server.info.castBaseUrl.orEmpty(),
                 )
             }
         }
@@ -93,6 +99,7 @@ class ServerFormViewModel @AssistedInject constructor(
     fun onPasswordChange(value: String) = _state.update { it.copy(password = value, result = null) }
     fun onAllowHttpChange(value: Boolean) = _state.update { it.copy(allowHttp = value) }
     fun onAutoDownloadChange(value: Boolean) = _state.update { it.copy(autoDownload = value) }
+    fun onCastUrlChange(value: String) = _state.update { it.copy(castUrl = value) }
 
     fun test() = submit { s ->
         if (sourceId == null) {
@@ -106,10 +113,11 @@ class ServerFormViewModel @AssistedInject constructor(
     fun save() {
         val current = _state.value
         val original = loaded
-        // Nur die Download-Option geändert: kein Verbindungstest, kein erneuter Vollabgleich.
-        if (sourceId != null && original != null && current.canSubmit && current.onlyAutoDownloadDiffersFrom(original)) {
+        // Nur Download-Option oder Cast-Adresse geändert: kein Verbindungstest, kein erneuter Vollabgleich.
+        if (sourceId != null && original != null && current.canSubmit && current.onlyLocalOptionsDifferFrom(original)) {
             viewModelScope.launch {
                 downloadSettings.setAutoDownloadServer(sourceId, current.autoDownload)
+                serverRepository.setCastUrl(sourceId, current.castUrl)
                 _state.update { it.copy(done = true) }
             }
             return
@@ -122,14 +130,17 @@ class ServerFormViewModel @AssistedInject constructor(
             }
             if (result is ConnectionResult.Success) {
                 // Reihenfolge egal: Die Downloads starten bei Änderung der Einstellung und nach jedem Abgleich.
-                (sourceId ?: result.sourceId)?.let { downloadSettings.setAutoDownloadServer(it, s.autoDownload) }
+                (sourceId ?: result.sourceId)?.let {
+                    downloadSettings.setAutoDownloadServer(it, s.autoDownload)
+                    serverRepository.setCastUrl(it, s.castUrl)
+                }
                 _state.update { it.copy(done = true) }
             }
             result
         }
     }
 
-    private fun ServerFormUiState.onlyAutoDownloadDiffersFrom(original: ServerInfo): Boolean =
+    private fun ServerFormUiState.onlyLocalOptionsDifferFrom(original: ServerInfo): Boolean =
         name == original.name && url == original.baseUrl && username == original.username.orEmpty() && password.isEmpty()
 
     private val ServerFormUiState.newPassword: String? get() = password.ifEmpty { null }

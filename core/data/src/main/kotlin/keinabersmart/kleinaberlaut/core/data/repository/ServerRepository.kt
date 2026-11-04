@@ -181,6 +181,17 @@ class ServerRepository @Inject constructor(
         changeListeners.forEach { it.onSongSourcesRemoved() }
     }
 
+    /**
+     * Setzt die Adresse, über die Cast-Empfänger den Server erreichen (leer = die normale Adresse). Ohne Verbindungstest:
+     * Das Handy ist beim Eintragen oft nicht im selben Netz. @return `false` bei ungültiger Eingabe (nichts gespeichert).
+     */
+    suspend fun setCastUrl(sourceId: String, input: String): Boolean {
+        val castUrl = if (input.isBlank()) null else SubsonicServer.normalizeCastUrl(input) ?: return false
+        sourceDao.setCastBaseUrl(sourceId, castUrl?.toString())
+        registry.reload()
+        return true
+    }
+
     fun syncNow(sourceId: String) = refresher.refreshSource(sourceId)
 
     private suspend fun storedPassword(sourceId: String): String? =
@@ -197,6 +208,7 @@ class ServerRepository @Inject constructor(
         username = username,
         lastFullSyncAt = lastFullSyncAt,
         enabled = enabled,
+        castBaseUrl = castBaseUrl,
     )
 
     private companion object {

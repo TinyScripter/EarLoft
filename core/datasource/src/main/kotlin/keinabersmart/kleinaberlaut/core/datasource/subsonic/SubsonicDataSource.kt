@@ -99,17 +99,21 @@ class SubsonicDataSource internal constructor(
             cacheKey = "$sourceId:$remoteId",
         )
 
+    // Der Empfänger lädt selbst, deshalb über die Cast-Adresse, falls eingetragen.
     override fun externalStreamUrl(remoteId: String, transcodeTo: Pair<String, Int>?): String {
+        val target = server.forCast()
         val url = if (transcodeTo == null) {
-            api.streamUrl(server, remoteId)
+            api.streamUrl(target, remoteId)
         } else {
-            api.transcodedStreamUrl(server, remoteId, transcodeTo.first, transcodeTo.second)
+            api.transcodedStreamUrl(target, remoteId, transcodeTo.first, transcodeTo.second)
         }
-        return server.authenticatedUrl(url).toString()
+        return target.authenticatedUrl(url).toString()
     }
 
-    override fun externalCoverUrl(coverRemoteId: String, sizePx: Int): String =
-        server.authenticatedUrl(api.coverArtUrl(server, coverRemoteId, sizePx)).toString()
+    override fun externalCoverUrl(coverRemoteId: String, sizePx: Int): String {
+        val target = server.forCast()
+        return target.authenticatedUrl(api.coverArtUrl(target, coverRemoteId, sizePx)).toString()
+    }
 
     override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? {
         val bytes = api.coverArt(server, remoteId, sizePx) ?: return null
