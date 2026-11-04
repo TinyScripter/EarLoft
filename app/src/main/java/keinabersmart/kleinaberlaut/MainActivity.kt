@@ -111,9 +111,11 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             val themeMode by themeSettings.mode.collectAsStateWithLifecycle(initialValue = null)
+            val systemColorsSetting by themeSettings.systemColors.collectAsStateWithLifecycle(initialValue = null)
             val useLocalMedia by librarySettings.useLocalMedia.collectAsStateWithLifecycle(initialValue = null)
             // Bis die Einstellungen gelesen sind (wenige Millisekunden): nichts zeichnen statt kurz falsch.
             val mode = themeMode ?: return@setContent
+            val systemColors = systemColorsSetting ?: return@setContent
             val localMedia = useLocalMedia ?: return@setContent
             val alwaysNavigationBar by themeSettings.alwaysShowNavigationBar.collectAsStateWithLifecycle(initialValue = true)
 
@@ -131,7 +133,7 @@ class MainActivity : ComponentActivity() {
                 onDispose { }
             }
 
-            KleinaberlautTheme(darkTheme = darkTheme) {
+            KleinaberlautTheme(darkTheme = darkTheme, systemColors = systemColors) {
                 Box(Modifier.fillMaxSize()) {
                     AudioPermissionGate(
                         enabled = localMedia,

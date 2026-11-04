@@ -166,6 +166,8 @@
     <string name="settings_opml_exported">Subscriptions exported.</string>
     <string name="settings_opml_export_failed">Exporting failed.</string>
     <string name="settings_theme">App appearance</string>
+    <string name="settings_system_colors">Use system colors</string>
+    <string name="settings_system_colors_summary">Colors from the wallpaper (Material You) instead of the app colors.</string>
     <string name="settings_always_navigation_bar">Always show navigation bar</string>
     <string name="settings_always_navigation_bar_summary">Only affects the playback screens. Off hides the bar there.</string>
     <string name="theme_system">Follow system setting</string>

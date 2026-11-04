@@ -3,7 +3,6 @@ package keinabersmart.kleinaberlaut.ui.home
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -57,7 +56,8 @@ import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
 import keinabersmart.kleinaberlaut.ui.components.PlayControlViewModel
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
-import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import keinabersmart.kleinaberlaut.ui.components.Shelf
+import keinabersmart.kleinaberlaut.ui.components.ShelfInset
 
 @Composable
 fun HomeScreen(
@@ -147,20 +147,21 @@ private fun HomeContent(
         // vor dem Einfügen; im Effekt hat die Liste schon auf den bisherigen Abschnitt verschoben.
         val wasAtTop = atTop
         LaunchedEffect(hasQueue) { if (hasQueue && wasAtTop) listState.scrollToItem(0) }
-        LazyColumn(Modifier.fillMaxSize(), state = listState) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(vertical = 6.dp)) {
             if (hasQueue) queueSection(queue)
             albumSection("added", R.string.home_recently_added, state.recentlyAdded, onAlbumClick, playingAlbumId, onPlayAlbum)
             albumSection("rediscover", R.string.home_rediscover, state.rediscover, onAlbumClick, playingAlbumId, onPlayAlbum)
             albumSection("played", R.string.home_recently_played, state.recentlyPlayed, onAlbumClick, playingAlbumId, onPlayAlbum)
             if (state.randomArtists.isNotEmpty()) {
-                item(key = "artists-header") { SectionHeader(stringResource(R.string.home_random_artists)) }
                 item(key = "artists") {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        items(state.randomArtists, key = { it.id }) { artist ->
-                            ArtistCard(artist = artist, onClick = { onArtistClick(artist.id) })
+                    Shelf(stringResource(R.string.home_random_artists)) {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = ShelfInset - CardInset),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            items(state.randomArtists, key = { it.id }) { artist ->
+                                ArtistCard(artist = artist, onClick = { onArtistClick(artist.id) })
+                            }
                         }
                     }
                 }
@@ -175,34 +176,38 @@ private fun HomeContent(
  * und die folgenden. Ist ein Titel fertig, löst er sich auf und die Zeile rückt nach.
  */
 private fun LazyListScope.queueSection(queue: QueueRowState) {
-    item(key = "queue-header") {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SectionHeader(stringResource(R.string.player_queue), Modifier.weight(1f))
-            IconButton(onClick = queue.onOpen, modifier = Modifier.padding(end = 8.dp)) {
-                Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.player_open_queue))
-            }
-        }
-    }
     item(key = "queue") {
-        val rowState = rememberContinueRowState(queue.entries.map { it.index.toLong() })
-        LazyRow(
-            state = rowState,
-            contentPadding = PaddingValues(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        Shelf(
+            stringResource(R.string.player_queue),
+            action = {
+                IconButton(onClick = queue.onOpen) {
+                    Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.player_open_queue))
+                }
+            },
         ) {
-            items(queue.entries, key = { it.index }) { item ->
-                val current = item.index == queue.currentIndex
-                QueueCard(
-                    entry = item.entry,
-                    onClick = { queue.onItemClick(item.index) },
-                    modifier = Modifier.width(144.dp).rowItemAnimation(this),
-                    playing = current && queue.isPlaying,
-                    isCurrent = current,
-                )
+            val rowState = rememberContinueRowState(queue.entries.map { it.index.toLong() })
+            LazyRow(
+                state = rowState,
+                contentPadding = PaddingValues(horizontal = ShelfInset - CardInset),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                items(queue.entries, key = { it.index }) { item ->
+                    val current = item.index == queue.currentIndex
+                    QueueCard(
+                        entry = item.entry,
+                        onClick = { queue.onItemClick(item.index) },
+                        modifier = Modifier.width(144.dp).rowItemAnimation(this),
+                        playing = current && queue.isPlaying,
+                        isCurrent = current,
+                    )
+                }
             }
         }
     }
 }
+
+/** Innenabstand der Album-, Künstler- und Warteschlangen-Kacheln; die Reihen ziehen ihn vom Regal-Abstand ab. */
+private val CardInset = 4.dp
 
 /** Kachel eines Titels der Warteschlange wie eine Album-Kachel; der laufende trägt den Play-/Pause-Knopf. */
 @Composable
@@ -239,20 +244,22 @@ private fun LazyListScope.albumSection(
     onPlayAlbum: ((Long) -> Unit)?,
 ) {
     if (albums.isEmpty()) return
-    item(key = "$key-header") { SectionHeader(stringResource(title)) }
     item(key = key) {
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            items(albums, key = { it.id }) { album ->
-                AlbumCard(
-                    album = album,
-                    onClick = { onAlbumClick(album.id) },
-                    width = 144.dp,
-                    onPlay = onPlayAlbum?.let { play -> { play(album.id) } },
-                    playing = album.id == playingAlbumId,
-                )
+        Shelf(stringResource(title)) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = ShelfInset - CardInset),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                items(albums, key = { it.id }) { album ->
+                    AlbumCard(
+                        album = album,
+                        onClick = { onAlbumClick(album.id) },
+                        width = 144.dp,
+                        onPlay = onPlayAlbum?.let { play -> { play(album.id) } },
+                        playing = album.id == playingAlbumId,
+                        contentPadding = CardInset,
+                    )
+                }
             }
         }
     }

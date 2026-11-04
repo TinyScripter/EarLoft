@@ -50,6 +50,8 @@ import keinabersmart.kleinaberlaut.core.model.Playlist
 import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.ui.components.AlbumCard
+import keinabersmart.kleinaberlaut.ui.components.GridTilePadding
+import keinabersmart.kleinaberlaut.ui.components.gridTile
 import keinabersmart.kleinaberlaut.ui.components.PlayControlViewModel
 import keinabersmart.kleinaberlaut.ui.components.ArtistAvatar
 import keinabersmart.kleinaberlaut.ui.components.LoadableList
@@ -219,14 +221,18 @@ fun AlbumGrid(
             columns = GridCells.Adaptive(minSize = 150.dp),
             state = state,
             contentPadding = PaddingValues(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
             items(albums, key = { it.id }) { album ->
                 AlbumCard(
                     album = album,
                     onClick = { onAlbumClick(album.id) },
+                    modifier = Modifier.gridTile(MaterialTheme.colorScheme.surfaceContainer),
                     onPlay = { playControl.playOrPauseAlbum(album.id) },
                     playing = album.id == playingAlbumId,
+                    contentPadding = GridTilePadding,
                 )
             }
         }
@@ -244,17 +250,23 @@ private fun ArtistGrid(artists: List<Artist>, onArtistClick: (Long) -> Unit) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             state = state,
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
             items(artists, key = { it.id }) { artist ->
-                Column(Modifier.clickable { onArtistClick(artist.id) }) {
+                Column(
+                    Modifier
+                        .gridTile(MaterialTheme.colorScheme.surfaceContainer)
+                        .clickable { onArtistClick(artist.id) }
+                        .padding(GridTilePadding),
+                ) {
                     ArtistAvatar(artistId = artist.id, modifier = Modifier.fillMaxWidth(), iconSize = 64.dp)
                     Text(
                         artist.name,
                         style = MaterialTheme.typography.titleSmall,
+                        minLines = 2,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 6.dp),

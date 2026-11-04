@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.aspectRatio
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -281,6 +284,7 @@ fun AlbumCard(
     width: Dp? = null,
     onPlay: (() -> Unit)? = null,
     playing: Boolean = false,
+    contentPadding: Dp = 4.dp,
 ) {
     var menu by remember { mutableStateOf(false) }
     Column(
@@ -292,7 +296,7 @@ fun AlbumCard(
                 onLongClickLabel = stringResource(R.string.action_more),
                 onLongClick = { menu = true },
             )
-            .padding(4.dp),
+            .padding(contentPadding),
     ) {
         if (menu) AlbumMenu(album, onDismiss = { menu = false })
         Box {
@@ -360,6 +364,59 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
         modifier = modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
 }
+
+/** Abstand des Regal-Inhalts zum Rand eines [Shelf]; Reihen darin richten ihr erstes Cover daran aus. */
+val ShelfInset = 12.dp
+
+private val ShelfShape = RoundedCornerShape(24.dp)
+
+/**
+ * Abschnitt als „Regal“: abgesetzte Fläche mit Überschrift (rechts davon optional [action]) und darunter [content],
+ * meist eine horizontale Reihe. Mit [onTitleClick] ist die Überschrift antippbar.
+ */
+@Composable
+fun Shelf(
+    title: String,
+    modifier: Modifier = Modifier,
+    onTitleClick: (() -> Unit)? = null,
+    action: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .clip(ShelfShape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(bottom = ShelfInset),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = 52.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .then(if (onTitleClick != null) Modifier.clickable(onClick = onTitleClick) else Modifier)
+                    .padding(horizontal = ShelfInset + 4.dp, vertical = 12.dp),
+            )
+            if (action != null) Box(Modifier.padding(end = 4.dp)) { action() }
+        }
+        content()
+    }
+}
+
+private val GridTileShape = RoundedCornerShape(16.dp)
+
+/** Innenabstand einer Rasterkachel ([gridTile]). */
+val GridTilePadding = 8.dp
+
+/**
+ * Rasterkachel: eigene Fläche ([color], meist `surfaceContainer`), damit Cover und Titel als Einheit von den Nachbarn
+ * getrennt sind. Vor dem Klick-Modifier setzen, damit die Berührungswelle die ganze Kachel füllt.
+ */
+fun Modifier.gridTile(color: Color): Modifier = clip(GridTileShape).background(color)
 
 /** Hinweis für leere Listen. */
 @Composable
@@ -464,7 +521,8 @@ fun ArtistAvatar(
         modifier = modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(CoverOutlineWidth, coverOutlineColor(), RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

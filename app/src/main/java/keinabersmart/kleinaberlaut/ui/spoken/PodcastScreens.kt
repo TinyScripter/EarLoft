@@ -7,6 +7,7 @@ import androidx.compose.ui.text.AnnotatedString
 import android.content.ClipData
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.remember
@@ -76,6 +77,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -93,6 +95,12 @@ import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
 import keinabersmart.kleinaberlaut.ui.components.LoadableList
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import keinabersmart.kleinaberlaut.ui.components.CoverOutlineWidth
+import keinabersmart.kleinaberlaut.ui.components.GridTilePadding
+import keinabersmart.kleinaberlaut.ui.components.Shelf
+import keinabersmart.kleinaberlaut.ui.components.coverOutlineColor
+import keinabersmart.kleinaberlaut.ui.components.gridTile
+import keinabersmart.kleinaberlaut.ui.components.ShelfInset
 import keinabersmart.kleinaberlaut.ui.valueOrNull
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.settings.SwitchRow
@@ -121,57 +129,62 @@ fun PodcastHomeScreen(
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
     val rowState = rememberContinueRowState(episodes.map { it.book.id })
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
         if (episodes.isNotEmpty()) {
-            item(key = "continue-header") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SectionHeader(stringResource(R.string.spoken_continue), Modifier.weight(1f))
-                    IconButton(onClick = onOpenQueue, modifier = Modifier.padding(end = 8.dp)) {
-                        Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.player_queue))
-                    }
-                }
-            }
             item(key = "continue") {
-                LazyRow(
-                    state = rowState,
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                Shelf(
+                    stringResource(R.string.spoken_continue),
+                    action = {
+                        IconButton(onClick = onOpenQueue) {
+                            Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.player_queue))
+                        }
+                    },
                 ) {
-                    items(episodes, key = { it.book.id }) { item ->
-                        BookCard(
-                            item,
-                            onClick = { onEpisodeClick(item.book.id) },
-                            modifier = Modifier.width(140.dp).rowItemAnimation(this),
-                            onPlay = { viewModel.playOrPause(item.book.id) },
-                            playing = item.book.id == playingId,
-                        )
+                    LazyRow(
+                        state = rowState,
+                        contentPadding = PaddingValues(horizontal = ShelfInset),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(episodes, key = { it.book.id }) { item ->
+                            BookCard(
+                                item,
+                                onClick = { onEpisodeClick(item.book.id) },
+                                modifier = Modifier.width(140.dp).rowItemAnimation(this),
+                                onPlay = { viewModel.playOrPause(item.book.id) },
+                                playing = item.book.id == playingId,
+                            )
+                        }
                     }
                 }
             }
         }
         if (recent.isNotEmpty()) {
-            item(key = "recent-header") { SectionHeader(stringResource(R.string.spoken_recent)) }
-            item(key = "recent") { BookRow(recent, onEpisodeClick, playingId = playingId, onPlay = viewModel::playOrPause) }
+            item(key = "recent") {
+                Shelf(stringResource(R.string.spoken_recent)) {
+                    BookRow(recent, onEpisodeClick, playingId = playingId, onPlay = viewModel::playOrPause)
+                }
+            }
         }
-        item(key = "subscriptions-header") { SectionHeader(stringResource(R.string.podcast_subscriptions)) }
-        val list = feeds.valueOrNull
-        if (feeds == LoadState.Failed) {
-            item(key = "failed") { LoadFailedHint() }
-        } else if (list?.isEmpty() == true) {
-            item(key = "empty") { EmptyHint(stringResource(R.string.podcast_none)) }
-        } else {
-            item(key = "subscriptions") {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(list.orEmpty(), key = { it.id }) { feed ->
-                        FeedCard(
-                            feed,
-                            onClick = { onFeedClick(feed.id) },
-                            onSettings = { onFeedSettings(feed.id) },
-                            modifier = Modifier.width(140.dp),
-                        )
+        item(key = "subscriptions") {
+            Shelf(stringResource(R.string.podcast_subscriptions)) {
+                val list = feeds.valueOrNull
+                if (feeds == LoadState.Failed) {
+                    LoadFailedHint()
+                } else if (list?.isEmpty() == true) {
+                    EmptyHint(stringResource(R.string.podcast_none))
+                } else {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = ShelfInset),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(list.orEmpty(), key = { it.id }) { feed ->
+                            FeedCard(
+                                feed,
+                                onClick = { onFeedClick(feed.id) },
+                                onSettings = { onFeedSettings(feed.id) },
+                                modifier = Modifier.width(140.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -187,20 +200,30 @@ fun PodcastHomeScreen(
 
 /** Bild und Titel eines Abos; Langklick öffnet das [FeedMenu], dessen letzter Eintrag die Einstellungen ([onSettings]). */
 @Composable
-fun FeedCard(feed: PodcastFeed, onClick: () -> Unit, onSettings: () -> Unit, modifier: Modifier = Modifier) {
+fun FeedCard(
+    feed: PodcastFeed,
+    onClick: () -> Unit,
+    onSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: Dp = 0.dp,
+) {
     var menu by remember { mutableStateOf(false) }
     Column(
-        modifier.combinedClickable(
-            onClick = onClick,
-            onLongClickLabel = stringResource(R.string.action_more),
-            onLongClick = { menu = true },
-        ),
+        modifier
+            .combinedClickable(
+                onClick = onClick,
+                onLongClickLabel = stringResource(R.string.action_more),
+                onLongClick = { menu = true },
+            )
+            .padding(contentPadding),
     ) {
         if (menu) FeedMenu(feed, onSettings = onSettings, onDismiss = { menu = false })
         PodcastArt(feed.imageUrl, Modifier.fillMaxWidth())
+        // Immer zwei Zeilen hoch, damit Kacheln einer Reihe gleich hoch sind.
         Text(
             feed.title,
             style = MaterialTheme.typography.bodyMedium,
+            minLines = 2,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp),
@@ -280,30 +303,23 @@ private fun UnheardList(
     playingId: Long?,
     onPlay: (Long) -> Unit,
 ) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
         unheard.forEach { (feed, episodes) ->
-            item(key = "header-${feed.id}") {
-                Text(
-                    feed.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable { onFeedClick(feed.id) }.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                )
-            }
-            item(key = "row-${feed.id}") {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(episodes, key = { it.book.id }) { item ->
-                        BookCard(
-                            item,
-                            onClick = { onEpisodeClick(item.book.id) },
-                            modifier = Modifier.width(140.dp),
-                            onPlay = { onPlay(item.book.id) },
-                            playing = item.book.id == playingId,
-                        )
+            item(key = "feed-${feed.id}") {
+                Shelf(feed.title, onTitleClick = { onFeedClick(feed.id) }) {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = ShelfInset),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(episodes, key = { it.book.id }) { item ->
+                            BookCard(
+                                item,
+                                onClick = { onEpisodeClick(item.book.id) },
+                                modifier = Modifier.width(140.dp),
+                                onPlay = { onPlay(item.book.id) },
+                                playing = item.book.id == playingId,
+                            )
+                        }
                     }
                 }
             }
@@ -324,13 +340,19 @@ private fun FeedGrid(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 // Unten Platz lassen, damit der Knopf das letzte Abo nicht verdeckt.
-                contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 88.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(feeds, key = { it.id }) { feed ->
-                    FeedCard(feed, onClick = { onFeedClick(feed.id) }, onSettings = { onFeedSettings(feed.id) })
+                    FeedCard(
+                        feed,
+                        onClick = { onFeedClick(feed.id) },
+                        onSettings = { onFeedSettings(feed.id) },
+                        modifier = Modifier.gridTile(MaterialTheme.colorScheme.surfaceContainer),
+                        contentPadding = GridTilePadding,
+                    )
                 }
             }
         }
@@ -805,7 +827,8 @@ fun PodcastArt(
         modifier = modifier
             .aspectRatio(1f)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .border(CoverOutlineWidth, coverOutlineColor(), shape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

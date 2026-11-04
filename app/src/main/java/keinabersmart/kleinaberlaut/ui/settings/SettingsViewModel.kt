@@ -72,6 +72,7 @@ data class ServerItem(
 
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.DARK,
+    val systemColors: Boolean = false,
     val alwaysShowNavigationBar: Boolean = true,
     val useLocalMedia: Boolean = true,
     val useLocalBooks: Boolean = true,
@@ -214,8 +215,8 @@ class SettingsViewModel @Inject constructor(
         )
     }.combine(artworkSettings.authorImages) { state, authors ->
         state.copy(authorImages = authors)
-    }.combine(themeSettings.alwaysShowNavigationBar) { state, always ->
-        state.copy(alwaysShowNavigationBar = always)
+    }.combine(combine(themeSettings.alwaysShowNavigationBar, themeSettings.systemColors, ::Pair)) { state, (always, systemColors) ->
+        state.copy(alwaysShowNavigationBar = always, systemColors = systemColors)
     }.combine(combine(spokenSettings.useLocalBooks, spokenSettings.useLocalPodcasts, ::Pair)) { state, (books, podcasts) ->
         state.copy(useLocalBooks = books, useLocalPodcasts = podcasts)
     }.combine(audiobookServers.servers) { state, list ->
@@ -297,6 +298,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { themeSettings.setMode(mode) }
+    }
+
+    fun setSystemColors(enabled: Boolean) {
+        viewModelScope.launch { themeSettings.setSystemColors(enabled) }
     }
 
     fun setAlwaysShowNavigationBar(enabled: Boolean) {

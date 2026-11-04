@@ -12,8 +12,8 @@ import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -65,6 +66,9 @@ import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import keinabersmart.kleinaberlaut.core.model.SpokenMode
 import keinabersmart.kleinaberlaut.navigation.SharedAcrossScreens
+import keinabersmart.kleinaberlaut.ui.components.AppLogo
+import keinabersmart.kleinaberlaut.ui.components.CoverOutlineWidth
+import keinabersmart.kleinaberlaut.ui.components.coverOutlineColor
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
@@ -111,9 +115,11 @@ private fun SpokenModeScaffold(
     val collapse = remember(compactHeight) { HeaderCollapse(compactHeight) }
     // Die Statusleiste verbraucht das Banner; die Bildschirme darunter haben keine eigene Leiste mehr.
     // Der Statuszeilen-Inset bleibt außerhalb des einklappbaren Kopfs, sonst rutscht der Inhalt beim Einklappen darunter.
+    // Der Kopf liegt als getöntes Band (samt Statusleiste) über dem Inhalt, der auf der normalen Fläche beginnt.
     Column(
         modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .windowInsetsPadding(TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Top))
             .nestedScroll(collapse),
     ) {
@@ -123,13 +129,8 @@ private fun SpokenModeScaffold(
             Column(Modifier.collapsingHeader(collapse)) {
                 TopAppBar(
                     windowInsets = TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Horizontal),
-                    title = {
-                        Image(
-                            painter = painterResource(R.drawable.logo_wide),
-                            contentDescription = stringResource(R.string.app_name),
-                            modifier = Modifier.height(40.dp),
-                        )
-                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                    title = { AppLogo(Modifier.height(40.dp)) },
                     // Wie im einzelnen Abo: Aktualisieren ganz rechts, die Suche links davon.
                     actions = {
                         IconButton(onClick = onSearch) {
@@ -148,7 +149,12 @@ private fun SpokenModeScaffold(
                         }
                     },
                 )
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                // Der gewählte Bereich trägt die Akzentfarbe (wie die Play-Knöpfe), die anderen liegen hell auf dem Band.
+                val segmentColors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)) {
                     SpokenMode.entries.forEachIndexed { index, entry ->
                         SegmentedButton(
                             selected = mode == entry,
@@ -159,6 +165,7 @@ private fun SpokenModeScaffold(
                                 }
                             },
                             shape = SegmentedButtonDefaults.itemShape(index, SpokenMode.entries.size),
+                            colors = segmentColors,
                             // Kein Haken: Die Füllfarbe zeigt die Auswahl schon.
                             icon = {},
                         ) {
@@ -174,7 +181,11 @@ private fun SpokenModeScaffold(
             SpokenMode.BOOKS -> viewModel::refreshBooks
             SpokenMode.PODCASTS -> viewModel::refreshPodcasts
         }
-        PullToRefreshBox(isRefreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.weight(1f).fillMaxWidth().background(MaterialTheme.colorScheme.background),
+        ) {
             content(mode)
         }
     }
@@ -231,7 +242,8 @@ fun BookArt(
         modifier = modifier
             .aspectRatio(1f)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .border(CoverOutlineWidth, coverOutlineColor(), shape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.ui.settings
 
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -82,7 +83,18 @@ fun GeneralSettingsScreen(
                 onClick = { choosingTheme = true },
             )
         }
-
+        // Material You gibt es erst ab Android 12; davor gelten immer die App-Farben.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            item(key = "system-colors") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_system_colors),
+                    summary = stringResource(R.string.settings_system_colors_summary),
+                    icon = DesignR.drawable.ic_palette,
+                    checked = state.systemColors,
+                    onCheckedChange = viewModel::setSystemColors,
+                )
+            }
+        }
         item(key = "always-nav") {
             SwitchRow(
                 title = stringResource(R.string.settings_always_navigation_bar),

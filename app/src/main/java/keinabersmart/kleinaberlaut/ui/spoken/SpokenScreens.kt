@@ -51,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,7 +75,10 @@ import keinabersmart.kleinaberlaut.ui.components.LoadFailedHint
 import keinabersmart.kleinaberlaut.ui.components.LoadingIndicator
 import keinabersmart.kleinaberlaut.ui.valueOrNull
 import keinabersmart.kleinaberlaut.ui.components.PlayPauseButton
-import keinabersmart.kleinaberlaut.ui.components.SectionHeader
+import keinabersmart.kleinaberlaut.ui.components.GridTilePadding
+import keinabersmart.kleinaberlaut.ui.components.Shelf
+import keinabersmart.kleinaberlaut.ui.components.gridTile
+import keinabersmart.kleinaberlaut.ui.components.ShelfInset
 
 /** Bücher mit gleichem Autor bzw. aus der gleichen Serie. */
 data class BookGroup(val name: String, val books: List<BookWithProgress>)
@@ -118,16 +122,20 @@ fun SpokenHomeScreen(
     Column(modifier.fillMaxSize()) {
         when {
             hasServer == false -> NoServerHint(onSetup)
-            else -> LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
+            else -> LazyColumn(contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
                 if (continueListening.isNotEmpty()) {
-                    item(key = "continue-header") { SectionHeader(stringResource(R.string.spoken_continue)) }
                     item(key = "continue") {
-                        BookRow(continueListening, onBookClick, state = rowState, playingId = playingId, onPlay = viewModel::playOrPause)
+                        Shelf(stringResource(R.string.spoken_continue)) {
+                            BookRow(continueListening, onBookClick, state = rowState, playingId = playingId, onPlay = viewModel::playOrPause)
+                        }
                     }
                 }
                 if (recent.isNotEmpty()) {
-                    item(key = "recent-header") { SectionHeader(stringResource(R.string.spoken_recent)) }
-                    item(key = "recent") { BookRow(recent, onBookClick, playingId = playingId, onPlay = viewModel::playOrPause) }
+                    item(key = "recent") {
+                        Shelf(stringResource(R.string.spoken_recent)) {
+                            BookRow(recent, onBookClick, playingId = playingId, onPlay = viewModel::playOrPause)
+                        }
+                    }
                 }
                 if (continueState == LoadState.Failed || recentState == LoadState.Failed) {
                     item(key = "failed") { LoadFailedHint() }
@@ -210,17 +218,19 @@ private fun BookGrid(
         LazyVerticalGrid(
             columns = GridCells.Adaptive(150.dp),
             state = state,
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
             items(books, key = { it.book.id }) { item ->
                 BookCard(
                     item,
                     onClick = { onBookClick(item.book.id) },
+                    modifier = Modifier.gridTile(MaterialTheme.colorScheme.surfaceContainer),
                     onPlay = { onPlay(item.book.id) },
                     playing = item.book.id == playingId,
+                    contentPadding = GridTilePadding,
                 )
             }
         }
@@ -245,13 +255,18 @@ private fun AuthorGrid(authors: List<BookGroup>, onClick: (String) -> Unit) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             state = state,
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
             items(authors, key = { it.name }) { author ->
-                Column(Modifier.clickable { onClick(author.name) }) {
+                Column(
+                    Modifier
+                        .gridTile(MaterialTheme.colorScheme.surfaceContainer)
+                        .clickable { onClick(author.name) }
+                        .padding(GridTilePadding),
+                ) {
                     Box {
                         BookArt(author.books.first().book.id, Modifier.fillMaxWidth())
                         // Liegt über dem Buchcover; schlägt das Laden fehl, bleibt das Cover sichtbar.
@@ -266,6 +281,7 @@ private fun AuthorGrid(authors: List<BookGroup>, onClick: (String) -> Unit) {
                     Text(
                         author.name,
                         style = MaterialTheme.typography.titleSmall,
+                        minLines = 2,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 6.dp),
@@ -358,7 +374,7 @@ internal fun BookRow(
 ) {
     LazyRow(
         state = state,
-        contentPadding = PaddingValues(horizontal = 16.dp),
+        contentPadding = PaddingValues(horizontal = ShelfInset),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(books, key = { it.book.id }) { item ->
@@ -408,11 +424,18 @@ private const val ROW_SLIDE_MS = 350
 
 /** Cover mit Fortschrittsbalken, darunter Titel und Autor; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts auf dem Cover. */
 @Composable
-fun BookCard(item: BookWithProgress, onClick: () -> Unit, modifier: Modifier = Modifier, onPlay: (() -> Unit)? = null, playing: Boolean = false) {
+fun BookCard(
+    item: BookWithProgress,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onPlay: (() -> Unit)? = null,
+    playing: Boolean = false,
+    contentPadding: Dp = 0.dp,
+) {
     // Kontextmenü per Langklick, bei Folgen und Büchern.
     var menu by remember { mutableStateOf(false) }
     val episode = item.isEpisode
-    Column(modifier.combinedClickable(onClick = onClick, onLongClick = { menu = true })) {
+    Column(modifier.combinedClickable(onClick = onClick, onLongClick = { menu = true }).padding(contentPadding)) {
         EpisodeMenu(item, expanded = menu, onDismiss = { menu = false })
         Box {
             BookArt(item.book.id, Modifier.fillMaxWidth())
