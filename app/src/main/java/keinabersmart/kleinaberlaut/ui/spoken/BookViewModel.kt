@@ -79,7 +79,8 @@ class BookViewModel @AssistedInject constructor(
             val start = if (isEpisode) episodeDownloads.download(bookId) else downloads.download(bookId)
             when (start) {
                 DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)
-                DownloadStart.WAITING_FOR_WIFI -> _messages.emit(R.string.podcast_download_waiting_wifi)
+                DownloadStart.WAITING_FOR_WIFI ->
+                    _messages.emit(if (isEpisode) R.string.podcast_download_waiting_wifi else R.string.book_download_waiting_wifi)
                 DownloadStart.STARTED -> Unit
             }
         }

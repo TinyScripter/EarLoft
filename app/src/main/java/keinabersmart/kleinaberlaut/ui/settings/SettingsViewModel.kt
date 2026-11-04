@@ -98,6 +98,7 @@ data class SettingsUiState(
     val bookResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val podcastResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val restartChapter: Boolean = false,
+    val bookMobileData: Boolean = false,
 )
 
 private data class GeneralSettings(
@@ -225,6 +226,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(podcastAutoPlayNext = autoPlay)
     }.combine(combine(spokenSettings.bookResume, spokenSettings.podcastResume, spokenSettings.restartChapter, ::Triple)) { state, (book, podcast, chapter) ->
         state.copy(bookResume = book, podcastResume = podcast, restartChapter = chapter)
+    }.combine(spokenSettings.bookMobileData) { state, mobile ->
+        state.copy(bookMobileData = mobile)
     }
         .orOnError(SettingsUiState(isLoading = false, isFailed = true))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
@@ -254,6 +257,11 @@ class SettingsViewModel @Inject constructor(
 
     fun setPodcastResume(rule: ResumeRule) {
         viewModelScope.launch { spokenSettings.setPodcastResume(rule) }
+    }
+
+    /** Wartende Buch-Downloads bekommen die neue Netzbedingung sofort (BookDownloads). */
+    fun setBookMobileData(enabled: Boolean) {
+        viewModelScope.launch { spokenSettings.setBookMobileData(enabled) }
     }
 
     fun setRestartChapter(enabled: Boolean) {

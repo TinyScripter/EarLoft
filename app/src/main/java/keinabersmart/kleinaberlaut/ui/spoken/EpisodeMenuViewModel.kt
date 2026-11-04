@@ -83,7 +83,8 @@ class EpisodeMenuViewModel @Inject constructor(
             val start = if (item.isEpisode) downloads.download(item.book.id) else bookDownloads.download(item.book.id)
             when (start) {
                 DownloadStart.OFFLINE -> onHint(R.string.podcast_download_offline)
-                DownloadStart.WAITING_FOR_WIFI -> onHint(R.string.podcast_download_waiting_wifi)
+                DownloadStart.WAITING_FOR_WIFI ->
+                    onHint(if (item.isEpisode) R.string.podcast_download_waiting_wifi else R.string.book_download_waiting_wifi)
                 DownloadStart.STARTED -> Unit
             }
         }

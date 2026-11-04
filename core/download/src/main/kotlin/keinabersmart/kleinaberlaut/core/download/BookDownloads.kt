@@ -10,8 +10,8 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
-import keinabersmart.kleinaberlaut.core.data.podcast.PodcastSettings
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
+import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -25,15 +25,15 @@ import javax.inject.Singleton
 
 /**
  * Downloads von Hörbüchern, nur von Hand (kein Aufräumen, keine Automatik): Die Dateien bleiben, bis der Nutzer sie
- * löscht. Beim Abspielen ersetzen sie den Stream (`BookPlaybackSource`). Netz wie bei den Folgen: WLAN, mit dem
- * Schalter „Auch über Mobilfunk laden“ jedes Netz.
+ * löscht. Beim Abspielen ersetzen sie den Stream (`BookPlaybackSource`). Netz: WLAN, mit dem eigenen Schalter
+ * „Auch über Mobilfunk laden“ der Bücher ([SpokenSettings.bookMobileData]) jedes Netz.
  */
 @Singleton
 class BookDownloads @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val dao: BookDao,
     private val books: BookRepository,
-    private val settings: PodcastSettings,
+    private val settings: SpokenSettings,
     private val storage: BookStorage,
 ) {
     private val started = AtomicBoolean(false)
@@ -43,7 +43,7 @@ class BookDownloads @Inject constructor(
      * erreichbar sein; ohne sie ist das Ergebnis [DownloadStart.OFFLINE].
      */
     suspend fun download(bookId: Long): DownloadStart {
-        val mobileAllowed = settings.useMobileData.first()
+        val mobileAllowed = settings.bookMobileData.first()
         if (books.timeline(bookId) == null) return DownloadStart.OFFLINE
         if (dao.queueBookDownload(bookId) > 0) enqueueWorker()
         return connectionState(mobileAllowed)
@@ -74,14 +74,14 @@ class BookDownloads @Inject constructor(
         }
         // Die Einstellung „Mobilfunk“ gilt für wartende Downloads sofort: den Auftrag mit neuen Bedingungen ersetzen.
         scope.launch {
-            settings.useMobileData.distinctUntilChanged().drop(1).collect {
+            settings.bookMobileData.distinctUntilChanged().drop(1).collect {
                 if (dao.countPendingBookDownloads() > 0) enqueueWorker(replace = true)
             }
         }
     }
 
     private suspend fun enqueueWorker(replace: Boolean = false) {
-        val mobile = settings.useMobileData.first()
+        val mobile = settings.bookMobileData.first()
         val request = OneTimeWorkRequestBuilder<BookDownloadWorker>()
             .setConstraints(
                 Constraints.Builder()

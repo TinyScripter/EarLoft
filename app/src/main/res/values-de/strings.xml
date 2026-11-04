@@ -592,6 +592,9 @@
     <string name="settings_podcast_auto_play_next_summary">Ist eine Folge zu Ende, startet die nächste aus „Weiterhören“.</string>
     <string name="settings_podcast_mobile">Auch über Mobilfunk laden</string>
     <string name="settings_podcast_mobile_summary">Aus: Aktualisieren und das Herunterladen von Folgen laufen nur im WLAN.</string>
+    <string name="book_download_waiting_wifi">Wartet auf WLAN. Mobilfunk kannst du unter Einstellungen → Bücher erlauben.</string>
+    <string name="settings_book_mobile">Auch über Mobilfunk laden</string>
+    <string name="settings_book_mobile_summary">Aus: Bücher werden nur im WLAN heruntergeladen.</string>
     <string name="settings_podcast_auto_count">Automatisch bereitgehaltene Folgen</string>
     <plurals name="settings_podcast_auto_count_value">
         <item quantity="one">Die neueste ungehörte Folge</item>

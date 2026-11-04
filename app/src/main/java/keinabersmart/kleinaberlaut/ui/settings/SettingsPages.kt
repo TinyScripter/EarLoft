@@ -554,7 +554,7 @@ fun PodcastsSettingsScreen(
     }
 }
 
-/** Bücher: Quellen (Gerät, Server) und Autorenbilder; Wiedergabe und Downloads haben noch keine Einstellungen. */
+/** Bücher: Quellen (Gerät, Server), Abgleich, Autorenbilder, Wiedergabe, Downloads (Mobilfunk) und Statistik. */
 @Composable
 fun AudiobookSettingsScreen(
     onBack: () -> Unit,
@@ -612,6 +612,17 @@ fun AudiobookSettingsScreen(
                 icon = DesignR.drawable.ic_book,
                 checked = state.restartChapter,
                 onCheckedChange = viewModel::setRestartChapter,
+            )
+        }
+
+        item(key = "downloads") { SectionHeader(stringResource(R.string.nav_downloads)) }
+        item(key = "book-mobile") {
+            SwitchRow(
+                title = stringResource(R.string.settings_book_mobile),
+                summary = stringResource(R.string.settings_book_mobile_summary),
+                icon = DesignR.drawable.ic_cloud,
+                checked = state.bookMobileData,
+                onCheckedChange = viewModel::setBookMobileData,
             )
         }
 

@@ -596,6 +596,9 @@
     <string name="settings_podcast_auto_play_next_summary">When an episode ends, the next one in Continue listening starts.</string>
     <string name="settings_podcast_mobile">Also use mobile data</string>
     <string name="settings_podcast_mobile_summary">Off: refreshing and downloading episodes only run on Wi-Fi.</string>
+    <string name="book_download_waiting_wifi">Waiting for Wi-Fi. You can allow mobile data in Settings → Books.</string>
+    <string name="settings_book_mobile">Also use mobile data</string>
+    <string name="settings_book_mobile_summary">Off: books are only downloaded on Wi-Fi.</string>
     <string name="settings_podcast_auto_count">Episodes kept ready automatically</string>
     <plurals name="settings_podcast_auto_count_value">
         <item quantity="one">The newest unheard episode</item>

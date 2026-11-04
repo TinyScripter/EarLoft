@@ -84,7 +84,15 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_CHAPTER_RESTART] = enabled }
     }
 
+    /** Bücher auch über Mobilfunk herunterladen (Standard: nur WLAN); unabhängig vom Schalter der Podcasts. */
+    val bookMobileData: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_BOOK_MOBILE] ?: false }
+
+    suspend fun setBookMobileData(enabled: Boolean) {
+        context.spokenSettingsDataStore.edit { it[KEY_BOOK_MOBILE] = enabled }
+    }
+
     private companion object {
+        val KEY_BOOK_MOBILE = booleanPreferencesKey("book_mobile_data")
         val KEY_BOOK_REWIND_AFTER = intPreferencesKey("book_rewind_after_s")
         val KEY_BOOK_REWIND = intPreferencesKey("book_rewind_s")
         val KEY_PODCAST_REWIND_AFTER = intPreferencesKey("podcast_rewind_after_s")
