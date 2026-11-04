@@ -4,7 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -318,7 +318,7 @@ fun AlbumCard(
     }
 }
 
-/** Künstler-Kachel für horizontale Listen: runder Platzhalter, Name, Albenzahl. */
+/** Künstler-Kachel für horizontale Listen: Bild (wie die Autoren der Bücher eckig), Name, Albenzahl. */
 @Composable
 fun ArtistCard(
     artist: Artist,
@@ -332,14 +332,12 @@ fun ArtistCard(
             .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick)
             .padding(4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         ArtistAvatar(artistId = artist.id, modifier = Modifier.fillMaxWidth(), iconSize = 48.dp)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             text = artist.name,
             style = MaterialTheme.typography.titleSmall,
-            textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -461,10 +459,11 @@ fun ArtistAvatar(
     modifier: Modifier = Modifier,
     iconSize: Dp = 48.dp,
 ) {
+    // Eckig mit runden Ecken wie Cover und Autorenbilder; Gesichter sitzen meist oben, daher oben ausgerichtet.
     Box(
         modifier = modifier
             .aspectRatio(1f)
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
@@ -478,6 +477,7 @@ fun ArtistAvatar(
             model = AppUris.artistImage(artistId),
             contentDescription = null,
             contentScale = ContentScale.Crop,
+            alignment = Alignment.TopCenter,
             modifier = Modifier.fillMaxSize(),
         )
     }

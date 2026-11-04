@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.ui.library
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -50,7 +51,7 @@ import keinabersmart.kleinaberlaut.core.model.ServerInfo
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.ui.components.AlbumCard
 import keinabersmart.kleinaberlaut.ui.components.PlayControlViewModel
-import keinabersmart.kleinaberlaut.ui.components.ArtistListItem
+import keinabersmart.kleinaberlaut.ui.components.ArtistAvatar
 import keinabersmart.kleinaberlaut.ui.components.LoadableList
 import keinabersmart.kleinaberlaut.ui.components.LazyGridFastScroller
 import keinabersmart.kleinaberlaut.ui.components.LazyListFastScroller
@@ -108,7 +109,7 @@ fun LibraryScreen(
         ) { page ->
             when (LibraryTab.entries[page]) {
                 LibraryTab.ALBUMS -> LoadableList(albums, stringResource(R.string.library_empty)) { AlbumGrid(it, onAlbumClick, fastScroll = true) }
-                LibraryTab.ARTISTS -> LoadableList(artists, stringResource(R.string.library_empty)) { ArtistList(it, onArtistClick) }
+                LibraryTab.ARTISTS -> LoadableList(artists, stringResource(R.string.library_empty)) { ArtistGrid(it, onArtistClick) }
                 LibraryTab.SONGS -> LoadableList(songs, stringResource(R.string.library_empty)) {
                     SongList(
                         songs = it,
@@ -235,16 +236,38 @@ fun AlbumGrid(
     }
 }
 
+/** Künstler als Raster, zwei pro Reihe, aufgebaut wie die Autoren der Bücher: Bild, darunter Name und Zahl der Alben. */
 @Composable
-private fun ArtistList(artists: List<Artist>, onArtistClick: (Long) -> Unit) {
-    val state = rememberLazyListState()
+private fun ArtistGrid(artists: List<Artist>, onArtistClick: (Long) -> Unit) {
+    val state = rememberLazyGridState()
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), state = state) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            state = state,
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
             items(artists, key = { it.id }) { artist ->
-                ArtistListItem(artist = artist, onClick = { onArtistClick(artist.id) })
+                Column(Modifier.clickable { onArtistClick(artist.id) }) {
+                    ArtistAvatar(artistId = artist.id, modifier = Modifier.fillMaxWidth(), iconSize = 64.dp)
+                    Text(
+                        artist.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    Text(
+                        pluralStringResource(R.plurals.album_count, artist.albumCount, artist.albumCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
-        LazyListFastScroller(state, labelAt = { index -> letterOf(artists.getOrNull(index)?.name.orEmpty().sortKey()) })
+        LazyGridFastScroller(state, labelAt = { index -> letterOf(artists.getOrNull(index)?.name.orEmpty().sortKey()) })
     }
 }
 
