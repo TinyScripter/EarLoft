@@ -47,6 +47,11 @@ class PodcastViewModel @Inject constructor(
         .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** „Zuletzt hinzugefügt“ auf Start; wie „Weiterhören“ ohne eigenen Hinweis bei einem Fehler. */
+    val recent: StateFlow<List<BookWithProgress>> = podcasts.recentEpisodes()
+        .orOnError(emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** Pro Abo die noch nicht zu Ende gehörten Folgen. */
     val unheard: StateFlow<LoadState<List<FeedEpisodes>>> = podcasts.unheardByFeed()
         .asLoadState()

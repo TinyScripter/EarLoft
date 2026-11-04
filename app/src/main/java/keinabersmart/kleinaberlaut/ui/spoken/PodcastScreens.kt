@@ -136,7 +136,10 @@ private fun AddPodcastHost(
     }
 }
 
-/** Start im Modus „Podcasts“: Weiterhören (angefangene Folgen, die zuletzt gehörte links, neue am Ende) und die Abos. */
+/**
+ * Start im Modus „Podcasts“: Weiterhören (angefangene Folgen, die zuletzt gehörte links, neue am Ende), zuletzt
+ * hinzugefügte Folgen und die Abos.
+ */
 @Composable
 fun PodcastHomeScreen(
     onEpisodeClick: (Long) -> Unit,
@@ -147,6 +150,7 @@ fun PodcastHomeScreen(
     viewModel: PodcastViewModel = hiltViewModel(),
 ) {
     val episodes by viewModel.continueListening.collectAsStateWithLifecycle()
+    val recent by viewModel.recent.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
     val rowState = rememberContinueRowState(episodes.map { it.book.id })
@@ -178,6 +182,10 @@ fun PodcastHomeScreen(
                         }
                     }
                 }
+            }
+            if (recent.isNotEmpty()) {
+                item(key = "recent-header") { SectionHeader(stringResource(R.string.spoken_recent)) }
+                item(key = "recent") { BookRow(recent, onEpisodeClick, playingId = playingId, onPlay = viewModel::playOrPause) }
             }
             item(key = "subscriptions-header") { SectionHeader(stringResource(R.string.podcast_subscriptions)) }
             val list = feeds.valueOrNull

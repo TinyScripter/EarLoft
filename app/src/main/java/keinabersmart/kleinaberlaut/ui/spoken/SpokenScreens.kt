@@ -349,7 +349,7 @@ private fun NoServerHint(onSetup: () -> Unit) {
 }
 
 @Composable
-private fun BookRow(
+internal fun BookRow(
     books: List<BookWithProgress>,
     onBookClick: (Long) -> Unit,
     state: LazyListState = rememberLazyListState(),

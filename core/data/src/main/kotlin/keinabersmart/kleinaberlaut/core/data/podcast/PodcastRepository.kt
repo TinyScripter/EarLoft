@@ -124,6 +124,21 @@ class PodcastRepository @Inject constructor(
         }
 
     /**
+     * „Zuletzt hinzugefügt“ auf Start: die neuesten Folgen aller Abos nach Erscheinen, ohne zu Ende gehörte. Folgen aus
+     * „Weiterhören“ bleiben drin, denn dort stehen neue Folgen ohnehin von selbst, nur in der Reihenfolge der Warteschlange.
+     */
+    fun recentEpisodes(limit: Int = RECENT_LIMIT): Flow<List<BookWithProgress>> =
+        combine(dao.observeEpisodes(), bookDao.observeAllProgress()) { episodes, progress ->
+            val byBook = progress.associateBy { it.bookId }
+            episodes.asSequence()
+                .filter { byBook[it.bookId]?.finished != true }
+                .sortedByDescending { it.addedAt }
+                .take(limit)
+                .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
+                .toList()
+        }
+
+    /**
      * „Weiterhören“ (die Warteschlange der Podcasts): ganz vorn die Folgen aus [order] (nicht zu Ende gehörte, in dieser
      * Reihenfolge), dahinter von selbst die angefangenen Folgen mit der zuletzt gehörten zuerst und die neuen, noch nicht
      * angefangenen Folgen der letzten [NEW_DAYS] Tage (neueste zuerst). Folgen in [hidden] fehlen.
@@ -424,6 +439,9 @@ class PodcastRepository @Inject constructor(
         const val NEW_DAYS = 14L
         const val DAY_MS = 24 * 60 * 60 * 1000L
         const val MAX_NEW = 20
+
+        /** Wie bei den Büchern (`BookRepository.recentlyAdded`). */
+        const val RECENT_LIMIT = 12
     }
 }
 

@@ -221,6 +221,16 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `recently added lists the newest episodes first without finished ones`() = runTest {
+        val feedId = subscribe()
+        listen(idOf(feedId, "B"), positionMs = 600_000, updatedAt = 100, finished = true)
+        listen(idOf(feedId, "C"), positionMs = 30_000, updatedAt = 200)
+
+        assertEquals(listOf("A", "C"), repository.recentEpisodes().first().map { it.book.title })
+        assertEquals(listOf("A"), repository.recentEpisodes(limit = 1).first().map { it.book.title })
+    }
+
+    @Test
     fun `refresh keeps started episodes the feed no longer lists and drops the rest`() = runTest {
         val feedId = subscribe()
         listen(idOf(feedId, "B"), positionMs = 60_000, updatedAt = 100)
