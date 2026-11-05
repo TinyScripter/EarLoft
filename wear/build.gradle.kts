@@ -1,4 +1,4 @@
-import keinabersmart.kleinaberlaut.buildlogic.BuildConfig
+import de.kleinabersmart.kleinaberlaut.buildlogic.BuildConfig
 
 plugins {
     alias(libs.plugins.kleinaberlaut.android.application)
@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "keinabersmart.kleinaberlaut.wear"
+    namespace = "de.kleinabersmart.kleinaberlaut.wear"
 
     defaultConfig {
         // Muss mit der Phone-App übereinstimmen (Wearable Data Layer).
-        applicationId = "keinabersmart.kleinaberlaut"
+        applicationId = "de.kleinabersmart.kleinaberlaut"
         minSdk = BuildConfig.MIN_SDK_WEAR
         versionCode = 1
         versionName = "1.0"

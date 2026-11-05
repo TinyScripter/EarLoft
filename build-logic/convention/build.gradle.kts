@@ -2,7 +2,7 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "keinabersmart.kleinaberlaut.buildlogic"
+group = "de.kleinabersmart.kleinaberlaut.buildlogic"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17

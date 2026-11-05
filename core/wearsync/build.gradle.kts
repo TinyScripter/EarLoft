@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "keinabersmart.kleinaberlaut.core.wearsync"
+    namespace = "de.kleinabersmart.kleinaberlaut.core.wearsync"
 }
 
 // Protokoll zwischen Handy und Uhr (Wear-Konzept 4) – von :app und :wear gemeinsam genutzt.

@@ -1,6 +1,6 @@
-import keinabersmart.kleinaberlaut.buildlogic.BuildConfig
-import keinabersmart.kleinaberlaut.buildlogic.libs
-import keinabersmart.kleinaberlaut.buildlogic.library
+import de.kleinabersmart.kleinaberlaut.buildlogic.BuildConfig
+import de.kleinabersmart.kleinaberlaut.buildlogic.libs
+import de.kleinabersmart.kleinaberlaut.buildlogic.library
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPluginExtension

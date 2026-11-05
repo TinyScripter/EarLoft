@@ -1,0 +1,617 @@
+package de.kleinabersmart.kleinaberlaut.core.data.podcast
+
+import android.text.Html
+import android.util.Log
+import de.kleinabersmart.kleinaberlaut.core.common.normalizeForMerge
+import de.kleinabersmart.kleinaberlaut.core.database.dao.BookDao
+import de.kleinabersmart.kleinaberlaut.core.database.dao.PodcastDao
+import de.kleinabersmart.kleinaberlaut.core.database.entity.BookChapterEntity
+import de.kleinabersmart.kleinaberlaut.core.database.entity.BookEntity
+import de.kleinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
+import de.kleinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
+import de.kleinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
+import de.kleinabersmart.kleinaberlaut.core.data.refresh.NewEpisodes
+import de.kleinabersmart.kleinaberlaut.core.data.spoken.toModel
+import de.kleinabersmart.kleinaberlaut.core.model.BookKind
+import de.kleinabersmart.kleinaberlaut.core.model.BookWithProgress
+import de.kleinabersmart.kleinaberlaut.core.model.LOCAL_PODCAST_PREFIX
+import de.kleinabersmart.kleinaberlaut.core.model.PodcastFeed
+import de.kleinabersmart.kleinaberlaut.core.model.TrackDownload
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.FeedFetch
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.Opml
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.OpmlFeed
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.ParsedEpisode
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.ParsedFeed
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedException
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ArdSoundsApi
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.ardsounds.ardSoundsShowId
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.ardsounds.parseArdSoundsInput
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.normalizeFeedUrl
+import de.kleinabersmart.kleinaberlaut.core.network.podcast.directory.feedKey
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import okhttp3.HttpUrl
+import java.io.IOException
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
+
+sealed interface SubscribeResult {
+    data class Added(val feedId: String) : SubscribeResult
+    data class AlreadySubscribed(val feedId: String) : SubscribeResult
+
+    /** Das Abo besteht schon, ist aber archiviert; es lässt sich mit [PodcastRepository.reactivate] zurückholen. */
+    data class Archived(val feedId: String, val title: String) : SubscribeResult
+    data object InvalidUrl : SubscribeResult
+    data object Unreachable : SubscribeResult
+    data object NotAFeed : SubscribeResult
+}
+
+/** Was ein OPML-Import getan hat: neue Abos, übersprungene Dubletten, beim Ersetzen entfernte Abos. */
+data class OpmlImportResult(val added: Int, val skipped: Int, val removed: Int)
+
+/** Ergebnis eines Feed-Abgleichs: `null` bei Fehler, sonst die Folgen, die neu im Feed stehen. */
+data class RefreshResult(val newEpisodeIds: List<Long>)
+
+/** Ergebnis von [PodcastRepository.refreshAll]: `ok`, wenn kein Feed fehlgeschlagen ist, und die Abos mit neuen Folgen. */
+data class PodcastRefreshSummary(val ok: Boolean, val newEpisodes: List<NewEpisodes>) {
+    val newCount: Int get() = newEpisodes.sumOf { it.count }
+}
+
+/** Ein Abo mit einer Auswahl seiner Folgen. */
+data class FeedEpisodes(val feed: PodcastFeed, val episodes: List<BookWithProgress>)
+
+/** Ein Podcast mit seinen fertig geladenen Folgen (Anzahl, belegte Bytes). */
+data class FeedDownload(val feed: PodcastFeed, val episodes: Int, val bytes: Long)
+
+/** Podcast-Abos und ihre Folgen (Konzept 12.1): abonnieren, abgleichen, Kapitel nachladen. */
+@Singleton
+class PodcastRepository @Inject constructor(
+    private val dao: PodcastDao,
+    private val bookDao: BookDao,
+    private val api: PodcastFeedApi,
+    private val ardSounds: ArdSoundsApi,
+) {
+    private val mutex = Mutex()
+
+    private val _refreshed = MutableSharedFlow<String>(extraBufferCapacity = 16)
+
+    /** Meldet die Id jedes Podcasts, dessen Feed gerade abgeglichen wurde (auch ohne Änderung), für die Download-Automatik. */
+    val refreshed: SharedFlow<String> = _refreshed.asSharedFlow()
+
+    val feeds: Flow<List<PodcastFeed>> = dao.observeFeeds().map { list -> list.map { it.toModel() } }
+
+    /** Abos, deren Titel oder Autor [query] enthält (ohne Rücksicht auf Groß-/Kleinschreibung und Akzente). */
+    suspend fun searchFeeds(query: String): List<PodcastFeed> {
+        val needle = query.normalizeForMerge()
+        if (needle.isEmpty()) return emptyList()
+        return feeds.first().filter { it.title.normalizeForMerge().contains(needle) || it.author.normalizeForMerge().contains(needle) }
+    }
+
+    /** Podcasts, von denen mindestens eine Folge geladen ist, nach Titel. */
+    fun feedDownloads(): Flow<List<FeedDownload>> = combine(dao.observeAllFeeds(), dao.observeFeedDownloads()) { feeds, rows ->
+        val byFeed = rows.associateBy { it.feedId }
+        feeds.mapNotNull { feed -> byFeed[feed.feedId]?.let { FeedDownload(feed.toModel(), it.episodes, it.bytes) } }
+    }
+
+    /** Zahl der fertig geladenen Folgen je Podcast (Markierung der Abo-Kacheln); Podcasts ohne fehlen. */
+    fun downloadedEpisodeCounts(): Flow<Map<String, Int>> =
+        dao.observeFeedDownloads().map { rows -> rows.associate { it.feedId to it.episodes } }.distinctUntilChanged()
+
+    /** Download-Zustand aller Folgen mit Download (Markierung der Kacheln); Folgen ohne Eintrag sind nicht geladen. */
+    fun episodeDownloadStates(): Flow<Map<Long, TrackDownload>> =
+        dao.observeEpisodeDownloads().map { rows -> rows.associate { it.bookId to it.state } }.distinctUntilChanged()
+
+    fun feed(feedId: String): Flow<PodcastFeed?> = dao.observeFeed(feedId).map { it?.toModel() }
+
+    /** Archivierte Abos nach Titel (Einstellungen → Podcasts). */
+    val archivedFeeds: Flow<List<PodcastFeed>> = dao.observeArchivedFeeds().map { list -> list.map { it.toModel() } }
+
+    /** Die Abos nach [feedKey] ihrer Adresse, um Verzeichnistreffer als schon abonniert zu erkennen. */
+    val subscribedByKey: Flow<Map<String, String>> = feeds.map { list -> list.filter { !it.isLocal }.associate { feedKey(it.url) to it.id } }
+
+    /** Download-Zustand je Folge eines Podcasts (Folgen ohne Eintrag sind nicht geladen). */
+    fun downloadStates(feedId: String): Flow<Map<Long, TrackDownload>> =
+        dao.observeDownloadStates(feedId).map { rows -> rows.associate { it.bookId to it.state } }
+
+    /** Folgen eines Podcasts, neueste zuerst, mit Fortschritt. */
+    fun episodes(feedId: String): Flow<List<BookWithProgress>> =
+        combine(dao.observeEpisodesOf(feedId), bookDao.observeAllProgress()) { episodes, progress ->
+            val byBook = progress.associateBy { it.bookId }
+            episodes.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
+        }
+
+    /** Pro Abo (nach Titel) die Folgen, die noch nicht zu Ende gehört sind, neueste zuerst; Abos ohne solche Folgen entfallen. */
+    fun unheardByFeed(): Flow<List<FeedEpisodes>> =
+        combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress()) { feeds, episodes, progress ->
+            val byBook = progress.associateBy { it.bookId }
+            val byFeed = episodes
+                .filter { byBook[it.bookId]?.finished != true }
+                .groupBy { it.serverId }
+            feeds.mapNotNull { feed ->
+                byFeed[feed.feedId]?.let { list ->
+                    FeedEpisodes(feed.toModel(), list.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) })
+                }
+            }
+        }
+
+    /**
+     * „Zuletzt hinzugefügt“ auf Start: die neuesten Folgen aller Abos nach Erscheinen, ohne zu Ende gehörte. Folgen aus
+     * „Weiterhören“ bleiben drin, denn dort stehen neue Folgen ohnehin von selbst, nur in der Reihenfolge der Warteschlange.
+     */
+    fun recentEpisodes(limit: Int = RECENT_LIMIT): Flow<List<BookWithProgress>> =
+        combine(dao.observeEpisodes(), bookDao.observeAllProgress()) { episodes, progress ->
+            val byBook = progress.associateBy { it.bookId }
+            episodes.asSequence()
+                .filter { byBook[it.bookId]?.finished != true }
+                .sortedByDescending { it.addedAt }
+                .take(limit)
+                .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
+                .toList()
+        }
+
+    /**
+     * „Weiterhören“ (die Warteschlange der Podcasts): ganz vorn die Folgen aus [order] (nicht zu Ende gehörte, in dieser
+     * Reihenfolge), dahinter von selbst die angefangenen Folgen mit der zuletzt gehörten zuerst und die neuen, noch nicht
+     * angefangenen Folgen der letzten [NEW_DAYS] Tage (neueste zuerst). Folgen in [hidden] fehlen.
+     */
+    fun continueListening(
+        order: Flow<List<Long>> = flowOf(emptyList()),
+        hidden: Flow<Set<Long>> = flowOf(emptySet()),
+        now: () -> Long = System::currentTimeMillis,
+    ): Flow<List<BookWithProgress>> =
+        combine(
+            combine(dao.observeEpisodes(), dao.observeTrialEpisodes(), ::Pair),
+            bookDao.observeAllProgress(),
+            order,
+            hidden,
+        ) { (episodes, trial), progress, orderIds, hiddenIds ->
+            val byBook = progress.associateBy { it.bookId }
+            val started = episodes
+                .filter { it.bookId !in hiddenIds }
+                .mapNotNull { e -> byBook[e.bookId]?.takeIf { !it.finished && it.positionMs > 0 }?.let { e to it } }
+                .sortedByDescending { (_, p) -> p.updatedAt }
+                .map { (e, p) -> BookWithProgress(e.toModel(), p.toModel()) }
+            val since = now() - NEW_DAYS * DAY_MS
+            val fresh = episodes
+                .filter { e ->
+                    e.bookId !in hiddenIds && (byBook[e.bookId]?.positionMs ?: 0L) == 0L &&
+                        byBook[e.bookId]?.finished != true && e.addedAt >= since
+                }
+                .take(MAX_NEW)
+                .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
+            // Folgen der Probeabos stehen nur hier, wo sie ausdrücklich eingereiht wurden (Konzept 12.10).
+            val byId = (episodes + trial).associateBy { it.bookId }
+            val ordered = orderIds.mapNotNull { id ->
+                byId[id]?.takeIf { id !in hiddenIds && byBook[id]?.finished != true }
+                    ?.let { BookWithProgress(it.toModel(), byBook[id]?.toModel()) }
+            }
+            val placed = ordered.mapTo(HashSet()) { it.book.id }
+            ordered + (started + fresh).filter { it.book.id !in placed }
+        }
+
+    suspend fun isEpisode(bookId: Long): Boolean = bookDao.book(bookId)?.kind == BookKind.EPISODE
+
+    /** Eine zu Ende gehörte Folge, die neu startet, gilt wieder als offen (sie beginnt ohnehin von vorn). */
+    suspend fun reopenIfFinished(bookId: Long) {
+        if (bookDao.progress(bookId)?.finished == true) setPlayed(bookId, played = false)
+    }
+
+    /** Ids aller fertig geladenen Folgen. */
+    fun downloadedIds(): Flow<Set<Long>> = dao.observeDownloadedIds().map { it.toSet() }
+
+    /** Markiert die Folge als gespielt (Position ans Ende) oder als ungespielt (Position 0). Nur lokal, es gibt keinen Server. */
+    suspend fun setPlayed(bookId: Long, played: Boolean) {
+        val book = bookDao.book(bookId) ?: return
+        bookDao.upsertProgress(playedProgress(book, bookDao.progress(bookId), played, System.currentTimeMillis()))
+    }
+
+    /** „Alle als gehört markieren“: alle noch offenen Folgen des Abos in einem Zug; gibt ihre Anzahl zurück. */
+    suspend fun setAllPlayed(feedId: String): Int {
+        val finished = dao.finishedEpisodeIds(feedId).toSet()
+        val now = System.currentTimeMillis()
+        val rows = dao.episodeIdsOldestFirst(feedId)
+            .filter { it !in finished }
+            .mapNotNull { id -> bookDao.book(id)?.let { playedProgress(it, bookDao.progress(id), played = true, now) } }
+        if (rows.isNotEmpty()) bookDao.upsertAllProgress(rows)
+        return rows.size
+    }
+
+    private fun playedProgress(book: BookEntity, old: BookProgressEntity?, played: Boolean, now: Long): BookProgressEntity {
+        val duration = book.durationMs.takeIf { it > 0 } ?: old?.durationMs ?: 0
+        return BookProgressEntity(
+            bookId = book.bookId,
+            positionMs = if (played) duration else 0,
+            durationMs = duration,
+            finished = played,
+            speed = old?.speed ?: 1f,
+            updatedAt = now,
+        )
+    }
+
+    /** Setzt die Folge an den Anfang zurück (auch den Zustand „gespielt“). */
+    suspend fun resetPosition(bookId: Long) = setPlayed(bookId, played = false)
+
+    /**
+     * Abonniert den Feed unter [input]. Eine `http://`-Adresse wird zuerst still per HTTPS versucht und bei Erfolg so
+     * gespeichert; die meisten Hosts liefern beides. Erst wenn das scheitert, wird unverschlüsselt abonniert.
+     * Ein archiviertes Abo derselben Adresse bleibt archiviert und meldet [SubscribeResult.Archived].
+     */
+    suspend fun subscribe(input: String): SubscribeResult {
+        val entered = FeedAddress.of(input) ?: return SubscribeResult.InvalidUrl
+        knownFeed(entered)?.let { feed ->
+            if (feed.archived) return SubscribeResult.Archived(feed.feedId, feed.title)
+            if (feed.subscribed) return SubscribeResult.AlreadySubscribed(feed.feedId)
+            // Aus der Vorschau: Folgen, Fortschritt, Downloads und Warteschlange bleiben, es wird nur ein Abo daraus.
+            dao.setSubscribed(feed.feedId, true)
+            return SubscribeResult.Added(feed.feedId)
+        }
+        return fetchAndAdd(entered, subscribed = true)
+    }
+
+    /**
+     * Öffnet die Vorschau des Feeds unter [input] (Konzept 12.10): Gibt es ihn schon (Abo oder Probeabo), dessen Id –
+     * ein Probeabo wird dabei neu abgeglichen; sonst wird er geladen und als Probeabo (`subscribed = false`) angelegt.
+     * Ergebnis wie bei [subscribe]: [SubscribeResult.Added] bzw. [SubscribeResult.AlreadySubscribed] tragen die Id, ein
+     * archiviertes Abo meldet [SubscribeResult.Archived] (ohne Abgleich).
+     */
+    suspend fun openPreview(input: String): SubscribeResult {
+        val entered = FeedAddress.of(input) ?: return SubscribeResult.InvalidUrl
+        knownFeed(entered)?.let { feed ->
+            if (feed.archived) return SubscribeResult.Archived(feed.feedId, feed.title)
+            if (feed.subscribed) return SubscribeResult.AlreadySubscribed(feed.feedId)
+            refresh(feed.feedId)
+            return SubscribeResult.Added(feed.feedId)
+        }
+        return fetchAndAdd(entered, subscribed = false)
+    }
+
+    /** Macht aus dem Probeabo [feedId] ein Abo. */
+    suspend fun subscribeTrial(feedId: String) = dao.setSubscribed(feedId, true)
+
+    /**
+     * Abo-Adresse aus einer Eingabe: ein RSS-/Atom-Feed oder eine Sendung aus ARD Sounds (Abo-Adresse `ardsounds:<Kennung>`
+     * oder Link der Sendungsseite, Konzept 12.10).
+     */
+    private sealed interface FeedAddress {
+        data class Http(val url: HttpUrl) : FeedAddress
+        data class ArdSounds(val url: String) : FeedAddress
+
+        companion object {
+            fun of(input: String): FeedAddress? =
+                parseArdSoundsInput(input)?.let(::ArdSounds) ?: normalizeFeedUrl(input)?.let(::Http)
+        }
+    }
+
+    /** Der gespeicherte Feed zu [entered], auch unter der `https://`-Variante einer `http://`-Adresse. */
+    private suspend fun knownFeed(entered: FeedAddress): PodcastFeedEntity? = when (entered) {
+        is FeedAddress.ArdSounds -> dao.feedByUrl(entered.url)
+        is FeedAddress.Http -> {
+            val secure = if (entered.url.isHttps) null else entered.url.newBuilder().scheme("https").build()
+            listOfNotNull(secure, entered.url).firstNotNullOfOrNull { dao.feedByUrl(it.toString()) }
+        }
+    }
+
+    /**
+     * Lädt den Feed und legt ihn an. Eine `http://`-Adresse wird zuerst still per HTTPS versucht und bei Erfolg so
+     * gespeichert; erst wenn das scheitert, unverschlüsselt.
+     */
+    private suspend fun fetchAndAdd(entered: FeedAddress, subscribed: Boolean): SubscribeResult {
+        if (entered is FeedAddress.ArdSounds) {
+            val showId = checkNotNull(ardSoundsShowId(entered.url))
+            return when (val attempt = fetchForSubscribe("ARD Sounds") { FeedFetch.Fetched(ardSounds.fetch(showId), null, null) }) {
+                is SubscribeFetch.Loaded -> add(entered.url, "ARD Sounds", attempt.fetched, subscribed)
+                is SubscribeFetch.Failed -> attempt.result
+            }
+        }
+        val url = (entered as FeedAddress.Http).url
+        val secure = if (url.isHttps) null else url.newBuilder().scheme("https").build()
+        if (secure != null) {
+            val attempt = fetchForSubscribe(secure.host) { api.fetch(secure) }
+            if (attempt is SubscribeFetch.Loaded) return add(secure.toString(), secure.host, attempt.fetched, subscribed)
+            Log.i(TAG, "Kein HTTPS bei ${secure.host}, lade unverschlüsselt")
+        }
+        return when (val attempt = fetchForSubscribe(url.host) { api.fetch(url) }) {
+            is SubscribeFetch.Loaded -> add(url.toString(), url.host, attempt.fetched, subscribed)
+            is SubscribeFetch.Failed -> attempt.result
+        }
+    }
+
+    private sealed interface SubscribeFetch {
+        data class Loaded(val fetched: FeedFetch.Fetched) : SubscribeFetch
+        data class Failed(val result: SubscribeResult) : SubscribeFetch
+    }
+
+    /** [source] nennt im Log nur den Host: Private Feeds tragen ihr Zugangstoken in Pfad oder Query. */
+    private suspend fun fetchForSubscribe(source: String, fetch: suspend () -> FeedFetch): SubscribeFetch = try {
+        SubscribeFetch.Loaded(fetch() as FeedFetch.Fetched)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: PodcastFeedException) {
+        Log.w(TAG, "Kein Feed: $source", e)
+        SubscribeFetch.Failed(SubscribeResult.NotAFeed)
+    } catch (e: IOException) {
+        Log.w(TAG, "Feed nicht erreichbar: $source", e)
+        SubscribeFetch.Failed(SubscribeResult.Unreachable)
+    }
+
+    private suspend fun add(url: String, fallbackTitle: String, fetched: FeedFetch.Fetched, subscribed: Boolean): SubscribeResult {
+        val feed = PodcastFeedEntity(
+            feedId = UUID.randomUUID().toString(),
+            url = url,
+            title = fetched.feed.title.ifBlank { fallbackTitle },
+            subscribed = subscribed,
+        )
+        mutex.withLock { apply(feed, fetched) }
+        return SubscribeResult.Added(feed.feedId)
+    }
+
+    suspend fun unsubscribe(feedId: String) = dao.deleteFeed(feedId)
+
+    /**
+     * Archiviert das Abo: Es verschwindet aus allen Listen und wird nicht mehr abgeglichen; Folgen, Fortschritt und
+     * Statistik bleiben. Die Downloads löscht der Aufrufer (`EpisodeDownloads.removeAllOf`).
+     */
+    suspend fun archive(feedId: String) = dao.setArchived(feedId, true)
+
+    /**
+     * Holt ein archiviertes Abo zurück und gleicht es gleich ab. Was seit dem Archivieren erschienen ist, gilt damit
+     * als bekannt und löst keine Benachrichtigung aus. `false`, wenn der Abgleich fehlschlug (das Abo ist trotzdem aktiv).
+     */
+    suspend fun reactivate(feedId: String): Boolean {
+        dao.setArchived(feedId, false)
+        return refresh(feedId) != null
+    }
+
+    /** Ids der Probeabos (Konzept 12.10). */
+    val trialFeedIds: Flow<List<String>> = dao.observeTrialFeedIds()
+
+    /** Folgen der Probeabos mit Fortschritt und Download-Zustand, für das Aufräumen. */
+    val trialEpisodes: Flow<List<TrialEpisode>> = dao.observeTrialEpisodeStates().map { rows ->
+        rows.map { TrialEpisode(it.bookId, it.feedId, it.finished, it.hasProgress, it.downloadState.isDownloadPresent()) }
+    }
+
+    /** Vergisst die Stelle einer Folge (ihre Datei löscht `EpisodeDownloads`). */
+    suspend fun forgetProgress(bookId: Long) = dao.deleteProgress(bookId)
+
+    /** Die Abos als OPML-Text. Podcasts vom Gerät und Sendungen aus ARD Sounds haben keinen Feed und fehlen. */
+    suspend fun exportOpml(title: String, createdAt: String): String =
+        Opml.write(
+            dao.feeds().filter { it.hasRssFeed }.sortedBy { it.title.lowercase() }.map { OpmlFeed(it.title, it.url) },
+            title,
+            createdAt,
+        )
+
+    /**
+     * Übernimmt die Abos aus [feeds]. Abos, die es schon gibt (oder die in der Datei mehrfach stehen), werden übersprungen.
+     * Mit [replace] fallen zuvor alle anderen Abos weg (samt Folgen und Hörfortschritt); Podcasts vom Gerät und aus ARD Sounds
+     * bleiben, denn eine OPML-Datei kann sie nicht enthalten. Die Folgen
+     * der neuen Abos kommen erst mit dem nächsten Abgleich.
+     */
+    suspend fun importOpml(feeds: List<OpmlFeed>, replace: Boolean): OpmlImportResult = mutex.withLock {
+        val wanted = feeds.distinctBy { it.url }
+        var removed = 0
+        if (replace) {
+            val keep = wanted.mapTo(HashSet()) { it.url }
+            dao.feeds().filter { it.hasRssFeed && it.url !in keep }.forEach {
+                dao.deleteFeed(it.feedId)
+                removed++
+            }
+        }
+        val known = dao.feeds().mapTo(HashSet()) { it.url }
+        val fresh = wanted.filter { it.url !in known }
+        fresh.forEach {
+            // Ein Probeabo oder archiviertes Abo derselben Adresse wird (wieder) zum Abo (die Adresse ist eindeutig).
+            val stored = dao.feedByUrl(it.url)
+            if (stored != null) {
+                dao.setSubscribed(stored.feedId, true)
+                dao.setArchived(stored.feedId, false)
+            } else {
+                dao.upsertFeed(PodcastFeedEntity(feedId = UUID.randomUUID().toString(), url = it.url, title = it.title))
+            }
+        }
+        OpmlImportResult(added = fresh.size, skipped = feeds.size - fresh.size, removed = removed)
+    }
+
+    suspend fun setAutoDownload(feedId: String, enabled: Boolean) = dao.setAutoDownload(feedId, enabled)
+
+    suspend fun setNewestFirst(feedId: String, newestFirst: Boolean) = dao.setNewestFirst(feedId, newestFirst)
+
+    suspend fun setContinuous(feedId: String, continuous: Boolean) = dao.setContinuous(feedId, continuous)
+
+    suspend fun setNotifyNew(feedId: String, enabled: Boolean) = dao.setNotifyNew(feedId, enabled)
+
+    /**
+     * Die ungehörte Folge, die in der Reihenfolge des Podcasts auf [bookId] folgt und in die Zeile „Weiterhören“
+     * eingereiht wird. `null` bei Hörbüchern, wenn das Einreihen für den Podcast aus ist oder nichts Ungehörtes mehr folgt.
+     */
+    suspend fun autoNextAfter(bookId: Long): Long? {
+        val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.EPISODE } ?: return null
+        // Probeabos reihen nichts von selbst ein: in der Warteschlange steht nur, was ausdrücklich gespielt oder geladen wurde.
+        val feed = dao.feed(book.serverId)?.takeIf { it.continuous && it.subscribed } ?: return null
+        return nextEpisode(playOrder(feed), dao.finishedEpisodeIds(feed.feedId).toSet(), bookId)
+    }
+
+    private suspend fun playOrder(feed: PodcastFeedEntity): List<Long> =
+        dao.episodeIdsOldestFirst(feed.feedId).let { if (feed.newestFirst) it.asReversed() else it }
+
+    /**
+     * Gleicht alle Abos ab. Die Folgen eines Abos, das zum ersten Mal abgeglichen wird, zählen nicht als neu
+     * (sonst meldete jedes frische Abo seine ganze Folgenliste).
+     */
+    suspend fun refreshAll(): PodcastRefreshSummary {
+        var ok = true
+        val news = mutableListOf<NewEpisodes>()
+        dao.feeds().filter { !it.isLocal }.forEach { feed ->
+            val result = refresh(feed.feedId)
+            if (result == null) {
+                ok = false
+            } else if (feed.lastRefreshAt > 0 && result.newEpisodeIds.isNotEmpty()) {
+                news += NewEpisodes(feed.feedId, feed.title, result.newEpisodeIds.size, feed.notifyNew)
+            }
+        }
+        return PodcastRefreshSummary(ok, news)
+    }
+
+    /** Gleicht einen Feed ab. `null`, wenn er nicht erreichbar oder unlesbar ist (die alten Folgen bleiben). */
+    suspend fun refresh(feedId: String): RefreshResult? = mutex.withLock {
+        val feed = dao.feed(feedId) ?: return@withLock RefreshResult(emptyList())
+        // Podcasts vom Gerät haben keinen Feed; ihre Folgen gleicht [LocalPodcasts] ab.
+        if (feed.isLocal) return@withLock RefreshResult(emptyList())
+        val fetched = try {
+            fetch(feed)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            Log.w(TAG, "Abgleich von ${feed.title} fehlgeschlagen", e)
+            return@withLock null
+        }
+        when (fetched) {
+            FeedFetch.NotModified -> {
+                dao.upsertFeed(feed.copy(lastRefreshAt = System.currentTimeMillis()))
+                RefreshResult(emptyList())
+            }
+            is FeedFetch.Fetched -> apply(feed, fetched)
+        }.also { _refreshed.tryEmit(feedId) }
+    }
+
+    /** Sendungen aus ARD Sounds kommen über GraphQL, ohne bedingten Abruf; ein Fehler dort trifft nur sie. */
+    private suspend fun fetch(feed: PodcastFeedEntity): FeedFetch {
+        ardSoundsShowId(feed.url)?.let { return FeedFetch.Fetched(ardSounds.fetch(it), etag = null, lastModified = null) }
+        return api.fetch(feed.url.toHttpUrlOrThrow(), feed.etag, feed.lastModified)
+    }
+
+    private suspend fun apply(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult {
+        val parsed = fetched.feed
+        val generation = feed.syncGeneration + 1
+        val known = bookDao.booksOf(feed.feedId).associateBy { it.remoteId }
+        val title = parsed.title.ifBlank { feed.title }
+        val now = System.currentTimeMillis()
+        val newIds = mutableListOf<Long>()
+        // Der Feed führt die neueste Folge zuerst; die erste Folge eines doppelten guid gewinnt.
+        parsed.episodes.distinctBy { it.guid }.forEach { episode ->
+            val existing = known[episode.guid]
+            val id = bookDao.upsertBook(episode.toEntity(feed.feedId, title, parsed, existing, generation, now))
+            if (existing == null) newIds += id
+            val track = BookTrackEntity(id, 0, episode.audioUrl, 0, episode.durationMs.takeIf { it > 0 } ?: existing?.durationMs ?: 0, episode.mimeType)
+            // Der Download-Stand gehört nicht zum Feed und darf keinen Schreibvorgang auslösen.
+            val stored = bookDao.tracks(id).map { it.copy(downloadState = TrackDownload.NONE, filePath = null, fileSize = 0) }
+            if (stored != listOf(track)) dao.setTrack(track)
+        }
+        dao.deleteUnseenEpisodes(feed.feedId, generation)
+        dao.upsertFeed(
+            feed.copy(
+                title = title,
+                author = parsed.author,
+                description = parsed.description.toDescriptionHtml(),
+                imageUrl = parsed.imageUrl,
+                etag = fetched.etag,
+                lastModified = fetched.lastModified,
+                lastRefreshAt = now,
+                syncGeneration = generation,
+            ),
+        )
+        return RefreshResult(newIds)
+    }
+
+    /** Lädt die Kapitelliste der Folge, falls der Feed eine anbietet und sie noch fehlt. Fehler sind unkritisch. */
+    suspend fun ensureChapters(bookId: Long) {
+        val book = bookDao.book(bookId) ?: return
+        val url = book.chaptersUrl ?: return
+        if (book.kind != BookKind.EPISODE || bookDao.chapters(bookId).isNotEmpty()) return
+        val chapters = try {
+            api.chapters(url)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            Log.w(TAG, "Kapitel von ${book.title} nicht abrufbar", e)
+            return
+        }
+        if (chapters.isEmpty()) return
+        val lastStart = chapters.last().startMs
+        val end = book.durationMs.takeIf { it > lastStart } ?: (lastStart + 1)
+        bookDao.insertChapters(
+            chapters.mapIndexed { index, chapter ->
+                BookChapterEntity(bookId, index, chapter.title, chapter.startMs, chapters.getOrNull(index + 1)?.startMs ?: end)
+            },
+        )
+    }
+
+    private fun ParsedEpisode.toEntity(
+        feedId: String,
+        feedTitle: String,
+        feed: ParsedFeed,
+        existing: BookEntity?,
+        generation: Long,
+        now: Long,
+    ) = BookEntity(
+        serverId = feedId,
+        kind = BookKind.EPISODE,
+        remoteId = guid,
+        title = title.ifBlank { guid },
+        normTitle = title.normalizeForMerge(),
+        author = feedTitle,
+        description = description.toDescriptionHtml(),
+        durationMs = durationMs.takeIf { it > 0 } ?: existing?.durationMs ?: 0,
+        // Ohne Datum im Feed bleibt der Zeitpunkt, an dem die Folge zuerst aufgetaucht ist.
+        addedAt = publishedAt.takeIf { it > 0 } ?: existing?.addedAt ?: now,
+        // Dateien kommen aus dem Feed; es gibt keinen Server, der sie nachliefern müsste.
+        detailsLoaded = true,
+        seenInGeneration = generation,
+        coverUrl = imageUrl ?: feed.imageUrl,
+        chaptersUrl = chaptersUrl,
+    )
+
+    private fun String.toHttpUrlOrThrow() = normalizeFeedUrl(this) ?: throw IOException("Ungültige Feed-Adresse: $this")
+
+    private companion object {
+        const val TAG = "PodcastRepository"
+        const val NEW_DAYS = 14L
+        const val DAY_MS = 24 * 60 * 60 * 1000L
+        const val MAX_NEW = 20
+
+        /** Wie bei den Büchern (`BookRepository.recentlyAdded`). */
+        const val RECENT_LIMIT = 12
+    }
+}
+
+private val PodcastFeedEntity.isLocal: Boolean get() = feedId.startsWith(LOCAL_PODCAST_PREFIX)
+
+/** Ein Abo mit RSS-/Atom-Feed, also weder vom Gerät noch aus ARD Sounds; nur solche kennen OPML und andere Apps. */
+internal val PodcastFeedEntity.hasRssFeed: Boolean get() = !isLocal && ardSoundsShowId(url) == null
+
+private fun PodcastFeedEntity.toModel() = PodcastFeed(
+    id = feedId,
+    url = url,
+    title = title,
+    author = author,
+    description = description,
+    imageUrl = imageUrl,
+    autoDownload = autoDownload,
+    lastRefreshAt = lastRefreshAt,
+    newestFirst = newestFirst,
+    continuous = continuous,
+    notifyNew = notifyNew,
+    subscribed = subscribed,
+    archived = archived,
+)
+
+/**
+ * Beschreibungen kommen als HTML und bleiben mit ihren Tags erhalten; die Oberfläche setzt sie um. Manche Feeds maskieren
+ * das HTML doppelt (nach dem Einlesen steht `&lt;p&gt;` statt `<p>` da): Das wird hier einmal aufgelöst.
+ */
+internal fun String.toDescriptionHtml(): String {
+    val text = trim()
+    return if ('<' !in text && text.contains("&lt;")) Html.fromHtml(text, Html.FROM_HTML_MODE_COMPACT).toString().trim() else text
+}

@@ -14,7 +14,7 @@ val localProperties = Properties().apply {
 fun localString(name: String): String = "\"${localProperties.getProperty(name).orEmpty().trim()}\""
 
 android {
-    namespace = "keinabersmart.kleinaberlaut.core.network"
+    namespace = "de.kleinabersmart.kleinaberlaut.core.network"
 
     buildFeatures {
         buildConfig = true

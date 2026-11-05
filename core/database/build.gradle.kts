@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "keinabersmart.kleinaberlaut.core.database"
+    namespace = "de.kleinabersmart.kleinaberlaut.core.database"
 
     // Migrationstests (Robolectric) lesen die exportierten Schemas als Assets.
     sourceSets.getByName("test").assets.directories.add("$projectDir/schemas")

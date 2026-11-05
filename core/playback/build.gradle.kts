@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "keinabersmart.kleinaberlaut.core.playback"
+    namespace = "de.kleinabersmart.kleinaberlaut.core.playback"
 }
 
 dependencies {

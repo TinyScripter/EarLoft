@@ -8,10 +8,10 @@ plugins {
 }
 
 android {
-    namespace = "keinabersmart.kleinaberlaut"
+    namespace = "de.kleinabersmart.kleinaberlaut"
 
     defaultConfig {
-        applicationId = "keinabersmart.kleinaberlaut"
+        applicationId = "de.kleinabersmart.kleinaberlaut"
         versionCode = 1
         versionName = "1.0"
     }

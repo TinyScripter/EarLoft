@@ -104,7 +104,7 @@ once a release build is published, it will be listed on the
 [Releases page](https://github.com/TinyScripter/kleinaberlaut/releases).
 
 **Requirements:** Android 8.0 or newer (phone), Wear OS 3 or newer (watch). The phone and watch app share one
-application ID (`keinabersmart.kleinaberlaut`), so install both for the watch features.
+application ID (`de.kleinabersmart.kleinaberlaut`), so install both for the watch features.
 
 ## Getting started
 

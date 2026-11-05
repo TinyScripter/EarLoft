@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "keinabersmart.kleinaberlaut.core.designsystem"
+    namespace = "de.kleinabersmart.kleinaberlaut.core.designsystem"
 }
 
 dependencies {
