@@ -195,7 +195,7 @@
     <string name="server_form_auto_download_summary">Jeder Titel dieses Servers wird auf das Gerät geladen, auch neu hinzugekommene. Braucht entsprechend viel Speicher.</string>
     <string name="about_title">Über die App</string>
     <string name="about_version">Version %1$s</string>
-    <string name="about_text">TinyAmp ist ein Player für deine eigene Sammlung: Musik vom Gerät und von deinen Navidrome- oder Subsonic-Servern in einer gemeinsamen Bibliothek, Podcasts aus beliebigen Feeds und Bücher von deinem Audiobookshelf-Server. Alles lässt sich für unterwegs herunterladen, der Fortschritt der Bücher wird mit deinem Server abgeglichen, und deine Musik spielt auch auf der Wear-OS-Uhr.</string>
+    <string name="about_text">TinyAmp ist ein Player für deine eigene Sammlung: Musik, Podcasts und Bücher, vom Gerät und aus dem Netz, jeweils in einer gemeinsamen Bibliothek. Musik kommt außerdem von deinen Navidrome- oder Subsonic-Servern, Podcasts aus beliebigen Feeds und Bücher von deinem Audiobookshelf-Server. Alles lässt sich für unterwegs herunterladen, der Fortschritt der Bücher wird mit deinem Server abgeglichen, und Musik, Podcasts und Bücher spielen auch auf der Wear-OS-Uhr.</string>
     <string name="about_more_info">Weitere Informationen und den Quellcode findest du auf GitHub:</string>
     <string name="about_feedback">Bugs und Feature-Wünsche bitte im Issue-Tracker melden:</string>
     <string name="licenses_title">Lizenzen</string>
