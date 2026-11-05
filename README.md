@@ -99,7 +99,7 @@ commands ("Play …") and a favorite button. Expect rough edges, and please repo
 
 TinyAmp is not yet available in an app store. Build it yourself (see [Building from source](#building-from-source));
 once a release build is published, it will be listed on the
-[Releases page](https://github.com/TinyScripter/kleinaberlaut/releases).
+[Releases page](https://github.com/TinyScripter/TinyAmp/releases).
 
 **Requirements:** Android 8.0 or newer (phone), Wear OS 3 or newer (watch). The phone and watch app share one
 application ID (`de.kleinabersmart.tinyamp`), so install both for the watch features.
@@ -200,8 +200,8 @@ build-logic/          Convention plugins
 ### Build
 
 ```bash
-git clone https://github.com/TinyScripter/kleinaberlaut.git
-cd kleinaberlaut
+git clone https://github.com/TinyScripter/TinyAmp.git
+cd TinyAmp
 
 ./gradlew :app:assembleDebug      # phone APK  -> app/build/outputs/apk/debug/
 ./gradlew :wear:assembleDebug     # watch APK  -> wear/build/outputs/apk/debug/
@@ -255,7 +255,7 @@ Audiobookshelf works the same way, with its own port (by default `13378`).
 ## Contributing
 
 Bug reports and ideas are welcome in the
-[issue tracker](https://github.com/TinyScripter/kleinaberlaut/issues). For code changes, please open an issue first
+[issue tracker](https://github.com/TinyScripter/TinyAmp/issues). For code changes, please open an issue first
 to discuss them and make sure unit tests pass (`./gradlew testDebugUnitTest`).
 
 ## License
