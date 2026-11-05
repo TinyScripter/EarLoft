@@ -21,7 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
-import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodes
+import keinabersmart.kleinaberlaut.core.data.wear.WatchSpoken
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearSelectionStatusDto
@@ -36,10 +36,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
-/** Was sich einzeln auf die Uhr legen lässt: Album, Playlist, Favoriten (Wear-Konzept 5) oder eine Folge (16.1). */
+/** Was sich einzeln auf die Uhr legen lässt: Album, Playlist, Favoriten (Wear-Konzept 5) oder eine Folge bzw. ein Buch (16.1/16.2). */
 sealed interface WatchTarget {
     data class Selection(val kind: WearSelectionKind, val refId: Long?) : WatchTarget
-    data class Episode(val bookId: Long) : WatchTarget
+    data class Spoken(val bookId: Long) : WatchTarget
 }
 
 /** Was auf die Uhr soll (Wear-Konzept 5). Ohne gekoppelte Uhr mit kleinaberlaut ist [isAvailable] `false`. */
@@ -47,7 +47,7 @@ sealed interface WatchTarget {
 class WatchController(
     private val available: State<Boolean>,
     private val selectedKeys: State<Set<String>>,
-    private val selectedEpisodes: State<Set<Long>>,
+    private val selectedSpoken: State<Set<Long>>,
     private val status: State<WearStatusDto?>,
     val setSelected: (target: WatchTarget, selected: Boolean) -> Unit,
 ) {
@@ -57,7 +57,7 @@ class WatchController(
 
     fun isSelected(target: WatchTarget): Boolean = when (target) {
         is WatchTarget.Selection -> isSelected(target.kind, target.refId)
-        is WatchTarget.Episode -> target.bookId in selectedEpisodes.value
+        is WatchTarget.Spoken -> target.bookId in selectedSpoken.value
     }
 
     /** Fortschritt der Uhr für diese Auswahl; `null`, wenn sie nicht ausgewählt ist oder die Uhr noch nichts gemeldet hat. */
@@ -78,7 +78,7 @@ val LocalWatchController = staticCompositionLocalOf<WatchController?> { null }
 class WatchViewModel @Inject constructor(
     watchConnection: WatchConnection,
     private val selections: WearSelectionRepository,
-    private val episodes: WatchEpisodes,
+    private val spoken: WatchSpoken,
     watchStatus: WatchStatusRepository,
 ) : ViewModel() {
     val status: StateFlow<WearStatusDto?> = watchStatus.status
@@ -90,14 +90,14 @@ class WatchViewModel @Inject constructor(
     val selectedKeys: StateFlow<Set<String>> = selections.selectedKeys()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    val selectedEpisodes: StateFlow<Set<Long>> = episodes.selectedIds()
+    val selectedSpoken: StateFlow<Set<Long>> = spoken.selectedIds()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     fun setSelected(target: WatchTarget, selected: Boolean) {
         viewModelScope.launch {
             when (target) {
                 is WatchTarget.Selection -> selections.setSelected(target.kind, target.refId, selected)
-                is WatchTarget.Episode -> episodes.setSelected(target.bookId, selected)
+                is WatchTarget.Spoken -> spoken.setSelected(target.bookId, selected)
             }
         }
     }
@@ -107,9 +107,9 @@ class WatchViewModel @Inject constructor(
 fun rememberWatchController(viewModel: WatchViewModel = hiltViewModel()): WatchController {
     val available = viewModel.available.collectAsStateWithLifecycle()
     val selectedKeys = viewModel.selectedKeys.collectAsStateWithLifecycle()
-    val selectedEpisodes = viewModel.selectedEpisodes.collectAsStateWithLifecycle()
+    val selectedSpoken = viewModel.selectedSpoken.collectAsStateWithLifecycle()
     val status = viewModel.status.collectAsStateWithLifecycle()
-    return remember(viewModel) { WatchController(available, selectedKeys, selectedEpisodes, status, viewModel::setSelected) }
+    return remember(viewModel) { WatchController(available, selectedKeys, selectedSpoken, status, viewModel::setSelected) }
 }
 
 /** Kleine Zeile „Auf der Uhr: 12 von 14“ für die Kopfzeile von Album, Playlist und Favoriten; ohne Auswahl leer. */

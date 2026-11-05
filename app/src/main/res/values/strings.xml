@@ -348,11 +348,12 @@
     <string name="settings_watch_open_summary">Selection, quality, storage</string>
     <string name="watch_settings_title">Watch</string>
     <string name="watch_selections">On the watch</string>
-    <string name="watch_selections_empty">Nothing selected yet. Tap the watch icon on an album, a playlist, the favorites or an episode.</string>
+    <string name="watch_selections_empty">Nothing selected yet. Tap the watch icon on an album, a playlist, the favorites, an episode or a book.</string>
     <string name="watch_selection_album">Album</string>
     <string name="watch_selection_playlist">Playlist</string>
     <string name="watch_selection_favorites">Favorites</string>
     <string name="watch_selection_episode">Episode · %1$s</string>
+    <string name="watch_selection_book">Book · %1$s</string>
     <string name="watch_downloads">Loading on the watch</string>
     <string name="watch_quality">Quality</string>
     <string name="watch_quality_opus">Opus 128 kbit/s (saves storage)</string>

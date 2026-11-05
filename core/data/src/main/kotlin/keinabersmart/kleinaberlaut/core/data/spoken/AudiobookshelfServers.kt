@@ -30,6 +30,9 @@ sealed interface AddServerResult {
 /** Ein Server zum Bearbeiten; der API-Key selbst verlässt den [SecretStore] nicht. */
 data class EditableAbsServer(val name: String, val baseUrl: String, val hasKey: Boolean)
 
+/** Ein Server, wie das Handy ihn der Uhr übergibt (ohne Schlüssel, Wear-Konzept 16.2). */
+data class MirroredAbsServer(val serverId: String, val name: String, val baseUrl: String)
+
 /** Eingerichtete Audiobookshelf-Server (Konzept 12.1); der API-Key liegt im [SecretStore]. */
 @Singleton
 class AudiobookshelfServers @Inject constructor(
@@ -130,6 +133,43 @@ class AudiobookshelfServers @Inject constructor(
         bookDao.deleteServer(serverId)
         secretStore.remove(tokenKey(serverId))
         registry.unregister(serverId)
+    }
+
+    // --- Uhr (Wear-Konzept 16.2): Server ohne Schlüssel gespiegelt, der Schlüssel einzeln auf Anfrage ---
+
+    /** Handy: der Schlüssel für die anfragende Uhr; `null`, wenn [serverId] kein Audiobookshelf-Server ist. */
+    suspend fun apiKey(serverId: String): String? =
+        if (bookDao.server(serverId) != null) secretStore.get(tokenKey(serverId)) else null
+
+    /**
+     * Uhr: übernimmt die Server des Handys. Fehlt einer dort, verschwindet er samt seinen Büchern und dem Schlüssel; die
+     * übrigen behalten ihre Bücher (gleiche `serverId`).
+     */
+    suspend fun mirror(servers: List<MirroredAbsServer>) {
+        val existing = bookDao.servers().associateBy { it.serverId }
+        servers.forEach { server ->
+            val entity = (existing[server.serverId] ?: SpokenServerEntity(server.serverId, server.name, server.baseUrl))
+                .copy(name = server.name, baseUrl = server.baseUrl)
+            if (entity != existing[server.serverId]) bookDao.upsertServer(entity)
+            if (entity.baseUrl != existing[server.serverId]?.baseUrl) {
+                // Neue Adresse: mit dem gespeicherten Schlüssel neu eintragen.
+                secretStore.get(tokenKey(server.serverId))?.let { key -> register(server.serverId, server.baseUrl, key) }
+            }
+        }
+        (existing.keys - servers.mapTo(HashSet()) { it.serverId }).forEach { remove(it) }
+    }
+
+    /** Uhr: @return `false`, wenn der Server (noch) nicht gespiegelt ist. */
+    suspend fun storeKey(serverId: String, key: String): Boolean {
+        val entity = bookDao.server(serverId) ?: return false
+        secretStore.put(tokenKey(serverId), key)
+        register(serverId, entity.baseUrl, key)
+        return true
+    }
+
+    private suspend fun register(serverId: String, baseUrl: String, key: String) {
+        ensureLoaded()
+        AbsServer.normalizeBaseUrl(baseUrl)?.let { registry.register(AbsServer(serverId, it, key)) }
     }
 
     private suspend fun ensureLoaded() {

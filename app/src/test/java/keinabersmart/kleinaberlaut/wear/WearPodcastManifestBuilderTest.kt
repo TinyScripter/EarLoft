@@ -2,7 +2,7 @@ package keinabersmart.kleinaberlaut.wear
 
 import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodeContent
 import keinabersmart.kleinaberlaut.core.data.wear.WatchFeedContent
-import keinabersmart.kleinaberlaut.core.data.wear.WatchPodcastContent
+import keinabersmart.kleinaberlaut.core.data.wear.WatchSpokenContent
 import keinabersmart.kleinaberlaut.core.model.BookProgress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -28,7 +28,7 @@ class WearPodcastManifestBuilderTest {
 
     @Test
     fun `Reihenfolge, Abo und Fortschritt werden uebernommen`() {
-        val manifest = WearPodcastManifestBuilder.build(WatchPodcastContent(listOf(feed), listOf(episode("b", 10), episode("a", 20, audioUrl = null))))
+        val manifest = WearPodcastManifestBuilder.build(WatchSpokenContent(listOf(feed), listOf(episode("b", 10), episode("a", 20, audioUrl = null))))
 
         assertEquals(listOf("b", "a"), manifest.episodes.map { it.guid })
         assertEquals("https://example.org/feed", manifest.feeds.single().url)
@@ -39,9 +39,9 @@ class WearPodcastManifestBuilderTest {
 
     @Test
     fun `ohne Fortschritt unterscheiden sich nur fortschreitende Manifeste nicht`() {
-        val before = WearPodcastManifestBuilder.build(WatchPodcastContent(listOf(feed), listOf(episode("a", 10))))
-        val playing = WearPodcastManifestBuilder.build(WatchPodcastContent(listOf(feed), listOf(episode("a", 15_000))))
-        val otherEpisode = WearPodcastManifestBuilder.build(WatchPodcastContent(listOf(feed), listOf(episode("b", 10))))
+        val before = WearPodcastManifestBuilder.build(WatchSpokenContent(listOf(feed), listOf(episode("a", 10))))
+        val playing = WearPodcastManifestBuilder.build(WatchSpokenContent(listOf(feed), listOf(episode("a", 15_000))))
+        val otherEpisode = WearPodcastManifestBuilder.build(WatchSpokenContent(listOf(feed), listOf(episode("b", 10))))
 
         assertNotEquals(before, playing)
         assertEquals(WearPodcastManifestBuilder.withoutProgress(before), WearPodcastManifestBuilder.withoutProgress(playing))

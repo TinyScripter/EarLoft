@@ -55,17 +55,22 @@ interface WearDao {
     @Query("DELETE FROM wear_books WHERE bookId IN (SELECT bookId FROM book_progress WHERE finished)")
     suspend fun deleteFinishedBooks(): Int
 
-    /** Gewählte Folgen in der Reihenfolge des Wählens; Folgen archivierter Abos bleiben gewählt, aber von der Uhr fern. */
+    /**
+     * Gewählte Folgen und Bücher in der Reihenfolge des Wählens. Folgen archivierter Abos und Bücher ausgeschalteter Server
+     * bleiben gewählt, aber von der Uhr fern; Bücher vom Gerät (`local…`) haben keinen Server.
+     */
     @Query(
         """
         SELECT w.bookId FROM wear_books w
         JOIN books b ON b.bookId = w.bookId
-        JOIN podcast_feeds f ON f.feedId = b.serverId
-        WHERE b.kind = 'EPISODE' AND NOT f.archived
+        LEFT JOIN podcast_feeds f ON f.feedId = b.serverId
+        LEFT JOIN spoken_servers s ON s.serverId = b.serverId
+        WHERE (b.kind = 'EPISODE' AND f.feedId IS NOT NULL AND NOT f.archived)
+           OR (b.kind = 'BOOK' AND (s.enabled OR b.serverId LIKE 'local%'))
         ORDER BY w.addedAt, w.bookId
         """,
     )
-    suspend fun selectedEpisodeIds(): List<Long>
+    suspend fun selectedSpokenIds(): List<Long>
 
     // --- Handy: Auswahlen auflösen (Wear-Konzept 5) ---
 

@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.WearDao
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
 import keinabersmart.kleinaberlaut.core.download.DownloadScheduler
 import keinabersmart.kleinaberlaut.core.download.DownloadStorage
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.DownloadState
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +32,8 @@ import javax.inject.Singleton
  * Pseudo-Quelle `phone` eingereiht und über das Handy übertragen (Wear-Konzept 8.4).
  *
  * Die Podcast-Folgen vom Handy (16.1) kommen vor der Musik ins selbe Budget: Es sind wenige, und sie sind das, was gerade
- * gehört wird. Reihenfolge wie in „Weiterhören“; beendete Folgen werden nicht mehr geladen.
+ * gehört wird. Danach die Hörbücher (16.2), ebenfalls einzeln gewählt, aber groß; ein Buch kommt nur ganz oder gar nicht.
+ * Reihenfolge wie in „Weiterhören“; Beendetes wird nicht mehr geladen.
  */
 @Singleton
 class WearDownloadPlanner @Inject constructor(
@@ -70,38 +72,60 @@ class WearDownloadPlanner @Inject constructor(
                 PlannedDownload(songId, best.uid, estimateBytes(best, settings.quality), pinnedBy = "wear:$key")
             }
             val episodeTracks = podcastDao.downloadedTracks() + podcastDao.pendingTracks()
+            val bookTracks = bookDao.downloadedBookTracks() + bookDao.pendingBookTracks()
             val reserved = wearDao.getPendingCandidates().sumOf { estimateBytes(it, settings.quality) } +
-                episodeTracks.filter { it.downloadState in PENDING }.sumOf { estimateEpisodeBytes(it.durationMs) }
-            val done = wearDao.getDoneBytes() + episodeTracks.filter { it.downloadState == TrackDownload.DONE }.sumOf { it.fileSize }
+                (episodeTracks + bookTracks).filter { it.downloadState in PENDING }.sumOf { estimateEpisodeBytes(it.durationMs) }
+            val done = wearDao.getDoneBytes() +
+                (episodeTracks + bookTracks).filter { it.downloadState == TrackDownload.DONE }.sumOf { it.fileSize }
             val free = withContext(Dispatchers.IO) { storage.freeBytes() }
             val budget = downloadBudget(settings, free, done, reserved)
 
             val episodes = episodesToLoad(episodeOrder)
             val episodesFitting = takeWithinBudget(episodes, budget) { it.second }
             episodesFitting.forEach { (bookId, _) -> podcastDao.queueDownload(bookId) }
+            val afterEpisodes = budget - episodesFitting.sumOf { it.second }
 
-            val plan = planWithinBudget(wanted, budget - episodesFitting.sumOf { it.second })
+            val books = booksToLoad(episodeOrder)
+            val booksFitting = takeWithinBudget(books, afterEpisodes) { it.second }
+            booksFitting.forEach { (bookId, _) -> bookDao.queueBookDownload(bookId) }
+
+            val plan = planWithinBudget(wanted, afterEpisodes - booksFitting.sumOf { it.second })
             downloadDao.insertIfAbsent(
                 plan.toQueue.map { DownloadEntity(it.sourceUid, it.songId, DownloadState.QUEUED, pinnedBy = it.pinnedBy) },
             )
-            val missing = plan.missing + episodes.size - episodesFitting.size
+            val missing = plan.missing + episodes.size - episodesFitting.size + books.size - booksFitting.size
             state.setMissingForStorage(missing)
-            if (missing > 0) Log.i(TAG, "Speicher voll: $missing Titel bzw. Folgen nicht eingereiht (Budget $budget Bytes)")
-            plan.toQueue.size + episodesFitting.size
+            if (missing > 0) Log.i(TAG, "Speicher voll: $missing Titel, Folgen bzw. Bücher nicht eingereiht (Budget $budget Bytes)")
+            plan.toQueue.size + episodesFitting.size + booksFitting.size
         }
         if (queued > 0) Log.d(TAG, "$queued Downloads eingereiht")
         // Auch wenn nichts mehr zu laden ist: Fehlende Cover holt derselbe Auftrag nach.
         val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
         // Neue Downloads ersetzen einen wartenden Auftrag: Sonst hängen sie hinter dem Backoff eines früheren Fehlversuchs.
-        val pending = downloadDao.countPending() + podcastDao.countPendingDownloads()
+        val pending = downloadDao.countPending() + podcastDao.countPendingDownloads() + bookDao.countPendingBookDownloads()
         if (pending > 0 || coversMissing) scheduler.enqueue(replace = replaceSchedule || queued > 0)
     }
 
     /** Noch nie geladene, nicht beendete Folgen in der Reihenfolge von „Weiterhören“, mit ihrer geschätzten Größe. */
     private suspend fun episodesToLoad(order: List<Long>): List<Pair<Long, Long>> = order.mapNotNull { bookId ->
+        // Die Reihenfolge enthält auch Bücher; deren erste Datei ist keine Folge.
+        if (bookDao.book(bookId)?.kind != BookKind.EPISODE) return@mapNotNull null
         if (bookDao.progress(bookId)?.finished == true) return@mapNotNull null
         val track = podcastDao.trackOf(bookId)?.takeIf { it.downloadState == TrackDownload.NONE } ?: return@mapNotNull null
         bookId to estimateEpisodeBytes(track.durationMs)
+    }
+
+    /**
+     * Nicht beendete Bücher mit noch nie geladenen Dateien in der Reihenfolge von „Weiterhören“, mit der geschätzten Größe
+     * dieser Dateien. Ein Buch mit fehlgeschlagener Datei wartet, bis das Handy es neu ins Manifest aufnimmt (wie bei Folgen).
+     */
+    private suspend fun booksToLoad(order: List<Long>): List<Pair<Long, Long>> = order.mapNotNull { bookId ->
+        val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.BOOK } ?: return@mapNotNull null
+        if (bookDao.progress(book.bookId)?.finished == true) return@mapNotNull null
+        val tracks = bookDao.tracks(bookId)
+        val missing = tracks.filter { it.downloadState == TrackDownload.NONE }
+        if (missing.isEmpty() || tracks.any { it.downloadState == TrackDownload.FAILED }) return@mapNotNull null
+        bookId to missing.sumOf { estimateEpisodeBytes(it.durationMs) }
     }
 
     /** Alle Songs der Auswahlen in Reihenfolge, jeder einmal, mit dem Schlüssel der ersten Auswahl, die ihn enthält. */

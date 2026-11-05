@@ -5,7 +5,8 @@ import android.util.Log
 import com.google.android.gms.wearable.DataClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.R
-import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodes
+import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
+import keinabersmart.kleinaberlaut.core.data.wear.WatchSpoken
 import keinabersmart.kleinaberlaut.core.data.wear.WearContent
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.data.wear.WearServerMirror
@@ -18,6 +19,7 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearPodcastManifest
 import keinabersmart.kleinaberlaut.core.wearsync.WearServerDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearServersDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearSpokenServerDto
 import keinabersmart.kleinaberlaut.core.wearsync.hashesAt
 import keinabersmart.kleinaberlaut.core.wearsync.putAssetPayload
 import keinabersmart.kleinaberlaut.core.wearsync.putPayload
@@ -32,7 +34,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hält die DataItems für die Uhr aktuell (Wear-Konzept 4): Manifest, Folgen (16.1), Server und Einstellungen. Läuft,
+ * Hält die DataItems für die Uhr aktuell (Wear-Konzept 4): Manifest, Folgen und Bücher (16.1/16.2), Server und Einstellungen. Läuft,
  * solange der App-Prozess lebt – nur dann kann sich etwas ändern. Ohne Uhr bzw. Data Layer liegen die
  * DataItems nur lokal bei den Play-Diensten.
  */
@@ -44,7 +46,8 @@ class WearPublisher @Inject constructor(
     private val servers: WearServerMirror,
     private val watchSettings: WatchSettingsRepository,
     private val replayGainSettings: ReplayGainSettings,
-    private val watchEpisodes: WatchEpisodes,
+    private val watchSpoken: WatchSpoken,
+    private val audiobookshelf: AudiobookshelfServers,
 ) {
     /** Zuletzt geschriebenes Manifest; `null` = noch beim Data Layer nachsehen. */
     private var publishedHash: String? = null
@@ -59,7 +62,7 @@ class WearPublisher @Inject constructor(
             // Während das Handy eine Folge spielt, schreibt es alle 15 s den Fortschritt: Reine Fortschrittsänderungen gehen erst
             // nach einer Ruhepause hinaus, sonst weckte jede die Uhr. Alles andere (Folgen, Reihenfolge, Downloads) bald.
             var lastStructure: WearPodcastManifest? = null
-            watchEpisodes.content()
+            watchSpoken.content()
                 .map(WearPodcastManifestBuilder::build)
                 .debounce { manifest ->
                     if (WearPodcastManifestBuilder.withoutProgress(manifest) == lastStructure) PROGRESS_DEBOUNCE_MS else CHANGE_DEBOUNCE_MS
@@ -70,8 +73,13 @@ class WearPublisher @Inject constructor(
                 }
         }
         scope.launch {
-            servers.servers()
-                .map { list -> WearServersDto(list.map { WearServerDto(it.sourceId, it.name, it.baseUrl, it.username, it.priority, it.formPost) }) }
+            combine(servers.servers(), audiobookshelf.servers) { music, spoken ->
+                WearServersDto(
+                    servers = music.map { WearServerDto(it.sourceId, it.name, it.baseUrl, it.username, it.priority, it.formPost) },
+                    // Ausgeschaltete Server fehlen: Ihre Bücher sind am Handy ausgeblendet und fallen von der Uhr.
+                    spokenServers = spoken.filter { it.enabled }.map { WearSpokenServerDto(it.serverId, it.name, it.baseUrl) },
+                )
+            }
                 .distinctUntilChanged()
                 .collect { dataClient.putPayload(WearPaths.SERVERS, WearCodec.encode(it)) }
         }
@@ -123,7 +131,7 @@ class WearPublisher @Inject constructor(
         if (hash == publishedPodcastsHash) return
         if (dataClient.putAssetPayload(WearPaths.PODCASTS, WearCodec.encodeCompressed(manifest), hash)) {
             publishedPodcastsHash = hash
-            Log.d(TAG, "Folgen für die Uhr: ${manifest.episodes.size}")
+            Log.d(TAG, "Für die Uhr: ${manifest.episodes.size} Folgen, ${manifest.books.size} Bücher")
         }
     }
 

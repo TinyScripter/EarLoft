@@ -70,8 +70,8 @@ fun EpisodeMenu(
                 onDismiss()
             },
         )
-        // Wie die übrigen Einträge ohne Symbol; Bücher kommen später auf die Uhr.
-        if (item.isEpisode) WatchMenuItem(WatchTarget.Episode(id), onDismiss, withIcon = false)
+        // Wie die übrigen Einträge ohne Symbol.
+        WatchMenuItem(WatchTarget.Spoken(id), onDismiss, withIcon = false)
         // Dateien vom Gerät sind schon da.
         if (!item.book.isLocal) {
             if (id in downloaded) {

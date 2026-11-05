@@ -16,12 +16,16 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.repository.CoverFiles
+import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
 import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
+import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.database.dao.WearDao
 import keinabersmart.kleinaberlaut.core.database.entity.DownloadEntity
+import keinabersmart.kleinaberlaut.core.download.BookDownloader
+import keinabersmart.kleinaberlaut.core.download.BookStorage
 import keinabersmart.kleinaberlaut.core.download.DownloadOutcome
 import keinabersmart.kleinaberlaut.core.download.DownloadProfile
 import keinabersmart.kleinaberlaut.core.download.DownloadStorage
@@ -30,6 +34,7 @@ import keinabersmart.kleinaberlaut.core.download.EpisodeDownloader
 import keinabersmart.kleinaberlaut.core.download.EpisodeStorage
 import keinabersmart.kleinaberlaut.core.download.ProgressThrottle
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
+import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
 import keinabersmart.kleinaberlaut.wear.R
@@ -43,7 +48,8 @@ import kotlin.coroutines.cancellation.CancellationException
  * Ohne WLAN versucht WorkManager es später mit Backoff erneut, nach [MAX_WIFI_ATTEMPTS] Versuchen erst am Ladegerät. Songs, die nur das Handy hat, und Songs, bei
  * denen der Server dreimal gescheitert ist, kommen über das Handy ([PhoneFileFetcher], Konzept 8.3/8.4).
  * Nach der Musik die Podcast-Folgen (16.1): direkt aus dem Feed über dasselbe WLAN, Folgen vom Gerät des Handys und nach
- * drei Fehlversuchen über das Handy.
+ * drei Fehlversuchen über das Handy. Danach die Hörbücher (16.2): direkt von Audiobookshelf über dasselbe WLAN (eine
+ * abgebrochene Datei macht beim nächsten Lauf weiter), Bücher vom Gerät des Handys und nach drei Fehlversuchen über das Handy.
  */
 class WearDownloadWorker(
     context: Context,
@@ -61,12 +67,14 @@ class WearDownloadWorker(
     private val phoneFetcher = entryPoint.phoneFetcher()
     private val podcastDao = entryPoint.podcastDao()
     private val episodeDownloader = entryPoint.episodeDownloader()
+    private val bookDao = entryPoint.bookDao()
 
     override suspend fun doWork(): Result {
         downloadDao.requeueRunning()
         podcastDao.requeueRunningDownloads()
+        bookDao.requeueRunningBookDownloads()
         val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
-        if (downloadDao.countPending() == 0 && podcastDao.countPendingDownloads() == 0 && !coversMissing) return finish()
+        if (pendingCount() == 0 && !coversMissing) return finish()
         if (!hasRoomToStart()) return finish()
         startForeground()
 
@@ -155,6 +163,48 @@ class WearDownloadWorker(
                     DownloadOutcome.Cancelled -> Unit
                 }
             }
+            while (true) {
+                val track = bookDao.nextQueuedBookTrack() ?: break
+                val key = bookFailureKey(track.bookId)
+                if (track.isPhoneOnlyBook || state.hasServerFailedTooOften(key)) {
+                    if (!bookViaPhone(track)) return Result.retry()
+                    continue
+                }
+                val book = bookDao.book(track.bookId) ?: break
+                if (entryPoint.audiobookshelf().server(book.serverId) == null) {
+                    // Der Schlüssel ist noch unterwegs (Anfrage beim Handy läuft) oder fehlt dort; zählt als Fehlversuch.
+                    val failures = state.recordServerFailure(key)
+                    Log.w(TAG, "Buch ${track.bookId}: Audiobookshelf ohne Schlüssel (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS})")
+                    if (failures < WatchState.SERVER_ATTEMPTS) return Result.retry()
+                    if (!bookViaPhone(track)) return Result.retry()
+                    continue
+                }
+                lease = lease ?: entryPoint.wifi().acquire()
+                if (lease == null) return waitForWifi()
+                state.setWaitingForWifi(false)
+                val throttle = ProgressThrottle()
+                val outcome = entryPoint.bookDownloader().download(track, lease.network) { done, total ->
+                    val percent = throttle.next(done, total)
+                    if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
+                }
+                when (outcome) {
+                    is DownloadOutcome.Retry -> {
+                        val failures = state.recordServerFailure(key)
+                        Log.w(TAG, "Buch ${track.bookId} Datei ${track.trackIndex} unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
+                        // Die Teildatei bleibt; der nächste Lauf macht dort weiter.
+                        bookDao.requeueBookTrack(track.bookId, track.trackIndex)
+                        if (failures < WatchState.SERVER_ATTEMPTS) return Result.retry()
+                        if (!bookViaPhone(track)) return Result.retry()
+                    }
+                    is DownloadOutcome.Failed -> {
+                        // Datei weg, Schlüssel abgelehnt o. Ä.: Vielleicht hat das Handy das Buch geladen.
+                        Log.w(TAG, "Buch ${track.bookId} fehlgeschlagen: ${outcome.reason}")
+                        if (!bookViaPhone(track)) return Result.retry()
+                    }
+                    DownloadOutcome.Done -> state.clearServerFailures(key)
+                    DownloadOutcome.Cancelled -> Unit
+                }
+            }
         } finally {
             lease?.close()
         }
@@ -204,6 +254,34 @@ class WearDownloadWorker(
         }
     }
 
+    /** Wie [episodeViaPhone] für eine Buchdatei. */
+    private suspend fun bookViaPhone(track: BookTrackEntity): Boolean {
+        val throttle = ProgressThrottle()
+        return when (val outcome = phoneFetcher.fetchBookTrack(track) { done, total ->
+            val percent = throttle.next(done, total)
+            if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
+        }) {
+            DownloadOutcome.Done -> {
+                state.clearServerFailures(bookFailureKey(track.bookId))
+                true
+            }
+            is DownloadOutcome.Failed -> {
+                Log.w(TAG, "Handy hat Buch ${track.bookId} Datei ${track.trackIndex} nicht: ${outcome.reason}")
+                true
+            }
+            is DownloadOutcome.Retry -> {
+                Log.i(TAG, "Handy für Buch ${track.bookId} nicht erreichbar (Versuch ${runAttemptCount + 1})", outcome.cause)
+                bookDao.requeueBookTrack(track.bookId, track.trackIndex)
+                state.setLastError(applicationContext.getString(R.string.download_error_phone_unreachable))
+                false
+            }
+            DownloadOutcome.Cancelled -> true
+        }
+    }
+
+    private suspend fun pendingCount(): Int =
+        downloadDao.countPending() + podcastDao.countPendingDownloads() + bookDao.countPendingBookDownloads()
+
     /**
      * Prüft vor dem Start den freien Speicher (Planung und Start liegen zeitlich auseinander). Passt nicht einmal der
      * kleinste wartende Titel unter die Grenze, bleibt alles eingereiht und der Auftrag endet ohne Fehlversuch: Der Planer
@@ -231,6 +309,9 @@ class WearDownloadWorker(
         }
         for (track in podcastDao.pendingTracks().filter { it.isPhoneOnly && it.downloadState == TrackDownload.QUEUED }) {
             if (!episodeViaPhone(track)) return false
+        }
+        for (track in bookDao.pendingBookTracks().filter { it.isPhoneOnlyBook && it.downloadState == TrackDownload.QUEUED }) {
+            if (!bookViaPhone(track)) return false
         }
         return true
     }
@@ -276,16 +357,18 @@ class WearDownloadWorker(
 
     /**
      * Je Album mit geladenen Songs einmal das Cover als Datei (Wear-Konzept 8.2), ebenso das Bild jeder geladenen Folge
-     * (16.1, im Cache von [keinabersmart.kleinaberlaut.core.data.spoken.BookCovers]). Fehlt es, geht die Wiedergabe trotzdem.
+     * und jedes geladenen Buchs (16.1/16.2, im Cache von [keinabersmart.kleinaberlaut.core.data.spoken.BookCovers]). Fehlt
+     * es, geht die Wiedergabe trotzdem.
      */
     private suspend fun cacheCovers() {
-        for (track in podcastDao.downloadedTracks()) {
+        // Je Buch einmal, auch bei mehreren Dateien.
+        for (bookId in (podcastDao.downloadedTracks() + bookDao.downloadedBookTracks()).map { it.bookId }.distinct()) {
             try {
-                entryPoint.bookCovers().cover(track.bookId)
+                entryPoint.bookCovers().cover(bookId)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Bild der Folge ${track.bookId} nicht ladbar", e)
+                Log.w(TAG, "Bild von $bookId nicht ladbar", e)
             }
         }
         for (albumId in downloadDao.getAlbumIdsWithDoneDownload()) {
@@ -306,6 +389,10 @@ class WearDownloadWorker(
             podcastDao.downloadedTracks().mapNotNull { it.filePath },
             podcastDao.pendingTracks().map { it.bookId },
         )
+        val bookStorage = entryPoint.bookStorage()
+        bookStorage.deleteOrphans(bookDao.downloadedBookTracks().mapNotNull { it.filePath })
+        // Teildateien nur, wenn nichts mehr wartet: Sonst macht der nächste Lauf dort weiter.
+        if (bookDao.countPendingBookDownloads() == 0) bookStorage.deleteParts()
         coverFiles.retainOnly(downloadDao.getAlbumIdsWithDoneDownload().toSet())
         return Result.success()
     }
@@ -317,7 +404,7 @@ class WearDownloadWorker(
 
     private suspend fun notify(progress: Int?) {
         try {
-            setForeground(foregroundInfo(buildNotification(downloadDao.countPending() + podcastDao.countPendingDownloads(), progress)))
+            setForeground(foregroundInfo(buildNotification(pendingCount(), progress)))
         } catch (e: IllegalStateException) {
             Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund", e)
         }
@@ -366,6 +453,10 @@ class WearDownloadWorker(
         fun episodeDownloader(): EpisodeDownloader
         fun episodeStorage(): EpisodeStorage
         fun bookCovers(): BookCovers
+        fun bookDao(): BookDao
+        fun bookDownloader(): BookDownloader
+        fun bookStorage(): BookStorage
+        fun audiobookshelf(): AudiobookshelfServers
     }
 
     private companion object {
@@ -381,6 +472,12 @@ class WearDownloadWorker(
 
 /** Fehlversuche von Folgen stehen neben denen der Songs ([WatchState]); eigener Schlüssel, damit sie sich nicht mischen. */
 private fun episodeFailureKey(bookId: Long) = "episode:$bookId"
+
+/** Wie [episodeFailureKey], je Buch (16.2). */
+private fun bookFailureKey(bookId: Long) = "book:$bookId"
+
+/** Eine Datei eines Buchs vom Gerät des Handys: Ihre Kennung ist die des Datei-Kanals ([keinabersmart.kleinaberlaut.wear.sync.PodcastMirror]). */
+private val BookTrackEntity.isPhoneOnlyBook: Boolean get() = WearBookFile.parse(remoteFileId) != null
 
 /** Eine Folge vom Gerät des Handys: Ihre Kennung ist die des Datei-Kanals, eine Adresse gibt es nicht ([keinabersmart.kleinaberlaut.wear.sync.PodcastMirror]). */
 private val BookTrackEntity.isPhoneOnly: Boolean get() = WearEpisodeFile.parse(remoteFileId) != null

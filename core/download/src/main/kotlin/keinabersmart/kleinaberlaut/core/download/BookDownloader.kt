@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.core.download
 
+import android.net.Network
 import android.util.Log
 import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
@@ -22,24 +23,26 @@ class BookDownloader @Inject constructor(
     private val dao: BookDao,
     private val servers: AudiobookshelfServers,
     private val api: AbsApi,
-    client: OkHttpClient,
+    private val client: OkHttpClient,
     private val storage: BookStorage,
 ) {
     private val transfer = ResumableTransfer(client, storage)
 
     /**
      * Bei [DownloadOutcome.Retry] bleibt der Eintrag auf `RUNNING` und die Teildatei liegen, damit der nächste Versuch
-     * dort weitermacht; der Aufrufer reiht ihn neu ein oder markiert ihn.
+     * dort weitermacht; der Aufrufer reiht ihn neu ein oder markiert ihn. Mit [network] läuft die Verbindung über genau
+     * dieses Netz (die Uhr lädt über WLAN, Wear-Konzept 16.2).
      */
     suspend fun download(
         track: BookTrackEntity,
+        network: Network? = null,
         onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit = { _, _ -> },
     ): DownloadOutcome {
         val bookId = track.bookId
         val index = track.trackIndex
         if (dao.markBookTrackRunning(bookId, index) == 0) return DownloadOutcome.Cancelled
         return try {
-            fetch(track, onProgress).also { outcome ->
+            fetch(track, network, onProgress).also { outcome ->
                 if (outcome is DownloadOutcome.Failed) dao.markBookDownloadFailed(bookId)
                 if (outcome is DownloadOutcome.Failed || outcome is DownloadOutcome.Cancelled) storage.deletePart(bookId, index)
             }
@@ -52,10 +55,11 @@ class BookDownloader @Inject constructor(
         }
     }
 
-    private suspend fun fetch(track: BookTrackEntity, onProgress: suspend (Long, Long?) -> Unit): DownloadOutcome {
+    private suspend fun fetch(track: BookTrackEntity, network: Network?, onProgress: suspend (Long, Long?) -> Unit): DownloadOutcome {
         val book = dao.book(track.bookId) ?: return DownloadOutcome.Cancelled
         val server = servers.server(book.serverId) ?: return DownloadOutcome.Failed("Server nicht eingerichtet")
         val url = api.fileUrl(server, book.remoteId, track.remoteFileId)
+        val transfer = if (network == null) transfer else ResumableTransfer(clientFor(network), storage)
         return when (val result = transfer.run(url, track.bookId, track.trackIndex, onProgress)) {
             is TransferResult.Failed -> DownloadOutcome.Failed(result.reason)
             is TransferResult.Completed -> finish(track, result.mimeType ?: track.mimeType)
@@ -75,6 +79,12 @@ class BookDownloader @Inject constructor(
         Log.d(TAG, "Buch ${track.bookId} Datei ${track.trackIndex} geladen ($size Bytes)")
         return DownloadOutcome.Done
     }
+
+    private fun clientFor(network: Network): OkHttpClient =
+        client.newBuilder()
+            .socketFactory(network.socketFactory)
+            .dns { host -> network.getAllByName(host).toList() }
+            .build()
 
     private companion object {
         const val TAG = "BookDownloader"

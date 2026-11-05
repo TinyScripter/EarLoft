@@ -110,8 +110,8 @@ fun BookScreen(
                     Icon(painterResource(DesignR.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
                 }
             },
-            // Folgen einzeln auf die Uhr (Wear-Konzept 16.1); Bücher folgen später.
-            actions = { if (book?.kind == BookKind.EPISODE) WatchToggleButton(WatchTarget.Episode(book.id)) },
+            // Folgen und Bücher einzeln auf die Uhr (Wear-Konzept 16.1/16.2).
+            actions = { if (book != null) WatchToggleButton(WatchTarget.Spoken(book.id)) },
         )
         if (book == null) return@Column
         val header = @Composable {

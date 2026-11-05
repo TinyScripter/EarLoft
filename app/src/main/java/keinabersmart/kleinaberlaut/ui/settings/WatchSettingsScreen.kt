@@ -131,7 +131,11 @@ private fun WatchSettingsContent(
                         ListItem(
                             headlineContent = { Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             supportingContent = {
-                                Text(stringResource(R.string.watch_selection_episode, item.feedTitle), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    stringResource(if (item.isBook) R.string.watch_selection_book else R.string.watch_selection_episode, item.subtitle),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             },
                             trailingContent = {
                                 IconButton(onClick = { onRemoveEpisode(item) }) {

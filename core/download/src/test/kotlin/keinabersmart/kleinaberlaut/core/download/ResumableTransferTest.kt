@@ -93,6 +93,18 @@ class ResumableTransferTest {
     }
 
     @Test
+    fun `the very first download creates the folder before writing the marker`() = runTest {
+        // Wie auf einer frisch eingerichteten Uhr: Der Ordner für Bücher existiert noch nicht.
+        val fresh = BookStorage(java.io.File(tempFolder.root, "neu/books"))
+        server.enqueue(full())
+
+        val result = ResumableTransfer(OkHttpClient(), fresh).run(server.url("/file"), bookId = 7, trackIndex = 0, onProgress = progress)
+
+        assertEquals(TransferResult.Completed("audio/mp4"), result)
+        assertArrayEquals(audio, fresh.partFileFor(7, 0).readBytes())
+    }
+
+    @Test
     fun `an interrupted download continues where the part file ends`() = runTest {
         val have = interrupt()
         assertTrue("Teildatei muss liegen bleiben und kürzer sein", have in 1 until audio.size)

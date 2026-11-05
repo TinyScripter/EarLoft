@@ -94,9 +94,23 @@ data class WearWatchInfoDto(
     val appVersion: String? = null,
 )
 
-/** Server ohne Secrets; das Passwort kommt nur per [WearCredentialsDto] auf Anfrage. */
+/**
+ * Server ohne Secrets; das Passwort bzw. der API-Schlüssel kommt nur per [WearCredentialsDto] auf Anfrage.
+ * [spokenServers]: die eingeschalteten Audiobookshelf-Server (Bücher auf der Uhr, Wear-Konzept 16.2).
+ */
 @Serializable
-data class WearServersDto(val servers: List<WearServerDto> = emptyList())
+data class WearServersDto(
+    val servers: List<WearServerDto> = emptyList(),
+    val spokenServers: List<WearSpokenServerDto> = emptyList(),
+)
+
+/** Ein Audiobookshelf-Server; [serverId] ist auf beiden Geräten dieselbe. */
+@Serializable
+data class WearSpokenServerDto(
+    val serverId: String,
+    val name: String,
+    val baseUrl: String,
+)
 
 @Serializable
 data class WearServerDto(
@@ -154,11 +168,44 @@ data class WearSettingsDto(
 
 // ---- Podcast-Folgen auf der Uhr (Wear-Konzept 16.1) ----
 
-/** Die am Handy für die Uhr gewählten Folgen in der Reihenfolge des Wählens, mit ihren Abos (Handy → Uhr, gzip-Asset). */
+/**
+ * Die am Handy für die Uhr gewählten Folgen und Bücher (16.2) je in der Reihenfolge des Wählens, mit den Abos der Folgen
+ * (Handy → Uhr, gzip-Asset).
+ */
 @Serializable
 data class WearPodcastManifest(
     val feeds: List<WearPodcastFeedDto> = emptyList(),
     val episodes: List<WearEpisodeDto> = emptyList(),
+    val books: List<WearBookDto> = emptyList(),
+)
+
+/**
+ * Ein Hörbuch (Wear-Konzept 16.2). [serverId] ist der Audiobookshelf-Server bzw. bei Büchern vom Gerät des Handys dessen
+ * Kennung; zusammen mit [remoteId] auf beiden Geräten derselbe Schlüssel.
+ */
+@Serializable
+data class WearBookDto(
+    val serverId: String,
+    val remoteId: String,
+    val title: String,
+    val author: String = "",
+    val narrator: String = "",
+    val durationMs: Long = 0,
+    val tracks: List<WearBookTrackDto> = emptyList(),
+    val progress: WearEpisodeProgressDto? = null,
+)
+
+/**
+ * Eine Datei des Buchs. [fileId] ist die Kennung bei Audiobookshelf; `null` bei Büchern vom Gerät des Handys (die gibt es
+ * nur über den Datei-Kanal, [WearBookFile]).
+ */
+@Serializable
+data class WearBookTrackDto(
+    val index: Int,
+    val fileId: String? = null,
+    val startMs: Long = 0,
+    val durationMs: Long = 0,
+    val mimeType: String? = null,
 )
 
 /** Ein Abo; [feedId] und [url] sind die des Handys, damit Fortschritt und Statistik auf beiden Geräten passen. */
@@ -207,10 +254,11 @@ data class WearEpisodeReportDto(
     val listening: List<WearEpisodeListeningDto> = emptyList(),
 )
 
+/** Bei Büchern (16.2) steht in [feedId] die `serverId` und in [guid] die `remoteId` des Buchs. */
 @Serializable
 data class WearEpisodeStateDto(val feedId: String, val guid: String, val progress: WearEpisodeProgressDto)
 
-/** [listenedMs] Inhaltszeit seit der letzten Meldung, gehört bis [at]. */
+/** [listenedMs] Inhaltszeit seit der letzten Meldung, gehört bis [at]. Schlüssel wie bei [WearEpisodeStateDto]. */
 @Serializable
 data class WearEpisodeListeningDto(val feedId: String, val guid: String, val listenedMs: Long, val at: Long)
 

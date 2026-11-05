@@ -15,6 +15,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.model.BookKind
@@ -44,6 +45,7 @@ class BookProgressSync @Inject constructor(
     private val dao: BookDao,
     private val servers: AudiobookshelfServers,
     private val api: AbsApi,
+    private val policy: PlaybackPolicy,
 ) {
     private val lastPush = ConcurrentHashMap<Long, Long>()
 
@@ -80,6 +82,8 @@ class BookProgressSync @Inject constructor(
     suspend fun push(bookId: Long): Boolean {
         val progress = dao.progress(bookId) ?: return true
         if (!progress.dirty) return true
+        // Uhr: Den Stand meldet sie dem Handy (Wear-Konzept 16.2).
+        if (!policy.syncsWithBookServers) return true
         val book = dao.book(bookId) ?: return true
         if (book.kind == BookKind.EPISODE || isLocalSource(book.serverId)) {
             // Folgen und Bücher vom Gerät haben keinen Server, der den Fortschritt kennen müsste.
@@ -113,6 +117,7 @@ class BookProgressSync @Inject constructor(
     /** Vor dem Abspielen: den Stand dieses einen Buchs abgleichen. Ohne Verbindung gilt der lokale Stand. */
     suspend fun pull(bookId: Long): PullResult {
         val local = dao.progress(bookId)?.toModel()
+        if (!policy.syncsWithBookServers) return PullResult(local, tookRemote = false, noticeable = false)
         val book = dao.book(bookId) ?: return PullResult(local, tookRemote = false, noticeable = false)
         val server = servers.server(book.serverId) ?: return PullResult(local, tookRemote = false, noticeable = false)
         val remote = try {

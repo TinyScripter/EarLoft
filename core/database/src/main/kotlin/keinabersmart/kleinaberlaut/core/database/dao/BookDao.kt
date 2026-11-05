@@ -114,6 +114,10 @@ abstract class BookDao {
     @Query("DELETE FROM books WHERE serverId = :serverId AND seenInGeneration < :generation")
     abstract suspend fun deleteUnseen(serverId: String, generation: Long)
 
+    /** Uhr: Hörbücher, die nicht mehr im Manifest des Handys stehen (Wear-Konzept 16.2), über alle Server. */
+    @Query("DELETE FROM books WHERE kind = 'BOOK' AND seenInGeneration < :generation")
+    abstract suspend fun deleteUnseenBooks(generation: Long)
+
     // --- Dateien und Kapitel ---
 
     @Query("SELECT * FROM book_tracks WHERE bookId = :bookId ORDER BY trackIndex")
@@ -274,6 +278,13 @@ abstract class BookDao {
 
     @Query("UPDATE book_tracks SET downloadState = 'REMOVED', filePath = NULL, fileSize = 0 WHERE bookId = :bookId AND downloadState != 'NONE'")
     abstract suspend fun markBookDownloadRemoved(bookId: Long)
+
+    /** Wartende und laufende Dateien aller Bücher (Speicherplanung der Uhr). */
+    @Query(
+        "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'BOOK' AND t.downloadState IN ('QUEUED', 'RUNNING')",
+    )
+    abstract suspend fun pendingBookTracks(): List<BookTrackEntity>
 
     /** Dateien aller Bücher, für das Aufräumen verwaister Dateien. */
     @Query(

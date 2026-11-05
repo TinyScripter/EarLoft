@@ -9,18 +9,23 @@ import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
+import keinabersmart.kleinaberlaut.core.download.BookStorage
 import keinabersmart.kleinaberlaut.core.download.EpisodeStorage
 import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.wearsync.WearBookDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeFile
+import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeProgressDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearPodcastManifest
 import java.util.Locale
 import javax.inject.Inject
 
 /**
- * Übernimmt das Folgen-Manifest des Handys in die Datenbank der Uhr (Wear-Konzept 16.1): Abos und Folgen mit denselben
- * Schlüsseln wie am Handy (`feedId`, guid), je Folge die Audio-Adresse als einzige Datei. Der Fortschritt des Handys gilt,
- * wenn er neuer ist. Was nicht mehr im Manifest steht, verschwindet samt Fortschritt und Datei.
+ * Übernimmt das Folgen-Manifest des Handys in die Datenbank der Uhr (Wear-Konzept 16.1/16.2): Abos und Folgen mit denselben
+ * Schlüsseln wie am Handy (`feedId`, guid), je Folge die Audio-Adresse als einzige Datei; Hörbücher mit `serverId` und
+ * `remoteId` und ihrer Dateiliste. Der Fortschritt des Handys gilt, wenn er neuer ist. Was nicht mehr im Manifest steht,
+ * verschwindet samt Fortschritt und Datei.
  */
 class PodcastMirror @Inject constructor(
     private val database: KleinaberlautDatabase,
@@ -28,17 +33,20 @@ class PodcastMirror @Inject constructor(
     private val bookDao: BookDao,
     private val reported: ReportedEpisodes,
     private val episodeStorage: EpisodeStorage,
+    private val bookStorage: BookStorage,
 ) {
-    /** @return die IDs der Folgen auf der Uhr in der Reihenfolge des Handys (für die Warteschlange). */
+    /** @return die IDs der Folgen und Bücher auf der Uhr in der Reihenfolge des Handys (für die Warteschlange). */
     suspend fun apply(manifest: WearPodcastManifest): List<Long> {
-        val (ids, removedFiles) = applyRows(manifest)
+        val result = applyRows(manifest)
         // Erst nach der Transaktion: Eine gerade laufende Übertragung einer entfernten Folge verwirft ihre Datei selbst.
-        removedFiles.forEach { (bookId, path) -> episodeStorage.delete(bookId, path) }
-        return ids
+        result.removedEpisodeFiles.forEach { (bookId, path) -> episodeStorage.delete(bookId, path) }
+        result.removedBooks.forEach { bookStorage.delete(it) }
+        return result.ids
     }
 
-    /** @return die IDs in Reihenfolge und die Dateien der entfernten Folgen. */
-    private suspend fun applyRows(manifest: WearPodcastManifest): Pair<List<Long>, List<Pair<Long, String>>> = database.withTransaction {
+    private class Applied(val ids: List<Long>, val removedEpisodeFiles: List<Pair<Long, String>>, val removedBooks: Set<Long>)
+
+    private suspend fun applyRows(manifest: WearPodcastManifest): Applied = database.withTransaction {
         val generation = System.currentTimeMillis()
         val feeds = manifest.feeds.associateBy { it.feedId }
         manifest.feeds.forEach { dto ->
@@ -56,7 +64,7 @@ class PodcastMirror @Inject constructor(
                 ),
             )
         }
-        val ids = manifest.episodes.filter { it.feedId in feeds }.map { dto ->
+        val episodeIds = manifest.episodes.filter { it.feedId in feeds }.map { dto ->
             val bookId = bookDao.upsertBook(dto.toEntity(feedTitle = feeds.getValue(dto.feedId).title, generation))
             podcastDao.setTrack(
                 BookTrackEntity(
@@ -69,25 +77,59 @@ class PodcastMirror @Inject constructor(
                     mimeType = dto.mimeType,
                 ),
             )
-            dto.progress?.let { remote ->
-                val local = bookDao.progress(bookId)
-                if (local == null || remote.updatedAt > local.updatedAt) {
-                    bookDao.upsertProgress(
-                        BookProgressEntity(bookId, remote.positionMs, remote.durationMs, remote.finished, remote.speed, remote.updatedAt),
-                    )
-                    // Kommt vom Handy: nicht als Neuigkeit zurückmelden.
-                    reported.markProgress(dto.feedId, dto.guid, remote.updatedAt)
-                }
-            }
+            applyProgress(bookId, dto.feedId, dto.guid, dto.progress)
             bookId
         }
-        val kept = ids.toSet()
-        val removedFiles = podcastDao.downloadedTracks().filter { it.bookId !in kept }.mapNotNull { track -> track.filePath?.let { track.bookId to it } }
+        val bookIds = manifest.books.filter { it.tracks.isNotEmpty() }.map { dto ->
+            val bookId = bookDao.upsertBook(dto.toEntity(generation))
+            applyTracks(bookId, dto)
+            applyProgress(bookId, dto.serverId, dto.remoteId, dto.progress)
+            bookId
+        }
+        val keptEpisodes = episodeIds.toSet()
+        val keptBooks = bookIds.toSet()
+        val removedEpisodeFiles = podcastDao.downloadedTracks().filter { it.bookId !in keptEpisodes }
+            .mapNotNull { track -> track.filePath?.let { track.bookId to it } }
+        val removedBooks = bookDao.downloadedBookTracks().map { it.bookId }.filterTo(HashSet()) { it !in keptBooks }
         val removedFeeds = podcastDao.feeds().map { it.feedId }.filter { it !in feeds }
         removedFeeds.forEach { podcastDao.deleteFeed(it) }
         feeds.keys.forEach { bookDao.deleteUnseen(it, generation) }
-        Log.d(TAG, "Folgen übernommen: ${ids.size} in ${feeds.size} Abos, ${removedFeeds.size} Abos und ${removedFiles.size} Dateien entfernt")
-        ids to removedFiles
+        bookDao.deleteUnseenBooks(generation)
+        Log.d(
+            TAG,
+            "Übernommen: ${episodeIds.size} Folgen in ${feeds.size} Abos, ${bookIds.size} Bücher; " +
+                "${removedFeeds.size} Abos, ${removedEpisodeFiles.size} Folgen-Dateien und ${removedBooks.size} Bücher entfernt",
+        )
+        Applied(episodeIds + bookIds, removedEpisodeFiles, removedBooks)
+    }
+
+    private suspend fun applyProgress(bookId: Long, serverId: String, remoteId: String, progress: WearEpisodeProgressDto?) {
+        val remote = progress ?: return
+        val local = bookDao.progress(bookId)
+        if (local == null || remote.updatedAt > local.updatedAt) {
+            bookDao.upsertProgress(BookProgressEntity(bookId, remote.positionMs, remote.durationMs, remote.finished, remote.speed, remote.updatedAt))
+            // Kommt vom Handy: nicht als Neuigkeit zurückmelden.
+            reported.markProgress(serverId, remoteId, remote.updatedAt)
+        }
+    }
+
+    /** Gleiche Dateiliste: geladene Dateien bleiben. Sonst neu (alte Dateien räumt der Download-Auftrag als verwaist weg). */
+    private suspend fun applyTracks(bookId: Long, dto: WearBookDto) {
+        val tracks = dto.tracks.map { track ->
+            BookTrackEntity(
+                bookId = bookId,
+                trackIndex = track.index,
+                // Bücher vom Gerät des Handys haben keine Kennung bei Audiobookshelf; die des Datei-Kanals hält den Eintrag eindeutig.
+                remoteFileId = track.fileId ?: WearBookFile.uid(dto.serverId, dto.remoteId, track.index),
+                startMs = track.startMs,
+                durationMs = track.durationMs,
+                mimeType = track.mimeType,
+            )
+        }
+        val existing = bookDao.tracks(bookId)
+        if (existing.map { it.trackIndex to it.remoteFileId } == tracks.map { it.trackIndex to it.remoteFileId }) return
+        bookDao.deleteTracks(bookId)
+        bookDao.insertTracks(tracks)
     }
 
     private fun WearEpisodeDto.toEntity(feedTitle: String, generation: Long) = BookEntity(
@@ -103,6 +145,20 @@ class PodcastMirror @Inject constructor(
         detailsLoaded = true,
         seenInGeneration = generation,
         coverUrl = coverUrl,
+    )
+
+    private fun WearBookDto.toEntity(generation: Long) = BookEntity(
+        serverId = serverId,
+        kind = BookKind.BOOK,
+        remoteId = remoteId,
+        title = title,
+        normTitle = title.lowercase(Locale.ROOT),
+        author = author,
+        narrator = narrator,
+        durationMs = durationMs,
+        // Die Dateiliste kommt mit dem Manifest; die Uhr fragt Audiobookshelf nie nach Details.
+        detailsLoaded = true,
+        seenInGeneration = generation,
     )
 
     private companion object {

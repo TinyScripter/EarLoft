@@ -5,9 +5,13 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
+import keinabersmart.kleinaberlaut.core.download.BookStorage
 import keinabersmart.kleinaberlaut.core.download.EpisodeStorage
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
+import keinabersmart.kleinaberlaut.core.wearsync.WearBookDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
+import keinabersmart.kleinaberlaut.core.wearsync.WearBookTrackDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeProgressDto
@@ -26,7 +30,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
 
-/** Die Uhr übernimmt die Folgen aus „Weiterhören“ des Handys (Wear-Konzept 16.1). */
+/** Die Uhr übernimmt die gewählten Folgen und Bücher des Handys (Wear-Konzept 16.1/16.2). */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class PodcastMirrorTest {
@@ -35,6 +39,7 @@ class PodcastMirrorTest {
     private lateinit var reported: ReportedEpisodes
     private lateinit var mirror: PodcastMirror
     private lateinit var storage: EpisodeStorage
+    private lateinit var bookStorage: BookStorage
 
     private val feed = WearPodcastFeedDto("f1", "https://example.org/feed", "Podcast", newestFirst = true, continuous = false)
     private val local = WearPodcastFeedDto("local:1", "local:1", "Vom Handy")
@@ -46,7 +51,8 @@ class PodcastMirrorTest {
             .build()
         reported = ReportedEpisodes(ApplicationProvider.getApplicationContext())
         storage = EpisodeStorage(ApplicationProvider.getApplicationContext())
-        mirror = PodcastMirror(db, db.podcastDao(), db.bookDao(), reported, storage)
+        bookStorage = BookStorage(ApplicationProvider.getApplicationContext())
+        mirror = PodcastMirror(db, db.podcastDao(), db.bookDao(), reported, storage, bookStorage)
     }
 
     @After
@@ -98,6 +104,64 @@ class PodcastMirrorTest {
         db.podcastDao().queueDownload(bookId)
         db.podcastDao().markDownloadRunning(bookId)
         db.podcastDao().markDownloadDone(bookId, file.absolutePath, file.length())
+        return file
+    }
+
+    private fun book(remoteId: String, serverId: String = "abs", files: List<String?> = listOf("$remoteId-0"), progress: WearEpisodeProgressDto? = null) =
+        WearBookDto(
+            serverId = serverId,
+            remoteId = remoteId,
+            title = "Buch $remoteId",
+            author = "Autorin",
+            durationMs = files.size * 3_600_000L,
+            tracks = files.mapIndexed { index, fileId -> WearBookTrackDto(index, fileId, index * 3_600_000L, 3_600_000) },
+            progress = progress,
+        )
+
+    @Test
+    fun `Buecher werden mit Dateiliste und Fortschritt angelegt, nach den Folgen in der Reihenfolge`() = runTest {
+        val ids = mirror.apply(
+            WearPodcastManifest(
+                listOf(feed),
+                listOf(episode("a")),
+                listOf(book("b1", files = listOf("f0", "f1"), progress = WearEpisodeProgressDto(4_000_000, 7_200_000, updatedAt = 7)), book("eigen", "local", listOf(null))),
+            ),
+        )
+
+        val b1 = db.bookDao().bookByRemote("abs", "b1")!!
+        val eigen = db.bookDao().bookByRemote("local", "eigen")!!
+        assertEquals(listOf(bookId("a"), b1.bookId, eigen.bookId), ids)
+        assertEquals(BookKind.BOOK, b1.kind)
+        assertTrue(b1.detailsLoaded)
+        assertEquals(listOf("f0", "f1"), db.bookDao().tracks(b1.bookId).map { it.remoteFileId })
+        assertEquals(4_000_000, db.bookDao().progress(b1.bookId)!!.positionMs)
+        assertEquals(7, reported.progressAt("abs", "b1"))
+        // Bücher vom Gerät des Handys gibt es nur über den Datei-Kanal.
+        assertEquals(WearBookFile.uid("local", "eigen", 0), db.bookDao().tracks(eigen.bookId).single().remoteFileId)
+    }
+
+    @Test
+    fun `nicht mehr gelieferte Buecher verschwinden samt Dateien, gleiche Dateiliste behaelt den Download`() = runTest {
+        mirror.apply(WearPodcastManifest(books = listOf(book("b1"), book("b2"))))
+        val b1 = db.bookDao().bookByRemote("abs", "b1")!!.bookId
+        val b2 = db.bookDao().bookByRemote("abs", "b2")!!.bookId
+        val file1 = downloadBook(b1)
+        val file2 = downloadBook(b2)
+
+        mirror.apply(WearPodcastManifest(books = listOf(book("b1"))))
+
+        assertEquals(b1, db.bookDao().bookByRemote("abs", "b1")!!.bookId)
+        assertEquals(TrackDownload.DONE, db.bookDao().tracks(b1).single().downloadState)
+        assertTrue(file1.isFile)
+        assertNull(db.bookDao().bookByRemote("abs", "b2"))
+        assertFalse(file2.exists())
+    }
+
+    private suspend fun downloadBook(bookId: Long): File {
+        val file = bookStorage.fileFor(bookId, 0, "audio/mp4").apply { parentFile?.mkdirs(); writeBytes(ByteArray(10)) }
+        db.bookDao().queueBookDownload(bookId)
+        db.bookDao().markBookTrackRunning(bookId, 0)
+        db.bookDao().markBookTrackDone(bookId, 0, file.absolutePath, file.length())
         return file
     }
 

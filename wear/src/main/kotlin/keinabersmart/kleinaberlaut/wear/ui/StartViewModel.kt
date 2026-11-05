@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
+import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
@@ -56,13 +57,14 @@ class StartViewModel @Inject constructor(
     private val remote: PhoneRemote,
     private val playback: PlaybackConnection,
     continueListening: ContinueListening,
+    books: BookRepository,
 ) : ViewModel() {
 
     private val openOnPhone = MutableStateFlow<OpenOnPhoneResult?>(null)
 
-    /** Was gerade auf dem Handy läuft und ob Folgen auf der Uhr liegen; zusammengefasst, damit `combine` typsicher bleibt. */
-    private val phoneAndEpisodes = combine(remote.state, continueListening.episodes) { phonePlayer, episodes ->
-        phonePlayer?.takeIf { it.hasMedia }?.title to episodes.isNotEmpty()
+    /** Was gerade auf dem Handy läuft und ob Folgen oder Bücher auf der Uhr liegen; zusammengefasst, damit `combine` typsicher bleibt. */
+    private val phoneAndEpisodes = combine(remote.state, continueListening.episodes, books.books()) { phonePlayer, episodes, allBooks ->
+        phonePlayer?.takeIf { it.hasMedia }?.title to (episodes.isNotEmpty() || allBooks.any { it.progress?.finished != true })
     }
 
     val state: StateFlow<StartUiState> = combine(

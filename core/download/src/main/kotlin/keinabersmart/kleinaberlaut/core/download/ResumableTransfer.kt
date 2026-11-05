@@ -43,6 +43,8 @@ internal class ResumableTransfer(
         trackIndex: Int,
         onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit,
     ): TransferResult {
+        // Vor dem Merkmal: Beim allerersten Buch auf dem Gerät (z. B. auf der Uhr) gibt es den Ordner noch nicht.
+        storage.ensureDirectory()
         val part = storage.partFileFor(bookId, trackIndex)
         val meta = storage.metaFileFor(bookId, trackIndex)
         val resume = readResume(part, meta)

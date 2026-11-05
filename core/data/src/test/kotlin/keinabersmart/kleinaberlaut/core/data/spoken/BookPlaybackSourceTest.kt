@@ -61,7 +61,7 @@ class BookPlaybackSourceTest {
         }
         val dao = db.bookDao()
         val servers = AudiobookshelfServers(dao, secrets, api, AbsServerRegistry())
-        val progressSync = BookProgressSync(context, dao, servers, api)
+        val progressSync = BookProgressSync(context, dao, servers, api, policy)
         val settings = SpokenSettings(context)
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, servers, api, PodcastFeedApi(client), scanner)

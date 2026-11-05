@@ -1,15 +1,18 @@
 package keinabersmart.kleinaberlaut.wear
 
-import keinabersmart.kleinaberlaut.core.data.wear.WatchPodcastContent
+import keinabersmart.kleinaberlaut.core.data.wear.WatchSpokenContent
+import keinabersmart.kleinaberlaut.core.model.BookProgress
+import keinabersmart.kleinaberlaut.core.wearsync.WearBookDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearBookTrackDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeProgressDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearPodcastFeedDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearPodcastManifest
 
-/** Bildet die Folgen für die Uhr auf das Folgen-Manifest ab (Wear-Konzept 16.1). */
+/** Bildet die Folgen und Bücher für die Uhr auf das Folgen-Manifest ab (Wear-Konzept 16.1/16.2). */
 object WearPodcastManifestBuilder {
 
-    fun build(content: WatchPodcastContent): WearPodcastManifest = WearPodcastManifest(
+    fun build(content: WatchSpokenContent): WearPodcastManifest = WearPodcastManifest(
         feeds = content.feeds.map {
             WearPodcastFeedDto(
                 feedId = it.feedId,
@@ -31,14 +34,29 @@ object WearPodcastManifestBuilder {
                 audioUrl = episode.audioUrl,
                 mimeType = episode.mimeType,
                 coverUrl = episode.coverUrl,
-                progress = episode.progress?.let {
-                    WearEpisodeProgressDto(it.positionMs, it.durationMs, it.finished, it.speed, it.updatedAt)
-                },
+                progress = episode.progress?.toDto(),
+            )
+        },
+        books = content.books.map { book ->
+            WearBookDto(
+                serverId = book.serverId,
+                remoteId = book.remoteId,
+                title = book.title,
+                author = book.author,
+                narrator = book.narrator,
+                durationMs = book.durationMs,
+                tracks = book.tracks.map { WearBookTrackDto(it.index, it.fileId, it.startMs, it.durationMs, it.mimeType) },
+                progress = book.progress?.toDto(),
             )
         },
     )
 
     /** Dasselbe Manifest ohne Fortschritt: Unterscheiden sich nur die Fortschritte, wartet das Handy mit dem Senden. */
     fun withoutProgress(manifest: WearPodcastManifest): WearPodcastManifest =
-        manifest.copy(episodes = manifest.episodes.map { it.copy(progress = null) })
+        manifest.copy(
+            episodes = manifest.episodes.map { it.copy(progress = null) },
+            books = manifest.books.map { it.copy(progress = null) },
+        )
+
+    private fun BookProgress.toDto() = WearEpisodeProgressDto(positionMs, durationMs, finished, speed, updatedAt)
 }

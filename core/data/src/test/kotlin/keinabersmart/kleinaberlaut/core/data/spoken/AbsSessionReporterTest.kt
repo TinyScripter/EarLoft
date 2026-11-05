@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.WorkManager
+import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
 import keinabersmart.kleinaberlaut.core.data.security.SecretStore
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
@@ -72,7 +73,7 @@ class AbsSessionReporterTest {
         }
         db.bookDao().upsertServer(SpokenServerEntity("srv", "Server", "https://abs.example/"))
         val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry())
-        reporter = AbsSessionReporter(context, db.absSessionDao(), db.bookDao(), servers, api)
+        reporter = AbsSessionReporter(context, db.absSessionDao(), db.bookDao(), servers, api, PlaybackPolicy())
         bookId = db.bookDao().upsertBook(
             BookEntity(serverId = "srv", kind = BookKind.BOOK, remoteId = "item-1", title = "Buch", normTitle = "buch", author = "Autor", durationMs = 36_000_000),
         )

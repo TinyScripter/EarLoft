@@ -47,12 +47,12 @@ object WearPaths {
     const val CREDENTIALS = "/kal/credentials"
 
     /**
-     * Channel, von der Uhr geöffnet: `/kal/file/<sourceUid>` bzw. für eine Folge `/kal/file/`[WearEpisodeFile.uid]; das
-     * Handy schreibt die Datei im Original.
+     * Channel, von der Uhr geöffnet: `/kal/file/<sourceUid>` bzw. für eine Folge `/kal/file/`[WearEpisodeFile.uid], für
+     * eine Buchdatei `/kal/file/`[WearBookFile.uid]; das Handy schreibt die Datei im Original.
      */
     const val FILE_CHANNEL_PREFIX = "/kal/file/"
 
-    /** DataItem mit Asset, Handy → Uhr: [WearPodcastManifest] (gzip) – die Folgen für die Uhr (Wear-Konzept 16.1). */
+    /** DataItem mit Asset, Handy → Uhr: [WearPodcastManifest] (gzip) – Folgen und Bücher für die Uhr (Wear-Konzept 16.1/16.2). */
     const val PODCASTS = "/kal/podcasts"
 
     /** DataItem je Paket, Uhr → Handy: [WearEpisodeReportDto]; das Handy löscht es nach dem Import. */
@@ -112,6 +112,28 @@ object WearEpisodeFile {
     }
 
     // Die Varianten mit `Charset` gibt es erst ab API 33.
+    private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
+
+    private fun decode(value: String) = java.net.URLDecoder.decode(value, "UTF-8")
+}
+
+/** Kennung einer Buchdatei im Datei-Kanal (16.2): `book:<serverId>:<remoteId>:<index>`, die ersten beiden Teile URL-kodiert. */
+object WearBookFile {
+    private const val PREFIX = "book:"
+
+    data class Ref(val serverId: String, val remoteId: String, val trackIndex: Int)
+
+    fun uid(serverId: String, remoteId: String, trackIndex: Int): String = "$PREFIX${encode(serverId)}:${encode(remoteId)}:$trackIndex"
+
+    /** `null`, wenn [uid] keine Buchdatei bezeichnet. */
+    fun parse(uid: String): Ref? {
+        if (!uid.startsWith(PREFIX)) return null
+        val parts = uid.removePrefix(PREFIX).split(':')
+        if (parts.size != 3) return null
+        val index = parts[2].toIntOrNull() ?: return null
+        return Ref(decode(parts[0]), decode(parts[1]), index)
+    }
+
     private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
 
     private fun decode(value: String) = java.net.URLDecoder.decode(value, "UTF-8")

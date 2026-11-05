@@ -6,6 +6,7 @@ import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import dagger.hilt.android.AndroidEntryPoint
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
+import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
 import keinabersmart.kleinaberlaut.core.data.wear.WearServerMirror
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsDto
@@ -23,6 +24,7 @@ import javax.inject.Inject
 class WatchListenerService : WearableListenerService() {
 
     @Inject lateinit var serverMirror: WearServerMirror
+    @Inject lateinit var audiobookshelf: AudiobookshelfServers
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onDataChanged(events: DataEventBuffer) {
@@ -42,8 +44,10 @@ class WatchListenerService : WearableListenerService() {
             return
         }
         applicationScope.launch {
-            // Das Passwort liegt danach nur im Keystore der Uhr (KeystoreSecretStore).
-            if (!serverMirror.storePassword(credentials.sourceId, credentials.password)) {
+            // Das Passwort bzw. der API-Schlüssel (Audiobookshelf, 16.2) liegt danach nur im Keystore der Uhr (KeystoreSecretStore).
+            if (!serverMirror.storePassword(credentials.sourceId, credentials.password) &&
+                !audiobookshelf.storeKey(credentials.sourceId, credentials.password)
+            ) {
                 Log.w(TAG, "Passwort für unbekannten Server ${credentials.sourceId} verworfen")
             }
         }

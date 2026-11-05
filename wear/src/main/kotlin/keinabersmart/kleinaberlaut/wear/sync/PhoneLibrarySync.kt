@@ -5,6 +5,8 @@ import androidx.room.withTransaction
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.MessageClient
 import keinabersmart.kleinaberlaut.core.data.podcast.EpisodeQueue
+import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
+import keinabersmart.kleinaberlaut.core.data.spoken.MirroredAbsServer
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
 import keinabersmart.kleinaberlaut.core.data.wear.MirroredServer
 import keinabersmart.kleinaberlaut.core.data.wear.WearServerMirror
@@ -36,14 +38,16 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Übernimmt den Stand des Handys in die Datenbank der Uhr (Wear-Konzept 6/7): erst die Server, dann das
- * Manifest, dann die Folgen (16.1). Liest immer den aktuellen Stand der DataItems – mehrfaches Ausführen schadet nicht.
+ * Übernimmt den Stand des Handys in die Datenbank der Uhr (Wear-Konzept 6/7): erst die Server (auch die von Audiobookshelf,
+ * 16.2), dann das Manifest, dann Folgen und Bücher (16.1/16.2). Liest immer den aktuellen Stand der DataItems – mehrfaches
+ * Ausführen schadet nicht.
  */
 @Singleton
 class PhoneLibrarySync @Inject constructor(
     private val dataClient: DataClient,
     private val messageClient: MessageClient,
     private val serverMirror: WearServerMirror,
+    private val audiobookshelf: AudiobookshelfServers,
     private val manifestApplier: ManifestApplier,
     private val podcastMirror: PodcastMirror,
     private val episodeQueue: EpisodeQueue,
@@ -69,6 +73,7 @@ class PhoneLibrarySync @Inject constructor(
         if (servers != null) {
             val dto = WearCodec.decode<WearServersDto>(servers.value)
             serverMirror.apply(dto.servers.map { MirroredServer(it.sourceId, it.name, it.baseUrl, it.username, it.priority, it.formPost) })
+            audiobookshelf.mirror(dto.spokenServers.map { MirroredAbsServer(it.serverId, it.name, it.baseUrl) })
             requestMissingPasswords(phoneNodeId = servers.key)
         }
         dataClient.assetPayloadsAt(WearPaths.MANIFEST).values.firstOrNull()
@@ -80,11 +85,11 @@ class PhoneLibrarySync @Inject constructor(
     }
 
     /**
-     * Fragt beim Handy nach Passwörtern, die der Uhr fehlen (neuer Server, Uhr zurückgesetzt). Die Antwort
-     * kommt als Message an den `WatchListenerService`. Ist das Handy nicht erreichbar, fragt der nächste Lauf.
+     * Fragt beim Handy nach Passwörtern und API-Schlüsseln, die der Uhr fehlen (neuer Server, Uhr zurückgesetzt). Die
+     * Antwort kommt als Message an den `WatchListenerService`. Ist das Handy nicht erreichbar, fragt der nächste Lauf.
      */
     private suspend fun requestMissingPasswords(phoneNodeId: String) {
-        serverMirror.serversWithoutPassword().forEach { sourceId ->
+        (serverMirror.serversWithoutPassword() + audiobookshelf.withoutKey()).forEach { sourceId ->
             Log.d(TAG, "Passwort für $sourceId anfordern")
             messageClient.sendPayload(phoneNodeId, WearPaths.CREDENTIALS_REQUEST, WearCodec.encode(WearCredentialsRequest(sourceId)))
         }

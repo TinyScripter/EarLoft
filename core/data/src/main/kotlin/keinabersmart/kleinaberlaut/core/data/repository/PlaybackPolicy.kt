@@ -18,4 +18,11 @@ class PlaybackPolicy @Inject constructor() {
     /** `true`: Ohne passende Ausgabe (z. B. Kopfhörer) wird die Wiedergabe angehalten statt über den Lautsprecher zu laufen. */
     @Volatile
     var requireSuitableOutput: Boolean = false
+
+    /**
+     * `false`: Fortschritt und Hörsitzungen von Büchern gehen nicht selbst an Audiobookshelf. Die Uhr meldet sie dem Handy,
+     * das sie weitergibt (Wear-Konzept 16.2); den Stand des Servers bringt das Handy mit.
+     */
+    @Volatile
+    var syncsWithBookServers: Boolean = true
 }

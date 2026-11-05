@@ -16,6 +16,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
 import keinabersmart.kleinaberlaut.core.database.dao.AbsSessionDao
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.entity.AbsSessionEntity
@@ -51,6 +52,7 @@ class AbsSessionReporter @Inject constructor(
     private val bookDao: BookDao,
     private val servers: AudiobookshelfServers,
     private val api: AbsApi,
+    private val policy: PlaybackPolicy,
 ) {
     private val mutex = Mutex()
     private val activeSession = ConcurrentHashMap<Long, String>()
@@ -70,6 +72,8 @@ class AbsSessionReporter @Inject constructor(
         now: Long = System.currentTimeMillis(),
     ) {
         if (listenedMs <= 0) return
+        // Uhr: Die Hörzeit geht über das Handy an den Server (Wear-Konzept 16.2), das daraus eigene Sitzungen bildet.
+        if (!policy.syncsWithBookServers) return
         val sessionId = mutex.withLock {
             val book = bookDao.book(bookId) ?: return
             if (book.kind != BookKind.BOOK || isLocalSource(book.serverId)) return

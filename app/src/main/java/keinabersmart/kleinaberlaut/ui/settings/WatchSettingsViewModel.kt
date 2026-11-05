@@ -3,7 +3,7 @@ package keinabersmart.kleinaberlaut.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodes
+import keinabersmart.kleinaberlaut.core.data.wear.WatchSpoken
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
@@ -25,11 +25,12 @@ data class WatchSelectionItem(
     val songCount: Int,
 )
 
-/** Eine einzeln gewählte Folge (Wear-Konzept 16.1). */
+/** Eine einzeln gewählte Folge bzw. ein Buch (Wear-Konzept 16.1/16.2); [subtitle] ist der Podcast bzw. der Autor. */
 data class WatchEpisodeItem(
     val bookId: Long,
     val title: String,
-    val feedTitle: String,
+    val subtitle: String,
+    val isBook: Boolean = false,
 )
 
 data class WatchSettingsUiState(
@@ -45,7 +46,7 @@ data class WatchSettingsUiState(
 class WatchSettingsViewModel @Inject constructor(
     private val watchSettings: WatchSettingsRepository,
     private val selections: WearSelectionRepository,
-    private val episodes: WatchEpisodes,
+    private val episodes: WatchSpoken,
     watchStatus: WatchStatusRepository,
 ) : ViewModel() {
 
@@ -59,7 +60,8 @@ class WatchSettingsViewModel @Inject constructor(
         WatchSettingsUiState(
             settings = settings,
             selections = content.selections.map { WatchSelectionItem(it.kind, it.refId, it.title, it.songIds.size) },
-            episodes = podcasts.episodes.map { WatchEpisodeItem(it.bookId, it.title, feedTitles[it.feedId].orEmpty()) },
+            episodes = podcasts.episodes.map { WatchEpisodeItem(it.bookId, it.title, feedTitles[it.feedId].orEmpty()) } +
+                podcasts.books.map { WatchEpisodeItem(it.bookId, it.title, it.author, isBook = true) },
             status = status,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WatchSettingsUiState())

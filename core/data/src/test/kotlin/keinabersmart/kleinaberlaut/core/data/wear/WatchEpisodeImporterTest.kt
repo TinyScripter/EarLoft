@@ -1,14 +1,23 @@
 package keinabersmart.kleinaberlaut.core.data.wear
 
+import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import keinabersmart.kleinaberlaut.core.data.repository.PlaybackPolicy
+import keinabersmart.kleinaberlaut.core.data.security.SecretStore
+import keinabersmart.kleinaberlaut.core.data.spoken.AbsSessionReporter
+import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
+import keinabersmart.kleinaberlaut.core.data.spoken.BookProgressSync
 import keinabersmart.kleinaberlaut.core.data.stats.StatsRepository
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
+import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsServerRegistry
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -23,18 +32,38 @@ class WatchEpisodeImporterTest {
     private lateinit var db: KleinaberlautDatabase
     private lateinit var importer: WatchEpisodeImporter
     private var episodeId = 0L
+    private var bookId = 0L
 
     @Before
     fun setUp() = runTest {
-        db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KleinaberlautDatabase::class.java)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        db = Room.inMemoryDatabaseBuilder(context, KleinaberlautDatabase::class.java)
             .allowMainThreadQueries()
             .build()
         db.podcastDao().upsertFeed(PodcastFeedEntity(FEED_ID, FEED_URL, "Podcast"))
         episodeId = db.bookDao().insertBook(
             BookEntity(serverId = FEED_ID, kind = BookKind.EPISODE, remoteId = GUID, title = "Folge", normTitle = "folge", author = "Podcast", durationMs = 3_600_000),
         )
+        bookId = db.bookDao().insertBook(
+            BookEntity(serverId = ABS_ID, kind = BookKind.BOOK, remoteId = ITEM_ID, title = "Buch", normTitle = "buch", author = "Autorin", durationMs = 36_000_000),
+        )
+        // Ohne Schlüssel ist kein Server eingetragen: Senden scheitert sofort, ohne Netz.
+        val secrets = object : SecretStore {
+            override suspend fun get(key: String): String? = null
+            override suspend fun put(key: String, value: String) = Unit
+            override suspend fun remove(key: String) = Unit
+        }
+        val api = AbsApi(OkHttpClient())
+        val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry())
+        val policy = PlaybackPolicy()
         val stats = StatsRepository(db.statsDao(), db.bookDao(), db.podcastDao())
-        importer = WatchEpisodeImporter(ApplicationProvider.getApplicationContext(), db.bookDao(), stats)
+        importer = WatchEpisodeImporter(
+            context,
+            db.bookDao(),
+            stats,
+            BookProgressSync(context, db.bookDao(), servers, api, policy),
+            AbsSessionReporter(context, db.absSessionDao(), db.bookDao(), servers, api, policy),
+        )
     }
 
     @After
@@ -80,6 +109,34 @@ class WatchEpisodeImporterTest {
     }
 
     @Test
+    fun `Buch von der Uhr geht als offener Stand und Hoersitzung an den Server`() = runTest {
+        val progress = WatchEpisodeProgress(ABS_ID, ITEM_ID, 1_200_000, 36_000_000, finished = false, speed = 1f, updatedAt = 9_000)
+        val listening = listOf(WatchEpisodeListening(ABS_ID, ITEM_ID, listenedMs = 300_000, at = 9_000))
+
+        assertEquals(1, importer.import("p1", listOf(progress), listening))
+
+        val stored = db.bookDao().progress(bookId)!!
+        assertEquals(1_200_000, stored.positionMs)
+        // Nicht erreichbar: bleibt offen, der Worker liefert nach.
+        assertTrue(stored.dirty)
+        val session = db.absSessionDao().dirty().single()
+        assertEquals(bookId, session.bookId)
+        assertEquals(300_000, session.timeListeningMs)
+        assertEquals(1_200_000, session.currentPositionMs)
+        val stat = db.statsDao().all().single()
+        assertEquals(BookKind.BOOK, stat.kind)
+        assertEquals(ABS_ID, stat.groupKey)
+        assertEquals(300_000, stat.listenedMs)
+    }
+
+    @Test
+    fun `Folgen bleiben ohne Server-Stand`() = runTest {
+        importer.import("p1", listOf(progress(600_000, updatedAt = 2_000)), emptyList())
+        assertEquals(false, db.bookDao().progress(episodeId)!!.dirty)
+        assertTrue(db.absSessionDao().dirty().isEmpty())
+    }
+
+    @Test
     fun `unbekannte Folgen werden uebersprungen`() = runTest {
         val unknown = WatchEpisodeProgress(FEED_ID, "andere", 1, 2, false, 1f, 3)
         assertEquals(0, importer.import("p1", listOf(unknown), listOf(WatchEpisodeListening(FEED_ID, "andere", 5_000, 1))))
@@ -90,5 +147,7 @@ class WatchEpisodeImporterTest {
         const val FEED_ID = "feed-1"
         const val FEED_URL = "https://example.org/feed.xml"
         const val GUID = "guid-A"
+        const val ABS_ID = "abs-1"
+        const val ITEM_ID = "item-1"
     }
 }

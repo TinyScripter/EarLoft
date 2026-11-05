@@ -26,9 +26,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Meldet dem Handy, was auf der Uhr an Folgen gehört wurde (Wear-Konzept 16.1): neuere Fortschritte und die seit der letzten
- * Meldung gehörte Zeit, als DataItem `/kal/episodes/<uuid>` (kommt auch an, wenn das Handy gerade fehlt). Während eine
- * Folge spielt, schreibt der Player alle 15 s; gemeldet wird erst nach einer Ruhepause, sonst weckte jede Meldung das Handy.
+ * Meldet dem Handy, was auf der Uhr an Folgen und Büchern gehört wurde (Wear-Konzept 16.1/16.2): neuere Fortschritte und die
+ * seit der letzten Meldung gehörte Zeit, als DataItem `/kal/episodes/<uuid>` (kommt auch an, wenn das Handy gerade fehlt).
+ * Während etwas spielt, schreibt der Player alle 15 s; gemeldet wird erst nach einer Ruhepause, sonst weckte jede Meldung
+ * das Handy. Bei Büchern ist der Schlüssel `serverId`/`remoteId` statt `feedId`/guid.
  */
 @Singleton
 class WatchEpisodeReporter @Inject constructor(
@@ -51,14 +52,18 @@ class WatchEpisodeReporter @Inject constructor(
     suspend fun report() = mutex.withLock {
         val feeds = podcastDao.feeds()
         val feedIdsByUrl = feeds.associate { it.url to it.feedId }
-        val feedIds = feedIdsByUrl.values.toSet()
 
+        // Auf der Uhr gibt es nur Gespiegeltes: jede Folge und jedes Buch stammt vom Handy.
         val progress = bookDao.keyedProgress()
-            .filter { it.serverId in feedIds && it.progress.updatedAt > reported.progressAt(it.serverId, it.remoteId) }
+            .filter { it.progress.updatedAt > reported.progressAt(it.serverId, it.remoteId) }
         val listening = statsDao.all()
-            .filter { it.source == ListeningStatEntity.SOURCE_APP && it.kind == BookKind.EPISODE }
+            .filter { it.source == ListeningStatEntity.SOURCE_APP }
             .mapNotNull { stat ->
-                val feedId = feedIdsByUrl[stat.groupKey] ?: return@mapNotNull null
+                // Folgen zählen unter der Adresse des Feeds, Bücher unter ihrer `serverId` (StatsRepository).
+                val feedId = when (stat.kind) {
+                    BookKind.EPISODE -> feedIdsByUrl[stat.groupKey]
+                    BookKind.BOOK -> stat.groupKey
+                } ?: return@mapNotNull null
                 val delta = stat.listenedMs - reported.listenedMs(stat.groupKey, stat.itemKey)
                 // Kleiner als gemeldet: Die Statistik der Uhr wurde geleert; ab hier neu zählen.
                 if (delta < 0) reported.markListened(stat.groupKey, stat.itemKey, stat.listenedMs)
@@ -77,7 +82,7 @@ class WatchEpisodeReporter @Inject constructor(
         if (!dataClient.putPayload(WearPaths.episodes(packet.packetId), WearCodec.encode(packet))) return@withLock
         progress.forEach { reported.markProgress(it.serverId, it.remoteId, it.progress.updatedAt) }
         listening.forEach { (stat, _) -> reported.markListened(stat.groupKey, stat.itemKey, stat.listenedMs) }
-        Log.d(TAG, "Folgen gemeldet: ${progress.size} Fortschritte, ${listening.size} Zeiten")
+        Log.d(TAG, "Folgen und Bücher gemeldet: ${progress.size} Fortschritte, ${listening.size} Zeiten")
     }
 
     private companion object {

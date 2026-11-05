@@ -11,6 +11,7 @@ import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import dagger.hilt.android.AndroidEntryPoint
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
+import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
 import keinabersmart.kleinaberlaut.core.data.wear.PhoneFileLocator
 import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodeImporter
 import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodeListening
@@ -20,6 +21,7 @@ import keinabersmart.kleinaberlaut.core.data.wear.WatchPlayImporter
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.data.wear.WearServerMirror
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
+import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsRequest
@@ -49,6 +51,7 @@ import javax.inject.Inject
 class PhoneWearListenerService : WearableListenerService() {
 
     @Inject lateinit var serverMirror: WearServerMirror
+    @Inject lateinit var audiobookshelf: AudiobookshelfServers
     @Inject lateinit var messageClient: MessageClient
     @Inject lateinit var channelClient: ChannelClient
     @Inject lateinit var fileLocator: PhoneFileLocator
@@ -90,7 +93,7 @@ class PhoneWearListenerService : WearableListenerService() {
         }
     }
 
-    /** Pakete der Uhr – Wiedergaben (Wear-Konzept 10) und gehörte Folgen (16.1): importieren, dann das DataItem löschen. */
+    /** Pakete der Uhr – Wiedergaben (Wear-Konzept 10) und gehörte Folgen und Bücher (16.1/16.2): importieren, dann das DataItem löschen. */
     override fun onDataChanged(events: DataEventBuffer) {
         // Die Ereignisse nur hier lesen; der Puffer wird danach freigegeben.
         val packets = events.filter { it.type == DataEvent.TYPE_CHANGED }
@@ -134,13 +137,14 @@ class PhoneWearListenerService : WearableListenerService() {
             },
             listening = report.listening.map { WatchEpisodeListening(it.feedId, it.guid, it.listenedMs, it.at) },
         )
-        Log.d(TAG, "Folgen-Paket ${report.packetId}: $applied von ${report.progress.size} Fortschritten, ${report.listening.size} Zeiten")
+        Log.d(TAG, "Paket ${report.packetId} (Folgen/Bücher): $applied von ${report.progress.size} Fortschritten, ${report.listening.size} Zeiten")
         dataClient.delete(uri)
     }
 
     /**
-     * Die Uhr holt eine Datei (`/kal/file/<sourceUid>`, Wear-Konzept 8.4; Folgen: [WearEpisodeFile], 16.1): Das Handy
-     * schickt die lokale Datei oder den fertigen Download im Original, ohne Datei nur die Kopfzeile „keine Datei“.
+     * Die Uhr holt eine Datei (`/kal/file/<sourceUid>`, Wear-Konzept 8.4; Folgen: [WearEpisodeFile], 16.1; Buchdateien:
+     * [WearBookFile], 16.2): Das Handy schickt die lokale Datei oder den fertigen Download im Original, ohne Datei nur die
+     * Kopfzeile „keine Datei“.
      */
     override fun onChannelOpened(channel: ChannelClient.Channel) {
         val path = channel.path
@@ -148,15 +152,23 @@ class PhoneWearListenerService : WearableListenerService() {
         val sourceUid = path.removePrefix(WearPaths.FILE_CHANNEL_PREFIX)
         applicationScope.launch {
             val episode = WearEpisodeFile.parse(sourceUid)
-            val file = if (episode != null) fileLocator.openEpisode(episode.first, episode.second) else fileLocator.open(sourceUid)
+            val bookTrack = WearBookFile.parse(sourceUid)
+            val file = when {
+                episode != null -> fileLocator.openEpisode(episode.first, episode.second)
+                bookTrack != null -> fileLocator.openBookTrack(bookTrack.serverId, bookTrack.remoteId, bookTrack.trackIndex)
+                else -> fileLocator.open(sourceUid)
+            }
             Log.d(TAG, "Datei $sourceUid für die Uhr: ${file?.length?.let { "$it Bytes" } ?: "keine Datei"}")
             channelClient.sendFile(channel, file?.length ?: 0, file?.input)
         }
     }
 
-    /** Das Passwort geht nur als Message an genau die anfragende Uhr, nie als DataItem (Wear-Konzept 4). */
+    /**
+     * Das Passwort bzw. der API-Schlüssel eines Audiobookshelf-Servers (16.2) geht nur als Message an genau die anfragende
+     * Uhr, nie als DataItem (Wear-Konzept 4).
+     */
     private suspend fun sendPassword(nodeId: String, sourceId: String) {
-        val password = serverMirror.password(sourceId)
+        val password = serverMirror.password(sourceId) ?: audiobookshelf.apiKey(sourceId)
         if (password == null) {
             Log.w(TAG, "Kein Passwort für $sourceId")
             return

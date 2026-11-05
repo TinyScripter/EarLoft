@@ -58,6 +58,18 @@ class PhoneFileLocator @Inject constructor(
         return openContent(Uri.parse(track.remoteFileId), knownLength = null, label = "$feedId/$guid")
     }
 
+    /**
+     * Eine Datei eines Hörbuchs (Wear-Konzept 16.2): der fertige Download bzw. bei Büchern vom Gerät die Datei selbst.
+     * @return `null`, wenn das Handy das Buch nicht kennt oder keine Datei hat.
+     */
+    suspend fun openBookTrack(serverId: String, remoteId: String, trackIndex: Int): PhoneFile? {
+        val book = bookDao.bookByRemote(serverId, remoteId)?.takeIf { it.kind == BookKind.BOOK } ?: return null
+        val track = bookDao.tracks(book.bookId).firstOrNull { it.trackIndex == trackIndex } ?: return null
+        track.filePath?.let(::File)?.takeIf { track.downloadState == TrackDownload.DONE && it.isFile }?.let { return PhoneFile(it.length(), it.inputStream()) }
+        if (!isLocalSource(serverId)) return null
+        return openContent(Uri.parse(track.remoteFileId), knownLength = null, label = "$serverId/$remoteId/$trackIndex")
+    }
+
     private suspend fun openLocal(source: WearSourceRow): PhoneFile? {
         val location = sources[source.sourceId]?.resolvePlayback(source.remoteId) as? PlaybackLocation.LocalFile ?: return null
         return openContent(location.uri, source.sizeBytes, source.uid)

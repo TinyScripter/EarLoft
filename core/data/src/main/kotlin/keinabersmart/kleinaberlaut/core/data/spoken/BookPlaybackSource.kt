@@ -75,7 +75,8 @@ class BookPlaybackSource @Inject constructor(
         if (!policy.allowStreaming && timeline.tracks.any { track -> track.localPath?.let(::File)?.isFile != true }) return null
         // Eine geladene Datei geht vor dem Stream (Folgen und Bücher, auch gemischt, wenn nur ein Teil geladen ist).
         // Folgen und Bücher vom Gerät haben keinen Audiobookshelf-Server; ihre Dateikennung ist die Adresse selbst.
-        val server = if (episode || book.isLocal) null else servers.server(book.serverId) ?: return null
+        // Ohne Streams liegt alles als Datei vor: Der Server wird dann nicht gebraucht (Uhr ohne Schlüssel, 16.2).
+        val server = if (episode || book.isLocal) null else servers.server(book.serverId) ?: if (policy.allowStreaming) return null else null
         val urls = timeline.tracks.map { track ->
             track.localPath?.let(::File)?.takeIf { it.isFile }?.let { Uri.fromFile(it).toString() }
                 // Bei Folgen ist die Dateikennung die Audio-Adresse aus dem Feed.

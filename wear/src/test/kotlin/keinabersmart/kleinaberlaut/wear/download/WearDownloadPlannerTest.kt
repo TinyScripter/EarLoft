@@ -116,6 +116,35 @@ class WearDownloadPlannerTest {
         assertEquals(1, scheduler.calls)
     }
 
+    @Test
+    fun `books come after episodes, whole or not at all, and never as an episode`() = runTest {
+        // Folge 1 h = 57,6 MB; Buch mit zwei Dateien zu je 1 h = 115,2 MB; das zweite Buch passt nicht mehr.
+        state.updateSettings(WearSettingsDto(minFreeBytes = 0, storageLimitBytes = 180_000_000))
+        db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast"))
+        val first = book("b1", files = 2)
+        val episode = episode("e1")
+        val second = book("b2", files = 1)
+        episodeQueue.setOrder(listOf(first, episode, second))
+
+        planner.plan()
+
+        assertEquals(TrackDownload.QUEUED, db.podcastDao().trackOf(episode)!!.downloadState)
+        assertEquals(listOf(TrackDownload.QUEUED, TrackDownload.QUEUED), db.bookDao().tracks(first).map { it.downloadState })
+        assertEquals(TrackDownload.NONE, db.bookDao().tracks(second).single().downloadState)
+        // Der Folgen-Planer fasst Bücher nicht an (ihre erste Datei sieht aus wie eine Folge).
+        assertEquals(1, db.podcastDao().countPendingDownloads())
+        assertEquals(1, state.missingForStorage.value)
+        assertEquals(1, scheduler.calls)
+    }
+
+    private suspend fun book(remoteId: String, files: Int): Long {
+        val bookId = db.bookDao().insertBook(
+            BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = remoteId, title = remoteId, normTitle = remoteId, author = "Autorin", durationMs = files * 3_600_000L),
+        )
+        db.bookDao().insertTracks((0 until files).map { BookTrackEntity(bookId, it, "$remoteId-$it", it * 3_600_000L, 3_600_000) })
+        return bookId
+    }
+
     private suspend fun episode(guid: String): Long {
         val bookId = db.bookDao().insertBook(
             BookEntity(serverId = "f1", kind = BookKind.EPISODE, remoteId = guid, title = guid, normTitle = guid, author = "Podcast", durationMs = 3_600_000),
