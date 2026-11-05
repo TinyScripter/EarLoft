@@ -26,6 +26,7 @@ import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -214,6 +215,46 @@ class WearDownloadPlannerTest {
         planner.plan()
 
         assertEquals(listOf("wear:album:1"), db.downloadDao().getAll().map { it.pinnedBy })
+    }
+
+    @Test
+    fun `storage view counts loaded bytes per selection and per book`() = runTest {
+        val t1 = song("nd:t1")
+        val t2 = song("nd:t2")
+        val t3 = song("nd:t3")
+        // Doppelt in der Playlist zählt einmal; ein Song in zwei Auswahlen zählt bei beiden.
+        select("album:1", listOf(t1, t2, t1, t3))
+        select("favorites", listOf(t1), addedAt = 1)
+        db.downloadDao().insertIfAbsent(
+            listOf(
+                DownloadEntity("nd:t1", t1, DownloadState.DONE, bytesDone = 1_000, bytesTotal = 1_000),
+                DownloadEntity("nd:t2", t2, DownloadState.DONE, bytesDone = 2_000, bytesTotal = 2_000),
+                DownloadEntity("nd:t3", t3, DownloadState.RUNNING, bytesDone = 100, bytesTotal = 4_000),
+            ),
+        )
+        val bookId = db.bookDao().insertBook(
+            BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = "b1", title = "b1", normTitle = "b1", author = "Autorin", durationMs = 7_200_000),
+        )
+        val episodeId = db.bookDao().insertBook(
+            BookEntity(serverId = "f1", kind = BookKind.EPISODE, remoteId = "e1", title = "e1", normTitle = "e1", author = "Podcast", durationMs = 3_600_000),
+        )
+        db.bookDao().insertTracks(
+            listOf(
+                BookTrackEntity(bookId, 0, "b1-0", 0, 3_600_000, downloadState = TrackDownload.DONE, fileSize = 500),
+                BookTrackEntity(bookId, 1, "b1-1", 3_600_000, 3_600_000, downloadState = TrackDownload.RUNNING, fileSize = 50),
+                BookTrackEntity(episodeId, 0, "https://example.org/e1.mp3", 0, 3_600_000, downloadState = TrackDownload.DONE, fileSize = 300),
+            ),
+        )
+
+        val selections = db.wearDao().observeSelectionProgress().first().associateBy { it.key }
+        assertEquals(3_000L, selections.getValue("album:1").bytes)
+        assertEquals(2, selections.getValue("album:1").done)
+        assertEquals(1_000L, selections.getValue("favorites").bytes)
+
+        val books = db.bookDao().observeStoredBooks().first().associateBy { it.remoteId }
+        assertEquals("2/1/500", books.getValue("b1").let { "${it.total}/${it.done}/${it.doneBytes}" })
+        assertEquals("1/1/300", books.getValue("e1").let { "${it.total}/${it.done}/${it.doneBytes}" })
+        assertEquals(BookKind.EPISODE, books.getValue("e1").kind)
     }
 
     @Test

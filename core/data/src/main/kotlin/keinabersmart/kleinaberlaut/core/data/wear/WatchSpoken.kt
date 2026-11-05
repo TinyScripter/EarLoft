@@ -120,6 +120,12 @@ class WatchSpoken @Inject constructor(
         wearDao.insertBook(WearBookEntity(bookId, addedAt = System.currentTimeMillis()))
     }
 
+    /** Wie [setSelected], die Folge bzw. das Buch über Server bzw. Abo und Kennung (Speicher-Ansicht der Uhr). */
+    suspend fun setSelected(serverId: String, remoteId: String, selected: Boolean) {
+        val book = bookDao.bookByRemote(serverId, remoteId) ?: return
+        setSelected(book.bookId, selected)
+    }
+
     suspend fun clear() = wearDao.deleteAllBooks()
 
     /** [load], neu bei jeder Änderung der beteiligten Tabellen; gedrosselt wie [WearSelectionRepository.content]. */

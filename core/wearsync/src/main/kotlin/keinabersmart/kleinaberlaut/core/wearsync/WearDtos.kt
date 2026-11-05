@@ -413,9 +413,18 @@ data class WearRemoteEpisodesResult(
     }
 }
 
-/** Folge oder Buch des Handys für die Uhr auswählen bzw. abwählen (Schalter „Auf der Uhr“, Wear-Konzept 17); [bookId] am Handy. */
+/**
+ * Folge oder Buch des Handys für die Uhr auswählen bzw. abwählen (Schalter „Auf der Uhr“, Wear-Konzept 17); [bookId] am Handy.
+ * Die Speicher-Ansicht der Uhr kennt nur Server bzw. Abo und Kennung aus dem Folgen-Manifest: dann [serverId] und [remoteId]
+ * statt [bookId].
+ */
 @Serializable
-data class WearSelectSpokenRequest(val bookId: Long, val selected: Boolean)
+data class WearSelectSpokenRequest(
+    val bookId: Long = 0,
+    val selected: Boolean,
+    val serverId: String? = null,
+    val remoteId: String? = null,
+)
 
 /** Ein Künstler des Handys mit seinen Alben (Albumkünstler, IDs aus [WearRemoteLibraryDto.albums]). */
 @Serializable

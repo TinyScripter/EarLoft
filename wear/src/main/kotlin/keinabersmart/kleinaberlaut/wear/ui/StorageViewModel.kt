@@ -11,12 +11,18 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
+import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearThumbnailFile
+import keinabersmart.kleinaberlaut.wear.download.SelectionItem
+import keinabersmart.kleinaberlaut.wear.download.StoredSpoken
 import keinabersmart.kleinaberlaut.wear.download.WatchState
 import keinabersmart.kleinaberlaut.wear.download.WatchStorageRepository
 import keinabersmart.kleinaberlaut.wear.sync.PhoneSelections
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,6 +31,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -49,6 +56,30 @@ data class StorageUiState(
     val waitingForCharger: Boolean get() = requireCharging && !charging && (overview?.pendingSongs ?: 0) > 0
 }
 
+enum class StoredSection { MUSIC, PODCASTS, BOOKS }
+
+/** Was das Handy zum Abwählen braucht: Art und ID am Handy bzw. Server/Abo und Kennung. */
+sealed interface StoredRef {
+    data class Music(val kind: WearSelectionKind, val phoneRefId: Long?) : StoredRef
+
+    data class Spoken(val serverId: String, val remoteId: String) : StoredRef
+}
+
+/**
+ * Ein Album (bzw. Playlist, Favoriten), eine Folge oder ein Buch auf der Uhr, einzeln zu entfernen. [key] ist eindeutig über
+ * alle Abschnitte. [removing]: abgewählt, das Handy hat das neue Manifest noch nicht geschickt.
+ */
+data class StoredEntry(
+    val key: String,
+    val section: StoredSection,
+    val title: String,
+    val bytes: Long,
+    val loaded: Boolean,
+    val ref: StoredRef,
+    val cover: CoverRef? = null,
+    val removing: Boolean = false,
+)
+
 @HiltViewModel
 class StorageViewModel @Inject constructor(
     @ApplicationContext context: Context,
@@ -58,10 +89,21 @@ class StorageViewModel @Inject constructor(
     private val watchState: WatchState,
 ) : ViewModel() {
 
-    private val _clearFailed = MutableStateFlow(false)
+    private val _removeFailed = MutableStateFlow(false)
 
-    /** `true`, wenn das Handy für „Alles entfernen“ nicht erreichbar war. */
-    val clearFailed: StateFlow<Boolean> = _clearFailed
+    /** `true`, wenn das Handy für „Alles entfernen“ bzw. das Entfernen eines Eintrags nicht erreichbar war. */
+    val removeFailed: StateFlow<Boolean> = _removeFailed
+
+    /** Abgewählte Einträge ([StoredEntry.key]), bis das Manifest sie entfernt oder [REMOVING_TIMEOUT_MS] vergeht. */
+    private val removing = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Musik in der Reihenfolge des Handys, dann Folgen und Bücher nach Titel. */
+    val entries: StateFlow<List<StoredEntry>> = combine(storage.selections(), storage.storedSpoken(), removing) { selections, spoken, removingNow ->
+        val music = selections.map { it.toEntry() }
+        val (episodes, books) = spoken.partition { it.kind == BookKind.EPISODE }
+        val spokenEntries = episodes.map { it.toEntry(StoredSection.PODCASTS) } + books.map { it.toEntry(StoredSection.BOOKS) }
+        (music + spokenEntries).map { it.copy(removing = it.key in removingNow) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val state: StateFlow<StorageUiState> = combine(
         storage.overview(),
@@ -76,11 +118,32 @@ class StorageViewModel @Inject constructor(
 
     /** Das Handy bestimmt die Auswahl; lokal löschen würde beim nächsten Abgleich wieder geladen. */
     fun clearAll() {
-        viewModelScope.launch { _clearFailed.value = !phoneSelections.clearSelections() }
+        viewModelScope.launch { _removeFailed.value = !phoneSelections.clearSelections() }
     }
 
-    fun dismissClearFailed() {
-        _clearFailed.value = false
+    /** Wählt den Eintrag am Handy ab (wie der Schalter „Auf der Uhr“); die Uhr löscht ihn mit dem nächsten Manifest. */
+    fun remove(entry: StoredEntry) {
+        viewModelScope.launch {
+            _removeFailed.value = false
+            val sent = when (val ref = entry.ref) {
+                is StoredRef.Music -> phoneSelections.setSelected(ref.kind, ref.phoneRefId, selected = false)
+                is StoredRef.Spoken -> phoneSelections.deselectSpoken(ref.serverId, ref.remoteId)
+            }
+            if (!sent) {
+                _removeFailed.value = true
+                return@launch
+            }
+            removing.update { it + entry.key }
+            // Bleibt der Eintrag, obwohl das Handy die Nachricht bekam (z. B. Folge dort schon weg), wird er wieder wählbar.
+            launch {
+                delay(REMOVING_TIMEOUT_MS)
+                removing.update { it - entry.key }
+            }
+        }
+    }
+
+    fun dismissRemoveFailed() {
+        _removeFailed.value = false
     }
 
     fun retryFailed() {
@@ -88,6 +151,18 @@ class StorageViewModel @Inject constructor(
         viewModelScope.launch { downloads.retryFailed() }
     }
 }
+
+/** Das Handy schickt das Manifest nach 2 s Ruhe; wie beim Schalter „Auf der Uhr“ gilt der gewünschte Stand höchstens so lange. */
+private const val REMOVING_TIMEOUT_MS = 20_000L
+
+private fun SelectionItem.toEntry(): StoredEntry {
+    // Album-Cover vom Handy (wie im Bereich „Telefon“); Playlists und Favoriten haben keins.
+    val cover = phoneRefId?.takeIf { kind == WearSelectionKind.ALBUM }?.let { CoverRef.Phone(WearThumbnailFile.Ref.Album(it)) }
+    return StoredEntry(key, StoredSection.MUSIC, title, bytes, downloadedCount >= songCount, StoredRef.Music(kind, phoneRefId), cover)
+}
+
+private fun StoredSpoken.toEntry(section: StoredSection) =
+    StoredEntry("book:$bookId", section, title, bytes, loaded, StoredRef.Spoken(serverId, remoteId), CoverRef.Book(bookId))
 
 /** Ob die Uhr am Ladegerät hängt (wie die Job-Bedingung „Laden“: Kabel oder Dock). Der Sticky-Broadcast liefert sofort den Stand. */
 private fun Context.chargingFlow(): Flow<Boolean> = callbackFlow {

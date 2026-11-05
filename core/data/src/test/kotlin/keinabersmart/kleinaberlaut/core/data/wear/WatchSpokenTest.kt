@@ -132,6 +132,21 @@ class WatchSpokenTest {
     }
 
     @Test
+    fun `the watch deselects an episode or book by feed or server and id`() = runTest {
+        val episode = episode("g1")
+        val book = book("b1")
+        spoken.setSelected(episode, selected = true)
+        spoken.setSelected(book, selected = true)
+
+        spoken.setSelected("f1", "g1", selected = false)
+        spoken.setSelected("abs", "unbekannt", selected = false)
+
+        assertEquals(setOf(book), spoken.selectedIds().first())
+        spoken.setSelected("abs", "b1", selected = false)
+        assertTrue(spoken.selectedIds().first().isEmpty())
+    }
+
+    @Test
     fun `clear removes all chosen episodes and books`() = runTest {
         spoken.setSelected(episode("g1"), selected = true)
         spoken.setSelected(book("b1"), selected = true)

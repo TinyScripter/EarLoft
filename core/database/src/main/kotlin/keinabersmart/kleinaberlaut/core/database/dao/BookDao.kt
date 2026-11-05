@@ -306,7 +306,29 @@ abstract class BookDao {
 
     @Query(TRACK_TOTALS)
     abstract suspend fun trackTotals(): TrackTotalsRow
+
+    /** Alle Bücher und Folgen mit ihren Dateien (Speicher-Ansicht der Uhr: dort liegen nur die gewählten). */
+    @Query(
+        "SELECT b.bookId AS bookId, b.kind AS kind, b.serverId AS serverId, b.remoteId AS remoteId, b.title AS title, " +
+            "b.author AS author, COUNT(t.trackIndex) AS total, COALESCE(SUM(t.downloadState = 'DONE'), 0) AS done, " +
+            "COALESCE(SUM(CASE WHEN t.downloadState = 'DONE' THEN t.fileSize ELSE 0 END), 0) AS doneBytes " +
+            "FROM books b LEFT JOIN book_tracks t ON t.bookId = b.bookId GROUP BY b.bookId ORDER BY b.normTitle",
+    )
+    abstract fun observeStoredBooks(): Flow<List<StoredBookRow>>
 }
+
+/** Ein Buch bzw. eine Folge mit dem Stand seiner Dateien; [doneBytes] sind die fertig geladenen. */
+data class StoredBookRow(
+    val bookId: Long,
+    val kind: BookKind,
+    val serverId: String,
+    val remoteId: String,
+    val title: String,
+    val author: String,
+    val total: Int,
+    val done: Int,
+    val doneBytes: Long,
+)
 
 /** [doneBytes]: fertig geladen; [pendingCount]: wartende und laufende Dateien. */
 data class TrackTotalsRow(val doneBytes: Long, val pendingCount: Int)

@@ -14,9 +14,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
+import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.AlertDialogDefaults
@@ -32,33 +34,45 @@ import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.ui.tooling.preview.WearPreviewFontScales
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
+import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.wear.R
 import keinabersmart.kleinaberlaut.wear.download.estimatePhoneTransferMinutes
 
-/** Speicher & Downloads (Wear-Konzept 11): belegt/frei/Grenze, Fortschritt, Hinweise und „Erneut versuchen“. */
+/**
+ * Speicher & Downloads (Wear-Konzept 11): belegt/frei/Grenze, Fortschritt, Hinweise und „Erneut versuchen“; darunter Alben,
+ * Folgen und Bücher auf der Uhr, einzeln zu entfernen.
+ */
 @Composable
 fun StorageScreen(viewModel: StorageViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val clearFailed by viewModel.clearFailed.collectAsStateWithLifecycle()
+    val entries by viewModel.entries.collectAsStateWithLifecycle()
+    val removeFailed by viewModel.removeFailed.collectAsStateWithLifecycle()
     StorageContent(
         state,
-        clearFailed = clearFailed,
+        entries = entries,
+        removeFailed = removeFailed,
         onRetry = viewModel::retryFailed,
         onClearAll = viewModel::clearAll,
-        onDismissClearFailed = viewModel::dismissClearFailed,
+        onRemove = viewModel::remove,
+        onDismissRemoveFailed = viewModel::dismissRemoveFailed,
     )
 }
 
 @Composable
 private fun StorageContent(
     state: StorageUiState,
-    clearFailed: Boolean,
+    entries: List<StoredEntry>,
+    removeFailed: Boolean,
     onRetry: () -> Unit,
     onClearAll: () -> Unit,
-    onDismissClearFailed: () -> Unit,
+    onRemove: (StoredEntry) -> Unit,
+    onDismissRemoveFailed: () -> Unit,
 ) {
     val context = LocalContext.current
     var confirmClear by remember { mutableStateOf(false) }
+    // Der Eintrag bleibt gesetzt, damit der Dialog beim Ausblenden seinen Text behält.
+    var removeCandidate by remember { mutableStateOf<StoredEntry?>(null) }
+    var confirmRemove by remember { mutableStateOf(false) }
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
     val overview = state.overview ?: DownloadOverview.EMPTY
@@ -126,13 +140,13 @@ private fun StorageContent(
                 // Z. B. „Telefon nicht erreichbar“: Die Titel warten, es ist noch nichts fehlgeschlagen.
                 state.lastError?.let { error -> line(transformationSpec) { stringResource(R.string.storage_last_error, error) } }
             }
-            if (clearFailed) {
+            if (removeFailed) {
                 line(transformationSpec) { stringResource(R.string.storage_clear_no_phone) }
             }
             item {
                 Button(
                     onClick = {
-                        onDismissClearFailed()
+                        onDismissRemoveFailed()
                         confirmClear = true
                     },
                     modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
@@ -141,8 +155,45 @@ private fun StorageContent(
                     label = { Text(stringResource(R.string.storage_clear_all)) },
                 )
             }
+            StoredSection.entries.forEach { section ->
+                val inSection = entries.filter { it.section == section }
+                if (inSection.isEmpty()) return@forEach
+                line(transformationSpec, header = true) { stringResource(section.titleRes) }
+                items(inSection, key = { it.key }) { entry ->
+                    val cover = entry.cover
+                    Button(
+                        onClick = {
+                            onDismissRemoveFailed()
+                            removeCandidate = entry
+                            confirmRemove = true
+                        },
+                        enabled = !entry.removing,
+                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                        colors = ButtonDefaults.filledTonalButtonColors(),
+                        icon = if (cover != null) { { CoverThumbnail(cover) } } else null,
+                        label = { Text(entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                        secondaryLabel = { Text(entry.secondaryText(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    )
+                }
+            }
         }
     }
+    AlertDialog(
+        visible = confirmRemove,
+        onDismissRequest = { confirmRemove = false },
+        confirmButton = {
+            AlertDialogDefaults.ConfirmButton(onClick = {
+                confirmRemove = false
+                removeCandidate?.let(onRemove)
+            })
+        },
+        dismissButton = { AlertDialogDefaults.DismissButton(onClick = { confirmRemove = false }) },
+        title = {
+            Text(stringResource(R.string.storage_remove_title, removeCandidate?.title.orEmpty()), maxLines = 3, overflow = TextOverflow.Ellipsis)
+        },
+        text = { Text(stringResource(R.string.storage_remove_confirm)) },
+    )
     AlertDialog(
         visible = confirmClear,
         onDismissRequest = { confirmClear = false },
@@ -156,6 +207,25 @@ private fun StorageContent(
         title = { Text(stringResource(R.string.storage_clear_all)) },
         text = { Text(stringResource(R.string.storage_clear_confirm)) },
     )
+}
+
+private val StoredSection.titleRes: Int
+    get() = when (this) {
+        StoredSection.MUSIC -> R.string.list_music
+        StoredSection.PODCASTS -> R.string.list_podcasts
+        StoredSection.BOOKS -> R.string.list_books
+    }
+
+/** Belegter Speicher; solange noch geladen wird, mit Hinweis darauf. */
+@Composable
+private fun StoredEntry.secondaryText(): String {
+    val size = Formatter.formatFileSize(LocalContext.current, bytes)
+    return when {
+        removing -> stringResource(R.string.storage_removing)
+        loaded -> size
+        bytes == 0L -> stringResource(R.string.selection_not_loaded)
+        else -> stringResource(R.string.storage_entry_loading, size)
+    }
 }
 
 internal fun androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope.line(
@@ -192,10 +262,16 @@ private fun StoragePreview() {
                 missingForStorage = 3,
                 lastError = "Server nicht erreichbar",
             ),
-            clearFailed = false,
+            entries = listOf(
+                StoredEntry("album:1", StoredSection.MUSIC, "Mondlicht", 48_000_000, loaded = true, StoredRef.Music(WearSelectionKind.ALBUM, 1)),
+                StoredEntry("book:2", StoredSection.PODCASTS, "#383 Drohnen überall", 31_000_000, loaded = true, StoredRef.Spoken("f1", "g1")),
+                StoredEntry("book:3", StoredSection.BOOKS, "20.000 Meilen unter dem Meer", 120_000_000, loaded = false, StoredRef.Spoken("s1", "r1")),
+            ),
+            removeFailed = false,
             onRetry = {},
             onClearAll = {},
-            onDismissClearFailed = {},
+            onRemove = {},
+            onDismissRemoveFailed = {},
         )
     }
 }

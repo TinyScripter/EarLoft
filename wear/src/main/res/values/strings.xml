@@ -116,6 +116,10 @@
     <string name="storage_clear_yes">Remove</string>
     <string name="storage_clear_no">Cancel</string>
     <string name="storage_clear_no_phone">Phone not connected – nothing removed.</string>
+    <string name="storage_remove_title">Remove “%1$s”?</string>
+    <string name="storage_remove_confirm">It is deselected on the phone and deleted from the watch.</string>
+    <string name="storage_removing">Removing …</string>
+    <string name="storage_entry_loading">%1$s, still loading</string>
 
     <!-- Setup -->
     <string name="setup_checking">Looking for phone …</string>

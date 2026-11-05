@@ -172,4 +172,6 @@ data class WearSelectionProgressRow(
     val total: Int,
     val done: Int,
     val failed: Int,
+    /** Fertig geladene Bytes der Auswahl. */
+    val bytes: Long = 0,
 )

@@ -32,6 +32,16 @@ class PhoneSelections @Inject constructor(
         return messageClient.sendPayload(nodeId, WearPaths.SELECT_SPOKEN, WearCodec.encode(WearSelectSpokenRequest(bookId, selected)))
     }
 
+    /**
+     * Wählt Folge bzw. Buch über Server bzw. Abo und Kennung ab (Speicher-Ansicht, die ID am Handy kennt die Uhr nicht).
+     * @return `false`, wenn das Handy nicht erreichbar ist.
+     */
+    suspend fun deselectSpoken(serverId: String, remoteId: String): Boolean {
+        val nodeId = phoneConnection.connectedPhoneNodeId() ?: return false
+        val request = WearSelectSpokenRequest(selected = false, serverId = serverId, remoteId = remoteId)
+        return messageClient.sendPayload(nodeId, WearPaths.SELECT_SPOKEN, WearCodec.encode(request))
+    }
+
     /** Entfernt alle Auswahlen am Handy; die Uhr räumt beim nächsten Manifest auf. @return `false` ohne erreichbares Handy. */
     suspend fun clearSelections(): Boolean {
         val nodeId = phoneConnection.connectedPhoneNodeId() ?: return false

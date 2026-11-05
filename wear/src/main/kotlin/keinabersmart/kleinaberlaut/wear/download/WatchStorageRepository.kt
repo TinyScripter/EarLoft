@@ -6,6 +6,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.WearDao
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.model.SourceType
@@ -27,6 +28,25 @@ data class SelectionItem(
     val downloadedCount: Int = songCount,
     /** [WearSelectionKind.key] mit den IDs des Handys, z. B. `album:12`. */
     val key: String = "",
+    /** Fertig geladene Bytes der Auswahl. */
+    val bytes: Long = 0,
+) {
+    /** Album- bzw. Playlist-ID am Handy (aus [key]); `null` bei den Favoriten. */
+    val phoneRefId: Long? get() = key.substringAfter(':', "").toLongOrNull()
+}
+
+/** Eine Folge bzw. ein Buch auf der Uhr; [serverId] und [remoteId] wie am Handy (Folgen-Manifest, Wear-Konzept 16.1/16.2). */
+data class StoredSpoken(
+    val bookId: Long,
+    val kind: BookKind,
+    val serverId: String,
+    val remoteId: String,
+    val title: String,
+    val author: String,
+    /** Alle Dateien sind geladen. */
+    val loaded: Boolean,
+    /** Fertig geladene Bytes. */
+    val bytes: Long,
 )
 
 /**
@@ -65,8 +85,23 @@ class WatchStorageRepository @Inject constructor(
         val progressByKey = progress.associateBy { it.key }
         selections.mapNotNull { selection ->
             val playlist = selection.refId?.let { byId[it] } ?: return@mapNotNull null
-            val done = progressByKey[selection.key]?.done ?: 0
-            SelectionItem(playlist.id, selection.kind, playlist.name, playlist.songCount, downloadedCount = done, key = selection.key)
+            val progress = progressByKey[selection.key]
+            SelectionItem(
+                playlist.id,
+                selection.kind,
+                playlist.name,
+                playlist.songCount,
+                downloadedCount = progress?.done ?: 0,
+                key = selection.key,
+                bytes = progress?.bytes ?: 0,
+            )
+        }
+    }
+
+    /** Folgen und Bücher auf der Uhr mit dem Stand ihrer Dateien; auf der Uhr liegen nur die am Handy gewählten. */
+    fun storedSpoken(): Flow<List<StoredSpoken>> = bookDao.observeStoredBooks().map { rows ->
+        rows.map {
+            StoredSpoken(it.bookId, it.kind, it.serverId, it.remoteId, it.title, it.author, loaded = it.total > 0 && it.done == it.total, bytes = it.doneBytes)
         }
     }
 

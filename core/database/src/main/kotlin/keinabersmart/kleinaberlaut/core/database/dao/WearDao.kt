@@ -179,13 +179,18 @@ interface WearDao {
     @Query("SELECT COALESCE(SUM(bytesTotal), 0) FROM downloads WHERE state = 'DONE'")
     suspend fun getDoneBytes(): Long
 
-    /** Fertig/gesamt/fehlgeschlagen je Auswahl, in deren Reihenfolge (auf der Uhr zeigt `refId` auf die Geräte-Playlist). */
+    /**
+     * Fertig/gesamt/fehlgeschlagen und belegte Bytes je Auswahl, in deren Reihenfolge (auf der Uhr zeigt `refId` auf die
+     * Geräte-Playlist). Songs in mehreren Auswahlen zählen bei jeder.
+     */
     @Query(
         """
         SELECT w.`key` AS `key`,
                COUNT(DISTINCT e.songId) AS total,
                COUNT(DISTINCT CASE WHEN d.state = 'DONE' THEN e.songId END) AS done,
-               COUNT(DISTINCT CASE WHEN d.state = 'FAILED' THEN e.songId END) AS failed
+               COUNT(DISTINCT CASE WHEN d.state = 'FAILED' THEN e.songId END) AS failed,
+               (SELECT COALESCE(SUM(d2.bytesTotal), 0) FROM downloads d2
+                WHERE d2.state = 'DONE' AND d2.songId IN (SELECT songId FROM playlist_entries WHERE playlistId = w.refId)) AS bytes
         FROM wear_selections w
         LEFT JOIN playlist_entries e ON e.playlistId = w.refId
         LEFT JOIN song_sources ss ON ss.songId = e.songId

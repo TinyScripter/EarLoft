@@ -84,7 +84,15 @@ class PhoneWearListenerService : WearableListenerService() {
             }
             WearPaths.SELECT_SPOKEN -> {
                 val request = decodeOrNull<WearSelectSpokenRequest>(event) ?: return
-                applicationScope.launch { watchSpoken.setSelected(request.bookId, request.selected) }
+                applicationScope.launch {
+                    val serverId = request.serverId
+                    val remoteId = request.remoteId
+                    if (serverId != null && remoteId != null) {
+                        watchSpoken.setSelected(serverId, remoteId, request.selected)
+                    } else {
+                        watchSpoken.setSelected(request.bookId, request.selected)
+                    }
+                }
             }
             WearPaths.CLEAR_SELECTIONS -> applicationScope.launch { selections.clear() }
             WearPaths.REMOTE_SUBSCRIBE -> remotePublisher.subscribe(applicationScope)

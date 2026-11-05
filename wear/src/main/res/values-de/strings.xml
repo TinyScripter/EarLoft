@@ -114,6 +114,10 @@
     <string name="storage_clear_yes">Entfernen</string>
     <string name="storage_clear_no">Abbrechen</string>
     <string name="storage_clear_no_phone">Telefon nicht verbunden – nichts entfernt.</string>
+    <string name="storage_remove_title">„%1$s“ entfernen?</string>
+    <string name="storage_remove_confirm">Wird am Telefon abgewählt und von der Uhr gelöscht.</string>
+    <string name="storage_removing">Wird entfernt …</string>
+    <string name="storage_entry_loading">%1$s, lädt noch</string>
 
     <!-- Einrichtung -->
     <string name="setup_checking">Suche Telefon …</string>
