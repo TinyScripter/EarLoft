@@ -69,6 +69,12 @@ class AudiobookshelfServers @Inject constructor(
         return registry[serverId]
     }
 
+    /** Wie [all], aber auch ausgeschaltete Server, wie bei [server]. */
+    suspend fun allIncludingDisabled(): List<AbsServer> {
+        ensureLoaded()
+        return bookDao.servers().mapNotNull { registry[it.serverId] }
+    }
+
     suspend fun add(name: String, baseUrlInput: String, apiKey: String): AddServerResult =
         connect(null, name, baseUrlInput, apiKey)
 

@@ -176,7 +176,10 @@ internal class CastSessionPlayerFactory @Inject constructor(
             private fun prepareQueue() {
                 cache.clear()
                 val songIds = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).songId }
-                scope.launch { cache.prepare(songIds) }
+                scope.launch {
+                    cache.prepareServerKeys()
+                    cache.prepare(songIds)
+                }
             }
         }
         cast.addSessionManagerListener(listener)

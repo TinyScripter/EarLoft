@@ -20,6 +20,7 @@ import javax.inject.Singleton
  * Cast-Adressen der Songs in der Warteschlange. Der [CastMediaItemConverter] von Media3 muss synchron
  * liefern; deshalb wird vorher aufgelöst ([prepare]) – beim Start einer Cast-Sitzung für die ganze
  * Warteschlange, beim Einreihen für die neuen Songs. Nur im Speicher, weil die Adressen Zugangsdaten enthalten.
+ * Ebenso die Schlüssel der Audiobookshelf-Server für Bücher und Folgen ([prepareServerKeys]).
  */
 @Singleton
 class CastMediaCache @Inject constructor(
@@ -30,6 +31,14 @@ class CastMediaCache @Inject constructor(
     private class Entry(val media: CastMedia?)
 
     private val entries = ConcurrentHashMap<Long, Entry>()
+
+    /** Schlüssel je Audiobookshelf-Server; `null`, solange nicht geladen. */
+    @Volatile
+    private var serverKeys: Map<String, String>? = null
+
+    suspend fun prepareServerKeys() {
+        serverKeys = audiobookshelf.allIncludingDisabled().associate { it.serverId to it.apiKey }
+    }
 
     suspend fun prepare(songIds: Collection<Long>) {
         val missing = songIds.filterNot(entries::containsKey).distinct()
@@ -65,9 +74,7 @@ class CastMediaCache @Inject constructor(
     private fun spoken(source: SpokenCastSource): CastMedia? {
         val url = Uri.parse(source.url)
         if (url.scheme != "http" && url.scheme != "https") return null
-        val apiKey = source.absServerId?.let { id ->
-            runBlocking(Dispatchers.IO) { audiobookshelf.server(id) }?.apiKey ?: return null
-        }
+        val apiKey = source.absServerId?.let { id -> serverKeys()[id] ?: return null }
         fun withKey(address: String): String =
             if (apiKey == null) address else Uri.parse(address).buildUpon().appendQueryParameter("token", apiKey).build().toString()
         return CastMedia(
@@ -75,6 +82,13 @@ class CastMediaCache @Inject constructor(
             mimeType = CastFormats.playableMimeType(source.mimeType) ?: guessMimeType(url.lastPathSegment),
             coverUrl = source.coverUrl?.let(::withKey),
         )
+    }
+
+    /** Wie [prepareBlocking]: Normalerweise sind die Schlüssel beim Start der Sitzung schon geladen. */
+    private fun serverKeys(): Map<String, String> = serverKeys ?: run {
+        Log.w(TAG, "Server-Schlüssel nicht vorbereitet, lade blockierend")
+        runBlocking(Dispatchers.IO) { prepareServerKeys() }
+        serverKeys.orEmpty()
     }
 
     /** Feeds nennen den Typ oft nicht oder falsch (`audio/x-m4b`); dann entscheidet die Endung. */
@@ -87,7 +101,10 @@ class CastMediaCache @Inject constructor(
     }
 
     /** Zu Beginn jeder Sitzung: Server oder Passwort können sich seit der letzten geändert haben. */
-    fun clear() = entries.clear()
+    fun clear() {
+        entries.clear()
+        serverKeys = null
+    }
 
     private companion object {
         const val TAG = "CastMediaCache"
