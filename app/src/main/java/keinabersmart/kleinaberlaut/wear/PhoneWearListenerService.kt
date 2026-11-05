@@ -12,6 +12,7 @@ import com.google.android.gms.wearable.WearableListenerService
 import dagger.hilt.android.AndroidEntryPoint
 import keinabersmart.kleinaberlaut.core.data.di.ApplicationScope
 import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
+import keinabersmart.kleinaberlaut.core.data.wear.PhoneFile
 import keinabersmart.kleinaberlaut.core.data.wear.PhoneFileLocator
 import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodeImporter
 import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodeListening
@@ -20,7 +21,7 @@ import keinabersmart.kleinaberlaut.core.data.wear.WatchPlay
 import keinabersmart.kleinaberlaut.core.data.wear.WatchPlayImporter
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.data.wear.WearServerMirror
-import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
+import keinabersmart.kleinaberlaut.core.wearsync.WearAlbumThumbnailFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearCoverFile
@@ -42,6 +43,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerializationException
+import java.io.ByteArrayInputStream
 import javax.inject.Inject
 
 /**
@@ -72,8 +74,7 @@ class PhoneWearListenerService : WearableListenerService() {
             }
             WearPaths.SELECT -> {
                 val request = decodeOrNull<WearSelectRequest>(event) ?: return
-                // Nur Favoriten und Playlists lassen sich von der Uhr aus auswählen (Wear-Konzept 5).
-                if (request.kind == WearSelectionKind.ALBUM) return
+                // Alben, Playlists und Favoriten (Schalter „Auf der Uhr“, Wear-Konzept 17).
                 applicationScope.launch { selections.setSelected(request.kind, request.refId, request.selected) }
             }
             WearPaths.CLEAR_SELECTIONS -> applicationScope.launch { selections.clear() }
@@ -144,7 +145,7 @@ class PhoneWearListenerService : WearableListenerService() {
 
     /**
      * Die Uhr holt eine Datei (`/kal/file/<sourceUid>`, Wear-Konzept 8.4; Folgen: [WearEpisodeFile], 16.1; Buchdateien:
-     * [WearBookFile], 16.2; Bilder: [WearCoverFile]): Das Handy schickt die lokale Datei oder den fertigen Download im Original,
+     * [WearBookFile], 16.2; Bilder: [WearCoverFile], Vorschaubilder von Alben: [WearAlbumThumbnailFile], 17): Das Handy schickt die lokale Datei oder den fertigen Download im Original,
      * ohne Datei nur die Kopfzeile „keine Datei“.
      */
     override fun onChannelOpened(channel: ChannelClient.Channel) {
@@ -155,10 +156,12 @@ class PhoneWearListenerService : WearableListenerService() {
             val episode = WearEpisodeFile.parse(sourceUid)
             val bookTrack = WearBookFile.parse(sourceUid)
             val cover = WearCoverFile.parse(sourceUid)
+            val albumThumbnail = WearAlbumThumbnailFile.parse(sourceUid)
             val file = when {
                 episode != null -> fileLocator.openEpisode(episode.first, episode.second)
                 bookTrack != null -> fileLocator.openBookTrack(bookTrack.serverId, bookTrack.remoteId, bookTrack.trackIndex)
                 cover != null -> fileLocator.openCover(cover.first, cover.second)
+                albumThumbnail != null -> remotePublisher.albumThumbnail(albumThumbnail)?.let { PhoneFile(it.size.toLong(), ByteArrayInputStream(it)) }
                 else -> fileLocator.open(sourceUid)
             }
             Log.d(TAG, "Datei $sourceUid für die Uhr: ${file?.length?.let { "$it Bytes" } ?: "keine Datei"}")

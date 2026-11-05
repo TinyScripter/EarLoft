@@ -11,8 +11,6 @@ import keinabersmart.kleinaberlaut.core.data.wear.WearContent
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.data.wear.WearServerMirror
 import keinabersmart.kleinaberlaut.core.playback.ReplayGainSettings
-import keinabersmart.kleinaberlaut.core.wearsync.WearCatalogDto
-import keinabersmart.kleinaberlaut.core.wearsync.WearCatalogPlaylistDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearPodcastManifest
@@ -82,20 +80,6 @@ class WearPublisher @Inject constructor(
             }
                 .distinctUntilChanged()
                 .collect { dataClient.putPayload(WearPaths.SERVERS, WearCodec.encode(it)) }
-        }
-        scope.launch {
-            selections.catalog()
-                .map { catalog ->
-                    WearCatalogDto(
-                        favoritesCount = catalog.favoritesCount,
-                        favoritesSelected = catalog.favoritesSelected,
-                        playlists = catalog.playlists.map {
-                            WearCatalogPlaylistDto(it.playlistId, it.name, it.songCount, it.serverName, it.selected)
-                        },
-                    )
-                }
-                .distinctUntilChanged()
-                .collect { dataClient.putPayload(WearPaths.CATALOG, WearCodec.encode(it)) }
         }
         scope.launch {
             combine(watchSettings.settings, replayGainSettings.mode, replayGainSettings.preAmpDb) { watch, mode, preAmp ->

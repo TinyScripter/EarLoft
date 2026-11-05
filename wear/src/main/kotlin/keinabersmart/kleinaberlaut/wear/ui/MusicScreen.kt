@@ -18,6 +18,9 @@ import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
+import keinabersmart.kleinaberlaut.wear.sync.PhoneRemote
 import keinabersmart.kleinaberlaut.wear.R
 import keinabersmart.kleinaberlaut.wear.download.SelectionItem
 import keinabersmart.kleinaberlaut.wear.download.WatchStorageRepository
@@ -71,8 +74,42 @@ fun MusicScreen(
     viewModel: MusicViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val favorites = state.favoritesPlaylistId
     MusicContent(
-        state = state,
+        canShuffleAll = state.canShuffleAll,
+        favoritesEnabled = favorites != null,
+        onShuffleAll = { viewModel.shuffleAll(onShuffled) },
+        onAlbumsClick = onAlbumsClick,
+        onArtistsClick = onArtistsClick,
+        onFavoritesClick = { favorites?.let(onFavoritesClick) },
+        onPlaylistsClick = onPlaylistsClick,
+    )
+}
+
+/** Das Handy mischt seine ganze Bibliothek. */
+@HiltViewModel
+class PhoneMusicViewModel @Inject constructor(private val remote: PhoneRemote) : ViewModel() {
+    /** [onStarted] wechselt danach zur Wiedergabe-Ansicht des Handys. */
+    fun shuffleAll(onStarted: () -> Unit) {
+        viewModelScope.launch {
+            if (remote.play(WearRemotePlayRequest(WearRemoteListKind.ALL, shuffle = true))) onStarted()
+        }
+    }
+}
+
+/** Menü Musik des Handys (Bereich „Telefon“, Wear-Konzept 17): gegliedert wie das der Uhr, aber mit allem, was das Handy hat. */
+@Composable
+fun PhoneMusicScreen(
+    onShuffled: () -> Unit,
+    onAlbumsClick: () -> Unit,
+    onArtistsClick: () -> Unit,
+    onFavoritesClick: () -> Unit,
+    onPlaylistsClick: () -> Unit,
+    viewModel: PhoneMusicViewModel = hiltViewModel(),
+) {
+    MusicContent(
+        canShuffleAll = true,
+        favoritesEnabled = true,
         onShuffleAll = { viewModel.shuffleAll(onShuffled) },
         onAlbumsClick = onAlbumsClick,
         onArtistsClick = onArtistsClick,
@@ -83,11 +120,12 @@ fun MusicScreen(
 
 @Composable
 private fun MusicContent(
-    state: MusicUiState,
+    canShuffleAll: Boolean,
+    favoritesEnabled: Boolean,
     onShuffleAll: () -> Unit,
     onAlbumsClick: () -> Unit,
     onArtistsClick: () -> Unit,
-    onFavoritesClick: (Long) -> Unit,
+    onFavoritesClick: () -> Unit,
     onPlaylistsClick: () -> Unit,
 ) {
     val columnState = rememberTransformingLazyColumnState()
@@ -100,11 +138,10 @@ private fun MusicContent(
             contentPadding = contentPadding,
         ) {
             header(R.string.list_music, transformationSpec)
-            if (state.canShuffleAll) action(R.string.start_shuffle_all, transformationSpec, onClick = onShuffleAll)
+            if (canShuffleAll) action(R.string.start_shuffle_all, transformationSpec, onClick = onShuffleAll)
             action(R.string.list_albums, transformationSpec, onClick = onAlbumsClick)
             action(R.string.list_artists, transformationSpec, onClick = onArtistsClick)
-            val favorites = state.favoritesPlaylistId
-            action(R.string.list_favorites, transformationSpec, enabled = favorites != null, onClick = { favorites?.let(onFavoritesClick) })
+            action(R.string.list_favorites, transformationSpec, enabled = favoritesEnabled, onClick = onFavoritesClick)
             action(R.string.list_playlists, transformationSpec, onClick = onPlaylistsClick)
         }
     }
@@ -115,7 +152,8 @@ private fun MusicContent(
 private fun MusicPreview() {
     MaterialTheme {
         MusicContent(
-            state = MusicUiState(listOf(SelectionItem(1, WearSelectionKind.FAVORITES, "Favoriten", 42))),
+            canShuffleAll = true,
+            favoritesEnabled = false,
             onShuffleAll = {},
             onAlbumsClick = {},
             onArtistsClick = {},

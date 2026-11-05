@@ -14,7 +14,6 @@ import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -52,24 +51,6 @@ class WearSelectionRepository @Inject constructor(
     }
 
     suspend fun clear() = wearDao.deleteAll()
-
-    /** Was sich auf der Uhr auswählen lässt: Favoriten und alle Playlists, auch Geräte-Playlists (Wear-Konzept 5). */
-    fun catalog(): Flow<WearCatalog> =
-        combine(wearDao.observeFavoriteCount(), playlistDao.observePlaylistRows(), selectedKeys()) { favorites, playlists, keys ->
-            WearCatalog(
-                favoritesCount = favorites,
-                favoritesSelected = WearSelectionKind.FAVORITES.key(null) in keys,
-                playlists = playlists.map {
-                    WearCatalogPlaylist(
-                        playlistId = it.playlistId,
-                        name = it.name,
-                        songCount = it.songCount,
-                        serverName = it.serverName,
-                        selected = WearSelectionKind.PLAYLIST.key(it.playlistId) in keys,
-                    )
-                },
-            )
-        }.distinctUntilChanged()
 
     /**
      * [load], neu bei jeder Änderung der beteiligten Tabellen („lebende Auswahl“). Gedrosselt: Ein

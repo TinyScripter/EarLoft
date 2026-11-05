@@ -21,6 +21,7 @@ import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.SurfaceTransformation
+import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
@@ -51,11 +52,18 @@ sealed interface TrackListState {
 }
 
 /**
- * Titelliste (Wear-Konzept 11, 14): Abspielen, Zufällig und die Titel. Nicht abspielbare Titel sind ausgegraut;
- * [onPlay] bekommt den Schlüssel des angetippten Titels bzw. `null` für „von vorn“.
+ * Titelliste (Wear-Konzept 11, 14): Abspielen ([playLabel]), Zufällig, bei Listen des Handys der Schalter „Auf der Uhr“
+ * ([onWatch], Wear-Konzept 17) und die Titel. Nicht abspielbare Titel sind ausgegraut; [onPlay] bekommt den Schlüssel des
+ * angetippten Titels bzw. `null` für „von vorn“.
  */
 @Composable
-fun TrackListContent(state: TrackListState, onPlay: (key: Long?, shuffle: Boolean) -> Unit) {
+fun TrackListContent(
+    state: TrackListState,
+    onPlay: (key: Long?, shuffle: Boolean) -> Unit,
+    @StringRes playLabel: Int = R.string.selection_play,
+    onWatch: OnWatchState? = null,
+    onToggleWatch: (Boolean) -> Unit = {},
+) {
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(scrollState = columnState) { contentPadding ->
@@ -104,7 +112,7 @@ fun TrackListContent(state: TrackListState, onPlay: (key: Long?, shuffle: Boolea
                         onClick = { onPlay(null, false) },
                         modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
                         transformation = SurfaceTransformation(transformationSpec),
-                        label = { Text(stringResource(R.string.selection_play)) },
+                        label = { Text(stringResource(playLabel)) },
                     )
                 }
                 item {
@@ -113,6 +121,19 @@ fun TrackListContent(state: TrackListState, onPlay: (key: Long?, shuffle: Boolea
                         modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
                         transformation = SurfaceTransformation(transformationSpec),
                         label = { Text(stringResource(R.string.selection_shuffle)) },
+                    )
+                }
+            }
+            if (onWatch != null) {
+                item {
+                    val secondary = onWatch.secondaryText()
+                    SwitchButton(
+                        checked = onWatch.checked,
+                        onCheckedChange = onToggleWatch,
+                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                        label = { Text(stringResource(R.string.remote_on_watch)) },
+                        secondaryLabel = if (secondary != null) { { Text(secondary, maxLines = 2, overflow = TextOverflow.Ellipsis) } } else null,
                     )
                 }
             }
@@ -141,4 +162,12 @@ fun TrackListContent(state: TrackListState, onPlay: (key: Long?, shuffle: Boolea
             }
         }
     }
+}
+
+/** Unter dem Schalter: Fehler beim Umschalten oder, solange noch geladen wird, der Stand. */
+@Composable
+private fun OnWatchState.secondaryText(): String? = when {
+    failed -> stringResource(R.string.remote_on_watch_failed)
+    checked && loaded != null && total != null && loaded < total -> stringResource(R.string.selection_progress, loaded, total)
+    else -> null
 }

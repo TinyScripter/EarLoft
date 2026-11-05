@@ -31,7 +31,7 @@
     <string name="list_continue">Continue listening</string>
     <string name="list_continue_empty">No book or episode started on the phone</string>
     <string name="list_continue_empty_watch">No episodes on the watch yet. Set how many on the phone under Settings → Watch.</string>
-    <string name="list_empty_watch">Nothing on the watch yet. Choose music on the phone or under “Add music”.</string>
+    <string name="list_empty_watch">Nothing on the watch yet. Choose something on the phone or below under “Phone”.</string>
     <string name="list_empty_phone">Nothing on the phone</string>
     <string name="list_podcasts_empty_watch">No episodes on the watch</string>
     <string name="list_books_empty_watch">No books on the watch</string>
@@ -41,11 +41,9 @@
     <string name="remote_missing">No longer on the phone</string>
     <string name="remote_no_library">Open kleinaberlaut on the phone once</string>
     <string name="remote_truncated">Only the first tracks are shown</string>
-
-    <!-- Add music -->
-    <string name="add_music_title">Add music</string>
-    <string name="add_music_favorites">Favorites</string>
-    <string name="add_music_no_phone">Phone not connected</string>
+    <string name="remote_play_on_phone">Play on phone</string>
+    <string name="remote_on_watch">On the watch</string>
+    <string name="remote_on_watch_failed">Phone not reachable, nothing changed</string>
 
     <!-- Playback -->
     <string name="player_nothing">Nothing playing</string>

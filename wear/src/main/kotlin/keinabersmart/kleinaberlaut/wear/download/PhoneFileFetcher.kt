@@ -12,6 +12,7 @@ import keinabersmart.kleinaberlaut.core.download.DownloadOutcome
 import keinabersmart.kleinaberlaut.core.download.DownloadStorage
 import keinabersmart.kleinaberlaut.core.download.EpisodeStorage
 import keinabersmart.kleinaberlaut.core.wearsync.FileReceive
+import keinabersmart.kleinaberlaut.core.wearsync.WearAlbumThumbnailFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearCoverFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeFile
@@ -224,8 +225,15 @@ class PhoneFileFetcher @Inject constructor(
      */
     suspend fun fetchCover(bookId: Long): ByteArray? {
         val book = bookDao.book(bookId) ?: return null
+        return fetchBytes(WearCoverFile.uid(book.serverId, book.remoteId))
+    }
+
+    /** Vorschaubild eines Albums am Handy ([albumId] = ID des Handys) für die Listen im Bereich „Telefon“ (Wear-Konzept 17). */
+    suspend fun fetchAlbumThumbnail(albumId: Long): ByteArray? = fetchBytes(WearAlbumThumbnailFile.uid(albumId))
+
+    /** Eine kleine Datei vom Handy in den Speicher; `null` ohne Handy, ohne Datei oder bei Abbruch der Übertragung. */
+    private suspend fun fetchBytes(requestUid: String): ByteArray? {
         val nodeId = phone.connectedPhoneNodeId() ?: return null
-        val requestUid = WearCoverFile.uid(book.serverId, book.remoteId)
         return try {
             val output = ByteArrayOutputStream()
             when (withContext(Dispatchers.IO) { channelClient.receiveFile(nodeId, requestUid, output) }) {

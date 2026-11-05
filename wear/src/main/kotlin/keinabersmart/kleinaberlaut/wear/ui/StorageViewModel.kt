@@ -15,7 +15,7 @@ import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
 import keinabersmart.kleinaberlaut.wear.download.WatchState
 import keinabersmart.kleinaberlaut.wear.download.WatchStorageRepository
-import keinabersmart.kleinaberlaut.wear.sync.PhoneCatalog
+import keinabersmart.kleinaberlaut.wear.sync.PhoneSelections
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,7 +53,7 @@ data class StorageUiState(
 class StorageViewModel @Inject constructor(
     @ApplicationContext context: Context,
     private val downloads: DownloadRepository,
-    private val catalog: PhoneCatalog,
+    private val phoneSelections: PhoneSelections,
     private val storage: WatchStorageRepository,
     private val watchState: WatchState,
 ) : ViewModel() {
@@ -76,7 +76,7 @@ class StorageViewModel @Inject constructor(
 
     /** Das Handy bestimmt die Auswahl; lokal löschen würde beim nächsten Abgleich wieder geladen. */
     fun clearAll() {
-        viewModelScope.launch { _clearFailed.value = !catalog.clearSelections() }
+        viewModelScope.launch { _clearFailed.value = !phoneSelections.clearSelections() }
     }
 
     fun dismissClearFailed() {

@@ -127,14 +127,43 @@ class LocalPlaylistsViewModel @Inject constructor(storage: WatchStorageRepositor
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 }
 
-/** Alle Alben des Handys (Fernsteuerung). */
-@HiltViewModel
-class RemoteAlbumsViewModel @Inject constructor(remote: PhoneRemote) : ViewModel() {
+/** Alle Alben des Handys (Fernsteuerung), mit [artistId] nur die dieses Künstlers; mit Vorschaubild vom Handy. */
+@HiltViewModel(assistedFactory = RemoteAlbumsViewModel.Factory::class)
+class RemoteAlbumsViewModel @AssistedInject constructor(
+    @Assisted artistId: Long?,
+    remote: PhoneRemote,
+) : ViewModel() {
     val state: StateFlow<EntryListState> = remote.library.map { library ->
+        val albumIds = artistId?.let { id -> library?.artists?.firstOrNull { it.id == id }?.albumIds?.toSet().orEmpty() }
+        val albums = library?.albums.orEmpty().filter { albumIds == null || it.id in albumIds }
         when {
             library == null -> EntryListState.Message(R.string.remote_no_library)
-            library.albums.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
-            else -> EntryListState.Ready(library.albums.map { ListEntry(it.id, it.title, it.songCount, artist = it.artist) })
+            albums.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
+            else -> EntryListState.Ready(
+                albums.map { ListEntry(it.id, it.title, it.songCount, artist = it.artist, cover = CoverRef.PhoneAlbum(it.id)) },
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+
+    @AssistedFactory
+    interface Factory {
+        fun create(artistId: Long?): RemoteAlbumsViewModel
+    }
+}
+
+/** Die Künstler des Handys; als Bild das Cover ihres ersten Albums. */
+@HiltViewModel
+class RemoteArtistsViewModel @Inject constructor(remote: PhoneRemote) : ViewModel() {
+    val state: StateFlow<EntryListState> = remote.library.map { library ->
+        val artists = library?.artists.orEmpty().filter { it.albumIds.isNotEmpty() }
+        when {
+            library == null -> EntryListState.Message(R.string.remote_no_library)
+            artists.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
+            else -> EntryListState.Ready(
+                artists.map {
+                    ListEntry(it.id, it.name, songCount = 0, albumCount = it.albumIds.size, cover = CoverRef.PhoneAlbum(it.albumIds.first()))
+                },
+            )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 }

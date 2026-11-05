@@ -22,9 +22,6 @@ object WearPaths {
     /** DataItem mit Asset, Handy → Uhr: [WearManifest] (gzip, siehe [WearCodec.encodeManifest]). */
     const val MANIFEST = "/kal/manifest"
 
-    /** DataItem, Handy → Uhr: [WearCatalogDto] – was sich auf der Uhr auswählen lässt. */
-    const val CATALOG = "/kal/catalog"
-
     /** DataItem, Handy → Uhr: [WearSettingsDto]. */
     const val SETTINGS = "/kal/settings"
 
@@ -48,8 +45,9 @@ object WearPaths {
 
     /**
      * Channel, von der Uhr geöffnet: `/kal/file/<sourceUid>` bzw. für eine Folge `/kal/file/`[WearEpisodeFile.uid], für
-     * eine Buchdatei `/kal/file/`[WearBookFile.uid], für das Bild einer Folge oder eines Buchs `/kal/file/`[WearCoverFile.uid];
-     * das Handy schreibt die Datei im Original.
+     * eine Buchdatei `/kal/file/`[WearBookFile.uid], für das Bild einer Folge oder eines Buchs `/kal/file/`[WearCoverFile.uid],
+     * für das Vorschaubild eines Albums des Handys `/kal/file/`[WearAlbumThumbnailFile.uid]; das Handy schreibt die Datei im
+     * Original (Vorschaubilder verkleinert).
      */
     const val FILE_CHANNEL_PREFIX = "/kal/file/"
 
@@ -161,6 +159,22 @@ object WearCoverFile {
     private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
 
     private fun decode(value: String) = java.net.URLDecoder.decode(value, "UTF-8")
+}
+
+/**
+ * Kennung des Vorschaubilds eines Albums am Handy im Datei-Kanal: `albumthumb:<albumId>` (ID des Handys). Das Handy schickt
+ * ein kleines JPEG ([SIZE_PX]) für die Listen der Uhr im Bereich „Telefon“ (Wear-Konzept 17).
+ */
+object WearAlbumThumbnailFile {
+    private const val PREFIX = "albumthumb:"
+
+    /** Längste Seite des Bilds; die Uhr zeigt es mit 40 dp. */
+    const val SIZE_PX = 120
+
+    fun uid(albumId: Long): String = "$PREFIX$albumId"
+
+    /** @return die Album-ID; `null`, wenn [uid] kein Vorschaubild bezeichnet. */
+    fun parse(uid: String): Long? = if (uid.startsWith(PREFIX)) uid.removePrefix(PREFIX).toLongOrNull() else null
 }
 
 /** Capabilities aus `res/values/wear.xml` der beiden Apps. */

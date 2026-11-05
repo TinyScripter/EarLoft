@@ -17,9 +17,11 @@ import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
+import keinabersmart.kleinaberlaut.core.wearsync.WearAlbumThumbnailFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteAlbumDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteArtistDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteLibraryDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteMediaKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlaylistDto
@@ -50,7 +52,7 @@ import javax.inject.Singleton
 
 /**
  * Hält für die Fernsteuerung von der Uhr aus (Wear-Konzept 15) drei DataItems aktuell: was das Handy spielt (Musik, Buch
- * oder Folge), dessen Cover sowie Alben und Playlists. Geschrieben wird nur, solange die Uhr sich angemeldet hat ([subscribe]) – jede Änderung
+ * oder Folge), dessen Cover sowie Alben, Künstler und Playlists. Geschrieben wird nur, solange die Uhr sich angemeldet hat ([subscribe]) – jede Änderung
  * weckt sonst die Uhr-App, auch wenn niemand sie benutzt.
  */
 @Singleton
@@ -110,11 +112,23 @@ class WearRemotePublisher @Inject constructor(
                     emptyFlow()
                 } else {
                     var first = true
-                    combine(library.albums(), playlists.playlists(), favorites.favorites()) { albums, lists, favs ->
+                    combine(
+                        library.albums(),
+                        playlists.playlists(),
+                        favorites.favorites(),
+                        library.artists(),
+                        library.albumIdsByArtist(),
+                    ) { albums, lists, favs, artists, albumIdsByArtist ->
+                        // Die Alben eines Künstlers in der Reihenfolge der Albumliste: Das erste liefert sein Bild auf der Uhr.
+                        val albumOrder = albums.withIndex().associate { it.value.id to it.index }
                         WearRemoteLibraryDto(
                             albums = albums.map { WearRemoteAlbumDto(it.id, it.title, it.artist, it.songCount) },
                             playlists = lists.map { WearRemotePlaylistDto(it.id, it.name, it.songCount) },
                             favoritesCount = favs.size,
+                            artists = artists.map { artist ->
+                                val albumIds = albumIdsByArtist[artist.id].orEmpty().filter { it in albumOrder }.sortedBy { albumOrder[it] }
+                                WearRemoteArtistDto(artist.id, artist.name, albumIds)
+                            },
                         )
                     }.debounce { if (first) 0L.also { first = false } else LIBRARY_DEBOUNCE_MS }
                 }
@@ -186,7 +200,7 @@ class WearRemotePublisher @Inject constructor(
         } else {
             dto.albumId?.let { artwork.albumCover(it, COVER_SIZE_PX) }
         }
-        val jpeg = bitmap?.let { withContext(Dispatchers.Default) { it.scaledToCover().toJpeg() } } ?: ByteArray(0)
+        val jpeg = bitmap?.let { withContext(Dispatchers.Default) { it.scaledTo(COVER_SIZE_PX).toJpeg() } } ?: ByteArray(0)
         if (dataClient.putPayload(WearPaths.REMOTE_COVER, WearCodec.encodeCover(coverKey, jpeg))) publishedCoverKey = coverKey
     }
 
@@ -197,7 +211,7 @@ class WearRemotePublisher @Inject constructor(
         if (hash == publishedLibraryHash) return
         if (dataClient.putAssetPayload(WearPaths.REMOTE_LIBRARY, WearCodec.encodeCompressed(dto), hash)) {
             publishedLibraryHash = hash
-            Log.d(TAG, "Fernsteuerung: ${dto.albums.size} Alben, ${dto.playlists.size} Playlists")
+            Log.d(TAG, "Fernsteuerung: ${dto.albums.size} Alben, ${dto.artists.size} Künstler, ${dto.playlists.size} Playlists")
         }
     }
 
@@ -206,11 +220,21 @@ class WearRemotePublisher @Inject constructor(
         return if (max > 0) audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat() else 0f
     }
 
-    /** Buchcover kommen mit 800 px; die Uhr braucht wie bei Albumcovern nur [COVER_SIZE_PX] (und die 100-KB-Grenze gilt). */
-    private fun Bitmap.scaledToCover(): Bitmap {
+    /**
+     * Vorschaubild eines Albums für die Listen der Uhr im Bereich „Telefon“ (Wear-Konzept 17), als kleines JPEG über den
+     * Datei-Kanal. `null`, wenn das Album kein Cover hat.
+     */
+    suspend fun albumThumbnail(albumId: Long): ByteArray? {
+        val size = WearAlbumThumbnailFile.SIZE_PX
+        val bitmap = artwork.albumCover(albumId, size) ?: return null
+        return withContext(Dispatchers.Default) { bitmap.scaledTo(size).toJpeg() }
+    }
+
+    /** Buchcover kommen mit 800 px; die Uhr braucht wie bei Albumcovern nur [maxPx] (und die 100-KB-Grenze gilt). */
+    private fun Bitmap.scaledTo(maxPx: Int): Bitmap {
         val longest = maxOf(width, height)
-        if (longest <= COVER_SIZE_PX) return this
-        val factor = COVER_SIZE_PX.toFloat() / longest
+        if (longest <= maxPx) return this
+        val factor = maxPx.toFloat() / longest
         return Bitmap.createScaledBitmap(this, (width * factor).toInt().coerceAtLeast(1), (height * factor).toInt().coerceAtLeast(1), true)
     }
 

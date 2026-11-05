@@ -39,14 +39,12 @@ import keinabersmart.kleinaberlaut.wear.download.SelectionItem
 import keinabersmart.kleinaberlaut.wear.sync.PhoneStatus
 
 /** Wohin ein Eintrag des Startbildschirms führt. */
-enum class StartTarget {
-    MUSIC, PODCASTS, BOOKS, ADD_MUSIC, STORAGE,
-    PHONE_CONTINUE, PHONE_ALBUMS, PHONE_FAVORITES, PHONE_PLAYLISTS,
-}
+enum class StartTarget { MUSIC, PODCASTS, BOOKS, STORAGE, PHONE_CONTINUE, PHONE_MUSIC }
 
 /**
  * Startbildschirm (Wear-Konzept 11, 14): oben die Uhr selbst mit Musik, Podcasts und Büchern (je nur, wenn etwas davon auf der
- * Uhr ist), darunter – solange ein Handy mit der App verbunden ist – das Handy als Fernsteuerung. Ohne Handy und ohne Inhalte
+ * Uhr ist), darunter – solange ein Handy mit der App verbunden ist – das Handy als Fernsteuerung mit seiner Musik (von dort
+ * lässt sich auch auswählen, was auf die Uhr kommt, Wear-Konzept 17). Ohne Handy und ohne Inhalte
  * erklärt er stattdessen die Einrichtung (Handy fehlt, App fehlt).
  */
 @Composable
@@ -62,7 +60,6 @@ fun StartScreen(
         state = state,
         onNowPlayingClick = onNowPlayingClick,
         onClick = onClick,
-        onShuffleAllOnPhone = { viewModel.shuffleAllOnPhone { onNowPlayingClick(true) } },
         onOpenOnPhone = viewModel::openStoreOnPhone,
         onRetry = viewModel::refresh,
     )
@@ -73,7 +70,6 @@ private fun StartContent(
     state: StartUiState,
     onNowPlayingClick: (Boolean) -> Unit,
     onClick: (StartTarget) -> Unit,
-    onShuffleAllOnPhone: () -> Unit,
     onOpenOnPhone: (nodeId: String) -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -94,17 +90,13 @@ private fun StartContent(
                 if (state.hasEpisodes) action(R.string.list_podcasts, transformationSpec, onClick = { onClick(StartTarget.PODCASTS) })
                 if (state.hasBooks) action(R.string.list_books, transformationSpec, onClick = { onClick(StartTarget.BOOKS) })
                 if (!state.hasContent) message(R.string.list_empty_watch, transformationSpec)
-                action(R.string.add_music_title, transformationSpec, onClick = { onClick(StartTarget.ADD_MUSIC) })
                 action(R.string.storage_title, transformationSpec, onClick = { onClick(StartTarget.STORAGE) })
                 if (state.phoneConnected) {
                     header(R.string.start_section_phone, transformationSpec)
                     action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(true) }, secondary = state.phoneNowPlaying)
                     // Bücher und Podcasts nur über „Weiterhören“, ohne eigene Bibliothek auf der Uhr.
                     action(R.string.list_continue, transformationSpec, onClick = { onClick(StartTarget.PHONE_CONTINUE) })
-                    action(R.string.list_albums, transformationSpec, onClick = { onClick(StartTarget.PHONE_ALBUMS) })
-                    action(R.string.list_favorites, transformationSpec, onClick = { onClick(StartTarget.PHONE_FAVORITES) })
-                    action(R.string.list_playlists, transformationSpec, onClick = { onClick(StartTarget.PHONE_PLAYLISTS) })
-                    action(R.string.start_shuffle_all, transformationSpec, onClick = onShuffleAllOnPhone)
+                    action(R.string.list_music, transformationSpec, onClick = { onClick(StartTarget.PHONE_MUSIC) })
                 } else if (state.phone == PhoneStatus.NotConnected) {
                     // Der Abschnitt bleibt, damit die Fernsteuerung nicht ohne Erklärung verschwindet.
                     header(R.string.start_section_phone, transformationSpec)
@@ -201,7 +193,6 @@ private val previewCallbacks: @Composable (StartUiState) -> Unit = { state ->
             state = state,
             onNowPlayingClick = {},
             onClick = {},
-            onShuffleAllOnPhone = {},
             onOpenOnPhone = {},
             onRetry = {},
         )

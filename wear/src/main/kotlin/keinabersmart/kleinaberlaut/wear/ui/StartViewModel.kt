@@ -6,8 +6,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
-import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
-import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
 import keinabersmart.kleinaberlaut.wear.download.SelectionItem
 import keinabersmart.kleinaberlaut.wear.download.WatchStorageRepository
 import keinabersmart.kleinaberlaut.wear.sync.PhoneConnection
@@ -52,7 +50,7 @@ data class StartUiState(
 class StartViewModel @Inject constructor(
     private val phoneConnection: PhoneConnection,
     storage: WatchStorageRepository,
-    private val remote: PhoneRemote,
+    remote: PhoneRemote,
     playback: PlaybackConnection,
     continueListening: ContinueListening,
     books: BookRepository,
@@ -84,13 +82,6 @@ class StartViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StartUiState())
 
     fun refresh() = phoneConnection.refresh()
-
-    /** Das Handy mischt seine ganze Bibliothek; [onStarted] wechselt danach zur Wiedergabe-Ansicht des Handys. */
-    fun shuffleAllOnPhone(onStarted: () -> Unit) {
-        viewModelScope.launch {
-            if (remote.play(WearRemotePlayRequest(WearRemoteListKind.ALL, shuffle = true))) onStarted()
-        }
-    }
 
     fun openStoreOnPhone(nodeId: String) {
         viewModelScope.launch {

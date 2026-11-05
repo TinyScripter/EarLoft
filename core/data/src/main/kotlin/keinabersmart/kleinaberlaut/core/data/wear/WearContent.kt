@@ -73,19 +73,3 @@ data class MirroredServer(
     val priority: Int,
     val formPost: Boolean,
 )
-
-/** Was sich auf der Uhr auswählen lässt (Wear-Konzept 5): die Favoriten und jede Playlist des Handys. */
-data class WearCatalog(
-    val favoritesCount: Int,
-    val favoritesSelected: Boolean,
-    val playlists: List<WearCatalogPlaylist>,
-)
-
-data class WearCatalogPlaylist(
-    val playlistId: Long,
-    val name: String,
-    val songCount: Int,
-    /** Server der Playlist; `null` = Geräte-Playlist. */
-    val serverName: String?,
-    val selected: Boolean,
-)

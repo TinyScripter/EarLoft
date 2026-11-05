@@ -122,24 +122,6 @@ data class WearServerDto(
     val formPost: Boolean = false,
 )
 
-/** Was sich auf der Uhr auswählen lässt (nur Favoriten und Playlists, Wear-Konzept 5). */
-@Serializable
-data class WearCatalogDto(
-    val favoritesCount: Int = 0,
-    val favoritesSelected: Boolean = false,
-    val playlists: List<WearCatalogPlaylistDto> = emptyList(),
-)
-
-@Serializable
-data class WearCatalogPlaylistDto(
-    val playlistId: Long,
-    val name: String,
-    val songCount: Int,
-    /** Name des Servers bei Server-Playlists, `null` = Geräte-Playlist des Handys. */
-    val serverName: String? = null,
-    val selected: Boolean = false,
-)
-
 enum class WearQuality {
     /** Navidrome transkodiert beim Download (`format=opus&maxBitRate=128`). */
     OPUS_128,
@@ -299,7 +281,7 @@ data class WearPlayDto(
     val listenedMs: Long,
 )
 
-/** Auswahl von der Uhr aus ändern (nur Favoriten und Playlists). */
+/** Auswahl von der Uhr aus ändern: Album, Playlist oder Favoriten des Handys (Schalter „Auf der Uhr“, Wear-Konzept 17). */
 @Serializable
 data class WearSelectRequest(
     val kind: WearSelectionKind,
@@ -367,13 +349,18 @@ data class WearRemoteStateDto(
     }
 }
 
-/** Alben und Playlists des Handys, damit die Uhr sie anzeigen kann (Handy → Uhr, als gzip-Asset). */
+/** Alben, Künstler und Playlists des Handys, damit die Uhr sie anzeigen kann (Handy → Uhr, als gzip-Asset). */
 @Serializable
 data class WearRemoteLibraryDto(
     val albums: List<WearRemoteAlbumDto> = emptyList(),
     val playlists: List<WearRemotePlaylistDto> = emptyList(),
     val favoritesCount: Int = 0,
+    val artists: List<WearRemoteArtistDto> = emptyList(),
 )
+
+/** Ein Künstler des Handys mit seinen Alben (Albumkünstler, IDs aus [WearRemoteLibraryDto.albums]). */
+@Serializable
+data class WearRemoteArtistDto(val id: Long, val name: String, val albumIds: List<Long>)
 
 @Serializable
 data class WearRemoteAlbumDto(val id: Long, val title: String, val artist: String, val songCount: Int)

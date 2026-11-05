@@ -45,11 +45,10 @@ fun LocalAlbumsScreen(
 @Composable
 fun LocalArtistsScreen(onClick: (artistId: Long, name: String) -> Unit, viewModel: LocalArtistsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    EntryListContent(stringResource(R.string.list_artists), state) { id ->
-        val name = (state as? EntryListState.Ready)?.entries?.firstOrNull { it.key == id }?.title.orEmpty()
-        onClick(id, name)
-    }
+    EntryListContent(stringResource(R.string.list_artists), state) { id -> onClick(id, state.titleOf(id)) }
 }
+
+private fun EntryListState.titleOf(key: Long): String = (this as? EntryListState.Ready)?.entries?.firstOrNull { it.key == key }?.title.orEmpty()
 
 @Composable
 fun LocalPlaylistsScreen(onClick: (Long) -> Unit, viewModel: LocalPlaylistsViewModel = hiltViewModel()) {
@@ -57,10 +56,22 @@ fun LocalPlaylistsScreen(onClick: (Long) -> Unit, viewModel: LocalPlaylistsViewM
     EntryListContent(stringResource(R.string.list_playlists), state, onClick)
 }
 
+/** Die Alben des Handys; mit [artistId] nur die dieses Künstlers, dann steht [title] (sein Name) oben. */
 @Composable
-fun RemoteAlbumsScreen(onClick: (Long) -> Unit, viewModel: RemoteAlbumsViewModel = hiltViewModel()) {
+fun RemoteAlbumsScreen(
+    onClick: (Long) -> Unit,
+    artistId: Long? = null,
+    title: String? = null,
+    viewModel: RemoteAlbumsViewModel = hiltViewModel<RemoteAlbumsViewModel, RemoteAlbumsViewModel.Factory> { it.create(artistId) },
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    EntryListContent(stringResource(R.string.list_albums), state, onClick)
+    EntryListContent(title ?: stringResource(R.string.list_albums), state, onClick)
+}
+
+@Composable
+fun RemoteArtistsScreen(onClick: (artistId: Long, name: String) -> Unit, viewModel: RemoteArtistsViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    EntryListContent(stringResource(R.string.list_artists), state) { id -> onClick(id, state.titleOf(id)) }
 }
 
 @Composable

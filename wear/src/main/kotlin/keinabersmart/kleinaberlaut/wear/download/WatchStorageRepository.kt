@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,6 +25,8 @@ data class SelectionItem(
     val songCount: Int,
     /** Geladene Songs der Auswahl; `songCount` sind alle. */
     val downloadedCount: Int = songCount,
+    /** [WearSelectionKind.key] mit den IDs des Handys, z. B. `album:12`. */
+    val key: String = "",
 )
 
 /**
@@ -63,9 +66,12 @@ class WatchStorageRepository @Inject constructor(
         selections.mapNotNull { selection ->
             val playlist = selection.refId?.let { byId[it] } ?: return@mapNotNull null
             val done = progressByKey[selection.key]?.done ?: 0
-            SelectionItem(playlist.id, selection.kind, playlist.name, playlist.songCount, downloadedCount = done)
+            SelectionItem(playlist.id, selection.kind, playlist.name, playlist.songCount, downloadedCount = done, key = selection.key)
         }
     }
+
+    /** Schlüssel aller Auswahlen vom Handy laut zuletzt übernommenem Manifest ([WearSelectionKind.key]). */
+    fun selectedKeys(): Flow<Set<String>> = wearDao.observeSelections().map { selections -> selections.mapTo(HashSet()) { it.key } }
 
     /** Alle fertig geladenen Songs. */
     suspend fun downloadedSongs(): List<Song> = libraryRepository.songs(downloadDao.getDoneSongIds())

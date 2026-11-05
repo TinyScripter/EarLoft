@@ -6,27 +6,79 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteTrackDto
 import keinabersmart.kleinaberlaut.wear.R
+import keinabersmart.kleinaberlaut.wear.download.WatchStorageRepository
 import keinabersmart.kleinaberlaut.wear.sync.PhoneRemote
+import keinabersmart.kleinaberlaut.wear.sync.PhoneSelections
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** Titelliste eines Albums, einer Playlist oder der Favoriten auf dem Handy (Wear-Konzept 15). */
+/**
+ * Schalter „Auf der Uhr“ einer Liste des Handys (Wear-Konzept 17). [loaded]/[total]: Stand der Downloads, solange die
+ * Auswahl auf der Uhr angekommen ist; [failed]: Das Handy war beim letzten Umschalten nicht erreichbar.
+ */
+data class OnWatchState(val checked: Boolean, val loaded: Int? = null, val total: Int? = null, val failed: Boolean = false)
+
+/**
+ * Titelliste eines Albums, einer Playlist oder der Favoriten auf dem Handy (Wear-Konzept 15) – zugleich die kleine Seite,
+ * auf der man sie am Handy abspielt oder auf die Uhr holt (17).
+ */
 @HiltViewModel(assistedFactory = RemoteTracksViewModel.Factory::class)
 class RemoteTracksViewModel @AssistedInject constructor(
     @Assisted private val kind: WearRemoteListKind,
     @Assisted private val refId: Long?,
     private val remote: PhoneRemote,
+    private val phoneSelections: PhoneSelections,
+    storage: WatchStorageRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<TrackListState>(TrackListState.Loading)
     val state: StateFlow<TrackListState> = _state
 
     private var tracks: List<WearRemoteTrackDto> = emptyList()
+
+    /** Was die Uhr als Auswahl führt; nur Alben, Playlists und Favoriten lassen sich auf die Uhr holen. */
+    private val selectionKind: WearSelectionKind? = when (kind) {
+        WearRemoteListKind.ALBUM -> WearSelectionKind.ALBUM
+        WearRemoteListKind.PLAYLIST -> WearSelectionKind.PLAYLIST
+        WearRemoteListKind.FAVORITES -> WearSelectionKind.FAVORITES
+        WearRemoteListKind.ALL, WearRemoteListKind.CONTINUE -> null
+    }
+    private val selectionKey = selectionKind?.key(refId)
+
+    /**
+     * Gewünschter Stand nach dem Umschalten, bis das Manifest des Handys ihn bestätigt (oder [PENDING_TIMEOUT_MS] vergeht):
+     * Der Schalter springt sonst bis zum nächsten Manifest zurück.
+     */
+    private val pending = MutableStateFlow<Boolean?>(null)
+    private val failed = MutableStateFlow(false)
+    private var pendingTimeout: Job? = null
+
+    val onWatch: StateFlow<OnWatchState?> = if (selectionKey == null) {
+        MutableStateFlow(null)
+    } else {
+        combine(storage.selectedKeys(), storage.selections(), pending, failed) { keys, selections, wanted, failedNow ->
+            val confirmed = selectionKey in keys
+            if (wanted == confirmed) pending.value = null
+            val item = selections.firstOrNull { it.key == selectionKey }
+            OnWatchState(
+                checked = wanted ?: confirmed,
+                loaded = item?.downloadedCount,
+                total = item?.songCount,
+                failed = failedNow,
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }
 
     init {
         viewModelScope.launch {
@@ -60,8 +112,31 @@ class RemoteTracksViewModel @AssistedInject constructor(
         ),
     )
 
+    /** Holt die Liste auf die Uhr bzw. nimmt sie herunter; das Handy wählt aus und schickt ein neues Manifest. */
+    fun setOnWatch(selected: Boolean) {
+        val selection = selectionKind ?: return
+        viewModelScope.launch {
+            failed.value = false
+            pending.value = selected
+            if (!phoneSelections.setSelected(selection, refId, selected)) {
+                pending.value = null
+                failed.value = true
+                return@launch
+            }
+            pendingTimeout?.cancel()
+            pendingTimeout = launch {
+                delay(PENDING_TIMEOUT_MS)
+                pending.value = null
+            }
+        }
+    }
+
     @AssistedFactory
     interface Factory {
         fun create(kind: WearRemoteListKind, refId: Long?): RemoteTracksViewModel
+    }
+
+    private companion object {
+        const val PENDING_TIMEOUT_MS = 20_000L
     }
 }
