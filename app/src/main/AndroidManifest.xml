@@ -101,6 +101,14 @@
                     android:scheme="wear" />
             </intent-filter>
         </service>
+
+        <!-- Übertragung zur Uhr als Vordergrund-Worker (WatchFileTransfers). core:download deklariert dasselbe, Lint
+             liest aber nur dieses Manifest; replace verhindert ein zusammengefügtes "dataSync|dataSync". -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge"
+            tools:replace="android:foregroundServiceType" />
     </application>
 
 </manifest>
