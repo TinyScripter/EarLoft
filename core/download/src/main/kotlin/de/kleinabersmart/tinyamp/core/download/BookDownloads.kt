@@ -69,18 +69,19 @@ class BookDownloads @Inject constructor(
     fun start(scope: CoroutineScope) {
         if (!started.compareAndSet(false, true)) return
         scope.launch {
-            // Nach einem Prozessende stehen Einträge evtl. noch auf RUNNING/QUEUED.
-            if (dao.countPendingBookDownloads() > 0) enqueueWorker()
+            // Nach einem Prozessende stehen Einträge evtl. noch auf RUNNING/QUEUED. KEEP: Hat der Worker selbst den Prozess
+            // gestartet, hängte sich sonst ein zweiter an ihn, der danach nichts mehr findet.
+            if (dao.countPendingBookDownloads() > 0) enqueueWorker(ExistingWorkPolicy.KEEP)
         }
         // Die Einstellung „Mobilfunk“ gilt für wartende Downloads sofort: den Auftrag mit neuen Bedingungen ersetzen.
         scope.launch {
             settings.bookMobileData.distinctUntilChanged().drop(1).collect {
-                if (dao.countPendingBookDownloads() > 0) enqueueWorker(replace = true)
+                if (dao.countPendingBookDownloads() > 0) enqueueWorker(ExistingWorkPolicy.REPLACE)
             }
         }
     }
 
-    private suspend fun enqueueWorker(replace: Boolean = false) {
+    private suspend fun enqueueWorker(policy: ExistingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE) {
         val mobile = settings.bookMobileData.first()
         val request = OneTimeWorkRequestBuilder<BookDownloadWorker>()
             .setConstraints(
@@ -91,7 +92,6 @@ class BookDownloads @Inject constructor(
             )
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        val policy = if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE
         WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request)
     }
 

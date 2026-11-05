@@ -21,6 +21,12 @@ interface DownloadScheduler {
      * nach Ändern der WLAN-Einstellung (ein laufender wird dabei abgebrochen und neu gestartet).
      */
     suspend fun enqueue(replace: Boolean = false)
+
+    /**
+     * Nach einem Prozessende: nur einreihen, wenn kein Auftrag wartet oder läuft. Hat der Worker selbst den Prozess
+     * gestartet, hängte [enqueue] sonst einen zweiten an, der danach mit leerer Warteschlange startet.
+     */
+    suspend fun resume() = enqueue()
 }
 
 /**
@@ -33,7 +39,12 @@ class WorkManagerDownloadScheduler @Inject constructor(
     private val settings: DownloadSettings,
 ) : DownloadScheduler {
 
-    override suspend fun enqueue(replace: Boolean) {
+    override suspend fun enqueue(replace: Boolean) =
+        enqueue(if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE)
+
+    override suspend fun resume() = enqueue(ExistingWorkPolicy.KEEP)
+
+    private suspend fun enqueue(policy: ExistingWorkPolicy) {
         val wifiOnly = settings.wifiOnly.first()
         val request = OneTimeWorkRequestBuilder<DownloadWorker>()
             .setConstraints(
@@ -44,7 +55,6 @@ class WorkManagerDownloadScheduler @Inject constructor(
             )
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        val policy = if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE
         WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request)
     }
 

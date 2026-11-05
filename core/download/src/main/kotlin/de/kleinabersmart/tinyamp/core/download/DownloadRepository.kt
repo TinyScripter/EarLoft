@@ -167,7 +167,7 @@ class DownloadRepository @Inject constructor(
         dropOrphanCovers()
         // Auch ohne wartende Downloads: Der Auftrag holt fehlende Cover heruntergeladener Alben nach.
         val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
-        if (downloadDao.countPending() > 0 || coversMissing) scheduler.enqueue()
+        if (downloadDao.countPending() > 0 || coversMissing) scheduler.resume()
     }
 
     /** Nach Ändern der WLAN-Einstellung den Auftrag mit neuen Bedingungen ersetzen. */

@@ -119,7 +119,7 @@ class EpisodeDownloads @Inject constructor(
         // Die Einstellung „Mobilfunk“ gilt für wartende Downloads sofort: den Auftrag mit neuen Bedingungen ersetzen.
         scope.launch {
             settings.useMobileData.distinctUntilChanged().drop(1).collect {
-                if (dao.countPendingDownloads() > 0) enqueueWorker(replace = true)
+                if (dao.countPendingDownloads() > 0) enqueueWorker(ExistingWorkPolicy.REPLACE)
             }
         }
         // Zu Ende gehörte Folgen: der Download verfällt nach der eingestellten Zeit. Solange die App läuft, prüft jede
@@ -131,8 +131,9 @@ class EpisodeDownloads @Inject constructor(
         }
         scope.launch { HeardCleanupWorker.schedule(context) }
         scope.launch {
-            // Nach einem Prozessende stehen Einträge evtl. noch auf RUNNING/QUEUED.
-            if (dao.countPendingDownloads() > 0) enqueueWorker()
+            // Nach einem Prozessende stehen Einträge evtl. noch auf RUNNING/QUEUED. KEEP: Hat der Worker selbst den Prozess
+            // gestartet, hängte sich sonst ein zweiter an ihn, der danach nichts mehr findet.
+            if (dao.countPendingDownloads() > 0) enqueueWorker(ExistingWorkPolicy.KEEP)
         }
     }
 
@@ -146,7 +147,7 @@ class EpisodeDownloads @Inject constructor(
         return expiredHeardDownloads(heard, days, System.currentTimeMillis()).onEach { remove(it) }.size
     }
 
-    private suspend fun enqueueWorker(replace: Boolean = false) {
+    private suspend fun enqueueWorker(policy: ExistingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE) {
         val mobile = settings.useMobileData.first()
         val request = OneTimeWorkRequestBuilder<EpisodeDownloadWorker>()
             .setConstraints(
@@ -157,7 +158,6 @@ class EpisodeDownloads @Inject constructor(
             )
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        val policy = if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE
         WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request)
     }
 
