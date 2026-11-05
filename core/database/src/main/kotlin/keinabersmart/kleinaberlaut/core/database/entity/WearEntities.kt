@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.core.database.entity
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 
@@ -18,5 +19,21 @@ data class WearSelectionEntity(
     val kind: WearSelectionKind,
     /** `albumId` bzw. `playlistId` am Handy; `null` für Favoriten. */
     val refId: Long?,
+    val addedAt: Long,
+)
+
+/**
+ * Einzeln für die Uhr gewählte Folgen (Wear-Konzept 16.1), nur am Handy. Vorerst nur Podcast-Folgen; Bücher folgen
+ * als eigene Etappe. Verschwindet die Folge (Abo beendet, aus dem Feed gefallen), geht die Zeile mit.
+ */
+@Entity(
+    tableName = "wear_books",
+    foreignKeys = [
+        ForeignKey(entity = BookEntity::class, parentColumns = ["bookId"], childColumns = ["bookId"], onDelete = ForeignKey.CASCADE),
+    ],
+)
+data class WearBookEntity(
+    @PrimaryKey val bookId: Long,
+    /** Reihenfolge auf der Uhr (Download und „Weiterhören“). */
     val addedAt: Long,
 )

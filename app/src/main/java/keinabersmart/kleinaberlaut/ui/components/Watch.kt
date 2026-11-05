@@ -1,5 +1,6 @@
 package keinabersmart.kleinaberlaut.ui.components
 
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconToggleButton
@@ -20,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.R
+import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodes
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearSelectionStatusDto
@@ -34,17 +36,29 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
+/** Was sich einzeln auf die Uhr legen lässt: Album, Playlist, Favoriten (Wear-Konzept 5) oder eine Folge (16.1). */
+sealed interface WatchTarget {
+    data class Selection(val kind: WearSelectionKind, val refId: Long?) : WatchTarget
+    data class Episode(val bookId: Long) : WatchTarget
+}
+
 /** Was auf die Uhr soll (Wear-Konzept 5). Ohne gekoppelte Uhr mit kleinaberlaut ist [isAvailable] `false`. */
 @Stable
 class WatchController(
     private val available: State<Boolean>,
     private val selectedKeys: State<Set<String>>,
+    private val selectedEpisodes: State<Set<Long>>,
     private val status: State<WearStatusDto?>,
-    val setSelected: (kind: WearSelectionKind, refId: Long?, selected: Boolean) -> Unit,
+    val setSelected: (target: WatchTarget, selected: Boolean) -> Unit,
 ) {
     val isAvailable: Boolean get() = available.value
 
     fun isSelected(kind: WearSelectionKind, refId: Long?): Boolean = kind.key(refId) in selectedKeys.value
+
+    fun isSelected(target: WatchTarget): Boolean = when (target) {
+        is WatchTarget.Selection -> isSelected(target.kind, target.refId)
+        is WatchTarget.Episode -> target.bookId in selectedEpisodes.value
+    }
 
     /** Fortschritt der Uhr für diese Auswahl; `null`, wenn sie nicht ausgewählt ist oder die Uhr noch nichts gemeldet hat. */
     fun progressOf(kind: WearSelectionKind, refId: Long?): WearSelectionStatusDto? {
@@ -64,6 +78,7 @@ val LocalWatchController = staticCompositionLocalOf<WatchController?> { null }
 class WatchViewModel @Inject constructor(
     watchConnection: WatchConnection,
     private val selections: WearSelectionRepository,
+    private val episodes: WatchEpisodes,
     watchStatus: WatchStatusRepository,
 ) : ViewModel() {
     val status: StateFlow<WearStatusDto?> = watchStatus.status
@@ -75,8 +90,16 @@ class WatchViewModel @Inject constructor(
     val selectedKeys: StateFlow<Set<String>> = selections.selectedKeys()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    fun setSelected(kind: WearSelectionKind, refId: Long?, selected: Boolean) {
-        viewModelScope.launch { selections.setSelected(kind, refId, selected) }
+    val selectedEpisodes: StateFlow<Set<Long>> = episodes.selectedIds()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    fun setSelected(target: WatchTarget, selected: Boolean) {
+        viewModelScope.launch {
+            when (target) {
+                is WatchTarget.Selection -> selections.setSelected(target.kind, target.refId, selected)
+                is WatchTarget.Episode -> episodes.setSelected(target.bookId, selected)
+            }
+        }
     }
 }
 
@@ -84,8 +107,9 @@ class WatchViewModel @Inject constructor(
 fun rememberWatchController(viewModel: WatchViewModel = hiltViewModel()): WatchController {
     val available = viewModel.available.collectAsStateWithLifecycle()
     val selectedKeys = viewModel.selectedKeys.collectAsStateWithLifecycle()
+    val selectedEpisodes = viewModel.selectedEpisodes.collectAsStateWithLifecycle()
     val status = viewModel.status.collectAsStateWithLifecycle()
-    return remember(viewModel) { WatchController(available, selectedKeys, status, viewModel::setSelected) }
+    return remember(viewModel) { WatchController(available, selectedKeys, selectedEpisodes, status, viewModel::setSelected) }
 }
 
 /** Kleine Zeile „Auf der Uhr: 12 von 14“ für die Kopfzeile von Album, Playlist und Favoriten; ohne Auswahl leer. */
@@ -105,16 +129,14 @@ fun WatchStatusText(kind: WearSelectionKind, refId: Long?, modifier: Modifier = 
 
 /** Knopf „Auf Uhr laden“ / „Von Uhr entfernen“ für die TopAppBar; ohne Uhr unsichtbar. */
 @Composable
-fun WatchToggleButton(kind: WearSelectionKind, refId: Long?) {
+fun WatchToggleButton(kind: WearSelectionKind, refId: Long?) = WatchToggleButton(WatchTarget.Selection(kind, refId))
+
+@Composable
+fun WatchToggleButton(target: WatchTarget) {
     val controller = LocalWatchController.current ?: return
     if (!controller.isAvailable) return
-    val snackbars = LocalSnackbars.current
-    val resources = LocalResources.current
-    val selected = controller.isSelected(kind, refId)
-    val onToggle: (Boolean) -> Unit = { select ->
-        controller.setSelected(kind, refId, select)
-        snackbars.show(resources.getString(if (select) R.string.watch_added else R.string.watch_removed))
-    }
+    val selected = controller.isSelected(target)
+    val onToggle = watchToggle(controller, target)
     val icon: @Composable () -> Unit = {
         Icon(
             painterResource(DesignR.drawable.ic_watch),
@@ -125,5 +147,39 @@ fun WatchToggleButton(kind: WearSelectionKind, refId: Long?) {
         FilledTonalIconToggleButton(checked = true, onCheckedChange = onToggle, content = icon)
     } else {
         IconToggleButton(checked = false, onCheckedChange = onToggle, content = icon)
+    }
+}
+
+/**
+ * Eintrag „Auf Uhr laden“ / „Von Uhr entfernen“ für die Kontextmenüs (Album, Folge), direkt über „Download entfernen“;
+ * ohne Uhr unsichtbar. [withIcon] wie die übrigen Einträge des Menüs.
+ */
+@Composable
+fun WatchMenuItem(target: WatchTarget, onDismiss: () -> Unit, withIcon: Boolean = true) {
+    val controller = LocalWatchController.current ?: return
+    if (!controller.isAvailable) return
+    val selected = controller.isSelected(target)
+    val onToggle = watchToggle(controller, target)
+    DropdownMenuItem(
+        text = { Text(stringResource(if (selected) R.string.watch_remove else R.string.watch_add)) },
+        leadingIcon = if (withIcon) {
+            { Icon(painterResource(DesignR.drawable.ic_watch), contentDescription = null) }
+        } else {
+            null
+        },
+        onClick = {
+            onToggle(!selected)
+            onDismiss()
+        },
+    )
+}
+
+@Composable
+private fun watchToggle(controller: WatchController, target: WatchTarget): (Boolean) -> Unit {
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
+    return { select ->
+        controller.setSelected(target, select)
+        snackbars.show(resources.getString(if (select) R.string.watch_added else R.string.watch_removed))
     }
 }

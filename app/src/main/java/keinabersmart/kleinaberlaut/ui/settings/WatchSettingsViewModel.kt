@@ -3,6 +3,7 @@ package keinabersmart.kleinaberlaut.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodes
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
@@ -24,10 +25,18 @@ data class WatchSelectionItem(
     val songCount: Int,
 )
 
+/** Eine einzeln gewählte Folge (Wear-Konzept 16.1). */
+data class WatchEpisodeItem(
+    val bookId: Long,
+    val title: String,
+    val feedTitle: String,
+)
+
 data class WatchSettingsUiState(
     val settings: WatchSettings = WatchSettings(),
     /** `null` = wird geladen. */
     val selections: List<WatchSelectionItem>? = null,
+    val episodes: List<WatchEpisodeItem> = emptyList(),
     /** Letzter Bericht der Uhr; `null`, solange sie nichts gemeldet hat. */
     val status: WearStatusDto? = null,
 )
@@ -36,17 +45,21 @@ data class WatchSettingsUiState(
 class WatchSettingsViewModel @Inject constructor(
     private val watchSettings: WatchSettingsRepository,
     private val selections: WearSelectionRepository,
+    private val episodes: WatchEpisodes,
     watchStatus: WatchStatusRepository,
 ) : ViewModel() {
 
     val state: StateFlow<WatchSettingsUiState> = combine(
         watchSettings.settings,
         selections.content(),
+        episodes.content(),
         watchStatus.status,
-    ) { settings, content, status ->
+    ) { settings, content, podcasts, status ->
+        val feedTitles = podcasts.feeds.associate { it.feedId to it.title }
         WatchSettingsUiState(
             settings = settings,
             selections = content.selections.map { WatchSelectionItem(it.kind, it.refId, it.title, it.songIds.size) },
+            episodes = podcasts.episodes.map { WatchEpisodeItem(it.bookId, it.title, feedTitles[it.feedId].orEmpty()) },
             status = status,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WatchSettingsUiState())
@@ -57,11 +70,14 @@ class WatchSettingsViewModel @Inject constructor(
 
     fun setRequireCharging(requireCharging: Boolean) = launch { watchSettings.setRequireCharging(requireCharging) }
 
-    fun setPodcastEpisodes(count: Int) = launch { watchSettings.setPodcastEpisodes(count) }
-
     fun remove(item: WatchSelectionItem) = launch { selections.setSelected(item.kind, item.refId, selected = false) }
 
-    fun clear() = launch { selections.clear() }
+    fun removeEpisode(item: WatchEpisodeItem) = launch { episodes.setSelected(item.bookId, selected = false) }
+
+    fun clear() = launch {
+        selections.clear()
+        episodes.clear()
+    }
 
     private fun launch(block: suspend () -> Unit) {
         viewModelScope.launch { block() }

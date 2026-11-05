@@ -40,8 +40,8 @@ class WearEpisodeTest {
     }
 
     @Test
-    fun `Einstellungen ohne Folgenzahl nehmen den Standard`() {
-        val decoded = WearCodec.decode<WearSettingsDto>("""{"requireCharging":false}""".encodeToByteArray())
-        assertEquals(WearSettingsDto.DEFAULT_PODCAST_EPISODES, decoded.podcastEpisodes)
+    fun `Einstellungen einer alten App mit Folgenzahl lassen sich lesen`() {
+        val decoded = WearCodec.decode<WearSettingsDto>("""{"requireCharging":false,"podcastEpisodes":3}""".encodeToByteArray())
+        assertEquals(false, decoded.requireCharging)
     }
 }

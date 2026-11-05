@@ -1,8 +1,11 @@
 package keinabersmart.kleinaberlaut.core.database.dao
 
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
+import keinabersmart.kleinaberlaut.core.database.entity.WearBookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
 import keinabersmart.kleinaberlaut.core.database.model.SourceSongIdRow
 import keinabersmart.kleinaberlaut.core.database.model.WearCandidateRow
@@ -32,6 +35,37 @@ interface WearDao {
 
     @Query("DELETE FROM wear_selections")
     suspend fun deleteAll()
+
+    // --- Handy: einzeln gewählte Folgen (Wear-Konzept 16.1) ---
+
+    @Query("SELECT bookId FROM wear_books")
+    fun observeBookIds(): Flow<List<Long>>
+
+    /** Erneutes Wählen behält den ursprünglichen Zeitpunkt (Reihenfolge auf der Uhr). */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertBook(book: WearBookEntity)
+
+    @Query("DELETE FROM wear_books WHERE bookId = :bookId")
+    suspend fun deleteBook(bookId: Long)
+
+    @Query("DELETE FROM wear_books")
+    suspend fun deleteAllBooks()
+
+    /** Zu Ende gehörte Folgen fallen von der Uhr (Entscheidung des Nutzers, 2026-11-05). */
+    @Query("DELETE FROM wear_books WHERE bookId IN (SELECT bookId FROM book_progress WHERE finished)")
+    suspend fun deleteFinishedBooks(): Int
+
+    /** Gewählte Folgen in der Reihenfolge des Wählens; Folgen archivierter Abos bleiben gewählt, aber von der Uhr fern. */
+    @Query(
+        """
+        SELECT w.bookId FROM wear_books w
+        JOIN books b ON b.bookId = w.bookId
+        JOIN podcast_feeds f ON f.feedId = b.serverId
+        WHERE b.kind = 'EPISODE' AND NOT f.archived
+        ORDER BY w.addedAt, w.bookId
+        """,
+    )
+    suspend fun selectedEpisodeIds(): List<Long>
 
     // --- Handy: Auswahlen auflösen (Wear-Konzept 5) ---
 

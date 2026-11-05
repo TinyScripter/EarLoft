@@ -93,6 +93,18 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `v17 to v18 adds an empty episode selection for the watch`() {
+        helper.createDatabase(DB_NAME, 17).close()
+
+        helper.runMigrationsAndValidate(DB_NAME, 18, true).use { db ->
+            db.query("SELECT COUNT(*) FROM wear_books").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

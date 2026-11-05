@@ -344,16 +344,11 @@
     <string name="settings_watch_open_summary">Auswahl, Qualität, Speicher</string>
     <string name="watch_settings_title">Uhr</string>
     <string name="watch_selections">Auf der Uhr</string>
-    <string name="watch_selections_empty">Noch nichts ausgewählt. Tippe bei einem Album, einer Playlist oder den Favoriten auf das Uhr-Symbol.</string>
+    <string name="watch_selections_empty">Noch nichts ausgewählt. Tippe bei einem Album, einer Playlist, den Favoriten oder einer Folge auf das Uhr-Symbol.</string>
     <string name="watch_selection_album">Album</string>
     <string name="watch_selection_playlist">Playlist</string>
     <string name="watch_selection_favorites">Favoriten</string>
-    <string name="watch_podcasts">Podcasts auf der Uhr</string>
-    <string name="watch_podcasts_off">Aus</string>
-    <plurals name="watch_podcasts_count">
-        <item quantity="one">Erste Folge aus Weiterhören</item>
-        <item quantity="other">Erste %d Folgen aus Weiterhören</item>
-    </plurals>
+    <string name="watch_selection_episode">Folge · %1$s</string>
     <string name="watch_downloads">Laden auf der Uhr</string>
     <string name="watch_quality">Qualität</string>
     <string name="watch_quality_opus">Opus 128 kbit/s (spart Speicher)</string>
@@ -365,7 +360,7 @@
     <string name="watch_require_charging">Nur am Ladegerät laden</string>
     <string name="watch_require_charging_summary">Die Uhr lädt per WLAN, während sie lädt. Aus: auch ohne Ladegerät.</string>
     <string name="watch_clear">Alles von der Uhr entfernen</string>
-    <string name="watch_clear_text">Die Auswahl wird geleert; die Uhr löscht die geladene Musik.</string>
+    <string name="watch_clear_text">Die Auswahl wird geleert; die Uhr löscht die geladene Musik und die Folgen.</string>
     <string name="watch_status_storage">Speicher der Uhr: %1$s belegt, %2$s frei</string>
     <string name="watch_status_limit">Grenze: %s</string>
     <string name="watch_status_none">Noch kein Bericht der Uhr</string>

@@ -146,18 +146,15 @@ data class WearSettingsDto(
     /** Wie am Handy (W2). */
     val replayGainMode: ReplayGainMode = ReplayGainMode.AUTO,
     val preAmpDb: Float = 0f,
-    /** So viele Folgen aus „Weiterhören“ hält die Uhr bereit (Wear-Konzept 16.1); 0 = keine. */
-    val podcastEpisodes: Int = DEFAULT_PODCAST_EPISODES,
 ) {
     companion object {
         const val DEFAULT_MIN_FREE_BYTES = 1_000_000_000L
-        const val DEFAULT_PODCAST_EPISODES = 3
     }
 }
 
 // ---- Podcast-Folgen auf der Uhr (Wear-Konzept 16.1) ----
 
-/** Die ersten Folgen aus „Weiterhören“ des Handys in dessen Reihenfolge, mit ihren Abos (Handy → Uhr, gzip-Asset). */
+/** Die am Handy für die Uhr gewählten Folgen in der Reihenfolge des Wählens, mit ihren Abos (Handy → Uhr, gzip-Asset). */
 @Serializable
 data class WearPodcastManifest(
     val feeds: List<WearPodcastFeedDto> = emptyList(),

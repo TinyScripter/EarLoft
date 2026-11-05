@@ -24,13 +24,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.model.Album
 import keinabersmart.kleinaberlaut.core.model.AlbumOfflineStatus
+import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
+import keinabersmart.kleinaberlaut.ui.components.WatchMenuItem
+import keinabersmart.kleinaberlaut.ui.components.WatchTarget
 import keinabersmart.kleinaberlaut.ui.playlists.AddToPlaylistDialog
 import kotlinx.coroutines.launch
 import keinabersmart.kleinaberlaut.core.designsystem.R as DesignR
 
 /**
  * Kontextmenü eines Albums (Langklick), aufgebaut wie das der Folgen: oben der Titel, darunter Als Nächstes spielen,
- * Zur Warteschlange, Zur Playlist, Herunterladen bzw. Download entfernen. Erst einbinden, wenn es offen ist; [onDismiss]
+ * Zur Warteschlange, Zur Playlist, Herunterladen, Auf Uhr laden bzw. Von Uhr entfernen, Download entfernen. Erst einbinden, wenn es offen ist; [onDismiss]
  * schließt es (auch nach den Dialogen für Playlist und Entfernen).
  */
 @Composable
@@ -89,6 +92,9 @@ fun AlbumMenu(
                     },
                 )
             }
+        }
+        WatchMenuItem(WatchTarget.Selection(WearSelectionKind.ALBUM, album.id), onDismiss)
+        if (offline.downloadableCount > 0) {
             if (offline.hasDownloads) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.action_remove_download)) },

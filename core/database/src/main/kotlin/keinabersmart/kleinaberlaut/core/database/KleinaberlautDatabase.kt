@@ -47,6 +47,7 @@ import keinabersmart.kleinaberlaut.core.database.entity.SongSourceEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SourceEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SpokenServerEntity
 import keinabersmart.kleinaberlaut.core.database.entity.SyncActionEntity
+import keinabersmart.kleinaberlaut.core.database.entity.WearBookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.WearSelectionEntity
 import java.io.File
 
@@ -80,8 +81,9 @@ import java.io.File
         ListeningDayEntity::class,
         ServerStatsCacheEntity::class,
         AbsSessionEntity::class,
+        WearBookEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = KleinaberlautDatabase.AddSearchIndex::class),
@@ -100,6 +102,7 @@ import java.io.File
         AutoMigration(from = 14, to = 15),
         AutoMigration(from = 15, to = 16),
         AutoMigration(from = 16, to = 17),
+        AutoMigration(from = 17, to = 18),
     ],
 )
 abstract class KleinaberlautDatabase : RoomDatabase() {

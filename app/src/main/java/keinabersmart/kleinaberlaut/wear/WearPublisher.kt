@@ -59,7 +59,7 @@ class WearPublisher @Inject constructor(
             // Während das Handy eine Folge spielt, schreibt es alle 15 s den Fortschritt: Reine Fortschrittsänderungen gehen erst
             // nach einer Ruhepause hinaus, sonst weckte jede die Uhr. Alles andere (Folgen, Reihenfolge, Downloads) bald.
             var lastStructure: WearPodcastManifest? = null
-            watchEpisodes.content(watchSettings.settings.map { it.podcastEpisodes }.distinctUntilChanged())
+            watchEpisodes.content()
                 .map(WearPodcastManifestBuilder::build)
                 .debounce { manifest ->
                     if (WearPodcastManifestBuilder.withoutProgress(manifest) == lastStructure) PROGRESS_DEBOUNCE_MS else CHANGE_DEBOUNCE_MS
@@ -97,7 +97,6 @@ class WearPublisher @Inject constructor(
                     requireCharging = watch.requireCharging,
                     replayGainMode = mode,
                     preAmpDb = preAmp,
-                    podcastEpisodes = watch.podcastEpisodes,
                 )
             }
                 .distinctUntilChanged()

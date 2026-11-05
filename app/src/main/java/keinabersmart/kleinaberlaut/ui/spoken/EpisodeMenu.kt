@@ -17,6 +17,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
+import keinabersmart.kleinaberlaut.ui.components.WatchMenuItem
+import keinabersmart.kleinaberlaut.ui.components.WatchTarget
 import keinabersmart.kleinaberlaut.ui.snackbar.LocalSnackbars
 
 val BookWithProgress.isEpisode: Boolean get() = book.kind == BookKind.EPISODE
@@ -68,6 +70,8 @@ fun EpisodeMenu(
                 onDismiss()
             },
         )
+        // Wie die übrigen Einträge ohne Symbol; Bücher kommen später auf die Uhr.
+        if (item.isEpisode) WatchMenuItem(WatchTarget.Episode(id), onDismiss, withIcon = false)
         // Dateien vom Gerät sind schon da.
         if (!item.book.isLocal) {
             if (id in downloaded) {

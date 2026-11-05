@@ -14,6 +14,7 @@ class WearPodcastManifestBuilderTest {
     private val feed = WatchFeedContent("f1", "https://example.org/feed", "Podcast", "Autor", null, newestFirst = false, continuous = true)
 
     private fun episode(guid: String, positionMs: Long, audioUrl: String? = "https://example.org/$guid.mp3") = WatchEpisodeContent(
+        bookId = guid.hashCode().toLong(),
         feedId = "f1",
         guid = guid,
         title = "Folge $guid",
