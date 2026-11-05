@@ -7,9 +7,8 @@
 
 **TinyAmp** is an audio player for your *own* collection: **music**, **podcasts** and **books**. It plays the
 files on your phone together with your self-hosted [Navidrome](https://www.navidrome.org) music server and your
-[Audiobookshelf](https://www.audiobookshelf.org) server in **one app** – on your phone and, for music, on your
-Wear OS watch. Podcasts come straight from their public RSS feeds. No streaming subscription, no account with a third
-party.
+[Audiobookshelf](https://www.audiobookshelf.org) server in **one app** – on your phone and on your Wear OS watch.
+Podcasts come straight from their public RSS feeds. No streaming subscription, no account with a third party.
 
 ## Features
 
@@ -21,7 +20,9 @@ A switch at the top of **Home** and **Library** changes between the three areas:
 - **Offline listening.** Download music, episodes and books; everything you browse comes from a local database, so the
   app stays usable without a connection.
 - **Search** across all three areas or only the selected one, ignoring accents ("Bjork" finds "Björk").
-- **Material You design** with colors from the cover, light and dark mode, phone and tablet layouts, English and German.
+- **Material 3 design** in the colors of the logo or, if you like, of your wallpaper (Material You); the player and
+  album pages take their colors from the cover. Light, dark or following the system, phone and tablet layouts, English
+  and German.
 - **Home screen widget** (4×1) with cover and playback controls, and **Chromecast** (see
   [Known limitations](#known-limitations)).
 
@@ -35,17 +36,25 @@ A switch at the top of **Home** and **Library** changes between the three areas:
 
 ### Podcasts
 
-- **Subscribe with any RSS or Atom feed.** Feeds refresh automatically in the background.
+- **Find podcasts** in Apple Podcasts, Podcast Index, fyyd and ARD Sounds, or add any RSS or Atom feed directly.
+  The directories are off until you switch them on, because your search terms are sent to them. Feeds refresh
+  automatically in the background.
+- **Try before you subscribe:** listen to and download episodes without subscribing. Subscriptions you no longer
+  follow can be archived instead of deleted.
 - **Continue listening** is an editable queue: the next episode starts when one ends.
 - **Chapters, show notes and downloads** per episode, with automatic downloads of new episodes per podcast.
 - **Podcast files on your phone** (folder **Podcasts**) show up as podcasts.
+- **Import and export** your subscriptions as OPML, or subscriptions, progress and listening time as a database file.
+- **Statistics:** listening time per podcast and per month.
 
-### Books (Audiobookshelf)
+### Books
 
+- **From your Audiobookshelf server and from your phone.** Books on your phone (folder **Audiobooks**, m4b with
+  chapters or folders of MP3 files) show up next to the ones from your server.
 - **Progress syncs both ways** with your Audiobookshelf server, also after listening offline.
 - **Made for long listening:** speed per book, −30 s / +10 s jumps, chapters, remaining time, sleep timer.
 - **Browse by series and authors**, download books for offline use.
-- **Books on your phone** (folder **Audiobooks**, m4b with chapters or folders of MP3 files) show up as books.
+- **Statistics** from your Audiobookshelf server, next to the listening time counted on this device.
 
 ### Your sources
 
@@ -71,14 +80,21 @@ third parties, and you can switch them on in **Settings → General**:
 
 Covers embedded in your files or provided by your server are always used first.
 
-### On your watch (Wear OS, music)
+### On your watch (Wear OS)
 
-- **Music without your phone.** Choose albums or playlists on the phone (**Load onto watch**). The watch downloads them
-  by itself over Wi-Fi directly from your server, or receives them from the phone if the server is not reachable.
-- **Play to Bluetooth headphones**, perfect for running or the gym. The watch speaker is not used.
+- **Music, podcasts and books without your phone.** Tap the watch icon on an album, a playlist, the favorites, an
+  episode or a book (or choose **Load onto watch**), on the phone or on the watch under **Phone**. The watch downloads
+  them by itself over Wi-Fi directly from your server or the podcast feed, or receives them from the phone (files
+  stored on the phone, or when the server is not reachable).
+- **Play to Bluetooth headphones**, perfect for running or the gym. The watch speaker is not used. Books and episodes
+  have chapters and a sleep timer; progress and listening time go back to the phone and from there to Audiobookshelf.
+- **Two areas:** **Watch** lists what is on the watch (music, podcasts, books, storage & downloads); **Phone** shows
+  the phone's music, podcasts and books, to play them on the phone or to load them onto the watch, and controls the
+  phone's playback.
 - **Watch quality:** by default songs are converted by the server to Opus 128 kbit/s to save space on the watch;
-  you can choose the original files instead. Changing the setting affects new downloads only.
-- Your phone's playback can also be controlled from the watch's media controls.
+  you can choose the original files instead. Changing the setting affects new downloads only. Episodes and books are
+  loaded as they are.
+- **Storage & downloads** on the watch shows what is loaded and frees space: single entries, one area or everything.
 
 ### Android Auto (in development)
 
@@ -90,9 +106,11 @@ commands ("Play …") and a favorite button. Expect rough edges, and please repo
 
 - Your library, listening history and settings stay on your device and on your own server.
 - The app contacts only the servers and podcast feeds you add (and the sites that host their episodes and images). The
-  only exceptions are the optional artwork lookups described above.
-- Server passwords are stored encrypted with the Android Keystore. Neither the database, the downloads nor the
-  credentials are included in Android backups.
+  only exceptions are the optional artwork lookups described above and the podcast directories you switch on (your
+  search terms are sent to them).
+- Server passwords and API keys are stored encrypted with the Android Keystore. Android backups contain your settings
+  and what no server knows (your servers without their passwords, subscriptions, progress, local playlists and
+  listening statistics), but never the library database, downloads or credentials.
 - There are no ads and no analytics.
 
 ## Installation
@@ -110,19 +128,21 @@ application ID (`de.kleinabersmart.tinyamp`), so install both for the watch feat
    servers and feeds.
 2. **Music:** **Settings → Music → Add server**, then enter the address (for example `https://music.example.com`) and
    your credentials. The first sync can take a while for large libraries.
-3. **Podcasts:** switch to **Podcasts** on Home or Library and tap **Add podcast**, then paste the feed address.
+3. **Podcasts:** switch to **Podcasts** on Home or Library and tap **Add podcast**, then search a directory or paste
+   the feed address. Or copy podcast files into the **Podcasts** folder of your phone.
 4. **Books:** **Settings → Books → Add server**, then enter your Audiobookshelf address and an API key (created in
    Audiobookshelf under *Settings → API Keys*). Or just copy books into the **Audiobooks** folder of your phone.
-5. Play something. On an album, playlist, book or episode you can download it (download arrow); music can also be
-   loaded onto your watch. Downloads are listed under **Settings → Downloads**; the watch is managed under
-   **Settings → Watch**.
+5. Play something. On an album, playlist, book or episode you can download it (download arrow) or load it onto your
+   watch (watch icon). Downloads are listed under **Settings → General → Downloads**; the watch is managed under
+   **Settings → Watch** (shown once a watch with TinyAmp is paired).
 
 ## Known limitations
 
 - Android Auto is in development (see above), and so far covers music only.
-- The watch app plays music only; books and podcasts are not yet available on Wear OS or in Android Auto.
-- Chromecast: songs are limited to 50 in the queue. Casting books and episodes depends on the server accepting a
-  token in the address and has not been tested widely.
+- Chromecast plays from your servers and podcast feeds, not files stored on the phone. If your Cast device does not
+  play your server's public address, enter an address from your home network under **Address for casting** in the
+  server settings. Long queues are sent in parts (not yet tested on a device); casting books depends on the server
+  accepting a token in the address and has not been tested widely.
 - Podcasts: no "download all episodes" for a podcast, and local podcast files have no description unless their tags
   contain one.
 - Local books and podcasts are picked up when the app is opened or refreshed, not while it is running.
@@ -166,13 +186,14 @@ SDK levels: `minSdk` 26 (phone) and 30 (watch), `compileSdk` / `targetSdk` 37, J
 - **Books and podcast episodes share one model.** Both are `books` rows (`kind = BOOK` or `EPISODE`) with files, chapters
   and a progress entry; a position in the whole book is converted to a file and offset when playback starts. The same
   player service, download workers and "continue listening" logic serve both.
-- **Browse tree for Auto, the watch and the system UI** comes from one `MediaLibraryService`.
+- **Browse tree for Android Auto and the system media controls** comes from one `MediaLibraryService`. The watch app
+  has its own player and database and talks to the phone over the Wearable Data Layer.
 
 ## Project structure
 
 ```text
 :app                  Phone UI, navigation, widget, Cast, DI wiring
-:wear                 Wear OS app (standalone downloads and playback)
+:wear                 Wear OS app (standalone downloads and playback, remote control of the phone)
 :core:model           Plain Kotlin data classes
 :core:common          Dispatchers, normalization, shared helpers
 :core:database        Room entities, DAOs, FTS, migrations
@@ -220,7 +241,7 @@ If Gradle cannot find the SDK, create `local.properties` in the project root wit
 ### Tests
 
 ```bash
-./gradlew testDebugUnitTest       # unit tests of all modules
+./gradlew testDebugUnitTest :core:model:test :core:common:test   # unit tests of all modules
 ```
 
 ### Release build and signing
@@ -256,7 +277,7 @@ Audiobookshelf works the same way, with its own port (by default `13378`).
 
 Bug reports and ideas are welcome in the
 [issue tracker](https://github.com/TinyScripter/TinyAmp/issues). For code changes, please open an issue first
-to discuss them and make sure unit tests pass (`./gradlew testDebugUnitTest`).
+to discuss them and make sure unit tests pass (see [Tests](#tests)).
 
 ## License
 
