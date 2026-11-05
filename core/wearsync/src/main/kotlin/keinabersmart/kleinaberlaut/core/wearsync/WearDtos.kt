@@ -349,14 +349,64 @@ data class WearRemoteStateDto(
     }
 }
 
-/** Alben, Künstler und Playlists des Handys, damit die Uhr sie anzeigen kann (Handy → Uhr, als gzip-Asset). */
+/**
+ * Alben, Künstler und Playlists, Podcast-Abos und Hörbücher des Handys, damit die Uhr sie anzeigen kann (Handy → Uhr, als
+ * gzip-Asset). Die Folgen eines Abos fragt die Uhr einzeln ab ([WearRemoteEpisodesRequest]).
+ */
 @Serializable
 data class WearRemoteLibraryDto(
     val albums: List<WearRemoteAlbumDto> = emptyList(),
     val playlists: List<WearRemotePlaylistDto> = emptyList(),
     val favoritesCount: Int = 0,
     val artists: List<WearRemoteArtistDto> = emptyList(),
+    /** Aktive Abos in der Reihenfolge des Handys. */
+    val podcasts: List<WearRemotePodcastDto> = emptyList(),
+    /** Hörbücher, angefangene zuerst (zuletzt gehörtes vorn), dann nach Titel. */
+    val books: List<WearRemoteBookDto> = emptyList(),
 )
+
+/** Ein Podcast-Abo des Handys; [feedId] wie am Handy und auf der Uhr. */
+@Serializable
+data class WearRemotePodcastDto(val feedId: String, val title: String, val author: String = "")
+
+/**
+ * Ein Hörbuch oder eine Folge des Handys. [id] ist die Buch-ID am Handy (zum Abspielen und Auswählen), [serverId] und
+ * [remoteId] erkennen es auf der Uhr wieder (bei Folgen Abo und guid). [author] ist bei Folgen der Podcast. [started]:
+ * angefangen und nicht zu Ende gehört.
+ */
+@Serializable
+data class WearRemoteBookDto(
+    val id: Long,
+    val title: String,
+    val author: String,
+    val serverId: String,
+    val remoteId: String,
+    val started: Boolean = false,
+)
+
+/** Die Uhr fragt die Folgen eines Abos ab ([WearPaths.REMOTE_EPISODES_REQUEST]). */
+@Serializable
+data class WearRemoteEpisodesRequest(val requestId: String, val feedId: String)
+
+/**
+ * Antwort auf [WearRemoteEpisodesRequest]: angefangene Folgen zuerst (zuletzt gehörte vorn), dann die neuesten [MAX_NEWEST];
+ * [found] = `false`, wenn das Abo am Handy nicht mehr existiert.
+ */
+@Serializable
+data class WearRemoteEpisodesResult(
+    val requestId: String,
+    val found: Boolean = true,
+    val title: String = "",
+    val episodes: List<WearRemoteBookDto> = emptyList(),
+) {
+    companion object {
+        const val MAX_NEWEST = 30
+    }
+}
+
+/** Folge oder Buch des Handys für die Uhr auswählen bzw. abwählen (Schalter „Auf der Uhr“, Wear-Konzept 17); [bookId] am Handy. */
+@Serializable
+data class WearSelectSpokenRequest(val bookId: Long, val selected: Boolean)
 
 /** Ein Künstler des Handys mit seinen Alben (Albumkünstler, IDs aus [WearRemoteLibraryDto.albums]). */
 @Serializable
@@ -369,8 +419,9 @@ data class WearRemoteAlbumDto(val id: Long, val title: String, val artist: Strin
 data class WearRemotePlaylistDto(val id: Long, val name: String, val songCount: Int)
 
 /**
- * Welche Titelliste am Handy gemeint ist. [CONTINUE] ist „Weiterhören“: angefangene Bücher und die Warteschlange der
- * Podcasts; die Einträge sind dort Bücher bzw. Folgen statt Songs.
+ * Welche Titelliste am Handy gemeint ist. [CONTINUE] spielt ein Buch bzw. eine Folge ([WearRemotePlayRequest.refId], wie in
+ * der App inkl. Fortsetzen); der Name stammt vom früheren „Weiterhören“ der Uhr (seit 2026-11-05 in Podcasts/Bücher
+ * aufgegangen), Titellisten gibt es dafür nicht.
  */
 @Serializable
 enum class WearRemoteListKind { ALBUM, PLAYLIST, FAVORITES, ALL, CONTINUE }
@@ -427,7 +478,7 @@ data class WearRemoteTracksResult(
     }
 }
 
-/** Ein Eintrag einer Titelliste; bei [WearRemoteListKind.CONTINUE] ist [songId] die Buch- bzw. Folgen-ID, [artist] Autor bzw. Podcast. */
+/** Ein Eintrag einer Titelliste. */
 @Serializable
 data class WearRemoteTrackDto(val songId: Long, val title: String, val artist: String)
 

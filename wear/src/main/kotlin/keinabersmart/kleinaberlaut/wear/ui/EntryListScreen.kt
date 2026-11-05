@@ -27,6 +27,7 @@ import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.material3.MaterialTheme
 import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteBookDto
 import keinabersmart.kleinaberlaut.wear.R
 import kotlinx.coroutines.launch
 
@@ -95,14 +96,32 @@ fun LocalSpokenScreen(
     }
 }
 
-/** „Weiterhören“ des Handys; ein Tipp startet das Buch bzw. die Folge dort, [onPlayed] öffnet danach die Wiedergabe-Ansicht. */
+/** Die Abos des Handys; ein Tipp öffnet die Folgen ([onClick] mit Abo und Titel). */
 @Composable
-fun RemoteContinueScreen(onPlayed: () -> Unit, viewModel: RemoteContinueViewModel = hiltViewModel()) {
+fun RemotePodcastsScreen(onClick: (feedId: String, title: String) -> Unit, viewModel: RemotePodcastsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
-    EntryListContent(stringResource(R.string.list_continue), state) { bookId ->
-        scope.launch { if (viewModel.play(bookId)) onPlayed() }
+    EntryListContent(stringResource(R.string.list_podcasts), state) { key ->
+        viewModel.feedAt(key)?.let { onClick(it.feedId, it.title) }
     }
+}
+
+/** Die Folgen eines Abos am Handy; [title] ist der Name des Abos, ein Tipp öffnet die Seite der Folge. */
+@Composable
+fun RemoteEpisodesScreen(
+    feedId: String,
+    title: String,
+    onClick: (WearRemoteBookDto) -> Unit,
+    viewModel: RemoteEpisodesViewModel = hiltViewModel<RemoteEpisodesViewModel, RemoteEpisodesViewModel.Factory> { it.create(feedId) },
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    EntryListContent(title, state) { key -> viewModel.episodeOf(key)?.let(onClick) }
+}
+
+/** Die Hörbücher des Handys; ein Tipp öffnet die Seite des Buchs. */
+@Composable
+fun RemoteBooksScreen(onClick: (WearRemoteBookDto) -> Unit, viewModel: RemoteBooksViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    EntryListContent(stringResource(R.string.list_books), state) { key -> viewModel.bookOf(key)?.let(onClick) }
 }
 
 @Composable
@@ -138,6 +157,7 @@ private fun EntryListContent(title: String, state: EntryListState, onClick: (Lon
                 }
                 is EntryListState.Ready -> items(state.entries, key = { it.key }) { entry ->
                     val cover = entry.cover
+                    val secondary = entry.secondaryText()
                     Button(
                         onClick = { onClick(entry.key) },
                         enabled = entry.enabled,
@@ -145,25 +165,30 @@ private fun EntryListContent(title: String, state: EntryListState, onClick: (Lon
                         transformation = SurfaceTransformation(transformationSpec),
                         icon = if (cover != null) { { CoverThumbnail(cover) } } else null,
                         label = { Text(entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-                        secondaryLabel = {
-                            val loaded = entry.loadedCount
-                            Text(
-                                when {
-                                    !entry.enabled -> stringResource(R.string.selection_not_loaded)
-                                    loaded != null && loaded < entry.songCount ->
-                                        stringResource(R.string.selection_progress, loaded, entry.songCount)
-                                    entry.artist != null -> entry.artist
-                                    entry.albumCount != null -> pluralStringResource(R.plurals.album_count, entry.albumCount, entry.albumCount)
-                                    else -> pluralStringResource(R.plurals.song_count, entry.songCount, entry.songCount)
-                                },
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                        secondaryLabel = if (secondary != null) {
+                            { Text(secondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        } else {
+                            null
                         },
                     )
                 }
             }
         }
+    }
+}
+
+/** Zweite Zeile eines Eintrags; `null`, wenn es nichts zu sagen gibt (z. B. Abo ohne Autor). */
+@Composable
+private fun ListEntry.secondaryText(): String? {
+    val loaded = loadedCount
+    return when {
+        !enabled -> stringResource(R.string.selection_not_loaded)
+        loaded != null && loaded < songCount -> stringResource(R.string.selection_progress, loaded, songCount)
+        started -> artist?.let { stringResource(R.string.list_started_by, it) } ?: stringResource(R.string.list_started)
+        artist != null -> artist
+        albumCount != null -> pluralStringResource(R.plurals.album_count, albumCount, albumCount)
+        songCount > 0 -> pluralStringResource(R.plurals.song_count, songCount, songCount)
+        else -> null
     }
 }
 

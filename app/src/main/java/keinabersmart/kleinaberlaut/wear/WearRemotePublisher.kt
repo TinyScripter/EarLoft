@@ -11,17 +11,18 @@ import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
-import keinabersmart.kleinaberlaut.core.wearsync.WearAlbumThumbnailFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteAlbumDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteArtistDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePodcastDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteLibraryDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteMediaKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlaylistDto
@@ -52,7 +53,7 @@ import javax.inject.Singleton
 
 /**
  * Hält für die Fernsteuerung von der Uhr aus (Wear-Konzept 15) drei DataItems aktuell: was das Handy spielt (Musik, Buch
- * oder Folge), dessen Cover sowie Alben, Künstler und Playlists. Geschrieben wird nur, solange die Uhr sich angemeldet hat ([subscribe]) – jede Änderung
+ * oder Folge), dessen Cover sowie Alben, Künstler, Playlists, Abos und Bücher. Geschrieben wird nur, solange die Uhr sich angemeldet hat ([subscribe]) – jede Änderung
  * weckt sonst die Uhr-App, auch wenn niemand sie benutzt.
  */
 @Singleton
@@ -67,6 +68,7 @@ class WearRemotePublisher @Inject constructor(
     private val favorites: FavoritesRepository,
     private val books: BookRepository,
     private val bookCovers: BookCovers,
+    private val podcasts: PodcastRepository,
 ) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
 
@@ -112,7 +114,7 @@ class WearRemotePublisher @Inject constructor(
                     emptyFlow()
                 } else {
                     var first = true
-                    combine(
+                    val music = combine(
                         library.albums(),
                         playlists.playlists(),
                         favorites.favorites(),
@@ -130,7 +132,11 @@ class WearRemotePublisher @Inject constructor(
                                 WearRemoteArtistDto(artist.id, artist.name, albumIds)
                             },
                         )
-                    }.debounce { if (first) 0L.also { first = false } else LIBRARY_DEBOUNCE_MS }
+                    }
+                    val spoken = combine(podcasts.feeds, books.books()) { feeds, allBooks ->
+                        feeds.map { WearRemotePodcastDto(it.id, it.title, it.author) } to remoteBooks(allBooks)
+                    }
+                    combine(music, spoken) { dto, (feeds, bookList) -> dto.copy(podcasts = feeds, books = bookList) }.debounce { if (first) 0L.also { first = false } else LIBRARY_DEBOUNCE_MS }
                 }
             }.collect { publishLibrary(it) }
         }
@@ -211,23 +217,17 @@ class WearRemotePublisher @Inject constructor(
         if (hash == publishedLibraryHash) return
         if (dataClient.putAssetPayload(WearPaths.REMOTE_LIBRARY, WearCodec.encodeCompressed(dto), hash)) {
             publishedLibraryHash = hash
-            Log.d(TAG, "Fernsteuerung: ${dto.albums.size} Alben, ${dto.artists.size} Künstler, ${dto.playlists.size} Playlists")
+            Log.d(
+                TAG,
+                "Fernsteuerung: ${dto.albums.size} Alben, ${dto.artists.size} Künstler, ${dto.playlists.size} Playlists, " +
+                    "${dto.podcasts.size} Abos, ${dto.books.size} Bücher",
+            )
         }
     }
 
     private fun musicVolume(): Float {
         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         return if (max > 0) audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat() else 0f
-    }
-
-    /**
-     * Vorschaubild eines Albums für die Listen der Uhr im Bereich „Telefon“ (Wear-Konzept 17), als kleines JPEG über den
-     * Datei-Kanal. `null`, wenn das Album kein Cover hat.
-     */
-    suspend fun albumThumbnail(albumId: Long): ByteArray? {
-        val size = WearAlbumThumbnailFile.SIZE_PX
-        val bitmap = artwork.albumCover(albumId, size) ?: return null
-        return withContext(Dispatchers.Default) { bitmap.scaledTo(size).toJpeg() }
     }
 
     /** Buchcover kommen mit 800 px; die Uhr braucht wie bei Albumcovern nur [maxPx] (und die 100-KB-Grenze gilt). */

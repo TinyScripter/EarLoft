@@ -24,10 +24,17 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * Schalter „Auf der Uhr“ einer Liste des Handys (Wear-Konzept 17). [loaded]/[total]: Stand der Downloads, solange die
- * Auswahl auf der Uhr angekommen ist; [failed]: Das Handy war beim letzten Umschalten nicht erreichbar.
+ * Schalter „Auf der Uhr“ einer Liste, Folge oder eines Buchs des Handys (Wear-Konzept 17). [loaded]/[total]: Stand der
+ * Downloads einer Liste, solange die Auswahl auf der Uhr angekommen ist; [loading]: Folge bzw. Buch ist auf der Uhr, aber
+ * noch nicht geladen; [failed]: Das Handy war beim letzten Umschalten nicht erreichbar.
  */
-data class OnWatchState(val checked: Boolean, val loaded: Int? = null, val total: Int? = null, val failed: Boolean = false)
+data class OnWatchState(
+    val checked: Boolean,
+    val loaded: Int? = null,
+    val total: Int? = null,
+    val loading: Boolean = false,
+    val failed: Boolean = false,
+)
 
 /**
  * Titelliste eines Albums, einer Playlist oder der Favoriten auf dem Handy (Wear-Konzept 15) – zugleich die kleine Seite,

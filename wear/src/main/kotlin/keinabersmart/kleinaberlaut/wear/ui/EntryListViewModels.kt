@@ -20,8 +20,9 @@ import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
-import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
-import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteBookDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePodcastDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearThumbnailFile
 import keinabersmart.kleinaberlaut.wear.R
 import keinabersmart.kleinaberlaut.wear.download.WatchStorageRepository
 import keinabersmart.kleinaberlaut.wear.sync.PhoneRemote
@@ -37,9 +38,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Ein Eintrag einer Liste von Alben, Künstlern, Playlists, Folgen oder Büchern. [artist] ist beim Album der Künstler; ohne ihn
- * steht [albumCount] (Künstler) oder die Zahl der Titel da, bei teilweise geladenen Listen der Stand ([loadedCount] von
- * [songCount]). Nicht [enabled]: noch nicht geladen. [cover]: Vorschaubild, ohne es keins.
+ * Ein Eintrag einer Liste von Alben, Künstlern, Playlists, Abos, Folgen oder Büchern. [artist] ist beim Album der Künstler,
+ * bei Folgen und Büchern Podcast bzw. Autor; ohne ihn steht [albumCount] (Künstler) oder die Zahl der Titel da (bei
+ * [songCount] 0 nichts), bei teilweise geladenen Listen der Stand ([loadedCount] von [songCount]). Nicht [enabled]: noch nicht
+ * geladen. [started]: angefangen (Folge, Buch). [cover]: Vorschaubild, ohne es keins.
  */
 data class ListEntry(
     val key: Long,
@@ -50,6 +52,7 @@ data class ListEntry(
     val enabled: Boolean = true,
     val albumCount: Int? = null,
     val cover: CoverRef? = null,
+    val started: Boolean = false,
 )
 
 sealed interface EntryListState {
@@ -140,7 +143,7 @@ class RemoteAlbumsViewModel @AssistedInject constructor(
             library == null -> EntryListState.Message(R.string.remote_no_library)
             albums.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
             else -> EntryListState.Ready(
-                albums.map { ListEntry(it.id, it.title, it.songCount, artist = it.artist, cover = CoverRef.PhoneAlbum(it.id)) },
+                albums.map { ListEntry(it.id, it.title, it.songCount, artist = it.artist, cover = CoverRef.Phone(WearThumbnailFile.Ref.Album(it.id))) },
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
@@ -161,7 +164,8 @@ class RemoteArtistsViewModel @Inject constructor(remote: PhoneRemote) : ViewMode
             artists.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
             else -> EntryListState.Ready(
                 artists.map {
-                    ListEntry(it.id, it.name, songCount = 0, albumCount = it.albumIds.size, cover = CoverRef.PhoneAlbum(it.albumIds.first()))
+                    val cover = CoverRef.Phone(WearThumbnailFile.Ref.Album(it.albumIds.first()))
+                    ListEntry(it.id, it.name, songCount = 0, albumCount = it.albumIds.size, cover = cover)
                 },
             )
         }
@@ -217,28 +221,86 @@ class LocalSpokenViewModel @AssistedInject constructor(
     }
 }
 
-/**
- * „Weiterhören“ des Handys (Fernsteuerung): angefangene Bücher und die Warteschlange der Podcasts, einmal beim Öffnen
- * abgefragt. [ListEntry.key] ist die Buch- bzw. Folgen-ID am Handy, [ListEntry.artist] Autor bzw. Podcast.
- */
+/** Ein Buch bzw. eine Folge des Handys als Listeneintrag; [ListEntry.key] ist die Buch-ID am Handy. */
+private fun WearRemoteBookDto.toEntry() = ListEntry(
+    key = id,
+    title = title,
+    songCount = 0,
+    artist = author.ifBlank { null },
+    started = started,
+    cover = CoverRef.Phone(WearThumbnailFile.Ref.Book(serverId, remoteId)),
+)
+
+/** Die Abos des Handys (Wear-Konzept 17); [ListEntry.key] ist die Position, [feedAt] liefert das Abo dazu. */
 @HiltViewModel
-class RemoteContinueViewModel @Inject constructor(private val remote: PhoneRemote) : ViewModel() {
+class RemotePodcastsViewModel @Inject constructor(remote: PhoneRemote) : ViewModel() {
+    private val podcasts = remote.library.map { it?.podcasts }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), null)
+
+    val state: StateFlow<EntryListState> = podcasts.map { feeds ->
+        when {
+            feeds == null -> EntryListState.Message(R.string.remote_no_library)
+            feeds.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
+            else -> EntryListState.Ready(
+                feeds.mapIndexed { index, feed ->
+                    ListEntry(index.toLong(), feed.title, songCount = 0, artist = feed.author.ifBlank { null }, cover = CoverRef.Phone(WearThumbnailFile.Ref.Feed(feed.feedId)))
+                },
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+
+    fun feedAt(key: Long): WearRemotePodcastDto? = podcasts.value?.getOrNull(key.toInt())
+}
+
+/** Die Hörbücher des Handys, angefangene zuerst (Wear-Konzept 17). */
+@HiltViewModel
+class RemoteBooksViewModel @Inject constructor(remote: PhoneRemote) : ViewModel() {
+    private val books = remote.library.map { it?.books }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), null)
+
+    val state: StateFlow<EntryListState> = books.map { list ->
+        when {
+            list == null -> EntryListState.Message(R.string.remote_no_library)
+            list.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
+            else -> EntryListState.Ready(list.map { it.toEntry() })
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+
+    fun bookOf(key: Long): WearRemoteBookDto? = books.value?.firstOrNull { it.id == key }
+}
+
+/** Die Folgen eines Abos am Handy, einmal beim Öffnen abgefragt: angefangene zuerst, dann die neuesten (Wear-Konzept 17). */
+@HiltViewModel(assistedFactory = RemoteEpisodesViewModel.Factory::class)
+class RemoteEpisodesViewModel @AssistedInject constructor(
+    @Assisted feedId: String,
+    remote: PhoneRemote,
+) : ViewModel() {
     private val _state = MutableStateFlow<EntryListState>(EntryListState.Loading)
     val state: StateFlow<EntryListState> = _state
 
+    private var episodes: List<WearRemoteBookDto> = emptyList()
+
     init {
         viewModelScope.launch {
-            val result = remote.tracks(WearRemoteListKind.CONTINUE, null)
+            val result = remote.episodes(feedId)
             _state.value = when {
                 result == null -> EntryListState.Message(R.string.remote_unreachable)
-                result.tracks.isEmpty() -> EntryListState.Message(R.string.list_continue_empty)
-                else -> EntryListState.Ready(result.tracks.map { ListEntry(it.songId, it.title, songCount = 0, artist = it.artist) })
+                !result.found -> EntryListState.Message(R.string.remote_missing)
+                result.episodes.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
+                else -> {
+                    episodes = result.episodes
+                    EntryListState.Ready(result.episodes.map { it.toEntry() })
+                }
             }
         }
     }
 
-    /** Das Handy startet das Buch bzw. die Folge an der gemerkten Stelle. @return `false`, wenn es nicht erreichbar war. */
-    suspend fun play(bookId: Long): Boolean = remote.play(WearRemotePlayRequest(WearRemoteListKind.CONTINUE, refId = bookId))
+    fun episodeOf(key: Long): WearRemoteBookDto? = episodes.firstOrNull { it.id == key }
+
+    @AssistedFactory
+    interface Factory {
+        fun create(feedId: String): RemoteEpisodesViewModel
+    }
 }
 
 /** Alle Playlists des Handys (Fernsteuerung). */

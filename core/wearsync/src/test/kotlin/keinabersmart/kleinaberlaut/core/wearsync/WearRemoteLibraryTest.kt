@@ -7,10 +7,20 @@ import org.junit.Test
 class WearRemoteLibraryTest {
 
     @Test
-    fun `Kennung des Vorschaubilds eines Albums`() {
-        assertEquals(42L, WearAlbumThumbnailFile.parse(WearAlbumThumbnailFile.uid(42)))
-        assertNull(WearAlbumThumbnailFile.parse("cover:abs:item"))
-        assertNull(WearAlbumThumbnailFile.parse("albumthumb:x"))
+    fun `Kennungen der Vorschaubilder ueberstehen beliebige Zeichen`() {
+        val refs = listOf(
+            WearThumbnailFile.Ref.Album(42),
+            WearThumbnailFile.Ref.Feed("local:Mein Podcast"),
+            WearThumbnailFile.Ref.Book("https://feed.example/x", "guid:12/a b?ä"),
+        )
+        for (ref in refs) {
+            val uid = WearThumbnailFile.uid(ref)
+            assertEquals(ref, WearThumbnailFile.parse(uid))
+            // Kein Schrägstrich im Pfad des Kanals.
+            assertEquals(false, uid.contains('/'))
+        }
+        assertNull(WearThumbnailFile.parse("cover:abs:item"))
+        assertNull(WearThumbnailFile.parse("thumb:album:x"))
     }
 
     @Test
@@ -18,6 +28,8 @@ class WearRemoteLibraryTest {
         val library = WearRemoteLibraryDto(
             albums = listOf(WearRemoteAlbumDto(1, "Mondlicht", "Nachtfalter", 4)),
             artists = listOf(WearRemoteArtistDto(7, "Nachtfalter", listOf(1))),
+            podcasts = listOf(WearRemotePodcastDto("f1", "Podcast")),
+            books = listOf(WearRemoteBookDto(3, "Buch", "Autor", "abs", "item", started = true)),
         )
         assertEquals(library, WearCodec.decodeCompressed<WearRemoteLibraryDto>(WearCodec.encodeCompressed(library)))
         val old = WearCodec.encodeCompressed(WearRemoteLibraryDto(albums = library.albums))

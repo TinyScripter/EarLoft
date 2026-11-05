@@ -23,6 +23,7 @@ import androidx.wear.compose.material3.LocalContentColor
 import keinabersmart.kleinaberlaut.core.data.repository.CoverFiles
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
+import keinabersmart.kleinaberlaut.core.wearsync.WearThumbnailFile
 import keinabersmart.kleinaberlaut.wear.download.PhoneFileFetcher
 import keinabersmart.kleinaberlaut.wear.sync.PhoneConnection
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -41,16 +43,16 @@ sealed interface CoverRef {
     /** Buch oder Folge; ohne eigenes Bild das des Abos. */
     data class Book(val bookId: Long) : CoverRef
 
-    /** Ein Album des Handys ([albumId] = ID des Handys), Bereich „Telefon“ (Wear-Konzept 17). */
-    data class PhoneAlbum(val albumId: Long) : CoverRef
+    /** Album, Abo, Buch oder Folge des Handys, Bereich „Telefon“ (Wear-Konzept 17). */
+    data class Phone(val thumbnail: WearThumbnailFile.Ref) : CoverRef
 }
 
 /**
  * Vorschaubilder für die Listen der Uhr: klein aus den Dateien, die mit den Downloads kommen (Album-Cover, Bilder der Bücher
  * und Folgen), ohne Server. Die zuletzt gezeigten bleiben im Speicher, damit Scrollen nicht jedes Mal neu dekodiert.
  *
- * Bilder von Alben des Handys holt die Uhr erst, wenn der Eintrag sichtbar wird, klein über den Datei-Kanal
- * ([PhoneFileFetcher.fetchAlbumThumbnail]) und legt sie im Cache-Verzeichnis ab; höchstens [PHONE_PARALLEL] gleichzeitig,
+ * Bilder vom Handy (Alben, Abos, Bücher, Folgen) holt die Uhr erst, wenn der Eintrag sichtbar wird, klein über den
+ * Datei-Kanal ([PhoneFileFetcher.fetchThumbnail]) und legt sie im Cache-Verzeichnis ab; höchstens [PHONE_PARALLEL] gleichzeitig,
  * damit schnelles Scrollen die Verbindung nicht verstopft. Was das Handy nicht liefert, fragt sie bis zum Neustart nicht
  * noch einmal.
  */
@@ -64,7 +66,7 @@ class ListCovers @Inject constructor(
 ) {
     private val cache = LruCache<CoverRef, ImageBitmap>(CACHE_ENTRIES)
     private val phoneRequests = Semaphore(PHONE_PARALLEL)
-    private val phoneMissing = ConcurrentHashMap.newKeySet<Long>()
+    private val phoneMissing = ConcurrentHashMap.newKeySet<WearThumbnailFile.Ref>()
 
     /** Liegt das Bild schon im Speicher? Dann zeigt die Liste es ohne Platzhalter. */
     fun cached(ref: CoverRef): ImageBitmap? = cache.get(ref)
@@ -74,20 +76,20 @@ class ListCovers @Inject constructor(
         val bitmap = when (ref) {
             is CoverRef.Album -> withContext(Dispatchers.IO) { coverFiles.readScaled(ref.albumId, THUMBNAIL_PX) }
             is CoverRef.Book -> bookCovers.thumbnail(ref.bookId, THUMBNAIL_PX)
-            is CoverRef.PhoneAlbum -> phoneAlbum(ref.albumId)
+            is CoverRef.Phone -> fromPhone(ref.thumbnail)
         } ?: return null
         return bitmap.asImageBitmap().also { cache.put(ref, it) }
     }
 
-    private suspend fun phoneAlbum(albumId: Long): Bitmap? {
-        val file = File(context.cacheDir, "$PHONE_DIRECTORY/$albumId.jpg")
+    private suspend fun fromPhone(thumbnail: WearThumbnailFile.Ref): Bitmap? {
+        val file = File(context.cacheDir, "$PHONE_DIRECTORY/${fileName(thumbnail)}.jpg")
         if (!file.isFile) {
-            if (albumId in phoneMissing) return null
+            if (thumbnail in phoneMissing) return null
             // Ohne Handy nichts als „fehlt“ merken: Nach dem Verbinden soll das Bild kommen.
             phone.connectedPhoneNodeId() ?: return null
-            val bytes = phoneRequests.withPermit { phoneFiles.fetchAlbumThumbnail(albumId) }
+            val bytes = phoneRequests.withPermit { phoneFiles.fetchThumbnail(thumbnail) }
             if (bytes == null) {
-                phoneMissing += albumId
+                phoneMissing += thumbnail
                 return null
             }
             withContext(Dispatchers.IO) {
@@ -97,6 +99,10 @@ class ListCovers @Inject constructor(
         }
         return withContext(Dispatchers.IO) { BitmapFactory.decodeFile(file.path) }
     }
+
+    /** Kennungen von Folgen können lange Adressen sein: als Dateiname ihr Hash. */
+    private fun fileName(thumbnail: WearThumbnailFile.Ref): String =
+        MessageDigest.getInstance("SHA-256").digest(WearThumbnailFile.uid(thumbnail).toByteArray()).joinToString("") { "%02x".format(it) }
 
     private companion object {
         /** Gut doppelt so groß wie das Bild in der Liste (40 dp), bei rund 2 px je dp. */

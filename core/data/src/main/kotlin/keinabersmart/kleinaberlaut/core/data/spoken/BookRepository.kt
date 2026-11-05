@@ -84,6 +84,13 @@ class BookRepository @Inject constructor(
 
     suspend fun bookNow(bookId: Long): Book? = dao.book(bookId)?.toModel()
 
+    /** Buch oder Folge nach Server bzw. Abo und Kennung dort (das Handy nennt der Uhr nur diese, Wear-Konzept 17). */
+    suspend fun idByRemote(serverId: String, remoteId: String): Long? = dao.bookByRemote(serverId, remoteId)?.bookId
+
+    /** Wie [idByRemote], beobachtet; `null`, solange es das Buch bzw. die Folge hier nicht gibt. */
+    fun observeIdByRemote(serverId: String, remoteId: String): Flow<Long?> =
+        dao.observeBookIdByRemote(serverId, remoteId).distinctUntilChanged()
+
     /** Download-Stand aller Bücher; Bücher ohne geladene Dateiliste fehlen (= [TrackDownload.NONE]). */
     fun downloads(): Flow<Map<Long, BookDownload>> =
         dao.observeBookDownloads().map { rows -> rows.associate { it.bookId to BookDownload(it.state(), it.bytes) } }

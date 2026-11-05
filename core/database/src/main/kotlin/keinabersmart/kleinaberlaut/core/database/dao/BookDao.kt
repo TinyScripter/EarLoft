@@ -74,6 +74,9 @@ abstract class BookDao {
     @Query("SELECT * FROM books WHERE serverId = :serverId AND remoteId = :remoteId")
     abstract suspend fun bookByRemote(serverId: String, remoteId: String): BookEntity?
 
+    @Query("SELECT bookId FROM books WHERE serverId = :serverId AND remoteId = :remoteId")
+    abstract fun observeBookIdByRemote(serverId: String, remoteId: String): Flow<Long?>
+
     @Query("SELECT * FROM books WHERE serverId = :serverId")
     abstract suspend fun booksOf(serverId: String): List<BookEntity>
 

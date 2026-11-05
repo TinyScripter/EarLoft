@@ -26,9 +26,6 @@
     <string name="list_artists">Künstler</string>
     <string name="list_favorites">Favoriten</string>
     <string name="list_playlists">Playlists</string>
-    <string name="list_continue">Weiterhören</string>
-    <string name="list_continue_empty">Am Telefon ist kein Buch und keine Folge angefangen</string>
-    <string name="list_continue_empty_watch">Noch keine Folgen auf der Uhr. Wie viele, stellst du am Telefon unter Einstellungen → Uhr ein.</string>
     <string name="list_empty_watch">Noch nichts auf der Uhr. Wähle etwas am Telefon oder unten unter „Smartphone“.</string>
     <string name="list_empty_phone">Nichts auf dem Telefon</string>
     <string name="list_podcasts_empty_watch">Keine Folgen auf der Uhr</string>
@@ -42,6 +39,9 @@
     <string name="remote_play_on_phone">Am Handy abspielen</string>
     <string name="remote_on_watch">Auf der Uhr</string>
     <string name="remote_on_watch_failed">Telefon nicht erreichbar, nichts geändert</string>
+    <string name="remote_on_watch_loading">Wird geladen</string>
+    <string name="list_started">Angefangen</string>
+    <string name="list_started_by">Angefangen · %1$s</string>
 
     <!-- Wiedergabe -->
     <string name="player_nothing">Keine Wiedergabe</string>

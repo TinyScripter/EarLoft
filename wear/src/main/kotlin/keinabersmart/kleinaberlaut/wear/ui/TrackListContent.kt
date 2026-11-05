@@ -13,6 +13,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
+import androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
@@ -23,6 +24,7 @@ import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
+import androidx.wear.compose.material3.lazy.TransformationSpec
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import keinabersmart.kleinaberlaut.wear.R
@@ -124,19 +126,7 @@ fun TrackListContent(
                     )
                 }
             }
-            if (onWatch != null) {
-                item {
-                    val secondary = onWatch.secondaryText()
-                    SwitchButton(
-                        checked = onWatch.checked,
-                        onCheckedChange = onToggleWatch,
-                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                        transformation = SurfaceTransformation(transformationSpec),
-                        label = { Text(stringResource(R.string.remote_on_watch)) },
-                        secondaryLabel = if (secondary != null) { { Text(secondary, maxLines = 2, overflow = TextOverflow.Ellipsis) } } else null,
-                    )
-                }
-            }
+            if (onWatch != null) onWatchSwitch(onWatch, onToggleWatch, transformationSpec)
             items(state.items, key = { it.key }) { track ->
                 Button(
                     onClick = { onPlay(track.key, false) },
@@ -164,10 +154,28 @@ fun TrackListContent(
     }
 }
 
+/** Schalter „Auf der Uhr“ für Listen, Folgen und Bücher des Handys (Wear-Konzept 17). */
+internal fun TransformingLazyColumnScope.onWatchSwitch(
+    state: OnWatchState,
+    onToggle: (Boolean) -> Unit,
+    transformationSpec: TransformationSpec,
+) = item {
+    val secondary = state.secondaryText()
+    SwitchButton(
+        checked = state.checked,
+        onCheckedChange = onToggle,
+        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+        transformation = SurfaceTransformation(transformationSpec),
+        label = { Text(stringResource(R.string.remote_on_watch)) },
+        secondaryLabel = if (secondary != null) { { Text(secondary, maxLines = 2, overflow = TextOverflow.Ellipsis) } } else null,
+    )
+}
+
 /** Unter dem Schalter: Fehler beim Umschalten oder, solange noch geladen wird, der Stand. */
 @Composable
 private fun OnWatchState.secondaryText(): String? = when {
     failed -> stringResource(R.string.remote_on_watch_failed)
     checked && loaded != null && total != null && loaded < total -> stringResource(R.string.selection_progress, loaded, total)
+    checked && loading -> stringResource(R.string.remote_on_watch_loading)
     else -> null
 }

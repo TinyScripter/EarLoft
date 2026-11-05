@@ -7,8 +7,7 @@ import com.google.android.gms.wearable.MessageClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.data.repository.FavoritesRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
-import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
-import keinabersmart.kleinaberlaut.core.data.podcast.EpisodeQueue
+import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.model.BookWithProgress
@@ -17,7 +16,10 @@ import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteAction
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteBookDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteCommand
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteEpisodesRequest
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteEpisodesResult
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteTrackDto
@@ -46,8 +48,7 @@ class WearRemoteHandler @Inject constructor(
     private val favorites: FavoritesRepository,
     private val messageClient: MessageClient,
     private val books: BookRepository,
-    private val continueListening: ContinueListening,
-    private val episodeQueue: EpisodeQueue,
+    private val podcasts: PodcastRepository,
     private val bookLauncher: BookLauncher,
 ) {
     suspend fun command(command: WearRemoteCommand) {
@@ -90,15 +91,6 @@ class WearRemoteHandler @Inject constructor(
 
     /** Antwortet der Uhr [nodeId] mit den Titeln der Liste (gzip, höchstens [WearRemoteTracksResult.MAX_TRACKS]). */
     suspend fun sendTracks(nodeId: String, request: WearRemoteTracksRequest) {
-        if (request.kind == WearRemoteListKind.CONTINUE) {
-            val entries = continueListening()
-            val result = WearRemoteTracksResult(
-                requestId = request.requestId,
-                tracks = entries.map { WearRemoteTrackDto(it.book.id, it.book.title, it.book.author) },
-            )
-            messageClient.sendPayload(nodeId, WearPaths.REMOTE_TRACKS_RESULT, WearCodec.encodeCompressed(result))
-            return
-        }
         val list = resolve(request.kind, request.refId)
         val result = if (list == null) {
             WearRemoteTracksResult(request.requestId, found = false)
@@ -113,6 +105,24 @@ class WearRemoteHandler @Inject constructor(
         messageClient.sendPayload(nodeId, WearPaths.REMOTE_TRACKS_RESULT, WearCodec.encodeCompressed(result))
     }
 
+    /**
+     * Antwortet der Uhr [nodeId] mit den Folgen eines Abos (Wear-Konzept 17): angefangene zuerst, dann die neuesten
+     * [WearRemoteEpisodesResult.MAX_NEWEST].
+     */
+    suspend fun sendEpisodes(nodeId: String, request: WearRemoteEpisodesRequest) {
+        val feed = podcasts.feed(request.feedId).first()
+        val result = if (feed == null) {
+            WearRemoteEpisodesResult(request.requestId, found = false)
+        } else {
+            WearRemoteEpisodesResult(
+                requestId = request.requestId,
+                title = feed.title,
+                episodes = remoteEpisodes(podcasts.episodes(request.feedId).first(), WearRemoteEpisodesResult.MAX_NEWEST),
+            )
+        }
+        messageClient.sendPayload(nodeId, WearPaths.REMOTE_EPISODES_RESULT, WearCodec.encodeCompressed(result))
+    }
+
     /** `null`, wenn Album bzw. Playlist nicht (mehr) existiert. */
     internal suspend fun resolve(kind: WearRemoteListKind, refId: Long?): RemoteTrackList? = when (kind) {
         WearRemoteListKind.ALBUM -> refId?.let { library.album(it).first() }?.let { RemoteTrackList(it.album.title, it.songs) }
@@ -120,19 +130,8 @@ class WearRemoteHandler @Inject constructor(
             ?.let { details -> RemoteTrackList(details.playlist.name, details.entries.map { it.song }) }
         WearRemoteListKind.FAVORITES -> RemoteTrackList("", favorites.favorites().first())
         WearRemoteListKind.ALL -> RemoteTrackList("", library.songs().first())
-        // Bücher und Folgen sind keine Songs; dafür gibt es eigene Wege in [play] und [sendTracks].
+        // Bücher und Folgen sind keine Songs; sie spielt [play] über den [BookLauncher].
         WearRemoteListKind.CONTINUE -> null
-    }
-
-    /** „Weiterhören“ für die Uhr: angefangene Bücher und die Warteschlange der Podcasts in einer Liste. */
-    private suspend fun continueListening(): List<BookWithProgress> {
-        val order = episodeQueue.order.first()
-        return mergeContinueListening(
-            books = books.continueListening(limit = CONTINUE_LIMIT, startOrder = episodeQueue.order).first(),
-            episodes = continueListening.episodes.first(),
-            startOrder = order,
-            limit = CONTINUE_LIMIT,
-        )
     }
 
     private fun changeVolume(steps: Int) {
@@ -144,25 +143,28 @@ class WearRemoteHandler @Inject constructor(
 
     private companion object {
         const val TAG = "WearRemoteHandler"
-
-        /** Auf der Uhr genügen die vorderen Einträge; am Handy zeigt „Weiterhören“ auch nicht mehr. */
-        const val CONTINUE_LIMIT = 15
     }
 }
 
+/** Angefangen und nicht zu Ende gehört. */
+private val BookWithProgress.isStarted: Boolean get() = progress?.let { !it.finished && it.positionMs > 0 } == true
+
+/** Angefangene zuerst (zuletzt gehörte vorn), dann der Rest in seiner Reihenfolge. */
+private fun List<BookWithProgress>.startedFirst(): List<BookWithProgress> {
+    val (started, rest) = partition { it.isStarted }
+    return started.sortedByDescending { it.progress?.updatedAt ?: 0 } + rest
+}
+
+private fun BookWithProgress.toRemote() = WearRemoteBookDto(book.id, book.title, book.author, book.serverId, book.remoteId, isStarted)
+
+/** Hörbücher für den Bibliotheksindex der Uhr (Wear-Konzept 17): angefangene zuerst, dann in der Reihenfolge des Handys. */
+internal fun remoteBooks(books: List<BookWithProgress>): List<WearRemoteBookDto> = books.startedFirst().map { it.toRemote() }
+
 /**
- * Bücher und Folgen in einer Liste, zuletzt gestartete zuerst: Die Startreihenfolge ([startOrder], `EpisodeQueue.order`)
- * gilt für beide. Was dort nicht steht, folgt in seiner bisherigen Reihenfolge, Bücher vor Folgen.
+ * Folgen eines Abos für die Uhr: alle angefangenen (zuletzt gehörte vorn), dann die neuesten [newest] der übrigen.
+ * [episodes] kommen neueste zuerst.
  */
-internal fun mergeContinueListening(
-    books: List<BookWithProgress>,
-    episodes: List<BookWithProgress>,
-    startOrder: List<Long>,
-    limit: Int,
-): List<BookWithProgress> {
-    val rank = startOrder.withIndex().associate { it.value to it.index }
-    return (books + episodes)
-        .distinctBy { it.book.id }
-        .sortedBy { rank[it.book.id] ?: Int.MAX_VALUE }
-        .take(limit)
+internal fun remoteEpisodes(episodes: List<BookWithProgress>, newest: Int): List<WearRemoteBookDto> {
+    val (started, rest) = episodes.partition { it.isStarted }
+    return (started.startedFirst() + rest.take(newest)).map { it.toRemote() }
 }

@@ -19,9 +19,9 @@ import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodeListening
 import keinabersmart.kleinaberlaut.core.data.wear.WatchEpisodeProgress
 import keinabersmart.kleinaberlaut.core.data.wear.WatchPlay
 import keinabersmart.kleinaberlaut.core.data.wear.WatchPlayImporter
+import keinabersmart.kleinaberlaut.core.data.wear.WatchSpoken
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.data.wear.WearServerMirror
-import keinabersmart.kleinaberlaut.core.wearsync.WearAlbumThumbnailFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearCoverFile
@@ -32,9 +32,12 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeReportDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearPlaysDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteCommand
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteEpisodesRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteTracksRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearSelectRequest
+import keinabersmart.kleinaberlaut.core.wearsync.WearSelectSpokenRequest
+import keinabersmart.kleinaberlaut.core.wearsync.WearThumbnailFile
 import keinabersmart.kleinaberlaut.core.wearsync.delete
 import keinabersmart.kleinaberlaut.core.wearsync.payloadOrNull
 import keinabersmart.kleinaberlaut.core.wearsync.sendFile
@@ -64,6 +67,8 @@ class PhoneWearListenerService : WearableListenerService() {
     @Inject lateinit var selections: WearSelectionRepository
     @Inject lateinit var remote: WearRemoteHandler
     @Inject lateinit var remotePublisher: WearRemotePublisher
+    @Inject lateinit var watchSpoken: WatchSpoken
+    @Inject lateinit var thumbnails: WearThumbnails
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onMessageReceived(event: MessageEvent) {
@@ -76,6 +81,10 @@ class PhoneWearListenerService : WearableListenerService() {
                 val request = decodeOrNull<WearSelectRequest>(event) ?: return
                 // Alben, Playlists und Favoriten (Schalter „Auf der Uhr“, Wear-Konzept 17).
                 applicationScope.launch { selections.setSelected(request.kind, request.refId, request.selected) }
+            }
+            WearPaths.SELECT_SPOKEN -> {
+                val request = decodeOrNull<WearSelectSpokenRequest>(event) ?: return
+                applicationScope.launch { watchSpoken.setSelected(request.bookId, request.selected) }
             }
             WearPaths.CLEAR_SELECTIONS -> applicationScope.launch { selections.clear() }
             WearPaths.REMOTE_SUBSCRIBE -> remotePublisher.subscribe(applicationScope)
@@ -91,6 +100,10 @@ class PhoneWearListenerService : WearableListenerService() {
             WearPaths.REMOTE_TRACKS_REQUEST -> {
                 val request = decodeOrNull<WearRemoteTracksRequest>(event) ?: return
                 applicationScope.launch { remote.sendTracks(event.sourceNodeId, request) }
+            }
+            WearPaths.REMOTE_EPISODES_REQUEST -> {
+                val request = decodeOrNull<WearRemoteEpisodesRequest>(event) ?: return
+                applicationScope.launch { remote.sendEpisodes(event.sourceNodeId, request) }
             }
         }
     }
@@ -145,7 +158,7 @@ class PhoneWearListenerService : WearableListenerService() {
 
     /**
      * Die Uhr holt eine Datei (`/kal/file/<sourceUid>`, Wear-Konzept 8.4; Folgen: [WearEpisodeFile], 16.1; Buchdateien:
-     * [WearBookFile], 16.2; Bilder: [WearCoverFile], Vorschaubilder von Alben: [WearAlbumThumbnailFile], 17): Das Handy schickt die lokale Datei oder den fertigen Download im Original,
+     * [WearBookFile], 16.2; Bilder: [WearCoverFile], Vorschaubilder: [WearThumbnailFile], 17): Das Handy schickt die lokale Datei oder den fertigen Download im Original,
      * ohne Datei nur die Kopfzeile „keine Datei“.
      */
     override fun onChannelOpened(channel: ChannelClient.Channel) {
@@ -156,12 +169,12 @@ class PhoneWearListenerService : WearableListenerService() {
             val episode = WearEpisodeFile.parse(sourceUid)
             val bookTrack = WearBookFile.parse(sourceUid)
             val cover = WearCoverFile.parse(sourceUid)
-            val albumThumbnail = WearAlbumThumbnailFile.parse(sourceUid)
+            val thumbnail = WearThumbnailFile.parse(sourceUid)
             val file = when {
                 episode != null -> fileLocator.openEpisode(episode.first, episode.second)
                 bookTrack != null -> fileLocator.openBookTrack(bookTrack.serverId, bookTrack.remoteId, bookTrack.trackIndex)
                 cover != null -> fileLocator.openCover(cover.first, cover.second)
-                albumThumbnail != null -> remotePublisher.albumThumbnail(albumThumbnail)?.let { PhoneFile(it.size.toLong(), ByteArrayInputStream(it)) }
+                thumbnail != null -> thumbnails.open(thumbnail)?.let { PhoneFile(it.size.toLong(), ByteArrayInputStream(it)) }
                 else -> fileLocator.open(sourceUid)
             }
             Log.d(TAG, "Datei $sourceUid für die Uhr: ${file?.length?.let { "$it Bytes" } ?: "keine Datei"}")

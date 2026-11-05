@@ -58,11 +58,18 @@ class BookCovers @Inject constructor(
     suspend fun ensureCached(bookId: Long): Boolean = withContext(Dispatchers.IO) { file(bookId) != null }
 
     /**
-     * Vorschaubild für Listen, höchstens [maxPx] groß; nur aus dem Cache, ohne Server (eine lange Liste soll nicht für jeden
-     * Eintrag laden). Mit Rückfall auf das Bild des Abos wie bei [cover].
+     * Vorschaubild für Listen, höchstens [maxPx] groß, mit Rückfall auf das Bild des Abos wie bei [cover]. Ohne [load] nur aus
+     * dem Cache, ohne Server (eine lange Liste auf der Uhr soll nicht für jeden Eintrag laden).
      */
-    suspend fun thumbnail(bookId: Long, maxPx: Int): Bitmap? = withContext(Dispatchers.IO) {
-        file(bookId, load = false)?.let { decodeScaled(it, maxPx) }
+    suspend fun thumbnail(bookId: Long, maxPx: Int, load: Boolean = false): Bitmap? = withContext(Dispatchers.IO) {
+        file(bookId, load = load)?.let { decodeScaled(it, maxPx) }
+    }
+
+    /** Das Bild eines Abos, höchstens [maxPx] groß (Liste der Podcasts auf der Uhr); bei Podcasts vom Gerät das Cover einer Folge. */
+    suspend fun feedThumbnail(feedId: String, maxPx: Int): Bitmap? = withContext(Dispatchers.IO) {
+        val feed = podcastDao.feed(feedId) ?: return@withContext null
+        val image = feed.imageUrl ?: return@withContext null
+        imageFile(image, ownerId = null, load = true, label = feed.title)?.let { decodeScaled(it, maxPx) }
     }
 
     /** Die Bilddatei von [bookId]; ohne [load] nur, was schon im Cache liegt. */
@@ -72,13 +79,20 @@ class BookCovers @Inject constructor(
         if (own.exists() || (load && fetchOwn(book, own))) return own
         if (!withFeedImage) return null
         val image = feedImage(book) ?: return null
-        // Abos vom Gerät haben als Bild das Cover einer ihrer Folgen.
-        AppUris.parseBookCoverId(image)?.let { return if (it != bookId) file(it, withFeedImage = false, load = load) else null }
+        return imageFile(image, ownerId = bookId, load = load, label = book.title)
+    }
+
+    /**
+     * Die Datei zum Bild eines Abos ([image] = dessen `imageUrl`): Abos vom Gerät haben als Bild das Cover einer ihrer Folgen
+     * (außer [ownerId] selbst, sonst ginge es im Kreis), andere eine Adresse.
+     */
+    private suspend fun imageFile(image: String, ownerId: Long?, load: Boolean, label: String): File? {
+        AppUris.parseBookCoverId(image)?.let { return if (it != ownerId) file(it, withFeedImage = false, load = load) else null }
         if (!image.startsWith("http")) return null
         val file = urlFile(image)
         if (file.exists()) return file
         if (!load) return null
-        val bytes = fetch(book) { podcastApi.image(image) } ?: return null
+        val bytes = fetch(label) { podcastApi.image(image) } ?: return null
         write(file, bytes)
         return file
     }
@@ -92,7 +106,7 @@ class BookCovers @Inject constructor(
     /** Lädt das eigene Bild von [book] nach [file]. @return `false`, wenn es keins gibt oder es sich nicht laden ließ. */
     private suspend fun fetchOwn(book: BookEntity, file: File): Boolean {
         val url = book.episodeUrl
-        val bytes = fetch(book) {
+        val bytes = fetch(book.title) {
             if (url != null) {
                 podcastApi.image(url)
             } else if (isLocalSource(book.serverId)) {
@@ -109,10 +123,10 @@ class BookCovers @Inject constructor(
         return true
     }
 
-    private suspend fun fetch(book: BookEntity, load: suspend () -> ByteArray?): ByteArray? = try {
+    private suspend fun fetch(label: String, load: suspend () -> ByteArray?): ByteArray? = try {
         load()
     } catch (e: IOException) {
-        Log.w(TAG, "Cover von ${book.title} nicht abrufbar", e)
+        Log.w(TAG, "Cover von $label nicht abrufbar", e)
         null
     }
 

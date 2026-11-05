@@ -27,6 +27,7 @@ import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
 import dagger.hilt.android.AndroidEntryPoint
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.playback.EXTRA_OPEN_NOW_PLAYING
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteBookDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
 import keinabersmart.kleinaberlaut.wear.ui.AlbumScreen
 import keinabersmart.kleinaberlaut.wear.ui.ListCovers
@@ -40,7 +41,10 @@ import keinabersmart.kleinaberlaut.wear.ui.RemoteArtistsScreen
 import keinabersmart.kleinaberlaut.wear.ui.StartTarget
 import keinabersmart.kleinaberlaut.wear.ui.LocalPlaylistsScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemoteAlbumsScreen
-import keinabersmart.kleinaberlaut.wear.ui.RemoteContinueScreen
+import keinabersmart.kleinaberlaut.wear.ui.RemoteBooksScreen
+import keinabersmart.kleinaberlaut.wear.ui.RemoteEpisodesScreen
+import keinabersmart.kleinaberlaut.wear.ui.RemotePodcastsScreen
+import keinabersmart.kleinaberlaut.wear.ui.RemoteSpokenScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemoteNowPlayingScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemotePlaylistsScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemoteTracksScreen
@@ -151,9 +155,21 @@ data class PlaylistsRoute(val remote: Boolean) : NavKey
 @Serializable
 data class AlbumRoute(val albumId: Long) : NavKey
 
-/** „Weiterhören“ des Handys: angefangene Bücher und die Warteschlange der Podcasts (Wear-Konzept 16). */
+/** Die Abos des Handys (Wear-Konzept 17). */
 @Serializable
-data object PhoneContinueRoute : NavKey
+data object PhonePodcastsRoute : NavKey
+
+/** Die Folgen eines Abos am Handy; [title] ist der Name des Abos. */
+@Serializable
+data class PhoneEpisodesRoute(val feedId: String, val title: String) : NavKey
+
+/** Die Hörbücher des Handys. */
+@Serializable
+data object PhoneBooksRoute : NavKey
+
+/** Eine Folge bzw. ein Buch des Handys: am Handy abspielen, „Auf der Uhr“. */
+@Serializable
+data class PhoneSpokenRoute(val item: WearRemoteBookDto) : NavKey
 
 /** Eine Titelliste des Handys: Album, Playlist oder Favoriten ([refId] fehlt bei Favoriten). */
 @Serializable
@@ -202,8 +218,9 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                                         StartTarget.PODCASTS -> SpokenRoute(BookKind.EPISODE)
                                         StartTarget.BOOKS -> SpokenRoute(BookKind.BOOK)
                                         StartTarget.STORAGE -> StorageRoute
-                                        StartTarget.PHONE_CONTINUE -> PhoneContinueRoute
                                         StartTarget.PHONE_MUSIC -> PhoneMusicRoute
+                                        StartTarget.PHONE_PODCASTS -> PhonePodcastsRoute
+                                        StartTarget.PHONE_BOOKS -> PhoneBooksRoute
                                     },
                                 )
                             },
@@ -243,7 +260,12 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                         }
                     }
                     entry<SpokenRoute> { route -> LocalSpokenScreen(route.kind, onPlayed = { backStack.openNowPlaying() }) }
-                    entry<PhoneContinueRoute> { RemoteContinueScreen(onPlayed = { backStack.openNowPlaying(remote = true) }) }
+                    entry<PhonePodcastsRoute> { RemotePodcastsScreen(onClick = { feedId, title -> backStack.add(PhoneEpisodesRoute(feedId, title)) }) }
+                    entry<PhoneEpisodesRoute> { route ->
+                        RemoteEpisodesScreen(route.feedId, route.title, onClick = { backStack.add(PhoneSpokenRoute(it)) })
+                    }
+                    entry<PhoneBooksRoute> { RemoteBooksScreen(onClick = { backStack.add(PhoneSpokenRoute(it)) }) }
+                    entry<PhoneSpokenRoute> { route -> RemoteSpokenScreen(route.item, onPlayed = { backStack.openNowPlaying(remote = true) }) }
                     entry<NowPlayingRoute> { route ->
                         if (route.remote) {
                             RemoteNowPlayingScreen()

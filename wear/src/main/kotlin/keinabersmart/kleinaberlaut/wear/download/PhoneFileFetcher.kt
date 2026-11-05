@@ -12,10 +12,10 @@ import keinabersmart.kleinaberlaut.core.download.DownloadOutcome
 import keinabersmart.kleinaberlaut.core.download.DownloadStorage
 import keinabersmart.kleinaberlaut.core.download.EpisodeStorage
 import keinabersmart.kleinaberlaut.core.wearsync.FileReceive
-import keinabersmart.kleinaberlaut.core.wearsync.WearAlbumThumbnailFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearCoverFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeFile
+import keinabersmart.kleinaberlaut.core.wearsync.WearThumbnailFile
 import keinabersmart.kleinaberlaut.core.wearsync.receiveFile
 import keinabersmart.kleinaberlaut.wear.sync.PhoneConnection
 import keinabersmart.kleinaberlaut.wear.sync.WearManifestSource
@@ -228,8 +228,8 @@ class PhoneFileFetcher @Inject constructor(
         return fetchBytes(WearCoverFile.uid(book.serverId, book.remoteId))
     }
 
-    /** Vorschaubild eines Albums am Handy ([albumId] = ID des Handys) für die Listen im Bereich „Telefon“ (Wear-Konzept 17). */
-    suspend fun fetchAlbumThumbnail(albumId: Long): ByteArray? = fetchBytes(WearAlbumThumbnailFile.uid(albumId))
+    /** Vorschaubild eines Albums, Abos, Buchs oder einer Folge des Handys für die Listen im Bereich „Telefon“ (Wear-Konzept 17). */
+    suspend fun fetchThumbnail(ref: WearThumbnailFile.Ref): ByteArray? = fetchBytes(WearThumbnailFile.uid(ref))
 
     /** Eine kleine Datei vom Handy in den Speicher; `null` ohne Handy, ohne Datei oder bei Abbruch der Übertragung. */
     private suspend fun fetchBytes(requestUid: String): ByteArray? {

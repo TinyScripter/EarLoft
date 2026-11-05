@@ -9,6 +9,8 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteAction
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteCommand
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteEpisodesRequest
+import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteEpisodesResult
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteLibraryDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
@@ -60,7 +62,7 @@ class PhoneRemote @Inject constructor(
         }
         .distinctUntilChanged { old, new -> old?.first == new?.first && (old?.second == null) == (new?.second == null) }
 
-    /** Alben und Playlists des Handys; `null`, solange das Handy sie nicht geschrieben hat. */
+    /** Alben, Künstler, Playlists, Abos und Bücher des Handys; `null`, solange das Handy sie nicht geschrieben hat. */
     val library: Flow<WearRemoteLibraryDto?> = dataClient.changesAt(WearPaths.REMOTE_LIBRARY)
         .subscribed()
         .map {
@@ -113,6 +115,36 @@ class PhoneRemote @Inject constructor(
             return null
         }
         return decodeTracks(answer)
+    }
+
+    /**
+     * Fragt die Folgen eines Abos beim Handy ab (Wear-Konzept 17). `null`, wenn das Handy nicht erreichbar ist oder nicht
+     * rechtzeitig antwortet.
+     */
+    suspend fun episodes(feedId: String): WearRemoteEpisodesResult? {
+        val nodeId = phoneConnection.connectedPhoneNodeId() ?: return null
+        val requestId = UUID.randomUUID().toString()
+        val answer = messageClient.sendAndAwait(
+            nodeId = nodeId,
+            path = WearPaths.REMOTE_EPISODES_REQUEST,
+            payload = WearCodec.encode(WearRemoteEpisodesRequest(requestId, feedId)),
+            responsePath = WearPaths.REMOTE_EPISODES_RESULT,
+            timeoutMs = TRACKS_TIMEOUT_MS,
+        ) { decodeEpisodes(it)?.requestId == requestId } ?: run {
+            Log.w(TAG, "Keine Folgen von $feedId")
+            return null
+        }
+        return decodeEpisodes(answer)
+    }
+
+    private fun decodeEpisodes(bytes: ByteArray): WearRemoteEpisodesResult? = try {
+        WearCodec.decodeCompressed<WearRemoteEpisodesResult>(bytes)
+    } catch (e: SerializationException) {
+        Log.w(TAG, "Folgenliste nicht lesbar", e)
+        null
+    } catch (e: java.io.IOException) {
+        Log.w(TAG, "Folgenliste nicht lesbar", e)
+        null
     }
 
     private fun decodeTracks(bytes: ByteArray): WearRemoteTracksResult? = try {

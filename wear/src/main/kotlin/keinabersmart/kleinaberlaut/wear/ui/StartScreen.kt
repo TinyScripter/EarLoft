@@ -39,12 +39,12 @@ import keinabersmart.kleinaberlaut.wear.download.SelectionItem
 import keinabersmart.kleinaberlaut.wear.sync.PhoneStatus
 
 /** Wohin ein Eintrag des Startbildschirms führt. */
-enum class StartTarget { MUSIC, PODCASTS, BOOKS, STORAGE, PHONE_CONTINUE, PHONE_MUSIC }
+enum class StartTarget { MUSIC, PODCASTS, BOOKS, STORAGE, PHONE_MUSIC, PHONE_PODCASTS, PHONE_BOOKS }
 
 /**
  * Startbildschirm (Wear-Konzept 11, 14): oben die Uhr selbst mit Musik, Podcasts und Büchern (je nur, wenn etwas davon auf der
- * Uhr ist), darunter – solange ein Handy mit der App verbunden ist – das Handy als Fernsteuerung mit seiner Musik (von dort
- * lässt sich auch auswählen, was auf die Uhr kommt, Wear-Konzept 17). Ohne Handy und ohne Inhalte
+ * Uhr ist), darunter – solange ein Handy mit der App verbunden ist – das Handy als Fernsteuerung mit seiner Musik, seinen
+ * Podcasts und Büchern (von dort lässt sich auch auswählen, was auf die Uhr kommt, Wear-Konzept 17). Ohne Handy und ohne Inhalte
  * erklärt er stattdessen die Einrichtung (Handy fehlt, App fehlt).
  */
 @Composable
@@ -94,9 +94,9 @@ private fun StartContent(
                 if (state.phoneConnected) {
                     header(R.string.start_section_phone, transformationSpec)
                     action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(true) }, secondary = state.phoneNowPlaying)
-                    // Bücher und Podcasts nur über „Weiterhören“, ohne eigene Bibliothek auf der Uhr.
-                    action(R.string.list_continue, transformationSpec, onClick = { onClick(StartTarget.PHONE_CONTINUE) })
                     action(R.string.list_music, transformationSpec, onClick = { onClick(StartTarget.PHONE_MUSIC) })
+                    action(R.string.list_podcasts, transformationSpec, onClick = { onClick(StartTarget.PHONE_PODCASTS) })
+                    action(R.string.list_books, transformationSpec, onClick = { onClick(StartTarget.PHONE_BOOKS) })
                 } else if (state.phone == PhoneStatus.NotConnected) {
                     // Der Abschnitt bleibt, damit die Fernsteuerung nicht ohne Erklärung verschwindet.
                     header(R.string.start_section_phone, transformationSpec)

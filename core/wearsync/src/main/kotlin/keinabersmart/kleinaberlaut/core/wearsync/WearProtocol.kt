@@ -34,6 +34,9 @@ object WearPaths {
     /** Message, Uhr → Handy: [WearSelectRequest]. */
     const val SELECT = "/kal/select"
 
+    /** Message, Uhr → Handy: [WearSelectSpokenRequest] – Folge oder Buch für die Uhr wählen (Wear-Konzept 17). */
+    const val SELECT_SPOKEN = "/kal/select/spoken"
+
     /** Message, Uhr → Handy, ohne Inhalt: alle Auswahlen entfernen („Alles entfernen“ auf der Uhr). */
     const val CLEAR_SELECTIONS = "/kal/select/clear"
 
@@ -46,8 +49,8 @@ object WearPaths {
     /**
      * Channel, von der Uhr geöffnet: `/kal/file/<sourceUid>` bzw. für eine Folge `/kal/file/`[WearEpisodeFile.uid], für
      * eine Buchdatei `/kal/file/`[WearBookFile.uid], für das Bild einer Folge oder eines Buchs `/kal/file/`[WearCoverFile.uid],
-     * für das Vorschaubild eines Albums des Handys `/kal/file/`[WearAlbumThumbnailFile.uid]; das Handy schreibt die Datei im
-     * Original (Vorschaubilder verkleinert).
+     * für das Vorschaubild eines Albums, Abos, Buchs oder einer Folge des Handys `/kal/file/`[WearThumbnailFile.uid]; das
+     * Handy schreibt die Datei im Original (Vorschaubilder verkleinert).
      */
     const val FILE_CHANNEL_PREFIX = "/kal/file/"
 
@@ -65,7 +68,7 @@ object WearPaths {
     /** DataItem, Handy → Uhr: Cover des laufenden Albums bzw. Buchs, siehe [WearCodec.encodeCover]. */
     const val REMOTE_COVER = "/kal/remote/cover"
 
-    /** DataItem mit Asset, Handy → Uhr: [WearRemoteLibraryDto] (gzip) – Alben und Playlists des Handys. */
+    /** DataItem mit Asset, Handy → Uhr: [WearRemoteLibraryDto] (gzip) – Alben, Künstler, Playlists, Abos und Bücher des Handys. */
     const val REMOTE_LIBRARY = "/kal/remote/library"
 
     /**
@@ -85,6 +88,12 @@ object WearPaths {
 
     /** Message, Handy → Uhr: [WearRemoteTracksResult] (gzip, siehe [WearCodec.encodeCompressed]). */
     const val REMOTE_TRACKS_RESULT = "/kal/remote/tracks/result"
+
+    /** Message, Uhr → Handy: [WearRemoteEpisodesRequest]. */
+    const val REMOTE_EPISODES_REQUEST = "/kal/remote/episodes"
+
+    /** Message, Handy → Uhr: [WearRemoteEpisodesResult] (gzip). */
+    const val REMOTE_EPISODES_RESULT = "/kal/remote/episodes/result"
 
     fun plays(packetId: String) = "$PLAYS_PREFIX$packetId"
 
@@ -162,19 +171,45 @@ object WearCoverFile {
 }
 
 /**
- * Kennung des Vorschaubilds eines Albums am Handy im Datei-Kanal: `albumthumb:<albumId>` (ID des Handys). Das Handy schickt
- * ein kleines JPEG ([SIZE_PX]) für die Listen der Uhr im Bereich „Telefon“ (Wear-Konzept 17).
+ * Kennung eines Vorschaubilds im Datei-Kanal für die Listen der Uhr im Bereich „Telefon“ (Wear-Konzept 17):
+ * `thumb:album:<albumId>` (ID des Handys), `thumb:feed:<feedId>` (Bild des Abos) bzw. `thumb:book:<serverId>:<remoteId>`
+ * (Buch oder Folge, mit Rückfall auf das Bild des Abos); Texte URL-kodiert. Das Handy schickt ein kleines JPEG ([SIZE_PX]).
  */
-object WearAlbumThumbnailFile {
-    private const val PREFIX = "albumthumb:"
+object WearThumbnailFile {
+    private const val PREFIX = "thumb:"
 
     /** Längste Seite des Bilds; die Uhr zeigt es mit 40 dp. */
     const val SIZE_PX = 120
 
-    fun uid(albumId: Long): String = "$PREFIX$albumId"
+    sealed interface Ref {
+        data class Album(val albumId: Long) : Ref
 
-    /** @return die Album-ID; `null`, wenn [uid] kein Vorschaubild bezeichnet. */
-    fun parse(uid: String): Long? = if (uid.startsWith(PREFIX)) uid.removePrefix(PREFIX).toLongOrNull() else null
+        data class Feed(val feedId: String) : Ref
+
+        data class Book(val serverId: String, val remoteId: String) : Ref
+    }
+
+    fun uid(ref: Ref): String = PREFIX + when (ref) {
+        is Ref.Album -> "album:${ref.albumId}"
+        is Ref.Feed -> "feed:${encode(ref.feedId)}"
+        is Ref.Book -> "book:${encode(ref.serverId)}:${encode(ref.remoteId)}"
+    }
+
+    /** `null`, wenn [uid] kein Vorschaubild bezeichnet. */
+    fun parse(uid: String): Ref? {
+        if (!uid.startsWith(PREFIX)) return null
+        val parts = uid.removePrefix(PREFIX).split(':')
+        return when {
+            parts.size == 2 && parts[0] == "album" -> parts[1].toLongOrNull()?.let { Ref.Album(it) }
+            parts.size == 2 && parts[0] == "feed" -> Ref.Feed(decode(parts[1]))
+            parts.size == 3 && parts[0] == "book" -> Ref.Book(decode(parts[1]), decode(parts[2]))
+            else -> null
+        }
+    }
+
+    private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
+
+    private fun decode(value: String) = java.net.URLDecoder.decode(value, "UTF-8")
 }
 
 /** Capabilities aus `res/values/wear.xml` der beiden Apps. */
