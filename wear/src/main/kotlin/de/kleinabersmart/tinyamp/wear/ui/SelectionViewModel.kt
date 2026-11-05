@@ -22,11 +22,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-/** `Loading` vor dem ersten Wert; `Missing`, wenn die Auswahl inzwischen entfernt wurde. */
+/** `Loading` vor dem ersten Wert; `Missing`, wenn die Auswahl inzwischen entfernt wurde; `Failed`, wenn Room eine Ausnahme warf. */
 sealed interface SelectionUiState {
     data object Loading : SelectionUiState
 
     data object Missing : SelectionUiState
+
+    data object Failed : SelectionUiState
 
     data class Ready(val details: PlaylistDetails, val offline: SongOfflineLookup) : SelectionUiState {
         val downloadedCount: Int get() = details.entries.map { it.song.id }.distinct().count { isLoaded(it) }
@@ -67,6 +69,7 @@ class SelectionViewModel @AssistedInject constructor(
     val state: StateFlow<SelectionUiState> = combine(details, downloadRepository.songStatuses()) { details, offline ->
         details?.let { SelectionUiState.Ready(it, offline) } ?: SelectionUiState.Missing
     }
+        .orOnError(SelectionUiState.Failed)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SelectionUiState.Loading)
 
     /** Spielt die geladenen Songs der Auswahl; ab [entryId] (Duplikate in Playlists bleiben unterscheidbar) oder von vorn. */

@@ -66,7 +66,7 @@ class RemoteTracksViewModel @AssistedInject constructor(
             if (wanted == confirmed) pending.value = null
             val item = selections.firstOrNull { it.key == selectionKey }
             onWatchState(confirmed, wanted, item?.progress, failedNow, downloadFailed = (item?.failedCount ?: 0) > 0)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        }.orOnError(null).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     }
 
     init {

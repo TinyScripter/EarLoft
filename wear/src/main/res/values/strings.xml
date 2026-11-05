@@ -32,6 +32,7 @@
     <string name="list_empty_phone">Nothing on the phone</string>
     <string name="list_podcasts_empty_watch">No episodes on the watch</string>
     <string name="list_books_empty_watch">No books on the watch</string>
+    <string name="list_load_failed">Could not be loaded</string>
 
     <!-- Phone remote control -->
     <string name="remote_unreachable">Phone not reachable</string>

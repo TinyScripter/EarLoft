@@ -66,13 +66,19 @@ class StartViewModel @Inject constructor(
     private val openOnPhone = MutableStateFlow<OpenOnPhoneResult?>(null)
 
     /** Was gerade auf dem Handy läuft und ob Folgen bzw. Bücher auf der Uhr liegen; zusammengefasst, damit `combine` typsicher bleibt. */
-    private val phoneAndSpoken = combine(remote.state, continueListening.episodes, books.books()) { phonePlayer, episodes, allBooks ->
+    // Die Room-Quellen einzeln abgesichert (orOnError): Kann die Uhr ihre Inhalte nicht lesen, bleiben Handy und Fernsteuerung
+    // bedienbar, statt dass die App beendet wird.
+    private val phoneAndSpoken = combine(
+        remote.state,
+        continueListening.episodes.orOnError(emptyList()),
+        books.books().orOnError(emptyList()),
+    ) { phonePlayer, episodes, allBooks ->
         Triple(phonePlayer?.takeIf { it.hasMedia }?.title, episodes.isNotEmpty(), allBooks.any { it.progress?.finished != true })
     }
 
     val state: StateFlow<StartUiState> = combine(
         phoneConnection.status,
-        storage.selections(),
+        storage.selections().orOnError(emptyList()),
         openOnPhone,
         playback.state,
         phoneAndSpoken,

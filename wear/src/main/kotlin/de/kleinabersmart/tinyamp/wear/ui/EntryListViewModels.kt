@@ -66,6 +66,9 @@ sealed interface EntryListState {
 
 private const val STATE_SUBSCRIPTION_MS = 5_000L
 
+/** Die Quelle (meist Room) hat eine Ausnahme geworfen ([orOnError]). */
+private val LoadFailed = EntryListState.Message(R.string.list_load_failed)
+
 /** Ein Album mit mindestens einem geladenen Titel auf der Uhr. */
 private data class LoadedAlbum(val album: Album, val loadedCount: Int)
 
@@ -91,7 +94,7 @@ class LocalAlbumsViewModel @AssistedInject constructor(
             ListEntry(album.id, album.title, album.songCount, artist = album.artist, loadedCount = loadedCount, cover = CoverRef.Album(album.id))
         }
         if (entries.isEmpty()) EntryListState.Message(R.string.list_empty_watch) else EntryListState.Ready(entries)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+    }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 
     @AssistedFactory
     interface Factory {
@@ -117,7 +120,7 @@ class LocalArtistsViewModel @Inject constructor(
             ListEntry(artist.id, artist.name, songCount = 0, albumCount = albums.size, cover = CoverRef.Album(first.album.id))
         }
         if (entries.isEmpty()) EntryListState.Message(R.string.list_empty_watch) else EntryListState.Ready(entries)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+    }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 }
 
 /** Die Playlists der Auswahl vom Handy (Favoriten und Alben haben eigene Einträge). */
@@ -127,7 +130,7 @@ class LocalPlaylistsViewModel @Inject constructor(storage: WatchStorageRepositor
         val entries = all.filter { it.kind == WearSelectionKind.PLAYLIST }
             .map { ListEntry(it.playlistId, it.title, it.songCount, loadedCount = it.downloadedCount) }
         if (entries.isEmpty()) EntryListState.Message(R.string.list_empty_watch) else EntryListState.Ready(entries)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+    }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 }
 
 /** Alle Alben des Handys (Fernsteuerung), mit [artistId] nur die dieses Künstlers; mit Vorschaubild vom Handy. */
@@ -146,7 +149,7 @@ class RemoteAlbumsViewModel @AssistedInject constructor(
                 albums.map { ListEntry(it.id, it.title, it.songCount, artist = it.artist, cover = CoverRef.Phone(WearThumbnailFile.Ref.Album(it.id))) },
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+    }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 
     @AssistedFactory
     interface Factory {
@@ -169,7 +172,7 @@ class RemoteArtistsViewModel @Inject constructor(remote: PhoneRemote) : ViewMode
                 },
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+    }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 }
 
 /**
@@ -210,7 +213,7 @@ class LocalSpokenViewModel @AssistedInject constructor(
                 },
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+    }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 
     /** @return `false`, wenn sich die Folge bzw. das Buch nicht laden ließ (z. B. Datei inzwischen weg). */
     suspend fun play(bookId: Long): Boolean = playback.playBook(bookId) != null
@@ -247,7 +250,7 @@ class RemotePodcastsViewModel @Inject constructor(remote: PhoneRemote) : ViewMod
                 },
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+    }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 
     fun feedAt(key: Long): WearRemotePodcastDto? = podcasts.value?.getOrNull(key.toInt())
 }
@@ -264,7 +267,7 @@ class RemoteBooksViewModel @Inject constructor(remote: PhoneRemote) : ViewModel(
             list.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
             else -> EntryListState.Ready(list.map { it.toEntry() })
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+    }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 
     fun bookOf(key: Long): WearRemoteBookDto? = books.value?.firstOrNull { it.id == key }
 }
@@ -312,5 +315,5 @@ class RemotePlaylistsViewModel @Inject constructor(remote: PhoneRemote) : ViewMo
             library.playlists.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
             else -> EntryListState.Ready(library.playlists.map { ListEntry(it.id, it.name, it.songCount) })
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+    }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 }

@@ -38,6 +38,7 @@ private fun LocalListScreen(
 private fun SelectionUiState.toTrackList(): TrackListState = when (this) {
     SelectionUiState.Loading -> TrackListState.Loading
     SelectionUiState.Missing -> TrackListState.Message(R.string.selection_missing)
+    SelectionUiState.Failed -> TrackListState.Message(R.string.list_load_failed)
     is SelectionUiState.Ready -> TrackListState.Ready(
         title = details.playlist.name,
         songCount = details.playlist.songCount,

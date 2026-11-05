@@ -87,6 +87,7 @@ class PlayerViewModel @Inject constructor(
                 else -> null
             }
         }
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Akzentfarbe des laufenden Albums bzw. der Folge (ARGB); `null`, solange sie fehlt oder nichts läuft. */
@@ -101,6 +102,7 @@ class PlayerViewModel @Inject constructor(
                 else -> flowOf(null)
             }
         }
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Zeitachse des laufenden Buchs bzw. der Folge (Dateien und Kapitel); `null` bei Musik. */
@@ -109,6 +111,7 @@ class PlayerViewModel @Inject constructor(
         .map { it.spoken?.bookId }
         .distinctUntilChanged()
         .mapLatest { bookId -> bookId?.let { books.timeline(it) } }
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Kapitel des Buchs bzw. der Folge; leer bei Musik und ohne Kapitel. */

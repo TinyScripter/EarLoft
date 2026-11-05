@@ -30,6 +30,7 @@
     <string name="list_empty_phone">Nichts auf dem Telefon</string>
     <string name="list_podcasts_empty_watch">Keine Folgen auf der Uhr</string>
     <string name="list_books_empty_watch">Keine Bücher auf der Uhr</string>
+    <string name="list_load_failed">Konnte nicht geladen werden</string>
 
     <!-- Fernsteuerung des Telefons -->
     <string name="remote_unreachable">Telefon nicht erreichbar</string>

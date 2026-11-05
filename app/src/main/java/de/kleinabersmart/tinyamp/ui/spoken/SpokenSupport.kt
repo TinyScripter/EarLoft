@@ -74,7 +74,9 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.toSize
+import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.platform.LocalResources
@@ -168,9 +170,10 @@ private fun SpokenModeScaffold(
         }
     }
     // Auf kleinen Handys (niedrig oder quer) klappt der Kopf beim Scrollen weg; sonst bliebe für die Listen kaum Platz.
-    val configuration = LocalConfiguration.current
-    val compactHeight = configuration.screenHeightDp < 480 ||
-        (configuration.screenWidthDp < 600 && configuration.screenHeightDp < 700)
+    // Nach der Fenstergröße wie die Fensterklassen (Konzept 8), nicht nach LocalConfiguration (ändert sich auch bei Sprache, Schrift …).
+    val window = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.toSize().toDpSize() }
+    val compactHeight = window.height < WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND.dp ||
+        (window.width < WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND.dp && window.height < SHORT_PHONE_HEIGHT)
     val collapse = remember(compactHeight) { HeaderCollapse(compactHeight) }
     // Die Statusleiste verbraucht das Banner; die Bildschirme darunter haben keine eigene Leiste mehr.
     // Der Statuszeilen-Inset bleibt außerhalb des einklappbaren Kopfs, sonst rutscht der Inhalt beim Einklappen darunter.
@@ -361,6 +364,9 @@ private fun Modifier.collapsingHeader(state: HeaderCollapse): Modifier = clipToB
 }
 
 private const val APP_HEADER_KEY = "app-header"
+
+/** Darunter klappt der Kopf auch hochkant weg (kleines Handy); keine Grenze der Fensterklassen, die springen erst bei 900 dp. */
+private val SHORT_PHONE_HEIGHT = 700.dp
 
 private fun modeLabel(mode: SpokenMode): Int = when (mode) {
     SpokenMode.MUSIC -> R.string.spoken_mode_music
