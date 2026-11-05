@@ -22,6 +22,12 @@ class EpisodeStorage internal constructor(val directory: File) {
     /** Ziel während des Ladens; wird erst nach vollständigem Download umbenannt. */
     fun partFileFor(bookId: Long): File = File(directory, "episode-$bookId$PART_SUFFIX")
 
+    /** Teildatei einer Übertragung vom Handy (Uhr), wie [DownloadStorage.phonePartFileFor]. */
+    fun phonePartFileFor(bookId: Long): File = File(directory, "episode-$bookId${DownloadStorage.PHONE_PART_SUFFIX}")
+
+    /** Gesamtlänge der Datei laut Handy, zu [phonePartFileFor]. */
+    fun phoneLengthFileFor(bookId: Long): File = File(directory, "episode-$bookId${DownloadStorage.PHONE_LENGTH_SUFFIX}")
+
     fun ensureDirectory(): File = directory.apply { mkdirs() }
 
     fun freeBytes(): Long = ensureDirectory().usableSpace
@@ -30,13 +36,19 @@ class EpisodeStorage internal constructor(val directory: File) {
     fun delete(bookId: Long, filePath: String?) {
         filePath?.let { File(it).delete() }
         partFileFor(bookId).delete()
+        phonePartFileFor(bookId).delete()
+        phoneLengthFileFor(bookId).delete()
     }
 
     /** Löscht Dateien, die zu keinem Eintrag mehr gehören (z. B. nach Abo-Ende). @return Anzahl. */
     fun deleteOrphans(knownFilePaths: Collection<String>, bookIdsWithPart: Collection<Long>): Int {
         val keep = HashSet<String>()
         knownFilePaths.mapTo(keep) { File(it).name }
-        bookIdsWithPart.mapTo(keep) { partFileFor(it).name }
+        bookIdsWithPart.forEach { bookId ->
+            keep += partFileFor(bookId).name
+            keep += phonePartFileFor(bookId).name
+            keep += phoneLengthFileFor(bookId).name
+        }
         return directory.listFiles().orEmpty()
             .filter { it.isFile && it.name !in keep }
             .count { it.delete() }

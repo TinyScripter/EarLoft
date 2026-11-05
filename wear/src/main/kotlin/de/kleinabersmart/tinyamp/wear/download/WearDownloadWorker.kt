@@ -410,14 +410,22 @@ class WearDownloadWorker(
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo(buildNotification(pending = 0, progress = null))
 
-    /** Ohne Vordergrund-Erlaubnis (Start aus dem Hintergrund) wird einfach normal weitergeladen. */
+    /**
+     * Ohne Vordergrund-Erlaubnis (Start aus dem Hintergrund, etwa die Wiederholung nach Backoff) wird einfach normal
+     * weitergeladen und in diesem Lauf nicht erneut gefragt – sonst gab es bei jedem Prozent eine Ausnahme samt Stacktrace.
+     * Dann gilt das Zeitlimit für Aufträge; was dabei abbricht, setzt der nächste Lauf fort (alles vom Handy, Bücher vom Server).
+     */
+    private var foregroundDenied = false
+
     private suspend fun startForeground() = notify(progress = null)
 
     private suspend fun notify(progress: Int?) {
+        if (foregroundDenied) return
         try {
             setForeground(foregroundInfo(buildNotification(pendingCount(), progress)))
         } catch (e: IllegalStateException) {
-            Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund", e)
+            foregroundDenied = true
+            Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund (${e.javaClass.simpleName})")
         }
     }
 

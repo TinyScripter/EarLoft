@@ -23,6 +23,15 @@ class DownloadStorage internal constructor(val directory: File) {
     /** Ziel während des Ladens; wird erst nach vollständigem Download umbenannt. */
     fun partFileFor(sourceUid: String): File = File(directory, "${safeName(sourceUid)}$PART_SUFFIX")
 
+    /**
+     * Teildatei einer Übertragung vom Handy (Uhr, Wear-Konzept 8.4). Getrennt von [partFileFor], weil der Server eine
+     * andere Fassung schicken kann (Opus); sie bleibt nach einem Abbruch liegen, damit der nächste Versuch weitermacht.
+     */
+    fun phonePartFileFor(sourceUid: String): File = File(directory, "${safeName(sourceUid)}$PHONE_PART_SUFFIX")
+
+    /** Gesamtlänge der Datei laut Handy, zu [phonePartFileFor]. */
+    fun phoneLengthFileFor(sourceUid: String): File = File(directory, "${safeName(sourceUid)}$PHONE_LENGTH_SUFFIX")
+
     fun ensureDirectory(): File = directory.apply { mkdirs() }
 
     fun freeBytes(): Long = ensureDirectory().usableSpace
@@ -30,12 +39,19 @@ class DownloadStorage internal constructor(val directory: File) {
     fun delete(download: DownloadEntity) {
         download.filePath?.let { File(it).delete() }
         partFileFor(download.sourceUid).delete()
+        phonePartFileFor(download.sourceUid).delete()
+        phoneLengthFileFor(download.sourceUid).delete()
     }
 
-    /** Löscht Dateien, zu denen es keinen Eintrag in `downloads` mehr gibt. @return Anzahl. */
+    /**
+     * Löscht Dateien, zu denen es keinen Eintrag in `downloads` mehr gibt, und angefangene Übertragungen vom Handy zu
+     * Einträgen, die inzwischen fertig sind. @return Anzahl.
+     */
     fun deleteOrphans(downloads: List<DownloadEntity>): Int {
         val keep = downloads.flatMapTo(HashSet()) { download ->
-            listOfNotNull(download.filePath?.let { File(it).name }, partFileFor(download.sourceUid).name)
+            val uid = download.sourceUid
+            val phoneParts = if (download.filePath == null) listOf(phonePartFileFor(uid).name, phoneLengthFileFor(uid).name) else emptyList()
+            listOfNotNull(download.filePath?.let { File(it).name }, partFileFor(uid).name) + phoneParts
         }
         return directory.listFiles().orEmpty()
             .filter { it.isFile && it.name !in keep }
@@ -44,6 +60,8 @@ class DownloadStorage internal constructor(val directory: File) {
 
     internal companion object {
         const val PART_SUFFIX = ".part"
+        const val PHONE_PART_SUFFIX = ".phone.part"
+        const val PHONE_LENGTH_SUFFIX = ".phone.part.len"
 
         private val UNSAFE_CHARS = Regex("[^A-Za-z0-9._-]")
 

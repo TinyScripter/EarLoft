@@ -84,22 +84,23 @@ class BookDownloadWorker(
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo(buildNotification(pending = 0, progress = null))
 
     /** Ohne Vordergrund-Erlaubnis (Start aus dem Hintergrund) wird einfach normal weitergeladen. */
+    /**
+     * Aus dem Hintergrund (z. B. Wiederholung nach Backoff) verweigert das System den Vordergrunddienst; dann wird normal
+     * weitergeladen und in diesem Lauf nicht erneut gefragt (sonst bei jedem Prozent eine Ausnahme samt Stacktrace).
+     */
+    private var foregroundDenied = false
+
     private suspend fun startForeground(progress: Int?) {
+        if (foregroundDenied) return
         try {
             setForeground(foregroundInfo(buildNotification(dao.countPendingBookDownloads(), progress)))
         } catch (e: IllegalStateException) {
-            Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund", e)
+            foregroundDenied = true
+            Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund (${e.javaClass.simpleName})")
         }
     }
 
-    private suspend fun notify(progress: Int?) {
-        val notification = buildNotification(dao.countPendingBookDownloads(), progress)
-        try {
-            setForeground(foregroundInfo(notification))
-        } catch (_: IllegalStateException) {
-            // Siehe startForeground.
-        }
-    }
+    private suspend fun notify(progress: Int?) = startForeground(progress)
 
     private fun foregroundInfo(notification: Notification): ForegroundInfo =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

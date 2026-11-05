@@ -355,6 +355,8 @@
     <string name="watch_selection_episode">Episode · %1$s</string>
     <string name="watch_selection_book">Book · %1$s</string>
     <string name="watch_downloads">Loading on the watch</string>
+    <string name="watch_transfer_channel">Transfers to the watch</string>
+    <string name="watch_transfer_notification">Sending files to the watch</string>
     <string name="watch_quality">Quality</string>
     <string name="watch_quality_opus">Opus 128 kbit/s (saves storage)</string>
     <string name="watch_quality_original">Original</string>

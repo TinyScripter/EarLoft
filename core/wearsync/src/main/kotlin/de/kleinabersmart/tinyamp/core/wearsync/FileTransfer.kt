@@ -6,6 +6,7 @@ import com.google.android.gms.wearable.ChannelClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -17,6 +18,8 @@ import kotlinx.coroutines.withContext
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.EOFException
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -56,9 +59,97 @@ suspend fun ChannelClient.receiveFile(
     sourceUid: String,
     output: OutputStream,
     onProgress: suspend (bytesDone: Long, bytesTotal: Long) -> Unit = { _, _ -> },
+): FileReceive = receive(nodeId, sourceUid, from = 0, open = { output }, onProgress)
+
+/**
+ * Uhr: wie [receiveFile], aber in die Teildatei [part] und fortsetzbar (Wear-Konzept 8.4). In [lengthFile] steht die
+ * Gesamtlänge, die das Handy beim ersten Versuch genannt hat. Liegt eine passende Teildatei vor, fragt die Uhr nur den Rest
+ * ab ([WearPaths.FILE_FROM_CHANNEL_PREFIX]); nennt das Handy dann eine andere Länge (Datei geändert), beginnt sie sofort
+ * von vorn. Bei einem Abbruch bleiben beide Dateien liegen, damit der nächste Versuch weitermacht; nach vollständigem
+ * Empfang verschwindet [lengthFile], [part] benennt der Aufrufer um. Hat das Handy keine Datei, verschwinden beide.
+ */
+suspend fun ChannelClient.receiveFileResumable(
+    nodeId: String,
+    sourceUid: String,
+    part: File,
+    lengthFile: File,
+    onProgress: suspend (bytesDone: Long, bytesTotal: Long) -> Unit = { _, _ -> },
+): FileReceive {
+    val from = withContext(Dispatchers.IO) { resumeOffset(part, lengthFile) }
+    if (from > 0) Log.i(TAG, "$sourceUid: setze bei $from Bytes fort")
+    return try {
+        receiveInto(nodeId, sourceUid, part, lengthFile, from, onProgress)
+    } catch (_: LengthChanged) {
+        Log.i(TAG, "$sourceUid hat sich auf dem Handy geändert, beginne von vorn")
+        receiveInto(nodeId, sourceUid, part, lengthFile, from = 0, onProgress)
+    }
+}
+
+/** Wo eine vorhandene Teildatei weitermachen kann; `0`, wenn keine brauchbare da ist. */
+internal fun resumeOffset(part: File, lengthFile: File): Long {
+    if (!part.isFile || !lengthFile.isFile) return 0
+    val total = readLength(lengthFile) ?: return 0
+    val done = part.length()
+    // Leer oder schon so lang wie die Datei: nichts, woran man anknüpfen könnte.
+    return if (done in 1 until total) done else 0
+}
+
+private fun readLength(lengthFile: File): Long? =
+    try {
+        lengthFile.readText().trim().toLongOrNull()
+    } catch (_: IOException) {
+        null
+    }
+
+private suspend fun ChannelClient.receiveInto(
+    nodeId: String,
+    sourceUid: String,
+    part: File,
+    lengthFile: File,
+    from: Long,
+    onProgress: suspend (Long, Long) -> Unit,
+): FileReceive {
+    var output: OutputStream? = null
+    try {
+        val result = receive(nodeId, sourceUid, from, open = { total ->
+            if (from > 0 && readLength(lengthFile) != total) throw LengthChanged()
+            if (from == 0L) {
+                part.parentFile?.mkdirs()
+                lengthFile.writeText(total.toString())
+            }
+            FileOutputStream(part, /* append = */ from > 0).also { output = it }
+        }, onProgress)
+        withContext(Dispatchers.IO) {
+            when (result) {
+                is FileReceive.Received -> lengthFile.delete()
+                FileReceive.Missing -> {
+                    part.delete()
+                    lengthFile.delete()
+                }
+            }
+        }
+        return result
+    } finally {
+        withContext(NonCancellable + Dispatchers.IO) { output?.close() }
+    }
+}
+
+/** Das Handy nennt beim Fortsetzen eine andere Gesamtlänge als beim ersten Versuch. */
+private class LengthChanged : Exception()
+
+/**
+ * Öffnet den Kanal ab Byte [from], liest die Kopfzeile (Gesamtlänge) und schreibt die restlichen Bytes in den Strom, den
+ * [open] für diese Länge liefert (auf `Dispatchers.IO`). [onProgress] zählt in der ganzen Datei.
+ */
+private suspend fun ChannelClient.receive(
+    nodeId: String,
+    sourceUid: String,
+    from: Long,
+    open: (total: Long) -> OutputStream,
+    onProgress: suspend (bytesDone: Long, bytesTotal: Long) -> Unit,
 ): FileReceive {
     val channel = try {
-        openChannel(nodeId, WearPaths.fileChannel(sourceUid)).await()
+        openChannel(nodeId, WearPaths.fileChannel(sourceUid, from)).await()
     } catch (e: ApiException) {
         throw IOException("Kanal zum Handy nicht geöffnet (${e.statusCode})", e)
     }
@@ -91,9 +182,11 @@ suspend fun ChannelClient.receiveFile(
                 val length = input.readLong()
                 headerRead.set(true)
                 if (length == NO_FILE) return@withContext FileReceive.Missing
-                copyExactly(input, output, length) { done, total ->
+                if (from > 0 && from >= length) throw LengthChanged()
+                val output = open(length)
+                copyExactly(input, output, length - from) { done, _ ->
                     lastActivity.set(System.nanoTime())
-                    onProgress(done, total)
+                    onProgress(from + done, length)
                 }
                 FileReceive.Received(length)
             }
@@ -128,17 +221,22 @@ private suspend fun copyExactly(
 }
 
 /**
- * Handy: Schreibt die Datei in den von der Uhr geöffneten [channel] (Länge, dann Inhalt) und schließt ihn.
- * Mit `source == null` geht nur [NO_FILE] raus. [source] wird immer geschlossen.
+ * Handy: Schreibt die Datei in den von der Uhr geöffneten [channel] (ganze Länge, dann der Inhalt ab Byte [from], siehe
+ * [WearPaths.FILE_FROM_CHANNEL_PREFIX]) und schließt ihn. Mit `source == null` geht nur [NO_FILE] raus. [source] wird immer
+ * geschlossen.
  */
-suspend fun ChannelClient.sendFile(channel: ChannelClient.Channel, length: Long, source: InputStream?) {
+suspend fun ChannelClient.sendFile(channel: ChannelClient.Channel, length: Long, source: InputStream?, from: Long = 0) {
     try {
         withContext(Dispatchers.IO) {
             DataOutputStream(getOutputStream(channel).await().buffered(BUFFER_BYTES)).use { output ->
                 output.writeLong(if (source == null) NO_FILE else length)
-                if (source != null) {
-                    val written = source.use { copyAll(it, output) }
-                    if (written != length) Log.w(TAG, "Länge angekündigt $length, gesendet $written")
+                // Liegt der Versatz hinter dem Ende, bricht die Uhr nach der Kopfzeile ab und beginnt von vorn.
+                if (source != null && from < length) {
+                    val written = source.use {
+                        skipFully(it, from)
+                        copyAll(it, output)
+                    }
+                    if (written != length - from) Log.w(TAG, "Länge angekündigt $length ab $from, gesendet $written")
                 }
             }
         }
@@ -154,6 +252,20 @@ suspend fun ChannelClient.sendFile(channel: ChannelClient.Channel, length: Long,
             throw e
         } catch (e: Exception) {
             Log.d(TAG, "Kanal schon geschlossen", e)
+        }
+    }
+}
+
+/** `InputStream.skip` darf weniger überspringen, als verlangt; Inhalts-URIs tun das auch. */
+private fun skipFully(input: InputStream, count: Long) {
+    var left = count
+    while (left > 0) {
+        val skipped = input.skip(left)
+        if (skipped > 0) {
+            left -= skipped
+        } else {
+            if (input.read() < 0) throw EOFException("Datei endet vor Byte $count")
+            left--
         }
     }
 }

@@ -57,6 +57,14 @@ object WearPaths {
      */
     const val FILE_CHANNEL_PREFIX = "/tinyamp/file/"
 
+    /**
+     * Channel, von der Uhr geöffnet, um eine abgebrochene Übertragung fortzusetzen: `/tinyamp/file-from/<offset>/<sourceUid>`.
+     * Das Handy schickt wie bei [FILE_CHANNEL_PREFIX] erst die ganze Länge, dann nur die Bytes ab `<offset>`. Ein eigenes
+     * Präfix statt eines Zusatzes an der Kennung: Ein älteres Handy kennt es nicht und antwortet gar nicht (die Uhr wartet
+     * ab und versucht es später), statt die Datei von vorn zu schicken und die Teildatei zu beschädigen.
+     */
+    const val FILE_FROM_CHANNEL_PREFIX = "/tinyamp/file-from/"
+
     /** DataItem mit Asset, Handy → Uhr: [WearPodcastManifest] (gzip) – Folgen und Bücher für die Uhr (Wear-Konzept 16.1/16.2). */
     const val PODCASTS = "/tinyamp/podcasts"
 
@@ -103,7 +111,26 @@ object WearPaths {
     fun episodes(packetId: String) = "$EPISODES_PREFIX$packetId"
 
     fun fileChannel(sourceUid: String) = "$FILE_CHANNEL_PREFIX$sourceUid"
+
+    /** Kanal für [sourceUid] ab Byte [from]; bei `0` der gewöhnliche [fileChannel]. */
+    fun fileChannel(sourceUid: String, from: Long): String =
+        if (from <= 0) fileChannel(sourceUid) else "$FILE_FROM_CHANNEL_PREFIX$from/$sourceUid"
+
+    /** Kennung und Startversatz eines Datei-Kanals; `null` für andere Pfade. */
+    fun parseFileChannel(path: String): FileChannelRequest? = when {
+        path.startsWith(FILE_CHANNEL_PREFIX) -> FileChannelRequest(path.removePrefix(FILE_CHANNEL_PREFIX), 0)
+        path.startsWith(FILE_FROM_CHANNEL_PREFIX) -> {
+            val rest = path.removePrefix(FILE_FROM_CHANNEL_PREFIX)
+            val from = rest.substringBefore('/').toLongOrNull()
+            val sourceUid = rest.substringAfter('/', missingDelimiterValue = "")
+            if (from == null || from < 0 || sourceUid.isEmpty()) null else FileChannelRequest(sourceUid, from)
+        }
+        else -> null
+    }
 }
+
+/** Anfrage im Datei-Kanal: die Datei [sourceUid] ab Byte [from]. */
+data class FileChannelRequest(val sourceUid: String, val from: Long)
 
 /**
  * Kennung einer Folge im Datei-Kanal: `episode:<feedId>:<guid>`, beide Teile URL-kodiert (eine guid kann beliebige

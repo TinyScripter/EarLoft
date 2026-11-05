@@ -58,6 +58,8 @@ dependencies {
     implementation(libs.androidx.glance.material3)
     // Widget: Sekundentakt bei Tempo ≠ 1× nur, solange die App nicht selbst im Vordergrund ist.
     implementation(libs.androidx.lifecycle.process)
+    // Hält den Prozess, solange Dateien an die Uhr gehen (WatchTransferWorker).
+    implementation(libs.androidx.work.runtime)
     // Chromecast nur auf dem Handy; :core:playback (auch von :wear genutzt) kennt nur PlayerFactory.
     implementation(libs.androidx.media3.cast)
     implementation(libs.aboutlibraries.compose.m3)

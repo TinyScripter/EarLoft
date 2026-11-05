@@ -17,6 +17,7 @@ import de.kleinabersmart.tinyamp.core.wearsync.WearCoverFile
 import de.kleinabersmart.tinyamp.core.wearsync.WearEpisodeFile
 import de.kleinabersmart.tinyamp.core.wearsync.WearThumbnailFile
 import de.kleinabersmart.tinyamp.core.wearsync.receiveFile
+import de.kleinabersmart.tinyamp.core.wearsync.receiveFileResumable
 import de.kleinabersmart.tinyamp.wear.sync.PhoneConnection
 import de.kleinabersmart.tinyamp.wear.sync.WearManifestSource
 import kotlinx.coroutines.CancellationException
@@ -31,8 +32,9 @@ import javax.inject.Singleton
 /**
  * Holt eine Datei im Original vom Handy (Wear-Konzept 8.4): für Songs, die nur das Handy hat, und als Ausweg,
  * wenn der Server nicht erreichbar ist; ebenso für Podcast-Folgen ([fetchEpisode], 16.1), Hörbücher ([fetchBookTrack], 16.2)
- * und deren Bilder ([fetchCover]). Die Datei entsteht wie beim [de.kleinabersmart.tinyamp.core.download.Downloader]
- * als `.part` und wird erst nach vollständigem Empfang umbenannt.
+ * und deren Bilder ([fetchCover]). Die Datei entsteht als eigene Teildatei (`.phone.part`) und wird erst nach vollständigem
+ * Empfang umbenannt. Bricht die Übertragung ab (Handy außer Reichweite, App am Handy beendet, Auftrag gestoppt), bleibt
+ * sie liegen, und der nächste Versuch macht dort weiter; verworfen wird sie nur, wenn der Eintrag wegfällt.
  */
 @Singleton
 class PhoneFileFetcher @Inject constructor(
@@ -57,40 +59,37 @@ class PhoneFileFetcher @Inject constructor(
         // Das Handy kennt die Quelle unter ihrer eigenen `sourceUid`; die Pseudo-Quelle der Uhr trägt sie als `remoteId`.
         val requestUid = if (songSource.sourceId == WearManifestSource.PHONE_SOURCE_ID) songSource.remoteId else uid
 
-        val part = storage.partFileFor(uid)
+        val part = storage.phonePartFileFor(uid)
+        val lengthFile = storage.phoneLengthFileFor(uid)
         storage.ensureDirectory()
         return try {
             var lastReport = 0L
-            val received = withContext(Dispatchers.IO) {
-                part.outputStream().use { output ->
-                    channelClient.receiveFile(nodeId, requestUid, output) { done, total ->
-                        val now = System.nanoTime()
-                        if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
-                            lastReport = now
-                            if (downloadDao.updateProgress(uid, done, total) == 0) throw RemovedException()
-                            onProgress(done, total)
-                        }
-                    }
+            val received = channelClient.receiveFileResumable(nodeId, requestUid, part, lengthFile) { done, total ->
+                val now = System.nanoTime()
+                if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
+                    lastReport = now
+                    if (downloadDao.updateProgress(uid, done, total) == 0) throw RemovedException()
+                    onProgress(done, total)
                 }
             }
             when (received) {
                 FileReceive.Missing -> {
-                    part.delete()
                     downloadDao.markFailed(uid)
                     DownloadOutcome.Failed(MISSING_ON_PHONE)
                 }
                 is FileReceive.Received -> finish(uid, songSource.mimeType, received.bytes)
             }
         } catch (e: RemovedException) {
-            part.delete()
+            withContext(NonCancellable + Dispatchers.IO) {
+                part.delete()
+                lengthFile.delete()
+            }
             DownloadOutcome.Cancelled
         } catch (e: CancellationException) {
-            part.delete()
             withContext(NonCancellable) { downloadDao.requeue(uid) }
             throw e
         } catch (e: IOException) {
-            Log.w(TAG, "Übertragung von $requestUid abgebrochen", e)
-            part.delete()
+            Log.w(TAG, "Übertragung von $requestUid abgebrochen (${part.length()} Bytes bleiben für den nächsten Versuch)", e)
             DownloadOutcome.Retry(e)
         }
     }
@@ -111,24 +110,19 @@ class PhoneFileFetcher @Inject constructor(
         val book = bookDao.book(bookId) ?: return DownloadOutcome.Cancelled
         val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Handy nicht verbunden"))
         val requestUid = WearEpisodeFile.uid(book.serverId, book.remoteId)
-        val part = episodeStorage.partFileFor(bookId)
+        val part = episodeStorage.phonePartFileFor(bookId)
         episodeStorage.ensureDirectory()
         return try {
             var lastReport = 0L
-            val received = withContext(Dispatchers.IO) {
-                part.outputStream().use { output ->
-                    channelClient.receiveFile(nodeId, requestUid, output) { done, total ->
-                        val now = System.nanoTime()
-                        if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
-                            lastReport = now
-                            onProgress(done, total)
-                        }
-                    }
+            val received = channelClient.receiveFileResumable(nodeId, requestUid, part, episodeStorage.phoneLengthFileFor(bookId)) { done, total ->
+                val now = System.nanoTime()
+                if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
+                    lastReport = now
+                    onProgress(done, total)
                 }
             }
             when (received) {
                 FileReceive.Missing -> {
-                    part.delete()
                     podcastDao.markDownloadFailed(bookId)
                     DownloadOutcome.Failed(MISSING_ON_PHONE)
                 }
@@ -145,12 +139,10 @@ class PhoneFileFetcher @Inject constructor(
                 }
             }
         } catch (e: CancellationException) {
-            part.delete()
             withContext(NonCancellable) { podcastDao.requeueDownload(bookId) }
             throw e
         } catch (e: IOException) {
-            Log.w(TAG, "Übertragung von $requestUid abgebrochen", e)
-            part.delete()
+            Log.w(TAG, "Übertragung von $requestUid abgebrochen (${part.length()} Bytes bleiben für den nächsten Versuch)", e)
             DownloadOutcome.Retry(e)
         }
     }
@@ -173,26 +165,21 @@ class PhoneFileFetcher @Inject constructor(
         val book = bookDao.book(bookId) ?: return DownloadOutcome.Cancelled
         val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Handy nicht verbunden"))
         val requestUid = WearBookFile.uid(book.serverId, book.remoteId, index)
-        // Eine angefangene Server-Übertragung passt nicht zur Datei vom Handy.
+        // Eine angefangene Server-Übertragung passt nicht zur Datei vom Handy; die vom Handy hat ihre eigene Teildatei.
         bookStorage.deletePart(bookId, index)
-        val part = bookStorage.partFileFor(bookId, index)
+        val part = bookStorage.phonePartFileFor(bookId, index)
         bookStorage.ensureDirectory()
         return try {
             var lastReport = 0L
-            val received = withContext(Dispatchers.IO) {
-                part.outputStream().use { output ->
-                    channelClient.receiveFile(nodeId, requestUid, output) { done, total ->
-                        val now = System.nanoTime()
-                        if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
-                            lastReport = now
-                            onProgress(done, total)
-                        }
-                    }
+            val received = channelClient.receiveFileResumable(nodeId, requestUid, part, bookStorage.phoneLengthFileFor(bookId, index)) { done, total ->
+                val now = System.nanoTime()
+                if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
+                    lastReport = now
+                    onProgress(done, total)
                 }
             }
             when (received) {
                 FileReceive.Missing -> {
-                    part.delete()
                     bookDao.markBookDownloadFailed(bookId)
                     DownloadOutcome.Failed(MISSING_ON_PHONE)
                 }
@@ -209,12 +196,10 @@ class PhoneFileFetcher @Inject constructor(
                 }
             }
         } catch (e: CancellationException) {
-            part.delete()
             withContext(NonCancellable) { bookDao.requeueBookTrack(bookId, index) }
             throw e
         } catch (e: IOException) {
-            Log.w(TAG, "Übertragung von $requestUid abgebrochen", e)
-            part.delete()
+            Log.w(TAG, "Übertragung von $requestUid abgebrochen (${part.length()} Bytes bleiben für den nächsten Versuch)", e)
             DownloadOutcome.Retry(e)
         }
     }
@@ -247,7 +232,7 @@ class PhoneFileFetcher @Inject constructor(
     }
 
     private suspend fun finish(uid: String, mimeType: String?, bytes: Long): DownloadOutcome {
-        val part = storage.partFileFor(uid)
+        val part = storage.phonePartFileFor(uid)
         val target = storage.fileFor(uid, mimeType)
         if (!part.renameTo(target)) throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
         if (downloadDao.markDone(uid, target.absolutePath, target.length()) == 0) {

@@ -28,6 +28,17 @@ class BookStorage internal constructor(val directory: File) {
     /** Merkmal der Serverdatei, zu der die Teildatei gehört. */
     fun metaFileFor(bookId: Long, trackIndex: Int): File = File(directory, "${prefix(bookId)}$trackIndex$META_SUFFIX")
 
+    /**
+     * Teildatei einer Übertragung vom Handy (Uhr), getrennt von der des Servers ([partFileFor]); wie diese bleibt sie nach
+     * einem Abbruch liegen und verschwindet mit [deleteParts].
+     */
+    fun phonePartFileFor(bookId: Long, trackIndex: Int): File =
+        File(directory, "${prefix(bookId)}$trackIndex${DownloadStorage.PHONE_PART_SUFFIX}")
+
+    /** Gesamtlänge der Datei laut Handy, zu [phonePartFileFor]. */
+    fun phoneLengthFileFor(bookId: Long, trackIndex: Int): File =
+        File(directory, "${prefix(bookId)}$trackIndex${DownloadStorage.PHONE_LENGTH_SUFFIX}")
+
     fun ensureDirectory(): File = directory.apply { mkdirs() }
 
     fun freeBytes(): Long = ensureDirectory().usableSpace

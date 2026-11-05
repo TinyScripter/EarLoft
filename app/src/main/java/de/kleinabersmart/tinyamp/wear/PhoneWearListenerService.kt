@@ -72,6 +72,7 @@ class PhoneWearListenerService : WearableListenerService() {
     @Inject lateinit var remotePublisher: WearRemotePublisher
     @Inject lateinit var watchSpoken: WatchSpoken
     @Inject lateinit var thumbnails: WearThumbnails
+    @Inject lateinit var transfers: WatchFileTransfers
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onMessageReceived(event: MessageEvent) {
@@ -181,12 +182,11 @@ class PhoneWearListenerService : WearableListenerService() {
     /**
      * Die Uhr holt eine Datei (`/tinyamp/file/<sourceUid>`, Wear-Konzept 8.4; Folgen: [WearEpisodeFile], 16.1; Buchdateien:
      * [WearBookFile], 16.2; Bilder: [WearCoverFile], Vorschaubilder: [WearThumbnailFile], 17): Das Handy schickt die lokale Datei oder den fertigen Download im Original,
-     * ohne Datei nur die Kopfzeile „keine Datei“.
+     * ohne Datei nur die Kopfzeile „keine Datei“. Setzt die Uhr fort (`/tinyamp/file-from/<offset>/…`), geht nur der Rest hinaus.
+     * Audiodateien laufen unter [WatchFileTransfers], damit der Prozess währenddessen nicht eingefroren wird.
      */
     override fun onChannelOpened(channel: ChannelClient.Channel) {
-        val path = channel.path
-        if (!path.startsWith(WearPaths.FILE_CHANNEL_PREFIX)) return
-        val sourceUid = path.removePrefix(WearPaths.FILE_CHANNEL_PREFIX)
+        val (sourceUid, from) = WearPaths.parseFileChannel(channel.path) ?: return
         applicationScope.launch {
             val episode = WearEpisodeFile.parse(sourceUid)
             val bookTrack = WearBookFile.parse(sourceUid)
@@ -199,8 +199,10 @@ class PhoneWearListenerService : WearableListenerService() {
                 thumbnail != null -> thumbnails.open(thumbnail)?.let { PhoneFile(it.size.toLong(), ByteArrayInputStream(it)) }
                 else -> fileLocator.open(sourceUid)
             }
-            Log.d(TAG, "Datei $sourceUid für die Uhr: ${file?.length?.let { "$it Bytes" } ?: "keine Datei"}")
-            channelClient.sendFile(channel, file?.length ?: 0, file?.input)
+            Log.d(TAG, "Datei $sourceUid für die Uhr: ${file?.length?.let { "$it Bytes ab $from" } ?: "keine Datei"}")
+            val send: suspend () -> Unit = { channelClient.sendFile(channel, file?.length ?: 0, file?.input, from) }
+            // Bilder sind klein und kommen beim Blättern in Listen gleich dutzendweise; dafür kein Auftrag.
+            if (file != null && cover == null && thumbnail == null) transfers.track(send) else send()
         }
     }
 
