@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.core.data.spoken
 
 import android.content.Context
+import android.graphics.Bitmap
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import keinabersmart.kleinaberlaut.core.data.security.SecretStore
@@ -22,11 +23,13 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.ByteArrayOutputStream
 
 @RunWith(RobolectricTestRunner::class)
 class BookCoversTest {
@@ -106,6 +109,26 @@ class BookCoversTest {
         assertNull(covers.coverBytes(id))
         covers.store(id, byteArrayOf(6))
         assertArrayEquals(byteArrayOf(6), covers.coverBytes(id))
+    }
+
+    @Test
+    fun `thumbnail only comes from the cache`() = runTest {
+        val id = episode("f1", "g1", coverUrl = EPISODE_IMAGE)
+        assertNull(covers.thumbnail(id, 96))
+        // Das Bild ist im Netz, aber die Liste hat es nicht geladen.
+        assertArrayEquals(byteArrayOf(1, 2, 3), covers.coverBytes(id))
+    }
+
+    @Test
+    fun `thumbnail is scaled down`() = runTest {
+        val id = db.bookDao().upsertBook(book("abs", "item"))
+        val png = ByteArrayOutputStream().also {
+            Bitmap.createBitmap(400, 300, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it)
+        }.toByteArray()
+        covers.store(id, png)
+        val thumbnail = covers.thumbnail(id, 96)!!
+        assertEquals(96, thumbnail.width)
+        assertEquals(72, thumbnail.height)
     }
 
     private suspend fun episode(feedId: String, guid: String, coverUrl: String?): Long =

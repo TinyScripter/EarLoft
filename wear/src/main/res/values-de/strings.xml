@@ -3,6 +3,10 @@
         <item quantity="one">%d Titel</item>
         <item quantity="other">%d Titel</item>
     </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%d Album</item>
+        <item quantity="other">%d Alben</item>
+    </plurals>
     <string name="selection_missing">Nicht mehr auf der Uhr</string>
     <string name="selection_not_loaded">Noch nicht geladen</string>
     <string name="selection_progress">%1$d von %2$d geladen</string>
@@ -15,7 +19,11 @@
     <string name="start_current_playback">Aktuelle Wiedergabe</string>
 
     <!-- Listen -->
+    <string name="list_music">Musik</string>
+    <string name="list_podcasts">Podcasts</string>
+    <string name="list_books">Bücher</string>
     <string name="list_albums">Alben</string>
+    <string name="list_artists">Künstler</string>
     <string name="list_favorites">Favoriten</string>
     <string name="list_playlists">Playlists</string>
     <string name="list_continue">Weiterhören</string>
@@ -23,6 +31,8 @@
     <string name="list_continue_empty_watch">Noch keine Folgen auf der Uhr. Wie viele, stellst du am Telefon unter Einstellungen → Uhr ein.</string>
     <string name="list_empty_watch">Noch nichts auf der Uhr. Wähle Musik am Telefon oder unter „Musik hinzufügen“.</string>
     <string name="list_empty_phone">Nichts auf dem Telefon</string>
+    <string name="list_podcasts_empty_watch">Keine Folgen auf der Uhr</string>
+    <string name="list_books_empty_watch">Keine Bücher auf der Uhr</string>
 
     <!-- Fernsteuerung des Telefons -->
     <string name="remote_unreachable">Telefon nicht erreichbar</string>

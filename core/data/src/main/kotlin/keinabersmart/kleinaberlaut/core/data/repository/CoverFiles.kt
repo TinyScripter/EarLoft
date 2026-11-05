@@ -23,6 +23,9 @@ class CoverFiles @Inject constructor(
     /** `null`, wenn keine Datei da oder nicht lesbar ist. */
     fun read(albumId: Long): Bitmap? = file(albumId).takeIf { it.isFile }?.let { BitmapFactory.decodeFile(it.path) }
 
+    /** Wie [read], aber höchstens [maxPx] groß (Vorschaubilder in den Listen der Uhr). */
+    fun readScaled(albumId: Long, maxPx: Int): Bitmap? = decodeScaled(file(albumId), maxPx)
+
     /** Schreibt erst in eine `.part`-Datei, damit ein Abbruch keine halbe Datei hinterlässt. */
     fun write(albumId: Long, bitmap: Bitmap) {
         directory.mkdirs()

@@ -1,6 +1,5 @@
 package keinabersmart.kleinaberlaut.wear.ui
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -27,39 +26,60 @@ import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.material3.MaterialTheme
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.wear.R
 import kotlinx.coroutines.launch
 
+/** Die geladenen Alben der Uhr; mit [artistId] nur die dieses Künstlers, dann steht [title] (sein Name) oben. */
 @Composable
-fun LocalAlbumsScreen(onClick: (Long) -> Unit, viewModel: LocalAlbumsViewModel = hiltViewModel()) {
+fun LocalAlbumsScreen(
+    onClick: (Long) -> Unit,
+    artistId: Long? = null,
+    title: String? = null,
+    viewModel: LocalAlbumsViewModel = hiltViewModel<LocalAlbumsViewModel, LocalAlbumsViewModel.Factory> { it.create(artistId) },
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    EntryListContent(R.string.list_albums, state, onClick)
+    EntryListContent(title ?: stringResource(R.string.list_albums), state, onClick)
+}
+
+@Composable
+fun LocalArtistsScreen(onClick: (artistId: Long, name: String) -> Unit, viewModel: LocalArtistsViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    EntryListContent(stringResource(R.string.list_artists), state) { id ->
+        val name = (state as? EntryListState.Ready)?.entries?.firstOrNull { it.key == id }?.title.orEmpty()
+        onClick(id, name)
+    }
 }
 
 @Composable
 fun LocalPlaylistsScreen(onClick: (Long) -> Unit, viewModel: LocalPlaylistsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    EntryListContent(R.string.list_playlists, state, onClick)
+    EntryListContent(stringResource(R.string.list_playlists), state, onClick)
 }
 
 @Composable
 fun RemoteAlbumsScreen(onClick: (Long) -> Unit, viewModel: RemoteAlbumsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    EntryListContent(R.string.list_albums, state, onClick)
+    EntryListContent(stringResource(R.string.list_albums), state, onClick)
 }
 
 @Composable
 fun RemotePlaylistsScreen(onClick: (Long) -> Unit, viewModel: RemotePlaylistsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    EntryListContent(R.string.list_playlists, state, onClick)
+    EntryListContent(stringResource(R.string.list_playlists), state, onClick)
 }
 
-/** „Weiterhören“ auf der Uhr; ein Tipp spielt die Folge hier, [onPlayed] öffnet danach die Wiedergabe-Ansicht. */
+/** Podcasts ([BookKind.EPISODE]) bzw. Bücher auf der Uhr; ein Tipp spielt hier, [onPlayed] öffnet danach die Wiedergabe-Ansicht. */
 @Composable
-fun LocalContinueScreen(onPlayed: () -> Unit, viewModel: LocalContinueViewModel = hiltViewModel()) {
+fun LocalSpokenScreen(
+    kind: BookKind,
+    onPlayed: () -> Unit,
+    viewModel: LocalSpokenViewModel = hiltViewModel<LocalSpokenViewModel, LocalSpokenViewModel.Factory> { it.create(kind) },
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    EntryListContent(R.string.list_continue, state) { bookId ->
+    val title = stringResource(if (kind == BookKind.EPISODE) R.string.list_podcasts else R.string.list_books)
+    EntryListContent(title, state) { bookId ->
         scope.launch { if (viewModel.play(bookId)) onPlayed() }
     }
 }
@@ -69,13 +89,13 @@ fun LocalContinueScreen(onPlayed: () -> Unit, viewModel: LocalContinueViewModel 
 fun RemoteContinueScreen(onPlayed: () -> Unit, viewModel: RemoteContinueViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    EntryListContent(R.string.list_continue, state) { bookId ->
+    EntryListContent(stringResource(R.string.list_continue), state) { bookId ->
         scope.launch { if (viewModel.play(bookId)) onPlayed() }
     }
 }
 
 @Composable
-private fun EntryListContent(@StringRes titleRes: Int, state: EntryListState, onClick: (Long) -> Unit) {
+private fun EntryListContent(title: String, state: EntryListState, onClick: (Long) -> Unit) {
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(scrollState = columnState) { contentPadding ->
@@ -90,7 +110,7 @@ private fun EntryListContent(@StringRes titleRes: Int, state: EntryListState, on
                     modifier = Modifier.transformedHeight(this, transformationSpec),
                     transformation = SurfaceTransformation(transformationSpec),
                 ) {
-                    Text(stringResource(titleRes), textAlign = TextAlign.Center)
+                    Text(title, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
             when (state) {
@@ -106,11 +126,13 @@ private fun EntryListContent(@StringRes titleRes: Int, state: EntryListState, on
                     )
                 }
                 is EntryListState.Ready -> items(state.entries, key = { it.key }) { entry ->
+                    val cover = entry.cover
                     Button(
                         onClick = { onClick(entry.key) },
                         enabled = entry.enabled,
                         modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
                         transformation = SurfaceTransformation(transformationSpec),
+                        icon = if (cover != null) { { CoverThumbnail(cover) } } else null,
                         label = { Text(entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                         secondaryLabel = {
                             val loaded = entry.loadedCount
@@ -120,6 +142,7 @@ private fun EntryListContent(@StringRes titleRes: Int, state: EntryListState, on
                                     loaded != null && loaded < entry.songCount ->
                                         stringResource(R.string.selection_progress, loaded, entry.songCount)
                                     entry.artist != null -> entry.artist
+                                    entry.albumCount != null -> pluralStringResource(R.plurals.album_count, entry.albumCount, entry.albumCount)
                                     else -> pluralStringResource(R.plurals.song_count, entry.songCount, entry.songCount)
                                 },
                                 maxLines = 1,
@@ -138,11 +161,11 @@ private fun EntryListContent(@StringRes titleRes: Int, state: EntryListState, on
 private fun EntryListPreview() {
     MaterialTheme {
         EntryListContent(
-            R.string.list_albums,
+            "Alben",
             EntryListState.Ready(
                 listOf(
-                    ListEntry(1, "Mondlicht", 4, artist = "Nachtfalter", loadedCount = 4),
-                    ListEntry(2, "Ein Album mit sehr langem Namen", 12, artist = "Jemand", loadedCount = 5),
+                    ListEntry(1, "Mondlicht", 4, artist = "Nachtfalter", loadedCount = 4, cover = CoverRef.Album(1)),
+                    ListEntry(2, "Ein Album mit sehr langem Namen", 12, artist = "Jemand", loadedCount = 5, cover = CoverRef.Album(2)),
                 ),
             ),
             onClick = {},

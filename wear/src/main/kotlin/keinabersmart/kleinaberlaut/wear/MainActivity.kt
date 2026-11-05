@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,12 +25,18 @@ import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
 import dagger.hilt.android.AndroidEntryPoint
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.playback.EXTRA_OPEN_NOW_PLAYING
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
 import keinabersmart.kleinaberlaut.wear.ui.AddMusicScreen
 import keinabersmart.kleinaberlaut.wear.ui.AlbumScreen
+import keinabersmart.kleinaberlaut.wear.ui.ListCovers
 import keinabersmart.kleinaberlaut.wear.ui.LocalAlbumsScreen
-import keinabersmart.kleinaberlaut.wear.ui.LocalContinueScreen
+import keinabersmart.kleinaberlaut.wear.ui.LocalListCovers
+import keinabersmart.kleinaberlaut.wear.ui.LocalArtistsScreen
+import keinabersmart.kleinaberlaut.wear.ui.LocalSpokenScreen
+import keinabersmart.kleinaberlaut.wear.ui.MusicScreen
+import keinabersmart.kleinaberlaut.wear.ui.StartTarget
 import keinabersmart.kleinaberlaut.wear.ui.LocalPlaylistsScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemoteAlbumsScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemoteContinueScreen
@@ -43,9 +50,12 @@ import keinabersmart.kleinaberlaut.wear.ui.SleepTimerScreen
 import keinabersmart.kleinaberlaut.wear.ui.StartScreen
 import keinabersmart.kleinaberlaut.wear.ui.StorageScreen
 import kotlinx.serialization.Serializable
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject lateinit var listCovers: ListCovers
+
     /** Der Tipp auf den Chip der laufenden Musik (Zifferblatt) soll direkt die Wiedergabe-Ansicht öffnen. */
     private var openNowPlaying by mutableStateOf(false)
 
@@ -67,7 +77,9 @@ class MainActivity : ComponentActivity() {
         // Nur beim frischen Start: Nach einer Neuerstellung (Drehung, Prozess) steht der Intent noch an der Activity.
         if (savedInstanceState == null) openNowPlaying = intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)
         setContent {
-            WearApp(openNowPlaying = openNowPlaying, onNowPlayingOpened = { openNowPlaying = false })
+            CompositionLocalProvider(LocalListCovers provides listCovers) {
+                WearApp(openNowPlaying = openNowPlaying, onNowPlayingOpened = { openNowPlaying = false })
+            }
         }
     }
 
@@ -110,6 +122,22 @@ data object AddMusicRoute : NavKey
 @Serializable
 data class NowPlayingRoute(val remote: Boolean = false) : NavKey
 
+/** Menü Musik der Uhr: Alben, Künstler, Favoriten, Playlists. */
+@Serializable
+data object MusicRoute : NavKey
+
+/** Die Künstler der geladenen Alben. */
+@Serializable
+data object ArtistsRoute : NavKey
+
+/** Die geladenen Alben eines Künstlers; [name] steht oben. */
+@Serializable
+data class ArtistRoute(val artistId: Long, val name: String) : NavKey
+
+/** Podcasts ([BookKind.EPISODE]) bzw. Bücher auf der Uhr (Wear-Konzept 16.1/16.2). */
+@Serializable
+data class SpokenRoute(val kind: BookKind) : NavKey
+
 /** Geladene Alben der Uhr bzw., mit [remote], alle Alben des Handys. */
 @Serializable
 data class AlbumsRoute(val remote: Boolean) : NavKey
@@ -122,12 +150,9 @@ data class PlaylistsRoute(val remote: Boolean) : NavKey
 @Serializable
 data class AlbumRoute(val albumId: Long) : NavKey
 
-/**
- * „Weiterhören“: die Folgen auf der Uhr bzw., mit [remote], angefangene Bücher und die Warteschlange der Podcasts des
- * Handys (Wear-Konzept 16).
- */
+/** „Weiterhören“ des Handys: angefangene Bücher und die Warteschlange der Podcasts (Wear-Konzept 16). */
 @Serializable
-data class ContinueRoute(val remote: Boolean) : NavKey
+data object PhoneContinueRoute : NavKey
 
 /** Eine Titelliste des Handys: Album, Playlist oder Favoriten ([refId] fehlt bei Favoriten). */
 @Serializable
@@ -168,23 +193,39 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                 entryProvider = entryProvider {
                     entry<StartRoute> {
                         StartScreen(
-                            onStorageClick = { backStack.add(StorageRoute) },
-                            onAddMusicClick = { backStack.add(AddMusicRoute) },
                             onNowPlayingClick = { backStack.openNowPlaying(it) },
-                            onAlbumsClick = { backStack.add(AlbumsRoute(it)) },
-                            onPlaylistsClick = { backStack.add(PlaylistsRoute(it)) },
-                            onFavoritesClick = { backStack.add(SelectionRoute(it)) },
-                            onPhoneFavoritesClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.FAVORITES)) },
-                            onContinueClick = { backStack.add(ContinueRoute(it)) },
+                            onClick = { target ->
+                                backStack.add(
+                                    when (target) {
+                                        StartTarget.MUSIC -> MusicRoute
+                                        StartTarget.PODCASTS -> SpokenRoute(BookKind.EPISODE)
+                                        StartTarget.BOOKS -> SpokenRoute(BookKind.BOOK)
+                                        StartTarget.ADD_MUSIC -> AddMusicRoute
+                                        StartTarget.STORAGE -> StorageRoute
+                                        StartTarget.PHONE_CONTINUE -> PhoneContinueRoute
+                                        StartTarget.PHONE_ALBUMS -> AlbumsRoute(remote = true)
+                                        StartTarget.PHONE_FAVORITES -> RemoteTracksRoute(WearRemoteListKind.FAVORITES)
+                                        StartTarget.PHONE_PLAYLISTS -> PlaylistsRoute(remote = true)
+                                    },
+                                )
+                            },
                         )
                     }
-                    entry<ContinueRoute> { route ->
-                        if (route.remote) {
-                            RemoteContinueScreen(onPlayed = { backStack.openNowPlaying(remote = true) })
-                        } else {
-                            LocalContinueScreen(onPlayed = { backStack.openNowPlaying() })
-                        }
+                    entry<MusicRoute> {
+                        MusicScreen(
+                            onShuffled = { backStack.openNowPlaying() },
+                            onAlbumsClick = { backStack.add(AlbumsRoute(remote = false)) },
+                            onArtistsClick = { backStack.add(ArtistsRoute) },
+                            onFavoritesClick = { backStack.add(SelectionRoute(it)) },
+                            onPlaylistsClick = { backStack.add(PlaylistsRoute(remote = false)) },
+                        )
                     }
+                    entry<ArtistsRoute> { LocalArtistsScreen(onClick = { id, name -> backStack.add(ArtistRoute(id, name)) }) }
+                    entry<ArtistRoute> { route ->
+                        LocalAlbumsScreen(onClick = { backStack.add(AlbumRoute(it)) }, artistId = route.artistId, title = route.name)
+                    }
+                    entry<SpokenRoute> { route -> LocalSpokenScreen(route.kind, onPlayed = { backStack.openNowPlaying() }) }
+                    entry<PhoneContinueRoute> { RemoteContinueScreen(onPlayed = { backStack.openNowPlaying(remote = true) }) }
                     entry<NowPlayingRoute> { route ->
                         if (route.remote) {
                             RemoteNowPlayingScreen()

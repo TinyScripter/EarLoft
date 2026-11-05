@@ -38,21 +38,21 @@ import keinabersmart.kleinaberlaut.wear.R
 import keinabersmart.kleinaberlaut.wear.download.SelectionItem
 import keinabersmart.kleinaberlaut.wear.sync.PhoneStatus
 
+/** Wohin ein Eintrag des Startbildschirms führt. */
+enum class StartTarget {
+    MUSIC, PODCASTS, BOOKS, ADD_MUSIC, STORAGE,
+    PHONE_CONTINUE, PHONE_ALBUMS, PHONE_FAVORITES, PHONE_PLAYLISTS,
+}
+
 /**
- * Startbildschirm (Wear-Konzept 11, 14): oben die Uhr selbst, darunter – solange ein Handy mit der App verbunden ist –
- * das Handy als Fernsteuerung. Ohne Handy und ohne geladene Musik erklärt er stattdessen die Einrichtung
- * (Handy fehlt, App fehlt).
+ * Startbildschirm (Wear-Konzept 11, 14): oben die Uhr selbst mit Musik, Podcasts und Büchern (je nur, wenn etwas davon auf der
+ * Uhr ist), darunter – solange ein Handy mit der App verbunden ist – das Handy als Fernsteuerung. Ohne Handy und ohne Inhalte
+ * erklärt er stattdessen die Einrichtung (Handy fehlt, App fehlt).
  */
 @Composable
 fun StartScreen(
-    onStorageClick: () -> Unit,
-    onAddMusicClick: () -> Unit,
     onNowPlayingClick: (remote: Boolean) -> Unit,
-    onAlbumsClick: (remote: Boolean) -> Unit,
-    onPlaylistsClick: (remote: Boolean) -> Unit,
-    onFavoritesClick: (playlistId: Long) -> Unit,
-    onPhoneFavoritesClick: () -> Unit,
-    onContinueClick: (remote: Boolean) -> Unit,
+    onClick: (StartTarget) -> Unit,
     viewModel: StartViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -60,15 +60,8 @@ fun StartScreen(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
     StartContent(
         state = state,
-        onStorageClick = onStorageClick,
-        onAddMusicClick = onAddMusicClick,
         onNowPlayingClick = onNowPlayingClick,
-        onAlbumsClick = onAlbumsClick,
-        onPlaylistsClick = onPlaylistsClick,
-        onFavoritesClick = onFavoritesClick,
-        onPhoneFavoritesClick = onPhoneFavoritesClick,
-        onContinueClick = onContinueClick,
-        onShuffleAll = { viewModel.shuffleAll { onNowPlayingClick(false) } },
+        onClick = onClick,
         onShuffleAllOnPhone = { viewModel.shuffleAllOnPhone { onNowPlayingClick(true) } },
         onOpenOnPhone = viewModel::openStoreOnPhone,
         onRetry = viewModel::refresh,
@@ -78,15 +71,8 @@ fun StartScreen(
 @Composable
 private fun StartContent(
     state: StartUiState,
-    onStorageClick: () -> Unit,
-    onAddMusicClick: () -> Unit,
     onNowPlayingClick: (Boolean) -> Unit,
-    onAlbumsClick: (Boolean) -> Unit,
-    onPlaylistsClick: (Boolean) -> Unit,
-    onFavoritesClick: (Long) -> Unit,
-    onPhoneFavoritesClick: () -> Unit,
-    onContinueClick: (Boolean) -> Unit,
-    onShuffleAll: () -> Unit,
+    onClick: (StartTarget) -> Unit,
     onShuffleAllOnPhone: () -> Unit,
     onOpenOnPhone: (nodeId: String) -> Unit,
     onRetry: () -> Unit,
@@ -100,26 +86,24 @@ private fun StartContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = contentPadding,
         ) {
-            if (state.hasSelections || state.hasEpisodes || state.phoneConnected) {
+            if (state.hasContent || state.phoneConnected) {
                 header(R.string.start_section_watch, transformationSpec)
                 action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(false) }, secondary = state.nowPlaying)
-                // Folgen vom Handy (Wear-Konzept 16.1); ohne Folgen kein Eintrag.
-                if (state.hasEpisodes) action(R.string.list_continue, transformationSpec, onClick = { onContinueClick(false) })
-                action(R.string.list_albums, transformationSpec, onClick = { onAlbumsClick(false) })
-                val favorites = state.favoritesPlaylistId
-                action(R.string.list_favorites, transformationSpec, enabled = favorites != null, onClick = { favorites?.let(onFavoritesClick) })
-                action(R.string.list_playlists, transformationSpec, onClick = { onPlaylistsClick(false) })
-                if (state.canShuffleAll) action(R.string.start_shuffle_all, transformationSpec, onClick = onShuffleAll)
-                action(R.string.add_music_title, transformationSpec, onClick = onAddMusicClick)
-                action(R.string.storage_title, transformationSpec, onClick = onStorageClick)
+                // Je Art nur ein Eintrag, wenn etwas davon auf der Uhr ist (auch wenn es noch lädt).
+                if (state.hasMusic) action(R.string.list_music, transformationSpec, onClick = { onClick(StartTarget.MUSIC) })
+                if (state.hasEpisodes) action(R.string.list_podcasts, transformationSpec, onClick = { onClick(StartTarget.PODCASTS) })
+                if (state.hasBooks) action(R.string.list_books, transformationSpec, onClick = { onClick(StartTarget.BOOKS) })
+                if (!state.hasContent) message(R.string.list_empty_watch, transformationSpec)
+                action(R.string.add_music_title, transformationSpec, onClick = { onClick(StartTarget.ADD_MUSIC) })
+                action(R.string.storage_title, transformationSpec, onClick = { onClick(StartTarget.STORAGE) })
                 if (state.phoneConnected) {
                     header(R.string.start_section_phone, transformationSpec)
                     action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(true) }, secondary = state.phoneNowPlaying)
                     // Bücher und Podcasts nur über „Weiterhören“, ohne eigene Bibliothek auf der Uhr.
-                    action(R.string.list_continue, transformationSpec, onClick = { onContinueClick(true) })
-                    action(R.string.list_albums, transformationSpec, onClick = { onAlbumsClick(true) })
-                    action(R.string.list_favorites, transformationSpec, onClick = onPhoneFavoritesClick)
-                    action(R.string.list_playlists, transformationSpec, onClick = { onPlaylistsClick(true) })
+                    action(R.string.list_continue, transformationSpec, onClick = { onClick(StartTarget.PHONE_CONTINUE) })
+                    action(R.string.list_albums, transformationSpec, onClick = { onClick(StartTarget.PHONE_ALBUMS) })
+                    action(R.string.list_favorites, transformationSpec, onClick = { onClick(StartTarget.PHONE_FAVORITES) })
+                    action(R.string.list_playlists, transformationSpec, onClick = { onClick(StartTarget.PHONE_PLAYLISTS) })
                     action(R.string.start_shuffle_all, transformationSpec, onClick = onShuffleAllOnPhone)
                 } else if (state.phone == PhoneStatus.NotConnected) {
                     // Der Abschnitt bleibt, damit die Fernsteuerung nicht ohne Erklärung verschwindet.
@@ -167,7 +151,7 @@ private fun TransformingLazyColumnScope.setup(
     }
 }
 
-private fun TransformingLazyColumnScope.header(textRes: Int, transformationSpec: TransformationSpec) = item {
+internal fun TransformingLazyColumnScope.header(textRes: Int, transformationSpec: TransformationSpec) = item {
     ListHeader(
         modifier = Modifier
             .minimumVerticalContentPadding(
@@ -181,7 +165,7 @@ private fun TransformingLazyColumnScope.header(textRes: Int, transformationSpec:
     }
 }
 
-private fun TransformingLazyColumnScope.message(textRes: Int, transformationSpec: TransformationSpec) = item {
+internal fun TransformingLazyColumnScope.message(textRes: Int, transformationSpec: TransformationSpec) = item {
     Text(
         text = stringResource(textRes),
         modifier = Modifier
@@ -192,7 +176,7 @@ private fun TransformingLazyColumnScope.message(textRes: Int, transformationSpec
     )
 }
 
-private fun TransformingLazyColumnScope.action(
+internal fun TransformingLazyColumnScope.action(
     textRes: Int,
     transformationSpec: TransformationSpec,
     enabled: Boolean = true,
@@ -215,15 +199,8 @@ private val previewCallbacks: @Composable (StartUiState) -> Unit = { state ->
     MaterialTheme {
         StartContent(
             state = state,
-            onStorageClick = {},
-            onAddMusicClick = {},
             onNowPlayingClick = {},
-            onAlbumsClick = {},
-            onPlaylistsClick = {},
-            onFavoritesClick = {},
-            onPhoneFavoritesClick = {},
-            onContinueClick = {},
-            onShuffleAll = {},
+            onClick = {},
             onShuffleAllOnPhone = {},
             onOpenOnPhone = {},
             onRetry = {},

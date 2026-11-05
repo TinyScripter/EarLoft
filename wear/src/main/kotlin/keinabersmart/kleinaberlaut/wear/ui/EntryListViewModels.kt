@@ -3,6 +3,9 @@ package keinabersmart.kleinaberlaut.wear.ui
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.podcast.EpisodeQueue
@@ -10,6 +13,9 @@ import keinabersmart.kleinaberlaut.core.data.podcast.PodcastRepository
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
+import keinabersmart.kleinaberlaut.core.model.Album
+import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.model.BookWithProgress
 import keinabersmart.kleinaberlaut.core.model.SongOfflineState
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
@@ -19,18 +25,21 @@ import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
 import keinabersmart.kleinaberlaut.wear.R
 import keinabersmart.kleinaberlaut.wear.download.WatchStorageRepository
 import keinabersmart.kleinaberlaut.wear.sync.PhoneRemote
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Ein Eintrag einer Liste von Alben, Playlists oder Büchern. [artist] ist beim Album der Künstler; ohne ihn steht die Zahl der Titel
- * da, bei teilweise geladenen Listen der Stand ([loadedCount] von [songCount]). Nicht [enabled]: noch nicht geladen.
+ * Ein Eintrag einer Liste von Alben, Künstlern, Playlists, Folgen oder Büchern. [artist] ist beim Album der Künstler; ohne ihn
+ * steht [albumCount] (Künstler) oder die Zahl der Titel da, bei teilweise geladenen Listen der Stand ([loadedCount] von
+ * [songCount]). Nicht [enabled]: noch nicht geladen. [cover]: Vorschaubild, ohne es keins.
  */
 data class ListEntry(
     val key: Long,
@@ -39,6 +48,8 @@ data class ListEntry(
     val artist: String? = null,
     val loadedCount: Int? = null,
     val enabled: Boolean = true,
+    val albumCount: Int? = null,
+    val cover: CoverRef? = null,
 )
 
 sealed interface EntryListState {
@@ -52,16 +63,56 @@ sealed interface EntryListState {
 
 private const val STATE_SUBSCRIPTION_MS = 5_000L
 
-/** Die auf der Uhr geladenen Alben: alle, von denen mindestens ein Titel heruntergeladen ist. */
-@HiltViewModel
-class LocalAlbumsViewModel @Inject constructor(
+/** Ein Album mit mindestens einem geladenen Titel auf der Uhr. */
+private data class LoadedAlbum(val album: Album, val loadedCount: Int)
+
+/** Die auf der Uhr geladenen Alben (mindestens ein Titel heruntergeladen), sortiert wie die Bibliothek. */
+private fun loadedAlbums(library: LibraryRepository, downloads: DownloadRepository): Flow<List<LoadedAlbum>> =
+    combine(library.albums(), library.songs(), downloads.songStatuses()) { albums, songs, offline ->
+        val loadedPerAlbum = songs.filter { offline[it.id].state == SongOfflineState.DOWNLOADED }.groupingBy { it.albumId }.eachCount()
+        albums.mapNotNull { album -> loadedPerAlbum[album.id]?.let { LoadedAlbum(album, it) } }
+    }
+
+/** Die auf der Uhr geladenen Alben, mit [artistId] nur die dieses Künstlers. */
+@HiltViewModel(assistedFactory = LocalAlbumsViewModel.Factory::class)
+class LocalAlbumsViewModel @AssistedInject constructor(
+    @Assisted artistId: Long?,
     library: LibraryRepository,
     downloads: DownloadRepository,
 ) : ViewModel() {
-    val state: StateFlow<EntryListState> = combine(library.albums(), library.songs(), downloads.songStatuses()) { albums, songs, offline ->
-        val loadedPerAlbum = songs.filter { offline[it.id].state == SongOfflineState.DOWNLOADED }.groupingBy { it.albumId }.eachCount()
-        val entries = albums.filter { it.id in loadedPerAlbum }
-            .map { ListEntry(it.id, it.title, it.songCount, artist = it.artist, loadedCount = loadedPerAlbum.getValue(it.id)) }
+    private val ofArtist: Flow<Set<Long>?> =
+        if (artistId == null) flowOf(null) else library.albumIdsByArtist().map { it[artistId].orEmpty() }
+
+    val state: StateFlow<EntryListState> = combine(loadedAlbums(library, downloads), ofArtist) { loaded, albumIds ->
+        val entries = loaded.filter { albumIds == null || it.album.id in albumIds }.map { (album, loadedCount) ->
+            ListEntry(album.id, album.title, album.songCount, artist = album.artist, loadedCount = loadedCount, cover = CoverRef.Album(album.id))
+        }
+        if (entries.isEmpty()) EntryListState.Message(R.string.list_empty_watch) else EntryListState.Ready(entries)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+
+    @AssistedFactory
+    interface Factory {
+        fun create(artistId: Long?): LocalAlbumsViewModel
+    }
+}
+
+/** Die Künstler der geladenen Alben; als Bild das Cover ihres ersten Albums (Künstlerbilder gibt es auf der Uhr nicht). */
+@HiltViewModel
+class LocalArtistsViewModel @Inject constructor(
+    library: LibraryRepository,
+    downloads: DownloadRepository,
+) : ViewModel() {
+    val state: StateFlow<EntryListState> = combine(
+        library.artists(),
+        library.albumIdsByArtist(),
+        loadedAlbums(library, downloads),
+    ) { artists, albumIdsByArtist, loaded ->
+        val entries = artists.mapNotNull { artist ->
+            val albumIds = albumIdsByArtist[artist.id].orEmpty()
+            val albums = loaded.filter { it.album.id in albumIds }
+            val first = albums.firstOrNull() ?: return@mapNotNull null
+            ListEntry(artist.id, artist.name, songCount = 0, albumCount = albums.size, cover = CoverRef.Album(first.album.id))
+        }
         if (entries.isEmpty()) EntryListState.Message(R.string.list_empty_watch) else EntryListState.Ready(entries)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 }
@@ -89,37 +140,40 @@ class RemoteAlbumsViewModel @Inject constructor(remote: PhoneRemote) : ViewModel
 }
 
 /**
- * „Weiterhören“ auf der Uhr (Wear-Konzept 16.1/16.2): die Folgen und offenen Bücher vom Handy in der Reihenfolge der
- * Warteschlange (wie am Handy gewählt, Gestartetes vorn); noch nicht vollständig geladene sind ausgegraut. Ein Tipp spielt
- * auf der Uhr.
+ * Podcasts bzw. Bücher auf der Uhr (Wear-Konzept 16.1/16.2): die Folgen bzw. offenen Bücher vom Handy in der Reihenfolge der
+ * Warteschlange (wie am Handy gewählt, Gestartetes vorn), mit Bild; noch nicht vollständig geladene sind ausgegraut. Ein Tipp
+ * spielt auf der Uhr.
  */
-@HiltViewModel
-class LocalContinueViewModel @Inject constructor(
+@HiltViewModel(assistedFactory = LocalSpokenViewModel.Factory::class)
+class LocalSpokenViewModel @AssistedInject constructor(
+    @Assisted kind: BookKind,
     continueListening: ContinueListening,
     podcasts: PodcastRepository,
     books: BookRepository,
     queue: EpisodeQueue,
     private val playback: PlaybackConnection,
 ) : ViewModel() {
+    private val items: Flow<List<BookWithProgress>> = when (kind) {
+        BookKind.EPISODE -> continueListening.episodes
+        BookKind.BOOK -> books.books().map { all -> all.filter { it.progress?.finished != true } }
+    }
+
     val state: StateFlow<EntryListState> = combine(
-        continueListening.episodes,
-        books.books(),
+        items,
         queue.order,
         podcasts.downloadedIds(),
         books.downloads(),
-    ) { episodes, allBooks, order, downloadedEpisodes, bookDownloads ->
+    ) { items, order, downloadedEpisodes, bookDownloads ->
         val rank = order.withIndex().associate { it.value to it.index }
-        val items = (allBooks.filter { it.progress?.finished != true } + episodes)
-            .distinctBy { it.book.id }
-            .sortedBy { rank[it.book.id] ?: Int.MAX_VALUE }
-        if (items.isEmpty()) {
-            EntryListState.Message(R.string.list_continue_empty_watch)
+        val sorted = items.distinctBy { it.book.id }.sortedBy { rank[it.book.id] ?: Int.MAX_VALUE }
+        if (sorted.isEmpty()) {
+            EntryListState.Message(if (kind == BookKind.EPISODE) R.string.list_podcasts_empty_watch else R.string.list_books_empty_watch)
         } else {
             EntryListState.Ready(
-                items.map {
+                sorted.map {
                     val id = it.book.id
                     val loaded = id in downloadedEpisodes || bookDownloads[id]?.state == TrackDownload.DONE
-                    ListEntry(id, it.book.title, songCount = 0, artist = it.book.author, enabled = loaded)
+                    ListEntry(id, it.book.title, songCount = 0, artist = it.book.author, enabled = loaded, cover = CoverRef.Book(id))
                 },
             )
         }
@@ -127,6 +181,11 @@ class LocalContinueViewModel @Inject constructor(
 
     /** @return `false`, wenn sich die Folge bzw. das Buch nicht laden ließ (z. B. Datei inzwischen weg). */
     suspend fun play(bookId: Long): Boolean = playback.playBook(bookId) != null
+
+    @AssistedFactory
+    interface Factory {
+        fun create(kind: BookKind): LocalSpokenViewModel
+    }
 }
 
 /**

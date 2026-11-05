@@ -4,6 +4,10 @@
         <item quantity="one">%d track</item>
         <item quantity="other">%d tracks</item>
     </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%d album</item>
+        <item quantity="other">%d albums</item>
+    </plurals>
     <string name="selection_missing">No longer on the watch</string>
     <string name="selection_not_loaded">Not loaded yet</string>
     <string name="selection_progress">%1$d of %2$d loaded</string>
@@ -17,7 +21,11 @@
     <string name="start_current_playback">Now playing</string>
 
     <!-- Lists -->
+    <string name="list_music">Music</string>
+    <string name="list_podcasts">Podcasts</string>
+    <string name="list_books">Books</string>
     <string name="list_albums">Albums</string>
+    <string name="list_artists">Artists</string>
     <string name="list_favorites">Favorites</string>
     <string name="list_playlists">Playlists</string>
     <string name="list_continue">Continue listening</string>
@@ -25,6 +33,8 @@
     <string name="list_continue_empty_watch">No episodes on the watch yet. Set how many on the phone under Settings → Watch.</string>
     <string name="list_empty_watch">Nothing on the watch yet. Choose music on the phone or under “Add music”.</string>
     <string name="list_empty_phone">Nothing on the phone</string>
+    <string name="list_podcasts_empty_watch">No episodes on the watch</string>
+    <string name="list_books_empty_watch">No books on the watch</string>
 
     <!-- Phone remote control -->
     <string name="remote_unreachable">Phone not reachable</string>

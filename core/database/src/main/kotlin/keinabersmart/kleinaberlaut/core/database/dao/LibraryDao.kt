@@ -103,6 +103,10 @@ abstract class LibraryDao {
     )
     abstract fun observeAlbumRowsOfArtist(artistId: Long): Flow<List<AlbumRow>>
 
+    /** Welche Künstler zu welchem Album gehören (Albumkünstler); die Uhr leitet daraus ihre Künstler ab. */
+    @Query("SELECT * FROM album_artists")
+    abstract fun observeAlbumArtists(): Flow<List<AlbumArtistCrossRef>>
+
     @Query("$SELECT_SONG_ROWS ORDER BY s.title COLLATE NOCASE")
     abstract fun observeSongRows(): Flow<List<SongRow>>
 

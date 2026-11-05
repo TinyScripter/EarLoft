@@ -34,6 +34,11 @@ class LibraryRepository @Inject constructor(
             artist?.let { ArtistDetails(it.toArtist(), albums.map { row -> row.toAlbum() }) }
         }
 
+    /** Die Alben jedes Künstlers (Albumkünstler): Künstler-ID → Album-IDs. */
+    fun albumIdsByArtist(): Flow<Map<Long, Set<Long>>> = libraryDao.observeAlbumArtists().map { refs ->
+        refs.groupBy({ it.artistId }, { it.albumId }).mapValues { it.value.toSet() }
+    }
+
     fun recentlyAddedAlbums(limit: Int = 20): Flow<List<Album>> =
         libraryDao.observeRecentlyAddedAlbumRows(limit).map { rows -> rows.map { it.toAlbum() } }
 

@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import keinabersmart.kleinaberlaut.core.data.podcast.ContinueListening
 import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
-import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemoteListKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearRemotePlayRequest
@@ -37,34 +36,33 @@ data class StartUiState(
     val phoneNowPlaying: String? = null,
     /** Es liegen Folgen vom Handy auf der Uhr (Wear-Konzept 16.1). */
     val hasEpisodes: Boolean = false,
+    /** Es liegen offene Hörbücher vom Handy auf der Uhr (Wear-Konzept 16.2). */
+    val hasBooks: Boolean = false,
 ) {
-    /** Die Geräte-Playlist der Favoriten auf der Uhr; `null`, solange die Favoriten nicht übertragen sind. */
-    val favoritesPlaylistId: Long? get() = selections.firstOrNull { it.kind == WearSelectionKind.FAVORITES }?.playlistId
-
     /** Die Fernsteuerung gibt es, solange ein Handy mit der App verbunden ist. */
     val phoneConnected: Boolean get() = phone is PhoneStatus.Connected
 
-    val hasSelections: Boolean get() = selections.isNotEmpty()
+    /** Musik ist ausgewählt, auch wenn sie noch lädt. */
+    val hasMusic: Boolean get() = selections.isNotEmpty()
 
-    /** Ohne geladene Songs gibt es nichts zu mischen. */
-    val canShuffleAll: Boolean get() = selections.any { it.downloadedCount > 0 }
+    val hasContent: Boolean get() = hasMusic || hasEpisodes || hasBooks
 }
 
 @HiltViewModel
 class StartViewModel @Inject constructor(
     private val phoneConnection: PhoneConnection,
-    private val storage: WatchStorageRepository,
+    storage: WatchStorageRepository,
     private val remote: PhoneRemote,
-    private val playback: PlaybackConnection,
+    playback: PlaybackConnection,
     continueListening: ContinueListening,
     books: BookRepository,
 ) : ViewModel() {
 
     private val openOnPhone = MutableStateFlow<OpenOnPhoneResult?>(null)
 
-    /** Was gerade auf dem Handy läuft und ob Folgen oder Bücher auf der Uhr liegen; zusammengefasst, damit `combine` typsicher bleibt. */
-    private val phoneAndEpisodes = combine(remote.state, continueListening.episodes, books.books()) { phonePlayer, episodes, allBooks ->
-        phonePlayer?.takeIf { it.hasMedia }?.title to (episodes.isNotEmpty() || allBooks.any { it.progress?.finished != true })
+    /** Was gerade auf dem Handy läuft und ob Folgen bzw. Bücher auf der Uhr liegen; zusammengefasst, damit `combine` typsicher bleibt. */
+    private val phoneAndSpoken = combine(remote.state, continueListening.episodes, books.books()) { phonePlayer, episodes, allBooks ->
+        Triple(phonePlayer?.takeIf { it.hasMedia }?.title, episodes.isNotEmpty(), allBooks.any { it.progress?.finished != true })
     }
 
     val state: StateFlow<StartUiState> = combine(
@@ -72,8 +70,8 @@ class StartViewModel @Inject constructor(
         storage.selections(),
         openOnPhone,
         playback.state,
-        phoneAndEpisodes,
-    ) { phone, selections, opened, player, (phoneTitle, hasEpisodes) ->
+        phoneAndSpoken,
+    ) { phone, selections, opened, player, (phoneTitle, hasEpisodes, hasBooks) ->
         StartUiState(
             phone = phone,
             selections = selections,
@@ -81,20 +79,11 @@ class StartViewModel @Inject constructor(
             nowPlaying = player.current?.title ?: player.spoken?.title,
             phoneNowPlaying = phoneTitle,
             hasEpisodes = hasEpisodes,
+            hasBooks = hasBooks,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StartUiState())
 
     fun refresh() = phoneConnection.refresh()
-
-    /** Mischt alle geladenen Songs; [onStarted] wechselt danach zur Wiedergabe-Ansicht. */
-    fun shuffleAll(onStarted: () -> Unit) {
-        viewModelScope.launch {
-            val songs = storage.downloadedSongs()
-            if (songs.isEmpty()) return@launch
-            playback.play(songs, shuffle = true)
-            onStarted()
-        }
-    }
 
     /** Das Handy mischt seine ganze Bibliothek; [onStarted] wechselt danach zur Wiedergabe-Ansicht des Handys. */
     fun shuffleAllOnPhone(onStarted: () -> Unit) {

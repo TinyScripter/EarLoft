@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import keinabersmart.kleinaberlaut.core.data.repository.decodeScaled
 import keinabersmart.kleinaberlaut.core.data.repository.seedColorOf
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
@@ -56,17 +57,27 @@ class BookCovers @Inject constructor(
     /** Lädt das Bild in den Cache, falls es dort noch fehlt. @return `false`, wenn es keins gibt oder es sich nicht laden ließ. */
     suspend fun ensureCached(bookId: Long): Boolean = withContext(Dispatchers.IO) { file(bookId) != null }
 
-    private suspend fun file(bookId: Long, withFeedImage: Boolean = true): File? {
+    /**
+     * Vorschaubild für Listen, höchstens [maxPx] groß; nur aus dem Cache, ohne Server (eine lange Liste soll nicht für jeden
+     * Eintrag laden). Mit Rückfall auf das Bild des Abos wie bei [cover].
+     */
+    suspend fun thumbnail(bookId: Long, maxPx: Int): Bitmap? = withContext(Dispatchers.IO) {
+        file(bookId, load = false)?.let { decodeScaled(it, maxPx) }
+    }
+
+    /** Die Bilddatei von [bookId]; ohne [load] nur, was schon im Cache liegt. */
+    private suspend fun file(bookId: Long, withFeedImage: Boolean = true, load: Boolean = true): File? {
         val book = dao.book(bookId) ?: return null
         val own = ownFile(book)
-        if (own.exists() || fetchOwn(book, own)) return own
+        if (own.exists() || (load && fetchOwn(book, own))) return own
         if (!withFeedImage) return null
         val image = feedImage(book) ?: return null
         // Abos vom Gerät haben als Bild das Cover einer ihrer Folgen.
-        AppUris.parseBookCoverId(image)?.let { return if (it != bookId) file(it, withFeedImage = false) else null }
+        AppUris.parseBookCoverId(image)?.let { return if (it != bookId) file(it, withFeedImage = false, load = load) else null }
         if (!image.startsWith("http")) return null
         val file = urlFile(image)
         if (file.exists()) return file
+        if (!load) return null
         val bytes = fetch(book) { podcastApi.image(image) } ?: return null
         write(file, bytes)
         return file
