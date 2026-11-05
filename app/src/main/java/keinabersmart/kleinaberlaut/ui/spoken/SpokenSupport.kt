@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +42,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +59,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -61,7 +68,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.round
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
 import keinabersmart.kleinaberlaut.R
 import keinabersmart.kleinaberlaut.core.model.AppUris
 import keinabersmart.kleinaberlaut.core.model.SpokenMode
@@ -96,7 +109,7 @@ fun SpokenModeHost(
     }
 }
 
-/** Banner und Modus-Schalter über einem Inhalt, der den Modus selbst auswertet. */
+/** Banner und Modus-Schalter über den drei Bereichen, die als Seiten eines Pagers nebeneinanderliegen. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SpokenModeScaffold(
@@ -106,8 +119,24 @@ private fun SpokenModeScaffold(
     viewModel: SpokenModeViewModel = hiltViewModel(),
     content: @Composable (SpokenMode) -> Unit,
 ) {
-    val mode by viewModel.mode.collectAsStateWithLifecycle()
+    val loadedMode by viewModel.loadedMode.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    // Die Bereiche liegen nebeneinander wie auf Schienen: Tippen auf den Schalter und Wischen fahren dorthin. Der Pager
+    // entsteht erst mit dem gespeicherten Bereich, beginnt also ohne Fahrt auf der richtigen Seite, und ist dann maßgeblich.
+    val pagerState = loadedMode?.let { initial -> remember { PagerState(currentPage = initial.ordinal) { SpokenMode.entries.size } } }
+    // Wohin der Pager fährt bzw. bei losgelassenem Finger einrasten würde; der Schalter zeigt das schon während der Fahrt.
+    val mode = pagerState?.let { SpokenMode.entries[it.targetPage] }
+    val scope = rememberCoroutineScope()
+    if (pagerState != null) {
+        val currentOnModeChange by rememberUpdatedState(onModeChange)
+        // Gespeichert wird erst, wo der Pager einrastet; ein angefangenes und zurückgenommenes Wischen ändert nichts.
+        LaunchedEffect(pagerState) {
+            snapshotFlow { pagerState.settledPage }.drop(1).collect { page ->
+                viewModel.setMode(SpokenMode.entries[page])
+                currentOnModeChange()
+            }
+        }
+    }
     // Auf kleinen Handys (niedrig oder quer) klappt der Kopf beim Scrollen weg; sonst bliebe für die Listen kaum Platz.
     val configuration = LocalConfiguration.current
     val compactHeight = configuration.screenHeightDp < 480 ||
@@ -134,7 +163,7 @@ private fun SpokenModeScaffold(
                     // Wie im einzelnen Abo: Aktualisieren ganz rechts, die Suche links davon.
                     actions = {
                         IconButton(onClick = onSearch) {
-                            Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(searchLabel(mode)))
+                            Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(searchLabel(mode ?: SpokenMode.MUSIC)))
                         }
                         when (mode) {
                             SpokenMode.MUSIC -> IconButton(onClick = viewModel::refreshMusic) {
@@ -146,6 +175,7 @@ private fun SpokenModeScaffold(
                             SpokenMode.PODCASTS -> IconButton(onClick = viewModel::refreshPodcasts) {
                                 Icon(painterResource(DesignR.drawable.ic_sync), contentDescription = stringResource(R.string.podcast_refresh))
                             }
+                            null -> {}
                         }
                     },
                 )
@@ -159,10 +189,7 @@ private fun SpokenModeScaffold(
                         SegmentedButton(
                             selected = mode == entry,
                             onClick = {
-                                if (entry != mode) {
-                                    viewModel.setMode(entry)
-                                    onModeChange()
-                                }
+                                if (pagerState != null && entry != mode) scope.launch { pagerState.animateScrollToPage(entry.ordinal) }
                             },
                             shape = SegmentedButtonDefaults.itemShape(index, SpokenMode.entries.size),
                             colors = segmentColors,
@@ -177,7 +204,7 @@ private fun SpokenModeScaffold(
         }
         // Herunterziehen gleicht den Bereich ab (wie der Knopf oben).
         val onRefresh = when (mode) {
-            SpokenMode.MUSIC -> viewModel::refreshMusic
+            SpokenMode.MUSIC, null -> viewModel::refreshMusic
             SpokenMode.BOOKS -> viewModel::refreshBooks
             SpokenMode.PODCASTS -> viewModel::refreshPodcasts
         }
@@ -186,10 +213,41 @@ private fun SpokenModeScaffold(
             onRefresh = onRefresh,
             modifier = Modifier.weight(1f).fillMaxWidth().background(MaterialTheme.colorScheme.background),
         ) {
-            content(mode)
+            if (pagerState != null) {
+                val minFlingVelocity = with(LocalDensity.current) { MinFlingVelocity.toPx() }
+                val handoff = remember(pagerState, minFlingVelocity) { ModeFlingHandoff(pagerState, minFlingVelocity) }
+                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), key = { it }) { page ->
+                    Box(Modifier.fillMaxSize().nestedScroll(handoff)) {
+                        content(SpokenMode.entries[page])
+                    }
+                }
+            }
         }
     }
 }
+
+/**
+ * Übergang aus den Reitern der Bibliothek in den Bereich daneben: Wischt man über den ersten bzw. letzten Reiter hinaus,
+ * zieht der Rest der Geste schon von selbst den Bereichs-Pager mit. Den Schwung beim Loslassen schluckt Compose aber;
+ * der Pager rastete dann nur nach der Strecke ein. Hier zählt wie beim Wischen direkt auf dem Bereich auch die Richtung
+ * eines kurzen, schnellen Wischers.
+ */
+private class ModeFlingHandoff(private val pager: PagerState, private val minVelocity: Float) : NestedScrollConnection {
+    override suspend fun onPreFling(available: Velocity): Velocity {
+        if (abs(pager.currentPageOffsetFraction) < 0.001f) return Velocity.Zero
+        val page = pager.currentPage + pager.currentPageOffsetFraction
+        val target = when {
+            available.x < -minVelocity -> ceil(page)
+            available.x > minVelocity -> floor(page)
+            else -> round(page)
+        }.toInt().coerceIn(0, pager.pageCount - 1)
+        pager.animateScrollToPage(target)
+        return Velocity(available.x, 0f)
+    }
+}
+
+/** Ab dieser Geschwindigkeit entscheidet die Richtung eines Wischers, nicht die Strecke (wie beim Pager selbst). */
+private val MinFlingVelocity = 400.dp
 
 /**
  * Zustand des einklappbaren Kopfs: [offset] läuft von 0 (ganz sichtbar) bis -[height]. Scrollt der Inhalt nach oben,

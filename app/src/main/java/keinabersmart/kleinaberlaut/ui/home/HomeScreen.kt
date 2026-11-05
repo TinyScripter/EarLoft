@@ -58,6 +58,7 @@ import keinabersmart.kleinaberlaut.ui.components.PlayControlViewModel
 import keinabersmart.kleinaberlaut.ui.components.PreviewAlbum
 import keinabersmart.kleinaberlaut.ui.components.Shelf
 import keinabersmart.kleinaberlaut.ui.components.ShelfInset
+import keinabersmart.kleinaberlaut.ui.components.keepHorizontalScroll
 
 @Composable
 fun HomeScreen(
@@ -155,7 +156,10 @@ private fun HomeContent(
             if (state.randomArtists.isNotEmpty()) {
                 item(key = "artists") {
                     Shelf(stringResource(R.string.home_random_artists)) {
+                        val rowState = rememberLazyListState()
                         LazyRow(
+                            state = rowState,
+                            modifier = Modifier.keepHorizontalScroll(rowState),
                             contentPadding = PaddingValues(horizontal = ShelfInset - CardInset),
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
@@ -188,6 +192,7 @@ private fun LazyListScope.queueSection(queue: QueueRowState) {
             val rowState = rememberContinueRowState(queue.entries.map { it.index.toLong() })
             LazyRow(
                 state = rowState,
+                modifier = Modifier.keepHorizontalScroll(rowState),
                 contentPadding = PaddingValues(horizontal = ShelfInset - CardInset),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -246,7 +251,10 @@ private fun LazyListScope.albumSection(
     if (albums.isEmpty()) return
     item(key = key) {
         Shelf(stringResource(title)) {
+            val rowState = rememberLazyListState()
             LazyRow(
+                state = rowState,
+                modifier = Modifier.keepHorizontalScroll(rowState),
                 contentPadding = PaddingValues(horizontal = ShelfInset - CardInset),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {

@@ -80,6 +80,7 @@ import keinabersmart.kleinaberlaut.ui.components.Shelf
 import keinabersmart.kleinaberlaut.ui.components.gridTile
 import keinabersmart.kleinaberlaut.ui.components.groupedItems
 import keinabersmart.kleinaberlaut.ui.components.ShelfInset
+import keinabersmart.kleinaberlaut.ui.components.keepHorizontalScroll
 
 /** Bücher mit gleichem Autor bzw. aus der gleichen Serie. */
 data class BookGroup(val name: String, val books: List<BookWithProgress>)
@@ -375,6 +376,7 @@ internal fun BookRow(
 ) {
     LazyRow(
         state = state,
+        modifier = Modifier.keepHorizontalScroll(state),
         contentPadding = PaddingValues(horizontal = ShelfInset),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

@@ -34,6 +34,7 @@ import keinabersmart.kleinaberlaut.ui.components.GroupMargin
 import keinabersmart.kleinaberlaut.ui.components.ListGroup
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.components.groupedItems
+import keinabersmart.kleinaberlaut.ui.components.keepHorizontalScroll
 import java.time.Month
 import java.time.format.TextStyle
 
@@ -47,8 +48,9 @@ internal fun StatCard(modifier: Modifier = Modifier, content: @Composable () -> 
 @Composable
 internal fun YearChips(years: List<Int>, selected: Int?, onSelect: (Int?) -> Unit, modifier: Modifier = Modifier) {
     if (years.isEmpty()) return
+    val chipScroll = rememberScrollState()
     Row(
-        modifier.horizontalScroll(rememberScrollState()).padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
+        modifier.keepHorizontalScroll(chipScroll).horizontalScroll(chipScroll).padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         FilterChip(selected = selected == null, onClick = { onSelect(null) }, label = { Text(stringResource(R.string.stats_year_all)) })

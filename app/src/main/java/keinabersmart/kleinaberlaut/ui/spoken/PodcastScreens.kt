@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -103,6 +104,7 @@ import keinabersmart.kleinaberlaut.ui.components.Shelf
 import keinabersmart.kleinaberlaut.ui.components.coverOutlineColor
 import keinabersmart.kleinaberlaut.ui.components.gridTile
 import keinabersmart.kleinaberlaut.ui.components.ShelfInset
+import keinabersmart.kleinaberlaut.ui.components.keepHorizontalScroll
 import keinabersmart.kleinaberlaut.ui.valueOrNull
 import keinabersmart.kleinaberlaut.ui.library.BackButton
 import keinabersmart.kleinaberlaut.ui.settings.SwitchRow
@@ -144,6 +146,7 @@ fun PodcastHomeScreen(
                 ) {
                     LazyRow(
                         state = rowState,
+                        modifier = Modifier.keepHorizontalScroll(rowState),
                         contentPadding = PaddingValues(horizontal = ShelfInset),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
@@ -175,7 +178,10 @@ fun PodcastHomeScreen(
                 } else if (list?.isEmpty() == true) {
                     EmptyHint(stringResource(R.string.podcast_none))
                 } else {
+                    val rowState = rememberLazyListState()
                     LazyRow(
+                        state = rowState,
+                        modifier = Modifier.keepHorizontalScroll(rowState),
                         contentPadding = PaddingValues(horizontal = ShelfInset),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
@@ -315,7 +321,10 @@ private fun UnheardList(
         unheard.forEach { (feed, episodes) ->
             item(key = "feed-${feed.id}") {
                 Shelf(feed.title, onTitleClick = { onFeedClick(feed.id) }) {
+                    val rowState = rememberLazyListState()
                     LazyRow(
+                        state = rowState,
+                        modifier = Modifier.keepHorizontalScroll(rowState),
                         contentPadding = PaddingValues(horizontal = ShelfInset),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {

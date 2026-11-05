@@ -24,6 +24,9 @@ class SpokenModeViewModel @Inject constructor(
 ) : ViewModel() {
     val mode: StateFlow<SpokenMode> = settings.mode.stateIn(viewModelScope, SharingStarted.Eagerly, SpokenMode.MUSIC)
 
+    /** Wie [mode], aber `null`, bis der gespeicherte Bereich gelesen ist; so beginnt der Bereichs-Pager gleich auf der richtigen Seite. */
+    val loadedMode: StateFlow<SpokenMode?> = settings.mode.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     /** „Überall suchen“ statt nur im gewählten Bereich (Schalter auf der Such-Seite, bleibt gespeichert). */
     val searchAll: StateFlow<Boolean> = settings.searchAll.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 

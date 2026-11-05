@@ -35,6 +35,7 @@ import keinabersmart.kleinaberlaut.ui.components.EmptyHint
 import keinabersmart.kleinaberlaut.ui.components.GroupMargin
 import keinabersmart.kleinaberlaut.ui.components.SectionHeader
 import keinabersmart.kleinaberlaut.ui.components.groupedItems
+import keinabersmart.kleinaberlaut.ui.components.keepHorizontalScroll
 import java.text.DateFormat
 import java.time.DayOfWeek
 import java.time.Month
@@ -77,8 +78,9 @@ fun BookStatsScreen(
             item(key = "server-header") { SectionHeader(stringResource(R.string.book_stats_server_title)) }
             if (servers.size > 1) {
                 item(key = "server-chips") {
+                    val chipScroll = rememberScrollState()
                     Row(
-                        Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = GroupMargin + 16.dp).padding(bottom = 8.dp),
+                        Modifier.keepHorizontalScroll(chipScroll).horizontalScroll(chipScroll).padding(horizontal = GroupMargin + 16.dp).padding(bottom = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         servers.forEach { s ->
