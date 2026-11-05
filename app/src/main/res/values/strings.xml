@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">kleinaberlaut</string>
+    <string name="app_name" translatable="false">TinyAmp</string>
 
     <string name="nav_home">Home</string>
     <string name="nav_library">Library</string>
@@ -8,7 +8,7 @@
 
     <!-- Permissions -->
     <string name="permission_title">Access to your music</string>
-    <string name="permission_text">kleinaberlaut needs permission to read the music on this device.</string>
+    <string name="permission_text">TinyAmp needs permission to read the music on this device.</string>
     <string name="permission_denied_text">Access was denied. You can allow it in the app settings under “Permissions”.</string>
     <string name="permission_grant">Allow access</string>
     <string name="permission_open_settings">Open settings</string>
@@ -141,7 +141,7 @@
     <string name="settings_refresh_audiobooks">Sync books now</string>
     <string name="settings_refresh_podcasts">Refresh podcasts now</string>
     <string name="settings_section_opml">Import &amp; export</string>
-    <string name="settings_opml_title">kleinaberlaut subscriptions</string>
+    <string name="settings_opml_title">TinyAmp subscriptions</string>
     <string name="settings_opml_import">Import subscriptions (OPML)</string>
     <string name="settings_opml_import_summary">From a file</string>
     <string name="settings_opml_import_message">Add the podcasts to your subscriptions or replace your subscriptions with them? Podcasts you already follow are skipped. Replacing removes all other subscriptions with their episodes and listening progress.</string>
@@ -196,7 +196,7 @@
     <string name="server_form_auto_download_summary">Every track on this server is downloaded to the device, including newly added ones. Needs a lot of storage.</string>
     <string name="about_title">About the app</string>
     <string name="about_version">Version %1$s</string>
-    <string name="about_text">kleinaberlaut is a player for your own collection: music from this device and from your Navidrome or Subsonic servers in one shared library, podcasts from any feed, and books from your Audiobookshelf server. Everything can be downloaded for offline listening, book progress is synced with your server, and your music also plays on your Wear OS watch.</string>
+    <string name="about_text">TinyAmp is a player for your own collection: music from this device and from your Navidrome or Subsonic servers in one shared library, podcasts from any feed, and books from your Audiobookshelf server. Everything can be downloaded for offline listening, book progress is synced with your server, and your music also plays on your Wear OS watch.</string>
     <string name="about_more_info">For more information and the source code, see GitHub:</string>
     <string name="about_repository_url" translatable="false">https://github.com/TinyScripter/kleinaberlaut/</string>
     <string name="about_feedback">Please report bugs and feature requests in the issue tracker:</string>

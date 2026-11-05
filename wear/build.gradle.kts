@@ -1,18 +1,18 @@
-import de.kleinabersmart.kleinaberlaut.buildlogic.BuildConfig
+import de.kleinabersmart.tinyamp.buildlogic.BuildConfig
 
 plugins {
-    alias(libs.plugins.kleinaberlaut.android.application)
-    alias(libs.plugins.kleinaberlaut.android.compose)
-    alias(libs.plugins.kleinaberlaut.hilt)
+    alias(libs.plugins.tinyamp.android.application)
+    alias(libs.plugins.tinyamp.android.compose)
+    alias(libs.plugins.tinyamp.hilt)
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "de.kleinabersmart.kleinaberlaut.wear"
+    namespace = "de.kleinabersmart.tinyamp.wear"
 
     defaultConfig {
         // Muss mit der Phone-App übereinstimmen (Wearable Data Layer).
-        applicationId = "de.kleinabersmart.kleinaberlaut"
+        applicationId = "de.kleinabersmart.tinyamp"
         minSdk = BuildConfig.MIN_SDK_WEAR
         versionCode = 1
         versionName = "1.0"

@@ -1,17 +1,15 @@
-# kleinaberlaut
+# TinyAmp
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 ![Wear OS](https://img.shields.io/badge/Wear_OS-3%2B-4285F4?logo=wearos&logoColor=white)
 ![Navidrome](https://img.shields.io/badge/Navidrome-supported-00A4EF)
 
-**kleinaberlaut** is an audio player for your *own* collection: **music**, **podcasts** and **books**. It plays the
+**TinyAmp** is an audio player for your *own* collection: **music**, **podcasts** and **books**. It plays the
 files on your phone together with your self-hosted [Navidrome](https://www.navidrome.org) music server and your
 [Audiobookshelf](https://www.audiobookshelf.org) server in **one app** – on your phone and, for music, on your
 Wear OS watch. Podcasts come straight from their public RSS feeds. No streaming subscription, no account with a third
 party.
-
-> kleinaberlaut is german and means "small but loud". For now, I'd like to keep it that way.
 
 ## Features
 
@@ -99,12 +97,12 @@ commands ("Play …") and a favorite button. Expect rough edges, and please repo
 
 ## Installation
 
-kleinaberlaut is not yet available in an app store. Build it yourself (see [Building from source](#building-from-source));
+TinyAmp is not yet available in an app store. Build it yourself (see [Building from source](#building-from-source));
 once a release build is published, it will be listed on the
 [Releases page](https://github.com/TinyScripter/kleinaberlaut/releases).
 
 **Requirements:** Android 8.0 or newer (phone), Wear OS 3 or newer (watch). The phone and watch app share one
-application ID (`de.kleinabersmart.kleinaberlaut`), so install both for the watch features.
+application ID (`de.kleinabersmart.tinyamp`), so install both for the watch features.
 
 ## Getting started
 
@@ -158,7 +156,7 @@ SDK levels: `minSdk` 26 (phone) and 30 (watch), `compileSdk` / `targetSdk` 37, J
 - **Local database as single source of truth.** The UI only reads from Room; network access runs in the background.
 - **Logical song vs. physical source.** A `songs` row is the song the user sees; each file or server entry is a
   `song_sources` row. A merge resolver (MusicBrainz IDs, then normalized artist/album/title) joins them across sources.
-- **Sources are resolved at load time.** Queue items only carry `kal://song/<id>`; a `ResolvingDataSource` decides
+- **Sources are resolved at load time.** Queue items only carry `tinyamp://song/<id>`; a `ResolvingDataSource` decides
   between local file, download and stream when playback starts, so queues survive downloads finishing or servers
   going offline.
 - **One `OkHttpClient`.** An interceptor adds the Subsonic authentication, so stream and cover URLs stay stable and
@@ -262,7 +260,7 @@ to discuss them and make sure unit tests pass (`./gradlew testDebugUnitTest`).
 
 ## License
 
-kleinaberlaut is free software, licensed under the **GNU General Public License v3.0**. You can redistribute it and/or
+TinyAmp is free software, licensed under the **GNU General Public License v3.0**. You can redistribute it and/or
 modify it under the terms of the GPLv3 as published by the Free Software Foundation. The full text is in
 [LICENSE](LICENSE).
 

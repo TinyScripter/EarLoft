@@ -25,7 +25,7 @@ dependencyResolutionManagement {
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "kleinaberlaut"
+rootProject.name = "TinyAmp"
 include(":app")
 include(":wear")
 include(":core:model")

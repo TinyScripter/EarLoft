@@ -1,0 +1,191 @@
+package de.kleinabersmart.tinyamp.ui.spoken
+
+import de.kleinabersmart.tinyamp.core.common.normalizeForMerge
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
+import de.kleinabersmart.tinyamp.R
+import de.kleinabersmart.tinyamp.core.data.podcast.ContinueListening
+import de.kleinabersmart.tinyamp.core.data.podcast.PodcastRefresher
+import de.kleinabersmart.tinyamp.core.data.podcast.TrialPodcastPages
+import de.kleinabersmart.tinyamp.core.data.podcast.PodcastRepository
+import de.kleinabersmart.tinyamp.core.data.di.ApplicationScope
+import de.kleinabersmart.tinyamp.core.model.BookWithProgress
+import de.kleinabersmart.tinyamp.core.playback.PlaybackConnection
+import de.kleinabersmart.tinyamp.core.download.DownloadStart
+import de.kleinabersmart.tinyamp.core.download.EpisodeDownloadProgress
+import de.kleinabersmart.tinyamp.core.download.EpisodeDownloads
+import de.kleinabersmart.tinyamp.core.model.PodcastFeed
+import de.kleinabersmart.tinyamp.core.model.TrackDownload
+import de.kleinabersmart.tinyamp.ui.LoadState
+import de.kleinabersmart.tinyamp.ui.asLoadState
+import de.kleinabersmart.tinyamp.ui.valueOrNull
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+@HiltViewModel(assistedFactory = PodcastFeedViewModel.Factory::class)
+class PodcastFeedViewModel @AssistedInject constructor(
+    @Assisted private val feedId: String,
+    private val podcasts: PodcastRepository,
+    private val launcher: BookLauncher,
+    private val playback: PlaybackConnection,
+    private val downloads: EpisodeDownloads,
+    downloadProgress: EpisodeDownloadProgress,
+    private val refresher: PodcastRefresher,
+    private val continueListening: ContinueListening,
+    private val trialPages: TrialPodcastPages,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
+) : ViewModel() {
+
+    init {
+        // Solange eine Seite des Podcasts offen ist, bleibt ein Probeabo bestehen (Konzept 12.10).
+        trialPages.opened(feedId)
+    }
+
+    override fun onCleared() {
+        trialPages.closed(feedId)
+    }
+
+    val refreshing: StateFlow<Boolean> = refresher.refreshing
+
+    fun refresh() = refresher.refreshFeed(feedId)
+
+    /** Die Folge, die gerade läuft (nicht: pausiert). */
+    val playingBookId: StateFlow<Long?> = playback.state
+        .map { if (it.isPlaying) it.spoken?.bookId else null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Anteil der gerade ladenden Folgen (0..1, [EpisodeDownloadProgress.UNKNOWN] ohne bekannte Größe). */
+    val progress: StateFlow<Map<Long, Float>> = downloadProgress.fractions
+
+    val feed: StateFlow<PodcastFeed?> = podcasts.feed(feedId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val episodes: StateFlow<LoadState<List<BookWithProgress>>> = podcasts.episodes(feedId)
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
+
+    private val searchQuery = MutableStateFlow("")
+
+    /** Suchtext der Seite [PodcastSearchScreen]; die Treffer kommen über [searchHits]. */
+    fun search(text: String) {
+        searchQuery.value = text.trim()
+    }
+
+    /**
+     * Treffer in Überschrift und Inhaltsangabe. Der Suchtext je Folge wird einmal je Änderung der Folgen normalisiert statt
+     * bei jedem Tastendruck; gefiltert wird abseits des Main-Threads und erst, wenn das Tippen kurz ruht.
+     */
+    @OptIn(FlowPreview::class)
+    val searchHits: StateFlow<EpisodeHits?> = combine(
+        episodes.mapNotNull { state -> state.valueOrNull?.map(::SearchEntry) },
+        searchQuery.debounce { if (it.isEmpty()) 0L else SEARCH_DEBOUNCE_MS },
+    ) { index, query ->
+        val needle = query.normalizeForMerge()
+        EpisodeHits(query, if (needle.isEmpty()) emptyList() else index.filter { it.matches(needle) }.map { it.episode })
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Download-Zustand je Folge. */
+    val downloadStates: StateFlow<Map<Long, TrackDownload>> = podcasts.downloadStates(feedId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    private val _messages = MutableSharedFlow<Int>(extraBufferCapacity = 2)
+
+    /** Hinweise für den Nutzer (String-Ressource), z. B. dass ein Download auf eine Verbindung wartet. */
+    val messages: SharedFlow<Int> = _messages.asSharedFlow()
+
+    fun download(bookId: Long) {
+        viewModelScope.launch {
+            // Probeabo: Was geladen wird, kommt in die Warteschlange und bleibt nur, solange es dort steht.
+            if (feed.value?.subscribed == false) continueListening.append(bookId)
+            when (downloads.download(bookId)) {
+                DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)
+                DownloadStart.WAITING_FOR_WIFI -> _messages.emit(R.string.podcast_download_waiting_wifi)
+                DownloadStart.STARTED -> Unit
+            }
+        }
+    }
+
+    fun removeDownload(bookId: Long) {
+        viewModelScope.launch { downloads.remove(bookId) }
+    }
+
+    fun removeHeardDownloads() {
+        viewModelScope.launch { downloads.removeHeard(feedId) }
+    }
+
+    fun setAutoDownload(enabled: Boolean) {
+        viewModelScope.launch { podcasts.setAutoDownload(feedId, enabled) }
+    }
+
+    fun setNewestFirst(enabled: Boolean) {
+        viewModelScope.launch { podcasts.setNewestFirst(feedId, enabled) }
+    }
+
+    fun setContinuous(enabled: Boolean) {
+        viewModelScope.launch { podcasts.setContinuous(feedId, enabled) }
+    }
+
+    fun setNotifyNew(enabled: Boolean) {
+        viewModelScope.launch { podcasts.setNotifyNew(feedId, enabled) }
+    }
+
+    fun unsubscribe() {
+        viewModelScope.launch { podcasts.unsubscribe(feedId) }
+    }
+
+    /** Archiviert das Abo und löscht seine Downloads; im App-Scope, denn die Seite schließt sich sofort. */
+    fun archive() {
+        applicationScope.launch {
+            podcasts.archive(feedId)
+            downloads.removeAllOf(feedId)
+        }
+    }
+
+    /** Aus dem Probeabo wird ein Abo; Folgen, Stellen und Downloads bleiben. */
+    fun subscribe() {
+        viewModelScope.launch { podcasts.subscribeTrial(feedId) }
+    }
+
+    /** Wie [PodcastViewModel.playOrPause]. */
+    fun playOrPause(bookId: Long) {
+        if (playback.state.value.spoken?.bookId == bookId) playback.togglePlayPause() else launcher.play(bookId)
+    }
+
+    @AssistedFactory
+    interface Factory {
+        fun create(feedId: String): PodcastFeedViewModel
+    }
+}
+
+/** Treffer der Folgensuche; [query] ist der Suchtext, zu dem sie gehören. */
+data class EpisodeHits(val query: String, val hits: List<BookWithProgress>)
+
+/** Eine Folge mit normalisiertem Titel und Beschreibung; getrennt, damit kein Treffer über die Grenze der beiden reicht. */
+private class SearchEntry(val episode: BookWithProgress) {
+    private val title = episode.book.title.normalizeForMerge()
+    private val description = descriptionForSearch(episode.book.description).normalizeForMerge()
+
+    fun matches(needle: String): Boolean = needle in title || needle in description
+}
+
+private const val SEARCH_DEBOUNCE_MS = 150L

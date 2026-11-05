@@ -1,11 +1,11 @@
 plugins {
-    alias(libs.plugins.kleinaberlaut.android.library)
-    alias(libs.plugins.kleinaberlaut.hilt)
-    alias(libs.plugins.kleinaberlaut.room)
+    alias(libs.plugins.tinyamp.android.library)
+    alias(libs.plugins.tinyamp.hilt)
+    alias(libs.plugins.tinyamp.room)
 }
 
 android {
-    namespace = "de.kleinabersmart.kleinaberlaut.core.database"
+    namespace = "de.kleinabersmart.tinyamp.core.database"
 
     // Migrationstests (Robolectric) lesen die exportierten Schemas als Assets.
     sourceSets.getByName("test").assets.directories.add("$projectDir/schemas")

@@ -151,9 +151,9 @@ room = { id = "androidx.room", version.ref = "room" }
 aboutlibraries-android = { id = "com.mikepenz.aboutlibraries.plugin.android", version.ref = "aboutLibraries" }
 
 # Convention Plugins aus build-logic
-kleinaberlaut-android-application = { id = "kleinaberlaut.android.application" }
-kleinaberlaut-android-library = { id = "kleinaberlaut.android.library" }
-kleinaberlaut-android-compose = { id = "kleinaberlaut.android.compose" }
-kleinaberlaut-jvm-library = { id = "kleinaberlaut.jvm.library" }
-kleinaberlaut-hilt = { id = "kleinaberlaut.hilt" }
-kleinaberlaut-room = { id = "kleinaberlaut.room" }
+tinyamp-android-application = { id = "tinyamp.android.application" }
+tinyamp-android-library = { id = "tinyamp.android.library" }
+tinyamp-android-compose = { id = "tinyamp.android.compose" }
+tinyamp-jvm-library = { id = "tinyamp.jvm.library" }
+tinyamp-hilt = { id = "tinyamp.hilt" }
+tinyamp-room = { id = "tinyamp.room" }

@@ -1,0 +1,4 @@
+package de.kleinabersmart.tinyamp.core.model
+
+/** Offline-Änderungen, die per Sync-Queue an einen Server übertragen werden. */
+enum class SyncActionType { SET_FAVORITE, UPSERT_PLAYLIST, DELETE_PLAYLIST, SCROBBLE }

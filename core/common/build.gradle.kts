@@ -1,3 +1,3 @@
 plugins {
-    alias(libs.plugins.kleinaberlaut.jvm.library)
+    alias(libs.plugins.tinyamp.jvm.library)
 }

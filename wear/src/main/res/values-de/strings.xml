@@ -34,7 +34,7 @@
     <!-- Fernsteuerung des Telefons -->
     <string name="remote_unreachable">Telefon nicht erreichbar</string>
     <string name="remote_missing">Nicht mehr auf dem Telefon</string>
-    <string name="remote_no_library">Öffne kleinaberlaut einmal am Telefon</string>
+    <string name="remote_no_library">Öffne TinyAmp einmal am Telefon</string>
     <string name="remote_truncated">Nur die ersten Titel werden gezeigt</string>
     <string name="remote_play_on_phone">Am Handy abspielen</string>
     <string name="remote_download">Herunterladen</string>
@@ -133,11 +133,11 @@
     <string name="setup_no_phone_title">Telefon nicht verbunden</string>
     <string name="setup_no_phone_text">Zum Einrichten braucht die Uhr das gekoppelte Telefon in der Nähe.</string>
     <string name="setup_app_missing_title">App fehlt auf dem Telefon</string>
-    <string name="setup_app_missing_text">Installiere kleinaberlaut auf dem Telefon. Dort wählst du die Musik für die Uhr aus.</string>
+    <string name="setup_app_missing_text">Installiere TinyAmp auf dem Telefon. Dort wählst du die Musik für die Uhr aus.</string>
     <string name="setup_install_on_phone">Auf Telefon öffnen</string>
     <string name="setup_opened_on_phone">Weiter auf dem Telefon</string>
     <string name="setup_open_failed">Konnte nicht geöffnet werden</string>
     <string name="setup_waiting_title">Bereit</string>
-    <string name="setup_waiting_text">Wähle in kleinaberlaut auf dem Telefon Musik für die Uhr aus.</string>
+    <string name="setup_waiting_text">Wähle in TinyAmp auf dem Telefon Musik für die Uhr aus.</string>
     <string name="setup_retry">Erneut prüfen</string>
 </resources>

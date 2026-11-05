@@ -1,6 +1,6 @@
 import androidx.room.gradle.RoomExtension
-import de.kleinabersmart.kleinaberlaut.buildlogic.libs
-import de.kleinabersmart.kleinaberlaut.buildlogic.library
+import de.kleinabersmart.tinyamp.buildlogic.libs
+import de.kleinabersmart.tinyamp.buildlogic.library
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure

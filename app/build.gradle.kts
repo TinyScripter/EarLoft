@@ -1,17 +1,17 @@
 plugins {
-    alias(libs.plugins.kleinaberlaut.android.application)
-    alias(libs.plugins.kleinaberlaut.android.compose)
-    alias(libs.plugins.kleinaberlaut.hilt)
+    alias(libs.plugins.tinyamp.android.application)
+    alias(libs.plugins.tinyamp.android.compose)
+    alias(libs.plugins.tinyamp.hilt)
     alias(libs.plugins.kotlin.serialization)
     // Erzeugt beim Build die Liste aller Abhängigkeiten samt Lizenz (Einstellungen → Lizenzen).
     alias(libs.plugins.aboutlibraries.android)
 }
 
 android {
-    namespace = "de.kleinabersmart.kleinaberlaut"
+    namespace = "de.kleinabersmart.tinyamp"
 
     defaultConfig {
-        applicationId = "de.kleinabersmart.kleinaberlaut"
+        applicationId = "de.kleinabersmart.tinyamp"
         versionCode = 1
         versionName = "1.0"
     }

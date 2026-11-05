@@ -1,10 +1,10 @@
 plugins {
-    alias(libs.plugins.kleinaberlaut.android.library)
-    alias(libs.plugins.kleinaberlaut.hilt)
+    alias(libs.plugins.tinyamp.android.library)
+    alias(libs.plugins.tinyamp.hilt)
 }
 
 android {
-    namespace = "de.kleinabersmart.kleinaberlaut.core.data"
+    namespace = "de.kleinabersmart.tinyamp.core.data"
 }
 
 dependencies {

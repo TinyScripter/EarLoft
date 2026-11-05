@@ -2,7 +2,7 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "de.kleinabersmart.kleinaberlaut.buildlogic"
+group = "de.kleinabersmart.tinyamp.buildlogic"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -26,27 +26,27 @@ dependencies {
 gradlePlugin {
     plugins {
         register("androidApplication") {
-            id = libs.plugins.kleinaberlaut.android.application.get().pluginId
+            id = libs.plugins.tinyamp.android.application.get().pluginId
             implementationClass = "AndroidApplicationConventionPlugin"
         }
         register("androidLibrary") {
-            id = libs.plugins.kleinaberlaut.android.library.get().pluginId
+            id = libs.plugins.tinyamp.android.library.get().pluginId
             implementationClass = "AndroidLibraryConventionPlugin"
         }
         register("androidCompose") {
-            id = libs.plugins.kleinaberlaut.android.compose.get().pluginId
+            id = libs.plugins.tinyamp.android.compose.get().pluginId
             implementationClass = "AndroidComposeConventionPlugin"
         }
         register("jvmLibrary") {
-            id = libs.plugins.kleinaberlaut.jvm.library.get().pluginId
+            id = libs.plugins.tinyamp.jvm.library.get().pluginId
             implementationClass = "JvmLibraryConventionPlugin"
         }
         register("hilt") {
-            id = libs.plugins.kleinaberlaut.hilt.get().pluginId
+            id = libs.plugins.tinyamp.hilt.get().pluginId
             implementationClass = "HiltConventionPlugin"
         }
         register("room") {
-            id = libs.plugins.kleinaberlaut.room.get().pluginId
+            id = libs.plugins.tinyamp.room.get().pluginId
             implementationClass = "RoomConventionPlugin"
         }
     }
