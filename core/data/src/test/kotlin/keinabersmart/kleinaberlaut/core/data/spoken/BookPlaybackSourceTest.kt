@@ -64,7 +64,7 @@ class BookPlaybackSourceTest {
         val progressSync = BookProgressSync(context, dao, servers, api, policy)
         val settings = SpokenSettings(context)
         val scanner = LocalBookScanner(context)
-        val covers = BookCovers(context, dao, servers, api, PodcastFeedApi(client), scanner)
+        val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
         val syncer = BookSyncer(dao, servers, api, progressSync, LocalBooks(dao, scanner, settings, covers))
         source = BookPlaybackSource(
             BookRepository(dao, syncer),

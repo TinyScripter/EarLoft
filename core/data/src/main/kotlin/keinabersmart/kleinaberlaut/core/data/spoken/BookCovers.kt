@@ -7,7 +7,10 @@ import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.data.repository.seedColorOf
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
+import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
+import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.datasource.local.LocalBookScanner
+import keinabersmart.kleinaberlaut.core.model.AppUris
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.isLocalSource
 import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
@@ -20,47 +23,107 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Cover der Bücher: einmal vom Server geladen, danach aus dem Cache-Verzeichnis (auch ohne Server). */
+/**
+ * Cover der Bücher und Bilder der Folgen: einmal vom Server geladen, danach aus dem Cache-Verzeichnis (auch ohne Server).
+ * Eine Folge ohne eigenes Bild (oder deren Bild sich nicht laden lässt) zeigt das ihres Abos.
+ */
 @Singleton
 class BookCovers @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val dao: BookDao,
+    private val podcastDao: PodcastDao,
     private val servers: AudiobookshelfServers,
     private val api: AbsApi,
     private val podcastApi: PodcastFeedApi,
     private val localScanner: LocalBookScanner,
 ) {
     suspend fun cover(bookId: Long): Bitmap? = withContext(Dispatchers.IO) {
-        val book = dao.book(bookId) ?: return@withContext null
-        // Folgen eines Podcasts teilen sich meist ein Bild: die Datei heißt nach der Adresse, nicht nach der Folge.
-        val coverUrl = book.coverUrl.takeIf { book.kind == BookKind.EPISODE }
-        val local = isLocalSource(book.serverId)
-        val name = if (book.kind == BookKind.EPISODE && !local) coverUrl?.let { "u${it.hashCode()}" } ?: return@withContext null else "$bookId"
-        val file = File(File(context.cacheDir, DIRECTORY), "$name.img")
-        if (!file.exists()) {
-            val bytes = try {
-                if (coverUrl != null) {
-                    podcastApi.image(coverUrl)
-                } else if (local) {
-                    // Lokale Bücher und Folgen tragen ihr Cover in der ersten Datei.
-                    dao.tracks(bookId).firstOrNull()?.let { localScanner.cover(it.remoteFileId) } ?: return@withContext null
-                } else {
-                    val server = servers.server(book.serverId) ?: return@withContext null
-                    api.cover(server, book.remoteId, WIDTH_PX)
-                }
-            } catch (e: IOException) {
-                Log.w(TAG, "Cover von ${book.title} nicht abrufbar", e)
-                null
-            } ?: return@withContext null
-            file.parentFile?.mkdirs()
-            file.writeBytes(bytes)
-        }
-        BitmapFactory.decodeFile(file.path)
+        file(bookId)?.let { BitmapFactory.decodeFile(it.path) }
     }
+
+    /** Das Bild als Datei-Inhalt, wie es geladen wurde (das Handy schickt es der Uhr, Wear-Konzept 16.1/16.2). */
+    suspend fun coverBytes(bookId: Long): ByteArray? = withContext(Dispatchers.IO) { file(bookId)?.readBytes() }
+
+    /**
+     * Übernimmt ein anderswo geholtes Bild als Cover von [bookId] (die Uhr vom Handy, wenn sie es nicht selbst laden kann).
+     * [cover] liefert es danach aus dem Cache.
+     */
+    suspend fun store(bookId: Long, bytes: ByteArray) = withContext(Dispatchers.IO) {
+        val book = dao.book(bookId) ?: return@withContext
+        write(ownFile(book), bytes)
+    }
+
+    /** Lädt das Bild in den Cache, falls es dort noch fehlt. @return `false`, wenn es keins gibt oder es sich nicht laden ließ. */
+    suspend fun ensureCached(bookId: Long): Boolean = withContext(Dispatchers.IO) { file(bookId) != null }
+
+    private suspend fun file(bookId: Long, withFeedImage: Boolean = true): File? {
+        val book = dao.book(bookId) ?: return null
+        val own = ownFile(book)
+        if (own.exists() || fetchOwn(book, own)) return own
+        if (!withFeedImage) return null
+        val image = feedImage(book) ?: return null
+        // Abos vom Gerät haben als Bild das Cover einer ihrer Folgen.
+        AppUris.parseBookCoverId(image)?.let { return if (it != bookId) file(it, withFeedImage = false) else null }
+        if (!image.startsWith("http")) return null
+        val file = urlFile(image)
+        if (file.exists()) return file
+        val bytes = fetch(book) { podcastApi.image(image) } ?: return null
+        write(file, bytes)
+        return file
+    }
+
+    /** Das Bild des Abos einer Folge, wenn es nicht schon ihr eigenes ist. */
+    private suspend fun feedImage(book: BookEntity): String? {
+        if (book.kind != BookKind.EPISODE) return null
+        return podcastDao.feed(book.serverId)?.imageUrl?.takeIf { it != book.episodeUrl }
+    }
+
+    /** Lädt das eigene Bild von [book] nach [file]. @return `false`, wenn es keins gibt oder es sich nicht laden ließ. */
+    private suspend fun fetchOwn(book: BookEntity, file: File): Boolean {
+        val url = book.episodeUrl
+        val bytes = fetch(book) {
+            if (url != null) {
+                podcastApi.image(url)
+            } else if (isLocalSource(book.serverId)) {
+                // Lokale Bücher und Folgen tragen ihr Cover in der ersten Datei. Auf der Uhr ist das eine Kennung des
+                // Handys, keine Datei: Dort kommt das Bild über [store].
+                dao.tracks(book.bookId).firstOrNull()?.remoteFileId?.takeIf { it.startsWith("content:") }?.let { localScanner.cover(it) }
+            } else if (book.kind == BookKind.EPISODE) {
+                null
+            } else {
+                servers.server(book.serverId)?.let { api.cover(it, book.remoteId, WIDTH_PX) }
+            }
+        } ?: return false
+        write(file, bytes)
+        return true
+    }
+
+    private suspend fun fetch(book: BookEntity, load: suspend () -> ByteArray?): ByteArray? = try {
+        load()
+    } catch (e: IOException) {
+        Log.w(TAG, "Cover von ${book.title} nicht abrufbar", e)
+        null
+    }
+
+    /** Folgen eines Podcasts teilen sich meist ein Bild: die Datei heißt dann nach der Adresse, nicht nach der Folge. */
+    private fun ownFile(book: BookEntity): File = book.episodeUrl?.let(::urlFile) ?: File(directory, "${book.bookId}.img")
+
+    private fun urlFile(url: String) = File(directory, "u${url.hashCode()}.img")
+
+    private val directory get() = File(context.cacheDir, DIRECTORY)
+
+    private fun write(file: File, bytes: ByteArray) {
+        file.parentFile?.mkdirs()
+        file.writeBytes(bytes)
+    }
+
+    /** Die Bild-Adresse einer Folge aus einem Feed; Folgen vom Gerät tragen ihr Bild in der Datei. */
+    private val BookEntity.episodeUrl: String?
+        get() = coverUrl.takeIf { kind == BookKind.EPISODE && !isLocalSource(serverId) }
 
     /** Das zwischengespeicherte Cover gilt nicht mehr (lokale Bücher, deren Datei sich geändert hat). */
     fun invalidate(bookId: Long) {
-        File(File(context.cacheDir, DIRECTORY), "$bookId.img").delete()
+        File(directory, "$bookId.img").delete()
         seedColors.remove(bookId)
     }
 

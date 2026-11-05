@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.download.DownloadStorage
 import keinabersmart.kleinaberlaut.core.download.EpisodeStorage
 import keinabersmart.kleinaberlaut.core.wearsync.FileReceive
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
+import keinabersmart.kleinaberlaut.core.wearsync.WearCoverFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeFile
 import keinabersmart.kleinaberlaut.core.wearsync.receiveFile
 import keinabersmart.kleinaberlaut.wear.sync.PhoneConnection
@@ -21,13 +22,15 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Holt eine Datei im Original vom Handy (Wear-Konzept 8.4): für Songs, die nur das Handy hat, und als Ausweg,
- * wenn der Server nicht erreichbar ist; ebenso für Podcast-Folgen ([fetchEpisode], 16.1) und Hörbücher ([fetchBookTrack], 16.2). Die Datei entsteht wie beim [keinabersmart.kleinaberlaut.core.download.Downloader]
+ * wenn der Server nicht erreichbar ist; ebenso für Podcast-Folgen ([fetchEpisode], 16.1), Hörbücher ([fetchBookTrack], 16.2)
+ * und deren Bilder ([fetchCover]). Die Datei entsteht wie beim [keinabersmart.kleinaberlaut.core.download.Downloader]
  * als `.part` und wird erst nach vollständigem Empfang umbenannt.
  */
 @Singleton
@@ -212,6 +215,26 @@ class PhoneFileFetcher @Inject constructor(
             Log.w(TAG, "Übertragung von $requestUid abgebrochen", e)
             part.delete()
             DownloadOutcome.Retry(e)
+        }
+    }
+
+    /**
+     * Holt das Bild einer Folge oder eines Buchs vom Handy (Wear-Konzept 16.1/16.2): für Dateien vom Gerät des Handys und
+     * wenn die Uhr es nicht selbst laden kann. @return `null`, wenn das Handy kein Bild hat oder nicht erreichbar ist.
+     */
+    suspend fun fetchCover(bookId: Long): ByteArray? {
+        val book = bookDao.book(bookId) ?: return null
+        val nodeId = phone.connectedPhoneNodeId() ?: return null
+        val requestUid = WearCoverFile.uid(book.serverId, book.remoteId)
+        return try {
+            val output = ByteArrayOutputStream()
+            when (withContext(Dispatchers.IO) { channelClient.receiveFile(nodeId, requestUid, output) }) {
+                FileReceive.Missing -> null
+                is FileReceive.Received -> output.toByteArray()
+            }
+        } catch (e: IOException) {
+            Log.w(TAG, "Bild $requestUid nicht vom Handy geholt", e)
+            null
         }
     }
 

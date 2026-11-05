@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.data.source.MusicDataSources
+import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
 import keinabersmart.kleinaberlaut.core.database.dao.WearDao
@@ -14,6 +15,7 @@ import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.isLocalSource
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.InputStream
@@ -35,6 +37,7 @@ class PhoneFileLocator @Inject constructor(
     private val sources: MusicDataSources,
     private val bookDao: BookDao,
     private val podcastDao: PodcastDao,
+    private val covers: BookCovers,
 ) {
     /** @return `null`, wenn die Quelle unbekannt ist oder das Handy keine Datei zum Song hat. */
     suspend fun open(sourceUid: String): PhoneFile? {
@@ -68,6 +71,16 @@ class PhoneFileLocator @Inject constructor(
         track.filePath?.let(::File)?.takeIf { track.downloadState == TrackDownload.DONE && it.isFile }?.let { return PhoneFile(it.length(), it.inputStream()) }
         if (!isLocalSource(serverId)) return null
         return openContent(Uri.parse(track.remoteFileId), knownLength = null, label = "$serverId/$remoteId/$trackIndex")
+    }
+
+    /**
+     * Das Bild einer Folge oder eines Buchs (Wear-Konzept 16.1/16.2), wie es das Handy zeigt: bei Folgen ohne eigenes Bild das
+     * des Abos. @return `null`, wenn das Handy das Buch nicht kennt oder kein Bild hat.
+     */
+    suspend fun openCover(serverId: String, remoteId: String): PhoneFile? {
+        val book = bookDao.bookByRemote(serverId, remoteId) ?: return null
+        val bytes = covers.coverBytes(book.bookId) ?: return null
+        return PhoneFile(bytes.size.toLong(), ByteArrayInputStream(bytes))
     }
 
     private suspend fun openLocal(source: WearSourceRow): PhoneFile? {

@@ -1,9 +1,13 @@
 package keinabersmart.kleinaberlaut.core.data.wear
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import keinabersmart.kleinaberlaut.core.data.security.SecretStore
+import keinabersmart.kleinaberlaut.core.data.spoken.AudiobookshelfServers
+import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
 import keinabersmart.kleinaberlaut.core.data.sync.FakeServer
 import keinabersmart.kleinaberlaut.core.data.sync.FixedSources
 import keinabersmart.kleinaberlaut.core.data.sync.LibrarySyncer
@@ -16,15 +20,20 @@ import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.datasource.MusicDataSource
 import keinabersmart.kleinaberlaut.core.datasource.PlaybackLocation
 import keinabersmart.kleinaberlaut.core.datasource.RawArtist
+import keinabersmart.kleinaberlaut.core.datasource.local.LocalBookScanner
 import keinabersmart.kleinaberlaut.core.datasource.RawTrack
 import keinabersmart.kleinaberlaut.core.datasource.SourceBatch
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.DownloadState
 import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.SourceType
+import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsApi
+import keinabersmart.kleinaberlaut.core.network.audiobookshelf.AbsServerRegistry
+import keinabersmart.kleinaberlaut.core.network.podcast.PodcastFeedApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -47,6 +56,7 @@ class PhoneFileLocatorTest {
     private lateinit var syncer: LibrarySyncer
     private lateinit var locator: PhoneFileLocator
     private lateinit var localFile: File
+    private lateinit var covers: BookCovers
 
     private val nd = FakeServer("nd", listOf(track("a", "A", 1), track("b", "B", 2)))
 
@@ -59,7 +69,18 @@ class PhoneFileLocatorTest {
         localFile = folder.newFile("lokal.mp3").apply { writeBytes(ByteArray(300_000) { (it % 251).toByte() }) }
         // „A“ gibt es auch lokal (wird mit dem Server-Song zusammengeführt), „Sommerlied“ nur lokal.
         val local = FileLocalSource(listOf(track("1", "A", 1), track("2", "Sommerlied", 1, album = "Lokal")), localFile)
-        locator = PhoneFileLocator(ApplicationProvider.getApplicationContext(), db.wearDao(), FixedSources(nd, local), db.bookDao(), db.podcastDao())
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val client = OkHttpClient()
+        val api = AbsApi(client)
+        // Ohne Schlüssel ist kein Server eingetragen; Bilder kommen in den Tests über `store`.
+        val secrets = object : SecretStore {
+            override suspend fun get(key: String): String? = null
+            override suspend fun put(key: String, value: String) = Unit
+            override suspend fun remove(key: String) = Unit
+        }
+        val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry())
+        covers = BookCovers(context, db.bookDao(), db.podcastDao(), servers, api, PodcastFeedApi(client), LocalBookScanner(context))
+        locator = PhoneFileLocator(context, db.wearDao(), FixedSources(nd, local), db.bookDao(), db.podcastDao(), covers)
         syncer.sync(nd)
         syncer.sync(local)
     }
@@ -121,6 +142,18 @@ class PhoneFileLocatorTest {
         assertArrayEquals(file.readBytes(), locator.openEpisode("f1", "g1")!!.input.use { it.readBytes() })
         assertNull(locator.openEpisode("f1", "g2"))
         assertNull(locator.openEpisode("f1", "gibtsnicht"))
+    }
+
+    @Test
+    fun `cover of an episode or book is sent, unknown ones give nothing`() = runTest {
+        val id = episode("g1")
+        covers.store(id, byteArrayOf(1, 2, 3))
+
+        val file = locator.openCover("f1", "g1")!!
+
+        assertEquals(3, file.length)
+        assertArrayEquals(byteArrayOf(1, 2, 3), file.input.use { it.readBytes() })
+        assertNull(locator.openCover("f1", "gibtsnicht"))
     }
 
     private suspend fun episode(guid: String): Long = db.bookDao().insertBook(

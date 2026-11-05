@@ -23,6 +23,7 @@ import keinabersmart.kleinaberlaut.core.data.wear.WearServerMirror
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
+import keinabersmart.kleinaberlaut.core.wearsync.WearCoverFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsRequest
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeFile
@@ -143,8 +144,8 @@ class PhoneWearListenerService : WearableListenerService() {
 
     /**
      * Die Uhr holt eine Datei (`/kal/file/<sourceUid>`, Wear-Konzept 8.4; Folgen: [WearEpisodeFile], 16.1; Buchdateien:
-     * [WearBookFile], 16.2): Das Handy schickt die lokale Datei oder den fertigen Download im Original, ohne Datei nur die
-     * Kopfzeile „keine Datei“.
+     * [WearBookFile], 16.2; Bilder: [WearCoverFile]): Das Handy schickt die lokale Datei oder den fertigen Download im Original,
+     * ohne Datei nur die Kopfzeile „keine Datei“.
      */
     override fun onChannelOpened(channel: ChannelClient.Channel) {
         val path = channel.path
@@ -153,9 +154,11 @@ class PhoneWearListenerService : WearableListenerService() {
         applicationScope.launch {
             val episode = WearEpisodeFile.parse(sourceUid)
             val bookTrack = WearBookFile.parse(sourceUid)
+            val cover = WearCoverFile.parse(sourceUid)
             val file = when {
                 episode != null -> fileLocator.openEpisode(episode.first, episode.second)
                 bookTrack != null -> fileLocator.openBookTrack(bookTrack.serverId, bookTrack.remoteId, bookTrack.trackIndex)
+                cover != null -> fileLocator.openCover(cover.first, cover.second)
                 else -> fileLocator.open(sourceUid)
             }
             Log.d(TAG, "Datei $sourceUid für die Uhr: ${file?.length?.let { "$it Bytes" } ?: "keine Datei"}")

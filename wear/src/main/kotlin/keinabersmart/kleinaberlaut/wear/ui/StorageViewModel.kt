@@ -64,7 +64,7 @@ class StorageViewModel @Inject constructor(
     val clearFailed: StateFlow<Boolean> = _clearFailed
 
     val state: StateFlow<StorageUiState> = combine(
-        downloads.overview(),
+        storage.overview(),
         watchState.settings,
         watchState.missingForStorage,
         watchState.lastError,

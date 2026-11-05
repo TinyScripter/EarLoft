@@ -291,7 +291,7 @@ class WearDownloadWorker(
         val settings = state.settings.value
         val pending = wearDao.getPendingCandidates()
         val free = withContext(Dispatchers.IO) { storage.freeBytes() }
-        val budget = downloadBudget(settings, free, wearDao.getDoneBytes(), reservedBytes = 0)
+        val budget = downloadBudget(settings, free, wearDao.getDoneBytes() + bookDao.trackTotals().doneBytes, reservedBytes = 0)
         if (hasRoomForAny(pending.map { estimateBytes(it, settings.quality) }, budget)) return true
         Log.i(TAG, "Speicher voll: kein wartender Titel passt (Budget $budget Bytes), kein Start")
         state.setMissingForStorage(pending.size)
@@ -357,14 +357,16 @@ class WearDownloadWorker(
 
     /**
      * Je Album mit geladenen Songs einmal das Cover als Datei (Wear-Konzept 8.2), ebenso das Bild jeder geladenen Folge
-     * und jedes geladenen Buchs (16.1/16.2, im Cache von [keinabersmart.kleinaberlaut.core.data.spoken.BookCovers]). Fehlt
-     * es, geht die Wiedergabe trotzdem.
+     * und jedes geladenen Buchs (16.1/16.2, im Cache von [BookCovers]; Folgen ohne eigenes Bild zeigen das des Abos).
+     * Was die Uhr nicht selbst laden kann (Dateien vom Gerät des Handys, Server nicht erreichbar), schickt das Handy.
+     * Fehlt es, geht die Wiedergabe trotzdem.
      */
     private suspend fun cacheCovers() {
+        val bookCovers = entryPoint.bookCovers()
         // Je Buch einmal, auch bei mehreren Dateien.
         for (bookId in (podcastDao.downloadedTracks() + bookDao.downloadedBookTracks()).map { it.bookId }.distinct()) {
             try {
-                entryPoint.bookCovers().cover(bookId)
+                if (!bookCovers.ensureCached(bookId)) phoneFetcher.fetchCover(bookId)?.let { bookCovers.store(bookId, it) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

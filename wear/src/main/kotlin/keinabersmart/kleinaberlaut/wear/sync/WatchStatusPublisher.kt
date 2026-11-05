@@ -1,6 +1,7 @@
 package keinabersmart.kleinaberlaut.wear.sync
 
 import com.google.android.gms.wearable.DataClient
+import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.WearDao
 import keinabersmart.kleinaberlaut.core.download.DownloadStorage
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
@@ -20,7 +21,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Meldet dem Handy Speicher und Fortschritt je Auswahl ([WearPaths.WATCH_STATUS], Wear-Konzept 4). Die
+ * Meldet dem Handy Speicher (Songs, Folgen und Bücher) und Fortschritt je Auswahl ([WearPaths.WATCH_STATUS], Wear-Konzept 4). Die
  * Meldung wird gedrosselt (höchstens alle [THROTTLE_MS]): Beim Laden ändert sich der Fortschritt mit jedem Song.
  */
 @Singleton
@@ -29,10 +30,17 @@ class WatchStatusPublisher @Inject constructor(
     private val wearDao: WearDao,
     private val storage: DownloadStorage,
     private val state: WatchState,
+    private val bookDao: BookDao,
 ) {
     fun start(scope: CoroutineScope) {
         scope.launch {
-            combine(wearDao.observeSelectionProgress(), state.missingForStorage, state.lastError, state.settings) { progress, _, _, _ ->
+            combine(
+                wearDao.observeSelectionProgress(),
+                state.missingForStorage,
+                state.lastError,
+                state.settings,
+                bookDao.observeTrackTotals(),
+            ) { progress, _, _, _, _ ->
                 progress
             }
                 .conflate()
@@ -45,7 +53,8 @@ class WatchStatusPublisher @Inject constructor(
 
     private suspend fun publish(selections: List<WearSelectionStatusDto>) {
         val settings = state.settings.value
-        val (used, free) = withContext(Dispatchers.IO) { wearDao.getDoneBytes() to storage.freeBytes() }
+        val used = wearDao.getDoneBytes() + bookDao.trackTotals().doneBytes
+        val free = withContext(Dispatchers.IO) { storage.freeBytes() }
         val status = WearStatusDto(
             usedBytes = used,
             freeBytes = free,

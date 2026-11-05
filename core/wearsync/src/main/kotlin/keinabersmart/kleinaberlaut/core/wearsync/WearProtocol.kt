@@ -48,7 +48,8 @@ object WearPaths {
 
     /**
      * Channel, von der Uhr geöffnet: `/kal/file/<sourceUid>` bzw. für eine Folge `/kal/file/`[WearEpisodeFile.uid], für
-     * eine Buchdatei `/kal/file/`[WearBookFile.uid]; das Handy schreibt die Datei im Original.
+     * eine Buchdatei `/kal/file/`[WearBookFile.uid], für das Bild einer Folge oder eines Buchs `/kal/file/`[WearCoverFile.uid];
+     * das Handy schreibt die Datei im Original.
      */
     const val FILE_CHANNEL_PREFIX = "/kal/file/"
 
@@ -132,6 +133,29 @@ object WearBookFile {
         if (parts.size != 3) return null
         val index = parts[2].toIntOrNull() ?: return null
         return Ref(decode(parts[0]), decode(parts[1]), index)
+    }
+
+    private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
+
+    private fun decode(value: String) = java.net.URLDecoder.decode(value, "UTF-8")
+}
+
+/**
+ * Kennung des Bilds einer Folge oder eines Buchs im Datei-Kanal: `cover:<serverId>:<remoteId>` (bei Folgen `feedId` und
+ * guid), beide Teile URL-kodiert. Für Bilder, die die Uhr nicht selbst laden kann (Dateien vom Gerät des Handys, Server
+ * nicht erreichbar).
+ */
+object WearCoverFile {
+    private const val PREFIX = "cover:"
+
+    fun uid(serverId: String, remoteId: String): String = "$PREFIX${encode(serverId)}:${encode(remoteId)}"
+
+    /** @return (serverId, remoteId); `null`, wenn [uid] kein Bild bezeichnet. */
+    fun parse(uid: String): Pair<String, String>? {
+        if (!uid.startsWith(PREFIX)) return null
+        val parts = uid.removePrefix(PREFIX).split(':')
+        if (parts.size != 2) return null
+        return decode(parts[0]) to decode(parts[1])
     }
 
     private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")

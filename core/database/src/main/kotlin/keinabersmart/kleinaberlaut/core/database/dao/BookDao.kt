@@ -24,6 +24,10 @@ private const val BOOK_VISIBLE = "serverId NOT IN (SELECT serverId FROM spoken_s
 private const val BOOK_LISTED =
     "$BOOK_VISIBLE AND serverId NOT IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0 OR archived = 1)"
 
+private const val TRACK_TOTALS =
+    "SELECT COALESCE(SUM(CASE WHEN downloadState = 'DONE' THEN fileSize ELSE 0 END), 0) AS doneBytes, " +
+        "COALESCE(SUM(downloadState IN ('QUEUED', 'RUNNING')), 0) AS pendingCount FROM book_tracks"
+
 @Dao
 abstract class BookDao {
 
@@ -292,7 +296,17 @@ abstract class BookDao {
             "WHERE b.kind = 'BOOK' AND t.filePath IS NOT NULL",
     )
     abstract suspend fun downloadedBookTracks(): List<BookTrackEntity>
+
+    /** Summen über die Dateien aller Bücher und Folgen (Speicheranzeige der Uhr). */
+    @Query(TRACK_TOTALS)
+    abstract fun observeTrackTotals(): Flow<TrackTotalsRow>
+
+    @Query(TRACK_TOTALS)
+    abstract suspend fun trackTotals(): TrackTotalsRow
 }
+
+/** [doneBytes]: fertig geladen; [pendingCount]: wartende und laufende Dateien. */
+data class TrackTotalsRow(val doneBytes: Long, val pendingCount: Int)
 
 /** Summen über die Dateien eines Buchs; `bytes` sind die bisher fertig geladenen. */
 data class BookDownloadRow(

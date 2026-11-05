@@ -2,8 +2,11 @@ package keinabersmart.kleinaberlaut.wear.download
 
 import keinabersmart.kleinaberlaut.core.data.repository.LibraryRepository
 import keinabersmart.kleinaberlaut.core.data.repository.PlaylistRepository
+import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.WearDao
+import keinabersmart.kleinaberlaut.core.download.DownloadRepository
+import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.model.SourceType
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
@@ -34,7 +37,17 @@ class WatchStorageRepository @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val libraryRepository: LibraryRepository,
     private val watchState: WatchState,
+    private val downloads: DownloadRepository,
+    private val bookDao: BookDao,
 ) {
+
+    /**
+     * Stand aller Downloads der Uhr: Songs wie am Handy, dazu die Dateien der Folgen und Bücher (Wear-Konzept 16.1/16.2) im
+     * belegten Speicher und unter „noch zu laden“.
+     */
+    fun overview(): Flow<DownloadOverview> = combine(downloads.overview(), bookDao.observeTrackTotals()) { songs, spoken ->
+        songs.copy(usedBytes = songs.usedBytes + spoken.doneBytes, pendingSongs = songs.pendingSongs + spoken.pendingCount)
+    }
 
     /**
      * Die Auswahlen vom Handy mit ihrer Geräte-Playlist und dem Stand der Downloads (Wear-Konzept 7.2), in der

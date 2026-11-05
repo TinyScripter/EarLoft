@@ -62,7 +62,7 @@ class WatchSpokenTest {
         val servers = AudiobookshelfServers(dao, secrets, api, AbsServerRegistry())
         val progressSync = BookProgressSync(context, dao, servers, api, PlaybackPolicy())
         val scanner = LocalBookScanner(context)
-        val covers = BookCovers(context, dao, servers, api, PodcastFeedApi(client), scanner)
+        val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
         val syncer = BookSyncer(dao, servers, api, progressSync, LocalBooks(dao, scanner, SpokenSettings(context), covers))
         val podcasts = PodcastRepository(db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client))
         spoken = WatchSpoken(db, db.wearDao(), db.podcastDao(), dao, podcasts, syncer, progressSync)
