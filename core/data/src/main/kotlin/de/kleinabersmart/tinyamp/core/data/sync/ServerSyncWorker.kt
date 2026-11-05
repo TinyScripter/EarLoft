@@ -6,9 +6,7 @@ import kotlinx.coroutines.flow.first
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dagger.hilt.EntryPoint
@@ -16,6 +14,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.tinyamp.core.data.source.DataSourceRegistry
+import de.kleinabersmart.tinyamp.core.data.work.ensurePeriodicWork
 import java.util.concurrent.TimeUnit
 
 /**
@@ -50,21 +49,16 @@ class ServerSyncWorker(
         private const val MAX_ATTEMPTS = 3
 
         /** [days] = [LibrarySettings.SYNC_NEVER] beendet die Planung. */
-        fun schedule(context: Context, days: Int) {
+        suspend fun schedule(context: Context, days: Int) {
             if (days <= LibrarySettings.SYNC_NEVER) {
                 WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
                 return
             }
-            val request = PeriodicWorkRequestBuilder<ServerSyncWorker>(days.toLong(), TimeUnit.DAYS)
-                .setConstraints(
-                    Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.UNMETERED)
-                        .setRequiresCharging(true)
-                        .build(),
-                )
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.UNMETERED)
+                .setRequiresCharging(true)
                 .build()
-            WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+            WorkManager.getInstance(context).ensurePeriodicWork(WORK_NAME, ServerSyncWorker::class.java, days.toLong(), TimeUnit.DAYS, constraints)
         }
     }
 }

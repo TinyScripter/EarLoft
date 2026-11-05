@@ -4,14 +4,13 @@ import android.content.Context
 import android.util.Log
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import de.kleinabersmart.tinyamp.core.data.work.ensurePeriodicWork
 import java.util.concurrent.TimeUnit
 
 /**
@@ -42,11 +41,9 @@ class HeardCleanupWorker(
         private const val TAG = "HeardCleanupWorker"
         private const val WORK_NAME = "heard-episode-cleanup"
 
-        fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<HeardCleanupWorker>(1, TimeUnit.DAYS)
-                .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
-                .build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+        suspend fun schedule(context: Context) {
+            val constraints = Constraints.Builder().setRequiresBatteryNotLow(true).build()
+            WorkManager.getInstance(context).ensurePeriodicWork(WORK_NAME, HeardCleanupWorker::class.java, 1, TimeUnit.DAYS, constraints)
         }
     }
 }

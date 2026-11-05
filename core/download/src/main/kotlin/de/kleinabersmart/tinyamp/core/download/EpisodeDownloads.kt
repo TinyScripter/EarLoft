@@ -129,7 +129,7 @@ class EpisodeDownloads @Inject constructor(
             combine(dao.observeFinishedDownloads(), settings.deleteHeardAfterDays, ::Pair)
                 .collect { (finished, days) -> removeExpired(finished, days) }
         }
-        HeardCleanupWorker.schedule(context)
+        scope.launch { HeardCleanupWorker.schedule(context) }
         scope.launch {
             // Nach einem Prozessende stehen Einträge evtl. noch auf RUNNING/QUEUED.
             if (dao.countPendingDownloads() > 0) enqueueWorker()

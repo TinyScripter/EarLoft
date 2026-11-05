@@ -7,9 +7,7 @@ import android.util.Log
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dagger.hilt.EntryPoint
@@ -23,6 +21,7 @@ import de.kleinabersmart.tinyamp.core.data.refresh.RefreshEvent
 import de.kleinabersmart.tinyamp.core.data.refresh.RefreshEvents
 import de.kleinabersmart.tinyamp.core.data.refresh.RefreshKind
 import de.kleinabersmart.tinyamp.core.data.di.ApplicationScope
+import de.kleinabersmart.tinyamp.core.data.work.ensurePeriodicWork
 import de.kleinabersmart.tinyamp.core.database.dao.BookDao
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -75,21 +74,21 @@ class SpokenRefresher @Inject constructor(
         scope.launch {
             settings.useLocalPodcasts.distinctUntilChanged().drop(1).collect { enabled -> if (enabled) localPodcasts.sync() else localPodcasts.remove() }
         }
-        schedule()
+        scope.launch { schedule() }
     }
 
     /** Hält die Bibliothek auch ohne geöffnete App aktuell (nur im WLAN), damit neue Bücher gemeldet werden können. */
-    private fun schedule() {
+    private suspend fun schedule() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.UNMETERED)
             .setRequiresBatteryNotLow(true)
             .build()
-        val request = PeriodicWorkRequestBuilder<BookRefreshWorker>(BACKGROUND_INTERVAL_HOURS, TimeUnit.HOURS)
-            .setConstraints(constraints)
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
-            .build()
-        // UPDATE statt KEEP: Geänderte Bedingungen gelten auch für einen schon geplanten Auftrag (der Takt bleibt).
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+        // Geänderte Bedingungen gelten auch für einen schon geplanten Auftrag (der Takt bleibt); gleiche lassen ihn unberührt.
+        WorkManager.getInstance(context).ensurePeriodicWork(
+            WORK_NAME, BookRefreshWorker::class.java, BACKGROUND_INTERVAL_HOURS, TimeUnit.HOURS, constraints,
+        ) {
+            setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
+        }
     }
 
     /**

@@ -6,9 +6,7 @@ import android.net.NetworkCapabilities
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dagger.hilt.EntryPoint
@@ -23,6 +21,7 @@ import de.kleinabersmart.tinyamp.core.data.refresh.RefreshEvent
 import de.kleinabersmart.tinyamp.core.data.refresh.RefreshEvents
 import de.kleinabersmart.tinyamp.core.data.refresh.RefreshKind
 import de.kleinabersmart.tinyamp.core.data.spoken.LocalPodcasts
+import de.kleinabersmart.tinyamp.core.data.work.ensurePeriodicWork
 import de.kleinabersmart.tinyamp.core.database.dao.PodcastDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -123,7 +122,7 @@ class PodcastRefresher @Inject constructor(
         }
     }
 
-    private fun schedule(hours: Int, mobile: Boolean) {
+    private suspend fun schedule(hours: Int, mobile: Boolean) {
         val manager = WorkManager.getInstance(context)
         if (hours == 0) {
             manager.cancelUniqueWork(WORK_NAME)
@@ -133,11 +132,9 @@ class PodcastRefresher @Inject constructor(
             .setRequiredNetworkType(if (mobile) NetworkType.CONNECTED else NetworkType.UNMETERED)
             .setRequiresBatteryNotLow(true)
             .build()
-        val request = PeriodicWorkRequestBuilder<PodcastRefreshWorker>(hours.toLong(), TimeUnit.HOURS)
-            .setConstraints(constraints)
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
-            .build()
-        manager.enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+        manager.ensurePeriodicWork(WORK_NAME, PodcastRefreshWorker::class.java, hours.toLong(), TimeUnit.HOURS, constraints) {
+            setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
+        }
     }
 
     /** Wie die Bedingung des periodischen Auftrags: Internet, und ohne [mobile] nur ein Netz ohne Volumenbegrenzung. */
