@@ -24,8 +24,15 @@ class SpokenModeViewModel @Inject constructor(
 ) : ViewModel() {
     val mode: StateFlow<SpokenMode> = settings.mode.stateIn(viewModelScope, SharingStarted.Eagerly, SpokenMode.MUSIC)
 
-    /** Wie [mode], aber `null`, bis der gespeicherte Bereich gelesen ist; so beginnt der Bereichs-Pager gleich auf der richtigen Seite. */
-    val loadedMode: StateFlow<SpokenMode?> = settings.mode.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    /** Die eingeschalteten Bereiche (Allgemein → Bereiche) in der Reihenfolge des Schalters; nie leer. */
+    val areas: StateFlow<List<SpokenMode>> = settings.areas.stateIn(viewModelScope, SharingStarted.Eagerly, settings.lastAreas)
+
+    /**
+     * Gespeicherter Bereich und eingeschaltete Bereiche, `null`, bis beides gelesen ist; so beginnt der Bereichs-Pager gleich
+     * auf der richtigen Seite und mit den richtigen Seiten.
+     */
+    val loaded: StateFlow<LoadedModes?> = combine(settings.mode, settings.areas, ::LoadedModes)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** „Überall suchen“ statt nur im gewählten Bereich (Schalter auf der Such-Seite, bleibt gespeichert). */
     val searchAll: StateFlow<Boolean> = settings.searchAll.stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -58,3 +65,6 @@ class SpokenModeViewModel @Inject constructor(
 
     fun refreshPodcasts() = podcastRefresher.refreshAll()
 }
+
+/** Zu [SpokenModeViewModel.loaded]: der gezeigte Bereich [mode] ist immer einer der [areas]. */
+data class LoadedModes(val mode: SpokenMode, val areas: List<SpokenMode>)

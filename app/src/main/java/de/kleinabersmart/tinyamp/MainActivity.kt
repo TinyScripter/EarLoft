@@ -41,6 +41,9 @@ import de.kleinabersmart.tinyamp.ui.permission.AudioPermissionGate
 import de.kleinabersmart.tinyamp.ui.theme.ThemeMode
 import de.kleinabersmart.tinyamp.ui.theme.ThemeSettings
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import de.kleinabersmart.tinyamp.core.data.spoken.SpokenSettings
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -49,6 +52,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var libraryRefresher: LibraryRefresher
     @Inject lateinit var spokenRefresher: SpokenRefresher
     @Inject lateinit var podcastRefresher: PodcastRefresher
+    @Inject lateinit var spokenSettings: SpokenSettings
 
     @Inject lateinit var themeSettings: ThemeSettings
 
@@ -93,12 +97,18 @@ class MainActivity : ComponentActivity() {
         openNowPlaying = true
     }
 
-    /** Abgleiche beim Öffnen der App; der bloße Start des Prozesses (Hintergrund-Jobs, Uhr) gleicht nichts ab. */
+    /**
+     * Abgleiche beim Öffnen der App, nur für die eingeschalteten Bereiche; der bloße Start des Prozesses (Hintergrund-Jobs,
+     * Uhr) gleicht nichts ab.
+     */
     override fun onStart() {
         super.onStart()
-        libraryRefresher.refreshQuick()
-        spokenRefresher.refreshQuick()
-        podcastRefresher.refreshStale()
+        lifecycleScope.launch {
+            val areas = spokenSettings.areas.first()
+            if (SpokenMode.MUSIC in areas) libraryRefresher.refreshQuick()
+            spokenRefresher.refreshQuick(books = SpokenMode.BOOKS in areas, podcasts = SpokenMode.PODCASTS in areas)
+            if (SpokenMode.PODCASTS in areas) podcastRefresher.refreshStale()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

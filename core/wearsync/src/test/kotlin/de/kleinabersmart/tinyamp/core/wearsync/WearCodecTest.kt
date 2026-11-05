@@ -1,5 +1,6 @@
 package de.kleinabersmart.tinyamp.core.wearsync
 
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.core.model.ReplayGainMode
 import de.kleinabersmart.tinyamp.core.model.WearSelectionKind
 import org.junit.Assert.assertEquals
@@ -75,6 +76,14 @@ class WearCodecTest {
         assertTrue(settings.requireCharging)
         assertEquals(ReplayGainMode.AUTO, settings.replayGainMode)
         assertNull(settings.storageLimitBytes)
+        assertEquals(SpokenMode.entries, settings.areas)
+    }
+
+    @Test
+    fun `areas survive the round trip`() {
+        val settings = WearSettingsDto(areas = listOf(SpokenMode.MUSIC, SpokenMode.BOOKS))
+
+        assertEquals(settings, WearCodec.decode<WearSettingsDto>(WearCodec.encode(settings)))
     }
 
     @Test

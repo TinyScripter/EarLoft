@@ -6,6 +6,7 @@ import com.google.android.gms.wearable.DataClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.data.spoken.AudiobookshelfServers
+import de.kleinabersmart.tinyamp.core.data.spoken.SpokenSettings
 import de.kleinabersmart.tinyamp.core.data.wear.WatchSpoken
 import de.kleinabersmart.tinyamp.core.data.wear.WearContent
 import de.kleinabersmart.tinyamp.core.data.wear.WearSelectionRepository
@@ -46,6 +47,7 @@ class WearPublisher @Inject constructor(
     private val replayGainSettings: ReplayGainSettings,
     private val watchSpoken: WatchSpoken,
     private val audiobookshelf: AudiobookshelfServers,
+    private val spokenSettings: SpokenSettings,
 ) {
     /** Zuletzt geschriebenes Manifest; `null` = noch beim Data Layer nachsehen. */
     private var publishedHash: String? = null
@@ -82,13 +84,19 @@ class WearPublisher @Inject constructor(
                 .collect { dataClient.putPayload(WearPaths.SERVERS, WearCodec.encode(it)) }
         }
         scope.launch {
-            combine(watchSettings.settings, replayGainSettings.mode, replayGainSettings.preAmpDb) { watch, mode, preAmp ->
+            combine(
+                watchSettings.settings,
+                replayGainSettings.mode,
+                replayGainSettings.preAmpDb,
+                spokenSettings.areas,
+            ) { watch, mode, preAmp, areas ->
                 WearSettingsDto(
                     quality = watch.quality,
                     storageLimitBytes = watch.storageLimitGb?.let { it * BYTES_PER_GB },
                     requireCharging = watch.requireCharging,
                     replayGainMode = mode,
                     preAmpDb = preAmp,
+                    areas = areas,
                 )
             }
                 .distinctUntilChanged()

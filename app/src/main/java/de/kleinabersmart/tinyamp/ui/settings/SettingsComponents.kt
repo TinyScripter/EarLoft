@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.kleinabersmart.tinyamp.R
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.core.data.spoken.ResumeRule
 import de.kleinabersmart.tinyamp.core.data.podcast.PodcastSettings
 import de.kleinabersmart.tinyamp.core.data.sync.LibrarySettings
@@ -357,4 +358,25 @@ internal fun ResumeRows(rule: ResumeRule, icon: Int, keyPrefix: String, onChange
             onDismiss = { choosingRewind = false },
         )
     }
+}
+
+/** Name eines Bereichs wie in der Übersicht der Einstellungen. */
+internal fun areaTitle(area: SpokenMode): Int = when (area) {
+    SpokenMode.MUSIC -> R.string.settings_music
+    SpokenMode.PODCASTS -> R.string.settings_podcasts
+    SpokenMode.BOOKS -> R.string.settings_audiobooks
+}
+
+/** Woher die Inhalte eines Bereichs kommen (Allgemein → Bereiche). */
+internal fun areaSummary(area: SpokenMode): Int = when (area) {
+    SpokenMode.MUSIC -> R.string.settings_area_music_summary
+    SpokenMode.PODCASTS -> R.string.settings_area_podcasts_summary
+    SpokenMode.BOOKS -> R.string.settings_area_books_summary
+}
+
+/** Symbol eines Bereichs wie in der Übersicht der Einstellungen. */
+internal fun areaIcon(area: SpokenMode): Int = when (area) {
+    SpokenMode.MUSIC -> DesignR.drawable.ic_music_note
+    SpokenMode.PODCASTS -> DesignR.drawable.ic_playlist_play
+    SpokenMode.BOOKS -> DesignR.drawable.ic_book
 }

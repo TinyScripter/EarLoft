@@ -57,7 +57,9 @@ import de.kleinabersmart.tinyamp.ui.components.gridTile
 import de.kleinabersmart.tinyamp.ui.components.PlayControlViewModel
 import de.kleinabersmart.tinyamp.ui.components.ArtistAvatar
 import de.kleinabersmart.tinyamp.ui.components.LoadableList
+import de.kleinabersmart.tinyamp.ui.components.EmptyAreaHint
 import de.kleinabersmart.tinyamp.ui.components.LazyGridFastScroller
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.ui.components.LazyListFastScroller
 import de.kleinabersmart.tinyamp.ui.components.letterOf
 import de.kleinabersmart.tinyamp.ui.components.SongActions
@@ -83,6 +85,7 @@ fun LibraryScreen(
     onArtistClick: (Long) -> Unit,
     onFavoritesClick: () -> Unit,
     onPlaylistClick: (Long) -> Unit,
+    onAddServer: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -95,6 +98,10 @@ fun LibraryScreen(
     // Tabs und Seiten teilen sich den Pager-Zustand: Antippen und Wischen führen zum selben Ergebnis.
     val pagerState = rememberPagerState { LibraryTab.entries.size }
     val scope = rememberCoroutineScope()
+    // Ohne Musik: an erster Stelle einen Server einrichten, darunter der Weg zum Ausblenden des Bereichs.
+    val empty: @Composable () -> Unit = {
+        EmptyAreaHint(SpokenMode.MUSIC, stringResource(R.string.library_empty), stringResource(R.string.home_setup_server), onAddServer)
+    }
 
     Column(modifier.fillMaxSize()) {
         PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
@@ -112,9 +119,9 @@ fun LibraryScreen(
             key = { it },
         ) { page ->
             when (LibraryTab.entries[page]) {
-                LibraryTab.ALBUMS -> LoadableList(albums, stringResource(R.string.library_empty)) { AlbumGrid(it, onAlbumClick, fastScroll = true) }
-                LibraryTab.ARTISTS -> LoadableList(artists, stringResource(R.string.library_empty)) { ArtistGrid(it, onArtistClick) }
-                LibraryTab.SONGS -> LoadableList(songs, stringResource(R.string.library_empty)) {
+                LibraryTab.ALBUMS -> LoadableList(albums, empty) { AlbumGrid(it, onAlbumClick, fastScroll = true) }
+                LibraryTab.ARTISTS -> LoadableList(artists, empty) { ArtistGrid(it, onArtistClick) }
+                LibraryTab.SONGS -> LoadableList(songs, empty) {
                     SongList(
                         songs = it,
                         onSongClick = viewModel::playSongs,

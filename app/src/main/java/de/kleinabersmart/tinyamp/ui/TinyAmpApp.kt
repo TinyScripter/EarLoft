@@ -184,6 +184,12 @@ fun TinyAmpApp(
     // Modus gewechselt: die Detailspalte des vorigen Modus schließen (Tab auf seine Startseite zurück).
     val closeDetail: () -> Unit = { navigator.navigate(navigationState.topLevelRoute) }
     val openSearch: () -> Unit = { navigator.navigate(SearchRoute()) }
+    val addMusicServer: () -> Unit = { navigator.navigate(AddServerRoute) }
+    // Aus einem leeren Bereich direkt zu den Schaltern der Bereiche (Einstellungen → Allgemein).
+    val openAreaSettings: () -> Unit = {
+        navigator.navigate(SettingsRoute)
+        navigator.navigate(SettingsGeneralRoute)
+    }
 
     val entryProvider = entryProvider {
         entry<HomeRoute> {
@@ -193,6 +199,7 @@ fun TinyAmpApp(
                         onAlbumClick = openAlbum,
                         onArtistClick = openArtist,
                         onOpenQueue = { navigator.navigate(QueueRoute(overPlayer = false)) },
+                        onAddServer = addMusicServer,
                     )
                 },
                 podcasts = { PodcastHomeScreen(
@@ -205,6 +212,7 @@ fun TinyAmpApp(
                 books = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
                 onModeChange = closeDetail,
                 onSearch = openSearch,
+                onOpenAreaSettings = openAreaSettings,
             )
         }
         entry<LibraryRoute>(metadata = listPane()) {
@@ -215,6 +223,7 @@ fun TinyAmpApp(
                         onArtistClick = openArtist,
                         onFavoritesClick = { navigator.navigate(FavoritesRoute) },
                         onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
+                        onAddServer = addMusicServer,
                     )
                 },
                 podcasts = {
@@ -234,6 +243,7 @@ fun TinyAmpApp(
                 },
                 onModeChange = closeDetail,
                 onSearch = openSearch,
+                onOpenAreaSettings = openAreaSettings,
             )
         }
         entry<BookRoute> { route ->

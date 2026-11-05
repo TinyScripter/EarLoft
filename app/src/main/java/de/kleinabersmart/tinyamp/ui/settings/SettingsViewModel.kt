@@ -41,6 +41,7 @@ import de.kleinabersmart.tinyamp.core.download.DownloadSettings
 import de.kleinabersmart.tinyamp.core.model.PodcastFeed
 import de.kleinabersmart.tinyamp.core.model.ReplayGainMode
 import de.kleinabersmart.tinyamp.core.model.ServerInfo
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.core.playback.ReplayGainSettings
 import de.kleinabersmart.tinyamp.ui.orOnError
 import de.kleinabersmart.tinyamp.ui.theme.ThemeMode
@@ -111,6 +112,8 @@ data class SettingsUiState(
     val podcastDirectories: List<PodcastDirectory> = emptyList(),
     val enabledPodcastDirectories: Set<PodcastDirectory> = emptySet(),
     val appleCountry: String = "",
+    /** Eingeschaltete Bereiche (Allgemein → Bereiche); die Unterseiten der anderen entfallen. */
+    val areas: List<SpokenMode> = SpokenMode.entries,
 )
 
 private data class GeneralSettings(
@@ -243,6 +246,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(bookResume = book, podcastResume = podcast, restartChapter = chapter)
     }.combine(spokenSettings.bookMobileData) { state, mobile ->
         state.copy(bookMobileData = mobile)
+    }.combine(spokenSettings.areas) { state, areas ->
+        state.copy(areas = areas)
     }.combine(combine(podcastSettings.directories, podcastSettings.appleCountry, ::Pair)) { state, (directories, country) ->
         state.copy(podcastDirectories = directorySearch.available, enabledPodcastDirectories = directories, appleCountry = country)
     }
@@ -322,6 +327,11 @@ class SettingsViewModel @Inject constructor(
 
     fun setAlwaysShowNavigationBar(enabled: Boolean) {
         viewModelScope.launch { themeSettings.setAlwaysShowNavigationBar(enabled) }
+    }
+
+    /** Blendet einen Bereich ein oder aus; der letzte eingeschaltete bleibt an ([SpokenSettings.setAreaEnabled]). */
+    fun setAreaEnabled(area: SpokenMode, enabled: Boolean) {
+        viewModelScope.launch { spokenSettings.setAreaEnabled(area, enabled) }
     }
 
     /** Einlesen bzw. Entfernen der lokalen Songs übernimmt der [LibraryRefresher]. */
@@ -478,10 +488,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** Gleicht die eingeschalteten Bereiche ab. */
     fun refreshAll() {
-        refreshMusic()
-        refreshAudiobooks()
-        refreshPodcasts()
+        val areas = state.value.areas
+        if (SpokenMode.MUSIC in areas) refreshMusic()
+        if (SpokenMode.BOOKS in areas) refreshAudiobooks()
+        if (SpokenMode.PODCASTS in areas) refreshPodcasts()
     }
 
     fun setDownloadWifiOnly(wifiOnly: Boolean) {

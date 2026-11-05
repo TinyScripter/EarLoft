@@ -40,7 +40,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -70,7 +69,9 @@ import coil3.compose.AsyncImage
 import de.kleinabersmart.tinyamp.core.model.AppUris
 import androidx.compose.runtime.LaunchedEffect
 import de.kleinabersmart.tinyamp.ui.LoadState
+import de.kleinabersmart.tinyamp.ui.components.EmptyAreaHint
 import de.kleinabersmart.tinyamp.ui.components.EmptyHint
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.ui.components.LoadFailedHint
 import de.kleinabersmart.tinyamp.ui.components.LoadingIndicator
 import de.kleinabersmart.tinyamp.ui.valueOrNull
@@ -144,7 +145,7 @@ fun SpokenHomeScreen(
                 } else if (continueState is LoadState.Ready && recentState is LoadState.Ready &&
                     continueListening.isEmpty() && recent.isEmpty() && hasServer == true
                 ) {
-                    item(key = "empty") { EmptyHint(stringResource(R.string.spoken_no_books)) }
+                    item(key = "empty") { NoBooksHint() }
                 }
             }
         }
@@ -179,7 +180,7 @@ fun SpokenLibraryScreen(
             hasServer == false -> NoServerHint(onSetup)
             booksState == LoadState.Failed -> LoadFailedHint()
             booksState == LoadState.Loading || hasServer == null -> LoadingIndicator()
-            booksState.valueOrNull.isNullOrEmpty() -> EmptyHint(stringResource(R.string.spoken_no_books))
+            booksState.valueOrNull.isNullOrEmpty() -> NoBooksHint()
             else -> {
                 val all = booksState.valueOrNull.orEmpty()
                 val series = remember(all) { all.seriesGroups() }
@@ -358,12 +359,13 @@ fun BookGroupScreen(
 
 @Composable
 private fun NoServerHint(onSetup: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(24.dp)) {
-        Text(stringResource(R.string.spoken_no_server), style = MaterialTheme.typography.bodyLarge)
-        FilledTonalButton(onClick = onSetup, modifier = Modifier.padding(top = 12.dp)) {
-            Text(stringResource(R.string.spoken_setup))
-        }
-    }
+    EmptyAreaHint(SpokenMode.BOOKS, stringResource(R.string.spoken_no_server), stringResource(R.string.spoken_setup), onSetup)
+}
+
+/** Server da, aber (noch) keine Bücher: nichts einzurichten, nur der Weg zum Ausblenden des Bereichs. */
+@Composable
+private fun NoBooksHint() {
+    EmptyAreaHint(SpokenMode.BOOKS, stringResource(R.string.spoken_no_books), setupLabel = null, onSetup = {})
 }
 
 @Composable

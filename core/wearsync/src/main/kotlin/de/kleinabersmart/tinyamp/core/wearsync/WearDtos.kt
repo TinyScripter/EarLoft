@@ -1,6 +1,7 @@
 package de.kleinabersmart.tinyamp.core.wearsync
 
 import de.kleinabersmart.tinyamp.core.model.ReplayGainMode
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.core.model.WearSelectionKind
 import kotlinx.serialization.Serializable
 
@@ -142,6 +143,8 @@ data class WearSettingsDto(
     /** Wie am Handy (W2). */
     val replayGainMode: ReplayGainMode = ReplayGainMode.AUTO,
     val preAmpDb: Float = 0f,
+    /** Eingeschaltete Bereiche wie am Handy (Allgemein → Bereiche); die Uhr zeigt nur diese. */
+    val areas: List<SpokenMode> = SpokenMode.entries,
 ) {
     companion object {
         const val DEFAULT_MIN_FREE_BYTES = 1_000_000_000L

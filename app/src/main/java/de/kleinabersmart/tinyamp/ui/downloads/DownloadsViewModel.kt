@@ -15,7 +15,9 @@ import de.kleinabersmart.tinyamp.core.download.EpisodeDownloads
 import de.kleinabersmart.tinyamp.core.model.Book
 import de.kleinabersmart.tinyamp.core.model.DownloadOverview
 import de.kleinabersmart.tinyamp.core.model.DownloadedAlbum
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.core.model.TrackDownload
+import de.kleinabersmart.tinyamp.core.data.spoken.SpokenSettings
 import de.kleinabersmart.tinyamp.ui.orOnError
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +47,7 @@ class DownloadsViewModel @Inject constructor(
     private val podcastRepository: PodcastRepository,
     private val episodeDownloads: EpisodeDownloads,
     bookProgress: BookDownloadProgress,
+    spokenSettings: SpokenSettings,
 ) : ViewModel() {
 
     val state: StateFlow<DownloadsUiState> = combine(
@@ -66,6 +69,13 @@ class DownloadsViewModel @Inject constructor(
             books = downloadedBooks,
             podcasts = podcasts,
             isLoading = false,
+        )
+    }.combine(spokenSettings.areas) { state, areas ->
+        // Ausgeblendete Bereiche (Allgemein → Bereiche) zeigt die Übersicht nicht; „belegt“ zählt weiter alles.
+        state.copy(
+            albums = state.albums.takeIf { SpokenMode.MUSIC in areas }.orEmpty(),
+            books = state.books.takeIf { SpokenMode.BOOKS in areas }.orEmpty(),
+            podcasts = state.podcasts.takeIf { SpokenMode.PODCASTS in areas }.orEmpty(),
         )
     }
         .orOnError(DownloadsUiState(isLoading = false, isFailed = true))

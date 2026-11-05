@@ -1,5 +1,7 @@
 package de.kleinabersmart.tinyamp.core.data.spoken
 
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
+import kotlinx.coroutines.flow.first
 import android.content.Context
 import android.util.Log
 import androidx.work.BackoffPolicy
@@ -92,16 +94,20 @@ class SpokenRefresher @Inject constructor(
 
     /**
      * Beim Öffnen der App: Dateien vom Gerät, ausstehenden Fortschritt senden, dann je Server ein Vollabgleich, wenn der
-     * letzte länger als [FULL_SYNC_INTERVAL_MS] her ist, sonst nur den Fortschritt anderer Geräte übernehmen.
+     * letzte länger als [FULL_SYNC_INTERVAL_MS] her ist, sonst nur den Fortschritt anderer Geräte übernehmen. Ohne [books]
+     * bzw. [podcasts] (Bereich ausgeblendet) bleibt der jeweilige Teil aus.
      */
-    fun refreshQuick() {
+    fun refreshQuick(books: Boolean = true, podcasts: Boolean = true) {
+        if (!books && !podcasts) return
         val now = System.currentTimeMillis()
         val last = lastQuick.get()
         if (now - last < QUICK_INTERVAL_MS || !lastQuick.compareAndSet(last, now)) return
         scope.launch {
             // Neue Dateien in „Audiobooks“; unveränderte Bücher kosten nur die MediaStore-Abfrage.
-            localBooks.sync()
-            localPodcasts.sync()
+            if (books) localBooks.sync()
+            if (podcasts) localPodcasts.sync()
+            // Ausgeblendete Bücher (Allgemein → Bereiche): kein Kontakt zu Audiobookshelf.
+            if (!books) return@launch
             progressSync.pushPending()
             var fresh = 0
             servers.all().forEach { server ->
@@ -152,6 +158,8 @@ class BookRefreshWorker(
 
     override suspend fun doWork(): Result {
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, RefreshEntryPoint::class.java)
+        // Ausgeblendete Bücher (Allgemein → Bereiche): kein Abgleich mit Audiobookshelf.
+        if (SpokenMode.BOOKS !in entryPoint.spokenSettings().areas.first()) return Result.success()
         val servers = entryPoint.bookServers().all()
         if (servers.isEmpty()) return Result.success()
         val results = servers.map { entryPoint.bookSyncer().syncSafely(it) }
@@ -166,5 +174,6 @@ class BookRefreshWorker(
         fun bookSyncer(): BookSyncer
         fun bookServers(): AudiobookshelfServers
         fun notifier(): NewContentNotifier
+        fun spokenSettings(): SpokenSettings
     }
 }

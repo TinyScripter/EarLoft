@@ -445,10 +445,16 @@ fun LoadFailedHint(modifier: Modifier = Modifier) {
 /** Liste mit Ladekreis, Fehler- und Leer-Hinweis; [content] bekommt nur nicht leere Listen. */
 @Composable
 fun <T> LoadableList(state: LoadState<List<T>>, emptyText: String, content: @Composable (List<T>) -> Unit) {
+    LoadableList(state, empty = { EmptyHint(emptyText) }, content)
+}
+
+/** Wie oben, aber mit eigenem Inhalt für die leere Liste ([empty], etwa [EmptyAreaHint]). */
+@Composable
+fun <T> LoadableList(state: LoadState<List<T>>, empty: @Composable () -> Unit, content: @Composable (List<T>) -> Unit) {
     when (state) {
         LoadState.Loading -> LoadingIndicator()
         LoadState.Missing, LoadState.Failed -> LoadFailedHint()
-        is LoadState.Ready -> if (state.value.isEmpty()) EmptyHint(emptyText) else content(state.value)
+        is LoadState.Ready -> if (state.value.isEmpty()) empty() else content(state.value)
     }
 }
 

@@ -6,7 +6,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.tinyamp.core.data.podcast.ContinueListening
 import de.kleinabersmart.tinyamp.core.data.spoken.BookRepository
 import de.kleinabersmart.tinyamp.core.playback.PlaybackConnection
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.wear.download.SelectionItem
+import de.kleinabersmart.tinyamp.wear.download.WatchState
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import de.kleinabersmart.tinyamp.wear.download.WatchStorageRepository
 import de.kleinabersmart.tinyamp.wear.sync.PhoneConnection
 import de.kleinabersmart.tinyamp.wear.sync.PhoneRemote
@@ -36,6 +40,8 @@ data class StartUiState(
     val hasEpisodes: Boolean = false,
     /** Es liegen offene Hörbücher vom Handy auf der Uhr (Wear-Konzept 16.2). */
     val hasBooks: Boolean = false,
+    /** Am Handy eingeschaltete Bereiche (Allgemein → Bereiche); die anderen fehlen auf der Uhr und am Handy. */
+    val areas: List<SpokenMode> = SpokenMode.entries,
 ) {
     /** Die Fernsteuerung gibt es, solange ein Handy mit der App verbunden ist. */
     val phoneConnected: Boolean get() = phone is PhoneStatus.Connected
@@ -54,6 +60,7 @@ class StartViewModel @Inject constructor(
     playback: PlaybackConnection,
     continueListening: ContinueListening,
     books: BookRepository,
+    watchState: WatchState,
 ) : ViewModel() {
 
     private val openOnPhone = MutableStateFlow<OpenOnPhoneResult?>(null)
@@ -78,6 +85,14 @@ class StartViewModel @Inject constructor(
             phoneNowPlaying = phoneTitle,
             hasEpisodes = hasEpisodes,
             hasBooks = hasBooks,
+        )
+    }.combine(watchState.settings.map { it.areas }.distinctUntilChanged()) { state, areas ->
+        // Ausgeblendete Bereiche zeigt der Start nicht; was davon auf der Uhr liegt, bleibt dort (Speicher & Downloads).
+        state.copy(
+            selections = state.selections.takeIf { SpokenMode.MUSIC in areas }.orEmpty(),
+            hasEpisodes = state.hasEpisodes && SpokenMode.PODCASTS in areas,
+            hasBooks = state.hasBooks && SpokenMode.BOOKS in areas,
+            areas = areas,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StartUiState())
 

@@ -52,7 +52,9 @@ import de.kleinabersmart.tinyamp.core.model.Artist
 import de.kleinabersmart.tinyamp.core.designsystem.theme.TinyAmpTheme
 import de.kleinabersmart.tinyamp.ui.components.AlbumCard
 import de.kleinabersmart.tinyamp.ui.components.ArtistCard
+import de.kleinabersmart.tinyamp.ui.components.EmptyAreaHint
 import de.kleinabersmart.tinyamp.ui.components.EmptyHint
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.ui.components.LoadFailedHint
 import de.kleinabersmart.tinyamp.ui.components.PlayControlViewModel
 import de.kleinabersmart.tinyamp.ui.components.PreviewAlbum
@@ -65,6 +67,7 @@ fun HomeScreen(
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
     onOpenQueue: () -> Unit,
+    onAddServer: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
@@ -78,6 +81,7 @@ fun HomeScreen(
         state = state,
         onAlbumClick = onAlbumClick,
         onArtistClick = onArtistClick,
+        onAddServer = onAddServer,
         playingAlbumId = playingAlbumId,
         onPlayAlbum = playControl::playOrPauseAlbum,
         queue = QueueRowState(
@@ -123,6 +127,7 @@ private fun HomeContent(
     state: HomeUiState,
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
+    onAddServer: () -> Unit,
     modifier: Modifier = Modifier,
     playingAlbumId: Long? = null,
     onPlayAlbum: ((Long) -> Unit)? = null,
@@ -137,7 +142,11 @@ private fun HomeContent(
             return@Column
         }
         if (state.isEmpty) {
-            EmptyHint(stringResource(if (state.isSyncing) R.string.library_syncing else R.string.library_empty))
+            if (state.isSyncing) {
+                EmptyHint(stringResource(R.string.library_syncing))
+            } else {
+                EmptyAreaHint(SpokenMode.MUSIC, stringResource(R.string.library_empty), stringResource(R.string.home_setup_server), onAddServer)
+            }
             return@Column
         }
         val listState = rememberLazyListState()
@@ -288,6 +297,7 @@ private fun HomeContentPreview() {
             ),
             onAlbumClick = {},
             onArtistClick = {},
+            onAddServer = {},
             queue = QueueRowState(
                 entries = List(3) { UpNext(it, QueueEntry(songId = it.toLong(), title = "Ein Titel", artist = "Eine Band", albumId = null)) },
                 currentIndex = 0,

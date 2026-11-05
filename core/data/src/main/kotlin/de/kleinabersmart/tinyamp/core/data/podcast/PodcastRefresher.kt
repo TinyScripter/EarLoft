@@ -31,6 +31,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import de.kleinabersmart.tinyamp.core.data.spoken.SpokenSettings
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -160,6 +162,8 @@ class PodcastRefreshWorker(
 
     override suspend fun doWork(): Result {
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, RefreshEntryPoint::class.java)
+        // Ausgeblendete Podcasts (Allgemein → Bereiche): keine Abrufe, keine Downloads, keine Hinweise.
+        if (SpokenMode.PODCASTS !in entryPoint.spokenSettings().areas.first()) return Result.success()
         val summary = entryPoint.repository().refreshAll()
         // Podcasts, für die der Nutzer keine Hinweise will, fehlen hier.
         val content = NewContent(episodes = summary.newEpisodes.filter { it.notify })
@@ -172,5 +176,6 @@ class PodcastRefreshWorker(
     internal interface RefreshEntryPoint {
         fun repository(): PodcastRepository
         fun notifier(): NewContentNotifier
+        fun spokenSettings(): SpokenSettings
     }
 }

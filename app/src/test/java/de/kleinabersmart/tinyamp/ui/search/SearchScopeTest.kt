@@ -38,6 +38,21 @@ class SearchScopeTest {
     }
 
     @Test
+    fun `search all needs more than one area`() {
+        assertEquals(SearchScope.BOOKS, SearchScope.of(searchAll = true, mode = SpokenMode.BOOKS, areas = listOf(SpokenMode.BOOKS)))
+        assertEquals(SearchScope.ALL, SearchScope.of(searchAll = true, mode = SpokenMode.BOOKS, areas = listOf(SpokenMode.MUSIC, SpokenMode.BOOKS)))
+    }
+
+    @Test
+    fun `hidden areas are never searched`() {
+        val areas = listOf(SpokenMode.MUSIC, SpokenMode.BOOKS)
+        assertTrue(SearchScope.ALL.includes(SpokenMode.MUSIC, areas))
+        assertFalse(SearchScope.ALL.includes(SpokenMode.PODCASTS, areas))
+        assertTrue(SearchScope.ALL.includes(SpokenMode.BOOKS, areas))
+        assertFalse(SearchScope.MUSIC.includes(SpokenMode.BOOKS, areas))
+    }
+
+    @Test
     fun `every scope has its own placeholder`() {
         assertEquals(SearchScope.entries.size, SearchScope.entries.map { it.hint }.toSet().size)
         assertEquals(R.string.search_hint_all, SearchScope.ALL.hint)

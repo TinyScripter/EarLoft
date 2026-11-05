@@ -1,5 +1,8 @@
 package de.kleinabersmart.tinyamp.core.data.sync
 
+import de.kleinabersmart.tinyamp.core.data.spoken.SpokenSettings
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
+import kotlinx.coroutines.flow.first
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -26,6 +29,8 @@ class ServerSyncWorker(
 
     override suspend fun doWork(): Result {
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, SyncEntryPoint::class.java)
+        // Ausgeblendete Musik (Allgemein → Bereiche): kein Abgleich mit den Servern.
+        if (SpokenMode.MUSIC !in entryPoint.spokenSettings().areas.first()) return Result.success()
         val allSucceeded = entryPoint.registry().servers()
             .map { entryPoint.syncer().syncSafely(it) }
             .all { it }
@@ -37,6 +42,7 @@ class ServerSyncWorker(
     internal interface SyncEntryPoint {
         fun syncer(): LibrarySyncer
         fun registry(): DataSourceRegistry
+        fun spokenSettings(): SpokenSettings
     }
 
     companion object {

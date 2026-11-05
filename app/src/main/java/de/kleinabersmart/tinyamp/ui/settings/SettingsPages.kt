@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.tinyamp.R
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.core.data.podcast.PodcastSettings
 import de.kleinabersmart.tinyamp.core.data.sync.LibrarySettings
 import de.kleinabersmart.tinyamp.core.model.ReplayGainMode
@@ -108,6 +109,31 @@ fun GeneralSettingsScreen(
                     onCheckedChange = viewModel::setAlwaysShowNavigationBar,
                 )
             }
+        }
+
+        // Bereiche ein- und ausblenden; der letzte eingeschaltete lässt sich nicht ausschalten.
+        group("areas", R.string.settings_section_areas) {
+            SpokenMode.entries.forEach { area ->
+                row("area-${area.name}") {
+                    val enabled = area in state.areas
+                    SwitchRow(
+                        title = stringResource(areaTitle(area)),
+                        summary = stringResource(areaSummary(area)),
+                        icon = areaIcon(area),
+                        checked = enabled,
+                        onCheckedChange = { viewModel.setAreaEnabled(area, it) },
+                        enabled = !enabled || state.areas.size > 1,
+                    )
+                }
+            }
+        }
+        item(key = "areas-hint") {
+            Text(
+                stringResource(R.string.settings_areas_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
         }
 
         group("downloads", R.string.nav_downloads) {

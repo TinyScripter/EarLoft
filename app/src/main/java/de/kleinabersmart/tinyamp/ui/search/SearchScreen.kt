@@ -113,6 +113,7 @@ fun SearchScreen(
     val state by viewModel.results.collectAsStateWithLifecycle()
     val mode by modeViewModel.mode.collectAsStateWithLifecycle()
     val searchAll by modeViewModel.searchAll.collectAsStateWithLifecycle()
+    val areas by modeViewModel.areas.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current
     val playControl: PlayControlViewModel = hiltViewModel()
     val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
@@ -143,20 +144,24 @@ fun SearchScreen(
             )
         }
         Row(Modifier.padding(start = 68.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Mit „Überall“ gilt der Bereich nicht; dann steht nur der Schalter da.
+            // Mit „Überall“ gilt der Bereich nicht; dann steht nur der Schalter da. Mit nur einem eingeschalteten Bereich
+            // gibt es kein „Überall“.
+            val everywhere = searchAll && areas.size > 1
             Text(
-                if (searchAll) "" else stringResource(searchLabel(mode)),
+                if (everywhere) "" else stringResource(searchLabel(mode)),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            FilterChip(
-                selected = searchAll,
-                onClick = { modeViewModel.setSearchAll(!searchAll) },
-                label = { Text(stringResource(R.string.search_hint_all)) },
-            )
+            if (areas.size > 1) {
+                FilterChip(
+                    selected = searchAll,
+                    onClick = { modeViewModel.setSearchAll(!searchAll) },
+                    label = { Text(stringResource(R.string.search_hint_all)) },
+                )
+            }
         }
 
         val results = state.results

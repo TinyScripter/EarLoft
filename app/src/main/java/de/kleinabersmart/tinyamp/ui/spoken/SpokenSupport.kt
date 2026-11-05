@@ -89,7 +89,7 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.round
 import kotlin.math.roundToInt
-import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.collectIndexed
 import kotlinx.coroutines.launch
 import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.model.AppUris
@@ -98,6 +98,8 @@ import de.kleinabersmart.tinyamp.navigation.SharedAcrossScreens
 import de.kleinabersmart.tinyamp.ui.components.AppLogo
 import de.kleinabersmart.tinyamp.ui.components.CoverOutlineWidth
 import de.kleinabersmart.tinyamp.ui.components.coverOutlineColor
+import de.kleinabersmart.tinyamp.ui.components.EmptyAreaHint
+import de.kleinabersmart.tinyamp.ui.components.LocalOpenAreaSettings
 import de.kleinabersmart.tinyamp.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
 
@@ -114,9 +116,11 @@ fun SpokenModeHost(
     /** Nach dem Wechsel auf einen anderen Modus; schließt z. B. die Detailspalte des vorigen Modus. */
     onModeChange: () -> Unit,
     onSearch: () -> Unit,
+    /** Zur Einstellung, die Bereiche ausblendet (Allgemein → Bereiche); angeboten in leeren Bereichen ([EmptyAreaHint]). */
+    onOpenAreaSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SpokenModeScaffold(onModeChange, onSearch, modifier) { mode ->
+    SpokenModeScaffold(onModeChange, onSearch, onOpenAreaSettings, modifier) { mode ->
         when (mode) {
             SpokenMode.MUSIC -> music()
             SpokenMode.PODCASTS -> podcasts()
@@ -125,31 +129,41 @@ fun SpokenModeHost(
     }
 }
 
-/** Banner und Modus-Schalter über den drei Bereichen, die als Seiten eines Pagers nebeneinanderliegen. */
+/** Banner und Modus-Schalter über den eingeschalteten Bereichen, die als Seiten eines Pagers nebeneinanderliegen. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SpokenModeScaffold(
     onModeChange: () -> Unit,
     onSearch: () -> Unit,
+    onOpenAreaSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SpokenModeViewModel = hiltViewModel(),
     content: @Composable (SpokenMode) -> Unit,
 ) {
-    val loadedMode by viewModel.loadedMode.collectAsStateWithLifecycle()
+    val loaded by viewModel.loaded.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
-    // Die Bereiche liegen nebeneinander wie auf Schienen: Tippen auf den Schalter und Wischen fahren dorthin. Der Pager
-    // entsteht erst mit dem gespeicherten Bereich, beginnt also ohne Fahrt auf der richtigen Seite, und ist dann maßgeblich.
-    val pagerState = loadedMode?.let { initial -> remember { PagerState(currentPage = initial.ordinal) { SpokenMode.entries.size } } }
+    // Die eingeschalteten Bereiche liegen nebeneinander wie auf Schienen: Tippen auf den Schalter und Wischen fahren dorthin.
+    // Der Pager entsteht erst mit dem gespeicherten Bereich, beginnt also ohne Fahrt auf der richtigen Seite, und ist dann
+    // maßgeblich. Wird ein Bereich ein- oder ausgeschaltet (Allgemein → Bereiche), entsteht er neu auf dem gezeigten Bereich.
+    val pages = loaded?.areas
+    val pagerState = loaded?.let { (initial, areas) ->
+        remember(areas) { PagerState(currentPage = areas.indexOf(initial).coerceAtLeast(0)) { areas.size } }
+    }
     // Wohin der Pager fährt bzw. bei losgelassenem Finger einrasten würde; der Schalter zeigt das schon während der Fahrt.
-    val mode = pagerState?.let { SpokenMode.entries[it.targetPage] }
+    val mode = pagerState?.let { pages?.getOrNull(it.targetPage) }
+    // Bis der Pager steht, zeichnet der Schalter die zuletzt bekannten Bereiche, damit der Kopf nicht springt.
+    val fallbackAreas by viewModel.areas.collectAsStateWithLifecycle()
+    val areas = pages ?: fallbackAreas
     val scope = rememberCoroutineScope()
-    if (pagerState != null) {
+    if (pagerState != null && pages != null) {
         val currentOnModeChange by rememberUpdatedState(onModeChange)
         // Gespeichert wird erst, wo der Pager einrastet; ein angefangenes und zurückgenommenes Wischen ändert nichts.
+        // Die Startseite wird auch gespeichert (DataStore schreibt Gleiches nicht neu): War der gespeicherte Bereich
+        // ausgeblendet, gilt sonst nach dem Einschalten eines weiteren wieder dessen erster statt des gezeigten.
         LaunchedEffect(pagerState) {
-            snapshotFlow { pagerState.settledPage }.drop(1).collect { page ->
-                viewModel.setMode(SpokenMode.entries[page])
-                currentOnModeChange()
+            snapshotFlow { pagerState.settledPage }.collectIndexed { index, page ->
+                viewModel.setMode(pages[page])
+                if (index > 0) currentOnModeChange()
             }
         }
     }
@@ -204,22 +218,23 @@ private fun SpokenModeScaffold(
                 val pagePosition: () -> Float? = { pagerState?.let { it.currentPage + it.currentPageOffsetFraction } }
                 // Die Knöpfe sind selbst so hoch wie ihre Tippfläche und alle gleich hoch (auch bei großer Schrift); so deckt
                 // die Füllung genau die Zeile ab. Sonst läge um jeden Knopf ein unsichtbarer Rand bis 48 dp.
-                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                // Mit nur einem eingeschalteten Bereich gibt es nichts umzuschalten; dann entfällt die Zeile.
+                if (areas.size > 1) CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                     SingleChoiceSegmentedButtonRow(
                         Modifier.fillMaxWidth()
                             .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)
                             .height(IntrinsicSize.Min)
-                            .slidingSegmentIndicator(SpokenMode.entries.size, pagePosition, segmentColors, SegmentedButtonDefaults.baseShape),
+                            .slidingSegmentIndicator(areas.size, pagePosition, segmentColors, SegmentedButtonDefaults.baseShape),
                     ) {
                         val buttonColors = segmentColors.copy(activeContainerColor = Color.Transparent, inactiveContainerColor = Color.Transparent)
-                        SpokenMode.entries.forEachIndexed { index, entry ->
+                        areas.forEachIndexed { index, entry ->
                             SegmentedButton(
                                 selected = mode == entry,
                                 onClick = {
-                                    if (pagerState != null && entry != mode) scope.launch { pagerState.animateScrollToPage(entry.ordinal) }
+                                    if (pagerState != null && entry != mode) scope.launch { pagerState.animateScrollToPage(index) }
                                 },
                                 modifier = Modifier.fillMaxHeight().heightIn(min = SegmentMinHeight),
-                                shape = SegmentedButtonDefaults.itemShape(index, SpokenMode.entries.size),
+                                shape = SegmentedButtonDefaults.itemShape(index, areas.size),
                                 colors = buttonColors,
                                 // Kein Haken: Die Füllfarbe zeigt die Auswahl schon.
                                 icon = {},
@@ -254,12 +269,17 @@ private fun SpokenModeScaffold(
             onRefresh = onRefresh,
             modifier = Modifier.weight(1f).fillMaxWidth().background(MaterialTheme.colorScheme.background),
         ) {
-            if (pagerState != null) {
+            if (pagerState != null && pages != null) {
                 val minFlingVelocity = with(LocalDensity.current) { MinFlingVelocity.toPx() }
                 val handoff = remember(pagerState, minFlingVelocity) { ModeFlingHandoff(pagerState, minFlingVelocity) }
-                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), key = { it }) { page ->
-                    Box(Modifier.fillMaxSize().nestedScroll(handoff)) {
-                        content(SpokenMode.entries[page])
+                // Schlüssel ist der Bereich, nicht die Seite: Nach dem Ein- oder Ausschalten eines Bereichs behalten die übrigen
+                // ihren Zustand (Reiter, Scrollstand).
+                // Den letzten eingeschalteten Bereich kann man nicht ausblenden; dann bietet ein leerer Bereich das nicht an.
+                CompositionLocalProvider(LocalOpenAreaSettings provides onOpenAreaSettings.takeIf { pages.size > 1 }) {
+                    HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), key = { pages[it].ordinal }) { page ->
+                        Box(Modifier.fillMaxSize().nestedScroll(handoff)) {
+                            content(pages[page])
+                        }
                     }
                 }
             }

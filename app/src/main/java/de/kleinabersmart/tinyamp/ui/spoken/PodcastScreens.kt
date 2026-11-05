@@ -92,6 +92,8 @@ import de.kleinabersmart.tinyamp.core.model.TrackDownload
 import de.kleinabersmart.tinyamp.core.network.podcast.ardsounds.ardSoundsPageUrl
 import de.kleinabersmart.tinyamp.core.network.podcast.ardsounds.ardSoundsShowId
 import de.kleinabersmart.tinyamp.ui.LoadState
+import de.kleinabersmart.tinyamp.ui.components.EmptyAreaHint
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.ui.components.EmptyHint
 import de.kleinabersmart.tinyamp.ui.components.LoadFailedHint
 import de.kleinabersmart.tinyamp.ui.components.LoadableList
@@ -170,13 +172,18 @@ fun PodcastHomeScreen(
                 }
             }
         }
+        // Ohne Abos: an erster Stelle „Podcast hinzufügen“, darunter der Weg zum Ausblenden des Bereichs.
+        if (feeds.valueOrNull?.isEmpty() == true) {
+            item(key = "empty") {
+                EmptyAreaHint(SpokenMode.PODCASTS, stringResource(R.string.podcast_none), stringResource(R.string.podcast_add), onAddPodcast)
+            }
+            return@LazyColumn
+        }
         item(key = "subscriptions") {
             Shelf(stringResource(R.string.podcast_subscriptions)) {
                 val list = feeds.valueOrNull
                 if (feeds == LoadState.Failed) {
                     LoadFailedHint()
-                } else if (list?.isEmpty() == true) {
-                    EmptyHint(stringResource(R.string.podcast_none))
                 } else {
                     val rowState = rememberLazyListState()
                     LazyRow(
@@ -266,6 +273,9 @@ fun PodcastLibraryScreen(
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { PodcastTab.entries.size }
     val scope = rememberCoroutineScope()
+    val empty: @Composable () -> Unit = {
+        EmptyAreaHint(SpokenMode.PODCASTS, stringResource(R.string.podcast_none), stringResource(R.string.podcast_add), onAddPodcast)
+    }
 
     Column(modifier.fillMaxSize()) {
         PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
@@ -279,7 +289,8 @@ fun PodcastLibraryScreen(
         }
         HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth(), key = { it }) { page ->
             when (PodcastTab.entries[page]) {
-                PodcastTab.EPISODES -> UnheardEpisodes(
+                // Ohne Abos zeigen Folgen und Abos dasselbe wie der Start: Hinzufügen und Ausblenden.
+                PodcastTab.EPISODES -> if (feeds.valueOrNull?.isEmpty() == true) empty() else UnheardEpisodes(
                     unheard,
                     hasFeeds = feeds.valueOrNull?.isNotEmpty() == true,
                     onFeedClick,
@@ -287,7 +298,7 @@ fun PodcastLibraryScreen(
                     playingId,
                     viewModel::playOrPause,
                 )
-                PodcastTab.FEEDS -> FeedGrid(feeds, onFeedClick, onFeedSettings, onAdd = onAddPodcast)
+                PodcastTab.FEEDS -> FeedGrid(feeds, onFeedClick, onFeedSettings, onAdd = onAddPodcast, empty = empty)
                 PodcastTab.STATS -> PodcastStatsScreen(onFeedClick)
             }
         }
@@ -351,9 +362,10 @@ private fun FeedGrid(
     onFeedClick: (String) -> Unit,
     onFeedSettings: (String) -> Unit,
     onAdd: () -> Unit,
+    empty: @Composable () -> Unit,
 ) {
     Box(Modifier.fillMaxSize()) {
-        LoadableList(state, stringResource(R.string.podcast_none)) { feeds ->
+        LoadableList(state, empty) { feeds ->
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 // Unten Platz lassen, damit der Knopf das letzte Abo nicht verdeckt.

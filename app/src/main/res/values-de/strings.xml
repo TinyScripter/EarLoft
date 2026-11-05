@@ -121,7 +121,7 @@
         <item quantity="one">%d Abo</item>
         <item quantity="other">%d Abos</item>
     </plurals>
-    <string name="settings_general_summary">Darstellung, Suche, Downloads</string>
+    <string name="settings_general_summary">Darstellung, Bereiche, Downloads</string>
     <string name="settings_music">Musik</string>
     <string name="settings_music_summary_local">%1$s · lokale Musik</string>
     <string name="settings_audiobooks">Bücher</string>
@@ -700,4 +700,14 @@
         <item quantity="one">%1$d neuer Titel</item>
         <item quantity="other">%1$d neue Titel</item>
     </plurals>
+    <!-- Bereiche Musik / Podcasts / Bücher ein- und ausschalten (Allgemein → Bereiche) -->
+    <string name="settings_section_areas">Bereiche</string>
+    <string name="settings_areas_hint">Ausgeschaltete Bereiche verschwinden aus Start, Bibliothek, Suche, Einstellungen und von der Uhr. Gelöscht wird nichts. Ein Bereich bleibt immer eingeschaltet.</string>
+    <string name="area_hide_music">Musik ausblenden</string>
+    <string name="area_hide_podcasts">Podcasts ausblenden</string>
+    <string name="area_hide_books">Bücher ausblenden</string>
+    <string name="home_setup_server">Navidrome einrichten</string>
+    <string name="settings_area_music_summary">Navidrome, Musik auf dem Gerät</string>
+    <string name="settings_area_podcasts_summary">RSS-Feeds, Podcasts auf dem Gerät</string>
+    <string name="settings_area_books_summary">Audiobookshelf, Bücher auf dem Gerät</string>
 </resources>

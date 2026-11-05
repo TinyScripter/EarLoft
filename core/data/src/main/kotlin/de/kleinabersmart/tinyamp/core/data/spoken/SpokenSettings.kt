@@ -7,11 +7,13 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,15 +23,36 @@ private val Context.spokenSettingsDataStore: DataStore<Preferences> by preferenc
 class SpokenSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
-    /** Schalter Musik / Podcasts / Bücher in Start und Bibliothek (Standard: Musik). */
+    /**
+     * Schalter Musik / Podcasts / Bücher in Start und Bibliothek (Standard: Musik). Immer einer der eingeschalteten
+     * [areas]; ist der gespeicherte ausgeschaltet, der erste davon.
+     */
     val mode: Flow<SpokenMode> = context.spokenSettingsDataStore.data.map { preferences ->
-        // „SPOKEN“ hieß der Modus, bevor er in Podcasts und Bücher geteilt wurde.
-        preferences[KEY_MODE]?.let { name -> if (name == "SPOKEN") SpokenMode.BOOKS else SpokenMode.entries.firstOrNull { it.name == name } }
-            ?: SpokenMode.MUSIC
+        shownMode(preferences[KEY_MODE], enabledAreas(preferences[KEY_HIDDEN_AREAS]))
     }
 
     suspend fun setMode(mode: SpokenMode) {
         context.spokenSettingsDataStore.edit { it[KEY_MODE] = mode.name }
+    }
+
+    /** Eingeschaltete Bereiche in der Reihenfolge des Schalters (Allgemein → Bereiche); nie leer, Standard: alle drei. */
+    val areas: Flow<List<SpokenMode>> = context.spokenSettingsDataStore.data.map { enabledAreas(it[KEY_HIDDEN_AREAS]) }
+        .onEach { lastAreas = it }
+
+    /**
+     * Zuletzt gelesene [areas]. Ein neuer Bildschirm zeichnet damit den Bereichsschalter gleich im ersten Bild richtig,
+     * bevor der Flow liefert; sonst spränge der Kopf beim Wechsel zwischen Start und Bibliothek.
+     */
+    @Volatile
+    var lastAreas: List<SpokenMode> = SpokenMode.entries
+        private set
+
+    /** Schaltet [area] ein oder aus; den letzten eingeschalteten Bereich lässt es an. */
+    suspend fun setAreaEnabled(area: SpokenMode, enabled: Boolean) {
+        context.spokenSettingsDataStore.edit { preferences ->
+            val hidden = hiddenAfter(preferences[KEY_HIDDEN_AREAS].orEmpty(), area, enabled)
+            if (hidden != null) preferences[KEY_HIDDEN_AREAS] = hidden
+        }
     }
 
     /** Suche über Musik, Podcasts und Bücher zugleich; aus (Standard) = nur der Inhalt des gewählten Modus. */
@@ -101,6 +124,26 @@ class SpokenSettings @Inject constructor(
         val KEY_LOCAL_PODCASTS = booleanPreferencesKey("local_podcasts")
         val KEY_LOCAL_BOOKS = booleanPreferencesKey("local_books")
         val KEY_MODE = stringPreferencesKey("mode")
+        // Gespeichert sind die ausgeschalteten, damit ein neuer Bereich von selbst eingeschaltet ist.
+        val KEY_HIDDEN_AREAS = stringSetPreferencesKey("hidden_areas")
         val KEY_SEARCH_ALL = booleanPreferencesKey("search_all")
     }
+}
+
+/** Die eingeschalteten Bereiche zu den gespeicherten ausgeschalteten [hidden]; sind alle aus (nur von außen möglich), alle. */
+internal fun enabledAreas(hidden: Set<String>?): List<SpokenMode> =
+    SpokenMode.entries.filter { it.name !in hidden.orEmpty() }.ifEmpty { SpokenMode.entries }
+
+/** Der gezeigte Bereich zum gespeicherten Namen [saved]: er selbst, wenn eingeschaltet, sonst der erste von [areas]. */
+internal fun shownMode(saved: String?, areas: List<SpokenMode>): SpokenMode {
+    // „SPOKEN“ hieß der Modus, bevor er in Podcasts und Bücher geteilt wurde.
+    val mode = saved?.let { name -> if (name == "SPOKEN") SpokenMode.BOOKS else SpokenMode.entries.firstOrNull { it.name == name } }
+        ?: SpokenMode.MUSIC
+    return mode.takeIf { it in areas } ?: areas.first()
+}
+
+/** Die ausgeschalteten Bereiche, nachdem [area] ein- bzw. ausgeschaltet ist; `null`, wenn sonst keiner mehr an wäre. */
+internal fun hiddenAfter(hidden: Set<String>, area: SpokenMode, enabled: Boolean): Set<String>? {
+    val next = if (enabled) hidden - area.name else hidden + area.name
+    return next.takeIf { names -> SpokenMode.entries.any { it.name !in names } }
 }

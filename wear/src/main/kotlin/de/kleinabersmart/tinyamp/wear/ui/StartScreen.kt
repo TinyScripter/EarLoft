@@ -33,6 +33,7 @@ import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.ui.tooling.preview.WearPreviewFontScales
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.core.model.WearSelectionKind
 import de.kleinabersmart.tinyamp.wear.R
 import de.kleinabersmart.tinyamp.wear.download.SelectionItem
@@ -94,9 +95,10 @@ private fun StartContent(
                 if (state.phoneConnected) {
                     header(R.string.start_section_phone, transformationSpec)
                     action(R.string.start_current_playback, transformationSpec, onClick = { onNowPlayingClick(true) }, secondary = state.phoneNowPlaying)
-                    action(R.string.list_music, transformationSpec, onClick = { onClick(StartTarget.PHONE_MUSIC) })
-                    action(R.string.list_podcasts, transformationSpec, onClick = { onClick(StartTarget.PHONE_PODCASTS) })
-                    action(R.string.list_books, transformationSpec, onClick = { onClick(StartTarget.PHONE_BOOKS) })
+                    // Nur die am Handy eingeschalteten Bereiche (Allgemein → Bereiche).
+                    if (SpokenMode.MUSIC in state.areas) action(R.string.list_music, transformationSpec, onClick = { onClick(StartTarget.PHONE_MUSIC) })
+                    if (SpokenMode.PODCASTS in state.areas) action(R.string.list_podcasts, transformationSpec, onClick = { onClick(StartTarget.PHONE_PODCASTS) })
+                    if (SpokenMode.BOOKS in state.areas) action(R.string.list_books, transformationSpec, onClick = { onClick(StartTarget.PHONE_BOOKS) })
                 } else if (state.phone == PhoneStatus.NotConnected) {
                     // Der Abschnitt bleibt, damit die Fernsteuerung nicht ohne Erklärung verschwindet.
                     header(R.string.start_section_phone, transformationSpec)

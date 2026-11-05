@@ -56,9 +56,17 @@ enum class SearchScope(val music: Boolean, val podcasts: Boolean, val books: Boo
     BOOKS(false, false, true, R.string.search_hint_books),
     ;
 
+    /** Sucht in [area] – über diesen Umfang und nur, wenn der Bereich eingeschaltet ist ([areas]). */
+    fun includes(area: SpokenMode, areas: List<SpokenMode>): Boolean = area in areas && when (area) {
+        SpokenMode.MUSIC -> music
+        SpokenMode.PODCASTS -> podcasts
+        SpokenMode.BOOKS -> books
+    }
+
     companion object {
-        fun of(searchAll: Boolean, mode: SpokenMode): SearchScope = when {
-            searchAll -> ALL
+        /** „Überall suchen“ gilt nur, wenn mehr als ein Bereich eingeschaltet ist ([areas]). */
+        fun of(searchAll: Boolean, mode: SpokenMode, areas: List<SpokenMode> = SpokenMode.entries): SearchScope = when {
+            searchAll && areas.size > 1 -> ALL
             mode == SpokenMode.BOOKS -> BOOKS
             mode == SpokenMode.PODCASTS -> PODCASTS
             else -> MUSIC
@@ -82,20 +90,27 @@ class SearchViewModel @Inject constructor(
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     val results: StateFlow<SearchUiState> = combine(
         query.map { it.trim() }.distinctUntilChanged().debounce { if (it.isEmpty()) 0 else DEBOUNCE_MS },
-        combine(spokenSettings.searchAll, spokenSettings.mode, SearchScope::of).distinctUntilChanged(),
+        combine(spokenSettings.searchAll, spokenSettings.mode, spokenSettings.areas) { searchAll, mode, areas ->
+            SearchScope.of(searchAll, mode, areas) to areas
+        }.distinctUntilChanged(),
         ::Pair,
-    ).mapLatest { (query, scope) ->
+    ).mapLatest { (query, scopeAndAreas) ->
+        val (scope, areas) = scopeAndAreas
         if (query.isEmpty()) {
             SearchUiState(scope = scope)
         } else {
+            // Ausgeblendete Bereiche durchsucht auch „Überall suchen“ nicht.
+            val music = scope.includes(SpokenMode.MUSIC, areas)
+            val podcasts = scope.includes(SpokenMode.PODCASTS, areas)
+            val books = scope.includes(SpokenMode.BOOKS, areas)
             SearchUiState(
                 query = query,
-                results = if (scope.music) libraryRepository.search(query) else SearchResults.EMPTY,
-                feeds = if (scope.podcasts) podcastRepository.searchFeeds(query) else emptyList(),
-                episodes = if (scope.podcasts) bookRepository.search(query, BookKind.EPISODE) else emptyList(),
-                series = if (scope.books) bookRepository.searchSeries(query) else emptyList(),
-                authors = if (scope.books) bookRepository.searchAuthors(query) else emptyList(),
-                books = if (scope.books) bookRepository.search(query, BookKind.BOOK) else emptyList(),
+                results = if (music) libraryRepository.search(query) else SearchResults.EMPTY,
+                feeds = if (podcasts) podcastRepository.searchFeeds(query) else emptyList(),
+                episodes = if (podcasts) bookRepository.search(query, BookKind.EPISODE) else emptyList(),
+                series = if (books) bookRepository.searchSeries(query) else emptyList(),
+                authors = if (books) bookRepository.searchAuthors(query) else emptyList(),
+                books = if (books) bookRepository.search(query, BookKind.BOOK) else emptyList(),
                 scope = scope,
             )
         }

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.tinyamp.R
+import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.core.designsystem.theme.TinyAmpTheme
 import de.kleinabersmart.tinyamp.ui.components.LocalWatchController
 import de.kleinabersmart.tinyamp.ui.components.group
@@ -86,7 +87,8 @@ private fun SettingsContent(
                         onClick = onOpenGeneral,
                     )
                 }
-                row("music") {
+                // Ausgeblendete Bereiche (Allgemein → Bereiche) haben keine Unterseite.
+                if (SpokenMode.MUSIC in state.areas) row("music") {
                     val servers = pluralStringResource(R.plurals.settings_server_count, state.servers.size, state.servers.size)
                     NavRow(
                         title = stringResource(R.string.settings_music),
@@ -99,7 +101,7 @@ private fun SettingsContent(
                         onClick = onOpenMusic,
                     )
                 }
-                row("podcasts") {
+                if (SpokenMode.PODCASTS in state.areas) row("podcasts") {
                     NavRow(
                         title = stringResource(R.string.settings_podcasts),
                         summary = pluralStringResource(
@@ -111,7 +113,7 @@ private fun SettingsContent(
                         onClick = onOpenPodcasts,
                     )
                 }
-                row("audiobooks") {
+                if (SpokenMode.BOOKS in state.areas) row("audiobooks") {
                     NavRow(
                         title = stringResource(R.string.settings_audiobooks),
                         summary = pluralStringResource(
