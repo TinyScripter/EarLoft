@@ -22,9 +22,9 @@ private val Context.themeSettingsDataStore: DataStore<Preferences> by preference
 class ThemeSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
-    /** Standard: dunkel. */
+    /** Standard: wie das System. */
     val mode: Flow<ThemeMode> = context.themeSettingsDataStore.data.map { prefs ->
-        prefs[KEY_MODE]?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } } ?: ThemeMode.DARK
+        prefs[KEY_MODE]?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } } ?: ThemeMode.SYSTEM
     }
 
     suspend fun setMode(mode: ThemeMode) {
