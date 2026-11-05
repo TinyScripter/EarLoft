@@ -34,7 +34,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Text
+import androidx.compose.material3.SegmentedButtonColors
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -184,7 +193,14 @@ private fun SpokenModeScaffold(
                     activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
                     activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)) {
+                // Die Füllung fährt mit dem Pager mit, auch während des Wischens; die Knöpfe selbst bleiben durchsichtig.
+                val pagePosition: () -> Float? = { pagerState?.let { it.currentPage + it.currentPageOffsetFraction } }
+                SingleChoiceSegmentedButtonRow(
+                    Modifier.fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)
+                        .slidingSegmentIndicator(SpokenMode.entries.size, pagePosition, segmentColors, SegmentedButtonDefaults.baseShape),
+                ) {
+                    val buttonColors = segmentColors.copy(activeContainerColor = Color.Transparent, inactiveContainerColor = Color.Transparent)
                     SpokenMode.entries.forEachIndexed { index, entry ->
                         SegmentedButton(
                             selected = mode == entry,
@@ -192,11 +208,19 @@ private fun SpokenModeScaffold(
                                 if (pagerState != null && entry != mode) scope.launch { pagerState.animateScrollToPage(entry.ordinal) }
                             },
                             shape = SegmentedButtonDefaults.itemShape(index, SpokenMode.entries.size),
-                            colors = segmentColors,
+                            colors = buttonColors,
                             // Kein Haken: Die Füllfarbe zeigt die Auswahl schon.
                             icon = {},
                         ) {
-                            Text(stringResource(modeLabel(entry)))
+                            // Die Schrift wechselt die Farbe so weit, wie die Füllung schon unter ihr liegt.
+                            BasicText(
+                                stringResource(modeLabel(entry)),
+                                style = LocalTextStyle.current,
+                                color = {
+                                    val covered = pagePosition()?.let { (1f - abs(it - index)).coerceIn(0f, 1f) } ?: 0f
+                                    lerp(segmentColors.inactiveContentColor, segmentColors.activeContentColor, covered)
+                                },
+                            )
                         }
                     }
                 }
@@ -245,6 +269,37 @@ private class ModeFlingHandoff(private val pager: PagerState, private val minVel
         return Velocity(available.x, 0f)
     }
 }
+
+/**
+ * Zeichnet hinter eine Zeile aus [count] Segmenten die helle Fläche und darüber die Füllung des gewählten Segments an
+ * [position] (0 = erstes Segment, Bruchteile dazwischen). Gelesen wird die Lage erst beim Zeichnen, damit das Mitfahren
+ * nichts neu zusammensetzt.
+ */
+private fun Modifier.slidingSegmentIndicator(
+    count: Int,
+    position: () -> Float?,
+    colors: SegmentedButtonColors,
+    shape: Shape,
+): Modifier =
+    drawWithCache {
+        // Die Zeile ist so hoch wie die Tippfläche; sichtbar sind die Knöpfe nur in der Mitte.
+        val height = SegmentHeight.toPx().coerceAtMost(size.height)
+        val top = (size.height - height) / 2
+        val outline = Path().apply {
+            addOutline(shape.createOutline(Size(size.width, height), layoutDirection, this@drawWithCache))
+            translate(Offset(0f, top))
+        }
+        val segment = size.width / count
+        onDrawBehind {
+            drawPath(outline, colors.inactiveContainerColor)
+            val at = position() ?: return@onDrawBehind
+            val left = if (layoutDirection == LayoutDirection.Ltr) at * segment else (count - 1 - at) * segment
+            clipPath(outline) { drawRect(colors.activeContainerColor, Offset(left, top), Size(segment, height)) }
+        }
+    }
+
+/** Sichtbare Höhe der Segment-Knöpfe (Material 3). */
+private val SegmentHeight = 40.dp
 
 /** Ab dieser Geschwindigkeit entscheidet die Richtung eines Wischers, nicht die Strecke (wie beim Pager selbst). */
 private val MinFlingVelocity = 400.dp
