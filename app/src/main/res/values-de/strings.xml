@@ -296,7 +296,7 @@
     <string name="settings_auto_download_favorites_summary">Neue Favoriten werden geladen, entfernte Favoriten wieder gelöscht. Gilt für Server, von denen nicht ohnehin alles geladen wird.</string>
 
     <!-- Einstellungen: Wiedergabe -->
-    <string name="settings_downloads_summary">Heruntergeladene Alben verwalten und Speicher prüfen</string>
+    <string name="settings_downloads_summary">Heruntergeladene Musik, Folgen und Bücher verwalten und Speicher prüfen</string>
     <string name="settings_playback">Wiedergabe</string>
     <string name="settings_replay_gain">Lautstärke angleichen (ReplayGain)</string>
     <string name="replay_gain_off">Aus</string>
@@ -361,7 +361,7 @@
     <string name="watch_require_charging">Nur am Ladegerät laden</string>
     <string name="watch_require_charging_summary">Die Uhr lädt per WLAN, während sie lädt. Aus: auch ohne Ladegerät.</string>
     <string name="watch_clear">Alles von der Uhr entfernen</string>
-    <string name="watch_clear_text">Die Auswahl wird geleert; die Uhr löscht die geladene Musik und die Folgen.</string>
+    <string name="watch_clear_text">Die Auswahl wird geleert; die Uhr löscht die geladene Musik, Folgen und Bücher.</string>
     <string name="watch_status_storage">Speicher der Uhr: %1$s belegt, %2$s frei</string>
     <string name="watch_status_limit">Grenze: %s</string>
     <string name="watch_status_none">Noch kein Bericht der Uhr</string>

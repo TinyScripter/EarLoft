@@ -300,7 +300,7 @@
     <string name="settings_auto_download_favorites_summary">New favorites are downloaded, removed favorites are deleted again. Applies to servers from which not everything is downloaded anyway.</string>
 
     <!-- Settings: playback -->
-    <string name="settings_downloads_summary">Manage downloaded albums and check storage</string>
+    <string name="settings_downloads_summary">Manage downloaded music, episodes and books and check storage</string>
     <string name="settings_playback">Playback</string>
     <string name="settings_replay_gain">Level volume (ReplayGain)</string>
     <string name="replay_gain_off">Off</string>
@@ -365,7 +365,7 @@
     <string name="watch_require_charging">Load only while charging</string>
     <string name="watch_require_charging_summary">The watch loads over Wi-Fi while it is charging. Off: also without a charger.</string>
     <string name="watch_clear">Remove everything from the watch</string>
-    <string name="watch_clear_text">The selection is cleared; the watch deletes the loaded music and episodes.</string>
+    <string name="watch_clear_text">The selection is cleared; the watch deletes the loaded music, episodes and books.</string>
     <string name="watch_status_storage">Watch storage: %1$s used, %2$s free</string>
     <string name="watch_status_limit">Limit: %s</string>
     <string name="watch_status_none">No report from the watch yet</string>
