@@ -22,6 +22,7 @@ import de.kleinabersmart.tinyamp.core.model.PodcastFeed
 import de.kleinabersmart.tinyamp.core.model.TrackDownload
 import de.kleinabersmart.tinyamp.ui.LoadState
 import de.kleinabersmart.tinyamp.ui.asLoadState
+import de.kleinabersmart.tinyamp.ui.asLoadStateOrMissing
 import de.kleinabersmart.tinyamp.ui.valueOrNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -75,8 +76,10 @@ class PodcastFeedViewModel @AssistedInject constructor(
     /** Anteil der gerade ladenden Folgen (0..1, [EpisodeDownloadProgress.UNKNOWN] ohne bekannte Größe). */
     val progress: StateFlow<Map<Long, Float>> = downloadProgress.fractions
 
-    val feed: StateFlow<PodcastFeed?> = podcasts.feed(feedId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    /** [LoadState.Missing], wenn das Abo beendet oder das Probeabo aufgeräumt wurde, während die Seite im Verlauf lag. */
+    val feed: StateFlow<LoadState<PodcastFeed>> = podcasts.feed(feedId)
+        .asLoadStateOrMissing()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     val episodes: StateFlow<LoadState<List<BookWithProgress>>> = podcasts.episodes(feedId)
         .asLoadState()
@@ -116,7 +119,7 @@ class PodcastFeedViewModel @AssistedInject constructor(
     fun download(bookId: Long) {
         viewModelScope.launch {
             // Probeabo: Was geladen wird, kommt in die Warteschlange und bleibt nur, solange es dort steht.
-            if (feed.value?.subscribed == false) continueListening.append(bookId)
+            if (feed.value.valueOrNull?.subscribed == false) continueListening.append(bookId)
             when (downloads.download(bookId)) {
                 DownloadStart.OFFLINE -> _messages.emit(R.string.podcast_download_offline)
                 DownloadStart.WAITING_FOR_WIFI -> _messages.emit(R.string.podcast_download_waiting_wifi)

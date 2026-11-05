@@ -18,6 +18,7 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.datasource.okhttp)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.guava)
 

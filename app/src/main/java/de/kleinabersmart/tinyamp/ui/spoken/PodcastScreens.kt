@@ -97,6 +97,7 @@ import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.ui.components.EmptyHint
 import de.kleinabersmart.tinyamp.ui.components.LoadFailedHint
 import de.kleinabersmart.tinyamp.ui.components.LoadableList
+import de.kleinabersmart.tinyamp.ui.components.LoadingIndicator
 import de.kleinabersmart.tinyamp.ui.components.SectionHeader
 import de.kleinabersmart.tinyamp.ui.components.CoverOutlineWidth
 import de.kleinabersmart.tinyamp.ui.components.GridTilePadding
@@ -418,7 +419,7 @@ fun PodcastScreen(
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
     }
-    val current = feed
+    val current = feed.valueOrNull
 
     Column(modifier.fillMaxSize()) {
         TopAppBar(
@@ -434,7 +435,10 @@ fun PodcastScreen(
                 }
             },
         )
-        if (current == null) return@Column
+        if (current == null) {
+            FeedNotReady(feed)
+            return@Column
+        }
         val list = episodes.valueOrNull.orEmpty()
         PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -504,6 +508,17 @@ fun PodcastScreen(
 
 private val HEADER_ART_SIZE = 144.dp
 
+/** Inhalt der Podcast-Seiten, solange der Podcast nicht geladen ist oder nicht mehr existiert. */
+@Composable
+private fun FeedNotReady(state: LoadState<PodcastFeed>) {
+    when (state) {
+        LoadState.Loading -> LoadingIndicator()
+        LoadState.Missing -> EmptyHint(stringResource(R.string.item_missing))
+        LoadState.Failed -> LoadFailedHint()
+        is LoadState.Ready -> Unit
+    }
+}
+
 /** Suche in den Folgen eines Podcasts: Überschrift und Inhaltsangabe, mit Hinweis „In … suchen“ unter dem Feld. */
 @Composable
 fun PodcastSearchScreen(
@@ -547,7 +562,7 @@ fun PodcastSearchScreen(
                 modifier = Modifier.weight(1f).focusRequester(focus),
             )
         }
-        feed?.let {
+        feed.valueOrNull?.let {
             Text(
                 stringResource(R.string.podcast_search_in, it.title),
                 style = MaterialTheme.typography.labelSmall,
@@ -588,7 +603,7 @@ fun PodcastInfoScreen(
     viewModel: PodcastFeedViewModel = hiltViewModel<PodcastFeedViewModel, PodcastFeedViewModel.Factory> { it.create(feedId) },
 ) {
     val feed by viewModel.feed.collectAsStateWithLifecycle()
-    val current = feed
+    val current = feed.valueOrNull
     val clipboard = LocalClipboard.current
     val snackbars = LocalSnackbars.current
     val copiedText = stringResource(R.string.podcast_url_copied)
@@ -599,7 +614,10 @@ fun PodcastInfoScreen(
             title = { Text(stringResource(R.string.podcast_info), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
         )
-        if (current == null) return@Column
+        if (current == null) {
+            FeedNotReady(feed)
+            return@Column
+        }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(current.title, style = MaterialTheme.typography.titleLarge)
             if (current.author.isNotBlank()) {
@@ -673,14 +691,17 @@ fun PodcastSettingsScreen(
     val feed by viewModel.feed.collectAsStateWithLifecycle()
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     var confirmUnsubscribe by rememberSaveable { mutableStateOf(false) }
-    val current = feed
+    val current = feed.valueOrNull
 
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text(stringResource(R.string.podcast_settings), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
         )
-        if (current == null) return@Column
+        if (current == null) {
+            FeedNotReady(feed)
+            return@Column
+        }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
             group("podcast-settings") {
                 row("continuous") {
