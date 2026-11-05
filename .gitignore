@@ -20,3 +20,7 @@ ideas
 keystore.properties
 *.jks
 *.keystore
+
+# Release-Builds
+/app/release/
+/wear/release/
