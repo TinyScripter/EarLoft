@@ -12,6 +12,7 @@ import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookTrackDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearChapterDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeProgressDto
@@ -163,6 +164,34 @@ class PodcastMirrorTest {
         db.bookDao().markBookTrackRunning(bookId, 0)
         db.bookDao().markBookTrackDone(bookId, 0, file.absolutePath, file.length())
         return file
+    }
+
+    @Test
+    fun `Kapitel eines Buchs folgen dem Manifest`() = runTest {
+        val chapters = listOf(WearChapterDto("Eins", 0, 1_800_000), WearChapterDto("Zwei", 1_800_000, 3_600_000))
+        mirror.apply(WearPodcastManifest(books = listOf(book("b1").copy(chapters = chapters))))
+        val b1 = db.bookDao().bookByRemote("abs", "b1")!!.bookId
+        assertEquals(listOf("Eins" to 0L, "Zwei" to 1_800_000L), db.bookDao().chapters(b1).map { it.title to it.startMs })
+
+        mirror.apply(WearPodcastManifest(books = listOf(book("b1").copy(chapters = chapters.take(1)))))
+        assertEquals(listOf("Eins"), db.bookDao().chapters(b1).map { it.title })
+    }
+
+    @Test
+    fun `Kapitel einer Folge kommen mit, ohne Kapitel vom Handy bleiben die eigenen`() = runTest {
+        mirror.apply(
+            WearPodcastManifest(
+                listOf(feed),
+                listOf(episode("a").copy(chapters = listOf(WearChapterDto("Intro", 0, 60_000)), chaptersUrl = "https://example.org/a.json")),
+            ),
+        )
+        val a = bookId("a")!!
+        assertEquals(listOf("Intro"), db.bookDao().chapters(a).map { it.title })
+        assertEquals("https://example.org/a.json", db.bookDao().book(a)!!.chaptersUrl)
+
+        // Das Handy kennt die Kapitel (noch) nicht, die Uhr hat sie aber schon: Sie bleiben.
+        mirror.apply(WearPodcastManifest(listOf(feed), listOf(episode("a"))))
+        assertEquals(listOf("Intro"), db.bookDao().chapters(a).map { it.title })
     }
 
     @Test

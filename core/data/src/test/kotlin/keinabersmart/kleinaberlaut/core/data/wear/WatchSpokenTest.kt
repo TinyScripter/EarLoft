@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.data.spoken.BookSyncer
 import keinabersmart.kleinaberlaut.core.data.spoken.LocalBooks
 import keinabersmart.kleinaberlaut.core.data.spoken.SpokenSettings
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
+import keinabersmart.kleinaberlaut.core.database.entity.BookChapterEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
@@ -156,6 +157,26 @@ class WatchSpokenTest {
         assertEquals(listOf("b1-0", "b1-1"), book.tracks.map { it.fileId })
         assertEquals(listOf(0L, 3_600_000L), book.tracks.map { it.startMs })
         assertEquals(4_000_000L, book.progress?.positionMs)
+    }
+
+    @Test
+    fun `chapters of books and episodes go along`() = runTest {
+        val bookId = book("b1")
+        val episodeId = episode("g1")
+        db.bookDao().insertChapters(
+            listOf(
+                BookChapterEntity(bookId, 0, "Eins", 0, 1_800_000),
+                BookChapterEntity(bookId, 1, "Zwei", 1_800_000, 3_600_000),
+                BookChapterEntity(episodeId, 0, "Intro", 0, 60_000),
+            ),
+        )
+        spoken.setSelected(bookId, selected = true)
+        spoken.setSelected(episodeId, selected = true)
+
+        val content = spoken.load()
+        assertEquals(listOf("Eins", "Zwei"), content.books.single().chapters.map { it.title })
+        assertEquals(listOf(1_800_000L), content.books.single().chapters.drop(1).map { it.startMs })
+        assertEquals(listOf("Intro"), content.episodes.single().chapters.map { it.title })
     }
 
     @Test

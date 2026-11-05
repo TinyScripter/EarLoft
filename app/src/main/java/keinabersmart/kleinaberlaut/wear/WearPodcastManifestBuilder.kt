@@ -1,9 +1,11 @@
 package keinabersmart.kleinaberlaut.wear
 
 import keinabersmart.kleinaberlaut.core.data.wear.WatchSpokenContent
+import keinabersmart.kleinaberlaut.core.model.BookChapter
 import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookTrackDto
+import keinabersmart.kleinaberlaut.core.wearsync.WearChapterDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeProgressDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearPodcastFeedDto
@@ -35,6 +37,8 @@ object WearPodcastManifestBuilder {
                 mimeType = episode.mimeType,
                 coverUrl = episode.coverUrl,
                 progress = episode.progress?.toDto(),
+                chapters = episode.chapters.toDto(),
+                chaptersUrl = episode.chaptersUrl,
             )
         },
         books = content.books.map { book ->
@@ -47,6 +51,7 @@ object WearPodcastManifestBuilder {
                 durationMs = book.durationMs,
                 tracks = book.tracks.map { WearBookTrackDto(it.index, it.fileId, it.startMs, it.durationMs, it.mimeType) },
                 progress = book.progress?.toDto(),
+                chapters = book.chapters.toDto(),
             )
         },
     )
@@ -59,4 +64,6 @@ object WearPodcastManifestBuilder {
         )
 
     private fun BookProgress.toDto() = WearEpisodeProgressDto(positionMs, durationMs, finished, speed, updatedAt)
+
+    private fun List<BookChapter>.toDto() = map { WearChapterDto(it.title, it.startMs, it.endMs) }
 }

@@ -11,6 +11,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import keinabersmart.kleinaberlaut.core.data.repository.AlbumColorRepository
 import keinabersmart.kleinaberlaut.core.data.repository.ArtworkRepository
 import keinabersmart.kleinaberlaut.core.data.spoken.BookCovers
+import keinabersmart.kleinaberlaut.core.data.spoken.BookRepository
+import keinabersmart.kleinaberlaut.core.model.BookChapter
+import keinabersmart.kleinaberlaut.core.model.BookTimeline
 import keinabersmart.kleinaberlaut.core.playback.PlaybackConnection
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,6 +22,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -42,6 +46,7 @@ class PlayerViewModel @Inject constructor(
     artwork: ArtworkRepository,
     albumColors: AlbumColorRepository,
     bookCovers: BookCovers,
+    books: BookRepository,
 ) : ViewModel(), NowPlayingModel {
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
@@ -97,6 +102,33 @@ class PlayerViewModel @Inject constructor(
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Zeitachse des laufenden Buchs bzw. der Folge (Dateien und Kapitel); `null` bei Musik. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val timeline: StateFlow<BookTimeline?> = playback.state
+        .map { it.spoken?.bookId }
+        .distinctUntilChanged()
+        .mapLatest { bookId -> bookId?.let { books.timeline(it) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Kapitel des Buchs bzw. der Folge; leer bei Musik und ohne Kapitel. */
+    val chapters: StateFlow<List<BookChapter>> = timeline
+        .map { it?.chapters.orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Das laufende Kapitel; die Position des Players gilt in der Datei, Kapitel im ganzen Buch. */
+    val currentChapter: StateFlow<BookChapter?> = combine(timeline, playback.state, positionMs) { timeline, state, position ->
+        val entry = state.spoken ?: return@combine null
+        timeline?.chapterAt(timeline.toBookPosition(entry.trackIndex, position))
+    }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Springt an [bookPositionMs] (Position im ganzen Buch), z. B. den Beginn eines Kapitels. */
+    fun seekToBook(bookPositionMs: Long) {
+        val target = timeline.value?.locate(bookPositionMs) ?: return
+        playback.seekToTrack(target.trackIndex, target.offsetMs)
+    }
 
     private val _volume = MutableStateFlow(readVolume())
 

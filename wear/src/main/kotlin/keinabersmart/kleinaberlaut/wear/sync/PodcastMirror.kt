@@ -5,6 +5,7 @@ import androidx.room.withTransaction
 import keinabersmart.kleinaberlaut.core.database.KleinaberlautDatabase
 import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.PodcastDao
+import keinabersmart.kleinaberlaut.core.database.entity.BookChapterEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookProgressEntity
 import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
@@ -14,6 +15,7 @@ import keinabersmart.kleinaberlaut.core.download.EpisodeStorage
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
+import keinabersmart.kleinaberlaut.core.wearsync.WearChapterDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearEpisodeProgressDto
@@ -77,12 +79,15 @@ class PodcastMirror @Inject constructor(
                     mimeType = dto.mimeType,
                 ),
             )
+            // Ohne Kapitel vom Handy bleiben die, die die Uhr über den Kapitel-Link selbst geholt hat.
+            if (dto.chapters.isNotEmpty()) applyChapters(bookId, dto.chapters)
             applyProgress(bookId, dto.feedId, dto.guid, dto.progress)
             bookId
         }
         val bookIds = manifest.books.filter { it.tracks.isNotEmpty() }.map { dto ->
             val bookId = bookDao.upsertBook(dto.toEntity(generation))
             applyTracks(bookId, dto)
+            applyChapters(bookId, dto.chapters)
             applyProgress(bookId, dto.serverId, dto.remoteId, dto.progress)
             bookId
         }
@@ -132,6 +137,13 @@ class PodcastMirror @Inject constructor(
         bookDao.insertTracks(tracks)
     }
 
+    private suspend fun applyChapters(bookId: Long, chapters: List<WearChapterDto>) {
+        val entities = chapters.mapIndexed { index, chapter -> BookChapterEntity(bookId, index, chapter.title, chapter.startMs, chapter.endMs) }
+        if (bookDao.chapters(bookId) == entities) return
+        bookDao.deleteChapters(bookId)
+        bookDao.insertChapters(entities)
+    }
+
     private fun WearEpisodeDto.toEntity(feedTitle: String, generation: Long) = BookEntity(
         serverId = feedId,
         kind = BookKind.EPISODE,
@@ -145,6 +157,7 @@ class PodcastMirror @Inject constructor(
         detailsLoaded = true,
         seenInGeneration = generation,
         coverUrl = coverUrl,
+        chaptersUrl = chaptersUrl,
     )
 
     private fun WearBookDto.toEntity(generation: Long) = BookEntity(

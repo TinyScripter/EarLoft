@@ -50,6 +50,7 @@ import keinabersmart.kleinaberlaut.wear.ui.RemotePlaylistsScreen
 import keinabersmart.kleinaberlaut.wear.ui.RemoteTracksScreen
 import keinabersmart.kleinaberlaut.wear.ui.NowPlayingScreen
 import keinabersmart.kleinaberlaut.wear.ui.SelectionScreen
+import keinabersmart.kleinaberlaut.wear.ui.ChaptersScreen
 import keinabersmart.kleinaberlaut.wear.ui.SleepTimerCustomScreen
 import keinabersmart.kleinaberlaut.wear.ui.SleepTimerScreen
 import keinabersmart.kleinaberlaut.wear.ui.StartScreen
@@ -183,6 +184,10 @@ data object SleepTimerRoute : NavKey
 @Serializable
 data object SleepTimerCustomRoute : NavKey
 
+/** Kapitel des laufenden Buchs bzw. der Folge (aus der Wiedergabe-Ansicht). */
+@Serializable
+data object ChaptersRoute : NavKey
+
 /** Öffnet die Wiedergabe-Ansicht höchstens einmal; sonst stapeln sich Kopien, wenn man mehrfach etwas startet. */
 private fun MutableList<NavKey>.openNowPlaying(remote: Boolean = false) {
     val route = NowPlayingRoute(remote)
@@ -270,7 +275,10 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                         if (route.remote) {
                             RemoteNowPlayingScreen()
                         } else {
-                            NowPlayingScreen(onOpenSleepTimer = { backStack.add(SleepTimerRoute) })
+                            NowPlayingScreen(
+                                onOpenSleepTimer = { backStack.add(SleepTimerRoute) },
+                                onOpenChapters = { backStack.add(ChaptersRoute) },
+                            )
                         }
                     }
                     entry<AlbumsRoute> { route ->
@@ -301,6 +309,7 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                         // Zurück zur Wiedergabe: erst die eigene Dauer, dann die Auswahl davor schließen.
                         SleepTimerCustomScreen(onDone = { repeat(2) { backStack.removeLastOrNull() } })
                     }
+                    entry<ChaptersRoute> { ChaptersScreen(onDone = { backStack.removeLastOrNull() }) }
                     entry<StorageRoute> { StorageScreen() }
                     entry<SelectionRoute> { route -> SelectionScreen(playlistId = route.playlistId, onPlayed = { backStack.openNowPlaying() }) }
                 },

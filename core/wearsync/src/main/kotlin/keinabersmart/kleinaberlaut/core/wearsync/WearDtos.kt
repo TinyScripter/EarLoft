@@ -175,7 +175,12 @@ data class WearBookDto(
     val durationMs: Long = 0,
     val tracks: List<WearBookTrackDto> = emptyList(),
     val progress: WearEpisodeProgressDto? = null,
+    val chapters: List<WearChapterDto> = emptyList(),
 )
+
+/** Ein Kapitel; Beginn und Ende als Position im ganzen Buch bzw. in der Folge. */
+@Serializable
+data class WearChapterDto(val title: String, val startMs: Long, val endMs: Long)
 
 /**
  * Eine Datei des Buchs. [fileId] ist die Kennung bei Audiobookshelf; `null` bei Büchern vom Gerät des Handys (die gibt es
@@ -215,6 +220,10 @@ data class WearEpisodeDto(
     val mimeType: String? = null,
     val coverUrl: String? = null,
     val progress: WearEpisodeProgressDto? = null,
+    /** Kapitel, die das Handy kennt (aus dem Kapitel-Link des Feeds oder den Tags der Datei). */
+    val chapters: List<WearChapterDto> = emptyList(),
+    /** Kapitel-Link des Feeds: Fehlen [chapters], holt die Uhr sie beim Abspielen selbst. */
+    val chaptersUrl: String? = null,
 )
 
 @Serializable

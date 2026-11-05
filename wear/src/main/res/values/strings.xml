@@ -60,6 +60,7 @@
     <string name="player_skip_forward_10">Forward 10 seconds</string>
     <string name="player_volume">Volume</string>
     <string name="player_volume_percent">%d %%</string>
+    <string name="player_chapters">Chapters</string>
 
     <!-- Sleep timer -->
     <string name="sleep_timer_title">Sleep timer</string>

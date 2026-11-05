@@ -70,6 +70,7 @@ import androidx.wear.compose.material3.Text
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import keinabersmart.kleinaberlaut.core.playback.PlayerState
 import keinabersmart.kleinaberlaut.core.playback.QueueEntry
+import keinabersmart.kleinaberlaut.core.playback.SpokenEntry
 import keinabersmart.kleinaberlaut.wear.R
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -78,11 +79,24 @@ import kotlin.math.abs
  * Wiedergabe (Wear-Konzept 11): Das Cover füllt, leicht unscharf, den Kreis innerhalb des Fortschrittsrings; darauf Titel und
  * Steuerung, Wiedergabe/Pause genau in der Mitte. Akzentfarben kommen aus dem Cover, die Krone ändert die Lautstärke.
  * Ohne passende Ausgabe (Kopfhörer) hält die Wiedergabe an; ein Tipp auf den Hinweis öffnet die Bluetooth-Einstellungen.
- * Bei einem Buch oder einer Folge springen die Knöpfe neben Wiedergabe/Pause −30 s / +10 s, Zufall gibt es dann nicht.
+ * Bei einem Buch oder einer Folge springen die Knöpfe neben Wiedergabe/Pause −30 s / +10 s, Zufall gibt es dann nicht;
+ * mit Kapiteln steht das laufende über dem Titel, und ein Knopf neben dem Sleep-Timer öffnet die Liste.
  */
 @Composable
-fun NowPlayingScreen(onOpenSleepTimer: () -> Unit = {}, viewModel: PlayerViewModel = hiltViewModel()) {
-    NowPlayingHost(viewModel, onOpenSleepTimer = onOpenSleepTimer)
+fun NowPlayingScreen(
+    onOpenSleepTimer: () -> Unit = {},
+    onOpenChapters: () -> Unit = {},
+    viewModel: PlayerViewModel = hiltViewModel(),
+) {
+    val chapters by viewModel.chapters.collectAsStateWithLifecycle()
+    val chapter by viewModel.currentChapter.collectAsStateWithLifecycle()
+    NowPlayingHost(
+        viewModel,
+        onOpenSleepTimer = onOpenSleepTimer,
+        chapterTitle = chapter?.title,
+        chaptersAvailable = chapters.isNotEmpty(),
+        onOpenChapters = onOpenChapters,
+    )
 }
 
 /**
@@ -95,7 +109,14 @@ fun RemoteNowPlayingScreen(viewModel: RemotePlayerViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun NowPlayingHost(model: NowPlayingModel, onOpenSleepTimer: () -> Unit, sleepTimerAvailable: Boolean = true) {
+private fun NowPlayingHost(
+    model: NowPlayingModel,
+    onOpenSleepTimer: () -> Unit,
+    sleepTimerAvailable: Boolean = true,
+    chapterTitle: String? = null,
+    chaptersAvailable: Boolean = false,
+    onOpenChapters: () -> Unit = {},
+) {
     val state by model.state.collectAsStateWithLifecycle()
     val positionMs by model.positionMs.collectAsStateWithLifecycle()
     val cover by model.cover.collectAsStateWithLifecycle()
@@ -115,6 +136,9 @@ private fun NowPlayingHost(model: NowPlayingModel, onOpenSleepTimer: () -> Unit,
             sleepTimerRemainingMs = sleepTimerRemainingMs,
             // Läuft ein Timer, schaltet ein Tipp ihn aus; sonst öffnet er die Auswahl.
             onSleepTimer = { if (sleepTimerRemainingMs != null) model.cancelSleepTimer() else onOpenSleepTimer() },
+            chapterTitle = chapterTitle,
+            chaptersAvailable = chaptersAvailable,
+            onChapters = onOpenChapters,
             onPrevious = model::previous,
             onPlayPause = model::togglePlayPause,
             onNext = model::next,
@@ -138,6 +162,9 @@ private fun NowPlayingContent(
     sleepTimerAvailable: Boolean,
     sleepTimerRemainingMs: Long?,
     onSleepTimer: () -> Unit,
+    chapterTitle: String?,
+    chaptersAvailable: Boolean,
+    onChapters: () -> Unit,
     onPrevious: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
@@ -227,6 +254,16 @@ private fun NowPlayingContent(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom,
                 ) {
+                    if (spoken != null && chapterTitle != null) {
+                        Text(
+                            chapterTitle,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     Text(
                         current?.title ?: spoken?.title ?: stringResource(R.string.player_nothing),
                         textAlign = TextAlign.Center,
@@ -266,13 +303,17 @@ private fun NowPlayingContent(
                         ControlButton(R.drawable.ic_skip_next, R.string.player_next, SKIP_BUTTON_SIZE, onNext)
                     }
                 }
-                Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(CONTROL_SPACING)) {
+                // Die kleinen Knöpfe mit Abstand zu Wiedergabe/Pause, damit niemand beim Pausieren den Sleep-Timer trifft.
+                Column(
+                    Modifier.weight(1f).fillMaxWidth().padding(top = SECONDARY_ROW_GAP),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(SECONDARY_SPACING)) {
                         if (spoken == null) {
                             ControlButton(
                                 R.drawable.ic_shuffle,
                                 R.string.player_shuffle,
-                                SHUFFLE_BUTTON_SIZE,
+                                SECONDARY_BUTTON_SIZE,
                                 onShuffle,
                                 active = state.shuffle,
                                 toggle = true,
@@ -282,10 +323,13 @@ private fun NowPlayingContent(
                             ControlButton(
                                 R.drawable.ic_bedtime,
                                 R.string.sleep_timer_title,
-                                SHUFFLE_BUTTON_SIZE,
+                                SECONDARY_BUTTON_SIZE,
                                 onSleepTimer,
                                 active = sleepTimerRemainingMs != null,
                             )
+                        }
+                        if (spoken != null && chaptersAvailable) {
+                            ControlButton(R.drawable.ic_list, R.string.player_chapters, SECONDARY_BUTTON_SIZE, onChapters)
                         }
                     }
                     if (sleepTimerRemainingMs != null) {
@@ -362,9 +406,13 @@ private const val COVER_FADE_START = 0.6f
 private val TEXT_PADDING = 12.dp
 private val PLAY_BUTTON_SIZE = 64.dp
 private val SKIP_BUTTON_SIZE = 52.dp
-private val SHUFFLE_BUTTON_SIZE = 44.dp
 private val SEEK_ICON_SIZE = 38.dp
 private val CONTROL_SPACING = 2.dp
+
+/** Zufall, Sleep-Timer und Kapitel: kleiner als die Hauptsteuerung und deutlich von ihr abgerückt. */
+private val SECONDARY_BUTTON_SIZE = 40.dp
+private val SECONDARY_ROW_GAP = 10.dp
+private val SECONDARY_SPACING = 8.dp
 
 /** Lautstärkebalken in der Mitte, solange an der Krone gedreht wird. */
 @Composable
@@ -497,6 +545,44 @@ private fun NowPlayingPreview() {
                 sleepTimerAvailable = true,
                 sleepTimerRemainingMs = 754_000,
                 onSleepTimer = {},
+                chapterTitle = null,
+                chaptersAvailable = false,
+                onChapters = {},
+                onPrevious = {},
+                onPlayPause = {},
+                onNext = {},
+                onSkipBack = {},
+                onSkipForward = {},
+                onShuffle = {},
+                onOutput = {},
+                onCrown = {},
+                onSeek = {},
+            )
+        }
+    }
+}
+
+@WearPreviewDevices
+@Composable
+private fun NowPlayingBookPreview() {
+    MaterialTheme {
+        AlbumColorTheme(seedColor = 0xFF3949AB.toInt()) {
+            NowPlayingContent(
+                state = PlayerState(
+                    spoken = SpokenEntry(1, 0, "Testbuch", "Testautor"),
+                    isPlaying = false,
+                    durationMs = 3_600_000,
+                ),
+                positionMs = 1_200_000,
+                cover = previewCover(),
+                volume = 0.4f,
+                volumeVisible = false,
+                sleepTimerAvailable = true,
+                sleepTimerRemainingMs = 754_000,
+                onSleepTimer = {},
+                chapterTitle = "Kapitel 3: Der Sturm",
+                chaptersAvailable = true,
+                onChapters = {},
                 onPrevious = {},
                 onPlayPause = {},
                 onNext = {},

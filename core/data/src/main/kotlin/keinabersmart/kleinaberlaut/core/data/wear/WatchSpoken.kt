@@ -12,6 +12,7 @@ import keinabersmart.kleinaberlaut.core.database.dao.WearDao
 import keinabersmart.kleinaberlaut.core.database.entity.BookEntity
 import keinabersmart.kleinaberlaut.core.database.entity.PodcastFeedEntity
 import keinabersmart.kleinaberlaut.core.database.entity.WearBookEntity
+import keinabersmart.kleinaberlaut.core.model.BookChapter
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.BookProgress
 import keinabersmart.kleinaberlaut.core.model.isLocalSource
@@ -49,6 +50,8 @@ data class WatchEpisodeContent(
     val mimeType: String?,
     val coverUrl: String?,
     val progress: BookProgress?,
+    val chapters: List<BookChapter> = emptyList(),
+    val chaptersUrl: String? = null,
 )
 
 /** Ein Hörbuch für die Uhr (Wear-Konzept 16.2). */
@@ -63,6 +66,7 @@ data class WatchBookContent(
     val durationMs: Long,
     val tracks: List<WatchBookTrackContent>,
     val progress: BookProgress?,
+    val chapters: List<BookChapter> = emptyList(),
 )
 
 /** Eine Datei des Buchs; [fileId] ist die Kennung bei Audiobookshelf, `null` bei Büchern vom Gerät (nur über den Datei-Kanal). */
@@ -106,6 +110,8 @@ class WatchSpoken @Inject constructor(
         // Wie „In Warteschlange einfügen“: Gehörtes gilt wieder als offen, sonst fiele es sofort wieder heraus.
         if (book.kind == BookKind.EPISODE) {
             podcasts.reopenIfFinished(bookId)
+            // Damit die Uhr die Kapitel mitbekommt, ohne sie selbst aus dem Feed holen zu müssen.
+            podcasts.ensureChapters(bookId)
         } else {
             if (bookDao.progress(bookId)?.finished == true) progressSync.record(bookId, 0, book.durationMs, finished = false, force = true)
             // Die Dateiliste kommt erst mit den Details; ohne Verbindung holt sie das nächste Öffnen des Buchs nach.
@@ -165,6 +171,8 @@ class WatchSpoken @Inject constructor(
             // Bilder der Folgen vom Gerät sind `kal://`-Adressen dieses Handys; die Uhr kann damit nichts anfangen.
             coverUrl = (book.coverUrl ?: feed.imageUrl)?.takeIf { it.startsWith("http") },
             progress = bookDao.progress(book.bookId)?.toModel(),
+            chapters = bookDao.chapters(book.bookId).map { it.toModel() },
+            chaptersUrl = book.chaptersUrl?.takeIf { it.startsWith("http") },
         )
     }
 
@@ -183,6 +191,7 @@ class WatchSpoken @Inject constructor(
             durationMs = book.durationMs,
             tracks = tracks.map { WatchBookTrackContent(it.trackIndex, it.remoteFileId.takeUnless { local }, it.startMs, it.durationMs, it.mimeType) },
             progress = bookDao.progress(book.bookId)?.toModel(),
+            chapters = bookDao.chapters(book.bookId).map { it.toModel() },
         )
     }
 
@@ -190,6 +199,6 @@ class WatchSpoken @Inject constructor(
         const val THROTTLE_MS = 2_000L
 
         /** Alles, wovon Auswahl, Angaben der Folgen und Bücher und Fortschritt abhängen. */
-        val OBSERVED_TABLES = arrayOf("wear_books", "books", "book_tracks", "book_progress", "podcast_feeds", "spoken_servers")
+        val OBSERVED_TABLES = arrayOf("wear_books", "books", "book_tracks", "book_chapters", "book_progress", "podcast_feeds", "spoken_servers")
     }
 }
