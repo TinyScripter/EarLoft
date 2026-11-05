@@ -13,6 +13,7 @@ import keinabersmart.kleinaberlaut.core.database.model.WearSelectionProgressRow
 import keinabersmart.kleinaberlaut.core.database.model.WearSongArtistRow
 import keinabersmart.kleinaberlaut.core.database.model.WearSongRow
 import keinabersmart.kleinaberlaut.core.database.model.WearSourceRow
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -50,6 +51,10 @@ interface WearDao {
 
     @Query("DELETE FROM wear_books")
     suspend fun deleteAllBooks()
+
+    /** Nur die Folgen bzw. nur die Bücher („Podcasts entfernen“ bzw. „Bücher entfernen“ auf der Uhr). */
+    @Query("DELETE FROM wear_books WHERE bookId IN (SELECT bookId FROM books WHERE kind = :kind)")
+    suspend fun deleteBooksOfKind(kind: BookKind)
 
     /** Zu Ende gehörte Folgen fallen von der Uhr (Entscheidung des Nutzers, 2026-11-05). */
     @Query("DELETE FROM wear_books WHERE bookId IN (SELECT bookId FROM book_progress WHERE finished)")
@@ -180,8 +185,8 @@ interface WearDao {
     suspend fun getDoneBytes(): Long
 
     /**
-     * Fertig/gesamt/fehlgeschlagen und belegte Bytes je Auswahl, in deren Reihenfolge (auf der Uhr zeigt `refId` auf die
-     * Geräte-Playlist). Songs in mehreren Auswahlen zählen bei jeder.
+     * Fertig/gesamt/fehlgeschlagen, belegte Bytes und der geladene Anteil laufender Songs je Auswahl, in deren Reihenfolge
+     * (auf der Uhr zeigt `refId` auf die Geräte-Playlist). Songs in mehreren Auswahlen zählen bei jeder.
      */
     @Query(
         """
@@ -190,7 +195,10 @@ interface WearDao {
                COUNT(DISTINCT CASE WHEN d.state = 'DONE' THEN e.songId END) AS done,
                COUNT(DISTINCT CASE WHEN d.state = 'FAILED' THEN e.songId END) AS failed,
                (SELECT COALESCE(SUM(d2.bytesTotal), 0) FROM downloads d2
-                WHERE d2.state = 'DONE' AND d2.songId IN (SELECT songId FROM playlist_entries WHERE playlistId = w.refId)) AS bytes
+                WHERE d2.state = 'DONE' AND d2.songId IN (SELECT songId FROM playlist_entries WHERE playlistId = w.refId)) AS bytes,
+               (SELECT COALESCE(SUM(CAST(d3.bytesDone AS REAL) / d3.bytesTotal), 0) FROM downloads d3
+                WHERE d3.state = 'RUNNING' AND d3.bytesTotal > 0
+                  AND d3.songId IN (SELECT songId FROM playlist_entries WHERE playlistId = w.refId)) AS runningFraction
         FROM wear_selections w
         LEFT JOIN playlist_entries e ON e.playlistId = w.refId
         LEFT JOIN song_sources ss ON ss.songId = e.songId

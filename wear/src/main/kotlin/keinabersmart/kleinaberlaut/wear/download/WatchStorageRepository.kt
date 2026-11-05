@@ -6,7 +6,9 @@ import keinabersmart.kleinaberlaut.core.database.dao.BookDao
 import keinabersmart.kleinaberlaut.core.database.dao.DownloadDao
 import keinabersmart.kleinaberlaut.core.database.dao.WearDao
 import keinabersmart.kleinaberlaut.core.download.DownloadRepository
+import keinabersmart.kleinaberlaut.core.database.entity.BookTrackEntity
 import keinabersmart.kleinaberlaut.core.model.BookKind
+import keinabersmart.kleinaberlaut.core.model.TrackDownload
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.model.Song
 import keinabersmart.kleinaberlaut.core.model.SourceType
@@ -14,6 +16,7 @@ import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearQuality
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,9 +33,23 @@ data class SelectionItem(
     val key: String = "",
     /** Fertig geladene Bytes der Auswahl. */
     val bytes: Long = 0,
+    /** Verschiedene Songs der Auswahl (Duplikate einer Playlist zählen einmal, anders als [songCount]). */
+    val distinctSongs: Int = songCount,
+    /** Geladener Anteil der gerade laufenden Songs, aufsummiert. */
+    val runningFraction: Double = 0.0,
+    /** Fehlgeschlagene Songs der Auswahl. */
+    val failedCount: Int = 0,
 ) {
     /** Album- bzw. Playlist-ID am Handy (aus [key]); `null` bei den Favoriten. */
     val phoneRefId: Long? get() = key.substringAfter(':', "").toLongOrNull()
+
+    /** Geladener Anteil 0–1; laufende Songs zählen anteilig. */
+    val progress: Float
+        get() = if (distinctSongs == 0 || downloadedCount >= distinctSongs) {
+            1f
+        } else {
+            ((downloadedCount + runningFraction) / distinctSongs).toFloat().coerceAtMost(1f)
+        }
 }
 
 /** Eine Folge bzw. ein Buch auf der Uhr; [serverId] und [remoteId] wie am Handy (Folgen-Manifest, Wear-Konzept 16.1/16.2). */
@@ -48,6 +65,31 @@ data class StoredSpoken(
     /** Fertig geladene Bytes. */
     val bytes: Long,
 )
+
+/** [progress]: geladener Anteil 0–1; [failed]: Eine Datei ließ sich nicht laden, und es wartet keine mehr. */
+data class SpokenDownload(val progress: Float, val failed: Boolean)
+
+/**
+ * Geladener Anteil der Dateien einer Folge bzw. eines Buchs, nach ihrer Dauer gewichtet (die Größe kennt die Uhr erst beim
+ * Laden); [current] ist die gerade ladende Datei dieses Buchs.
+ */
+internal fun spokenProgress(tracks: List<BookTrackEntity>, current: SpokenFileProgress?): Float {
+    if (tracks.isEmpty()) return 0f
+    var total = 0.0
+    var done = 0.0
+    for (track in tracks) {
+        val weight = track.durationMs.coerceAtLeast(1).toDouble()
+        total += weight
+        val running = current?.takeIf { it.trackIndex == track.trackIndex }
+        val runningTotal = running?.total?.takeIf { it > 0 }
+        done += when {
+            track.downloadState == TrackDownload.DONE -> weight
+            running != null && runningTotal != null -> weight * (running.done.toDouble() / runningTotal).coerceIn(0.0, 1.0)
+            else -> 0.0
+        }
+    }
+    return (done / total).toFloat()
+}
 
 /**
  * Was auf der Uhr liegt und was noch kommt – für die Oberfläche (Konzept 4: Repositories als einzige Schnittstelle zur
@@ -94,6 +136,9 @@ class WatchStorageRepository @Inject constructor(
                 downloadedCount = progress?.done ?: 0,
                 key = selection.key,
                 bytes = progress?.bytes ?: 0,
+                distinctSongs = progress?.total ?: playlist.songCount,
+                runningFraction = progress?.runningFraction ?: 0.0,
+                failedCount = progress?.failed ?: 0,
             )
         }
     }
@@ -104,6 +149,17 @@ class WatchStorageRepository @Inject constructor(
             StoredSpoken(it.bookId, it.kind, it.serverId, it.remoteId, it.title, it.author, loaded = it.total > 0 && it.done == it.total, bytes = it.doneBytes)
         }
     }
+
+    /** Download-Stand von Folge bzw. Buch [bookId] auf der Uhr; die gerade ladende Datei zählt anteilig. */
+    fun spokenDownload(bookId: Long): Flow<SpokenDownload> =
+        combine(bookDao.observeTracks(bookId), watchState.spokenFileProgress) { tracks, current ->
+            SpokenDownload(
+                progress = spokenProgress(tracks, current?.takeIf { it.bookId == bookId }),
+                // Erst, wenn nichts mehr wartet: Bis dahin versucht es der Auftrag noch (auch über das Handy).
+                failed = tracks.any { it.downloadState == TrackDownload.FAILED } &&
+                    tracks.none { it.downloadState == TrackDownload.QUEUED || it.downloadState == TrackDownload.RUNNING },
+            )
+        }.distinctUntilChanged()
 
     /** Schlüssel aller Auswahlen vom Handy laut zuletzt übernommenem Manifest ([WearSelectionKind.key]). */
     fun selectedKeys(): Flow<Set<String>> = wearDao.observeSelections().map { selections -> selections.mapTo(HashSet()) { it.key } }

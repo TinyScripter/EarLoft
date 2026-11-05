@@ -2,6 +2,8 @@ package keinabersmart.kleinaberlaut.wear.sync
 
 import com.google.android.gms.wearable.MessageClient
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
+import keinabersmart.kleinaberlaut.core.wearsync.WearClearRequest
+import keinabersmart.kleinaberlaut.core.wearsync.WearClearScope
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearPaths
 import keinabersmart.kleinaberlaut.core.wearsync.WearSelectRequest
@@ -42,9 +44,12 @@ class PhoneSelections @Inject constructor(
         return messageClient.sendPayload(nodeId, WearPaths.SELECT_SPOKEN, WearCodec.encode(request))
     }
 
-    /** Entfernt alle Auswahlen am Handy; die Uhr räumt beim nächsten Manifest auf. @return `false` ohne erreichbares Handy. */
-    suspend fun clearSelections(): Boolean {
+    /**
+     * Entfernt am Handy alle Auswahlen bzw. die einer Art ([scope]); die Uhr räumt beim nächsten Manifest auf.
+     * @return `false` ohne erreichbares Handy.
+     */
+    suspend fun clearSelections(scope: WearClearScope = WearClearScope.ALL): Boolean {
         val nodeId = phoneConnection.connectedPhoneNodeId() ?: return false
-        return messageClient.sendPayload(nodeId, WearPaths.CLEAR_SELECTIONS, ByteArray(0))
+        return messageClient.sendPayload(nodeId, WearPaths.CLEAR_SELECTIONS, WearCodec.encode(WearClearRequest(scope)))
     }
 }

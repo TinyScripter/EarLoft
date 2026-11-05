@@ -39,9 +39,12 @@
     <string name="remote_no_library">Open kleinaberlaut on the phone once</string>
     <string name="remote_truncated">Only the first tracks are shown</string>
     <string name="remote_play_on_phone">Play on phone</string>
-    <string name="remote_on_watch">On the watch</string>
+    <string name="remote_download">Download</string>
+    <string name="remote_downloading">Downloading …</string>
+    <string name="remote_downloading_percent">Downloading %1$d%%</string>
+    <string name="remote_remove">Remove</string>
+    <string name="remote_download_failed">Download failed</string>
     <string name="remote_on_watch_failed">Phone not reachable, nothing changed</string>
-    <string name="remote_on_watch_loading">Loading</string>
     <string name="list_started">Started</string>
     <string name="list_started_by">Started · %1$s</string>
 
@@ -112,7 +115,13 @@
     <string name="storage_retry">Try again</string>
     <string name="storage_last_error">Last error: %s</string>
     <string name="storage_clear_all">Remove everything</string>
-    <string name="storage_clear_confirm">Remove all music from the watch? The selection on the phone is cleared.</string>
+    <string name="storage_clear_confirm">Remove all music, podcasts and books from the watch? The selection on the phone is cleared.</string>
+    <string name="storage_clear_music">Remove music</string>
+    <string name="storage_clear_music_confirm">Remove all music from the watch? It is deselected on the phone.</string>
+    <string name="storage_clear_podcasts">Remove podcasts</string>
+    <string name="storage_clear_podcasts_confirm">Remove all episodes from the watch? They are deselected on the phone.</string>
+    <string name="storage_clear_books">Remove books</string>
+    <string name="storage_clear_books_confirm">Remove all books from the watch? They are deselected on the phone.</string>
     <string name="storage_clear_yes">Remove</string>
     <string name="storage_clear_no">Cancel</string>
     <string name="storage_clear_no_phone">Phone not connected – nothing removed.</string>

@@ -159,6 +159,21 @@ class WatchSpokenTest {
     }
 
     @Test
+    fun `clear by kind removes only episodes or only books`() = runTest {
+        val episode = episode("g1")
+        val book = book("b1")
+        spoken.setSelected(episode, selected = true)
+        spoken.setSelected(book, selected = true)
+
+        spoken.clear(BookKind.EPISODE)
+        assertEquals(setOf(book), spoken.selectedIds().first())
+
+        spoken.setSelected(episode, selected = true)
+        spoken.clear(BookKind.BOOK)
+        assertEquals(setOf(episode), spoken.selectedIds().first())
+    }
+
+    @Test
     fun `a chosen book goes with all its files and its progress`() = runTest {
         val id = book("b1", files = 2)
         db.bookDao().upsertProgress(BookProgressEntity(id, positionMs = 4_000_000, durationMs = 7_200_000, updatedAt = 3))

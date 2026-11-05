@@ -52,7 +52,7 @@ fun StorageScreen(viewModel: StorageViewModel = hiltViewModel()) {
         entries = entries,
         removeFailed = removeFailed,
         onRetry = viewModel::retryFailed,
-        onClearAll = viewModel::clearAll,
+        onClear = viewModel::clear,
         onRemove = viewModel::remove,
         onDismissRemoveFailed = viewModel::dismissRemoveFailed,
     )
@@ -64,12 +64,14 @@ private fun StorageContent(
     entries: List<StoredEntry>,
     removeFailed: Boolean,
     onRetry: () -> Unit,
-    onClearAll: () -> Unit,
+    onClear: (StoredSection?) -> Unit,
     onRemove: (StoredEntry) -> Unit,
     onDismissRemoveFailed: () -> Unit,
 ) {
     val context = LocalContext.current
     var confirmClear by remember { mutableStateOf(false) }
+    // `null` = alles; bleibt gesetzt, damit der Dialog beim Ausblenden seinen Text behält.
+    var clearSection by remember { mutableStateOf<StoredSection?>(null) }
     // Der Eintrag bleibt gesetzt, damit der Dialog beim Ausblenden seinen Text behält.
     var removeCandidate by remember { mutableStateOf<StoredEntry?>(null) }
     var confirmRemove by remember { mutableStateOf(false) }
@@ -147,6 +149,7 @@ private fun StorageContent(
                 Button(
                     onClick = {
                         onDismissRemoveFailed()
+                        clearSection = null
                         confirmClear = true
                     },
                     modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
@@ -159,6 +162,22 @@ private fun StorageContent(
                 val inSection = entries.filter { it.section == section }
                 if (inSection.isEmpty()) return@forEach
                 line(transformationSpec, header = true) { stringResource(section.titleRes) }
+                // Erste Option je Abschnitt: alles davon entfernen.
+                item(key = "clear:$section") {
+                    Button(
+                        onClick = {
+                            onDismissRemoveFailed()
+                            clearSection = section
+                            confirmClear = true
+                        },
+                        enabled = inSection.any { !it.removing },
+                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                        colors = ButtonDefaults.outlinedButtonColors(),
+                        border = ButtonDefaults.outlinedButtonBorder(enabled = inSection.any { !it.removing }),
+                        label = { Text(stringResource(section.clearRes)) },
+                    )
+                }
                 items(inSection, key = { it.key }) { entry ->
                     val cover = entry.cover
                     Button(
@@ -179,20 +198,14 @@ private fun StorageContent(
             }
         }
     }
-    AlertDialog(
+    RemoveConfirmDialog(
         visible = confirmRemove,
-        onDismissRequest = { confirmRemove = false },
-        confirmButton = {
-            AlertDialogDefaults.ConfirmButton(onClick = {
-                confirmRemove = false
-                removeCandidate?.let(onRemove)
-            })
+        name = removeCandidate?.title.orEmpty(),
+        onConfirm = {
+            confirmRemove = false
+            removeCandidate?.let(onRemove)
         },
-        dismissButton = { AlertDialogDefaults.DismissButton(onClick = { confirmRemove = false }) },
-        title = {
-            Text(stringResource(R.string.storage_remove_title, removeCandidate?.title.orEmpty()), maxLines = 3, overflow = TextOverflow.Ellipsis)
-        },
-        text = { Text(stringResource(R.string.storage_remove_confirm)) },
+        onDismiss = { confirmRemove = false },
     )
     AlertDialog(
         visible = confirmClear,
@@ -200,14 +213,28 @@ private fun StorageContent(
         confirmButton = {
             AlertDialogDefaults.ConfirmButton(onClick = {
                 confirmClear = false
-                onClearAll()
+                onClear(clearSection)
             })
         },
         dismissButton = { AlertDialogDefaults.DismissButton(onClick = { confirmClear = false }) },
-        title = { Text(stringResource(R.string.storage_clear_all)) },
-        text = { Text(stringResource(R.string.storage_clear_confirm)) },
+        title = { Text(stringResource(clearSection?.clearRes ?: R.string.storage_clear_all)) },
+        text = { Text(stringResource(clearSection?.clearConfirmRes ?: R.string.storage_clear_confirm)) },
     )
 }
+
+private val StoredSection.clearRes: Int
+    get() = when (this) {
+        StoredSection.MUSIC -> R.string.storage_clear_music
+        StoredSection.PODCASTS -> R.string.storage_clear_podcasts
+        StoredSection.BOOKS -> R.string.storage_clear_books
+    }
+
+private val StoredSection.clearConfirmRes: Int
+    get() = when (this) {
+        StoredSection.MUSIC -> R.string.storage_clear_music_confirm
+        StoredSection.PODCASTS -> R.string.storage_clear_podcasts_confirm
+        StoredSection.BOOKS -> R.string.storage_clear_books_confirm
+    }
 
 private val StoredSection.titleRes: Int
     get() = when (this) {
@@ -269,7 +296,7 @@ private fun StoragePreview() {
             ),
             removeFailed = false,
             onRetry = {},
-            onClearAll = {},
+            onClear = {},
             onRemove = {},
             onDismissRemoveFailed = {},
         )

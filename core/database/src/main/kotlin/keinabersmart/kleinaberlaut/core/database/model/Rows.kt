@@ -174,4 +174,6 @@ data class WearSelectionProgressRow(
     val failed: Int,
     /** Fertig geladene Bytes der Auswahl. */
     val bytes: Long = 0,
+    /** Geladener Anteil der gerade laufenden Songs (0–1 je Song, aufsummiert). */
+    val runningFraction: Double = 0.0,
 )

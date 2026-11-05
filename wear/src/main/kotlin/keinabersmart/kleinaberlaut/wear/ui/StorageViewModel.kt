@@ -14,6 +14,7 @@ import keinabersmart.kleinaberlaut.core.download.DownloadRepository
 import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.model.DownloadOverview
 import keinabersmart.kleinaberlaut.core.model.WearSelectionKind
+import keinabersmart.kleinaberlaut.core.wearsync.WearClearScope
 import keinabersmart.kleinaberlaut.core.wearsync.WearSettingsDto
 import keinabersmart.kleinaberlaut.core.wearsync.WearThumbnailFile
 import keinabersmart.kleinaberlaut.wear.download.SelectionItem
@@ -116,9 +117,25 @@ class StorageViewModel @Inject constructor(
         StorageUiState(overview, settings.storageLimitBytes, missing, error, backlog, settings.requireCharging, charging, noWifi)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
 
-    /** Das Handy bestimmt die Auswahl; lokal löschen würde beim nächsten Abgleich wieder geladen. */
-    fun clearAll() {
-        viewModelScope.launch { _removeFailed.value = !phoneSelections.clearSelections() }
+    /**
+     * Leert die Auswahl am Handy: alles bzw. nur einen Abschnitt ([section]). Das Handy bestimmt die Auswahl; lokal löschen
+     * würde beim nächsten Abgleich wieder geladen.
+     */
+    fun clear(section: StoredSection?) {
+        viewModelScope.launch {
+            _removeFailed.value = false
+            val scope = when (section) {
+                null -> WearClearScope.ALL
+                StoredSection.MUSIC -> WearClearScope.MUSIC
+                StoredSection.PODCASTS -> WearClearScope.PODCASTS
+                StoredSection.BOOKS -> WearClearScope.BOOKS
+            }
+            if (!phoneSelections.clearSelections(scope)) {
+                _removeFailed.value = true
+                return@launch
+            }
+            markRemoving(entries.value.filter { section == null || it.section == section }.map { it.key })
+        }
     }
 
     /** Wählt den Eintrag am Handy ab (wie der Schalter „Auf der Uhr“); die Uhr löscht ihn mit dem nächsten Manifest. */
@@ -133,12 +150,16 @@ class StorageViewModel @Inject constructor(
                 _removeFailed.value = true
                 return@launch
             }
-            removing.update { it + entry.key }
-            // Bleibt der Eintrag, obwohl das Handy die Nachricht bekam (z. B. Folge dort schon weg), wird er wieder wählbar.
-            launch {
-                delay(REMOVING_TIMEOUT_MS)
-                removing.update { it - entry.key }
-            }
+            markRemoving(listOf(entry.key))
+        }
+    }
+
+    /** Bleibt ein Eintrag, obwohl das Handy die Nachricht bekam (z. B. Folge dort schon weg), wird er wieder wählbar. */
+    private fun markRemoving(keys: Collection<String>) {
+        removing.update { it + keys }
+        viewModelScope.launch {
+            delay(REMOVING_TIMEOUT_MS)
+            removing.update { it - keys.toSet() }
         }
     }
 

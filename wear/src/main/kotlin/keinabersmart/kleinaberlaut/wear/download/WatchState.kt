@@ -12,6 +12,9 @@ import kotlinx.serialization.SerializationException
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Laufender Download der Datei [trackIndex] von Folge bzw. Buch [bookId]; [total] ist `null`, solange die Größe unbekannt ist. */
+data class SpokenFileProgress(val bookId: Long, val trackIndex: Int, val done: Long, val total: Long?)
+
 /**
  * Was die Uhr sich merkt, ohne dass es in die Bibliothek gehört: die Einstellungen vom Handy
  * (`/kal/settings`, Wear-Konzept 4) und die Meldungen für den Statusbericht.
@@ -39,6 +42,18 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
 
     /** Der letzte Lauf bekam kein WLAN (aus oder außer Reichweite); die Downloads warten auf den nächsten Versuch. */
     val waitingForWifi: StateFlow<Boolean> = _waitingForWifi.asStateFlow()
+
+    private val _spokenFileProgress = MutableStateFlow<SpokenFileProgress?>(null)
+
+    /**
+     * Die Datei einer Folge bzw. eines Buchs, die gerade lädt (nur im Speicher: Anders als bei Songs steht der Stand nicht in
+     * der Datenbank); `null`, wenn keine lädt.
+     */
+    val spokenFileProgress: StateFlow<SpokenFileProgress?> = _spokenFileProgress.asStateFlow()
+
+    fun setSpokenFileProgress(progress: SpokenFileProgress?) {
+        _spokenFileProgress.value = progress
+    }
 
     /** Server und Manifest vom Handy, die zuletzt vollständig übernommen wurden (siehe `PhoneLibrarySync`). */
     var appliedPhoneStamp: String?

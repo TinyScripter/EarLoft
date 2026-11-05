@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -13,7 +17,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
-import androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
@@ -22,9 +25,7 @@ import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.SurfaceTransformation
-import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
-import androidx.wear.compose.material3.lazy.TransformationSpec
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import keinabersmart.kleinaberlaut.wear.R
@@ -54,8 +55,8 @@ sealed interface TrackListState {
 }
 
 /**
- * Titelliste (Wear-Konzept 11, 14): Abspielen ([playLabel]), Zufällig, bei Listen des Handys der Schalter „Auf der Uhr“
- * ([onWatch], Wear-Konzept 17) und die Titel. Nicht abspielbare Titel sind ausgegraut; [onPlay] bekommt den Schlüssel des
+ * Titelliste (Wear-Konzept 11, 14): Abspielen ([playLabel]), Zufällig, bei Listen des Handys der Knopf „Download“
+ * ([onWatch], Wear-Konzept 17; Entfernen mit Rückfrage) und die Titel. Nicht abspielbare Titel sind ausgegraut; [onPlay] bekommt den Schlüssel des
  * angetippten Titels bzw. `null` für „von vorn“.
  */
 @Composable
@@ -68,6 +69,16 @@ fun TrackListContent(
 ) {
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
+    var confirmRemove by remember { mutableStateOf(false) }
+    RemoveConfirmDialog(
+        visible = confirmRemove,
+        name = (state as? TrackListState.Ready)?.title.orEmpty(),
+        onConfirm = {
+            confirmRemove = false
+            onToggleWatch(false)
+        },
+        onDismiss = { confirmRemove = false },
+    )
     ScreenScaffold(scrollState = columnState) { contentPadding ->
         if (state !is TrackListState.Ready) {
             // Ladeanzeige und Meldung stehen in der Mitte des Bildschirms, nicht am Listenanfang.
@@ -126,7 +137,7 @@ fun TrackListContent(
                     )
                 }
             }
-            if (onWatch != null) onWatchSwitch(onWatch, onToggleWatch, transformationSpec)
+            if (onWatch != null) onWatchButton(onWatch, { onToggleWatch(true) }, { confirmRemove = true }, transformationSpec)
             items(state.items, key = { it.key }) { track ->
                 Button(
                     onClick = { onPlay(track.key, false) },
@@ -152,30 +163,4 @@ fun TrackListContent(
             }
         }
     }
-}
-
-/** Schalter „Auf der Uhr“ für Listen, Folgen und Bücher des Handys (Wear-Konzept 17). */
-internal fun TransformingLazyColumnScope.onWatchSwitch(
-    state: OnWatchState,
-    onToggle: (Boolean) -> Unit,
-    transformationSpec: TransformationSpec,
-) = item {
-    val secondary = state.secondaryText()
-    SwitchButton(
-        checked = state.checked,
-        onCheckedChange = onToggle,
-        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-        transformation = SurfaceTransformation(transformationSpec),
-        label = { Text(stringResource(R.string.remote_on_watch)) },
-        secondaryLabel = if (secondary != null) { { Text(secondary, maxLines = 2, overflow = TextOverflow.Ellipsis) } } else null,
-    )
-}
-
-/** Unter dem Schalter: Fehler beim Umschalten oder, solange noch geladen wird, der Stand. */
-@Composable
-private fun OnWatchState.secondaryText(): String? = when {
-    failed -> stringResource(R.string.remote_on_watch_failed)
-    checked && loaded != null && total != null && loaded < total -> stringResource(R.string.selection_progress, loaded, total)
-    checked && loading -> stringResource(R.string.remote_on_watch_loading)
-    else -> null
 }

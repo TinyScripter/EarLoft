@@ -139,11 +139,8 @@ class WearDownloadWorker(
                 lease = lease ?: entryPoint.wifi().acquire()
                 if (lease == null) return waitForWifi()
                 state.setWaitingForWifi(false)
-                val throttle = ProgressThrottle()
-                val outcome = episodeDownloader.download(track, lease.network) { done, total ->
-                    val percent = throttle.next(done, total)
-                    if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
-                }
+                val network = lease.network
+                val outcome = downloadSpoken(track) { onProgress -> episodeDownloader.download(track, network, onProgress) }
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
                         val failures = state.recordServerFailure(key)
@@ -182,11 +179,8 @@ class WearDownloadWorker(
                 lease = lease ?: entryPoint.wifi().acquire()
                 if (lease == null) return waitForWifi()
                 state.setWaitingForWifi(false)
-                val throttle = ProgressThrottle()
-                val outcome = entryPoint.bookDownloader().download(track, lease.network) { done, total ->
-                    val percent = throttle.next(done, total)
-                    if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
-                }
+                val network = lease.network
+                val outcome = downloadSpoken(track) { onProgress -> entryPoint.bookDownloader().download(track, network, onProgress) }
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
                         val failures = state.recordServerFailure(key)
@@ -231,11 +225,7 @@ class WearDownloadWorker(
      * Hat das Handy keine Datei, bleibt die Folge fehlgeschlagen (neuer Versuch, wenn das Handy sie ins Manifest neu aufnimmt).
      */
     private suspend fun episodeViaPhone(track: BookTrackEntity): Boolean {
-        val throttle = ProgressThrottle()
-        return when (val outcome = phoneFetcher.fetchEpisode(track) { done, total ->
-            val percent = throttle.next(done, total)
-            if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
-        }) {
+        return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchEpisode(track, onProgress) }) {
             DownloadOutcome.Done -> {
                 state.clearServerFailures(episodeFailureKey(track.bookId))
                 true
@@ -256,11 +246,7 @@ class WearDownloadWorker(
 
     /** Wie [episodeViaPhone] für eine Buchdatei. */
     private suspend fun bookViaPhone(track: BookTrackEntity): Boolean {
-        val throttle = ProgressThrottle()
-        return when (val outcome = phoneFetcher.fetchBookTrack(track) { done, total ->
-            val percent = throttle.next(done, total)
-            if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
-        }) {
+        return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchBookTrack(track, onProgress) }) {
             DownloadOutcome.Done -> {
                 state.clearServerFailures(bookFailureKey(track.bookId))
                 true
@@ -276,6 +262,29 @@ class WearDownloadWorker(
                 false
             }
             DownloadOutcome.Cancelled -> true
+        }
+    }
+
+    /**
+     * Lädt eine Datei einer Folge bzw. eines Buchs über [download] und meldet ihren Stand der Benachrichtigung und der
+     * Oberfläche ([WatchState.spokenFileProgress], Knopf „Download“ im Bereich „Telefon“).
+     */
+    private suspend fun downloadSpoken(
+        track: BookTrackEntity,
+        download: suspend (onProgress: suspend (Long, Long?) -> Unit) -> DownloadOutcome,
+    ): DownloadOutcome {
+        val throttle = ProgressThrottle()
+        state.setSpokenFileProgress(SpokenFileProgress(track.bookId, track.trackIndex, 0, null))
+        try {
+            return download { done, total ->
+                val percent = throttle.next(done, total)
+                if (percent != null) {
+                    state.setSpokenFileProgress(SpokenFileProgress(track.bookId, track.trackIndex, done, total))
+                    notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
+                }
+            }
+        } finally {
+            state.setSpokenFileProgress(null)
         }
     }
 

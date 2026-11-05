@@ -24,19 +24,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * Schalter „Auf der Uhr“ einer Liste, Folge oder eines Buchs des Handys (Wear-Konzept 17). [loaded]/[total]: Stand der
- * Downloads einer Liste, solange die Auswahl auf der Uhr angekommen ist; [loading]: Folge bzw. Buch ist auf der Uhr, aber
- * noch nicht geladen; [failed]: Das Handy war beim letzten Umschalten nicht erreichbar.
- */
-data class OnWatchState(
-    val checked: Boolean,
-    val loaded: Int? = null,
-    val total: Int? = null,
-    val loading: Boolean = false,
-    val failed: Boolean = false,
-)
-
-/**
  * Titelliste eines Albums, einer Playlist oder der Favoriten auf dem Handy (Wear-Konzept 15) – zugleich die kleine Seite,
  * auf der man sie am Handy abspielt oder auf die Uhr holt (17).
  */
@@ -64,8 +51,8 @@ class RemoteTracksViewModel @AssistedInject constructor(
     private val selectionKey = selectionKind?.key(refId)
 
     /**
-     * Gewünschter Stand nach dem Umschalten, bis das Manifest des Handys ihn bestätigt (oder [PENDING_TIMEOUT_MS] vergeht):
-     * Der Schalter springt sonst bis zum nächsten Manifest zurück.
+     * Gewünschter Stand nach einem Tipp, bis das Manifest des Handys ihn bestätigt (oder [PENDING_TIMEOUT_MS] vergeht):
+     * Der Knopf spränge sonst bis zum nächsten Manifest zurück.
      */
     private val pending = MutableStateFlow<Boolean?>(null)
     private val failed = MutableStateFlow(false)
@@ -78,12 +65,7 @@ class RemoteTracksViewModel @AssistedInject constructor(
             val confirmed = selectionKey in keys
             if (wanted == confirmed) pending.value = null
             val item = selections.firstOrNull { it.key == selectionKey }
-            OnWatchState(
-                checked = wanted ?: confirmed,
-                loaded = item?.downloadedCount,
-                total = item?.songCount,
-                failed = failedNow,
-            )
+            onWatchState(confirmed, wanted, item?.progress, failedNow, downloadFailed = (item?.failedCount ?: 0) > 0)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     }
 

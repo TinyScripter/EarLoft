@@ -22,7 +22,10 @@ import keinabersmart.kleinaberlaut.core.data.wear.WatchPlayImporter
 import keinabersmart.kleinaberlaut.core.data.wear.WatchSpoken
 import keinabersmart.kleinaberlaut.core.data.wear.WearSelectionRepository
 import keinabersmart.kleinaberlaut.core.data.wear.WearServerMirror
+import keinabersmart.kleinaberlaut.core.model.BookKind
 import keinabersmart.kleinaberlaut.core.wearsync.WearBookFile
+import keinabersmart.kleinaberlaut.core.wearsync.WearClearRequest
+import keinabersmart.kleinaberlaut.core.wearsync.WearClearScope
 import keinabersmart.kleinaberlaut.core.wearsync.WearCodec
 import keinabersmart.kleinaberlaut.core.wearsync.WearCoverFile
 import keinabersmart.kleinaberlaut.core.wearsync.WearCredentialsDto
@@ -94,7 +97,18 @@ class PhoneWearListenerService : WearableListenerService() {
                     }
                 }
             }
-            WearPaths.CLEAR_SELECTIONS -> applicationScope.launch { selections.clear() }
+            WearPaths.CLEAR_SELECTIONS -> {
+                val scope = if (event.data.isEmpty()) WearClearScope.ALL else decodeOrNull<WearClearRequest>(event)?.scope ?: return
+                applicationScope.launch {
+                    if (scope == WearClearScope.ALL || scope == WearClearScope.MUSIC) selections.clear()
+                    when (scope) {
+                        WearClearScope.ALL -> watchSpoken.clear()
+                        WearClearScope.PODCASTS -> watchSpoken.clear(BookKind.EPISODE)
+                        WearClearScope.BOOKS -> watchSpoken.clear(BookKind.BOOK)
+                        WearClearScope.MUSIC -> Unit
+                    }
+                }
+            }
             WearPaths.REMOTE_SUBSCRIBE -> remotePublisher.subscribe(applicationScope)
             WearPaths.REMOTE_COMMAND -> {
                 val command = decodeOrNull<WearRemoteCommand>(event) ?: return

@@ -37,7 +37,10 @@ object WearPaths {
     /** Message, Uhr → Handy: [WearSelectSpokenRequest] – Folge oder Buch für die Uhr wählen (Wear-Konzept 17). */
     const val SELECT_SPOKEN = "/kal/select/spoken"
 
-    /** Message, Uhr → Handy, ohne Inhalt: alle Auswahlen entfernen („Alles entfernen“ auf der Uhr). */
+    /**
+     * Message, Uhr → Handy: [WearClearRequest] – alle Auswahlen bzw. die einer Art entfernen (Speicher-Ansicht der Uhr).
+     * Ohne Inhalt: alles.
+     */
     const val CLEAR_SELECTIONS = "/kal/select/clear"
 
     /** Message, Uhr → Handy: [WearCredentialsRequest]. */

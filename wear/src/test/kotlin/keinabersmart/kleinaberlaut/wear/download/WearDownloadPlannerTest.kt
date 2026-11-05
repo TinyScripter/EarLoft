@@ -249,6 +249,8 @@ class WearDownloadPlannerTest {
         val selections = db.wearDao().observeSelectionProgress().first().associateBy { it.key }
         assertEquals(3_000L, selections.getValue("album:1").bytes)
         assertEquals(2, selections.getValue("album:1").done)
+        // t3 läuft: 100 von 4 000 Bytes.
+        assertEquals(0.025, selections.getValue("album:1").runningFraction, 1e-9)
         assertEquals(1_000L, selections.getValue("favorites").bytes)
 
         val books = db.bookDao().observeStoredBooks().first().associateBy { it.remoteId }

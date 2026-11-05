@@ -426,6 +426,13 @@ data class WearSelectSpokenRequest(
     val remoteId: String? = null,
 )
 
+/** Was „Entfernen“ in der Speicher-Ansicht der Uhr leert: alles oder nur Musik, Folgen bzw. Bücher. */
+@Serializable
+enum class WearClearScope { ALL, MUSIC, PODCASTS, BOOKS }
+
+@Serializable
+data class WearClearRequest(val scope: WearClearScope = WearClearScope.ALL)
+
 /** Ein Künstler des Handys mit seinen Alben (Albumkünstler, IDs aus [WearRemoteLibraryDto.albums]). */
 @Serializable
 data class WearRemoteArtistDto(val id: Long, val name: String, val albumIds: List<Long>)

@@ -130,6 +130,9 @@ abstract class BookDao {
     @Query("SELECT * FROM book_tracks WHERE bookId = :bookId ORDER BY trackIndex")
     abstract suspend fun tracks(bookId: Long): List<BookTrackEntity>
 
+    @Query("SELECT * FROM book_tracks WHERE bookId = :bookId ORDER BY trackIndex")
+    abstract fun observeTracks(bookId: Long): Flow<List<BookTrackEntity>>
+
     @Query("SELECT * FROM book_chapters WHERE bookId = :bookId ORDER BY chapterIndex")
     abstract suspend fun chapters(bookId: Long): List<BookChapterEntity>
 

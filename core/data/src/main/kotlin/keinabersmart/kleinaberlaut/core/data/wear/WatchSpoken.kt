@@ -126,7 +126,8 @@ class WatchSpoken @Inject constructor(
         setSelected(book.bookId, selected)
     }
 
-    suspend fun clear() = wearDao.deleteAllBooks()
+    /** Leert die Auswahl, mit [kind] nur die Folgen bzw. nur die Bücher. */
+    suspend fun clear(kind: BookKind? = null) = if (kind == null) wearDao.deleteAllBooks() else wearDao.deleteBooksOfKind(kind)
 
     /** [load], neu bei jeder Änderung der beteiligten Tabellen; gedrosselt wie [WearSelectionRepository.content]. */
     fun content(): Flow<WatchSpokenContent> =
