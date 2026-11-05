@@ -22,10 +22,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -73,6 +76,8 @@ import de.kleinabersmart.tinyamp.core.playback.QueueEntry
 import de.kleinabersmart.tinyamp.core.playback.SpokenEntry
 import de.kleinabersmart.tinyamp.wear.R
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 
 /**
@@ -118,7 +123,9 @@ private fun NowPlayingHost(
     onOpenChapters: () -> Unit = {},
 ) {
     val state by model.state.collectAsStateWithLifecycle()
-    val positionMs by model.positionMs.collectAsStateWithLifecycle()
+    // Als Lambda weitergereicht und erst beim Zeichnen gelesen: Der 500-ms-Takt setzt sonst die ganze Ansicht neu zusammen.
+    val position = model.positionMs.collectAsStateWithLifecycle()
+    val positionMs = remember(position) { { position.value } }
     val cover by model.cover.collectAsStateWithLifecycle()
     val volume by model.volume.collectAsStateWithLifecycle()
     val volumeVisible by model.volumeVisible.collectAsStateWithLifecycle()
@@ -155,7 +162,7 @@ private fun NowPlayingHost(
 @Composable
 private fun NowPlayingContent(
     state: PlayerState,
-    positionMs: Long,
+    positionMs: () -> Long,
     cover: android.graphics.Bitmap?,
     volume: Float,
     volumeVisible: Boolean,
@@ -179,17 +186,19 @@ private fun NowPlayingContent(
     val spoken = state.spoken
     var dragProgress by remember { mutableStateOf<Float?>(null) }
     var seekTarget by remember { mutableStateOf<Long?>(null) }
-    // Nach dem Loslassen bleibt die Anzeige am Ziel, bis der Player nachgekommen ist (die Position wird nur alle 500 ms gelesen).
-    LaunchedEffect(seekTarget, positionMs) {
-        seekTarget?.let { if (abs(positionMs - it) < SEEK_SETTLE_MS) seekTarget = null }
-    }
+    val currentPositionMs by rememberUpdatedState(positionMs)
+    // Nach dem Loslassen bleibt die Anzeige am Ziel, bis der Player nachgekommen ist (die Position wird nur alle 500 ms gelesen),
+    // höchstens SEEK_HOLD_MAX_MS lang.
     LaunchedEffect(seekTarget) {
-        if (seekTarget != null) {
-            delay(SEEK_HOLD_MAX_MS)
-            seekTarget = null
+        val target = seekTarget ?: return@LaunchedEffect
+        withTimeoutOrNull(SEEK_HOLD_MAX_MS) {
+            snapshotFlow { currentPositionMs() }.first { abs(it - target) < SEEK_SETTLE_MS }
         }
+        seekTarget = null
     }
-    val shownPositionMs = dragProgress?.let { (it * duration).toLong() } ?: seekTarget ?: positionMs
+    val shownPositionMs: () -> Long = remember(duration) {
+        { dragProgress?.let { (it * duration).toLong() } ?: seekTarget ?: currentPositionMs() }
+    }
     val focusRequester = remember { FocusRequester() }
     var hasFocus by remember { mutableStateOf(false) }
     // Beim Bildschirmwechsel verliert das Feld den Fokus gleich wieder (die Liste davor wird abgebaut); ohne Fokus
@@ -213,35 +222,18 @@ private fun NowPlayingContent(
                 .focusable(),
             contentAlignment = Alignment.Center,
         ) {
-            val progress = if (duration > 0) (shownPositionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
-            val positionLabel = stringResource(if (spoken != null) R.string.player_position_spoken else R.string.player_position)
             CoverBackground(cover)
             // Vor der Steuerung gezeichnet: Berührungen auf den Knöpfen gehen an die Knöpfe, nicht an den Ring.
-            ProgressRing(
-                progress = progress,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .ringSeek(
-                        enabled = duration > 0,
-                        bandWidth = SEEK_BAND_WIDTH,
-                        onPreview = { dragProgress = it },
-                        onSeek = { target ->
-                            val ms = (target * duration).toLong()
-                            seekTarget = ms
-                            onSeek(ms)
-                        },
-                    )
-                    .semantics {
-                        contentDescription = positionLabel
-                        stateDescription = "${formatPosition(shownPositionMs)} / ${formatPosition(duration)}"
-                        progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
-                        setProgress { target ->
-                            val ms = (target.coerceIn(0f, 1f) * duration).toLong()
-                            seekTarget = ms
-                            onSeek(ms)
-                            true
-                        }
-                    },
+            SeekRing(
+                positionMs = shownPositionMs,
+                durationMs = duration,
+                spoken = spoken != null,
+                onPreview = { dragProgress = it },
+                onSeek = { ms ->
+                    seekTarget = ms
+                    onSeek(ms)
+                },
+                modifier = Modifier.fillMaxSize(),
             )
             val current = state.current
             Column(
@@ -347,9 +339,50 @@ private fun NowPlayingContent(
     }
 }
 
-/** Ring um den Rand mit Lücke oben (Wear-Konzept 11); [progress] füllt ihn im Uhrzeigersinn. */
+/**
+ * [ProgressRing] mit Ziehen und Bedienhilfe. Der Ring liest die Position erst beim Zeichnen; neu zusammengesetzt wird nur, wenn
+ * sich die angesagte Sekunde ändert.
+ */
 @Composable
-private fun ProgressRing(progress: Float, modifier: Modifier = Modifier) {
+private fun SeekRing(
+    positionMs: () -> Long,
+    durationMs: Long,
+    spoken: Boolean,
+    onPreview: (Float?) -> Unit,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val currentPositionMs by rememberUpdatedState(positionMs)
+    val second by remember { derivedStateOf { currentPositionMs() / 1000 } }
+    val shownMs = second * 1000
+    val positionLabel = stringResource(if (spoken) R.string.player_position_spoken else R.string.player_position)
+    ProgressRing(
+        progress = { if (durationMs > 0) (currentPositionMs().toFloat() / durationMs).coerceIn(0f, 1f) else 0f },
+        modifier = modifier
+            .ringSeek(
+                enabled = durationMs > 0,
+                bandWidth = SEEK_BAND_WIDTH,
+                onPreview = onPreview,
+                onSeek = { target -> onSeek((target * durationMs).toLong()) },
+            )
+            .semantics {
+                contentDescription = positionLabel
+                stateDescription = "${formatPosition(shownMs)} / ${formatPosition(durationMs)}"
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    if (durationMs > 0) (shownMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f,
+                    0f..1f,
+                )
+                setProgress { target ->
+                    onSeek((target.coerceIn(0f, 1f) * durationMs).toLong())
+                    true
+                }
+            },
+    )
+}
+
+/** Ring um den Rand mit Lücke oben (Wear-Konzept 11); [progress] füllt ihn im Uhrzeigersinn und wird erst beim Zeichnen gelesen. */
+@Composable
+private fun ProgressRing(progress: () -> Float, modifier: Modifier = Modifier) {
     val trackColor = MaterialTheme.colorScheme.surfaceContainer
     val indicatorColor = MaterialTheme.colorScheme.primary
     Canvas(modifier) {
@@ -358,8 +391,9 @@ private fun ProgressRing(progress: Float, modifier: Modifier = Modifier) {
         val arcSize = Size(size.width - stroke, size.height - stroke)
         val style = Stroke(width = stroke, cap = StrokeCap.Round)
         drawArc(trackColor, RING_START_ANGLE, RING_SWEEP, false, topLeft, arcSize, style = style)
-        if (progress > 0f) {
-            drawArc(indicatorColor, RING_START_ANGLE, RING_SWEEP * progress, false, topLeft, arcSize, style = style)
+        val fraction = progress()
+        if (fraction > 0f) {
+            drawArc(indicatorColor, RING_START_ANGLE, RING_SWEEP * fraction, false, topLeft, arcSize, style = style)
         }
     }
 }
@@ -449,14 +483,14 @@ private fun VolumeIndicator(volume: Float, modifier: Modifier = Modifier) {
 
 /** Zeit beim Ziehen am Ring: „1:23 / 3:45“. */
 @Composable
-private fun PositionIndicator(positionMs: Long, durationMs: Long, modifier: Modifier = Modifier) {
+private fun PositionIndicator(positionMs: () -> Long, durationMs: Long, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text("${formatPosition(positionMs)} / ${formatPosition(durationMs)}", style = MaterialTheme.typography.titleMedium)
+        Text("${formatPosition(positionMs())} / ${formatPosition(durationMs)}", style = MaterialTheme.typography.titleMedium)
     }
 }
 
@@ -538,7 +572,7 @@ private fun NowPlayingPreview() {
                     durationMs = 200_000,
                     repeatMode = Player.REPEAT_MODE_OFF,
                 ),
-                positionMs = 80_000,
+                positionMs = { 80_000 },
                 cover = previewCover(),
                 volume = 0.4f,
                 volumeVisible = false,
@@ -573,7 +607,7 @@ private fun NowPlayingBookPreview() {
                     isPlaying = false,
                     durationMs = 3_600_000,
                 ),
-                positionMs = 1_200_000,
+                positionMs = { 1_200_000 },
                 cover = previewCover(),
                 volume = 0.4f,
                 volumeVisible = false,
