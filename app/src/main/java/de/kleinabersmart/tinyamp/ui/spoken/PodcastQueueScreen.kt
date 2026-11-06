@@ -1,5 +1,6 @@
 package de.kleinabersmart.tinyamp.ui.spoken
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Column
@@ -18,8 +19,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
@@ -27,6 +26,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -49,6 +49,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -254,7 +255,11 @@ fun PodcastQueueSearchScreen(
     }
 }
 
-/** Eine Folge der Warteschlange: Datum und Download, Titel, Fortschritt; links Ziehgriff (falls [dragHandle]) und Bild. */
+/**
+ * Eine Folge der Warteschlange: Datum und Download, Titel, Fortschritt; links Ziehgriff (falls [dragHandle]) und Bild.
+ * Eigene Zeile statt `ListItem`: Dessen Abstände für drei Zeilen sind zu großzügig, hier sollen möglichst viele Folgen
+ * auf einen Blick passen. Farben wie beim `ListItem`.
+ */
 @Composable
 private fun QueueRow(
     item: BookWithProgress,
@@ -265,36 +270,44 @@ private fun QueueRow(
     modifier: Modifier = Modifier,
     dragHandle: (@Composable () -> Unit)? = null,
 ) {
-    val id = item.book.id
-    ListItem(
-        overlineContent = { EpisodeFacts(item) },
-        headlineContent = { Text(item.book.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { EpisodeProgress(item) },
-        leadingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                dragHandle?.invoke()
-                BookArt(id, Modifier.padding(start = 4.dp).size(48.dp), MaterialTheme.shapes.small)
-            }
-        },
-        trailingContent = {
-            IconButton(onClick = onRemove) {
-                Icon(
-                    painterResource(DesignR.drawable.ic_close),
-                    contentDescription = stringResource(R.string.action_remove_from_queue),
-                )
-            }
-        },
-        colors = when {
-            current -> ListItemDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                headlineColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    val colors = MaterialTheme.colorScheme
+    val background = when {
+        current -> colors.secondaryContainer
+        transparent -> Color.Transparent
+        else -> colors.surface
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+    ) {
+        dragHandle?.invoke()
+        BookArt(item.book.id, Modifier.padding(start = 4.dp).size(48.dp), MaterialTheme.shapes.small)
+        Column(Modifier.weight(1f).padding(start = 16.dp, end = 4.dp)) {
+            CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant) { EpisodeFacts(item) }
+            Text(
+                item.book.title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (current) colors.onSecondaryContainer else colors.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            transparent -> ListItemDefaults.colors(containerColor = Color.Transparent)
-            else -> ListItemDefaults.colors()
-        },
-        modifier = modifier.clickable(onClick = onClick),
-    )
+            CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant) { EpisodeProgress(item) }
+        }
+        IconButton(onClick = onRemove) {
+            Icon(
+                painterResource(DesignR.drawable.ic_close),
+                contentDescription = stringResource(R.string.action_remove_from_queue),
+            )
+        }
+    }
 }
+
+/** Die kleinen Zeilen über und unter dem Titel, etwas enger als `labelSmall`. */
+@Composable
+private fun smallLineStyle() = MaterialTheme.typography.labelSmall.copy(lineHeight = 14.sp)
 
 /** Erste Zeile: Datum der Folge, dahinter der Download-Stand wie in den Listen (geladen: Haken, sonst nichts). */
 @Composable
@@ -303,7 +316,7 @@ private fun EpisodeFacts(item: BookWithProgress) {
     val mark = LocalBookDownloads.current[book.id]?.state?.offlineMark
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (book.addedAt > 0) {
-            Text(DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(book.addedAt)), maxLines = 1)
+            Text(DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(book.addedAt)), style = smallLineStyle(), maxLines = 1)
         }
         OfflineMarkIcon(mark, Modifier.padding(start = MarkGap).size(14.dp))
     }
@@ -318,11 +331,11 @@ private fun EpisodeProgress(item: BookWithProgress) {
     val positionMs = progress?.positionMs?.coerceIn(0, durationMs) ?: 0
     val speed = progress?.speed?.takeIf { it > 0f } ?: 1f
     val remainingMs = ((durationMs - positionMs) / speed).toLong()
-    val style = MaterialTheme.typography.labelSmall
+    val style = smallLineStyle()
     // Gleich breite Zeiten, damit die Balken untereinander gleich lang sind.
     val measurer = rememberTextMeasurer()
     val timeWidth = with(LocalDensity.current) { measurer.measure("-0:00:00", style).size.width.toDp() }
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         Text(formatClock(positionMs), style = style, maxLines = 1, modifier = Modifier.widthIn(min = timeWidth))
         LinearProgressIndicator(
             progress = { positionMs.toFloat() / durationMs },
