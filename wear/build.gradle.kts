@@ -5,7 +5,19 @@ plugins {
     alias(libs.plugins.tinyamp.android.compose)
     alias(libs.plugins.tinyamp.hilt)
     alias(libs.plugins.kotlin.serialization)
+    // Nur der Export der Bibliotheken für die Lizenzliste der Handy-App; die Uhr zeigt keine eigene.
+    alias(libs.plugins.aboutlibraries.base)
 }
+
+aboutLibraries {
+    export {
+        variant = "release"
+        outputFile = layout.buildDirectory.file("aboutLibraries/wear-libraries.json")
+    }
+}
+
+// Das Plugin hängt die Liste auch an die Ressourcen der Uhr-APK; dort wird sie nicht gebraucht.
+tasks.matching { it.name.startsWith("prepareLibraryDefinitions") }.configureEach { enabled = false }
 
 android {
     namespace = "de.kleinabersmart.tinyamp.wear"

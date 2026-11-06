@@ -7,6 +7,44 @@ plugins {
     alias(libs.plugins.aboutlibraries.android)
 }
 
+/**
+ * Zerlegt die Bibliotheksliste der Uhr-App (`:wear:exportLibraryDefinitions`) in Zusatzdefinitionen des AboutLibraries-Plugins
+ * (`libraries/`, `licenses/`). So steht in der Lizenzliste des Handys auch alles, was nur die Uhr nutzt; die Uhr zeigt keine eigene.
+ */
+abstract class WearLicenseDefinitions : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val wearLibraries: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun split() {
+        val out = outputDir.get().asFile.apply { deleteRecursively() }
+        @Suppress("UNCHECKED_CAST")
+        val export = groovy.json.JsonSlurper().parse(wearLibraries.get().asFile) as Map<String, Any?>
+        fun write(dir: String, name: String, value: Any?) =
+            out.resolve(dir).apply { mkdirs() }.resolve("$name.json").writeText(groovy.json.JsonOutput.toJson(value))
+        @Suppress("UNCHECKED_CAST")
+        (export["libraries"] as List<Map<String, Any?>>).forEach { write("libraries", it["uniqueId"].toString().replace(':', '_'), it) }
+        @Suppress("UNCHECKED_CAST")
+        (export["licenses"] as Map<String, Any?>).forEach { (key, license) -> write("licenses", key, license) }
+    }
+}
+
+val wearLicenseDefinitions = tasks.register<WearLicenseDefinitions>("wearLicenseDefinitions") {
+    dependsOn(":wear:exportLibraryDefinitions")
+    wearLibraries = rootProject.layout.projectDirectory.file("wear/build/aboutLibraries/wear-libraries.json")
+    outputDir = layout.buildDirectory.dir("generated/wearLicenseDefinitions")
+}
+
+aboutLibraries {
+    collect {
+        configPath = wearLicenseDefinitions.flatMap { it.outputDir }
+    }
+}
+
 android {
     namespace = "de.kleinabersmart.tinyamp"
 
