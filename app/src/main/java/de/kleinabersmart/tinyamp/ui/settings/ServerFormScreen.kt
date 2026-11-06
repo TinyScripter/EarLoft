@@ -21,7 +21,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -69,7 +68,6 @@ fun ServerFormScreen(
         onPasswordChange = viewModel::onPasswordChange,
         onAllowHttpChange = viewModel::onAllowHttpChange,
         onAutoDownloadChange = viewModel::onAutoDownloadChange,
-        onTest = rememberLocalNetworkRequester(viewModel::test),
         onSave = rememberLocalNetworkRequester(viewModel::save),
         modifier = modifier,
     )
@@ -86,7 +84,6 @@ private fun ServerFormContent(
     onPasswordChange: (String) -> Unit,
     onAllowHttpChange: (Boolean) -> Unit,
     onAutoDownloadChange: (Boolean) -> Unit,
-    onTest: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -107,9 +104,6 @@ private fun ServerFormContent(
             state.result?.let { ResultText(it) }
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = onTest, enabled = state.canSubmit) {
-                    Text(stringResource(R.string.add_server_test))
-                }
                 Button(onClick = onSave, enabled = state.canSubmit) {
                     Text(stringResource(R.string.add_server_save))
                 }
@@ -253,7 +247,6 @@ private fun ServerFormContentPreview() {
             onPasswordChange = {},
             onAllowHttpChange = {},
             onAutoDownloadChange = {},
-            onTest = {},
             onSave = {},
         )
     }
@@ -279,7 +272,6 @@ private fun ServerFormEditPreview() {
             onPasswordChange = {},
             onAllowHttpChange = {},
             onAutoDownloadChange = {},
-            onTest = {},
             onSave = {},
         )
     }

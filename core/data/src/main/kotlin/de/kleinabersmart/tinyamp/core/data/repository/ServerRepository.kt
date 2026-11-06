@@ -62,16 +62,7 @@ class ServerRepository @Inject constructor(
         return EditableServer(entity.toServerInfo(), hasPassword = storedPassword(sourceId) != null)
     }
 
-    /**
-     * Testet die Verbindung eines vorhandenen Servers mit geänderten Angaben. [newPassword] `null`
-     * = das gespeicherte Passwort verwenden.
-     */
-    suspend fun testConnection(sourceId: String, url: String, username: String, newPassword: String?): ConnectionResult {
-        val password = newPassword ?: storedPassword(sourceId) ?: return ConnectionResult.WrongCredentials
-        return testConnection(url, username, password)
-    }
-
-    suspend fun testConnection(url: String, username: String, password: String): ConnectionResult {
+    private suspend fun testConnection(url: String, username: String, password: String): ConnectionResult {
         val baseUrl = SubsonicServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
         val server = SubsonicServer(TEST_SOURCE_ID, baseUrl, SubsonicCredentials.Password(username, password))
         return try {

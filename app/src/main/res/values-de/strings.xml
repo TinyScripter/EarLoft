@@ -237,7 +237,6 @@
     <string name="add_server_password">Passwort</string>
     <string name="add_server_http_warning">Unverschlüsselte Verbindung: Benutzername, Musik und der Anmelde-Token werden lesbar übertragen – wer mitliest, kann mit dem Token auf deinen Server zugreifen. Nur im eigenen Heimnetz verwenden.</string>
     <string name="add_server_allow_http">Trotzdem unverschlüsselt verbinden</string>
-    <string name="add_server_test">Verbindung testen</string>
     <string name="add_server_save">Speichern</string>
     <string name="add_server_success">Verbunden mit %1$s %2$s</string>
     <string name="add_server_invalid_url">Die Adresse ist ungültig.</string>

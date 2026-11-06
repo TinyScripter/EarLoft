@@ -94,14 +94,6 @@ class ServerFormViewModel @AssistedInject constructor(
     fun onAllowHttpChange(value: Boolean) = _state.update { it.copy(allowHttp = value) }
     fun onAutoDownloadChange(value: Boolean) = _state.update { it.copy(autoDownload = value) }
 
-    fun test() = submit { s ->
-        if (sourceId == null) {
-            serverRepository.testConnection(s.url, s.username, s.password)
-        } else {
-            serverRepository.testConnection(sourceId, s.url, s.username, s.newPassword)
-        }
-    }
-
     /** Bei einem neuen Server wird die Download-Option erst gespeichert, wenn er angelegt ist. */
     fun save() {
         val current = _state.value
