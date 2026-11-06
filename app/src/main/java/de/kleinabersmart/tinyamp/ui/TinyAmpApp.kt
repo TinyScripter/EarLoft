@@ -49,6 +49,7 @@ import de.kleinabersmart.tinyamp.navigation.AddAudiobookshelfRoute
 import de.kleinabersmart.tinyamp.navigation.BookRoute
 import de.kleinabersmart.tinyamp.navigation.PodcastInfoRoute
 import de.kleinabersmart.tinyamp.navigation.PodcastQueueRoute
+import de.kleinabersmart.tinyamp.navigation.PodcastQueueSearchRoute
 import de.kleinabersmart.tinyamp.navigation.PodcastRoute
 import de.kleinabersmart.tinyamp.navigation.PodcastSearchRoute
 import de.kleinabersmart.tinyamp.navigation.PodcastSettingsRoute
@@ -123,6 +124,7 @@ import de.kleinabersmart.tinyamp.ui.spoken.BookScreen
 import de.kleinabersmart.tinyamp.ui.spoken.PodcastHomeScreen
 import de.kleinabersmart.tinyamp.ui.spoken.PodcastInfoScreen
 import de.kleinabersmart.tinyamp.ui.spoken.PodcastQueueScreen
+import de.kleinabersmart.tinyamp.ui.spoken.PodcastQueueSearchScreen
 import de.kleinabersmart.tinyamp.ui.spoken.PodcastSearchScreen
 import de.kleinabersmart.tinyamp.ui.spoken.PodcastSettingsScreen
 import de.kleinabersmart.tinyamp.ui.spoken.PodcastLibraryScreen
@@ -340,13 +342,20 @@ fun TinyAmpApp(
         entry<NowPlayingRoute> {
             // Das laufende Item entscheidet, nicht der Modus: ein Hörbuch hat seine eigene Ansicht.
             if (playsSpoken) {
-                BookPlayerScreen(onClose = navigator::goBack)
+                BookPlayerScreen(onClose = navigator::goBack, onEpisodeClick = openBook)
             } else {
                 NowPlayingScreen(onClose = navigator::goBack, onOpenQueue = { navigator.navigate(QueueRoute(overPlayer = true)) })
             }
         }
         entry<QueueRoute> { QueueScreen(onBack = navigator::goBack) }
-        entry<PodcastQueueRoute> { PodcastQueueScreen(onBack = navigator::goBack) }
+        entry<PodcastQueueRoute> {
+            PodcastQueueScreen(
+                onBack = navigator::goBack,
+                onSearch = { navigator.navigate(PodcastQueueSearchRoute) },
+                onEpisodeClick = openBook,
+            )
+        }
+        entry<PodcastQueueSearchRoute> { PodcastQueueSearchScreen(onBack = navigator::goBack, onEpisodeClick = openBook) }
         entry<SettingsRoute>(metadata = listPane()) {
             SettingsScreen(
                 onOpenGeneral = { navigator.navigate(SettingsGeneralRoute) },

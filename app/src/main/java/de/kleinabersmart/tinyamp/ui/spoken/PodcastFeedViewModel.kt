@@ -183,12 +183,16 @@ class PodcastFeedViewModel @AssistedInject constructor(
 /** Treffer der Folgensuche; [query] ist der Suchtext, zu dem sie gehören. */
 data class EpisodeHits(val query: String, val hits: List<BookWithProgress>)
 
-/** Eine Folge mit normalisiertem Titel und Beschreibung; getrennt, damit kein Treffer über die Grenze der beiden reicht. */
-private class SearchEntry(val episode: BookWithProgress) {
+/**
+ * Eine Folge mit normalisiertem Titel und Beschreibung, mit [withPodcast] auch dem Namen des Podcasts (Warteschlange);
+ * getrennt, damit kein Treffer über die Grenze der Felder reicht.
+ */
+internal class SearchEntry(val episode: BookWithProgress, withPodcast: Boolean = false) {
     private val title = episode.book.title.normalizeForMerge()
     private val description = descriptionForSearch(episode.book.description).normalizeForMerge()
+    private val podcast = if (withPodcast) episode.book.author.normalizeForMerge() else ""
 
-    fun matches(needle: String): Boolean = needle in title || needle in description
+    fun matches(needle: String): Boolean = needle in title || needle in description || needle in podcast
 }
 
-private const val SEARCH_DEBOUNCE_MS = 150L
+internal const val SEARCH_DEBOUNCE_MS = 150L

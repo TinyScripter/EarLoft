@@ -91,13 +91,14 @@ import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
 @Composable
 fun BookPlayerScreen(
     onClose: () -> Unit,
+    onEpisodeClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BookPlayerViewModel = hiltViewModel(),
 ) {
     val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
     AlbumColorTheme(seedColor) {
         Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            BookPlayerContent(onClose, viewModel = viewModel)
+            BookPlayerContent(onClose, onEpisodeClick, viewModel = viewModel)
         }
     }
 }
@@ -106,6 +107,7 @@ fun BookPlayerScreen(
 @Composable
 private fun BookPlayerContent(
     onClose: () -> Unit,
+    onEpisodeClick: (Long) -> Unit,
     viewModel: BookPlayerViewModel,
     modifier: Modifier = Modifier,
 ) {
@@ -391,7 +393,12 @@ private fun BookPlayerContent(
                             shownPane == SidePane.CHAPTERS && tl != null ->
                                 ChapterList(tl, chapterIndex, onChapter = viewModel::seekToBook, modifier = Modifier.fillMaxSize().padding(vertical = 8.dp))
                             shownPane == SidePane.QUEUE ->
-                                PodcastQueueList(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp), transparent = true)
+                                PodcastQueueList(
+                                    onEpisodeClick,
+                                    Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(vertical = 8.dp),
+                                    transparent = true,
+                                )
                             else -> DescriptionPane(description, Modifier.fillMaxSize())
                         }
                     }
@@ -437,7 +444,14 @@ private fun BookPlayerContent(
     }
     if (showQueue && episode) {
         ModalBottomSheet(onDismissRequest = { showQueue = false }) {
-            PodcastQueueList(Modifier.navigationBarsPadding(), transparent = true, onPlayed = { showQueue = false })
+            PodcastQueueList(
+                onEpisodeClick = {
+                    showQueue = false
+                    onEpisodeClick(it)
+                },
+                modifier = Modifier.navigationBarsPadding(),
+                transparent = true,
+            )
         }
     }
 }

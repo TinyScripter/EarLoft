@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,6 +23,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -29,15 +32,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,33 +66,39 @@ import java.text.DateFormat
 import java.util.Date
 import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
 
-/** Die Warteschlange der Podcasts („Weiterhören“) bearbeiten: wie bei der Musik mit Ziehgriff und ✕. */
+/** Die Warteschlange der Podcasts („Weiterhören“) bearbeiten: wie bei der Musik mit Ziehgriff und ✕, dazu die Suche. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PodcastQueueScreen(
     onBack: () -> Unit,
+    onSearch: () -> Unit,
+    onEpisodeClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text(stringResource(R.string.player_queue)) },
             navigationIcon = { BackButton(onBack) },
+            actions = {
+                IconButton(onClick = onSearch) {
+                    Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_queue_search))
+                }
+            },
         )
-        PodcastQueueList(modifier = Modifier.navigationBarsPadding())
+        PodcastQueueList(onEpisodeClick = onEpisodeClick, modifier = Modifier.navigationBarsPadding())
     }
 }
 
 /**
- * Die Liste der Warteschlange mit Ziehgriff, ✕ und Tipp zum Abspielen; auch im Folgen-Player (Sheet bzw. rechter Bereich).
- * [transparent]: ohne eigenen Hintergrund für Zeilen, die nicht laufen (auf farbigen Flächen); [onPlayed] nach dem Tipp
- * auf eine Folge (das Sheet schließt sich dann).
+ * Die Liste der Warteschlange mit Ziehgriff, ✕ und Tipp zur Seite der Folge; auch im Folgen-Player (Sheet bzw. rechter
+ * Bereich). [transparent]: ohne eigenen Hintergrund für Zeilen, die nicht laufen (auf farbigen Flächen).
  */
 @Composable
 fun PodcastQueueList(
+    onEpisodeClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
     transparent: Boolean = false,
-    onPlayed: () -> Unit = {},
     viewModel: PodcastQueueViewModel = hiltViewModel(),
 ) {
     val episodes by viewModel.episodes.collectAsStateWithLifecycle()
@@ -116,87 +129,171 @@ fun PodcastQueueList(
         items(rows, key = { it.book.id }) { item ->
             val id = item.book.id
             val isDragged = id == draggedId
-            ListItem(
-                overlineContent = { EpisodeFacts(item) },
-                headlineContent = { Text(item.book.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                supportingContent = {
-                    Column {
-                        Text(item.book.author, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        EpisodeProgress(item)
-                    }
-                },
-                leadingContent = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            painterResource(DesignR.drawable.ic_drag_handle),
-                            contentDescription = stringResource(R.string.action_reorder_queue_item),
-                            modifier = Modifier
-                                .size(40.dp)
-                                .padding(8.dp)
-                                .pointerInput(id) {
-                                    detectDragGestures(
-                                        onDragStart = {
-                                            draggedId = id
-                                            dragOffset = 0f
-                                        },
-                                        onDragEnd = {
-                                            draggedId = null
-                                            dragOffset = 0f
-                                            viewModel.reorder(rows.map { it.book.id })
-                                        },
-                                        onDragCancel = {
-                                            draggedId = null
-                                            dragOffset = 0f
-                                            viewModel.reorder(rows.map { it.book.id })
-                                        },
-                                    ) { change, drag ->
-                                        change.consume()
-                                        dragOffset += drag.y
-                                        val from = rows.indexOfFirst { it.book.id == id }
-                                        val height = listState.layoutInfo.visibleItemsInfo
-                                            .firstOrNull { it.key == id }?.size?.toFloat() ?: return@detectDragGestures
-                                        val to = when {
-                                            dragOffset > height / 2 -> from + 1
-                                            dragOffset < -height / 2 -> from - 1
-                                            else -> from
-                                        }
-                                        if (to != from && to in rows.indices) {
-                                            rows.add(to, rows.removeAt(from))
-                                            dragOffset -= (to - from) * height
-                                        }
+            QueueRow(
+                item,
+                current = id == currentId,
+                // Gezogen braucht die Zeile einen Hintergrund, sonst scheinen die anderen durch.
+                transparent = transparent && !isDragged,
+                onClick = { onEpisodeClick(id) },
+                onRemove = { viewModel.remove(id) },
+                dragHandle = {
+                    Icon(
+                        painterResource(DesignR.drawable.ic_drag_handle),
+                        contentDescription = stringResource(R.string.action_reorder_queue_item),
+                        modifier = Modifier
+                            .size(40.dp)
+                            .padding(8.dp)
+                            .pointerInput(id) {
+                                detectDragGestures(
+                                    onDragStart = {
+                                        draggedId = id
+                                        dragOffset = 0f
+                                    },
+                                    onDragEnd = {
+                                        draggedId = null
+                                        dragOffset = 0f
+                                        viewModel.reorder(rows.map { it.book.id })
+                                    },
+                                    onDragCancel = {
+                                        draggedId = null
+                                        dragOffset = 0f
+                                        viewModel.reorder(rows.map { it.book.id })
+                                    },
+                                ) { change, drag ->
+                                    change.consume()
+                                    dragOffset += drag.y
+                                    val from = rows.indexOfFirst { it.book.id == id }
+                                    val height = listState.layoutInfo.visibleItemsInfo
+                                        .firstOrNull { it.key == id }?.size?.toFloat() ?: return@detectDragGestures
+                                    val to = when {
+                                        dragOffset > height / 2 -> from + 1
+                                        dragOffset < -height / 2 -> from - 1
+                                        else -> from
                                     }
-                                },
-                        )
-                        BookArt(id, Modifier.padding(start = 4.dp).size(48.dp), MaterialTheme.shapes.small)
-                    }
-                },
-                trailingContent = {
-                    IconButton(onClick = { viewModel.remove(id) }) {
-                        Icon(
-                            painterResource(DesignR.drawable.ic_close),
-                            contentDescription = stringResource(R.string.action_remove_from_queue),
-                        )
-                    }
-                },
-                colors = when {
-                    id == currentId -> ListItemDefaults.colors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        headlineColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    if (to != from && to in rows.indices) {
+                                        rows.add(to, rows.removeAt(from))
+                                        dragOffset -= (to - from) * height
+                                    }
+                                }
+                            },
                     )
-                    // Gezogen braucht die Zeile einen Hintergrund, sonst scheinen die anderen durch.
-                    transparent && !isDragged -> ListItemDefaults.colors(containerColor = Color.Transparent)
-                    else -> ListItemDefaults.colors()
                 },
                 modifier = Modifier
                     .zIndex(if (isDragged) 1f else 0f)
-                    .graphicsLayer { translationY = if (isDragged) dragOffset else 0f }
-                    .clickable {
-                        viewModel.play(id)
-                        onPlayed()
-                    },
+                    .graphicsLayer { translationY = if (isDragged) dragOffset else 0f },
             )
         }
     }
+}
+
+/**
+ * Suche nur in der Warteschlange der Podcasts: Überschrift, Inhaltsangabe und Name des Podcasts. Aufbau wie die Suche in
+ * einem Podcast; ohne Ziehgriff, denn eine gefilterte Liste lässt sich nicht sinnvoll umsortieren.
+ */
+@Composable
+fun PodcastQueueSearchScreen(
+    onBack: () -> Unit,
+    onEpisodeClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: PodcastQueueViewModel = hiltViewModel(),
+) {
+    val result by viewModel.searchHits.collectAsStateWithLifecycle()
+    val currentId by viewModel.currentBookId.collectAsStateWithLifecycle()
+    var query by rememberSaveable { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    LaunchedEffect(query) { viewModel.search(query) }
+
+    val trimmed = query.trim()
+    // Beim Tippen bleiben die letzten Treffer stehen, bis die neuen da sind; „Nichts gefunden“ erst für den aktuellen Text.
+    val hits = result?.hits.orEmpty()
+    val settled = result?.query == trimmed
+
+    Column(modifier.fillMaxSize()) {
+        Row(Modifier.statusBarsPadding().padding(end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            BackButton(onBack)
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = "" }) {
+                            Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_clear_search))
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.extraLarge,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                modifier = Modifier.weight(1f).focusRequester(focus),
+            )
+        }
+        Text(
+            stringResource(R.string.podcast_queue_search),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 68.dp, end = 16.dp, top = 2.dp, bottom = 4.dp),
+        )
+        when {
+            trimmed.isEmpty() -> Unit
+            hits.isEmpty() -> if (settled) EmptyHint(stringResource(R.string.search_no_results, trimmed))
+            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+                items(hits, key = { it.book.id }) { item ->
+                    QueueRow(
+                        item,
+                        current = item.book.id == currentId,
+                        transparent = false,
+                        onClick = { onEpisodeClick(item.book.id) },
+                        onRemove = { viewModel.remove(item.book.id) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Eine Folge der Warteschlange: Datum und Download, Titel, Fortschritt; links Ziehgriff (falls [dragHandle]) und Bild. */
+@Composable
+private fun QueueRow(
+    item: BookWithProgress,
+    current: Boolean,
+    transparent: Boolean,
+    onClick: () -> Unit,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
+    dragHandle: (@Composable () -> Unit)? = null,
+) {
+    val id = item.book.id
+    ListItem(
+        overlineContent = { EpisodeFacts(item) },
+        headlineContent = { Text(item.book.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = { EpisodeProgress(item) },
+        leadingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                dragHandle?.invoke()
+                BookArt(id, Modifier.padding(start = 4.dp).size(48.dp), MaterialTheme.shapes.small)
+            }
+        },
+        trailingContent = {
+            IconButton(onClick = onRemove) {
+                Icon(
+                    painterResource(DesignR.drawable.ic_close),
+                    contentDescription = stringResource(R.string.action_remove_from_queue),
+                )
+            }
+        },
+        colors = when {
+            current -> ListItemDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                headlineColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            transparent -> ListItemDefaults.colors(containerColor = Color.Transparent)
+            else -> ListItemDefaults.colors()
+        },
+        modifier = modifier.clickable(onClick = onClick),
+    )
 }
 
 /** Erste Zeile: Datum der Folge, dahinter der Download-Stand wie in den Listen (geladen: Haken, sonst nichts). */

@@ -131,6 +131,10 @@ data class QueueRoute(val overPlayer: Boolean) : NavKey
 @Serializable
 data object PodcastQueueRoute : NavKey
 
+/** Suche nur in der Warteschlange der Podcasts. */
+@Serializable
+data object PodcastQueueSearchRoute : NavKey
+
 @Serializable
 data object SettingsRoute : NavKey
 

@@ -583,6 +583,7 @@
     <string name="podcast_episodes">Episodes</string>
     <string name="podcast_search_in">Search in %1$s</string>
     <string name="podcast_queue_empty">The queue is empty.</string>
+    <string name="podcast_queue_search">Search the queue</string>
     <string name="episode_queue_add">Add to queue</string>
     <string name="episode_queue_remove">Remove from queue</string>
     <string name="episode_mark_played">Mark as played</string>
