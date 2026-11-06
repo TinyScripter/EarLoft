@@ -61,6 +61,10 @@
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="androidx.media3.cast.DefaultCastOptionsProvider" />
 
+        <!-- Ausgabeauswahl des Systems (Wiedergabe-Benachrichtigung, Sperrbildschirm): Ohne diesen Receiver zeigt sie nur
+             Handy und Bluetooth, keine Cast-Geräte, und kann nicht zwischen Handy und Empfänger wechseln. -->
+        <receiver android:name="androidx.mediarouter.media.MediaTransferReceiver" />
+
         <receiver
             android:name=".widget.NowPlayingWidgetReceiver"
             android:exported="true"
