@@ -60,7 +60,7 @@ val TrackDownload.offlineMark: OfflineMark?
         TrackDownload.NONE, TrackDownload.REMOVED -> null
     }
 
-/** [OfflineBadge] eines Buchs oder einer Folge, oben links auf das Cover zu setzen. */
+/** [OfflineBadge] eines Buchs oder einer Folge, links auf das Cover zu setzen (Bücher oben, Folgen unten). */
 @Composable
 fun BookDownloadBadge(bookId: Long, modifier: Modifier = Modifier) {
     OfflineBadge(LocalBookDownloads.current[bookId]?.state?.offlineMark, modifier)
