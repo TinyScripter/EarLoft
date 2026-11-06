@@ -161,7 +161,7 @@ class PodcastRepositoryTest {
         subscribe()
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "local:x", url = "local:x", title = "Gerät"))
 
-        val feeds = Opml.parse(repository.exportOpml("Abos", "Mon, 2 Nov 2026 14:10:40 +0100").byteInputStream())
+        val feeds = Opml.parse(repository.exportOpml("Abos", "Mon, 2 Nov 2026 14:10:40 +0100", rssBridge = null).byteInputStream())
 
         assertEquals(listOf(OpmlFeed("Test-Podcast", "https://example.com/feed.xml")), feeds)
     }
@@ -684,15 +684,28 @@ class PodcastRepositoryTest {
     }
 
     @Test
-    fun `ARD Sounds shows stay out of opml and survive replacing`() = runTest {
+    fun `ARD Sounds shows go into opml as rss bridge feeds and come back as ARD Sounds subscriptions`() = runTest {
         subscribe()
         val ard = (repository.subscribe("ardsounds:urn:ard:show:abc") as SubscribeResult.Added).feedId
+        val bridgeFeed = OpmlFeed(
+            "Radio Tatort",
+            "https://bridge.example/rss/?action=display&bridge=ARDAudiothekBridge&path=urn%3Aard%3Ashow%3Aabc&format=Atom",
+        )
 
-        val exported = Opml.parse(repository.exportOpml("Abos", "Mon, 2 Nov 2026 14:10:40 +0100").byteInputStream())
-        repository.importOpml(listOf(OpmlFeed("Alt", "https://example.com/feed.xml")), replace = true)
+        val exported = Opml.parse(repository.exportOpml("Abos", "Mon, 2 Nov 2026 14:10:40 +0100", "https://bridge.example/rss/").byteInputStream())
+        val withoutBridge = Opml.parse(repository.exportOpml("Abos", "Mon, 2 Nov 2026 14:10:40 +0100", rssBridge = null).byteInputStream())
 
-        assertEquals(listOf(OpmlFeed("Test-Podcast", "https://example.com/feed.xml")), exported)
+        assertEquals(listOf(bridgeFeed, OpmlFeed("Test-Podcast", "https://example.com/feed.xml")), exported)
+        assertEquals(listOf(OpmlFeed("Test-Podcast", "https://example.com/feed.xml")), withoutBridge)
+        // Die eigene Datei zurück: nichts Neues, die Sendung bleibt dasselbe Abo.
+        assertEquals(OpmlImportResult(added = 0, skipped = 2, removed = 0), repository.importOpml(exported, replace = true))
         assertTrue(ard in db.podcastDao().feeds().map { it.feedId })
+
+        // Ersetzen ohne die Sendung entfernt sie wie jedes andere Abo; eine Bridge-Adresse legt sie wieder an.
+        repository.importOpml(withoutBridge, replace = true)
+        assertTrue(ard !in db.podcastDao().feeds().map { it.feedId })
+        repository.importOpml(listOf(bridgeFeed), replace = false)
+        assertEquals("ardsounds:urn:ard:show:abc", db.podcastDao().feeds().single { it.title == "Radio Tatort" }.url)
     }
 
     @Test

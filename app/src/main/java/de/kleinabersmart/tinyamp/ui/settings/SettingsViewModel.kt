@@ -56,6 +56,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -112,6 +113,8 @@ data class SettingsUiState(
     val podcastDirectories: List<PodcastDirectory> = emptyList(),
     val enabledPodcastDirectories: Set<PodcastDirectory> = emptySet(),
     val appleCountry: String = "",
+    /** RSS-Bridge für Sendungen aus ARD Sounds im OPML-Export; leer = sie fehlen dort. */
+    val rssBridge: String = "",
     /** Eingeschaltete Bereiche (Allgemein → Bereiche); die Unterseiten der anderen entfallen. */
     val areas: List<SpokenMode> = SpokenMode.entries,
 )
@@ -250,6 +253,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(areas = areas)
     }.combine(combine(podcastSettings.directories, podcastSettings.appleCountry, ::Pair)) { state, (directories, country) ->
         state.copy(podcastDirectories = directorySearch.available, enabledPodcastDirectories = directories, appleCountry = country)
+    }.combine(podcastSettings.rssBridge) { state, bridge ->
+        state.copy(rssBridge = bridge)
     }
         .orOnError(SettingsUiState(isLoading = false, isFailed = true))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
@@ -310,6 +315,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setAppleCountry(country: String) {
         viewModelScope.launch { podcastSettings.setAppleCountry(country) }
+    }
+
+    fun setRssBridge(url: String) {
+        viewModelScope.launch { podcastSettings.setRssBridge(url) }
     }
 
     /** Die Planung des periodischen Auftrags folgt der Einstellung ([de.kleinabersmart.tinyamp.core.data.sync.LibraryRefresher]). */
@@ -472,7 +481,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val message = try {
                 val created = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now())
-                val text = podcastRepository.exportOpml(title, created)
+                val text = podcastRepository.exportOpml(title, created, podcastSettings.rssBridge.first().ifBlank { null })
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
                         ?: throw IOException("Datei nicht beschreibbar")

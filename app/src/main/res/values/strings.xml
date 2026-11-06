@@ -154,6 +154,12 @@
     </plurals>
     <string name="settings_opml_export">Export subscriptions (OPML)</string>
     <string name="settings_opml_export_summary">Saves your podcasts to a file</string>
+    <string name="settings_rss_bridge">RSS-Bridge for ARD Sounds</string>
+    <string name="settings_rss_bridge_off">Off – left out of exports</string>
+    <string name="settings_rss_bridge_message">Shows you subscribed to directly via ARD Sounds have no RSS feed. OPML exports therefore list them as a feed of this RSS-Bridge so other apps can read them; importing turns them back into ARD Sounds subscriptions. Leave empty to not export them.</string>
+    <string name="settings_rss_bridge_url">RSS-Bridge address</string>
+    <string name="settings_rss_bridge_default">Use default</string>
+    <string name="settings_rss_bridge_save">Save</string>
     <string name="settings_db_import">Import database</string>
     <string name="settings_db_import_summary">Missing subscriptions, listening progress and listening time from a database file (.db)</string>
     <string name="settings_db_import_started">Reading database …</string>
@@ -500,8 +506,8 @@
     <string name="podcast_source_title">Subscribe via</string>
     <string name="podcast_source_message">“%1$s” is available as an RSS feed and directly from ARD Sounds.</string>
     <string name="podcast_source_feed">RSS feed (%1$s)</string>
-    <string name="podcast_source_feed_summary">Like in other podcast apps, can be exported as OPML. Listed by %1$s.</string>
-    <string name="podcast_source_ard_sounds_summary">Episodes and images straight from ARD Sounds. Not included in OPML exports.</string>
+    <string name="podcast_source_feed_summary">Like in other podcast apps. Listed by %1$s.</string>
+    <string name="podcast_source_ard_sounds_summary">Episodes and images straight from ARD Sounds. Exported to OPML via the RSS-Bridge.</string>
     <string name="podcast_preview_open">Open</string>
     <string name="podcast_preview_retry">Try again</string>
     <string name="podcast_trial_notice">Not subscribed. Episodes you play or download here go into the queue and stay until they are finished or taken out; listening time is not counted in your statistics.</string>

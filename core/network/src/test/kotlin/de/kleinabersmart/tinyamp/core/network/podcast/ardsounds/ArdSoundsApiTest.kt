@@ -152,5 +152,28 @@ class ArdSoundsApiTest {
         assertNull(ardSoundsShowId("https://feeds.br.de/feed.xml"))
     }
 
+    @Test
+    fun `rss bridge feeds lead to the show and back`() {
+        val bridged = ardSoundsBridgeUrl(DEFAULT_RSS_BRIDGE, "urn:ard:show:5fa94a3212aa9829")
+
+        assertEquals(
+            "https://rss-bridge.org/bridge01/?action=display&bridge=ARDAudiothekBridge&path=urn%3Aard%3Ashow%3A5fa94a3212aa9829&format=Atom",
+            bridged,
+        )
+        assertEquals("ardsounds:urn:ard:show:5fa94a3212aa9829", parseArdSoundsInput(bridged!!))
+        // Adressen anderer Instanzen und mit dem ganzen Link der Sendungsseite als Pfad, wie die Bridge sie selbst baut.
+        assertEquals(
+            "ardsounds:urn:ard:show:5fa94a3212aa9829",
+            parseArdSoundsInput(
+                "https://rss.example/?action=display&bridge=ARDAudiothekBridge&path=https%3A%2F%2Fwww.ardsounds.de%2Fsendung%2F" +
+                    "talk-ohne-gast%2Furn%3Aard%3Ashow%3A5fa94a3212aa9829%2F&limit=20&format=Mrss",
+            ),
+        )
+        assertNull(parseArdSoundsInput("https://rss.example/?action=display&bridge=OtherBridge&path=urn:ard:show:5fa9"))
+        // Nur Sendungen mit urn lassen sich über die Bridge auflösen; keine Bridge ohne gültige Adresse.
+        assertNull(ardSoundsBridgeUrl(DEFAULT_RSS_BRIDGE, "12345"))
+        assertNull(ardSoundsBridgeUrl("", "urn:ard:show:5fa9"))
+    }
+
     private fun json(body: String) = MockResponse.Builder().addHeader("Content-Type", "application/json").body(body).build()
 }

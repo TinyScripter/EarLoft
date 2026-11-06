@@ -15,6 +15,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import de.kleinabersmart.tinyamp.core.network.podcast.ardsounds.DEFAULT_RSS_BRIDGE
 import de.kleinabersmart.tinyamp.core.network.podcast.directory.PodcastDirectory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -89,6 +90,16 @@ class PodcastSettings @Inject constructor(
         context.podcastSettingsDataStore.edit { it[KEY_APPLE_COUNTRY] = country }
     }
 
+    /**
+     * Adresse der RSS-Bridge, über die der OPML-Export Sendungen aus ARD Sounds als Feed nennt (Konzept 12.10); leer = sie
+     * fehlen im Export. Voreingestellt ist [DEFAULT_RSS_BRIDGE].
+     */
+    val rssBridge: Flow<String> = context.podcastSettingsDataStore.data.map { it[KEY_RSS_BRIDGE] ?: DEFAULT_RSS_BRIDGE }
+
+    suspend fun setRssBridge(url: String) {
+        context.podcastSettingsDataStore.edit { it[KEY_RSS_BRIDGE] = url.trim() }
+    }
+
     /** Beim ersten Start: Speichert das Land aus den Spracheinstellungen, solange noch keins gewählt ist. */
     suspend fun rememberAppleCountry() {
         context.podcastSettingsDataStore.edit { if (it[KEY_APPLE_COUNTRY] == null) it[KEY_APPLE_COUNTRY] = deviceCountry() }
@@ -140,6 +151,7 @@ class PodcastSettings @Inject constructor(
 
         private val KEY_DIRECTORIES = stringSetPreferencesKey("directories")
         private val KEY_APPLE_COUNTRY = stringPreferencesKey("apple_country")
+        private val KEY_RSS_BRIDGE = stringPreferencesKey("rss_bridge")
 
         val AUTO_DOWNLOAD_COUNT_CHOICES = listOf(1, 2, 3, 5, 10)
         const val DEFAULT_AUTO_DOWNLOAD_COUNT = 3

@@ -17,7 +17,12 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.KeyboardType
+import de.kleinabersmart.tinyamp.core.network.podcast.ardsounds.DEFAULT_RSS_BRIDGE
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -364,6 +369,7 @@ fun PodcastsSettingsScreen(
     var choosingAutoCount by rememberSaveable { mutableStateOf(false) }
     var confirmingStatsReset by rememberSaveable { mutableStateOf(false) }
     var choosingCountry by rememberSaveable { mutableStateOf(false) }
+    var editingBridge by rememberSaveable { mutableStateOf(false) }
     var feedToReactivate by rememberSaveable { mutableStateOf<String?>(null) }
     var feedToDelete by rememberSaveable { mutableStateOf<String?>(null) }
     // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
@@ -496,6 +502,14 @@ fun PodcastsSettingsScreen(
                     supportingContent = { Text(stringResource(R.string.settings_opml_export_summary)) },
                     leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
                     modifier = Modifier.clickable { exportLauncher.launch("tinyamp-podcasts.opml") },
+                )
+            }
+            row("rss-bridge") {
+                ClickRow(
+                    title = stringResource(R.string.settings_rss_bridge),
+                    value = state.rssBridge.ifBlank { stringResource(R.string.settings_rss_bridge_off) },
+                    icon = DesignR.drawable.ic_cloud,
+                    onClick = { editingBridge = true },
                 )
             }
         }
@@ -645,6 +659,16 @@ fun PodcastsSettingsScreen(
             onDismiss = { opmlToImport = null },
         )
     }
+    if (editingBridge) {
+        RssBridgeDialog(
+            current = state.rssBridge,
+            onSave = {
+                viewModel.setRssBridge(it)
+                editingBridge = false
+            },
+            onDismiss = { editingBridge = false },
+        )
+    }
     if (choosingCountry) {
         val choices = remember(state.appleCountry) {
             (PodcastSettings.APPLE_COUNTRY_CHOICES + state.appleCountry).distinct()
@@ -701,6 +725,37 @@ fun PodcastsSettingsScreen(
             onDismiss = { choosingDeleteHeard = false },
         )
     }
+}
+
+/**
+ * Adresse der RSS-Bridge für Sendungen aus ARD Sounds im OPML-Export (Konzept 12.10). Leer schaltet sie ab, „Standard“
+ * setzt die öffentliche Instanz ein.
+ */
+@Composable
+private fun RssBridgeDialog(current: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var url by rememberSaveable { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_rss_bridge)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.settings_rss_bridge_message), modifier = Modifier.padding(bottom = 12.dp))
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    label = { Text(stringResource(R.string.settings_rss_bridge_url)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TextButton(onClick = { url = DEFAULT_RSS_BRIDGE }, modifier = Modifier.padding(top = 4.dp)) {
+                    Text(stringResource(R.string.settings_rss_bridge_default))
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(url) }) { Text(stringResource(R.string.settings_rss_bridge_save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 /** Bücher: Quellen (Gerät, Server), Abgleich, Autorenbilder, Wiedergabe, Downloads (Mobilfunk) und Statistik. */

@@ -45,14 +45,39 @@ fun ardSoundsShowId(url: String): String? =
 /** Link der Sendungsseite in ARD Sounds; die Seite leitet auf ihre Adresse mit Namen weiter. */
 fun ardSoundsPageUrl(showId: String): String = "https://www.ardsounds.de/sendung/$showId/"
 
+/** Die öffentliche Instanz von RSS-Bridge, voreingestellt für den OPML-Export (Konzept 12.10). */
+const val DEFAULT_RSS_BRIDGE = "https://rss-bridge.org/bridge01/"
+
 /**
- * Macht aus einer Eingabe die Abo-Adresse einer Sendung: eine Abo-Adresse selbst oder der Link einer Sendungsseite
- * (`https://www.ardsounds.de/sendung/<name>/urn:ard:show:<kennung>/`, auch unter dem alten Namen ardaudiothek.de).
- * `null`, wenn die Eingabe nichts davon ist.
+ * Adresse eines echten Feeds (Atom) für die Sendung [showId] über die RSS-Bridge unter [bridge], damit andere Apps sie
+ * abonnieren können. Atom, weil das RSS-Format der Bridge die Audiodateien nur als `media:content` nennt, ohne
+ * `enclosure`. `null`, wenn [bridge] keine http(s)-Adresse ist oder [showId] keine `urn:ard:show:…` (nur die löst die
+ * Bridge auf).
+ */
+fun ardSoundsBridgeUrl(bridge: String, showId: String): String? {
+    if (!SHOW_URN.matches(showId)) return null
+    val base = bridge.trim().toHttpUrlOrNull() ?: return null
+    return base.newBuilder()
+        .setQueryParameter("action", "display")
+        .setQueryParameter("bridge", ARD_BRIDGE)
+        .setQueryParameter("path", showId)
+        .setQueryParameter("format", "Atom")
+        .build()
+        .toString()
+}
+
+/**
+ * Macht aus einer Eingabe die Abo-Adresse einer Sendung: eine Abo-Adresse selbst, der Link einer Sendungsseite
+ * (`https://www.ardsounds.de/sendung/<name>/urn:ard:show:<kennung>/`, auch unter dem alten Namen ardaudiothek.de) oder
+ * ein Feed der RSS-Bridge für ARD Sounds (beliebige Instanz, siehe [ardSoundsBridgeUrl]). `null`, wenn die Eingabe
+ * nichts davon ist.
  */
 fun parseArdSoundsInput(input: String): String? {
     ardSoundsShowId(input)?.let { return ardSoundsFeedUrl(it) }
     val url = input.trim().let { if ("://" in it) it else "https://$it" }.toHttpUrlOrNull() ?: return null
+    if (url.queryParameter("bridge").equals(ARD_BRIDGE, ignoreCase = true)) {
+        return url.queryParameter("path")?.let { SHOW_URN.find(it)?.value }?.let(::ardSoundsFeedUrl)
+    }
     val host = url.host.removePrefix("www.")
     if (host != "ardsounds.de" && host != "ardaudiothek.de") return null
     if (url.pathSegments.firstOrNull() != "sendung") return null
@@ -60,6 +85,9 @@ fun parseArdSoundsInput(input: String): String? {
 }
 
 private val SHOW_URN = Regex("urn:ard:show:[0-9a-f]+", RegexOption.IGNORE_CASE)
+
+/** Name der Bridge für ARD Sounds in RSS-Bridge (noch unter dem alten Namen). */
+private const val ARD_BRIDGE = "ARDAudiothekBridge"
 
 /**
  * Inoffizielle GraphQL-Schnittstelle von ARD Sounds (vormals ARD Audiothek), wie sie die App der ARD nutzt. Sie kann sich

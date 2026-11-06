@@ -153,6 +153,12 @@
     </plurals>
     <string name="settings_opml_export">Abos exportieren (OPML)</string>
     <string name="settings_opml_export_summary">Speichert deine Podcasts in einer Datei</string>
+    <string name="settings_rss_bridge">RSS-Bridge für ARD Sounds</string>
+    <string name="settings_rss_bridge_off">Aus – fehlen im Export</string>
+    <string name="settings_rss_bridge_message">Sendungen, die du direkt über ARD Sounds abonniert hast, haben keinen RSS-Feed. Im OPML-Export stehen sie deshalb als Feed dieser RSS-Bridge, damit andere Apps sie lesen können; beim Import wird daraus wieder ein Abo über ARD Sounds. Leer lassen, um sie nicht zu exportieren.</string>
+    <string name="settings_rss_bridge_url">Adresse der RSS-Bridge</string>
+    <string name="settings_rss_bridge_default">Standard einsetzen</string>
+    <string name="settings_rss_bridge_save">Speichern</string>
     <string name="settings_db_import">Datenbank importieren</string>
     <string name="settings_db_import_summary">Fehlende Abos, Hörfortschritt und gehörte Zeit aus einer Datenbank-Datei (.db)</string>
     <string name="settings_db_import_started">Datenbank wird gelesen …</string>
@@ -496,8 +502,8 @@
     <string name="podcast_source_title">Abonnieren über</string>
     <string name="podcast_source_message">„%1$s“ gibt es als RSS-Feed und direkt bei ARD Sounds.</string>
     <string name="podcast_source_feed">RSS-Feed (%1$s)</string>
-    <string name="podcast_source_feed_summary">Wie in anderen Podcast-Apps, lässt sich als OPML exportieren. Gelistet bei %1$s.</string>
-    <string name="podcast_source_ard_sounds_summary">Folgen und Bilder direkt aus ARD Sounds. Fehlt im OPML-Export.</string>
+    <string name="podcast_source_feed_summary">Wie in anderen Podcast-Apps. Gelistet bei %1$s.</string>
+    <string name="podcast_source_ard_sounds_summary">Folgen und Bilder direkt aus ARD Sounds. Im OPML-Export über die RSS-Bridge.</string>
     <string name="podcast_preview_open">Öffnen</string>
     <string name="podcast_preview_retry">Erneut versuchen</string>
     <string name="podcast_trial_notice">Nicht abonniert. Folgen, die du hier hörst oder lädst, kommen in die Warteschlange und bleiben, bis sie zu Ende gehört oder herausgenommen sind; die Hörzeit zählt nicht in die Statistik.</string>
