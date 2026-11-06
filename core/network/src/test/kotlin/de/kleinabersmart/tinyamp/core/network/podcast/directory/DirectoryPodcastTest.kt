@@ -30,6 +30,17 @@ class DirectoryPodcastTest {
         assertEquals("https://www.both.example/feed/", both.feedUrl)
     }
 
+    @Test
+    fun `a merged feed keeps the ard sounds alternative from any directory`() {
+        val apple = listOf(hit("Talk", "https://www.fritz.de/talk.xml", PodcastDirectory.APPLE))
+        val ard = listOf(hit("Talk", "https://fritz.de/talk.xml", PodcastDirectory.ARD_SOUNDS).copy(ardSoundsUrl = "ardsounds:urn:ard:show:5f"))
+
+        val merged = mergeDirectoryResults(listOf(apple, ard)).single()
+
+        assertEquals("ardsounds:urn:ard:show:5f", merged.ardSoundsUrl)
+        assertEquals(setOf(PodcastDirectory.APPLE, PodcastDirectory.ARD_SOUNDS), merged.directories)
+    }
+
     private fun hit(title: String, url: String, directory: PodcastDirectory, author: String = "", image: String? = null) =
         DirectoryPodcast(title, author, url, image, setOf(directory))
 }

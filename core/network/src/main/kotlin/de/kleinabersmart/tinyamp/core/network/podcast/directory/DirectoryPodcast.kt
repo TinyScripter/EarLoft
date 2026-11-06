@@ -14,6 +14,11 @@ data class DirectoryPodcast(
     val imageUrl: String?,
     /** Alle Verzeichnisse, die diesen Feed kennen. */
     val directories: Set<PodcastDirectory>,
+    /**
+     * Abo-Adresse `ardsounds:<Kennung>`, wenn ARD Sounds die Sendung kennt und [feedUrl] ihr RSS-Feed ist: Dann wählt der
+     * Nutzer, ob das Abo über den Feed oder über ARD Sounds läuft (Konzept 12.10).
+     */
+    val ardSoundsUrl: String? = null,
 )
 
 /**
@@ -50,6 +55,7 @@ fun mergeDirectoryResults(results: List<List<DirectoryPodcast>>): List<Directory
                     author = known.author.ifBlank { hit.author },
                     imageUrl = known.imageUrl ?: hit.imageUrl,
                     directories = known.directories + hit.directories,
+                    ardSoundsUrl = known.ardSoundsUrl ?: hit.ardSoundsUrl,
                 )
             }
         }

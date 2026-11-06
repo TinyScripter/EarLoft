@@ -493,6 +493,11 @@
     <string name="podcast_directory_searching">Suche läuft …</string>
     <string name="podcast_directory_failed">Keine Antwort von %1$s.</string>
     <string name="podcast_directory_subscribed">Abonniert</string>
+    <string name="podcast_source_title">Abonnieren über</string>
+    <string name="podcast_source_message">„%1$s“ gibt es als RSS-Feed und direkt bei ARD Sounds.</string>
+    <string name="podcast_source_feed">RSS-Feed (%1$s)</string>
+    <string name="podcast_source_feed_summary">Wie in anderen Podcast-Apps, lässt sich als OPML exportieren. Gelistet bei %1$s.</string>
+    <string name="podcast_source_ard_sounds_summary">Folgen und Bilder direkt aus ARD Sounds. Fehlt im OPML-Export.</string>
     <string name="podcast_preview_open">Öffnen</string>
     <string name="podcast_preview_retry">Erneut versuchen</string>
     <string name="podcast_trial_notice">Nicht abonniert. Folgen, die du hier hörst oder lädst, kommen in die Warteschlange und bleiben, bis sie zu Ende gehört oder herausgenommen sind; die Hörzeit zählt nicht in die Statistik.</string>

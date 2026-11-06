@@ -497,6 +497,11 @@
     <string name="podcast_directory_searching">Searching …</string>
     <string name="podcast_directory_failed">No answer from %1$s.</string>
     <string name="podcast_directory_subscribed">Subscribed</string>
+    <string name="podcast_source_title">Subscribe via</string>
+    <string name="podcast_source_message">“%1$s” is available as an RSS feed and directly from ARD Sounds.</string>
+    <string name="podcast_source_feed">RSS feed (%1$s)</string>
+    <string name="podcast_source_feed_summary">Like in other podcast apps, can be exported as OPML. Listed by %1$s.</string>
+    <string name="podcast_source_ard_sounds_summary">Episodes and images straight from ARD Sounds. Not included in OPML exports.</string>
     <string name="podcast_preview_open">Open</string>
     <string name="podcast_preview_retry">Try again</string>
     <string name="podcast_trial_notice">Not subscribed. Episodes you play or download here go into the queue and stay until they are finished or taken out; listening time is not counted in your statistics.</string>

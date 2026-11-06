@@ -55,7 +55,14 @@ class ArdSoundsApiTest {
 
         assertEquals(
             listOf(
-                DirectoryPodcast("Mit Feed", "Bayern 2", "https://feeds.example.org/a.xml", "https://img.example/a1?w=600", setOf(PodcastDirectory.ARD_SOUNDS)),
+                DirectoryPodcast(
+                    "Mit Feed",
+                    "Bayern 2",
+                    "https://feeds.example.org/a.xml",
+                    "https://img.example/a1?w=600",
+                    setOf(PodcastDirectory.ARD_SOUNDS),
+                    ardSoundsUrl = "ardsounds:urn:ard:show:aa",
+                ),
                 DirectoryPodcast("Ohne Feed", "NDR", "ardsounds:urn:ard:show:bb", "https://img.example/b?w=600", setOf(PodcastDirectory.ARD_SOUNDS)),
                 DirectoryPodcast("Nur Zahl", "", "ardsounds:3", null, setOf(PodcastDirectory.ARD_SOUNDS)),
             ),

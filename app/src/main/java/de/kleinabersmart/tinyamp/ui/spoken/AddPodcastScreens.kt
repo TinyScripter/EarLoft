@@ -23,6 +23,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarDuration
@@ -37,6 +38,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
@@ -50,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.network.podcast.directory.DirectoryPodcast
 import de.kleinabersmart.tinyamp.core.network.podcast.directory.feedKey
+import de.kleinabersmart.tinyamp.core.network.podcast.normalizeFeedUrl
 import de.kleinabersmart.tinyamp.ui.components.EmptyHint
 import de.kleinabersmart.tinyamp.ui.components.GroupMargin
 import de.kleinabersmart.tinyamp.ui.components.SectionHeader
@@ -81,6 +84,8 @@ fun AddPodcastScreen(
     var url by rememberSaveable { mutableStateOf("") }
     var term by rememberSaveable { mutableStateOf("") }
     var opmlToImport by rememberSaveable { mutableStateOf<Uri?>(null) }
+    /** Treffer (nach [feedKey]), für den gerade gewählt wird, ob das Abo über den Feed oder über ARD Sounds läuft. */
+    var choosingSource by rememberSaveable { mutableStateOf<String?>(null) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { opmlToImport = it }
     val focus = LocalFocusManager.current
     val snackbars = LocalSnackbars.current
@@ -184,9 +189,14 @@ fun AddPodcastScreen(
                                 item(key = "empty") { EmptyHint(stringResource(R.string.search_no_results, state.term)) }
                             }
                             groupedItems(state.hits, key = { "hit-${feedKey(it.feedUrl)}" }) { hit ->
-                                val feedId = subscribed[feedKey(hit.feedUrl)]
+                                // Abonniert ist der Treffer, wenn es eine der beiden Quellen ist; dann öffnet er gleich das Abo.
+                                val feedId = subscribed[feedKey(hit.feedUrl)] ?: hit.ardSoundsUrl?.let { subscribed[feedKey(it)] }
                                 DirectoryHitRow(hit, subscribed = feedId != null) {
-                                    if (feedId != null) onOpenFeed(feedId) else onPreview(hit)
+                                    when {
+                                        feedId != null -> onOpenFeed(feedId)
+                                        hit.ardSoundsUrl != null -> choosingSource = feedKey(hit.feedUrl)
+                                        else -> onPreview(hit)
+                                    }
                                 }
                             }
                         }
@@ -205,6 +215,19 @@ fun AddPodcastScreen(
             onDismiss = { opmlToImport = null },
         )
     }
+    choosingSource?.let { key ->
+        // Eine neue Suche ersetzt die Treffer; ist der gewählte weg, bleibt der Dialog zu.
+        (search as? DirectorySearchState.Done)?.hits?.firstOrNull { feedKey(it.feedUrl) == key }?.let { hit ->
+            SourceDialog(
+                hit,
+                onChoose = { url ->
+                    choosingSource = null
+                    onPreview(hit.copy(feedUrl = url))
+                },
+                onDismiss = { choosingSource = null },
+            )
+        }
+    }
     (add as? AddPodcastState.Archived)?.let { archived ->
         ReactivateDialog(archived.title, onReactivate = { viewModel.reactivate(archived.feedId) }, onDismiss = viewModel::resetAdd)
     }
@@ -218,6 +241,47 @@ private fun ReactivateDialog(title: String, onReactivate: () -> Unit, onDismiss:
         title = { Text(stringResource(R.string.podcast_archived_title)) },
         text = { Text(stringResource(R.string.podcast_archived_message, title)) },
         confirmButton = { TextButton(onClick = onReactivate) { Text(stringResource(R.string.podcast_reactivate)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+/**
+ * Auswahl, woher ein Treffer kommt, den ARD Sounds und sein RSS-Feed beide liefern (Konzept 12.10): der Feed (wie in
+ * anderen Apps, mit den Verzeichnissen, die ihn kennen) oder ARD Sounds (eigene Bilder und Folgenliste).
+ */
+@Composable
+private fun SourceDialog(hit: DirectoryPodcast, onChoose: (String) -> Unit, onDismiss: () -> Unit) {
+    val resources = LocalResources.current
+    val ardSoundsUrl = hit.ardSoundsUrl ?: return
+    val host = normalizeFeedUrl(hit.feedUrl)?.host?.removePrefix("www.") ?: hit.feedUrl
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.podcast_source_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.podcast_source_message, hit.title), modifier = Modifier.padding(bottom = 8.dp))
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.podcast_source_feed, host)) },
+                    supportingContent = {
+                        Text(
+                            stringResource(
+                                R.string.podcast_source_feed_summary,
+                                hit.directories.sorted().joinToString(", ") { resources.getString(it.label) },
+                            ),
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable { onChoose(hit.feedUrl) },
+                )
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.directory_ard_sounds)) },
+                    supportingContent = { Text(stringResource(R.string.podcast_source_ard_sounds_summary)) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable { onChoose(ardSoundsUrl) },
+                )
+            }
+        },
+        confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
@@ -318,7 +382,7 @@ fun PodcastPreviewScreen(
     onBack: () -> Unit,
     onOpened: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: PodcastPreviewViewModel = hiltViewModel<PodcastPreviewViewModel, PodcastPreviewViewModel.Factory> { it.create(feedUrl) },
+    viewModel: PodcastPreviewViewModel = hiltViewModel<PodcastPreviewViewModel, PodcastPreviewViewModel.Factory> { it.create(feedUrl, imageUrl) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 

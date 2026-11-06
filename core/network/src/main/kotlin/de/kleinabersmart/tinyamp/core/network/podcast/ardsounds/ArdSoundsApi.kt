@@ -76,8 +76,8 @@ class ArdSoundsApi(
 
     /**
      * Sendungen zu [term]. Nennt ARD Sounds für eine Sendung einen öffentlichen RSS-Feed, trägt der Treffer dessen
-     * Adresse (so wird ein gewöhnliches Abo daraus, das auch andere Verzeichnisse kennen); sonst die Abo-Adresse
-     * `ardsounds:<Kennung>`.
+     * Adresse (so wird ein gewöhnliches Abo daraus, das auch andere Verzeichnisse kennen) und die Abo-Adresse
+     * `ardsounds:<Kennung>` als Alternative; sonst nur die Abo-Adresse.
      */
     suspend fun search(term: String): List<DirectoryPodcast> {
         val variables = buildJsonObject {
@@ -89,12 +89,14 @@ class ArdSoundsApi(
             .filter { (it.numberOfElements ?: 1) > 0 }
             .mapNotNull { show ->
                 val showId = show.coreId ?: show.id ?: return@mapNotNull null
+                val rss = show.feedUrl?.let(::normalizeFeedUrl)?.toString()
                 DirectoryPodcast(
                     title = show.title?.trim().orEmpty().ifEmpty { return@mapNotNull null },
                     author = show.publicationService?.title?.trim().orEmpty(),
-                    feedUrl = show.feedUrl?.let(::normalizeFeedUrl)?.toString() ?: ardSoundsFeedUrl(showId),
+                    feedUrl = rss ?: ardSoundsFeedUrl(showId),
                     imageUrl = show.image?.sized(),
                     directories = setOf(PodcastDirectory.ARD_SOUNDS),
+                    ardSoundsUrl = rss?.let { ardSoundsFeedUrl(showId) },
                 )
             }
     }

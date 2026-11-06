@@ -264,9 +264,10 @@ class PodcastRepository @Inject constructor(
      * Öffnet die Vorschau des Feeds unter [input] (Konzept 12.10): Gibt es ihn schon (Abo oder Probeabo), dessen Id –
      * ein Probeabo wird dabei neu abgeglichen; sonst wird er geladen und als Probeabo (`subscribed = false`) angelegt.
      * Ergebnis wie bei [subscribe]: [SubscribeResult.Added] bzw. [SubscribeResult.AlreadySubscribed] tragen die Id, ein
-     * archiviertes Abo meldet [SubscribeResult.Archived] (ohne Abgleich).
+     * archiviertes Abo meldet [SubscribeResult.Archived] (ohne Abgleich). [imageUrl] ist das Bild aus dem Verzeichnis; es
+     * gilt, solange der Feed selbst keins nennt.
      */
-    suspend fun openPreview(input: String): SubscribeResult {
+    suspend fun openPreview(input: String, imageUrl: String? = null): SubscribeResult {
         val entered = FeedAddress.of(input) ?: return SubscribeResult.InvalidUrl
         knownFeed(entered)?.let { feed ->
             if (feed.archived) return SubscribeResult.Archived(feed.feedId, feed.title)
@@ -274,7 +275,7 @@ class PodcastRepository @Inject constructor(
             refresh(feed.feedId)
             return SubscribeResult.Added(feed.feedId)
         }
-        return fetchAndAdd(entered, subscribed = false)
+        return fetchAndAdd(entered, subscribed = false, imageUrl)
     }
 
     /** Macht aus dem Probeabo [feedId] ein Abo. */
@@ -307,11 +308,11 @@ class PodcastRepository @Inject constructor(
      * Lädt den Feed und legt ihn an. Eine `http://`-Adresse wird zuerst still per HTTPS versucht und bei Erfolg so
      * gespeichert; erst wenn das scheitert, unverschlüsselt.
      */
-    private suspend fun fetchAndAdd(entered: FeedAddress, subscribed: Boolean): SubscribeResult {
+    private suspend fun fetchAndAdd(entered: FeedAddress, subscribed: Boolean, imageUrl: String? = null): SubscribeResult {
         if (entered is FeedAddress.ArdSounds) {
             val showId = checkNotNull(ardSoundsShowId(entered.url))
             return when (val attempt = fetchForSubscribe("ARD Sounds") { FeedFetch.Fetched(ardSounds.fetch(showId), null, null) }) {
-                is SubscribeFetch.Loaded -> add(entered.url, "ARD Sounds", attempt.fetched, subscribed)
+                is SubscribeFetch.Loaded -> add(entered.url, "ARD Sounds", attempt.fetched, subscribed, imageUrl)
                 is SubscribeFetch.Failed -> attempt.result
             }
         }
@@ -319,11 +320,11 @@ class PodcastRepository @Inject constructor(
         val secure = if (url.isHttps) null else url.newBuilder().scheme("https").build()
         if (secure != null) {
             val attempt = fetchForSubscribe(secure.host) { api.fetch(secure) }
-            if (attempt is SubscribeFetch.Loaded) return add(secure.toString(), secure.host, attempt.fetched, subscribed)
+            if (attempt is SubscribeFetch.Loaded) return add(secure.toString(), secure.host, attempt.fetched, subscribed, imageUrl)
             Log.i(TAG, "Kein HTTPS bei ${secure.host}, lade unverschlüsselt")
         }
         return when (val attempt = fetchForSubscribe(url.host) { api.fetch(url) }) {
-            is SubscribeFetch.Loaded -> add(url.toString(), url.host, attempt.fetched, subscribed)
+            is SubscribeFetch.Loaded -> add(url.toString(), url.host, attempt.fetched, subscribed, imageUrl)
             is SubscribeFetch.Failed -> attempt.result
         }
     }
@@ -346,11 +347,18 @@ class PodcastRepository @Inject constructor(
         SubscribeFetch.Failed(SubscribeResult.Unreachable)
     }
 
-    private suspend fun add(url: String, fallbackTitle: String, fetched: FeedFetch.Fetched, subscribed: Boolean): SubscribeResult {
+    private suspend fun add(
+        url: String,
+        fallbackTitle: String,
+        fetched: FeedFetch.Fetched,
+        subscribed: Boolean,
+        imageUrl: String?,
+    ): SubscribeResult {
         val feed = PodcastFeedEntity(
             feedId = UUID.randomUUID().toString(),
             url = url,
             title = fetched.feed.title.ifBlank { fallbackTitle },
+            imageUrl = imageUrl,
             subscribed = subscribed,
         )
         mutex.withLock { apply(feed, fetched) }
@@ -497,12 +505,15 @@ class PodcastRepository @Inject constructor(
         val generation = feed.syncGeneration + 1
         val known = bookDao.booksOf(feed.feedId).associateBy { it.remoteId }
         val title = parsed.title.ifBlank { feed.title }
+        // Manche Feeds nennen kein Bild (oder ein leeres, etwa die der rbb-Sender): Dann bleibt das bekannte – auch das aus
+        // dem Verzeichnis –, sonst das der neuesten Folge.
+        val image = parsed.imageUrl ?: feed.imageUrl ?: parsed.episodes.firstNotNullOfOrNull { it.imageUrl }
         val now = System.currentTimeMillis()
         val newIds = mutableListOf<Long>()
         // Der Feed führt die neueste Folge zuerst; die erste Folge eines doppelten guid gewinnt.
         parsed.episodes.distinctBy { it.guid }.forEach { episode ->
             val existing = known[episode.guid]
-            val id = bookDao.upsertBook(episode.toEntity(feed.feedId, title, parsed, existing, generation, now))
+            val id = bookDao.upsertBook(episode.toEntity(feed.feedId, title, image, existing, generation, now))
             if (existing == null) newIds += id
             val track = BookTrackEntity(id, 0, episode.audioUrl, 0, episode.durationMs.takeIf { it > 0 } ?: existing?.durationMs ?: 0, episode.mimeType)
             // Der Download-Stand gehört nicht zum Feed und darf keinen Schreibvorgang auslösen.
@@ -515,7 +526,7 @@ class PodcastRepository @Inject constructor(
                 title = title,
                 author = parsed.author,
                 description = parsed.description.toDescriptionHtml(),
-                imageUrl = parsed.imageUrl,
+                imageUrl = image,
                 etag = fetched.etag,
                 lastModified = fetched.lastModified,
                 lastRefreshAt = now,
@@ -551,7 +562,7 @@ class PodcastRepository @Inject constructor(
     private fun ParsedEpisode.toEntity(
         feedId: String,
         feedTitle: String,
-        feed: ParsedFeed,
+        feedImage: String?,
         existing: BookEntity?,
         generation: Long,
         now: Long,
@@ -569,7 +580,7 @@ class PodcastRepository @Inject constructor(
         // Dateien kommen aus dem Feed; es gibt keinen Server, der sie nachliefern müsste.
         detailsLoaded = true,
         seenInGeneration = generation,
-        coverUrl = imageUrl ?: feed.imageUrl,
+        coverUrl = imageUrl ?: feedImage,
         chaptersUrl = chaptersUrl,
     )
 

@@ -296,6 +296,35 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `a feed with an empty image keeps the directory image across refreshes`() = runTest {
+        served = feedWithoutImage(episodeImage = null)
+        val feedId = (repository.openPreview("https://example.com/feed.xml", "https://dir.example/cover.jpg") as SubscribeResult.Added).feedId
+        repository.refresh(feedId)
+        repository.subscribeTrial(feedId)
+
+        assertEquals("https://dir.example/cover.jpg", db.podcastDao().feed(feedId)!!.imageUrl)
+        assertEquals("https://dir.example/cover.jpg", db.bookDao().booksOf(feedId).single().coverUrl)
+    }
+
+    @Test
+    fun `a feed without an image of its own shows the image of the newest episode`() = runTest {
+        served = feedWithoutImage(episodeImage = "https://example.com/episode.jpg")
+
+        val feedId = subscribe()
+
+        assertEquals("https://example.com/episode.jpg", db.podcastDao().feed(feedId)!!.imageUrl)
+    }
+
+    /** Wie die Feeds der rbb-Sender: Bild-Elemente des Kanals vorhanden, aber leer. */
+    private fun feedWithoutImage(episodeImage: String?) = """
+        <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>Ohne Bild</title>
+        <itunes:image href=""/><image><url></url><title>Ohne Bild</title></image>
+        <item><title>A</title><guid>guid-A</guid><enclosure url="https://example.com/A.mp3" type="audio/mpeg"/>
+        ${episodeImage?.let { "<itunes:image href=\"$it\"/>" }.orEmpty()}</item>
+        </channel></rss>
+    """.trimIndent()
+
+    @Test
     fun `an opml entry turns a trial feed into a subscription`() = runTest {
         val trialId = (repository.openPreview("https://example.com/feed.xml") as SubscribeResult.Added).feedId
 

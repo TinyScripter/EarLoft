@@ -154,7 +154,8 @@ sealed interface PreviewState {
 /** Vorschau eines Treffers (Konzept 12.10): legt den Feed als Probeabo an, damit seine Folgen hör- und ladbar sind. */
 @HiltViewModel(assistedFactory = PodcastPreviewViewModel.Factory::class)
 class PodcastPreviewViewModel @AssistedInject constructor(
-    @Assisted private val feedUrl: String,
+    @Assisted("feedUrl") private val feedUrl: String,
+    @Assisted("imageUrl") private val imageUrl: String?,
     private val podcasts: PodcastRepository,
     private val trialPages: TrialPodcastPages,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
@@ -174,7 +175,7 @@ class PodcastPreviewViewModel @AssistedInject constructor(
         _state.value = PreviewState.Loading
         viewModelScope.launch {
             // Im App-Scope: Ein großer Feed braucht einige Sekunden; wer vorher zurückgeht, bricht nur das Warten ab.
-            val result = applicationScope.async { podcasts.openPreview(feedUrl) }.await()
+            val result = applicationScope.async { podcasts.openPreview(feedUrl, imageUrl) }.await()
             _state.value = when (result) {
                 is SubscribeResult.Added -> opened(result.feedId)
                 is SubscribeResult.AlreadySubscribed -> opened(result.feedId)
@@ -207,6 +208,6 @@ class PodcastPreviewViewModel @AssistedInject constructor(
 
     @AssistedFactory
     interface Factory {
-        fun create(feedUrl: String): PodcastPreviewViewModel
+        fun create(@Assisted("feedUrl") feedUrl: String, @Assisted("imageUrl") imageUrl: String?): PodcastPreviewViewModel
     }
 }
