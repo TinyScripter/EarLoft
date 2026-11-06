@@ -36,9 +36,6 @@ interface SourceDao {
     @Query("UPDATE sources SET enabled = :enabled WHERE sourceId = :sourceId")
     suspend fun setEnabled(sourceId: String, enabled: Boolean)
 
-    @Query("UPDATE sources SET castBaseUrl = :castBaseUrl WHERE sourceId = :sourceId")
-    suspend fun setCastBaseUrl(sourceId: String, castBaseUrl: String?)
-
     /** Entfernt per CASCADE auch alle `song_sources`; danach [LibraryDao.cleanupOrphans] aufrufen. */
     @Query("DELETE FROM sources WHERE sourceId = :sourceId")
     suspend fun delete(sourceId: String)

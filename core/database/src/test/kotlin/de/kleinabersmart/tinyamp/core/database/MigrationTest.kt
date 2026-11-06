@@ -105,6 +105,25 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `v18 to v19 drops the cast address and keeps the server`() {
+        helper.createDatabase(DB_NAME, 18).use { db ->
+            db.execSQL(
+                "INSERT INTO sources (sourceId, type, name, baseUrl, username, priority, syncGeneration, lastFullSyncAt, enabled, castBaseUrl) " +
+                    "VALUES ('s', 'SUBSONIC', 'Navidrome', 'https://music.example.com/', 'anna', 0, 3, 0, 1, 'http://192.168.0.10:4533/')",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 19, true).use { db ->
+            db.query("SELECT name, baseUrl, syncGeneration FROM sources WHERE sourceId = 's'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Navidrome", cursor.getString(0))
+                assertEquals("https://music.example.com/", cursor.getString(1))
+                assertEquals(3, cursor.getInt(2))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

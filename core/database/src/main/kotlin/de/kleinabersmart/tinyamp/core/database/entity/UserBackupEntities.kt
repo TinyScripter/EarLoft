@@ -25,7 +25,6 @@ data class UserServerEntity(
     val priority: Int,
     val serverCapabilities: String?,
     val enabled: Boolean,
-    val castBaseUrl: String? = null,
 )
 
 /** Ein Audiobookshelf-Server (`spoken_servers`). Der API-Key kommt nicht mit. */

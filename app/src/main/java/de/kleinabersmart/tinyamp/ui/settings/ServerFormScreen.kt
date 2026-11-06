@@ -69,7 +69,6 @@ fun ServerFormScreen(
         onPasswordChange = viewModel::onPasswordChange,
         onAllowHttpChange = viewModel::onAllowHttpChange,
         onAutoDownloadChange = viewModel::onAutoDownloadChange,
-        onCastUrlChange = viewModel::onCastUrlChange,
         onTest = rememberLocalNetworkRequester(viewModel::test),
         onSave = rememberLocalNetworkRequester(viewModel::save),
         modifier = modifier,
@@ -87,7 +86,6 @@ private fun ServerFormContent(
     onPasswordChange: (String) -> Unit,
     onAllowHttpChange: (Boolean) -> Unit,
     onAutoDownloadChange: (Boolean) -> Unit,
-    onCastUrlChange: (String) -> Unit,
     onTest: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -182,24 +180,7 @@ private fun ServerFormContent(
                 onValueChange = onNameChange,
                 label = { Text(stringResource(R.string.add_server_name)) },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.castUrl,
-                onValueChange = onCastUrlChange,
-                label = { Text(stringResource(R.string.server_form_cast_url)) },
-                placeholder = { Text(stringResource(R.string.server_form_cast_url_hint)) },
-                supportingText = {
-                    Text(
-                        stringResource(
-                            if (state.isCastUrlInvalid) R.string.server_form_cast_url_invalid else R.string.server_form_cast_url_summary,
-                        ),
-                    )
-                },
-                isError = state.isCastUrlInvalid,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth(),
             )
             // Wie die Checkbox oben: Die ganze Zeile schaltet.
@@ -272,7 +253,6 @@ private fun ServerFormContentPreview() {
             onPasswordChange = {},
             onAllowHttpChange = {},
             onAutoDownloadChange = {},
-            onCastUrlChange = {},
             onTest = {},
             onSave = {},
         )
@@ -291,7 +271,6 @@ private fun ServerFormEditPreview() {
                 username = "kal",
                 hasStoredPassword = true,
                 autoDownload = true,
-                castUrl = "http://192.168.0.10:4533",
             ),
             onBack = {},
             onNameChange = {},
@@ -300,7 +279,6 @@ private fun ServerFormEditPreview() {
             onPasswordChange = {},
             onAllowHttpChange = {},
             onAutoDownloadChange = {},
-            onCastUrlChange = {},
             onTest = {},
             onSave = {},
         )

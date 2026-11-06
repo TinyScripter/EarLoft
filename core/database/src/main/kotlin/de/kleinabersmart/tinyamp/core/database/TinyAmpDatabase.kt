@@ -3,6 +3,7 @@ package de.kleinabersmart.tinyamp.core.database
 import android.content.Context
 import androidx.room.AutoMigration
 import androidx.room.Database
+import androidx.room.DeleteColumn
 import androidx.room.RoomDatabase
 import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -83,7 +84,7 @@ import java.io.File
         AbsSessionEntity::class,
         WearBookEntity::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = TinyAmpDatabase.AddSearchIndex::class),
@@ -103,6 +104,7 @@ import java.io.File
         AutoMigration(from = 15, to = 16),
         AutoMigration(from = 16, to = 17),
         AutoMigration(from = 17, to = 18),
+        AutoMigration(from = 18, to = 19, spec = TinyAmpDatabase.DropCastBaseUrl::class),
     ],
 )
 abstract class TinyAmpDatabase : RoomDatabase() {
@@ -129,6 +131,10 @@ abstract class TinyAmpDatabase : RoomDatabase() {
             db.execSQL("INSERT INTO artists_fts(artists_fts) VALUES('rebuild')")
         }
     }
+
+    /** v18 → v19: Die eigene Cast-Adresse je Server entfällt. */
+    @DeleteColumn(tableName = "sources", columnName = "castBaseUrl")
+    class DropCastBaseUrl : AutoMigrationSpec
 
     companion object {
         /**

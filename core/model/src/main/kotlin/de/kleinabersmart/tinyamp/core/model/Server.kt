@@ -10,6 +10,4 @@ data class ServerInfo(
     val lastFullSyncAt: Long,
     /** Ausgeschaltet: kein Abgleich, Inhalte ausgeblendet, nichts gelöscht. */
     val enabled: Boolean = true,
-    /** Adresse für Cast-Empfänger, `null` = [baseUrl]. */
-    val castBaseUrl: String? = null,
 )

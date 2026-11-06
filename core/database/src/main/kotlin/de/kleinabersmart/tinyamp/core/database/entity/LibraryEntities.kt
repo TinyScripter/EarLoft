@@ -24,8 +24,6 @@ data class SourceEntity(
     val lastFullSyncAt: Long = 0,
     /** Ausgeschaltet: kein Abgleich, Inhalte ausgeblendet; Songs und Downloads bleiben erhalten. */
     @ColumnInfo(defaultValue = "1") val enabled: Boolean = true,
-    /** Andere Basis-URL nur für Cast-Empfänger (z. B. die Adresse im Heimnetz); `null` = [baseUrl]. */
-    val castBaseUrl: String? = null,
 )
 
 @Entity(

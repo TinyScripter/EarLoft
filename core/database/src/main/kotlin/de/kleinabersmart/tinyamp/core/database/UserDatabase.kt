@@ -2,7 +2,9 @@ package de.kleinabersmart.tinyamp.core.database
 
 import androidx.room.AutoMigration
 import androidx.room.Database
+import androidx.room.DeleteColumn
 import androidx.room.RoomDatabase
+import androidx.room.migration.AutoMigrationSpec
 import de.kleinabersmart.tinyamp.core.database.dao.UserDataDao
 import de.kleinabersmart.tinyamp.core.database.entity.UserBookProgressEntity
 import de.kleinabersmart.tinyamp.core.database.entity.UserFavoriteEntity
@@ -22,7 +24,7 @@ import de.kleinabersmart.tinyamp.core.database.entity.UserWearSelectionEntity
  * Die Hauptdatenbank bleibt die Arbeitskopie: Änderungen werden hierher gespiegelt und nach einem Neuaufbau zurückgespielt.
  *
  * Versionen: 1 Server, Abos, Statistik; 2 Fortschritt; 3 lokale Playlists, Favoriten, Hörverlauf, Auswahl für die Uhr;
- * 5 archivierte Abos.
+ * 5 archivierte Abos; 6 ohne Cast-Adresse je Server.
  */
 @Database(
     entities = [
@@ -38,17 +40,21 @@ import de.kleinabersmart.tinyamp.core.database.entity.UserWearSelectionEntity
         UserPlayEventEntity::class,
         UserWearSelectionEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
+        AutoMigration(from = 5, to = 6, spec = UserDatabase.DropCastBaseUrl::class),
     ],
 )
 abstract class UserDatabase : RoomDatabase() {
     abstract fun userDataDao(): UserDataDao
+
+    @DeleteColumn(tableName = "servers", columnName = "castBaseUrl")
+    class DropCastBaseUrl : AutoMigrationSpec
 
     companion object {
         /** Dateiname; die Backup-Regeln der App schließen nur die Hauptdatenbank aus, diese Datei nicht. */

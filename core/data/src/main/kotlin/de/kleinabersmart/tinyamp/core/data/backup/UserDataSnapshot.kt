@@ -172,7 +172,7 @@ private fun <K, V> rowChanges(old: Map<K, V>, new: Map<K, V>): RowChanges<V> = R
 )
 
 fun SourceEntity.toUser() =
-    UserServerEntity(sourceId, type, name, baseUrl, username, priority, serverCapabilities, enabled, castBaseUrl)
+    UserServerEntity(sourceId, type, name, baseUrl, username, priority, serverCapabilities, enabled)
 
 fun SpokenServerEntity.toUser() = UserSpokenServerEntity(serverId, name, baseUrl, libraryId, enabled)
 
@@ -198,7 +198,6 @@ fun UserServerEntity.toMain() = SourceEntity(
     priority = priority,
     serverCapabilities = serverCapabilities,
     enabled = enabled,
-    castBaseUrl = castBaseUrl,
 )
 
 fun UserSpokenServerEntity.toMain() = SpokenServerEntity(
