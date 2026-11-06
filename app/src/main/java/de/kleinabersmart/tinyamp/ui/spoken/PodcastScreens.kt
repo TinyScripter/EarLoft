@@ -215,7 +215,7 @@ fun PodcastHomeScreen(
 }
 
 /**
- * Bild und Titel eines Abos, oben links auf dem Bild die Zahl der geladenen Folgen ([FeedDownloadBadge]); Langklick öffnet
+ * Bild und Titel eines Abos, unten links auf dem Bild die Zahl der geladenen Folgen ([FeedDownloadBadge]); Langklick öffnet
  * das [FeedMenu], dessen letzter Eintrag die Einstellungen ([onSettings]).
  */
 @Composable
@@ -239,7 +239,7 @@ fun FeedCard(
         if (menu) FeedMenu(feed, onSettings = onSettings, onDismiss = { menu = false })
         Box {
             PodcastArt(feed.imageUrl, Modifier.fillMaxWidth())
-            FeedDownloadBadge(feed.id, Modifier.align(Alignment.TopStart).padding(6.dp))
+            FeedDownloadBadge(feed.id, Modifier.align(Alignment.BottomStart).padding(6.dp))
         }
         // Immer zwei Zeilen hoch, damit Kacheln einer Reihe gleich hoch sind.
         Text(

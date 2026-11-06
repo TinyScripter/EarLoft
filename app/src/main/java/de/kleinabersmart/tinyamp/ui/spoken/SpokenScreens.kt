@@ -429,8 +429,7 @@ private const val ROW_SLIDE_MS = 350
 
 /**
  * Cover mit Fortschrittsbalken, darunter Titel und Autor; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts
- * auf dem Cover, links die Download-Markierung ([BookDownloadBadge]): bei Büchern oben, bei Folgen unten (viele
- * Podcast-Bilder tragen oben links ein Senderlogo).
+ * auf dem Cover, unten links die Download-Markierung ([BookDownloadBadge]).
  */
 @Composable
 fun BookCard(
@@ -448,7 +447,7 @@ fun BookCard(
         EpisodeMenu(item, expanded = menu, onDismiss = { menu = false })
         Box {
             BookArt(item.book.id, Modifier.fillMaxWidth())
-            BookDownloadBadge(item.book.id, Modifier.align(if (episode) Alignment.BottomStart else Alignment.TopStart).padding(6.dp))
+            BookDownloadBadge(item.book.id, Modifier.align(Alignment.BottomStart).padding(6.dp))
             if (onPlay != null) {
                 PlayPauseButton(
                     playing,

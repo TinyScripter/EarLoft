@@ -270,7 +270,7 @@ fun AlbumListItem(
 
 /**
  * Album-Kachel für Raster und horizontale Listen; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts auf
- * dem Cover, oben links die Download-Markierung ([OfflineBadge]). Langklick öffnet das [AlbumMenu].
+ * dem Cover, unten links die Download-Markierung ([OfflineBadge]). Langklick öffnet das [AlbumMenu].
  */
 @Composable
 fun AlbumCard(
@@ -298,7 +298,7 @@ fun AlbumCard(
         if (menu) AlbumMenu(album, onDismiss = { menu = false })
         Box {
             AlbumArt(albumId = album.id, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
-            OfflineBadge(mark, Modifier.align(Alignment.TopStart).padding(6.dp))
+            OfflineBadge(mark, Modifier.align(Alignment.BottomStart).padding(6.dp))
             if (onPlay != null) {
                 PlayPauseButton(playing, onPlay, Modifier.align(Alignment.BottomEnd).padding(6.dp))
             }
