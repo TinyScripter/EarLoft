@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -18,6 +19,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -32,8 +35,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -45,8 +51,12 @@ import de.kleinabersmart.tinyamp.ui.LoadState
 import de.kleinabersmart.tinyamp.ui.components.EmptyHint
 import de.kleinabersmart.tinyamp.ui.components.LoadFailedHint
 import de.kleinabersmart.tinyamp.ui.components.LoadingIndicator
+import de.kleinabersmart.tinyamp.ui.components.MarkGap
+import de.kleinabersmart.tinyamp.ui.components.OfflineMarkIcon
 import de.kleinabersmart.tinyamp.ui.valueOrNull
 import de.kleinabersmart.tinyamp.ui.library.BackButton
+import java.text.DateFormat
+import java.util.Date
 import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
 
 /** Die Warteschlange der Podcasts („Weiterhören“) bearbeiten: wie bei der Musik mit Ziehgriff und ✕. */
@@ -107,8 +117,14 @@ fun PodcastQueueList(
             val id = item.book.id
             val isDragged = id == draggedId
             ListItem(
+                overlineContent = { EpisodeFacts(item) },
                 headlineContent = { Text(item.book.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                supportingContent = { Text(item.book.author, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                supportingContent = {
+                    Column {
+                        Text(item.book.author, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        EpisodeProgress(item)
+                    }
+                },
                 leadingContent = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -180,5 +196,50 @@ fun PodcastQueueList(
                     },
             )
         }
+    }
+}
+
+/** Erste Zeile: Datum der Folge, dahinter der Download-Stand wie in den Listen (geladen: Haken, sonst nichts). */
+@Composable
+private fun EpisodeFacts(item: BookWithProgress) {
+    val book = item.book
+    val mark = LocalBookDownloads.current[book.id]?.state?.offlineMark
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (book.addedAt > 0) {
+            Text(DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(book.addedAt)), maxLines = 1)
+        }
+        OfflineMarkIcon(mark, Modifier.padding(start = MarkGap).size(14.dp))
+    }
+}
+
+/** Letzte Zeile: gehörte Zeit, kleiner Balken, Restzeit wie im Player (beim eingestellten Tempo). Ohne Dauer nichts. */
+@Composable
+private fun EpisodeProgress(item: BookWithProgress) {
+    val progress = item.progress
+    val durationMs = progress?.durationMs?.takeIf { it > 0 } ?: item.book.durationMs
+    if (durationMs <= 0) return
+    val positionMs = progress?.positionMs?.coerceIn(0, durationMs) ?: 0
+    val speed = progress?.speed?.takeIf { it > 0f } ?: 1f
+    val remainingMs = ((durationMs - positionMs) / speed).toLong()
+    val style = MaterialTheme.typography.labelSmall
+    // Gleich breite Zeiten, damit die Balken untereinander gleich lang sind.
+    val measurer = rememberTextMeasurer()
+    val timeWidth = with(LocalDensity.current) { measurer.measure("-0:00:00", style).size.width.toDp() }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+        Text(formatClock(positionMs), style = style, maxLines = 1, modifier = Modifier.widthIn(min = timeWidth))
+        LinearProgressIndicator(
+            progress = { positionMs.toFloat() / durationMs },
+            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+            // Die Standardspur hat die Farbe der Zeile der laufenden Folge.
+            trackColor = LocalContentColor.current.copy(alpha = 0.2f),
+            drawStopIndicator = {},
+        )
+        Text(
+            "-" + formatClock(remainingMs),
+            style = style,
+            maxLines = 1,
+            textAlign = TextAlign.End,
+            modifier = Modifier.widthIn(min = timeWidth),
+        )
     }
 }
