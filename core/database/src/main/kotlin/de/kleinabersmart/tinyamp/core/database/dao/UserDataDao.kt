@@ -90,6 +90,10 @@ abstract class UserDataDao {
     @Delete
     protected abstract suspend fun deleteProgress(rows: List<UserBookProgressEntity>)
 
+    /** Gesicherter Fortschritt unter Kennungen, die es nach einem Wechsel der Quelle nicht mehr gibt (Konzept 12.10). */
+    @Query("DELETE FROM book_progress WHERE serverId = :serverId AND remoteId IN (:remoteIds)")
+    abstract suspend fun deleteProgressKeys(serverId: String, remoteIds: List<String>)
+
     @Upsert
     protected abstract suspend fun upsertPlaylists(rows: List<UserPlaylistEntity>)
 

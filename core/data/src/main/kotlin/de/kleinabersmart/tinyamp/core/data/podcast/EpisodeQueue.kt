@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
+import de.kleinabersmart.tinyamp.core.data.spoken.BookKeyRenamer
 import de.kleinabersmart.tinyamp.core.data.spoken.BookKeys
 import de.kleinabersmart.tinyamp.core.database.dao.BookDao
 import kotlinx.coroutines.flow.Flow
@@ -38,7 +39,7 @@ private val Context.episodeQueueDataStore: DataStore<Preferences> by preferences
 class EpisodeQueue @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val bookDao: BookDao,
-) {
+) : BookKeyRenamer {
     private val migration = Mutex()
 
     @Volatile
@@ -86,6 +87,14 @@ class EpisodeQueue @Inject constructor(
             prefs.write(KEY_ORDER, prefs.read(KEY_ORDER) - key)
             val hidden = prefs.read(KEY_HIDDEN)
             if (key !in hidden) prefs.write(KEY_HIDDEN, hidden + key)
+        }
+    }
+
+    override suspend fun renameBookKeys(renames: Map<String, String>) {
+        migrateLegacyIds()
+        context.episodeQueueDataStore.edit { prefs ->
+            prefs.write(KEY_ORDER, prefs.read(KEY_ORDER).map { renames[it] ?: it })
+            prefs.write(KEY_HIDDEN, prefs.read(KEY_HIDDEN).map { renames[it] ?: it })
         }
     }
 

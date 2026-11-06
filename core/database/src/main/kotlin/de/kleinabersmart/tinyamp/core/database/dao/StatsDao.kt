@@ -159,4 +159,25 @@ abstract class StatsDao {
         deleteStats(kind)
         deleteDays(kind)
     }
+
+    @Query("SELECT * FROM listening_stats WHERE groupKey IN (:groupKeys)")
+    abstract suspend fun statsOfGroups(groupKeys: List<String>): List<ListeningStatEntity>
+
+    @Query("SELECT * FROM listening_days WHERE groupKey IN (:groupKeys)")
+    abstract suspend fun daysOfGroups(groupKeys: List<String>): List<ListeningDayEntity>
+
+    @Query("DELETE FROM listening_stats WHERE groupKey IN (:groupKeys)")
+    protected abstract suspend fun deleteStatsOfGroups(groupKeys: List<String>)
+
+    @Query("DELETE FROM listening_days WHERE groupKey IN (:groupKeys)")
+    protected abstract suspend fun deleteDaysOfGroups(groupKeys: List<String>)
+
+    /** Ersetzt alle Zahlen der Gruppen [groupKeys] durch [stats] und [days] (Quelle eines Abos wechseln, Konzept 12.10). */
+    @Transaction
+    open suspend fun replaceGroups(groupKeys: List<String>, stats: List<ListeningStatEntity>, days: List<ListeningDayEntity>) {
+        deleteStatsOfGroups(groupKeys)
+        deleteDaysOfGroups(groupKeys)
+        upsertAll(stats)
+        insertDaysIfAbsent(days)
+    }
 }

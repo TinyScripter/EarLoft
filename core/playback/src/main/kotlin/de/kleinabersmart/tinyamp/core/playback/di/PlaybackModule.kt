@@ -6,7 +6,11 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
+import dagger.Binds
 import dagger.BindsOptionalOf
+import dagger.multibindings.IntoSet
+import de.kleinabersmart.tinyamp.core.data.spoken.BookKeyRenamer
+import de.kleinabersmart.tinyamp.core.playback.QueuePersistence
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -40,4 +44,9 @@ internal object PlaybackModule {
 internal interface OptionalPlaybackModule {
     @BindsOptionalOf
     fun sessionPlayerFactory(): SessionPlayerFactory
+
+    /** „Zuletzt gespielt“ speichert den Schlüssel der Folge; er wandert beim Wechsel der Quelle mit (Konzept 12.10). */
+    @Binds
+    @IntoSet
+    fun queuePersistence(persistence: QueuePersistence): BookKeyRenamer
 }

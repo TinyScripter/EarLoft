@@ -51,7 +51,7 @@ private fun SubscribeResult.toState(): AddPodcastState = when (this) {
 }
 
 @get:StringRes
-private val SubscribeResult.message: Int
+internal val SubscribeResult.message: Int
     get() = when (this) {
         is SubscribeResult.Added, is SubscribeResult.AlreadySubscribed, is SubscribeResult.Archived -> R.string.podcast_already
         SubscribeResult.InvalidUrl -> R.string.podcast_error_invalid

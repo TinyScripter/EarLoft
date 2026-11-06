@@ -305,47 +305,56 @@ class PodcastRepository @Inject constructor(
         }
     }
 
+    /** Lädt den Feed und legt ihn an. */
+    private suspend fun fetchAndAdd(entered: FeedAddress, subscribed: Boolean, imageUrl: String? = null): SubscribeResult =
+        when (val source = fetchSource(entered)) {
+            is SourceFetch.Loaded -> add(source.url, source.fallbackTitle, source.fetched, subscribed, imageUrl)
+            is SourceFetch.Failed -> source.result
+        }
+
     /**
-     * Lädt den Feed und legt ihn an. Eine `http://`-Adresse wird zuerst still per HTTPS versucht und bei Erfolg so
-     * gespeichert; erst wenn das scheitert, unverschlüsselt.
+     * Lädt den Feed bzw. die Sendung unter [input], ohne etwas anzulegen (Quelle wechseln, Konzept 12.10). Wie beim
+     * Abonnieren wird eine `http://`-Adresse zuerst still per HTTPS versucht.
      */
-    private suspend fun fetchAndAdd(entered: FeedAddress, subscribed: Boolean, imageUrl: String? = null): SubscribeResult {
+    internal suspend fun fetchSource(input: String): SourceFetch =
+        FeedAddress.of(input)?.let { fetchSource(it) } ?: SourceFetch.Failed(SubscribeResult.InvalidUrl)
+
+    /**
+     * Eine `http://`-Adresse wird zuerst still per HTTPS versucht und bei Erfolg so verwendet; erst wenn das scheitert,
+     * unverschlüsselt.
+     */
+    private suspend fun fetchSource(entered: FeedAddress): SourceFetch {
         if (entered is FeedAddress.ArdSounds) {
             val showId = checkNotNull(ardSoundsShowId(entered.url))
-            return when (val attempt = fetchForSubscribe("ARD Sounds") { FeedFetch.Fetched(ardSounds.fetch(showId), null, null) }) {
-                is SubscribeFetch.Loaded -> add(entered.url, "ARD Sounds", attempt.fetched, subscribed, imageUrl)
-                is SubscribeFetch.Failed -> attempt.result
-            }
+            return fetchForSubscribe(entered.url, "ARD Sounds") { FeedFetch.Fetched(ardSounds.fetch(showId), null, null) }
         }
         val url = (entered as FeedAddress.Http).url
         val secure = if (url.isHttps) null else url.newBuilder().scheme("https").build()
         if (secure != null) {
-            val attempt = fetchForSubscribe(secure.host) { api.fetch(secure) }
-            if (attempt is SubscribeFetch.Loaded) return add(secure.toString(), secure.host, attempt.fetched, subscribed, imageUrl)
+            val attempt = fetchForSubscribe(secure.toString(), secure.host) { api.fetch(secure) }
+            if (attempt is SourceFetch.Loaded) return attempt
             Log.i(TAG, "Kein HTTPS bei ${secure.host}, lade unverschlüsselt")
         }
-        return when (val attempt = fetchForSubscribe(url.host) { api.fetch(url) }) {
-            is SubscribeFetch.Loaded -> add(url.toString(), url.host, attempt.fetched, subscribed, imageUrl)
-            is SubscribeFetch.Failed -> attempt.result
-        }
+        return fetchForSubscribe(url.toString(), url.host) { api.fetch(url) }
     }
 
-    private sealed interface SubscribeFetch {
-        data class Loaded(val fetched: FeedFetch.Fetched) : SubscribeFetch
-        data class Failed(val result: SubscribeResult) : SubscribeFetch
+    /** Geladene Quelle unter ihrer endgültigen Adresse [url]; [fallbackTitle] gilt, wenn sie keinen Titel nennt. */
+    internal sealed interface SourceFetch {
+        data class Loaded(val url: String, val fallbackTitle: String, val fetched: FeedFetch.Fetched) : SourceFetch
+        data class Failed(val result: SubscribeResult) : SourceFetch
     }
 
     /** [source] nennt im Log nur den Host: Private Feeds tragen ihr Zugangstoken in Pfad oder Query. */
-    private suspend fun fetchForSubscribe(source: String, fetch: suspend () -> FeedFetch): SubscribeFetch = try {
-        SubscribeFetch.Loaded(fetch() as FeedFetch.Fetched)
+    private suspend fun fetchForSubscribe(url: String, source: String, fetch: suspend () -> FeedFetch): SourceFetch = try {
+        SourceFetch.Loaded(url, source, fetch() as FeedFetch.Fetched)
     } catch (e: CancellationException) {
         throw e
     } catch (e: PodcastFeedException) {
         Log.w(TAG, "Kein Feed: $source", e)
-        SubscribeFetch.Failed(SubscribeResult.NotAFeed)
+        SourceFetch.Failed(SubscribeResult.NotAFeed)
     } catch (e: IOException) {
         Log.w(TAG, "Feed nicht erreichbar: $source", e)
-        SubscribeFetch.Failed(SubscribeResult.Unreachable)
+        SourceFetch.Failed(SubscribeResult.Unreachable)
     }
 
     private suspend fun add(
@@ -507,6 +516,16 @@ class PodcastRepository @Inject constructor(
         ardSoundsShowId(feed.url)?.let { return FeedFetch.Fetched(ardSounds.fetch(it), etag = null, lastModified = null) }
         return api.fetch(feed.url.toHttpUrlOrThrow(), feed.etag, feed.lastModified)
     }
+
+    /**
+     * Führt [block] aus, während kein Abgleich läuft (Quelle wechseln, Konzept 12.10): Ein Abgleich der alten Quelle
+     * dazwischen brächte die alten Kennungen als neue Folgen zurück.
+     */
+    internal suspend fun <T> withFeedLock(block: suspend () -> T): T = mutex.withLock { block() }
+
+    /** Übernimmt [fetched] für [feed]; nur innerhalb von [withFeedLock]. */
+    internal suspend fun applyLocked(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult =
+        apply(feed, fetched).also { _refreshed.tryEmit(feed.feedId) }
 
     private suspend fun apply(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult {
         val parsed = fetched.feed

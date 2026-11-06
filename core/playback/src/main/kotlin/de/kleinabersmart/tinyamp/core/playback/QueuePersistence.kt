@@ -14,6 +14,7 @@ import androidx.media3.common.Player
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.tinyamp.core.data.repository.LibraryRepository
 import de.kleinabersmart.tinyamp.core.data.repository.PlaybackStateRepository
+import de.kleinabersmart.tinyamp.core.data.spoken.BookKeyRenamer
 import de.kleinabersmart.tinyamp.core.data.spoken.BookKeys
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -46,7 +47,7 @@ class QueuePersistence @Inject constructor(
     private val playbackStateRepository: PlaybackStateRepository,
     private val libraryRepository: LibraryRepository,
     private val bookKeys: BookKeys,
-) {
+) : BookKeyRenamer {
     private var queueSaveJob: Job? = null
 
     /** Muss auf dem Player-Thread aufgerufen werden; liest den Zustand dort und speichert asynchron. */
@@ -105,6 +106,12 @@ class QueuePersistence @Inject constructor(
         .map { it[KEY_LAST_BOOK].orEmpty() }
         .distinctUntilChanged()
         .mapLatest { key -> key.takeIf { it.isNotEmpty() }?.let { bookKeys.idOf(it) } }
+
+    override suspend fun renameBookKeys(renames: Map<String, String>) {
+        context.playbackDataStore.edit { prefs ->
+            prefs[KEY_LAST_BOOK]?.let { renames[it] }?.let { prefs[KEY_LAST_BOOK] = it }
+        }
+    }
 
     /** Frühere Versionen speicherten die `bookId`; sie wird einmal in den Schlüssel umgeschrieben. */
     private suspend fun migrateLegacyLastBook(prefs: Preferences): String? {

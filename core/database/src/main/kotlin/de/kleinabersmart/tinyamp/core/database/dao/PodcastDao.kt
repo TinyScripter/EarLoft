@@ -164,6 +164,14 @@ abstract class PodcastDao {
     @Query("UPDATE book_tracks SET durationMs = :durationMs, mimeType = :mimeType WHERE bookId = :bookId AND trackIndex = 0")
     abstract suspend fun updateTrackMeta(bookId: Long, durationMs: Long, mimeType: String?)
 
+    /** Neue Adresse der Audiodatei, ohne den Download zu verwerfen (Quelle wechseln: dieselbe Folge, Konzept 12.10). */
+    @Query("UPDATE book_tracks SET remoteFileId = :url WHERE bookId = :bookId AND trackIndex = 0")
+    abstract suspend fun moveTrack(bookId: Long, url: String)
+
+    /** Neue Kennung (guid) einer Folge; die `bookId` und alles daran bleibt (Quelle wechseln, Konzept 12.10). */
+    @Query("UPDATE books SET remoteId = :remoteId WHERE bookId = :bookId")
+    abstract suspend fun setRemoteId(bookId: Long, remoteId: String)
+
     /**
      * Die Audiodatei einer Folge (genau ein Titel); Kapitel bleiben unberührt. Bleibt die Adresse gleich, behalten
      * Download-Zustand und Datei ihren Stand; bei einer neuen Adresse fängt der Download von vorn an.

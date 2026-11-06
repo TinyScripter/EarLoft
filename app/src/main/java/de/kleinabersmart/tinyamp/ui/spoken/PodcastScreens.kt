@@ -691,6 +691,7 @@ fun PodcastSettingsScreen(
     val feed by viewModel.feed.collectAsStateWithLifecycle()
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     var confirmUnsubscribe by rememberSaveable { mutableStateOf(false) }
+    var switchingSource by rememberSaveable { mutableStateOf(false) }
     val current = feed.valueOrNull
 
     Column(modifier.fillMaxSize()) {
@@ -751,6 +752,14 @@ fun PodcastSettingsScreen(
                         )
                     }
                 }
+                if (!current.isLocal) row("switch-source") {
+                    ActionRow(
+                        title = stringResource(R.string.podcast_source_switch),
+                        summary = stringResource(R.string.podcast_source_switch_summary),
+                        icon = DesignR.drawable.ic_sync,
+                        onClick = { switchingSource = true },
+                    )
+                }
                 if (!current.isLocal) row("unsubscribe") {
                     ActionRow(
                         title = stringResource(R.string.podcast_unsubscribe),
@@ -762,6 +771,19 @@ fun PodcastSettingsScreen(
                 }
             }
         }
+    }
+
+    if (switchingSource && current != null) {
+        val snackbars = LocalSnackbars.current
+        val doneText = stringResource(R.string.podcast_source_switch_done)
+        SourceSwitchDialog(
+            feed = current,
+            onDismiss = { switchingSource = false },
+            onSwitched = {
+                switchingSource = false
+                snackbars.show(doneText)
+            },
+        )
     }
 
     if (confirmUnsubscribe && current != null) {

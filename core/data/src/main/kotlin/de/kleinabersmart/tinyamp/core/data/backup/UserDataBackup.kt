@@ -213,6 +213,17 @@ class UserDataBackup @Inject constructor(
             }
     }
 
+    /**
+     * Vergisst gesicherten Fortschritt der Folgen [remoteIds] von [serverId], deren Kennung sich geändert hat (Quelle
+     * wechseln, Konzept 12.10): Das Spiegeln löscht nur, was es in der Hauptdatenbank noch gibt, und die neuen Kennungen
+     * kommen von selbst hinzu.
+     */
+    suspend fun forgetProgress(serverId: String, remoteIds: Collection<String>) = mutex.withLock {
+        remoteIds.chunked(MAX_ARGS).forEach { userDao.deleteProgressKeys(serverId, it) }
+        // Der gemerkte Stand stimmt nicht mehr mit `user.db` überein; beim nächsten Spiegeln neu lesen.
+        mirrored = null
+    }
+
     internal suspend fun mirror() {
         val previous = mirrored ?: readUser()
         val current = readMain().keepingUnchangedPlaylists(previous)
