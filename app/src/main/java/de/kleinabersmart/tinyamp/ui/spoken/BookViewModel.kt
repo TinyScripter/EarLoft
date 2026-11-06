@@ -24,6 +24,7 @@ import de.kleinabersmart.tinyamp.core.download.EpisodeDownloads
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import de.kleinabersmart.tinyamp.core.model.TrackDownload
+import de.kleinabersmart.tinyamp.core.playback.PlaybackConnection
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,6 +44,7 @@ class BookViewModel @AssistedInject constructor(
     books: BookRepository,
     podcasts: PodcastRepository,
     private val launcher: BookLauncher,
+    private val playback: PlaybackConnection,
     private val downloads: BookDownloads,
     private val episodeDownloads: EpisodeDownloads,
     downloadProgress: BookDownloadProgress,
@@ -127,7 +129,24 @@ class BookViewModel @AssistedInject constructor(
     val chapters: StateFlow<List<BookChapter>> = books.chapters(bookId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun play() = launcher.play(bookId)
+    private val _openPlayer = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Die Wiedergabe-Ansicht soll aufgehen: [play] hat das Buch gestartet oder fortgesetzt. */
+    val openPlayer: SharedFlow<Unit> = _openPlayer.asSharedFlow()
+
+    /**
+     * „Abspielen“/„Weiterhören“: Ist das Buch schon geladen, geht es dort weiter, sonst wird es gestartet (ein zu Ende
+     * gehörtes von vorn); danach geht die Wiedergabe-Ansicht auf.
+     */
+    fun play() {
+        val state = playback.state.value
+        if (state.spoken?.bookId == bookId && book.value?.progress?.finished != true) {
+            if (!state.isPlaying) playback.togglePlayPause()
+            _openPlayer.tryEmit(Unit)
+        } else {
+            viewModelScope.launch { if (launcher.playAndAwait(bookId)) _openPlayer.emit(Unit) }
+        }
+    }
 
     fun playFrom(positionMs: Long) = launcher.play(bookId, positionMs)
 

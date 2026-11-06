@@ -162,7 +162,6 @@ fun TinyAmpApp(
     // Hier nur ableiten: Jede Änderung am Player (Play/Pause, Titel, Warteschlange, Tempo) setzte sonst Navigation und
     // Scaffold neu zusammen. Den ganzen Zustand liest erst der Mini-Player.
     val playerState = playerViewModel.state.collectAsStateWithLifecycle()
-    val currentBookId by remember { derivedStateOf { playerState.value.spoken?.bookId } }
     val playsSpoken by remember { derivedStateOf { playerState.value.spoken != null } }
 
     // Ab mittlerer Breite (Tablet, Foldable, Handy quer) Navigation Rail statt Bottom-Bar,
@@ -249,11 +248,10 @@ fun TinyAmpApp(
             )
         }
         entry<BookRoute> { route ->
-            // Läuft dieses Buch schon, öffnet „Abspielen“ die Wiedergabe-Ansicht, statt es neu zu starten.
+            // „Abspielen“ startet das Buch bzw. setzt es fort und öffnet danach die Wiedergabe-Ansicht.
             BookScreen(
                 bookId = route.bookId,
                 onBack = navigator::goBack,
-                isCurrent = currentBookId == route.bookId,
                 onOpenPlayer = navigator::showNowPlaying,
                 onOpenFeed = navigator::showFeed,
             )

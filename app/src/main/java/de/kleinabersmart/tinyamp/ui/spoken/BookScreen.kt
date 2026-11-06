@@ -67,7 +67,6 @@ import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
 fun BookScreen(
     bookId: Long,
     onBack: () -> Unit,
-    isCurrent: Boolean,
     onOpenPlayer: () -> Unit,
     onOpenFeed: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -87,6 +86,7 @@ fun BookScreen(
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
     }
+    LaunchedEffect(viewModel) { viewModel.openPlayer.collect { onOpenPlayer() } }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -120,7 +120,7 @@ fun BookScreen(
                 download = download.state,
                 transfer = transfer,
                 episodeFraction = episodeFraction,
-                onPlay = if (isCurrent) onOpenPlayer else viewModel::play,
+                onPlay = viewModel::play,
                 onDownload = viewModel::startDownload,
                 onCancelDownload = viewModel::removeDownload,
                 // Eine Folge ist klein und wird wie in der Folgenliste ohne Rückfrage gelöscht.
