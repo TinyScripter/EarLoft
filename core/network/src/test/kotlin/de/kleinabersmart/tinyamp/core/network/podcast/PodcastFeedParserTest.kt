@@ -173,6 +173,65 @@ class PodcastFeedParserTest {
     }
 
     @Test
+    fun `rss web pages come from link, otherwise from a permalink guid`() {
+        val feed = parse(
+            """
+            <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+              <channel>
+                <title>P</title>
+                <atom:link href="https://example.com/feed.xml" rel="self" type="application/rss+xml"/>
+                <link>https://example.com/</link>
+                <item>
+                  <title>Mit Link</title>
+                  <link> https://example.com/1 </link>
+                  <guid isPermaLink="true">https://example.com/guid-1</guid>
+                  <enclosure url="https://cdn.example.com/1.mp3" type="audio/mpeg"/>
+                </item>
+                <item>
+                  <title>Nur guid</title>
+                  <guid>https://example.com/2</guid>
+                  <enclosure url="https://cdn.example.com/2.mp3" type="audio/mpeg"/>
+                </item>
+                <item>
+                  <title>guid ohne Permalink</title>
+                  <guid isPermaLink="false">https://example.com/3</guid>
+                  <enclosure url="https://cdn.example.com/3.mp3" type="audio/mpeg"/>
+                </item>
+                <item>
+                  <title>guid ohne Adresse</title>
+                  <guid>abc-4</guid>
+                  <enclosure url="https://cdn.example.com/4.mp3" type="audio/mpeg"/>
+                </item>
+              </channel>
+            </rss>
+            """,
+        )
+        assertEquals("https://example.com/", feed.websiteUrl)
+        assertEquals(listOf("https://example.com/1", "https://example.com/2", null, null), feed.episodes.map { it.webUrl })
+    }
+
+    @Test
+    fun `atom web pages come from the alternate link`() {
+        val feed = parse(
+            """
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <title>P</title>
+              <link rel="self" href="https://example.com/atom.xml"/>
+              <link href="https://example.com/"/>
+              <entry>
+                <id>e1</id>
+                <title>Folge</title>
+                <link rel="enclosure" href="https://cdn.example.com/1.mp3" type="audio/mpeg"/>
+                <link rel="alternate" type="text/html" href="https://example.com/1"/>
+              </entry>
+            </feed>
+            """,
+        )
+        assertEquals("https://example.com/", feed.websiteUrl)
+        assertEquals("https://example.com/1", feed.episodes.single().webUrl)
+    }
+
+    @Test
     fun `durations`() {
         assertEquals(0L, PodcastFeedParser.parseDuration(""))
         assertEquals(0L, PodcastFeedParser.parseDuration("abc"))

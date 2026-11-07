@@ -51,6 +51,8 @@ import de.kleinabersmart.tinyamp.core.model.BookChapter
 import de.kleinabersmart.tinyamp.core.model.BookProgress
 import de.kleinabersmart.tinyamp.ui.components.GroupMargin
 import de.kleinabersmart.tinyamp.ui.components.TwoColumnMinWidth
+import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
+import de.kleinabersmart.tinyamp.ui.components.ShareButton
 import de.kleinabersmart.tinyamp.ui.components.WatchTarget
 import de.kleinabersmart.tinyamp.ui.components.WatchToggleButton
 import de.kleinabersmart.tinyamp.ui.components.groupedItems
@@ -111,7 +113,12 @@ fun BookScreen(
                 }
             },
             // Folgen und Bücher einzeln auf die Uhr (Wear-Konzept 16.1/16.2).
-            actions = { if (book != null) WatchToggleButton(WatchTarget.Spoken(book.id)) },
+            actions = {
+                if (book != null) {
+                    if (book.kind == BookKind.EPISODE && !book.isLocal) ShareButton(ShareTarget.Book(book.id))
+                    WatchToggleButton(WatchTarget.Spoken(book.id))
+                }
+            },
         )
         if (book == null) return@Column
         val header = @Composable {

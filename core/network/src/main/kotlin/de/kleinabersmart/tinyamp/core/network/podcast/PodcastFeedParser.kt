@@ -21,6 +21,8 @@ data class ParsedFeed(
     val description: String,
     val imageUrl: String?,
     val episodes: List<ParsedEpisode>,
+    /** Webseite des Podcasts (`<link>`), zum Teilen (Konzept 13). */
+    val websiteUrl: String? = null,
 )
 
 data class ParsedEpisode(
@@ -37,6 +39,8 @@ data class ParsedEpisode(
     val imageUrl: String?,
     /** Podcasting-2.0-Kapitelliste (JSON), falls vorhanden. */
     val chaptersUrl: String?,
+    /** Webseite der Folge (`<link>`, sonst die `guid`, wenn sie ein Permalink ist), zum Teilen (Konzept 13). */
+    val webUrl: String? = null,
 )
 
 /**
@@ -68,6 +72,7 @@ object PodcastFeedParser {
             val enclosure = item.child("enclosure")
             val url = enclosure?.attr("url")?.trim().orEmpty()
             if (url.isEmpty()) return@mapNotNull null
+            val guid = item.child("guid")
             ParsedEpisode(
                 guid = item.text("guid").ifEmpty { url },
                 title = item.text("title").ifEmpty { item.text("title", NS_ITUNES) },
@@ -78,6 +83,8 @@ object PodcastFeedParser {
                 publishedAt = parseRfc1123(item.text("pubDate")),
                 imageUrl = item.child("image", NS_ITUNES)?.attr("href")?.takeIf { it.isNotBlank() },
                 chaptersUrl = item.podcastChild("chapters")?.attr("url")?.takeIf { it.isNotBlank() },
+                webUrl = webPage(item.text("link", NS_NONE))
+                    ?: guid?.takeIf { it.attr("isPermaLink")?.trim() != "false" }?.let { webPage(it.text.toString()) },
             )
         }
         return ParsedFeed(
@@ -87,6 +94,7 @@ object PodcastFeedParser {
             imageUrl = channel.child("image", NS_ITUNES)?.attr("href")?.takeIf { it.isNotBlank() }
                 ?: channel.child("image", NS_NONE)?.text("url")?.takeIf { it.isNotBlank() },
             episodes = episodes,
+            websiteUrl = webPage(channel.text("link", NS_NONE)),
         )
     }
 
@@ -105,6 +113,7 @@ object PodcastFeedParser {
                 publishedAt = parseIso(entry.text("published").ifEmpty { entry.text("updated") }),
                 imageUrl = entry.child("image", NS_ITUNES)?.attr("href")?.takeIf { it.isNotBlank() },
                 chaptersUrl = entry.podcastChild("chapters")?.attr("url")?.takeIf { it.isNotBlank() },
+                webUrl = entry.alternateLink(),
             )
         }
         return ParsedFeed(
@@ -114,8 +123,20 @@ object PodcastFeedParser {
             imageUrl = feed.child("image", NS_ITUNES)?.attr("href")?.takeIf { it.isNotBlank() }
                 ?: feed.text("logo").ifEmpty { feed.text("icon") }.takeIf { it.isNotBlank() },
             episodes = episodes,
+            websiteUrl = feed.alternateLink(),
         )
     }
+
+    /** Atom: `link` mit `rel="alternate"` (oder ohne `rel`), bevorzugt als HTML. */
+    private fun Node.alternateLink(): String? {
+        val links = children("link", NS_ATOM).filter { it.attr("rel").isNullOrBlank() || it.attr("rel") == "alternate" }
+        val link = links.firstOrNull { it.attr("type")?.contains("html") == true } ?: links.firstOrNull()
+        return webPage(link?.attr("href"))
+    }
+
+    /** Nur absolute http(s)-Adressen gelten als Webseite. */
+    private fun webPage(raw: String?): String? =
+        raw?.trim()?.takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
 
     /** „1:02:03“, „12:34“, „754“ oder „754.5“ (Sekunden); alles andere zählt als unbekannt (0). */
     internal fun parseDuration(raw: String): Long {

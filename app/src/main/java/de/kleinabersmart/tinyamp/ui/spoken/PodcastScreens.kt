@@ -85,6 +85,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.data.podcast.FeedEpisodes
+import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
+import de.kleinabersmart.tinyamp.ui.components.ShareButton
 import de.kleinabersmart.tinyamp.core.model.BookWithProgress
 import de.kleinabersmart.tinyamp.core.download.EpisodeDownloadProgress
 import de.kleinabersmart.tinyamp.core.model.PodcastFeed
@@ -427,6 +429,7 @@ fun PodcastScreen(
             navigationIcon = { BackButton(onBack) },
             // Der Aktualisieren-Knopf steht ganz rechts wie in den anderen Bildschirmen, die Suche links davon.
             actions = {
+                if (current != null && !current.isLocal) ShareButton(ShareTarget.Feed(current.id))
                 IconButton(onClick = onSearch, enabled = current != null) {
                     Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_search))
                 }

@@ -1,6 +1,7 @@
 package de.kleinabersmart.tinyamp.core.data.share
 
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** Was geteilt wird: [subject] als Betreff bzw. Titel der Vorschau, [text] mit Titel und Link (Konzept 13). */
 data class ShareContent(val subject: String, val text: String)
@@ -34,6 +35,33 @@ object ShareLinks {
             .build()
             .toString()
     }
+
+    /** Eine Webseite zum Teilen: absolute http(s)-Adresse, die nicht zu einer Plattform gehört ([isPlatform]). */
+    fun publicPage(url: String?): String? {
+        val parsed = url?.trim()?.toHttpUrlOrNull() ?: return null
+        return url.trim().takeUnless { isPlatform(parsed.host) }
+    }
+
+    /** Feed oder Audiodatei: die offene Quelle selbst, egal wo sie liegt; nur absolute http(s)-Adressen. */
+    fun sourceUrl(url: String?): String? = url?.trim()?.takeIf { it.toHttpUrlOrNull() != null }
+
+    /**
+     * Händler, Streaming- und Podcast-Plattformen, auf die nie verlinkt wird (Konzept 13). Hoster bleiben: Ihre Seiten
+     * gehören dem Podcast selbst.
+     */
+    fun isPlatform(host: String): Boolean {
+        val labels = host.lowercase().removeSuffix(".").split('.')
+        if (labels.dropLast(1).any { it in PLATFORM_NAMES }) return true
+        return PLATFORM_DOMAINS.any { domain -> host.equals(domain, ignoreCase = true) || host.endsWith(".$domain", ignoreCase = true) }
+    }
+
+    /** Plattformen mit Ablegern unter vielen Länderendungen (amazon.de, amazon.co.uk …). */
+    private val PLATFORM_NAMES = setOf("amazon", "audible", "spotify")
+
+    private val PLATFORM_DOMAINS = listOf(
+        "apple.com", "spotify.link", "anchor.fm", "amzn.to", "deezer.com", "deezer.page.link", "youtube.com", "youtu.be",
+        "google.com", "goo.gl", "audionow.de", "podimo.com", "podcasts.rtl.de", "plus.rtl.de", "castbox.fm",
+    )
 
     /** Lucene-Phrase der MusicBrainz-Suche. */
     private fun phrase(value: String): String = "\"" + value.trim().replace("\\", "\\\\").replace("\"", "\\\"") + "\""

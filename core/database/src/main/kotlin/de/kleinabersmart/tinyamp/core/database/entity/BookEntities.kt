@@ -53,6 +53,8 @@ data class PodcastFeedEntity(
      * Fortschritt und Statistik, bis es reaktiviert wird.
      */
     @ColumnInfo(defaultValue = "0") val archived: Boolean = false,
+    /** Webseite des Podcasts aus dem Feed, zum Teilen (Konzept 13). */
+    val websiteUrl: String? = null,
 )
 
 @Entity(
@@ -81,6 +83,8 @@ data class BookEntity(
     val coverUrl: String? = null,
     /** Podcasting-2.0-Kapitelliste (JSON) einer Folge; `null`, wenn der Feed keine anbietet. */
     val chaptersUrl: String? = null,
+    /** Webseite einer Folge aus dem Feed, zum Teilen (Konzept 13). */
+    val webUrl: String? = null,
 )
 
 @Entity(

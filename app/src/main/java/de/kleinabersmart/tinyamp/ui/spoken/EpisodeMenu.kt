@@ -17,6 +17,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.model.BookKind
 import de.kleinabersmart.tinyamp.core.model.BookWithProgress
+import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
+import de.kleinabersmart.tinyamp.ui.components.ShareMenuItem
 import de.kleinabersmart.tinyamp.ui.components.WatchMenuItem
 import de.kleinabersmart.tinyamp.ui.components.WatchTarget
 import de.kleinabersmart.tinyamp.ui.snackbar.LocalSnackbars
@@ -71,6 +73,7 @@ fun EpisodeMenu(
             },
         )
         // Wie die übrigen Einträge ohne Symbol.
+        if (item.isEpisode && !item.book.isLocal) ShareMenuItem(ShareTarget.Book(id), onDismiss, withIcon = false)
         WatchMenuItem(WatchTarget.Spoken(id), onDismiss, withIcon = false)
         // Dateien vom Gerät sind schon da.
         if (!item.book.isLocal) {

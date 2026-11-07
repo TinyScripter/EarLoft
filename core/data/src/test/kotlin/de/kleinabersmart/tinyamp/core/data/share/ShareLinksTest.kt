@@ -29,6 +29,38 @@ class ShareLinksTest {
     }
 
     @Test
+    fun `platform pages are never shared`() {
+        listOf(
+            "https://podcasts.apple.com/de/podcast/id123",
+            "https://open.spotify.com/show/abc",
+            "https://www.amazon.co.uk/dp/B000",
+            "https://www.audible.de/pd/B000",
+            "https://music.amazon.de/podcasts/x",
+            "https://www.youtube.com/watch?v=x",
+            "https://podcasters.spotify.com/pod/show/x",
+            "https://anchor.fm/x",
+        ).forEach { assertEquals(it, null, ShareLinks.publicPage(it)) }
+    }
+
+    @Test
+    fun `own pages and hosters stay`() {
+        listOf(
+            "https://www.ardsounds.de/sendung/x/urn:ard:show:1/",
+            "https://example.podigee.io/1-folge",
+            "https://spotifyfans.example.org/",
+            "http://example.com/folge",
+        ).forEach { assertEquals(it, ShareLinks.publicPage(it)) }
+        assertEquals(null, ShareLinks.publicPage("local:abc"))
+        assertEquals(null, ShareLinks.publicPage("  "))
+    }
+
+    @Test
+    fun `feeds and audio files are shared wherever they are`() {
+        assertEquals("https://anchor.fm/s/1/podcast/rss", ShareLinks.sourceUrl(" https://anchor.fm/s/1/podcast/rss "))
+        assertEquals(null, ShareLinks.sourceUrl("ardsounds:urn:ard:show:1"))
+    }
+
+    @Test
     fun `an artist search names only the artist`() {
         val url = ShareLinks.musicBrainz(MusicBrainzKind.ARTIST, null, "Die Ärzte").toHttpUrl()
         assertEquals("artist:\"Die Ärzte\"", url.queryParameter("query"))

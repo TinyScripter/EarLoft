@@ -554,6 +554,7 @@ class PodcastRepository @Inject constructor(
                 author = parsed.author,
                 description = parsed.description.toDescriptionHtml(),
                 imageUrl = image,
+                websiteUrl = parsed.websiteUrl,
                 etag = fetched.etag,
                 lastModified = fetched.lastModified,
                 lastRefreshAt = now,
@@ -609,6 +610,7 @@ class PodcastRepository @Inject constructor(
         seenInGeneration = generation,
         coverUrl = imageUrl ?: feedImage,
         chaptersUrl = chaptersUrl,
+        webUrl = webUrl,
     )
 
     private fun String.toHttpUrlOrThrow() = normalizeFeedUrl(this) ?: throw IOException("Ungültige Feed-Adresse: $this")

@@ -84,7 +84,7 @@ import java.io.File
         AbsSessionEntity::class,
         WearBookEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = TinyAmpDatabase.AddSearchIndex::class),
@@ -105,6 +105,7 @@ import java.io.File
         AutoMigration(from = 16, to = 17),
         AutoMigration(from = 17, to = 18),
         AutoMigration(from = 18, to = 19, spec = TinyAmpDatabase.DropCastBaseUrl::class),
+        AutoMigration(from = 19, to = 20, spec = TinyAmpDatabase.AddWebLinks::class),
     ],
 )
 abstract class TinyAmpDatabase : RoomDatabase() {
@@ -135,6 +136,16 @@ abstract class TinyAmpDatabase : RoomDatabase() {
     /** v18 → v19: Die eigene Cast-Adresse je Server entfällt. */
     @DeleteColumn(tableName = "sources", columnName = "castBaseUrl")
     class DropCastBaseUrl : AutoMigrationSpec
+
+    /**
+     * v19 → v20: Webseiten von Podcasts und Folgen (Konzept 13). Ohne Validatoren lädt der nächste Abgleich jeden Feed
+     * einmal ganz, statt mit 304 die Webseiten bis zur nächsten Änderung des Feeds auszulassen.
+     */
+    class AddWebLinks : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            db.execSQL("UPDATE podcast_feeds SET etag = NULL, lastModified = NULL")
+        }
+    }
 
     companion object {
         /**

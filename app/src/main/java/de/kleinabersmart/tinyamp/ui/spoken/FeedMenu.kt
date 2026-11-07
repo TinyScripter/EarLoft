@@ -24,14 +24,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.tinyamp.R
+import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
 import de.kleinabersmart.tinyamp.core.model.PodcastFeed
+import de.kleinabersmart.tinyamp.ui.components.ShareMenuItem
 import de.kleinabersmart.tinyamp.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
 
 /**
  * Kontextmenü eines Abos (Langklick), aufgebaut wie das der Alben: oben der Titel, darunter Nächste Folge abspielen,
  * Nächste Folge in die Warteschlange, Aktualisieren, Alle als gehört markieren (mit Rückfrage), Downloads gehörter Folgen
- * löschen und die Einstellungen des Abos. „Abo beenden“ steht bewusst nur in den Einstellungen. Podcasts vom Gerät haben
+ * löschen, Teilen und die Einstellungen des Abos. „Abo beenden“ steht bewusst nur in den Einstellungen. Podcasts vom Gerät haben
  * keinen Feed und keine Downloads; diese Einträge fehlen dort. Erst einbinden, wenn es offen ist.
  */
 @Composable
@@ -118,6 +120,7 @@ fun FeedMenu(
                 },
             )
         }
+        if (!feed.isLocal) ShareMenuItem(ShareTarget.Feed(feed.id), onDismiss)
         DropdownMenuItem(
             text = { Text(stringResource(R.string.podcast_settings)) },
             leadingIcon = { Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = null) },

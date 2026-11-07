@@ -144,6 +144,7 @@ class ArdSoundsApi(
             description = show.description?.ifBlank { null } ?: show.synopsis.orEmpty(),
             imageUrl = feedImage,
             episodes = show.items?.nodes.orEmpty().mapNotNull { it.toEpisode() },
+            websiteUrl = show.sharingUrl.webPage(),
         )
     }
 
@@ -165,6 +166,7 @@ class ArdSoundsApi(
             publishedAt = publishDate?.let { runCatching { OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() } ?: 0,
             imageUrl = image?.sized(),
             chaptersUrl = null,
+            webUrl = sharingUrl.webPage(),
         )
     }
 
@@ -219,10 +221,10 @@ class ArdSoundsApi(
         val SHOW_QUERY = """
             query(${'$'}id: ID!, ${'$'}first: Int) {
               show(id: ${'$'}id) {
-                id coreId title description synopsis image { url url1X1 } publicationService { title }
+                id coreId title description synopsis sharingUrl image { url url1X1 } publicationService { title }
                 items(first: ${'$'}first, orderBy: PUBLISH_DATE_DESC, condition: { isPublished: true }) {
                   nodes {
-                    id coreId title publishDate duration description showNotes summary image { url url1X1 }
+                    id coreId title publishDate duration description showNotes summary sharingUrl image { url url1X1 }
                     audios { url downloadUrl allowDownload mimeType }
                   }
                 }
@@ -233,6 +235,9 @@ class ArdSoundsApi(
         /** Quadratisches Bild bevorzugt, in [IMAGE_WIDTH] Pixeln Breite. */
         fun Image.sized(): String? =
             (url1X1 ?: url)?.trim()?.ifEmpty { null }?.replace("{width}", IMAGE_WIDTH.toString())
+
+        /** Seite der Sendung bzw. Folge in ARD Sounds (zum Teilen, Konzept 13). */
+        fun String?.webPage(): String? = this?.trim()?.takeIf { it.startsWith("https://") }
     }
 }
 
@@ -263,6 +268,7 @@ private data class Show(
     val feedUrl: String? = null,
     val description: String? = null,
     val synopsis: String? = null,
+    val sharingUrl: String? = null,
     val image: Image? = null,
     val publicationService: PublicationService? = null,
     val items: EpisodeConnection? = null,
@@ -287,6 +293,7 @@ private data class Episode(
     val description: String? = null,
     val showNotes: String? = null,
     val summary: String? = null,
+    val sharingUrl: String? = null,
     val image: Image? = null,
     val audios: List<Audio>? = null,
 )
