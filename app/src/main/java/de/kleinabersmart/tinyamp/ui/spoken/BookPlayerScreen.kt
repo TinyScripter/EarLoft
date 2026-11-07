@@ -75,6 +75,8 @@ import de.kleinabersmart.tinyamp.core.model.BookTimeline
 import de.kleinabersmart.tinyamp.core.playback.PlayerState
 import de.kleinabersmart.tinyamp.ui.components.FitSquare
 import de.kleinabersmart.tinyamp.ui.components.ShareButton
+import de.kleinabersmart.tinyamp.ui.components.WatchTarget
+import de.kleinabersmart.tinyamp.ui.components.WatchToggleButton
 import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
 import de.kleinabersmart.tinyamp.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.tinyamp.ui.player.CoverThenCentered
@@ -325,8 +327,12 @@ private fun BookPlayerContent(
                 closeLabel = stringResource(R.string.player_close),
                 onClose = onClose,
             ) {
-                // Wie im Menü: Folgen vom Gerät haben keine öffentliche Adresse.
-                bookWithProgress?.book?.takeIf { it.kind == BookKind.BOOK || !it.isLocal }?.let { ShareButton(ShareTarget.Book(it.id)) }
+                bookWithProgress?.book?.let { book ->
+                    // Wie im Menü: Folgen vom Gerät haben keine öffentliche Adresse.
+                    if (book.kind == BookKind.BOOK || !book.isLocal) ShareButton(ShareTarget.Book(book.id))
+                    // Wie auf der Buch-/Folgenseite rechts neben Teilen; ohne Uhr unsichtbar.
+                    WatchToggleButton(WatchTarget.Spoken(book.id))
+                }
             }
             if (short) {
                 // Links Cover mit den Knöpfen darunter, rechts Titel und Steuerung.

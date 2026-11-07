@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -328,23 +329,26 @@ private fun NowPlayingContent(
 /** Darunter (und breiter als hoch) liegt Now Playing in zwei Spalten statt Cover über den Knöpfen. */
 internal val ShortHeight = 480.dp
 
-/** Kopfzeile aller Wiedergabe-Ansichten (Musik, Bücher, Folgen): Schließen links, Titel mittig, rechts [action] (Teilen). */
+/**
+ * Kopfzeile aller Wiedergabe-Ansichten (Musik, Bücher, Folgen): Schließen links, Titel mittig, rechts [actions]
+ * (Teilen, bei Büchern und Folgen auch die Uhr).
+ */
 @Composable
-internal fun PlayerTopBar(title: String, closeLabel: String, onClose: () -> Unit, action: @Composable () -> Unit = {}) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onClose) {
+internal fun PlayerTopBar(title: String, closeLabel: String, onClose: () -> Unit, actions: @Composable RowScope.() -> Unit = {}) {
+    Box(Modifier.fillMaxWidth().height(48.dp)) {
+        IconButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterStart)) {
             Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = closeLabel)
         }
+        // Links und rechts Platz für zwei Knöpfe: Der Titel bleibt mittig, egal wie viele es sind.
         Text(
             title,
             style = MaterialTheme.typography.titleSmall,
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.align(Alignment.Center).padding(horizontal = 96.dp),
         )
-        // So groß wie der Schließen-Knopf: Der Titel bleibt mittig, auch ohne Knopf.
-        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { action() }
+        Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, content = actions)
     }
 }
 
