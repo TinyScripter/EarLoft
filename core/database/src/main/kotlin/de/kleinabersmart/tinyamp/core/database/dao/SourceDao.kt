@@ -30,12 +30,6 @@ interface SourceDao {
     @Query("SELECT * FROM sources WHERE sourceId = :sourceId")
     suspend fun get(sourceId: String): SourceEntity?
 
-    @Query("SELECT * FROM sources WHERE type = :type")
-    suspend fun getByType(type: SourceType): List<SourceEntity>
-
-    @Query("SELECT * FROM sources WHERE type = :type ORDER BY priority DESC, name")
-    fun observeByType(type: SourceType): Flow<List<SourceEntity>>
-
     /** Alle Musikserver gleich welcher Art ([SourceType.isServer], siehe [NOT_SERVER_TYPES]). */
     @Query("SELECT * FROM sources WHERE type NOT IN $NOT_SERVER_TYPES")
     suspend fun getServers(): List<SourceEntity>

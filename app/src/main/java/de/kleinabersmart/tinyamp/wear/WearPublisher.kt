@@ -7,10 +7,12 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.tinyamp.core.data.spoken.SpokenSettings
+import de.kleinabersmart.tinyamp.core.data.wear.MirroredServer
 import de.kleinabersmart.tinyamp.core.data.wear.WatchSpoken
 import de.kleinabersmart.tinyamp.core.data.wear.WearContent
 import de.kleinabersmart.tinyamp.core.data.wear.WearSelectionRepository
 import de.kleinabersmart.tinyamp.core.data.wear.WearServerMirror
+import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.playback.ReplayGainSettings
 import de.kleinabersmart.tinyamp.core.wearsync.WearCodec
 import de.kleinabersmart.tinyamp.core.wearsync.WearPaths
@@ -74,8 +76,10 @@ class WearPublisher @Inject constructor(
         }
         scope.launch {
             combine(servers.servers(), audiobookshelf.servers) { music, spoken ->
+                val (subsonic, other) = music.partition { it.type == SourceType.SUBSONIC }
                 WearServersDto(
-                    servers = music.map { WearServerDto(it.sourceId, it.name, it.baseUrl, it.username, it.priority, it.formPost) },
+                    servers = subsonic.map { it.toDto() },
+                    otherServers = other.map { it.toDto() },
                     // Ausgeschaltete Server fehlen: Ihre Bücher sind am Handy ausgeblendet und fallen von der Uhr.
                     spokenServers = spoken.filter { it.enabled }.map { WearSpokenServerDto(it.serverId, it.name, it.baseUrl) },
                 )
@@ -103,6 +107,8 @@ class WearPublisher @Inject constructor(
                 .collect { dataClient.putPayload(WearPaths.SETTINGS, WearCodec.encode(it)) }
         }
     }
+
+    private fun MirroredServer.toDto() = WearServerDto(sourceId, type.name, name, baseUrl, username, priority, formPost)
 
     /** Nur bei geändertem Inhalt – sonst löste jeder Abgleich am Handy Arbeit auf der Uhr aus. */
     private suspend fun publishManifest(content: WearContent) {

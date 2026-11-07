@@ -1,6 +1,7 @@
 package de.kleinabersmart.tinyamp.core.data.wear
 
 import de.kleinabersmart.tinyamp.core.model.ReplayGain
+import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.model.WearSelectionKind
 
 /**
@@ -67,6 +68,8 @@ data class WearPhoneFile(
 /** Ein Server, wie die Uhr ihn spiegelt – ohne Passwort (Wear-Konzept 6). */
 data class MirroredServer(
     val sourceId: String,
+    /** Immer ein Server-Typ ([SourceType.isServer]). */
+    val type: SourceType,
     val name: String,
     val baseUrl: String,
     val username: String,

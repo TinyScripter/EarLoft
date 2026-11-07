@@ -24,6 +24,7 @@ import de.kleinabersmart.tinyamp.core.wearsync.WearCredentialsRequest
 import de.kleinabersmart.tinyamp.core.wearsync.WearManifest
 import de.kleinabersmart.tinyamp.core.wearsync.WearPaths
 import de.kleinabersmart.tinyamp.core.wearsync.WearPodcastManifest
+import de.kleinabersmart.tinyamp.core.wearsync.WearServerDto
 import de.kleinabersmart.tinyamp.core.wearsync.WearServersDto
 import de.kleinabersmart.tinyamp.core.wearsync.WearSettingsDto
 import de.kleinabersmart.tinyamp.core.wearsync.assetPayloadsAt
@@ -72,7 +73,7 @@ class PhoneLibrarySync @Inject constructor(
         }
         if (servers != null) {
             val dto = WearCodec.decode<WearServersDto>(servers.value)
-            serverMirror.apply(dto.servers.map { MirroredServer(it.sourceId, it.name, it.baseUrl, it.username, it.priority, it.formPost) })
+            serverMirror.apply((dto.servers + dto.otherServers).mapNotNull { it.toMirrored() })
             audiobookshelf.mirror(dto.spokenServers.map { MirroredAbsServer(it.serverId, it.name, it.baseUrl) })
             requestMissingPasswords(phoneNodeId = servers.key)
         }
@@ -93,6 +94,16 @@ class PhoneLibrarySync @Inject constructor(
             Log.d(TAG, "Passwort für $sourceId anfordern")
             messageClient.sendPayload(phoneNodeId, WearPaths.CREDENTIALS_REQUEST, WearCodec.encode(WearCredentialsRequest(sourceId)))
         }
+    }
+
+    /** `null` für Typen, die diese Uhr-Version (noch) nicht kennt – ihre Songs lädt sie über das Handy. */
+    private fun WearServerDto.toMirrored(): MirroredServer? {
+        val sourceType = SourceType.entries.firstOrNull { it.name == type && it.isServer }
+        if (sourceType == null) {
+            Log.w(TAG, "Server $sourceId: Typ $type wird nicht unterstützt")
+            return null
+        }
+        return MirroredServer(sourceId, sourceType, name, baseUrl, username, priority, formPost)
     }
 
     private companion object {

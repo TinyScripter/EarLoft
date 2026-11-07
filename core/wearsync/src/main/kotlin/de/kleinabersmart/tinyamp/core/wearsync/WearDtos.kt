@@ -1,6 +1,7 @@
 package de.kleinabersmart.tinyamp.core.wearsync
 
 import de.kleinabersmart.tinyamp.core.model.ReplayGainMode
+import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.core.model.WearSelectionKind
 import kotlinx.serialization.Serializable
@@ -97,11 +98,14 @@ data class WearWatchInfoDto(
 
 /**
  * Server ohne Secrets; das Passwort bzw. der API-Schlüssel kommt nur per [WearCredentialsDto] auf Anfrage.
+ * [servers]: die Subsonic-Server. [otherServers]: alle anderen Musikserver (Jellyfin, Konzept 14) – eigene Liste, weil
+ * ältere Uhren jeden Eintrag in [servers] als Subsonic spiegeln; diese Liste kennen sie nicht.
  * [spokenServers]: die eingeschalteten Audiobookshelf-Server (Bücher auf der Uhr, Wear-Konzept 16.2).
  */
 @Serializable
 data class WearServersDto(
     val servers: List<WearServerDto> = emptyList(),
+    val otherServers: List<WearServerDto> = emptyList(),
     val spokenServers: List<WearSpokenServerDto> = emptyList(),
 )
 
@@ -116,6 +120,8 @@ data class WearSpokenServerDto(
 @Serializable
 data class WearServerDto(
     val sourceId: String,
+    /** Name des `SourceType`; als Text, damit die Uhr unbekannte Typen überspringen kann. */
+    val type: String = SourceType.SUBSONIC.name,
     val name: String,
     val baseUrl: String,
     val username: String,
@@ -124,7 +130,7 @@ data class WearServerDto(
 )
 
 enum class WearQuality {
-    /** Navidrome transkodiert beim Download (`format=opus&maxBitRate=128`). */
+    /** Der Server transkodiert beim Download (Opus mit 128 kbit/s). */
     OPUS_128,
 
     /** Die Datei wie auf dem Server. */

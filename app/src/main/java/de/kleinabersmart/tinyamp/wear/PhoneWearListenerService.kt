@@ -207,8 +207,8 @@ class PhoneWearListenerService : WearableListenerService() {
     }
 
     /**
-     * Das Passwort bzw. der API-Schlüssel eines Audiobookshelf-Servers (16.2) geht nur als Message an genau die anfragende
-     * Uhr, nie als DataItem (Wear-Konzept 4).
+     * Das Passwort (bei Jellyfin Benutzer-ID und Token) bzw. der API-Schlüssel eines Audiobookshelf-Servers (16.2) geht nur
+     * als Message an genau die anfragende Uhr, nie als DataItem (Wear-Konzept 4).
      */
     private suspend fun sendPassword(nodeId: String, sourceId: String) {
         val password = serverMirror.password(sourceId) ?: audiobookshelf.apiKey(sourceId)

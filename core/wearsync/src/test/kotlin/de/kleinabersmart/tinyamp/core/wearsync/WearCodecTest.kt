@@ -68,6 +68,24 @@ class WearCodecTest {
     }
 
     @Test
+    fun `servers of an older phone are subsonic servers`() {
+        val json = """{"servers":[{"sourceId":"nd","name":"Navidrome","baseUrl":"https://nd.example","username":"anna"}]}"""
+
+        val servers = WearCodec.decode<WearServersDto>(json.encodeToByteArray())
+
+        assertEquals("SUBSONIC", servers.servers.single().type)
+        assertTrue(servers.otherServers.isEmpty())
+    }
+
+    @Test
+    fun `other servers keep their type`() {
+        val jellyfin = WearServerDto("jf", "JELLYFIN", "Jellyfin", "https://jf.example", "anna")
+        val servers = WearServersDto(otherServers = listOf(jellyfin))
+
+        assertEquals(servers, WearCodec.decode<WearServersDto>(WearCodec.encode(servers)))
+    }
+
+    @Test
     fun `missing optional fields fall back to their defaults`() {
         val settings = WearCodec.decode<WearSettingsDto>("{}".encodeToByteArray())
 

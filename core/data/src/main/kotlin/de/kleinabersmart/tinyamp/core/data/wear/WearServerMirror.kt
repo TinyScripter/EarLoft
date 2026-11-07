@@ -3,12 +3,12 @@ package de.kleinabersmart.tinyamp.core.data.wear
 import androidx.room.withTransaction
 import de.kleinabersmart.tinyamp.core.data.security.SecretStore
 import de.kleinabersmart.tinyamp.core.data.source.DataSourceRegistry
+import de.kleinabersmart.tinyamp.core.data.source.JellyfinSecret
 import de.kleinabersmart.tinyamp.core.data.sync.LibraryChangeListener
 import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
 import de.kleinabersmart.tinyamp.core.database.dao.LibraryDao
 import de.kleinabersmart.tinyamp.core.database.dao.SourceDao
 import de.kleinabersmart.tinyamp.core.database.entity.SourceEntity
-import de.kleinabersmart.tinyamp.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -17,7 +17,8 @@ import javax.inject.Singleton
 /**
  * Server-Zugang der Uhr (Wear-Konzept 6). Das Handy liefert die Server ohne Passwort ([servers]) und
  * das Passwort einzeln auf Anfrage ([password]); die Uhr spiegelt beides ([apply], [storePassword]).
- * Die `sourceId` ist auf beiden Geräten dieselbe.
+ * Die `sourceId` ist auf beiden Geräten dieselbe. Bei Jellyfin ist das „Passwort“ das [JellyfinSecret] des Handys:
+ * Die Uhr nutzt dessen Token mit (Konzept 14), angemeldet ist nur das Handy.
  */
 @Singleton
 class WearServerMirror @Inject constructor(
@@ -31,10 +32,10 @@ class WearServerMirror @Inject constructor(
     // --- Handy ---
 
     fun servers(): Flow<List<MirroredServer>> =
-        sourceDao.observeByType(SourceType.SUBSONIC).map { sources -> sources.mapNotNull { it.toMirrored() } }
+        sourceDao.observeServers().map { sources -> sources.mapNotNull { it.toMirrored() } }
 
     suspend fun password(sourceId: String): String? =
-        if (sourceDao.get(sourceId)?.type == SourceType.SUBSONIC) secretStore.get(DataSourceRegistry.passwordKey(sourceId)) else null
+        if (sourceDao.get(sourceId)?.type?.isServer == true) secretStore.get(DataSourceRegistry.passwordKey(sourceId)) else null
 
     // --- Uhr ---
 
@@ -43,9 +44,10 @@ class WearServerMirror @Inject constructor(
      * Passwörtern; Sync-Zustand und Songs der übrigen bleiben (gleiche `sourceId`, z. B. nach dem Bearbeiten).
      */
     suspend fun apply(servers: List<MirroredServer>) {
-        val existing = sourceDao.getByType(SourceType.SUBSONIC).associateBy { it.sourceId }
+        val existing = sourceDao.getServers().associateBy { it.sourceId }
         val updated = servers.map { server ->
-            (existing[server.sourceId] ?: SourceEntity(server.sourceId, SourceType.SUBSONIC, server.name)).copy(
+            (existing[server.sourceId] ?: SourceEntity(server.sourceId, server.type, server.name)).copy(
+                type = server.type,
                 name = server.name,
                 baseUrl = server.baseUrl,
                 username = server.username,
@@ -69,13 +71,13 @@ class WearServerMirror @Inject constructor(
 
     /** Server, für die die Uhr noch kein (lesbares) Passwort hat. */
     suspend fun serversWithoutPassword(): List<String> =
-        sourceDao.getByType(SourceType.SUBSONIC)
+        sourceDao.getServers()
             .map { it.sourceId }
             .filter { secretStore.get(DataSourceRegistry.passwordKey(it)) == null }
 
     /** @return `false`, wenn der Server (noch) nicht gespiegelt ist. */
     suspend fun storePassword(sourceId: String, password: String): Boolean {
-        if (sourceDao.get(sourceId)?.type != SourceType.SUBSONIC) return false
+        if (sourceDao.get(sourceId)?.type?.isServer != true) return false
         secretStore.put(DataSourceRegistry.passwordKey(sourceId), password)
         registry.reload()
         return true
@@ -83,6 +85,7 @@ class WearServerMirror @Inject constructor(
 
     private fun SourceEntity.toMirrored(): MirroredServer? = MirroredServer(
         sourceId = sourceId,
+        type = type,
         name = name,
         baseUrl = baseUrl ?: return null,
         username = username ?: return null,
