@@ -23,3 +23,7 @@ class HttpStatusException(val status: Int) : IOException("HTTP $status") {
     /** 401: Server, die Fehler per Statuscode melden, lehnen so falsche oder abgelaufene Zugangsdaten ab. */
     val isAuthError: Boolean get() = status == 401
 }
+
+/** Der Server hat die Zugangsdaten abgelehnt ([ServerApiException.isAuthError], [HttpStatusException.isAuthError]). */
+val Throwable.isAuthRejection: Boolean
+    get() = (this as? ServerApiException)?.isAuthError == true || (this as? HttpStatusException)?.isAuthError == true

@@ -10,6 +10,7 @@ import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -133,12 +134,7 @@ class DownloaderTest {
 
     @Test
     fun `subsonic error with status 200 is not saved as audio`() = runTest {
-        mockServer.enqueue(
-            MockResponse.Builder()
-                .addHeader("Content-Type", "application/json")
-                .body("""{"subsonic-response":{"status":"failed","error":{"code":40}}}""")
-                .build(),
-        )
+        mockServer.enqueue(subsonicError(70))
 
         val outcome = downloader.download(queued())
 
@@ -147,12 +143,32 @@ class DownloaderTest {
     }
 
     @Test
+    fun `rejected subsonic password is retried with new credentials`() = runTest {
+        mockServer.enqueue(subsonicError(40))
+
+        val outcome = downloader.download(queued())
+
+        assertTrue((outcome as DownloadOutcome.Retry).isAuthRejection)
+        assertEquals(DownloadState.RUNNING, library.db.downloadDao().get(uid)!!.state)
+    }
+
+    @Test
+    fun `rejected token is retried with new credentials`() = runTest {
+        mockServer.enqueue(MockResponse.Builder().code(401).build())
+
+        val outcome = downloader.download(queued())
+
+        assertTrue((outcome as DownloadOutcome.Retry).isAuthRejection)
+        assertEquals(DownloadState.RUNNING, library.db.downloadDao().get(uid)!!.state)
+    }
+
+    @Test
     fun `server error is retried later`() = runTest {
         mockServer.enqueue(MockResponse.Builder().code(503).build())
 
         val outcome = downloader.download(queued())
 
-        assertTrue(outcome is DownloadOutcome.Retry)
+        assertFalse((outcome as DownloadOutcome.Retry).isAuthRejection)
         assertEquals(DownloadState.RUNNING, library.db.downloadDao().get(uid)!!.state)
         assertTrue(storage.directory.listFiles().orEmpty().isEmpty())
     }
@@ -179,6 +195,11 @@ class DownloaderTest {
     }
 
     private suspend fun queued() = library.db.downloadDao().get(uid)!!
+
+    private fun subsonicError(code: Int) = MockResponse.Builder()
+        .addHeader("Content-Type", "application/json")
+        .body("""{"subsonic-response":{"status":"failed","error":{"code":$code}}}""")
+        .build()
 
     private fun audio(bytes: ByteArray) = MockResponse.Builder()
         .addHeader("Content-Type", "audio/flac")

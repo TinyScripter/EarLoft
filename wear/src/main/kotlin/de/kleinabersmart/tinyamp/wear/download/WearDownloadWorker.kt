@@ -38,6 +38,7 @@ import de.kleinabersmart.tinyamp.core.wearsync.WearBookFile
 import de.kleinabersmart.tinyamp.core.wearsync.WearEpisodeFile
 import de.kleinabersmart.tinyamp.core.wearsync.WearQuality
 import de.kleinabersmart.tinyamp.wear.R
+import de.kleinabersmart.tinyamp.wear.sync.CredentialsRequester
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
@@ -105,8 +106,11 @@ class WearDownloadWorker(
                         val failures = state.recordServerFailure(uid)
                         // Ein nicht erreichbarer Server trifft alle wartenden Songs von ihm: Sonst brauchte jeder drei eigene
                         // Läufe, und der Backoff von WorkManager wüchse dabei weiter.
-                        downloadDao.getSongSource(uid)?.sourceId?.let { sourceId ->
+                        val sourceId = downloadDao.getSongSource(uid)?.sourceId
+                        if (sourceId != null) {
                             state.recordServerFailures(downloadDao.queuedUidsOfSource(sourceId).filter { it != uid })
+                            // Neues Passwort bzw. neuer Token am Handy: Die Antwort ersetzt die Zugangsdaten vor dem nächsten Versuch.
+                            if (outcome.isAuthRejection) entryPoint.credentials().request(listOf(sourceId))
                         }
                         // Der Text steht ausdrücklich im Log: Log.w mit Throwable gibt bei UnknownHostException keinen Stacktrace aus.
                         Log.w(TAG, "Download $uid unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
@@ -476,6 +480,7 @@ class WearDownloadWorker(
         fun bookDownloader(): BookDownloader
         fun bookStorage(): BookStorage
         fun audiobookshelf(): AudiobookshelfServers
+        fun credentials(): CredentialsRequester
     }
 
     private companion object {

@@ -3,7 +3,6 @@ package de.kleinabersmart.tinyamp.wear.sync
 import android.util.Log
 import androidx.room.withTransaction
 import com.google.android.gms.wearable.DataClient
-import com.google.android.gms.wearable.MessageClient
 import de.kleinabersmart.tinyamp.core.data.podcast.EpisodeQueue
 import de.kleinabersmart.tinyamp.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.tinyamp.core.data.spoken.MirroredAbsServer
@@ -20,7 +19,6 @@ import de.kleinabersmart.tinyamp.core.database.entity.SourceEntity
 import de.kleinabersmart.tinyamp.core.database.entity.WearSelectionEntity
 import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.wearsync.WearCodec
-import de.kleinabersmart.tinyamp.core.wearsync.WearCredentialsRequest
 import de.kleinabersmart.tinyamp.core.wearsync.WearManifest
 import de.kleinabersmart.tinyamp.core.wearsync.WearPaths
 import de.kleinabersmart.tinyamp.core.wearsync.WearPodcastManifest
@@ -30,7 +28,6 @@ import de.kleinabersmart.tinyamp.core.wearsync.WearSettingsDto
 import de.kleinabersmart.tinyamp.core.wearsync.assetPayloadsAt
 import de.kleinabersmart.tinyamp.core.wearsync.hashesAt
 import de.kleinabersmart.tinyamp.core.wearsync.payloadsAt
-import de.kleinabersmart.tinyamp.core.wearsync.sendPayload
 import de.kleinabersmart.tinyamp.wear.download.WatchState
 import de.kleinabersmart.tinyamp.wear.download.WearDownloadPlanner
 import kotlinx.coroutines.sync.Mutex
@@ -46,7 +43,7 @@ import javax.inject.Singleton
 @Singleton
 class PhoneLibrarySync @Inject constructor(
     private val dataClient: DataClient,
-    private val messageClient: MessageClient,
+    private val credentials: CredentialsRequester,
     private val serverMirror: WearServerMirror,
     private val audiobookshelf: AudiobookshelfServers,
     private val manifestApplier: ManifestApplier,
@@ -90,10 +87,7 @@ class PhoneLibrarySync @Inject constructor(
      * Antwort kommt als Message an den `WatchListenerService`. Ist das Handy nicht erreichbar, fragt der nächste Lauf.
      */
     private suspend fun requestMissingPasswords(phoneNodeId: String) {
-        (serverMirror.serversWithoutPassword() + audiobookshelf.withoutKey()).forEach { sourceId ->
-            Log.d(TAG, "Passwort für $sourceId anfordern")
-            messageClient.sendPayload(phoneNodeId, WearPaths.CREDENTIALS_REQUEST, WearCodec.encode(WearCredentialsRequest(sourceId)))
-        }
+        credentials.request(serverMirror.serversWithoutPassword() + audiobookshelf.withoutKey(), phoneNodeId)
     }
 
     /** `null` für Typen, die diese Uhr-Version (noch) nicht kennt – ihre Songs lädt sie über das Handy. */

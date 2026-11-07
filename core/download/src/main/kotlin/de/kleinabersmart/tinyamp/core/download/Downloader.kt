@@ -7,6 +7,9 @@ import de.kleinabersmart.tinyamp.core.database.dao.DownloadDao
 import de.kleinabersmart.tinyamp.core.database.entity.DownloadEntity
 import de.kleinabersmart.tinyamp.core.datasource.PlaybackLocation
 import de.kleinabersmart.tinyamp.core.datasource.RemoteTranscoding
+import de.kleinabersmart.tinyamp.core.network.HttpStatusException
+import de.kleinabersmart.tinyamp.core.network.isAuthRejection
+import de.kleinabersmart.tinyamp.core.network.subsonic.subsonicErrorIn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -28,8 +31,11 @@ sealed interface DownloadOutcome {
     /** Dauerhaft fehlgeschlagen (z. B. Datei auf dem Server weg, Speicher voll). */
     data class Failed(val reason: String) : DownloadOutcome
 
-    /** Vorübergehender Fehler (Netz); der Eintrag steht noch auf `RUNNING`. */
-    data class Retry(val cause: Exception) : DownloadOutcome
+    /** Vorübergehender Fehler (Netz, abgelehnte Anmeldung); der Eintrag steht noch auf `RUNNING`. */
+    data class Retry(val cause: Exception) : DownloadOutcome {
+        /** Der Server hat die Zugangsdaten abgelehnt: Mit neuen klappt es (die Uhr fragt dann beim Handy nach). */
+        val isAuthRejection: Boolean get() = cause.isAuthRejection
+    }
 
     /** Der Eintrag wurde während des Ladens entfernt. */
     data object Cancelled : DownloadOutcome
@@ -108,10 +114,15 @@ class Downloader @Inject constructor(
                     val contentType = response.header("Content-Type").orEmpty()
                     when {
                         response.code in 500..599 -> throw IOException("HTTP ${response.code}")
+                        // Abgelehnte Zugangsdaten sind vorübergehend: Passwort bzw. Token können sich geändert haben.
+                        response.code == HTTP_UNAUTHORIZED -> throw HttpStatusException(response.code)
                         !response.isSuccessful -> return@withContext DownloadOutcome.Failed("HTTP ${response.code}")
                         // Subsonic meldet Fehler (z. B. Auth) als JSON/XML mit HTTP 200, andere Server per Status.
-                        contentType.startsWith("application/json") || contentType.contains("xml") ->
-                            return@withContext DownloadOutcome.Failed("Server-Fehler statt Audiodatei")
+                        contentType.startsWith("application/json") || contentType.contains("xml") -> {
+                            val error = subsonicErrorIn(response.peekBody(MAX_ERROR_BODY_BYTES).string())
+                            if (error?.isAuthError == true) throw error
+                            return@withContext DownloadOutcome.Failed(error?.message ?: "Server-Fehler statt Audiodatei")
+                        }
                     }
                     val total = response.body.contentLength().takeIf { it >= 0 }
                     if (total != null && storage.freeBytes() < total + FREE_SPACE_RESERVE_BYTES) {
@@ -192,5 +203,9 @@ class Downloader @Inject constructor(
         const val BUFFER_BYTES = 64 * 1024
         const val PROGRESS_INTERVAL_NANOS = 500_000_000L
         const val FREE_SPACE_RESERVE_BYTES = 100L * 1024 * 1024
+        const val HTTP_UNAUTHORIZED = 401
+
+        /** Fehlerantworten sind klein; mehr wird nie gelesen. */
+        const val MAX_ERROR_BODY_BYTES = 16L * 1024
     }
 }

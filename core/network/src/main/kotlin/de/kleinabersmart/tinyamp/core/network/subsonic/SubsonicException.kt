@@ -2,6 +2,8 @@ package de.kleinabersmart.tinyamp.core.network.subsonic
 
 import de.kleinabersmart.tinyamp.core.network.ServerApiException
 import de.kleinabersmart.tinyamp.core.network.UnexpectedResponseException
+import de.kleinabersmart.tinyamp.core.network.subsonic.dto.SubsonicEnvelope
+import kotlinx.serialization.SerializationException
 
 /** Der Server hat mit `status = failed` geantwortet; [serverMessage] ist seine Meldung ohne Code. */
 class SubsonicException(code: Int, serverMessage: String?) :
@@ -16,6 +18,22 @@ class SubsonicException(code: Int, serverMessage: String?) :
         const val NOT_AUTHORIZED = 50
         const val NOT_FOUND = 70
     }
+}
+
+/**
+ * Subsonic meldet Fehler auch bei Datei-Endpunkten (Stream, Download) als JSON mit HTTP 200. Liefert den Fehler aus so
+ * einer Antwort; `null`, wenn [body] keine Subsonic-Fehlerantwort ist.
+ */
+fun subsonicErrorIn(body: String): SubsonicException? {
+    val response = try {
+        SubsonicApi.json.decodeFromString<SubsonicEnvelope>(body).response
+    } catch (_: SerializationException) {
+        return null
+    } catch (_: IllegalArgumentException) {
+        return null
+    }
+    if (response.status == "ok") return null
+    return SubsonicException(response.error?.code ?: SubsonicException.GENERIC, response.error?.message)
 }
 
 /** Die Antwort war kein Subsonic-JSON (falsche URL, Reverse-Proxy-Fehlerseite …). */
