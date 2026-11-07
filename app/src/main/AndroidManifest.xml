@@ -49,6 +49,25 @@
 
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- Geteilte Podcast-Adressen (Konzept 13) öffnen die Vorschau; TinyAmp nimmt sich aus dem eigenen Teilen-Menü aus. -->
+            <intent-filter android:label="@string/podcast_add">
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter android:label="@string/podcast_add">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="feed" />
+                <data android:scheme="pcast" />
+                <data android:scheme="itpc" />
+                <data android:scheme="podcast" />
+            </intent-filter>
         </activity>
 
         <!-- Android Auto: Medien-App; Browse-Tree und Wiedergabe kommen vom PlaybackService. -->

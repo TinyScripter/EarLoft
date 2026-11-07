@@ -30,6 +30,7 @@ import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import de.kleinabersmart.tinyamp.cast.CastVolumeIndicator
 import de.kleinabersmart.tinyamp.core.data.podcast.PodcastRefresher
+import de.kleinabersmart.tinyamp.core.data.share.IncomingFeed
 import de.kleinabersmart.tinyamp.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.tinyamp.core.data.sync.LibraryRefresher
 import de.kleinabersmart.tinyamp.core.data.sync.LibrarySettings
@@ -63,6 +64,9 @@ class MainActivity : ComponentActivity() {
     /** Der Tipp auf die Benachrichtigung der laufenden Musik soll immer die Wiedergabe-Ansicht zeigen. */
     private var openNowPlaying by mutableStateOf(false)
 
+    /** Von einer anderen App geteilte Podcast-Adresse (Konzept 13); die Oberfläche öffnet sie als Vorschau. */
+    private var sharedFeedUrl by mutableStateOf<String?>(null)
+
     /** Zählt die abgefangenen Lautstärketasten beim Casten; jede Änderung blendet [CastVolumeIndicator] ein. */
     private var castVolumePresses by mutableIntStateOf(0)
 
@@ -88,6 +92,17 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         if (intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)) openNowPlaying = true
         playFromSearch(intent)
+        openSharedFeed(intent)
+    }
+
+    /** Geteilter Text oder ein Link wie `feed://…`: Die Adresse öffnet die Vorschau als Probeabo (Konzept 12.10, 13). */
+    private fun openSharedFeed(intent: Intent) {
+        val address = when (intent.action) {
+            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)?.let(IncomingFeed::fromText)
+            Intent.ACTION_VIEW -> intent.dataString?.let(IncomingFeed::fromLink)
+            else -> null
+        }
+        if (address != null) sharedFeedUrl = address
     }
 
     /** Sprachsuche des Systems („Spiele … mit TinyAmp“): abspielen und die Wiedergabe-Ansicht zeigen. */
@@ -118,6 +133,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             openNowPlaying = intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)
             playFromSearch(intent)
+            openSharedFeed(intent)
         }
         setContent {
             val themeMode by themeSettings.mode.collectAsStateWithLifecycle(initialValue = null)
@@ -153,6 +169,8 @@ class MainActivity : ComponentActivity() {
                         TinyAmpApp(
                             openNowPlaying = openNowPlaying,
                             onNowPlayingOpened = { openNowPlaying = false },
+                            sharedFeedUrl = sharedFeedUrl,
+                            onSharedFeedOpened = { sharedFeedUrl = null },
                             alwaysShowNavigationBar = alwaysNavigationBar,
                         )
                     }

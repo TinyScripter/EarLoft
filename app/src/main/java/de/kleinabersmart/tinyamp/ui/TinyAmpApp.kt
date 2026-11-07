@@ -147,6 +147,8 @@ import kotlinx.coroutines.launch
 fun TinyAmpApp(
     openNowPlaying: Boolean = false,
     onNowPlayingOpened: () -> Unit = {},
+    sharedFeedUrl: String? = null,
+    onSharedFeedOpened: () -> Unit = {},
     alwaysShowNavigationBar: Boolean = true,
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -159,6 +161,14 @@ fun TinyAmpApp(
         if (openNowPlaying) {
             navigator.showNowPlaying()
             onNowPlayingOpened()
+        }
+    }
+    // Eine geteilte Podcast-Adresse öffnet die Vorschau wie ein Verzeichnistreffer; bis der Feed geladen ist, steht die
+    // Adresse als Titel da.
+    LaunchedEffect(sharedFeedUrl) {
+        if (sharedFeedUrl != null) {
+            navigator.navigate(PodcastPreviewRoute(sharedFeedUrl, title = sharedFeedUrl, author = "", imageUrl = null))
+            onSharedFeedOpened()
         }
     }
     // Hier nur ableiten: Jede Änderung am Player (Play/Pause, Titel, Warteschlange, Tempo) setzte sonst Navigation und

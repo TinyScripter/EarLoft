@@ -1,5 +1,6 @@
 package de.kleinabersmart.tinyamp.ui.components
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.compose.material3.DropdownMenuItem
@@ -17,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.kleinabersmart.tinyamp.MainActivity
 import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.data.share.ShareContent
 import de.kleinabersmart.tinyamp.core.data.share.ShareRepository
@@ -54,7 +56,10 @@ private fun Context.startShare(content: ShareContent) {
         .putExtra(Intent.EXTRA_TEXT, content.text)
         .putExtra(Intent.EXTRA_SUBJECT, content.subject)
         .putExtra(Intent.EXTRA_TITLE, content.subject)
-    startActivity(Intent.createChooser(send, null))
+    // TinyAmp nimmt geteilten Text selbst an (Podcast hinzufügen); im eigenen Teilen-Menü wäre das nur verwirrend.
+    val chooser = Intent.createChooser(send, null)
+        .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(this, MainActivity::class.java)))
+    startActivity(chooser)
 }
 
 /** Eintrag „Teilen“ für die Kontextmenüs; ohne [LocalShareController] unsichtbar. */
