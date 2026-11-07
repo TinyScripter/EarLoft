@@ -17,6 +17,8 @@ import de.kleinabersmart.tinyamp.ui.LoadState
 import de.kleinabersmart.tinyamp.ui.components.EmptyHint
 import de.kleinabersmart.tinyamp.ui.components.LoadFailedHint
 import de.kleinabersmart.tinyamp.ui.components.LoadingIndicator
+import de.kleinabersmart.tinyamp.ui.components.ShareButton
+import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +39,7 @@ fun ArtistScreen(
                 }
             },
             navigationIcon = { BackButton(onBack) },
+            actions = { if (state is LoadState.Ready) ShareButton(ShareTarget.Artist(artistId)) },
         )
         when (val current = state) {
             LoadState.Loading -> LoadingIndicator()

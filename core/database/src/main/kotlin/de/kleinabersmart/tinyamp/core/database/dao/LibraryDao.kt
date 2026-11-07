@@ -264,6 +264,12 @@ abstract class LibraryDao {
     @Query("SELECT name FROM artists WHERE artistId = :artistId")
     abstract suspend fun getArtistName(artistId: Long): String?
 
+    @Query("SELECT * FROM artists WHERE artistId = :artistId")
+    abstract suspend fun getArtist(artistId: Long): ArtistEntity?
+
+    @Query("SELECT * FROM songs WHERE songId = :songId")
+    abstract suspend fun getSongEntity(songId: Long): SongEntity?
+
     @Query("SELECT seedColor FROM albums WHERE albumId = :albumId")
     abstract fun observeSeedColor(albumId: Long): Flow<Int?>
 

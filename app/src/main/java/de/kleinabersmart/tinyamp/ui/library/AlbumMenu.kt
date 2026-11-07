@@ -25,6 +25,8 @@ import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.model.Album
 import de.kleinabersmart.tinyamp.core.model.AlbumOfflineStatus
 import de.kleinabersmart.tinyamp.core.model.WearSelectionKind
+import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
+import de.kleinabersmart.tinyamp.ui.components.ShareMenuItem
 import de.kleinabersmart.tinyamp.ui.components.WatchMenuItem
 import de.kleinabersmart.tinyamp.ui.components.WatchTarget
 import de.kleinabersmart.tinyamp.ui.playlists.AddToPlaylistDialog
@@ -33,7 +35,7 @@ import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
 
 /**
  * Kontextmenü eines Albums (Langklick), aufgebaut wie das der Folgen: oben der Titel, darunter Als Nächstes spielen,
- * Zur Warteschlange, Zur Playlist, Herunterladen, Auf Uhr laden bzw. Von Uhr entfernen, Download entfernen. Erst einbinden, wenn es offen ist; [onDismiss]
+ * Zur Warteschlange, Zur Playlist, Teilen, Herunterladen, Auf Uhr laden bzw. Von Uhr entfernen, Download entfernen. Erst einbinden, wenn es offen ist; [onDismiss]
  * schließt es (auch nach den Dialogen für Playlist und Entfernen).
  */
 @Composable
@@ -80,6 +82,7 @@ fun AlbumMenu(
                 scope.launch { playlistSongs = viewModel.songIds(album.id) }
             },
         )
+        ShareMenuItem(ShareTarget.Album(album.id), onDismiss)
         // Wie auf der Album-Seite: rein lokale Alben brauchen keinen Download; ein teilweise geladenes Album bietet beides.
         if (offline.downloadableCount > 0) {
             if (!offline.isFullyOffline && offline.pendingCount == 0) {

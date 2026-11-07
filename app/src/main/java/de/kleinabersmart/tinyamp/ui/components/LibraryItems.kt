@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.ui.LoadState
+import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
 import de.kleinabersmart.tinyamp.core.designsystem.theme.TinyAmpTheme
 import de.kleinabersmart.tinyamp.core.model.Album
 import de.kleinabersmart.tinyamp.core.model.Artist
@@ -163,6 +164,7 @@ fun SongListItem(
                                 addToPlaylist = true
                             },
                         )
+                        ShareMenuItem(ShareTarget.Song(song.id), onDismiss = { menuOpen = false })
                         if (onRemoveFromPlaylist != null) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.action_remove_from_playlist)) },

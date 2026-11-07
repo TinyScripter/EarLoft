@@ -67,6 +67,8 @@ import de.kleinabersmart.tinyamp.ui.components.PreviewAlbum
 import de.kleinabersmart.tinyamp.ui.components.PreviewSong
 import de.kleinabersmart.tinyamp.ui.components.GroupedItem
 import de.kleinabersmart.tinyamp.ui.components.SectionHeader
+import de.kleinabersmart.tinyamp.ui.components.ShareButton
+import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
 import de.kleinabersmart.tinyamp.ui.components.SongActions
 import de.kleinabersmart.tinyamp.ui.components.SongListItem
 import de.kleinabersmart.tinyamp.ui.components.TwoColumnMinWidth
@@ -123,6 +125,7 @@ private fun AlbumContent(
                 if (state is LoadState.Ready) {
                     WatchToggleButton(WearSelectionKind.ALBUM, state.value.album.id)
                     AddAlbumToPlaylistButton(state.value.songs.map { it.id })
+                    ShareButton(ShareTarget.Album(state.value.album.id))
                 }
             },
         )

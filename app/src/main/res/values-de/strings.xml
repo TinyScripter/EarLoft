@@ -17,6 +17,7 @@
     <string name="action_back">Zurück</string>
     <string name="action_close_pane">Schließen</string>
     <string name="action_more">Weitere Optionen</string>
+    <string name="action_share">Teilen</string>
     <string name="action_play">Abspielen</string>
     <string name="action_pause">Pause</string>
     <string name="action_shuffle">Zufällig</string>

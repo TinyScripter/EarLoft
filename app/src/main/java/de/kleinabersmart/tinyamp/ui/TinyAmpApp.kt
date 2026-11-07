@@ -90,8 +90,10 @@ import de.kleinabersmart.tinyamp.navigation.TopLevelDestination
 import de.kleinabersmart.tinyamp.navigation.isFullScreenPlayer
 import de.kleinabersmart.tinyamp.navigation.rememberNavigationState
 import de.kleinabersmart.tinyamp.ui.components.LocalOfflineController
+import de.kleinabersmart.tinyamp.ui.components.LocalShareController
 import de.kleinabersmart.tinyamp.ui.components.LocalWatchController
 import de.kleinabersmart.tinyamp.ui.components.rememberOfflineController
+import de.kleinabersmart.tinyamp.ui.components.rememberShareController
 import de.kleinabersmart.tinyamp.ui.components.rememberWatchController
 import de.kleinabersmart.tinyamp.ui.downloads.DownloadsScreen
 import de.kleinabersmart.tinyamp.ui.home.HomeScreen
@@ -418,6 +420,7 @@ fun TinyAmpApp(
         LocalSnackbars provides snackbars,
         LocalOfflineController provides rememberOfflineController(),
         LocalWatchController provides rememberWatchController(),
+        LocalShareController provides rememberShareController(),
         LocalBookDownloads provides rememberBookDownloads(),
         LocalFeedDownloads provides rememberFeedDownloads(),
     ) {
