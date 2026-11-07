@@ -84,7 +84,7 @@ import java.io.File
         AbsSessionEntity::class,
         WearBookEntity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = TinyAmpDatabase.AddSearchIndex::class),
@@ -106,6 +106,7 @@ import java.io.File
         AutoMigration(from = 17, to = 18),
         AutoMigration(from = 18, to = 19, spec = TinyAmpDatabase.DropCastBaseUrl::class),
         AutoMigration(from = 19, to = 20, spec = TinyAmpDatabase.AddWebLinks::class),
+        AutoMigration(from = 20, to = 21),
     ],
 )
 abstract class TinyAmpDatabase : RoomDatabase() {

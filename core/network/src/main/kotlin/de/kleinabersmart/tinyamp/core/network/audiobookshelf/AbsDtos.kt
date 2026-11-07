@@ -61,6 +61,8 @@ data class AbsMetadataDto(
     val narratorName: String? = null,
     val seriesName: String? = null,
     val description: String? = null,
+    /** Zum Teilen über Open Library (Konzept 13); die ASIN bleibt bewusst weg. */
+    val isbn: String? = null,
 )
 
 @Serializable

@@ -138,6 +138,7 @@ class BookSyncer @Inject constructor(
             narrator = metadata.narratorName.orEmpty(),
             series = metadata.seriesName.orEmpty(),
             description = metadata.description.orEmpty(),
+            isbn = metadata.isbn?.trim()?.ifEmpty { null },
             durationMs = (media.duration * 1000).roundToLong(),
             remoteUpdatedAt = updatedAt,
             addedAt = addedAt,

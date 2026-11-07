@@ -85,6 +85,8 @@ data class BookEntity(
     val chaptersUrl: String? = null,
     /** Webseite einer Folge aus dem Feed, zum Teilen (Konzept 13). */
     val webUrl: String? = null,
+    /** ISBN eines Buchs aus Audiobookshelf, zum Teilen über Open Library (Konzept 13). */
+    val isbn: String? = null,
 )
 
 @Entity(

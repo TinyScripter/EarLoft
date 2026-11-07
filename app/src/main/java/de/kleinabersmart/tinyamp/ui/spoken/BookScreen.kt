@@ -115,7 +115,7 @@ fun BookScreen(
             // Folgen und Bücher einzeln auf die Uhr (Wear-Konzept 16.1/16.2).
             actions = {
                 if (book != null) {
-                    if (book.kind == BookKind.EPISODE && !book.isLocal) ShareButton(ShareTarget.Book(book.id))
+                    if (book.kind == BookKind.BOOK || !book.isLocal) ShareButton(ShareTarget.Book(book.id))
                     WatchToggleButton(WatchTarget.Spoken(book.id))
                 }
             },

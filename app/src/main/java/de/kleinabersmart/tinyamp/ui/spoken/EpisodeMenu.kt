@@ -73,7 +73,8 @@ fun EpisodeMenu(
             },
         )
         // Wie die übrigen Einträge ohne Symbol.
-        if (item.isEpisode && !item.book.isLocal) ShareMenuItem(ShareTarget.Book(id), onDismiss, withIcon = false)
+        // Podcasts vom Gerät haben keine öffentliche Adresse; Bücher vom Gerät finden sich über die Suche bei Open Library.
+        if (!item.isEpisode || !item.book.isLocal) ShareMenuItem(ShareTarget.Book(id), onDismiss, withIcon = false)
         WatchMenuItem(WatchTarget.Spoken(id), onDismiss, withIcon = false)
         // Dateien vom Gerät sind schon da.
         if (!item.book.isLocal) {

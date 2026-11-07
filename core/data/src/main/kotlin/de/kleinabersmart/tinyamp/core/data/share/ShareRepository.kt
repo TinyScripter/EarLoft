@@ -3,6 +3,7 @@ package de.kleinabersmart.tinyamp.core.data.share
 import de.kleinabersmart.tinyamp.core.database.dao.BookDao
 import de.kleinabersmart.tinyamp.core.database.dao.LibraryDao
 import de.kleinabersmart.tinyamp.core.database.dao.PodcastDao
+import de.kleinabersmart.tinyamp.core.database.entity.BookEntity
 import de.kleinabersmart.tinyamp.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.tinyamp.core.model.BookKind
 import de.kleinabersmart.tinyamp.core.network.podcast.ardsounds.ardSoundsPageUrl
@@ -17,7 +18,7 @@ sealed interface ShareTarget {
     data class Artist(val artistId: Long) : ShareTarget
     data class Feed(val feedId: String) : ShareTarget
 
-    /** Folge (Buch folgt in Etappe 3). */
+    /** Buch oder Folge. */
     data class Book(val bookId: Long) : ShareTarget
 }
 
@@ -46,13 +47,20 @@ class ShareRepository @Inject constructor(
         is ShareTarget.Feed -> podcastDao.feed(target.feedId)?.takeIf(::isShareable)?.let { feed ->
             content(feed.title, *feedLinks(feed, ShareLinks.publicPage(feed.websiteUrl)))
         }
-        is ShareTarget.Book -> episode(target.bookId)
+        is ShareTarget.Book -> bookDao.book(target.bookId)?.let { book ->
+            when (book.kind) {
+                BookKind.BOOK -> content(
+                    titleWithArtist(book.title, ShareLinks.mainAuthor(book.author) ?: book.author),
+                    ShareLinks.openLibrary(book.isbn, book.title, book.author),
+                )
+                BookKind.EPISODE -> episode(book)
+            }
+        }
     }
 
-    private suspend fun episode(bookId: Long): ShareContent? {
-        val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.EPISODE } ?: return null
+    private suspend fun episode(book: BookEntity): ShareContent? {
         val feed = podcastDao.feed(book.serverId)?.takeIf(::isShareable) ?: return null
-        val audio = bookDao.tracks(bookId).firstOrNull()?.remoteFileId
+        val audio = bookDao.tracks(book.bookId).firstOrNull()?.remoteFileId
         val page = ShareLinks.publicPage(book.webUrl) ?: audio?.let(ShareLinks::sourceUrl)
         val links = feedLinks(feed, website = null)
         return content(book.title, feed.title, page, *links)

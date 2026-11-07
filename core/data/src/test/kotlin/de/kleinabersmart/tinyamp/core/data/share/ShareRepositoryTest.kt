@@ -74,6 +74,17 @@ class ShareRepositoryTest {
     }
 
     @Test
+    fun `a book shares its open library page`() = runTest {
+        val id = db.bookDao().upsertBook(
+            BookEntity(serverId = "abs", remoteId = "li_1", title = "Momo", normTitle = "momo", author = "Michael Ende", durationMs = 0, isbn = "9783522202107"),
+        )
+        assertEquals(
+            ShareContent("Momo – Michael Ende", "Momo – Michael Ende\nhttps://openlibrary.org/isbn/9783522202107"),
+            repository.content(ShareTarget.Book(id)),
+        )
+    }
+
+    @Test
     fun `an episode shares its page, otherwise the audio file`() = runTest {
         feed("a", "https://example.com/feed.xml")
         val withPage = episode("a", "Eins", "https://example.com/1", "https://cdn.example.com/1.mp3")

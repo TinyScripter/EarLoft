@@ -29,6 +29,33 @@ class ShareLinksTest {
     }
 
     @Test
+    fun `a book with an isbn links to open library`() {
+        assertEquals("https://openlibrary.org/isbn/9783844917056", ShareLinks.openLibrary("978-3-8449-1705-6", "T", "A"))
+        assertEquals("https://openlibrary.org/isbn/380252545X", ShareLinks.openLibrary(" 3-8025-2545-x ", "T", "A"))
+    }
+
+    @Test
+    fun `a book without a usable isbn searches by title and author`() {
+        val url = ShareLinks.openLibrary("B00ASIN123", "Die Räuber", "Friedrich Schiller").toHttpUrl()
+        assertEquals("openlibrary.org", url.host)
+        assertEquals("/search", url.encodedPath)
+        assertEquals("Die Räuber", url.queryParameter("title"))
+        assertEquals("Friedrich Schiller", url.queryParameter("author"))
+        assertEquals(null, ShareLinks.openLibrary(null, "T", " ").toHttpUrl().queryParameter("author"))
+    }
+
+    @Test
+    fun `the book search leaves out subtitles, notes and translators`() {
+        assertEquals("Kill Shot", ShareLinks.mainTitle("Kill Shot (Ein Harry-Hole-Krimi 14)"))
+        assertEquals("Milchschaumschläger", ShareLinks.mainTitle("Milchschaumschläger: Ein Café-Hörbuch"))
+        assertEquals("Carl’s Doomsday Scenario", ShareLinks.mainTitle("Carl’s Doomsday Scenario (Unabridged) [Book 2]"))
+        assertEquals("(Nur Klammer)", ShareLinks.mainTitle("(Nur Klammer)"))
+        assertEquals("Jo Nesbø", ShareLinks.mainAuthor("Günther Frauenlob — Translator, Jo Nesbø"))
+        assertEquals("Matt Dinniman", ShareLinks.mainAuthor("Matt Dinniman, Ruggero Leò - translator"))
+        assertEquals(null, ShareLinks.mainAuthor("Anna Übersetzerin (Übersetzerin)"))
+    }
+
+    @Test
     fun `platform pages are never shared`() {
         listOf(
             "https://podcasts.apple.com/de/podcast/id123",

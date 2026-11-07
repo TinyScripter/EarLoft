@@ -19,6 +19,8 @@ enum class MusicBrainzKind(val path: String) {
 object ShareLinks {
     private const val MUSICBRAINZ = "https://musicbrainz.org"
     private val MBID = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+    private const val OPEN_LIBRARY = "https://openlibrary.org"
+    private val ISBN = Regex("[0-9]{9}[0-9X]|[0-9]{13}")
 
     /** Seite der [mbid] bei MusicBrainz, sonst die Suche nach [title] (und [artist], wo es einen gibt). */
     fun musicBrainz(kind: MusicBrainzKind, mbid: String?, title: String, artist: String? = null): String {
@@ -35,6 +37,41 @@ object ShareLinks {
             .build()
             .toString()
     }
+
+    /**
+     * Buch bei Open Library: über eine gültige [isbn], sonst die Suche nach [title] und [author]. Die Suche verlangt alle
+     * Wörter; Untertitel, Klammerzusätze („Unabridged“, Reihe) und Übersetzer aus Audiobookshelf lassen sie leer ausgehen.
+     */
+    fun openLibrary(isbn: String?, title: String, author: String?): String {
+        val number = isbn?.filter { it.isLetterOrDigit() }?.uppercase()
+        if (number != null && ISBN.matches(number)) return "$OPEN_LIBRARY/isbn/$number"
+        val mainAuthor = author?.let(::mainAuthor)
+        return "$OPEN_LIBRARY/search".toHttpUrl().newBuilder()
+            .addQueryParameter("title", mainTitle(title))
+            .apply { if (mainAuthor != null) addQueryParameter("author", mainAuthor) }
+            .build()
+            .toString()
+    }
+
+    /** Titel ohne Untertitel (nach „:“) und ohne Zusätze in Klammern am Ende. */
+    internal fun mainTitle(title: String): String {
+        var main = title.substringBefore(": ").trim()
+        while (true) {
+            val stripped = main.replace(TRAILING_NOTE, "").trim()
+            if (stripped == main || stripped.isEmpty()) break
+            main = stripped
+        }
+        return main.ifEmpty { title.trim() }
+    }
+
+    /** Erster Name aus der Liste von Audiobookshelf, der keine Rolle wie Übersetzer oder Sprecher trägt. */
+    internal fun mainAuthor(authors: String): String? =
+        authors.split(',', '&', ';')
+            .map { it.trim() }
+            .firstOrNull { name -> name.isNotEmpty() && ROLES.none { name.contains(it, ignoreCase = true) } }
+
+    private val TRAILING_NOTE = Regex("""\s*[(\[][^()\[\]]*[)\]]$""")
+    private val ROLES = listOf("translator", "übersetz", "narrator", "sprecher", "editor", "herausgeber", "illustrator", "foreword", "vorwort")
 
     /** Eine Webseite zum Teilen: absolute http(s)-Adresse, die nicht zu einer Plattform gehört ([isPlatform]). */
     fun publicPage(url: String?): String? {
