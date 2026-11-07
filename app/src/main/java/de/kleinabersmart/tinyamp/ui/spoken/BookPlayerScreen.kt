@@ -70,9 +70,12 @@ import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.cast.CastButton
 import de.kleinabersmart.tinyamp.cast.rememberCastDeviceName
 import de.kleinabersmart.tinyamp.core.designsystem.theme.AlbumColorTheme
+import de.kleinabersmart.tinyamp.core.model.BookKind
 import de.kleinabersmart.tinyamp.core.model.BookTimeline
 import de.kleinabersmart.tinyamp.core.playback.PlayerState
 import de.kleinabersmart.tinyamp.ui.components.FitSquare
+import de.kleinabersmart.tinyamp.ui.components.ShareButton
+import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
 import de.kleinabersmart.tinyamp.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.tinyamp.ui.player.CoverThenCentered
 import de.kleinabersmart.tinyamp.ui.player.PlayerTopBar
@@ -321,7 +324,10 @@ private fun BookPlayerContent(
                 title = stringResource(R.string.player_now_playing),
                 closeLabel = stringResource(R.string.player_close),
                 onClose = onClose,
-            )
+            ) {
+                // Wie im Menü: Folgen vom Gerät haben keine öffentliche Adresse.
+                bookWithProgress?.book?.takeIf { it.kind == BookKind.BOOK || !it.isLocal }?.let { ShareButton(ShareTarget.Book(it.id)) }
+            }
             if (short) {
                 // Links Cover mit den Knöpfen darunter, rechts Titel und Steuerung.
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {

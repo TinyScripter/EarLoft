@@ -55,6 +55,8 @@ import de.kleinabersmart.tinyamp.core.playback.QueueEntry
 import de.kleinabersmart.tinyamp.ui.components.AlbumArt
 import de.kleinabersmart.tinyamp.ui.components.EmptyHint
 import de.kleinabersmart.tinyamp.ui.components.FitSquare
+import de.kleinabersmart.tinyamp.ui.components.ShareButton
+import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
 import de.kleinabersmart.tinyamp.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.tinyamp.ui.components.formatDuration
 import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
@@ -212,7 +214,9 @@ private fun NowPlayingContent(
         }
 
         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            PlayerTopBar(stringResource(R.string.player_now_playing), stringResource(R.string.player_close), onClose)
+            PlayerTopBar(stringResource(R.string.player_now_playing), stringResource(R.string.player_close), onClose) {
+                state.current?.let { ShareButton(ShareTarget.Song(it.songId)) }
+            }
             val current = state.current
             if (current == null) {
                 actionRow()
@@ -324,9 +328,9 @@ private fun NowPlayingContent(
 /** Darunter (und breiter als hoch) liegt Now Playing in zwei Spalten statt Cover über den Knöpfen. */
 internal val ShortHeight = 480.dp
 
-/** Kopfzeile aller Wiedergabe-Ansichten (Musik, Bücher, Folgen): Schließen links, Titel mittig. */
+/** Kopfzeile aller Wiedergabe-Ansichten (Musik, Bücher, Folgen): Schließen links, Titel mittig, rechts [action] (Teilen). */
 @Composable
-internal fun PlayerTopBar(title: String, closeLabel: String, onClose: () -> Unit) {
+internal fun PlayerTopBar(title: String, closeLabel: String, onClose: () -> Unit, action: @Composable () -> Unit = {}) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onClose) {
             Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = closeLabel)
@@ -339,8 +343,8 @@ internal fun PlayerTopBar(title: String, closeLabel: String, onClose: () -> Unit
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        // So groß wie der Schließen-Knopf: Der Titel bleibt mittig.
-        Spacer(Modifier.size(48.dp))
+        // So groß wie der Schließen-Knopf: Der Titel bleibt mittig, auch ohne Knopf.
+        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { action() }
     }
 }
 
