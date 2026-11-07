@@ -114,10 +114,11 @@ class ManifestApplier @Inject constructor(
 ) {
     suspend fun apply(manifest: WearManifest) {
         sourceDao.insertIfAbsent(SourceEntity(WearManifestSource.PHONE_SOURCE_ID, SourceType.PHONE, PHONE_SOURCE_NAME))
-        val servers = sourceDao.getByType(SourceType.SUBSONIC).mapTo(HashSet()) { it.sourceId }
+        val serverSources = sourceDao.getServers()
+        val servers = serverSources.mapTo(HashSet()) { it.sourceId }
         val tracks = manifestTracks(manifest, servers)
         // Auch Quellen ohne Tracks: Ihr Abgleich löscht, was aus allen Auswahlen gefallen ist.
-        servers.forEach { librarySyncer.sync(WearManifestSource(it, SourceType.SUBSONIC, tracks[it].orEmpty())) }
+        serverSources.forEach { librarySyncer.sync(WearManifestSource(it.sourceId, it.type, tracks[it.sourceId].orEmpty())) }
         librarySyncer.sync(
             WearManifestSource(WearManifestSource.PHONE_SOURCE_ID, SourceType.PHONE, tracks[WearManifestSource.PHONE_SOURCE_ID].orEmpty()),
         )

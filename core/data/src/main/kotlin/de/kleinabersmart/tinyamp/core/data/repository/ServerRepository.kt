@@ -12,11 +12,11 @@ import de.kleinabersmart.tinyamp.core.database.dao.SourceDao
 import de.kleinabersmart.tinyamp.core.database.entity.SourceEntity
 import de.kleinabersmart.tinyamp.core.model.ServerInfo
 import de.kleinabersmart.tinyamp.core.model.SourceType
-import de.kleinabersmart.tinyamp.core.network.subsonic.HttpStatusException
-import de.kleinabersmart.tinyamp.core.network.subsonic.NotSubsonicException
+import de.kleinabersmart.tinyamp.core.network.HttpStatusException
+import de.kleinabersmart.tinyamp.core.network.ServerApiException
+import de.kleinabersmart.tinyamp.core.network.UnexpectedResponseException
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicApi
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicCredentials
-import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicException
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicServer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -32,7 +32,9 @@ sealed interface ConnectionResult {
     data class Success(val serverName: String, val serverVersion: String?, val sourceId: String? = null) : ConnectionResult
     data object InvalidUrl : ConnectionResult
     data object WrongCredentials : ConnectionResult
-    data object NotSubsonic : ConnectionResult
+
+    /** Unter der Adresse antwortet kein Server der gewählten Art. */
+    data object UnexpectedServer : ConnectionResult
     data class Unreachable(val reason: String?) : ConnectionResult
     data class ServerError(val code: Int, val message: String?) : ConnectionResult
 }
@@ -73,12 +75,16 @@ class ServerRepository @Inject constructor(
             )
         } catch (e: CancellationException) {
             throw e
-        } catch (e: SubsonicException) {
+        } catch (e: ServerApiException) {
             if (e.isAuthError) ConnectionResult.WrongCredentials else ConnectionResult.ServerError(e.code, e.serverMessage)
-        } catch (_: NotSubsonicException) {
-            ConnectionResult.NotSubsonic
+        } catch (_: UnexpectedResponseException) {
+            ConnectionResult.UnexpectedServer
         } catch (e: HttpStatusException) {
-            if (e.status == 404) ConnectionResult.NotSubsonic else ConnectionResult.Unreachable(e.message)
+            when {
+                e.isAuthError -> ConnectionResult.WrongCredentials
+                e.status == 404 -> ConnectionResult.UnexpectedServer
+                else -> ConnectionResult.Unreachable(e.message)
+            }
         } catch (e: IOException) {
             ConnectionResult.Unreachable(e.message)
         }

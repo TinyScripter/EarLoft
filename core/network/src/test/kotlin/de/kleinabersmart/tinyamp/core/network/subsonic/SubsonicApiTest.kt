@@ -92,6 +92,16 @@ class SubsonicApiTest {
     }
 
     @Test
+    fun `transcoded stream asks for format and highest bitrate`() {
+        val url = api.transcodedStreamUrl(server, "42", "opus", 128)
+
+        assertEquals("/navidrome/rest/stream", url.encodedPath)
+        assertEquals("42", url.queryParameter("id"))
+        assertEquals(listOf("opus"), url.queryParameterValues("format"))
+        assertEquals("128", url.queryParameter("maxBitRate"))
+    }
+
+    @Test
     fun `cover art is cached although every request uses a new salt`() = runTest {
         val image = byteArrayOf(1, 2, 3)
         mockServer.enqueue(

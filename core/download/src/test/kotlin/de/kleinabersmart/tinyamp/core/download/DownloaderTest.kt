@@ -39,7 +39,7 @@ class DownloaderTest {
         storage = DownloadStorage(tempFolder.newFolder("downloads"))
         downloader = Downloader(
             downloadDao = library.db.downloadDao(),
-            sources = FakeSources(FakeServer("nd", mockServer.url("/").toString().trimEnd('/'))),
+            sources = FakeSources(TranscodingServer("nd", baseUrl())),
             client = OkHttpClient(),
             storage = storage,
         )
@@ -47,6 +47,8 @@ class DownloaderTest {
         val songId = library.song(library.album("Mondlicht"), "Leise", "nd" to "t1")
         library.db.downloadDao().insertIfAbsent(listOf(DownloadEntity(uid, songId, DownloadState.QUEUED)))
     }
+
+    private fun baseUrl() = mockServer.url("/").toString().trimEnd('/')
 
     @After
     fun tearDown() {
@@ -87,8 +89,8 @@ class DownloaderTest {
 
         assertEquals(DownloadOutcome.Done, outcome)
         val url = mockServer.takeRequest().url
-        assertEquals("opus", url.queryParameter("format"))
-        assertEquals("128", url.queryParameter("maxBitRate"))
+        assertEquals("opus", url.queryParameter("codec"))
+        assertEquals("128", url.queryParameter("maxKbps"))
         val entry = library.db.downloadDao().get(uid)!!
         assertEquals("nd_t1.ogg", File(entry.filePath!!).name)
         assertArrayEquals(audio, File(entry.filePath!!).readBytes())
@@ -102,8 +104,20 @@ class DownloaderTest {
         downloader.download(queued(), DownloadProfile.ORIGINAL)
 
         val url = mockServer.takeRequest().url
-        assertNull(url.queryParameter("format"))
-        assertNull(url.queryParameter("maxBitRate"))
+        assertEquals("/stream/t1", url.encodedPath)
+        assertNull(url.query)
+    }
+
+    @Test
+    fun `opus profile loads the original from a source that cannot transcode`() = runTest {
+        val plain = Downloader(library.db.downloadDao(), FakeSources(FakeServer("nd", baseUrl())), OkHttpClient(), storage)
+        mockServer.enqueue(audio(ByteArray(1_000)))
+
+        assertEquals(DownloadOutcome.Done, plain.download(queued(), DownloadProfile.OPUS_128))
+
+        val url = mockServer.takeRequest().url
+        assertEquals("/stream/t1", url.encodedPath)
+        assertNull(url.query)
     }
 
     @Test

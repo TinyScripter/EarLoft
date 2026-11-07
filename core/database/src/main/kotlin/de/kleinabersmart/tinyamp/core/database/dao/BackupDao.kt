@@ -34,7 +34,7 @@ abstract class BackupDao {
     @Query(
         "SELECT $KEYED_SONG, s.favoriteChangedAt AS changedAt FROM songs s JOIN albums a ON a.albumId = s.albumId " +
             "WHERE s.isFavorite = 1 AND NOT EXISTS (SELECT 1 FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId " +
-            "WHERE ss.songId = s.songId AND src.type = 'SUBSONIC')",
+            "WHERE ss.songId = s.songId AND src.type NOT IN $NOT_SERVER_TYPES)",
     )
     abstract suspend fun localFavorites(): List<KeyedFavorite>
 

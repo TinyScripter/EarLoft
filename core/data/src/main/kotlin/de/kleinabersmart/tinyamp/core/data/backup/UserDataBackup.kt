@@ -17,7 +17,6 @@ import de.kleinabersmart.tinyamp.core.database.entity.UserBookProgressEntity
 import de.kleinabersmart.tinyamp.core.database.entity.UserFavoriteEntity
 import de.kleinabersmart.tinyamp.core.database.entity.UserPlayEventEntity
 import de.kleinabersmart.tinyamp.core.database.entity.UserWearSelectionEntity
-import de.kleinabersmart.tinyamp.core.model.SourceType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -246,7 +245,7 @@ class UserDataBackup @Inject constructor(
     private suspend fun readMain(): UserDataSnapshot {
         val musicData = music.read()
         return UserDataSnapshot.ofMain(
-            sources = sourceDao.getByType(SourceType.SUBSONIC),
+            sources = sourceDao.getServers(),
             spokenServers = bookDao.servers(),
             feeds = podcastDao.keptFeeds(),
             listeningStats = statsDao.all(),

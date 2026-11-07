@@ -260,7 +260,7 @@ private fun relativeAge(ageMs: Long): String = when {
 @Composable
 private fun syncFailureText(failure: SyncFailure): String = when (failure) {
     SyncFailure.WrongCredentials -> stringResource(R.string.add_server_wrong_credentials)
-    SyncFailure.NotSubsonic -> stringResource(R.string.add_server_not_subsonic)
+    SyncFailure.UnexpectedServer -> stringResource(R.string.add_server_not_subsonic)
     is SyncFailure.Unreachable -> stringResource(R.string.add_server_unreachable, failure.reason.orEmpty())
     is SyncFailure.ServerError -> stringResource(R.string.add_server_server_error, failure.code, failure.message.orEmpty())
     is SyncFailure.Other -> failure.message

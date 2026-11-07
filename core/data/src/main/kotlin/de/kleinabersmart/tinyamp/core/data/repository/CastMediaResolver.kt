@@ -4,7 +4,6 @@ import de.kleinabersmart.tinyamp.core.data.source.MusicDataSources
 import de.kleinabersmart.tinyamp.core.database.dao.LibraryDao
 import de.kleinabersmart.tinyamp.core.database.model.PlayableSourceRow
 import de.kleinabersmart.tinyamp.core.datasource.ExternalPlayback
-import de.kleinabersmart.tinyamp.core.model.SourceType
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -31,7 +30,7 @@ class CastMediaResolver @Inject constructor(
         val result = HashMap<Long, CastMedia>()
         songIds.distinct().chunked(SQLITE_MAX_VARIABLES).forEach { chunk ->
             libraryDao.getPlayableSourcesOfSongs(chunk)
-                .filter { it.sourceType == SourceType.SUBSONIC }
+                .filter { it.sourceType.isServer }
                 .groupBy { it.songId }
                 .forEach { (songId, rows) ->
                     rows.sortedWith(SourcePreference).firstNotNullOfOrNull { castMedia(it) }?.let { result[songId] = it }

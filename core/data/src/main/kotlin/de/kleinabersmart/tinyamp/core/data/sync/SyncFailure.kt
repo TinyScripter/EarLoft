@@ -1,8 +1,8 @@
 package de.kleinabersmart.tinyamp.core.data.sync
 
-import de.kleinabersmart.tinyamp.core.network.subsonic.HttpStatusException
-import de.kleinabersmart.tinyamp.core.network.subsonic.NotSubsonicException
-import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicException
+import de.kleinabersmart.tinyamp.core.network.HttpStatusException
+import de.kleinabersmart.tinyamp.core.network.ServerApiException
+import de.kleinabersmart.tinyamp.core.network.UnexpectedResponseException
 import java.io.IOException
 
 /**
@@ -11,7 +11,9 @@ import java.io.IOException
  */
 sealed interface SyncFailure {
     data object WrongCredentials : SyncFailure
-    data object NotSubsonic : SyncFailure
+
+    /** Unter der Adresse antwortet kein Server der eingerichteten Art. */
+    data object UnexpectedServer : SyncFailure
     data class Unreachable(val reason: String?) : SyncFailure
     data class ServerError(val code: Int, val message: String?) : SyncFailure
 
@@ -20,9 +22,13 @@ sealed interface SyncFailure {
 
     companion object {
         fun of(e: Exception): SyncFailure = when (e) {
-            is SubsonicException -> if (e.isAuthError) WrongCredentials else ServerError(e.code, e.serverMessage)
-            is NotSubsonicException -> NotSubsonic
-            is HttpStatusException -> if (e.status == 404) NotSubsonic else Unreachable(e.message)
+            is ServerApiException -> if (e.isAuthError) WrongCredentials else ServerError(e.code, e.serverMessage)
+            is UnexpectedResponseException -> UnexpectedServer
+            is HttpStatusException -> when {
+                e.isAuthError -> WrongCredentials
+                e.status == 404 -> UnexpectedServer
+                else -> Unreachable(e.message)
+            }
             is IOException -> Unreachable(e.message)
             else -> Other(e.message ?: e.javaClass.simpleName)
         }

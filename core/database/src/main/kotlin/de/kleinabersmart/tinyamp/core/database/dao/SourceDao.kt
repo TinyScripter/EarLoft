@@ -9,6 +9,12 @@ import de.kleinabersmart.tinyamp.core.database.entity.SourceEntity
 import de.kleinabersmart.tinyamp.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * SQL-Liste der Quellarten, die kein Server sind (`SourceType.isServer == false`). Abfragen nach
+ * „irgendeinem Server“ filtern mit `type NOT IN` – neue Server-Arten brauchen so keine Anpassung.
+ */
+internal const val NOT_SERVER_TYPES = "('LOCAL', 'PHONE')"
+
 @Dao
 interface SourceDao {
     @Upsert
@@ -29,6 +35,10 @@ interface SourceDao {
 
     @Query("SELECT * FROM sources WHERE type = :type ORDER BY priority DESC, name")
     fun observeByType(type: SourceType): Flow<List<SourceEntity>>
+
+    /** Alle Musikserver gleich welcher Art ([SourceType.isServer], siehe [NOT_SERVER_TYPES]). */
+    @Query("SELECT * FROM sources WHERE type NOT IN $NOT_SERVER_TYPES")
+    suspend fun getServers(): List<SourceEntity>
 
     @Query("UPDATE sources SET syncGeneration = :generation, lastFullSyncAt = :syncedAt WHERE sourceId = :sourceId")
     suspend fun setSyncGeneration(sourceId: String, generation: Long, syncedAt: Long)

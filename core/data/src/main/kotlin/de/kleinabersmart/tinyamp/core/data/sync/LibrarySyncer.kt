@@ -10,7 +10,6 @@ import de.kleinabersmart.tinyamp.core.database.entity.SourceEntity
 import de.kleinabersmart.tinyamp.core.datasource.MusicDataSource
 import de.kleinabersmart.tinyamp.core.datasource.RemoteLibraryActions
 import de.kleinabersmart.tinyamp.core.datasource.RemoteQuickSync
-import de.kleinabersmart.tinyamp.core.model.SourceType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -107,7 +106,7 @@ class LibrarySyncer @Inject constructor(
                 SourceEntity(sourceId = source.sourceId, type = source.type, name = source.displayName),
             )
             val generation = (sourceDao.get(source.sourceId)?.syncGeneration ?: 0) + 1
-            val syncsFavorites = source.type == SourceType.SUBSONIC
+            val syncsFavorites = source.type.isServer
 
             val isUnchanged: suspend (String, Long) -> Boolean = { remoteId, lastModified ->
                 mergeDao.getSongSource("${source.sourceId}:$remoteId")?.lastModified == lastModified

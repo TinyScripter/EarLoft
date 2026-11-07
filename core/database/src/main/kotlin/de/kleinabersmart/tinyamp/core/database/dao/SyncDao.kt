@@ -44,7 +44,7 @@ interface SyncDao {
     @Query(
         """
         SELECT ss.* FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId
-        WHERE ss.songId = :songId AND src.type = 'SUBSONIC'
+        WHERE ss.songId = :songId AND src.type NOT IN $NOT_SERVER_TYPES
         """,
     )
     suspend fun getServerSources(songId: Long): List<SongSourceEntity>

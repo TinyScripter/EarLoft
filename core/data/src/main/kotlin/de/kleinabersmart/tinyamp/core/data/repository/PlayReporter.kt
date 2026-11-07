@@ -7,7 +7,6 @@ import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
 import de.kleinabersmart.tinyamp.core.database.dao.LibraryDao
 import de.kleinabersmart.tinyamp.core.database.dao.SyncDao
 import de.kleinabersmart.tinyamp.core.database.entity.SyncActionEntity
-import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.model.SyncActionType
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -36,7 +35,7 @@ class SyncQueuePlayReporter @Inject constructor(
         if (!syncSettings.scrobble.first()) return
         val queued = database.withTransaction {
             val server = libraryDao.getPlayableSources(songId)
-                .filter { it.sourceType == SourceType.SUBSONIC }
+                .filter { it.sourceType.isServer }
                 .minWithOrNull(SourcePreference)
                 ?: return@withTransaction false
             syncDao.insert(

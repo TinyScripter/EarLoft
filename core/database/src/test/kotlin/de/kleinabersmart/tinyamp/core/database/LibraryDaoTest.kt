@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.tinyamp.core.database.dao.LibraryDao
+import de.kleinabersmart.tinyamp.core.database.dao.NOT_SERVER_TYPES
 import de.kleinabersmart.tinyamp.core.database.dao.SourceDao
 import de.kleinabersmart.tinyamp.core.database.entity.AlbumArtistCrossRef
 import de.kleinabersmart.tinyamp.core.database.entity.AlbumEntity
@@ -62,6 +63,26 @@ class LibraryDaoTest {
         val songs = libraryDao.observeSongsOfAlbum(albumId).first()
         assertEquals(listOf("Svefn-g-englar"), songs.map { it.title })
         assertEquals(listOf("$NAVIDROME:a"), libraryDao.getSourcesOfSong(shared).map { it.uid })
+    }
+
+    @Test
+    fun `server queries skip the device sources and follow isServer`() = runTest {
+        assertEquals(
+            SourceType.entries.filterNot { it.isServer }.joinToString(", ", "(", ")") { "'${it.name}'" },
+            NOT_SERVER_TYPES,
+        )
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = PHONE, type = SourceType.PHONE, name = "Handy"))
+        sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
+        val albumId = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
+        val songId = libraryDao.insertSong(song(albumId, "Svefn-g-englar", track = 1))
+        libraryDao.insertSongSource(songSource(songId, LOCAL, "1"))
+        libraryDao.insertSongSource(songSource(songId, PHONE, "local:1"))
+        libraryDao.insertSongSource(songSource(songId, NAVIDROME, "a"))
+
+        assertEquals(listOf(NAVIDROME), sourceDao.getServers().map { it.sourceId })
+        assertEquals(listOf("$NAVIDROME:a"), db.syncDao().getServerSources(songId).map { it.uid })
+        assertEquals(listOf("$NAVIDROME:a"), db.lyricsDao().getServerSources(songId).map { it.uid })
     }
 
     @Test
@@ -154,5 +175,6 @@ class LibraryDaoTest {
     private companion object {
         const val LOCAL = "local"
         const val NAVIDROME = "navidrome"
+        const val PHONE = "phone"
     }
 }

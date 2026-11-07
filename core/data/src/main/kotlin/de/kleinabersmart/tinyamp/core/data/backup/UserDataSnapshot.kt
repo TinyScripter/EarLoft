@@ -27,7 +27,6 @@ import de.kleinabersmart.tinyamp.core.database.entity.UserSongKey
 import de.kleinabersmart.tinyamp.core.database.entity.UserSpokenServerEntity
 import de.kleinabersmart.tinyamp.core.database.entity.UserWearSelectionEntity
 import de.kleinabersmart.tinyamp.core.model.LOCAL_PODCAST_PREFIX
-import de.kleinabersmart.tinyamp.core.model.SourceType
 
 /** Der Inhalt von `user.db` (bzw. was hineingehört), je Tabelle nach ihrem stabilen Schlüssel. */
 data class UserDataSnapshot(
@@ -127,7 +126,7 @@ data class UserDataSnapshot(
             playEvents: List<KeyedPlayEvent> = emptyList(),
             wearSelections: List<UserWearSelectionEntity> = emptyList(),
         ) = ofUser(
-            servers = sources.filter { it.type == SourceType.SUBSONIC }.map { it.toUser() },
+            servers = sources.filter { it.type.isServer }.map { it.toUser() },
             spokenServers = spokenServers.map { it.toUser() },
             // Podcasts vom Gerät baut der Scan aus den Ordnern neu auf.
             podcasts = feeds.filterNot { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }.map { it.toUser() },

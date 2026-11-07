@@ -111,7 +111,7 @@ class WearSelectionRepository @Inject constructor(
     }
 
     private fun WearSongRow.toContent(artists: List<String>, sources: List<WearSourceRow>): WearSongContent {
-        val servers = sources.filter { it.sourceType == SourceType.SUBSONIC }
+        val servers = sources.filter { it.sourceType.isServer }
         val phoneFile = sources.firstOrNull { it.sourceType == SourceType.LOCAL }
             ?.let { WearPhoneFile(it.uid, it.sizeBytes, it.mimeType) }
             // Wie beim Abspielen: Fehlt die Datei (vom System gelöscht), gilt der Download nicht.

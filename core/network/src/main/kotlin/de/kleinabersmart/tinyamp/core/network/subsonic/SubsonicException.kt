@@ -1,11 +1,13 @@
 package de.kleinabersmart.tinyamp.core.network.subsonic
 
-import java.io.IOException
+import de.kleinabersmart.tinyamp.core.network.ServerApiException
+import de.kleinabersmart.tinyamp.core.network.UnexpectedResponseException
 
 /** Der Server hat mit `status = failed` geantwortet; [serverMessage] ist seine Meldung ohne Code. */
-class SubsonicException(val code: Int, val serverMessage: String?) : IOException("Subsonic-Fehler $code: $serverMessage") {
+class SubsonicException(code: Int, serverMessage: String?) :
+    ServerApiException(code, serverMessage, "Subsonic-Fehler $code: $serverMessage") {
 
-    val isAuthError: Boolean get() = code == WRONG_CREDENTIALS || code == TOKEN_AUTH_NOT_SUPPORTED || code == NOT_AUTHORIZED
+    override val isAuthError: Boolean get() = code == WRONG_CREDENTIALS || code == TOKEN_AUTH_NOT_SUPPORTED || code == NOT_AUTHORIZED
 
     companion object {
         const val GENERIC = 0
@@ -17,7 +19,4 @@ class SubsonicException(val code: Int, val serverMessage: String?) : IOException
 }
 
 /** Die Antwort war kein Subsonic-JSON (falsche URL, Reverse-Proxy-Fehlerseite …). */
-class NotSubsonicException(message: String, cause: Throwable? = null) : IOException(message, cause)
-
-/** HTTP-Fehler ohne Subsonic-Antwort. */
-class HttpStatusException(val status: Int) : IOException("HTTP $status")
+class NotSubsonicException(message: String, cause: Throwable? = null) : UnexpectedResponseException(message, cause)

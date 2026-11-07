@@ -13,6 +13,7 @@ import de.kleinabersmart.tinyamp.core.datasource.RawTrack
 import de.kleinabersmart.tinyamp.core.datasource.RemotePlaylist
 import de.kleinabersmart.tinyamp.core.datasource.RemotePlaylistInfo
 import de.kleinabersmart.tinyamp.core.datasource.RemoteQuickSync
+import de.kleinabersmart.tinyamp.core.datasource.RemoteTranscoding
 import de.kleinabersmart.tinyamp.core.datasource.SourceBatch
 import de.kleinabersmart.tinyamp.core.datasource.decodeSampled
 import de.kleinabersmart.tinyamp.core.datasource.local.FallbackNames
@@ -38,7 +39,7 @@ class SubsonicDataSource internal constructor(
     override val displayName: String,
     private val api: SubsonicApi,
     private val names: FallbackNames,
-) : MusicDataSource, RemoteLibraryActions, RemoteLyrics, RemoteQuickSync, ExternalPlayback {
+) : MusicDataSource, RemoteLibraryActions, RemoteLyrics, RemoteQuickSync, ExternalPlayback, RemoteTranscoding {
 
     override val sourceId: String get() = server.sourceId
     override val type: SourceType = SourceType.SUBSONIC
@@ -97,6 +98,12 @@ class SubsonicDataSource internal constructor(
         PlaybackLocation.Remote(
             uri = api.streamUrl(server, remoteId).toString().toUri(),
             cacheKey = "$sourceId:$remoteId",
+        )
+
+    override fun transcodedPlayback(remoteId: String, codec: String, maxKbps: Int): PlaybackLocation.Remote =
+        PlaybackLocation.Remote(
+            uri = api.transcodedStreamUrl(server, remoteId, codec, maxKbps).toString().toUri(),
+            cacheKey = "$sourceId:$remoteId:$codec-$maxKbps",
         )
 
     override fun externalStreamUrl(remoteId: String, transcodeTo: Pair<String, Int>?): String {

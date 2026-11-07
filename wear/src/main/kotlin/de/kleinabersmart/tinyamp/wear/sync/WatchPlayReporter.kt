@@ -33,7 +33,7 @@ class WatchPlayReporter @Inject constructor(
         val sources = libraryDao.getPlayableSources(songId)
         // Die uid eines Server-Songs ist auf Handy und Uhr gleich. Bei der Pseudo-Quelle `phone` ist die
         // `remoteId` die uid am Handy (`local:39`, Wear-Konzept 7.1); `phone:local:39` kennt das Handy nicht.
-        val songUid = sources.filter { it.sourceType == SourceType.SUBSONIC }.minWithOrNull(SourcePreference)?.uid
+        val songUid = sources.filter { it.sourceType.isServer }.minWithOrNull(SourcePreference)?.uid
             ?: sources.firstOrNull { it.sourceType == SourceType.PHONE }?.remoteId
             ?: return
         val packet = WearPlaysDto(UUID.randomUUID().toString(), listOf(WearPlayDto(songUid, playedAt, listenedMs)))

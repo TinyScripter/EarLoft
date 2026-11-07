@@ -1,6 +1,6 @@
 package de.kleinabersmart.tinyamp.core.data.sync
 
-import de.kleinabersmart.tinyamp.core.network.subsonic.HttpStatusException
+import de.kleinabersmart.tinyamp.core.network.HttpStatusException
 import de.kleinabersmart.tinyamp.core.network.subsonic.NotSubsonicException
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicException
 import org.junit.Assert.assertEquals
@@ -19,11 +19,16 @@ class SyncFailureTest {
     }
 
     @Test
-    fun `network errors are unreachable, 404 and foreign answers are not subsonic`() {
+    fun `network errors are unreachable, 404 and foreign answers are an unexpected server`() {
         assertEquals(SyncFailure.Unreachable("timeout"), SyncFailure.of(IOException("timeout")))
         assertEquals(SyncFailure.Unreachable("HTTP 502"), SyncFailure.of(HttpStatusException(502)))
-        assertEquals(SyncFailure.NotSubsonic, SyncFailure.of(HttpStatusException(404)))
-        assertEquals(SyncFailure.NotSubsonic, SyncFailure.of(NotSubsonicException("html")))
+        assertEquals(SyncFailure.UnexpectedServer, SyncFailure.of(HttpStatusException(404)))
+        assertEquals(SyncFailure.UnexpectedServer, SyncFailure.of(NotSubsonicException("html")))
+    }
+
+    @Test
+    fun `http 401 means wrong credentials`() {
+        assertEquals(SyncFailure.WrongCredentials, SyncFailure.of(HttpStatusException(401)))
     }
 
     @Test

@@ -90,6 +90,15 @@ interface ExternalPlayback {
     fun externalCoverUrl(coverRemoteId: String, sizePx: Int): String
 }
 
+/**
+ * Server, die eine Datei beim Abruf umwandeln (Downloads für die Uhr, Wear-Konzept 8.2). Die Auth übernimmt
+ * wie bei [MusicDataSource.resolvePlayback] der gemeinsame OkHttpClient; die URL enthält keine Zugangsdaten.
+ */
+interface RemoteTranscoding {
+    /** [codec] z. B. `opus`, [maxKbps] höchste Bitrate in kbit/s. */
+    fun transcodedPlayback(remoteId: String, codec: String, maxKbps: Int): PlaybackLocation.Remote
+}
+
 /** [changedAt] = letzte Änderung auf dem Server (ms) – dient der Konflikterkennung. */
 data class RemotePlaylistInfo(
     val remoteId: String,

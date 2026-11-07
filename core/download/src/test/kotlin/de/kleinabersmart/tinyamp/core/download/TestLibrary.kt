@@ -12,6 +12,7 @@ import de.kleinabersmart.tinyamp.core.database.entity.SongSourceEntity
 import de.kleinabersmart.tinyamp.core.database.entity.SourceEntity
 import de.kleinabersmart.tinyamp.core.datasource.MusicDataSource
 import de.kleinabersmart.tinyamp.core.datasource.PlaybackLocation
+import de.kleinabersmart.tinyamp.core.datasource.RemoteTranscoding
 import de.kleinabersmart.tinyamp.core.datasource.SourceBatch
 import de.kleinabersmart.tinyamp.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
@@ -68,9 +69,9 @@ internal class TestLibrary {
 }
 
 /** Server, dessen Streams unter [baseUrl]`/stream/<remoteId>` liegen. */
-internal class FakeServer(
+internal open class FakeServer(
     override val sourceId: String,
-    private val baseUrl: String,
+    protected val baseUrl: String,
 ) : MusicDataSource {
     override val type = SourceType.SUBSONIC
     override val displayName = sourceId
@@ -81,6 +82,14 @@ internal class FakeServer(
         PlaybackLocation.Remote(Uri.parse("$baseUrl/stream/$remoteId"), cacheKey = "$sourceId:$remoteId")
 
     override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = null
+}
+
+/** [FakeServer], der auf Wunsch umwandelt: `/stream/<remoteId>?codec=…&maxKbps=…`. */
+internal class TranscodingServer(sourceId: String, baseUrl: String) : FakeServer(sourceId, baseUrl), RemoteTranscoding {
+    override fun transcodedPlayback(remoteId: String, codec: String, maxKbps: Int) = PlaybackLocation.Remote(
+        Uri.parse("$baseUrl/stream/$remoteId?codec=$codec&maxKbps=$maxKbps"),
+        cacheKey = "$sourceId:$remoteId:$codec-$maxKbps",
+    )
 }
 
 internal class FakeSources(private vararg val sources: MusicDataSource) : MusicDataSources {

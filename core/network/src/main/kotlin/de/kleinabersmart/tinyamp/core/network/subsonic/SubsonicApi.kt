@@ -1,5 +1,6 @@
 package de.kleinabersmart.tinyamp.core.network.subsonic
 
+import de.kleinabersmart.tinyamp.core.network.HttpStatusException
 import de.kleinabersmart.tinyamp.core.network.await
 import de.kleinabersmart.tinyamp.core.network.subsonic.dto.AlbumDto
 import de.kleinabersmart.tinyamp.core.network.subsonic.dto.OpenSubsonicExtensionDto

@@ -151,7 +151,7 @@ interface WearDao {
         FROM song_sources ss
         JOIN sources src ON src.sourceId = ss.sourceId
         JOIN songs s ON s.songId = ss.songId
-        WHERE ss.songId IN (:songIds) AND src.type = 'SUBSONIC'
+        WHERE ss.songId IN (:songIds) AND src.type NOT IN $NOT_SERVER_TYPES
         """,
     )
     suspend fun getServerCandidates(songIds: List<Long>): List<WearCandidateRow>

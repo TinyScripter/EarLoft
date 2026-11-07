@@ -30,9 +30,9 @@ import de.kleinabersmart.tinyamp.core.database.dao.SyncDao
 import de.kleinabersmart.tinyamp.core.database.entity.SyncActionEntity
 import de.kleinabersmart.tinyamp.core.datasource.RemoteLibraryActions
 import de.kleinabersmart.tinyamp.core.model.SyncActionType
-import de.kleinabersmart.tinyamp.core.network.subsonic.HttpStatusException
-import de.kleinabersmart.tinyamp.core.network.subsonic.NotSubsonicException
-import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicException
+import de.kleinabersmart.tinyamp.core.network.HttpStatusException
+import de.kleinabersmart.tinyamp.core.network.ServerApiException
+import de.kleinabersmart.tinyamp.core.network.UnexpectedResponseException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -176,12 +176,12 @@ class SyncQueueProcessor @Inject constructor(
         SyncActionType.SCROBBLE, SyncActionType.DELETE_PLAYLIST -> null
     }
 
-    /** Spezielle Fälle zuerst: Alle Subsonic- und HTTP-Fehler sind ebenfalls `IOException`s. */
+    /** Spezielle Fälle zuerst: Alle Server- und HTTP-Fehler sind ebenfalls `IOException`s. */
     private fun isRetryable(e: Exception): Boolean = when (e) {
-        is HttpStatusException -> e.status >= 500 || e.status == 429
         // Falsches Passwort: liegen lassen, bis es korrigiert ist.
-        is SubsonicException -> e.isAuthError
-        is NotSubsonicException -> true
+        is HttpStatusException -> e.isAuthError || e.status >= 500 || e.status == 429
+        is ServerApiException -> e.isAuthError
+        is UnexpectedResponseException -> true
         is IOException -> true
         else -> false
     }

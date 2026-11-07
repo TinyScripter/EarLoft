@@ -6,6 +6,7 @@ import de.kleinabersmart.tinyamp.core.data.source.MusicDataSources
 import de.kleinabersmart.tinyamp.core.database.dao.DownloadDao
 import de.kleinabersmart.tinyamp.core.database.entity.DownloadEntity
 import de.kleinabersmart.tinyamp.core.datasource.PlaybackLocation
+import de.kleinabersmart.tinyamp.core.datasource.RemoteTranscoding
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -88,13 +89,15 @@ class Downloader @Inject constructor(
         val songSource = downloadDao.getSongSource(uid) ?: return DownloadOutcome.Cancelled
         val source = sources[songSource.sourceId]
             ?: return DownloadOutcome.Failed("Quelle ${songSource.sourceId} nicht verfügbar")
-        val location = source.resolvePlayback(songSource.remoteId) as? PlaybackLocation.Remote
+        val location = profile.transcodeTo
+            ?.let { (codec, kbps) -> (source as? RemoteTranscoding)?.transcodedPlayback(songSource.remoteId, codec, kbps) }
+            ?: source.resolvePlayback(songSource.remoteId) as? PlaybackLocation.Remote
             ?: return DownloadOutcome.Failed("Keine Server-Quelle")
 
         val url = location.uri.toString().toHttpUrlOrNull()
             ?: return DownloadOutcome.Failed("Ungültige Adresse")
         val request = Request.Builder()
-            .url(profile.apply(url))
+            .url(url)
             .cacheControl(CacheControl.Builder().noStore().build())
             .build()
         val call = clientFor(network, url.host).newCall(request)
@@ -106,7 +109,7 @@ class Downloader @Inject constructor(
                     when {
                         response.code in 500..599 -> throw IOException("HTTP ${response.code}")
                         !response.isSuccessful -> return@withContext DownloadOutcome.Failed("HTTP ${response.code}")
-                        // Subsonic meldet Fehler (z. B. Auth) als JSON/XML mit HTTP 200.
+                        // Subsonic meldet Fehler (z. B. Auth) als JSON/XML mit HTTP 200, andere Server per Status.
                         contentType.startsWith("application/json") || contentType.contains("xml") ->
                             return@withContext DownloadOutcome.Failed("Server-Fehler statt Audiodatei")
                     }
