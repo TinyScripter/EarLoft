@@ -22,6 +22,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -33,6 +36,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -44,6 +49,7 @@ import de.kleinabersmart.tinyamp.ui.components.readableWidth
 import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.data.repository.ConnectionResult
 import de.kleinabersmart.tinyamp.core.designsystem.theme.TinyAmpTheme
+import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.ui.library.BackButton
 import de.kleinabersmart.tinyamp.ui.permission.rememberLocalNetworkRequester
 
@@ -62,6 +68,7 @@ fun ServerFormScreen(
     ServerFormContent(
         state = state,
         onBack = onDone,
+        onTypeChange = viewModel::onTypeChange,
         onNameChange = viewModel::onNameChange,
         onUrlChange = viewModel::onUrlChange,
         onUsernameChange = viewModel::onUsernameChange,
@@ -78,6 +85,7 @@ fun ServerFormScreen(
 private fun ServerFormContent(
     state: ServerFormUiState,
     onBack: () -> Unit,
+    onTypeChange: (SourceType) -> Unit,
     onNameChange: (String) -> Unit,
     onUrlChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
@@ -101,7 +109,7 @@ private fun ServerFormContent(
         // Auf niedrigen Fenstern stehen Ergebnis und Knöpfe fest unten, sonst lägen sie unter den Feldern außer Sicht.
         val pinned = LocalConfiguration.current.screenHeightDp < 700
         val actions: @Composable ColumnScope.() -> Unit = {
-            state.result?.let { ResultText(it) }
+            state.result?.let { ResultText(it, state.type) }
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Button(onClick = onSave, enabled = state.canSubmit) {
@@ -117,6 +125,8 @@ private fun ServerFormContent(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // Die Art steht nach dem Anlegen fest: Songs, Favoriten und Playlists hängen an ihr.
+            if (!state.isEditing) ServerTypeSelector(state.type, onTypeChange)
             OutlinedTextField(
                 value = state.url,
                 onValueChange = onUrlChange,
@@ -158,10 +168,10 @@ private fun ServerFormContent(
                 supportingText = when {
                     !state.isEditing -> null
                     state.hasStoredPassword -> {
-                        { Text(stringResource(R.string.edit_server_password_keep)) }
+                        { Text(stringResource(if (state.type == SourceType.JELLYFIN) R.string.edit_server_login_keep else R.string.edit_server_password_keep)) }
                     }
                     else -> {
-                        { Text(stringResource(R.string.edit_server_password_required)) }
+                        { Text(stringResource(if (state.type == SourceType.JELLYFIN) R.string.edit_server_login_required else R.string.edit_server_password_required)) }
                     }
                 },
                 singleLine = true,
@@ -210,14 +220,38 @@ private fun ServerFormContent(
     }
 }
 
+/** Navidrome/Subsonic oder Jellyfin; die Zeile ist eine Auswahlgruppe für Bedienungshilfen. */
 @Composable
-private fun ResultText(result: ConnectionResult) {
+private fun ServerTypeSelector(selected: SourceType, onSelect: (SourceType) -> Unit) {
+    val label = stringResource(R.string.add_server_type)
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().semantics { contentDescription = label }) {
+        SERVER_TYPES.forEachIndexed { index, (type, text) ->
+            SegmentedButton(
+                selected = type == selected,
+                onClick = { onSelect(type) },
+                shape = SegmentedButtonDefaults.itemShape(index, SERVER_TYPES.size),
+            ) {
+                Text(stringResource(text), maxLines = 1)
+            }
+        }
+    }
+}
+
+private val SERVER_TYPES = listOf(
+    SourceType.SUBSONIC to R.string.add_server_type_subsonic,
+    SourceType.JELLYFIN to R.string.add_server_type_jellyfin,
+)
+
+@Composable
+private fun ResultText(result: ConnectionResult, type: SourceType) {
     val (text, isError) = when (result) {
         is ConnectionResult.Success ->
             stringResource(R.string.add_server_success, result.serverName, result.serverVersion.orEmpty()) to false
         ConnectionResult.InvalidUrl -> stringResource(R.string.add_server_invalid_url) to true
         ConnectionResult.WrongCredentials -> stringResource(R.string.add_server_wrong_credentials) to true
-        ConnectionResult.UnexpectedServer -> stringResource(R.string.add_server_not_subsonic) to true
+        ConnectionResult.UnexpectedServer -> stringResource(
+            if (type == SourceType.JELLYFIN) R.string.add_server_not_jellyfin else R.string.add_server_not_subsonic,
+        ) to true
         is ConnectionResult.Unreachable -> stringResource(R.string.add_server_unreachable, result.reason.orEmpty()) to true
         is ConnectionResult.ServerError ->
             stringResource(R.string.add_server_server_error, result.code, result.message.orEmpty()) to true
@@ -241,6 +275,7 @@ private fun ServerFormContentPreview() {
                 result = ConnectionResult.Success("navidrome", "0.64.2"),
             ),
             onBack = {},
+            onTypeChange = {},
             onNameChange = {},
             onUrlChange = {},
             onUsernameChange = {},
@@ -266,6 +301,7 @@ private fun ServerFormEditPreview() {
                 autoDownload = true,
             ),
             onBack = {},
+            onTypeChange = {},
             onNameChange = {},
             onUrlChange = {},
             onUsernameChange = {},

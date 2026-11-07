@@ -40,6 +40,9 @@ interface SourceDao {
     @Query("SELECT * FROM sources WHERE type NOT IN $NOT_SERVER_TYPES")
     suspend fun getServers(): List<SourceEntity>
 
+    @Query("SELECT * FROM sources WHERE type NOT IN $NOT_SERVER_TYPES ORDER BY priority DESC, name")
+    fun observeServers(): Flow<List<SourceEntity>>
+
     @Query("UPDATE sources SET syncGeneration = :generation, lastFullSyncAt = :syncedAt WHERE sourceId = :sourceId")
     suspend fun setSyncGeneration(sourceId: String, generation: Long, syncedAt: Long)
 

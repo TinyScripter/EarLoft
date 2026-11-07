@@ -109,7 +109,7 @@
 
     <!-- Einstellungen & Server -->
     <string name="settings_title">Einstellungen</string>
-    <string name="settings_no_servers">Noch kein Server eingerichtet. Navidrome und andere Subsonic-Server werden unterstützt.</string>
+    <string name="settings_no_servers">Noch kein Server eingerichtet. Unterstützt werden Navidrome und andere Subsonic-Server sowie Jellyfin.</string>
     <string name="settings_add_server">Server hinzufügen</string>
     <string name="settings_refresh_all">Alle Quellen jetzt abgleichen</string>
     <string name="settings_general">Allgemein</string>
@@ -198,7 +198,7 @@
     <string name="server_form_auto_download_summary">Jeder Titel dieses Servers wird auf das Gerät geladen, auch neu hinzugekommene. Braucht entsprechend viel Speicher.</string>
     <string name="about_title">Über die App</string>
     <string name="about_version">Version %1$s</string>
-    <string name="about_text">TinyAmp ist ein Player für deine eigene Sammlung: Musik, Podcasts und Bücher, vom Gerät und aus dem Netz, jeweils in einer gemeinsamen Bibliothek. Musik kommt außerdem von deinen Navidrome- oder Subsonic-Servern, Podcasts aus beliebigen Feeds und Bücher von deinem Audiobookshelf-Server. Alles lässt sich für unterwegs herunterladen, der Fortschritt der Bücher wird mit deinem Server abgeglichen, und Musik, Podcasts und Bücher spielen auch auf der Wear-OS-Uhr.</string>
+    <string name="about_text">TinyAmp ist ein Player für deine eigene Sammlung: Musik, Podcasts und Bücher, vom Gerät und aus dem Netz, jeweils in einer gemeinsamen Bibliothek. Musik kommt außerdem von deinen Navidrome-, Subsonic- oder Jellyfin-Servern, Podcasts aus beliebigen Feeds und Bücher von deinem Audiobookshelf-Server. Alles lässt sich für unterwegs herunterladen, der Fortschritt der Bücher wird mit deinem Server abgeglichen, und Musik, Podcasts und Bücher spielen auch auf der Wear-OS-Uhr.</string>
     <string name="about_more_info">Weitere Informationen und den Quellcode findest du auf GitHub:</string>
     <string name="about_feedback">Bugs und Feature-Wünsche bitte im Issue-Tracker melden:</string>
     <string name="licenses_title">Lizenzen</string>
@@ -243,6 +243,11 @@
     <string name="add_server_invalid_url">Die Adresse ist ungültig.</string>
     <string name="add_server_wrong_credentials">Benutzername oder Passwort falsch.</string>
     <string name="add_server_not_subsonic">Unter dieser Adresse antwortet kein Subsonic-Server.</string>
+    <string name="add_server_not_jellyfin">Unter dieser Adresse antwortet kein Jellyfin-Server.</string>
+    <string name="add_server_type">Art des Servers</string>
+    <string name="add_server_type_subsonic">Navidrome / Subsonic</string>
+    <string name="edit_server_login_keep">Leer lassen, um angemeldet zu bleiben.</string>
+    <string name="edit_server_login_required">Nicht angemeldet. Bitte das Passwort eingeben, um dich neu anzumelden.</string>
     <string name="add_server_unreachable">Server nicht erreichbar (%1$s).</string>
     <string name="add_server_server_error">Der Server meldet Fehler %1$d: %2$s</string>
     <string name="edit_server_title">Server bearbeiten</string>
@@ -734,8 +739,8 @@
     <string name="area_hide_music">Musik ausblenden</string>
     <string name="area_hide_podcasts">Podcasts ausblenden</string>
     <string name="area_hide_books">Bücher ausblenden</string>
-    <string name="home_setup_server">Navidrome einrichten</string>
-    <string name="settings_area_music_summary">Navidrome, Musik auf dem Gerät</string>
+    <string name="home_setup_server">Musikserver einrichten</string>
+    <string name="settings_area_music_summary">Navidrome, Jellyfin, Musik auf dem Gerät</string>
     <string name="settings_area_podcasts_summary">RSS-Feeds, Podcasts auf dem Gerät</string>
     <string name="settings_area_books_summary">Audiobookshelf, Bücher auf dem Gerät</string>
 </resources>

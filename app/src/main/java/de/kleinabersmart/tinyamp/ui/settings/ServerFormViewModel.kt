@@ -10,6 +10,7 @@ import de.kleinabersmart.tinyamp.core.data.repository.ConnectionResult
 import de.kleinabersmart.tinyamp.core.data.repository.ServerRepository
 import de.kleinabersmart.tinyamp.core.download.DownloadSettings
 import de.kleinabersmart.tinyamp.core.model.ServerInfo
+import de.kleinabersmart.tinyamp.core.model.SourceType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,12 +22,14 @@ data class ServerFormUiState(
     /** `true` = vorhandenen Server bearbeiten, sonst neuen anlegen. */
     val isEditing: Boolean = false,
     val isLoading: Boolean = false,
+    /** Wählbar nur beim Anlegen. */
+    val type: SourceType = SourceType.SUBSONIC,
     val name: String = "",
     val url: String = "",
     val username: String = "",
     /** Beim Bearbeiten: leer = gespeichertes Passwort behalten. */
     val password: String = "",
-    /** Beim Bearbeiten: Es gibt ein lesbares gespeichertes Passwort. */
+    /** Beim Bearbeiten: Es gibt ein lesbares gespeichertes Passwort (bei Jellyfin: eine Anmeldung). */
     val hasStoredPassword: Boolean = false,
     val allowHttp: Boolean = false,
     /** Alles von diesem Server automatisch herunterladen. */
@@ -75,6 +78,7 @@ class ServerFormViewModel @AssistedInject constructor(
             _state.update {
                 it.copy(
                     isLoading = false,
+                    type = server.info.type,
                     name = server.info.name,
                     url = server.info.baseUrl,
                     username = server.info.username.orEmpty(),
@@ -87,6 +91,7 @@ class ServerFormViewModel @AssistedInject constructor(
         }
     }
 
+    fun onTypeChange(value: SourceType) = _state.update { if (it.isEditing) it else it.copy(type = value, result = null) }
     fun onNameChange(value: String) = _state.update { it.copy(name = value) }
     fun onUrlChange(value: String) = _state.update { it.copy(url = value, result = null) }
     fun onUsernameChange(value: String) = _state.update { it.copy(username = value, result = null) }
@@ -108,7 +113,7 @@ class ServerFormViewModel @AssistedInject constructor(
         }
         submit { s ->
             val result = if (sourceId == null) {
-                serverRepository.addServer(s.name, s.url, s.username, s.password)
+                serverRepository.addServer(s.type, s.name, s.url, s.username, s.password)
             } else {
                 serverRepository.updateServer(sourceId, s.name, s.url, s.username, s.newPassword)
             }

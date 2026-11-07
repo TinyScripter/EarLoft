@@ -1,12 +1,15 @@
 package de.kleinabersmart.tinyamp.core.network.di
 
 import android.content.Context
+import android.os.Build
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.tinyamp.core.network.audiobookshelf.AbsAuthInterceptor
+import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinAuthInterceptor
+import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinClientInfo
 import de.kleinabersmart.tinyamp.core.network.subsonic.CoverArtCacheInterceptor
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicAuthInterceptor
 import okhttp3.Cache
@@ -26,16 +29,26 @@ internal object NetworkModule {
         @ApplicationContext context: Context,
         authInterceptor: SubsonicAuthInterceptor,
         absAuthInterceptor: AbsAuthInterceptor,
+        jellyfinAuthInterceptor: JellyfinAuthInterceptor,
         coverArtCacheInterceptor: CoverArtCacheInterceptor,
     ): OkHttpClient =
         OkHttpClient.Builder()
             .cache(Cache(File(context.cacheDir, "http"), HTTP_CACHE_BYTES))
             .addNetworkInterceptor(authInterceptor)
             .addNetworkInterceptor(absAuthInterceptor)
+            .addNetworkInterceptor(jellyfinAuthInterceptor)
             .addNetworkInterceptor(coverArtCacheInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
+
+    /** Gerätename und App-Version, wie sie die Jellyfin-Geräteliste anzeigt. */
+    @Provides
+    @Singleton
+    fun provideJellyfinClientInfo(@ApplicationContext context: Context): JellyfinClientInfo {
+        val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull()
+        return JellyfinClientInfo(deviceName = Build.MODEL ?: "Android", version = version ?: "1")
+    }
 
     private const val HTTP_CACHE_BYTES = 100L * 1024 * 1024
 }

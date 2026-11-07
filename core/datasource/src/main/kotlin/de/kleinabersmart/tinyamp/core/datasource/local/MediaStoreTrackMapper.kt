@@ -33,6 +33,11 @@ internal data class FallbackNames(
     val variousArtists: String,
 ) {
     companion object {
+        /** So benennen Server Sampler; lokal heißt der Album-Künstler [variousArtists]. */
+        private val VARIOUS_ARTISTS_NAMES = setOf("various artists", "various", "va")
+
+        fun isVariousArtists(name: String?): Boolean = name?.trim()?.lowercase() in VARIOUS_ARTISTS_NAMES
+
         fun from(context: Context) = FallbackNames(
             unknownTitle = context.getString(R.string.unknown_title),
             unknownArtist = context.getString(R.string.unknown_artist),

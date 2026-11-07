@@ -1,6 +1,6 @@
 package de.kleinabersmart.tinyamp.core.model
 
-/** Ein eingerichteter Navidrome-/Subsonic-Server. */
+/** Ein eingerichteter Musikserver (Navidrome/Subsonic oder Jellyfin). */
 data class ServerInfo(
     val sourceId: String,
     val name: String,
@@ -10,4 +10,5 @@ data class ServerInfo(
     val lastFullSyncAt: Long,
     /** Ausgeschaltet: kein Abgleich, Inhalte ausgeblendet, nichts gelöscht. */
     val enabled: Boolean = true,
+    val type: SourceType = SourceType.SUBSONIC,
 )

@@ -19,9 +19,6 @@ import java.time.format.DateTimeParseException
 /** Wandelt Subsonic-Songs in [RawTrack]s um. */
 internal object SubsonicTrackMapper {
 
-    /** Navidrome und andere Server benennen Sampler so; lokal heißt der Album-Künstler [FallbackNames.variousArtists]. */
-    private val VARIOUS_ARTISTS_NAMES = setOf("various artists", "various", "va")
-
     fun isMusic(song: SongDto): Boolean = !song.isDir && (song.type == null || song.type == "music")
 
     fun map(song: SongDto, album: AlbumDto?, names: FallbackNames): RawTrack {
@@ -35,7 +32,7 @@ internal object SubsonicTrackMapper {
             ?: album?.displayArtist.orBlankNull()
             ?: album?.artist.orBlankNull()
         val isCompilation = album?.isCompilation == true ||
-            declaredAlbumArtist?.lowercase() in VARIOUS_ARTISTS_NAMES
+            FallbackNames.isVariousArtists(declaredAlbumArtist)
         val albumArtistDisplay = when {
             isCompilation -> names.variousArtists
             else -> declaredAlbumArtist ?: artistDisplay

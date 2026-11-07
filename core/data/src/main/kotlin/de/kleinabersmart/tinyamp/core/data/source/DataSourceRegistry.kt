@@ -6,9 +6,12 @@ import de.kleinabersmart.tinyamp.core.data.sync.LibrarySettings
 import de.kleinabersmart.tinyamp.core.database.dao.SourceDao
 import de.kleinabersmart.tinyamp.core.database.entity.SourceEntity
 import de.kleinabersmart.tinyamp.core.datasource.MusicDataSource
+import de.kleinabersmart.tinyamp.core.datasource.jellyfin.JellyfinDataSourceFactory
 import de.kleinabersmart.tinyamp.core.datasource.local.LocalDataSource
 import de.kleinabersmart.tinyamp.core.datasource.subsonic.SubsonicDataSourceFactory
 import de.kleinabersmart.tinyamp.core.model.SourceType
+import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinServer
+import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinServerRegistry
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicCredentials
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicServer
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicServerRegistry
@@ -31,8 +34,8 @@ interface MusicDataSources {
 
 /**
  * Lokale Quelle (wenn eingeschaltet, [LibrarySettings.useLocalMedia]) plus alle eingerichteten Server. Server werden beim ersten Zugriff aus der
- * Datenbank und dem [SecretStore] geladen und zugleich in der [SubsonicServerRegistry] angemeldet,
- * damit Streams und Cover authentifiziert werden.
+ * Datenbank und dem [SecretStore] geladen und zugleich in der [SubsonicServerRegistry] bzw. [JellyfinServerRegistry]
+ * angemeldet, damit Streams und Cover authentifiziert werden.
  */
 @Singleton
 class DataSourceRegistry @Inject constructor(
@@ -41,6 +44,8 @@ class DataSourceRegistry @Inject constructor(
     private val secretStore: SecretStore,
     private val subsonicFactory: SubsonicDataSourceFactory,
     private val serverRegistry: SubsonicServerRegistry,
+    private val jellyfinFactory: JellyfinDataSourceFactory,
+    private val jellyfinRegistry: JellyfinServerRegistry,
     private val librarySettings: LibrarySettings,
 ) : MusicDataSources {
 
@@ -74,8 +79,8 @@ class DataSourceRegistry @Inject constructor(
         return all.filterKeys { it !in disabled }.values.toList()
     }
 
-    /** Eingeschaltete Server ohne gespeichertes Passwort (nach dem Wiederherstellen auf einem neuen Gerät). */
-    suspend fun withoutPassword(): List<String> = sourceDao.getByType(SourceType.SUBSONIC)
+    /** Eingeschaltete Server ohne gespeichertes Passwort bzw. Token (nach dem Wiederherstellen auf einem neuen Gerät). */
+    suspend fun withoutPassword(): List<String> = sourceDao.getServers()
         .filter { it.enabled && secretStore.get(passwordKey(it.sourceId)) == null }
         .map { it.sourceId }
 
@@ -88,15 +93,34 @@ class DataSourceRegistry @Inject constructor(
         servers ?: mutex.withLock { servers ?: load().also { servers = it } }
 
     private suspend fun load(): Map<String, MusicDataSource> {
-        val entities = sourceDao.getByType(SourceType.SUBSONIC)
+        val entities = sourceDao.getServers()
         disabled = entities.filterNot { it.enabled }.mapTo(HashSet()) { it.sourceId }
-        val loaded = entities.mapNotNull { entity -> toServer(entity)?.let { it to entity.name } }
-        unusable.value = entities.mapTo(HashSet()) { it.sourceId } - loaded.mapTo(HashSet()) { it.first.sourceId }
-        serverRegistry.replaceAll(loaded.map { it.first })
-        return loaded.associate { (server, name) -> server.sourceId to subsonicFactory.create(server, name) }
+        val subsonic = mutableListOf<SubsonicServer>()
+        val jellyfin = mutableListOf<JellyfinServer>()
+        val loaded = entities.mapNotNull { entity ->
+            when (entity.type) {
+                SourceType.SUBSONIC -> toSubsonicServer(entity)?.also(subsonic::add)?.let { subsonicFactory.create(it, entity.name) }
+                SourceType.JELLYFIN -> toJellyfinServer(entity)?.also(jellyfin::add)?.let { jellyfinFactory.create(it, entity.name) }
+                SourceType.LOCAL, SourceType.PHONE -> null
+            }
+        }
+        unusable.value = entities.mapTo(HashSet()) { it.sourceId } - loaded.mapTo(HashSet()) { it.sourceId }
+        serverRegistry.replaceAll(subsonic)
+        jellyfinRegistry.replaceAll(jellyfin)
+        return loaded.associateBy { it.sourceId }
     }
 
-    private suspend fun toServer(entity: SourceEntity): SubsonicServer? {
+    private suspend fun toJellyfinServer(entity: SourceEntity): JellyfinServer? {
+        val baseUrl = entity.baseUrl?.toHttpUrlOrNull()
+        val secret = secretStore.get(passwordKey(entity.sourceId))?.let(JellyfinSecret::decode)
+        if (baseUrl == null || secret == null) {
+            Log.w(TAG, "Server ${entity.name} ist unvollständig eingerichtet und wird übersprungen")
+            return null
+        }
+        return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token)
+    }
+
+    private suspend fun toSubsonicServer(entity: SourceEntity): SubsonicServer? {
         val baseUrl = entity.baseUrl?.toHttpUrlOrNull()
         val username = entity.username
         val password = secretStore.get(passwordKey(entity.sourceId))
@@ -116,6 +140,7 @@ class DataSourceRegistry @Inject constructor(
     companion object {
         private const val TAG = "DataSourceRegistry"
 
+        /** Das Secret eines Servers: bei Subsonic das Passwort, bei Jellyfin [JellyfinSecret] (Benutzer-ID und Token). */
         fun passwordKey(sourceId: String) = "server:$sourceId:password"
     }
 }
