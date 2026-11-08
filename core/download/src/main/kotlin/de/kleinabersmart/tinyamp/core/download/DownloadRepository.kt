@@ -162,6 +162,11 @@ class DownloadRepository @Inject constructor(
         if (downloadDao.retryFailed() > 0) scheduler.enqueue()
     }
 
+    /** Nach dem Speichern eines Servers (z. B. neues Passwort): seine gescheiterten Downloads erneut versuchen. */
+    suspend fun retryFailedOf(sourceId: String) {
+        if (downloadDao.retryFailedOfSource(sourceId) > 0) scheduler.enqueue()
+    }
+
     /** Nach App-Start: Wartende Downloads fortsetzen, falls WorkManager den Auftrag verloren hat. */
     suspend fun resumePending() {
         dropOrphanCovers()

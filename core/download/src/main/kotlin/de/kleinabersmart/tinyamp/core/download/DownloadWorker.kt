@@ -58,6 +58,9 @@ class DownloadWorker(
                         return Result.retry()
                     }
                     downloadDao.markFailed(next.sourceUid)
+                    // Die übrigen Songs dieses Servers scheiterten genauso (bei „alles laden“ Tausende Anfragen); neue
+                    // Zugangsdaten im Serverformular reihen sie wieder ein.
+                    if (outcome.isAuthRejection) downloadDao.failQueuedOfSource(next.sourceUid.substringBefore(':'))
                 }
                 is DownloadOutcome.Failed -> Log.w(TAG, "Download ${next.sourceUid} fehlgeschlagen: ${outcome.reason}")
                 DownloadOutcome.Done, DownloadOutcome.Cancelled -> Unit

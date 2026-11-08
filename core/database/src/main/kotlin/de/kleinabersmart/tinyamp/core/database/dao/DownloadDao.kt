@@ -115,6 +115,14 @@ interface DownloadDao {
     @Query("UPDATE downloads SET state = 'QUEUED', bytesDone = 0 WHERE state = 'FAILED' AND sourceUid IN (:sourceUids)")
     suspend fun retryFailed(sourceUids: List<String>): Int
 
+    /** Abgelehnte Zugangsdaten: alle wartenden Downloads des Servers auf einmal, statt jeden einzeln anzufragen. */
+    @Query("UPDATE downloads SET state = 'FAILED' WHERE state = 'QUEUED' AND sourceUid LIKE :sourceId || ':%'")
+    suspend fun failQueuedOfSource(sourceId: String): Int
+
+    /** Nach neuen Zugangsdaten: die gescheiterten Downloads des Servers wieder einreihen. */
+    @Query("UPDATE downloads SET state = 'QUEUED', bytesDone = 0 WHERE state = 'FAILED' AND sourceUid LIKE :sourceId || ':%'")
+    suspend fun retryFailedOfSource(sourceId: String): Int
+
     @Query("SELECT COUNT(*) FROM downloads WHERE state IN ('QUEUED', 'RUNNING')")
     suspend fun countPending(): Int
 

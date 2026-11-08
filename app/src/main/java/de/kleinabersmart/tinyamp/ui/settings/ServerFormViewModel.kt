@@ -8,6 +8,7 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.tinyamp.core.data.repository.ConnectionResult
 import de.kleinabersmart.tinyamp.core.data.repository.ServerRepository
+import de.kleinabersmart.tinyamp.core.download.DownloadRepository
 import de.kleinabersmart.tinyamp.core.download.DownloadSettings
 import de.kleinabersmart.tinyamp.core.model.ServerInfo
 import de.kleinabersmart.tinyamp.core.model.SourceType
@@ -54,6 +55,7 @@ data class ServerFormUiState(
 class ServerFormViewModel @AssistedInject constructor(
     private val serverRepository: ServerRepository,
     private val downloadSettings: DownloadSettings,
+    private val downloads: DownloadRepository,
     @Assisted private val sourceId: String?,
 ) : ViewModel() {
 
@@ -121,6 +123,8 @@ class ServerFormViewModel @AssistedInject constructor(
             if (result is ConnectionResult.Success) {
                 // Reihenfolge egal: Die Downloads starten bei Änderung der Einstellung und nach jedem Abgleich.
                 (sourceId ?: result.sourceId)?.let { downloadSettings.setAutoDownloadServer(it, s.autoDownload) }
+                // Mit abgelehnten Zugangsdaten gescheiterte Downloads holt die korrigierte Anmeldung nach.
+                sourceId?.let { downloads.retryFailedOf(it) }
                 _state.update { it.copy(done = true) }
             }
             result
