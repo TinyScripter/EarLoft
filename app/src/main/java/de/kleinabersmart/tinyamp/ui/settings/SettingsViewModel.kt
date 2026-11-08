@@ -1,7 +1,6 @@
 package de.kleinabersmart.tinyamp.ui.settings
 
 import android.content.Context
-import android.database.sqlite.SQLiteException
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -10,7 +9,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.tinyamp.core.data.podcast.DatabaseReader
 import de.kleinabersmart.tinyamp.core.data.podcast.DatabaseExportResult
-import de.kleinabersmart.tinyamp.core.data.podcast.DatabaseExporter
 import de.kleinabersmart.tinyamp.core.data.podcast.DatabaseImporter
 import de.kleinabersmart.tinyamp.core.data.podcast.DatabaseImportResult
 import de.kleinabersmart.tinyamp.core.data.podcast.OpmlImportResult
@@ -168,7 +166,7 @@ class SettingsViewModel @Inject constructor(
     private val opmlImporter: OpmlImporter,
     private val directorySearch: PodcastDirectorySearch,
     private val databaseImporter: DatabaseImporter,
-    private val databaseExporter: DatabaseExporter,
+    private val databaseExport: DatabaseExport,
     private val statsRepository: StatsRepository,
     @param:ApplicationContext private val context: Context,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
@@ -477,31 +475,8 @@ class SettingsViewModel @Inject constructor(
     /** Schreibt Abos, Hörfortschritt und gehörte Zeit als Datenbank-Datei nach [uri]. */
     fun exportDatabase(uri: Uri) {
         viewModelScope.launch {
-            val message = try {
-                val result = applicationScope.async {
-                    val file = File(context.cacheDir, "export.db")
-                    try {
-                        databaseExporter.export(file).also {
-                            withContext(Dispatchers.IO) {
-                                context.contentResolver.openOutputStream(uri, "wt")?.use { out -> file.inputStream().use { it.copyTo(out) } }
-                                    ?: throw IOException("Datei nicht beschreibbar")
-                            }
-                        }
-                    } finally {
-                        file.delete()
-                    }
-                }.await()
-                TransferMessage.DatabaseExported(result)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: IOException) {
-                Log.w(TAG, "Datenbank-Export fehlgeschlagen", e)
-                TransferMessage.DatabaseExportFailed
-            } catch (e: SQLiteException) {
-                Log.w(TAG, "Datenbank-Export fehlgeschlagen", e)
-                TransferMessage.DatabaseExportFailed
-            }
-            _transferMessages.send(message)
+            val result = databaseExport.export(uri)
+            _transferMessages.send(if (result != null) TransferMessage.DatabaseExported(result) else TransferMessage.DatabaseExportFailed)
         }
     }
 

@@ -1,9 +1,6 @@
 package de.kleinabersmart.tinyamp.ui.spoken
 
-import android.content.Context
-import android.database.sqlite.SQLiteException
 import android.net.Uri
-import android.util.Log
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,23 +8,17 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.data.di.ApplicationScope
 import de.kleinabersmart.tinyamp.core.data.podcast.DatabaseExportResult
-import de.kleinabersmart.tinyamp.core.data.podcast.DatabaseExporter
 import de.kleinabersmart.tinyamp.core.data.podcast.PodcastSourceSwitch
 import de.kleinabersmart.tinyamp.core.data.podcast.SourceCheck
-import kotlinx.coroutines.CancellationException
+import de.kleinabersmart.tinyamp.ui.settings.DatabaseExport
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.IOException
 
 /** Ablauf von „Quelle wechseln“ (Konzept 12.10). */
 sealed interface SourceSwitchState {
@@ -47,9 +38,8 @@ data class SwitchExport(val result: DatabaseExportResult?)
 @HiltViewModel(assistedFactory = SourceSwitchViewModel.Factory::class)
 class SourceSwitchViewModel @AssistedInject constructor(
     @Assisted private val feedId: String,
-    @param:ApplicationContext private val context: Context,
     private val sourceSwitch: PodcastSourceSwitch,
-    private val databaseExporter: DatabaseExporter,
+    private val databaseExport: DatabaseExport,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -111,26 +101,7 @@ class SourceSwitchViewModel @AssistedInject constructor(
     fun exportDatabase(uri: Uri) {
         _exporting.value = true
         viewModelScope.launch {
-            val file = File(context.cacheDir, "export.db")
-            val result = try {
-                databaseExporter.export(file).also {
-                    withContext(Dispatchers.IO) {
-                        context.contentResolver.openOutputStream(uri, "wt")?.use { out -> file.inputStream().use { it.copyTo(out) } }
-                            ?: throw IOException("Datei nicht beschreibbar")
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: IOException) {
-                Log.w(TAG, "Datenbank-Export fehlgeschlagen", e)
-                null
-            } catch (e: SQLiteException) {
-                Log.w(TAG, "Datenbank-Export fehlgeschlagen", e)
-                null
-            } finally {
-                withContext(Dispatchers.IO) { file.delete() }
-            }
-            _export.value = SwitchExport(result)
+            _export.value = SwitchExport(databaseExport.export(uri))
             _exporting.value = false
         }
     }
@@ -138,9 +109,5 @@ class SourceSwitchViewModel @AssistedInject constructor(
     @AssistedFactory
     interface Factory {
         fun create(feedId: String): SourceSwitchViewModel
-    }
-
-    private companion object {
-        const val TAG = "SourceSwitch"
     }
 }

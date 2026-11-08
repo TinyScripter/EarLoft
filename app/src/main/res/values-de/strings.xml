@@ -27,6 +27,8 @@
     <string name="action_add_to_queue">Zur Warteschlange hinzufügen</string>
     <string name="action_remove_from_queue">Aus der Warteschlange entfernen</string>
     <string name="action_reorder_queue_item">Zum Umsortieren ziehen</string>
+    <string name="action_move_up">Nach oben</string>
+    <string name="action_move_down">Nach unten</string>
     <string name="action_clear_search">Suche löschen</string>
 
     <!-- Bibliothek -->
@@ -162,11 +164,19 @@
     <string name="settings_db_import">Datenbank importieren</string>
     <string name="settings_db_import_summary">Fehlende Abos, Hörfortschritt und gehörte Zeit aus einer Datenbank-Datei (.db)</string>
     <string name="settings_db_import_started">Datenbank wird gelesen …</string>
-    <string name="settings_db_import_imported">%1$d Podcasts hinzugefügt, Fortschritt bei %2$d Folgen übernommen (%3$d nicht übernommen), gehörte Zeit von %4$d Folgen erfasst.</string>
+    <string name="settings_db_import_imported">%1$s hinzugefügt, Fortschritt bei %2$s übernommen (%3$d nicht übernommen), gehörte Zeit von %4$s erfasst.</string>
     <string name="settings_db_import_failed">Die Datei konnte nicht als Datenbank-Export gelesen werden.</string>
     <string name="settings_db_export">Datenbank exportieren</string>
     <string name="settings_db_export_summary">Abos, Hörfortschritt und gehörte Zeit als Datenbank-Datei (.db)</string>
-    <string name="settings_db_export_done">Datenbank exportiert: %1$d Podcasts, %2$d Folgen.</string>
+    <string name="settings_db_export_done">Datenbank exportiert: %1$s, %2$s.</string>
+    <plurals name="count_podcasts">
+        <item quantity="one">%d Podcast</item>
+        <item quantity="other">%d Podcasts</item>
+    </plurals>
+    <plurals name="count_episodes">
+        <item quantity="one">%d Folge</item>
+        <item quantity="other">%d Folgen</item>
+    </plurals>
     <string name="settings_db_export_failed">Exportieren der Datenbank fehlgeschlagen.</string>
     <string name="settings_opml_exported">Abos exportiert.</string>
     <string name="settings_opml_export_failed">Exportieren fehlgeschlagen.</string>
@@ -508,7 +518,7 @@
     <string name="podcast_source_switch_taken">Unter dieser Adresse besteht schon das Abo „%1$s“.</string>
     <string name="podcast_source_switch_changed">Das Abo hat sich inzwischen geändert. Bitte erneut prüfen.</string>
     <string name="podcast_source_switch_confirm_title">Quelle wechseln?</string>
-    <string name="podcast_source_switch_matched">%1$d von %2$d Folgen gefunden. Sie behalten Fortschritt, Downloads und Statistik.</string>
+    <string name="podcast_source_switch_matched">%1$d von %2$s gefunden. Sie behalten Fortschritt, Downloads und Statistik.</string>
     <plurals name="podcast_source_switch_kept">
         <item quantity="one">%1$d angefangene oder gehörte Folge gibt es in der neuen Quelle nicht; sie bleibt mit ihrem Stand im Abo.</item>
         <item quantity="other">%1$d angefangene oder gehörte Folgen gibt es in der neuen Quelle nicht; sie bleiben mit ihrem Stand im Abo.</item>

@@ -401,17 +401,13 @@ fun PodcastsSettingsScreen(
                 TransferMessage.DatabaseImportStarted -> resources.getString(R.string.settings_db_import_started)
                 is TransferMessage.DatabaseImported -> resources.getString(
                     R.string.settings_db_import_imported,
-                    message.result.feedsAdded,
-                    message.result.progressApplied,
+                    resources.getQuantityString(R.plurals.count_podcasts, message.result.feedsAdded, message.result.feedsAdded),
+                    resources.getQuantityString(R.plurals.count_episodes, message.result.progressApplied, message.result.progressApplied),
                     message.result.progressKept + message.result.progressMissing,
-                    message.result.statsImported,
+                    resources.getQuantityString(R.plurals.count_episodes, message.result.statsImported, message.result.statsImported),
                 )
-                is TransferMessage.DatabaseExported -> resources.getString(
-                    R.string.settings_db_export_done,
-                    message.result.feeds,
-                    message.result.episodes,
-                )
-                TransferMessage.DatabaseExportFailed -> resources.getString(R.string.settings_db_export_failed)
+                is TransferMessage.DatabaseExported -> databaseExportMessage(resources, message.result)
+                TransferMessage.DatabaseExportFailed -> databaseExportMessage(resources, null)
                 TransferMessage.StatsReset -> resources.getString(R.string.settings_stats_reset_done)
                 TransferMessage.DatabaseImportFailed -> resources.getString(R.string.settings_db_import_failed)
             }

@@ -62,6 +62,7 @@ import de.kleinabersmart.tinyamp.ui.components.LoadFailedHint
 import de.kleinabersmart.tinyamp.ui.components.LoadingIndicator
 import de.kleinabersmart.tinyamp.ui.components.MarkGap
 import de.kleinabersmart.tinyamp.ui.components.OfflineMarkIcon
+import de.kleinabersmart.tinyamp.ui.components.reorderActions
 import de.kleinabersmart.tinyamp.ui.valueOrNull
 import de.kleinabersmart.tinyamp.ui.library.BackButton
 import java.text.DateFormat
@@ -182,7 +183,11 @@ fun PodcastQueueList(
                 },
                 modifier = Modifier
                     .zIndex(if (isDragged) 1f else 0f)
-                    .graphicsLayer { translationY = if (isDragged) dragOffset else 0f },
+                    .graphicsLayer { translationY = if (isDragged) dragOffset else 0f }
+                    .reorderActions(rows.indexOf(item), rows.size) { from, to ->
+                        rows.add(to, rows.removeAt(from))
+                        viewModel.reorder(rows.map { it.book.id })
+                    },
             )
         }
     }

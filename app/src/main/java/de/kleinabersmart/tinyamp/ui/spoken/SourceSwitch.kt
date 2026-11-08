@@ -27,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -38,6 +39,7 @@ import de.kleinabersmart.tinyamp.core.model.PodcastFeed
 import de.kleinabersmart.tinyamp.core.network.podcast.ardsounds.ardSoundsPageUrl
 import de.kleinabersmart.tinyamp.core.network.podcast.ardsounds.ardSoundsShowId
 import de.kleinabersmart.tinyamp.core.network.podcast.ardsounds.parseArdSoundsInput
+import de.kleinabersmart.tinyamp.ui.settings.databaseExportMessage
 import kotlinx.coroutines.launch
 
 /**
@@ -83,7 +85,13 @@ fun SourceSwitchDialog(
                         Working(R.string.podcast_source_switch_switching)
                     } else {
                         Column {
-                            Text(stringResource(R.string.podcast_source_switch_matched, ready.matched, ready.episodes))
+                            Text(
+                                stringResource(
+                                    R.string.podcast_source_switch_matched,
+                                    ready.matched,
+                                    pluralStringResource(R.plurals.count_episodes, ready.episodes, ready.episodes),
+                                ),
+                            )
                             if (ready.keptUnmatched > 0) {
                                 Text(
                                     pluralStringResource(R.plurals.podcast_source_switch_kept, ready.keptUnmatched, ready.keptUnmatched),
@@ -121,15 +129,7 @@ fun SourceSwitchDialog(
                                 modifier = Modifier.align(Alignment.End),
                             ) { Text(stringResource(R.string.settings_db_export)) }
                             export?.let {
-                                val result = it.result
-                                Text(
-                                    if (result == null) {
-                                        stringResource(R.string.settings_db_export_failed)
-                                    } else {
-                                        stringResource(R.string.settings_db_export_done, result.feeds, result.episodes)
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
+                                Text(databaseExportMessage(LocalResources.current, it.result), style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }

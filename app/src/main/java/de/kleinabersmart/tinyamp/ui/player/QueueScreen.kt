@@ -47,6 +47,7 @@ import de.kleinabersmart.tinyamp.core.playback.PlayerState
 import de.kleinabersmart.tinyamp.core.playback.QueueEntry
 import de.kleinabersmart.tinyamp.ui.components.AlbumArt
 import de.kleinabersmart.tinyamp.ui.components.EmptyHint
+import de.kleinabersmart.tinyamp.ui.components.reorderActions
 import de.kleinabersmart.tinyamp.ui.library.BackButton
 import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
 
@@ -201,7 +202,8 @@ fun QueueList(
                     modifier = Modifier
                         .zIndex(if (isDragged) 1f else 0f)
                         .graphicsLayer { translationY = if (isDragged) dragOffset else 0f }
-                        .clickable { onItemClick(rows.indexOf(row)) },
+                        .clickable { onItemClick(rows.indexOf(row)) }
+                        .reorderActions(index, rows.size, moveRow),
                 )
             }
         }

@@ -7,7 +7,6 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import de.kleinabersmart.tinyamp.core.data.di.ApplicationScope
-import de.kleinabersmart.tinyamp.core.data.podcast.DatabaseExporter
 import de.kleinabersmart.tinyamp.core.data.podcast.DatabaseImporter
 import de.kleinabersmart.tinyamp.core.data.podcast.PodcastDirectorySearch
 import de.kleinabersmart.tinyamp.core.data.podcast.PodcastRefresher
@@ -95,7 +94,7 @@ class SettingsViewModelTest {
     @Inject lateinit var opmlImporter: OpmlImporter
     @Inject lateinit var directorySearch: PodcastDirectorySearch
     @Inject lateinit var databaseImporter: DatabaseImporter
-    @Inject lateinit var databaseExporter: DatabaseExporter
+    @Inject lateinit var databaseExport: DatabaseExport
     @Inject lateinit var statsRepository: StatsRepository
     @Inject @ApplicationContext lateinit var context: Context
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
@@ -106,7 +105,7 @@ class SettingsViewModelTest {
             serverRepository, refresher, downloadSettings, downloadRepository, syncSettings, replayGainSettings,
             themeSettings, librarySettings, spokenSettings, podcastSettings, artworkSettings, artworkRepository,
             authorImages, registry, spokenRefresher, podcastRefresher, podcastRepository, opmlImporter, directorySearch,
-            databaseImporter, databaseExporter, statsRepository, context, applicationScope, audiobookServers, syncer,
+            databaseImporter, databaseExport, statsRepository, context, applicationScope, audiobookServers, syncer,
         )
     }
 

@@ -24,7 +24,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -109,7 +112,9 @@ fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
     modeViewModel: SpokenModeViewModel = hiltViewModel(),
 ) {
-    val query by viewModel.query.collectAsStateWithLifecycle()
+    // Der Text liegt hier und geht nur ans ViewModel: Über dessen StateFlow käme er verzögert zurück, und beim schnellen
+    // Tippen spränge der Cursor bzw. gingen Zeichen verloren. Der Anfangswert überlebt so auch das Ende des Prozesses.
+    var query by rememberSaveable { mutableStateOf(viewModel.query.value) }
     val state by viewModel.results.collectAsStateWithLifecycle()
     val mode by modeViewModel.mode.collectAsStateWithLifecycle()
     val searchAll by modeViewModel.searchAll.collectAsStateWithLifecycle()
@@ -127,11 +132,19 @@ fun SearchScreen(
             BackButton(onBack)
             OutlinedTextField(
                 value = query,
-                onValueChange = viewModel::onQueryChange,
+                onValueChange = {
+                    query = it
+                    viewModel.onQueryChange(it)
+                },
                 placeholder = { Text(stringResource(state.scope.hint)) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.onQueryChange("") }) {
+                        IconButton(
+                            onClick = {
+                                query = ""
+                                viewModel.onQueryChange("")
+                            },
+                        ) {
                             Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_clear_search))
                         }
                     }

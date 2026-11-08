@@ -28,6 +28,8 @@
     <string name="action_add_to_queue">Add to queue</string>
     <string name="action_remove_from_queue">Remove from queue</string>
     <string name="action_reorder_queue_item">Drag to reorder</string>
+    <string name="action_move_up">Move up</string>
+    <string name="action_move_down">Move down</string>
     <string name="action_clear_search">Clear search</string>
 
     <!-- Library -->
@@ -163,11 +165,19 @@
     <string name="settings_db_import">Import database</string>
     <string name="settings_db_import_summary">Missing subscriptions, listening progress and listening time from a database file (.db)</string>
     <string name="settings_db_import_started">Reading database …</string>
-    <string name="settings_db_import_imported">%1$d podcasts added, progress applied to %2$d episodes (%3$d not applied), listening time for %4$d episodes recorded.</string>
+    <string name="settings_db_import_imported">%1$s added, progress applied to %2$s (%3$d not applied), listening time for %4$s recorded.</string>
     <string name="settings_db_import_failed">The file could not be read as a database export.</string>
     <string name="settings_db_export">Export database</string>
     <string name="settings_db_export_summary">Subscriptions, listening progress and listening time as a database file (.db)</string>
-    <string name="settings_db_export_done">Database exported: %1$d podcasts, %2$d episodes.</string>
+    <string name="settings_db_export_done">Database exported: %1$s, %2$s.</string>
+    <plurals name="count_podcasts">
+        <item quantity="one">%d podcast</item>
+        <item quantity="other">%d podcasts</item>
+    </plurals>
+    <plurals name="count_episodes">
+        <item quantity="one">%d episode</item>
+        <item quantity="other">%d episodes</item>
+    </plurals>
     <string name="settings_db_export_failed">Exporting the database failed.</string>
     <string name="settings_opml_exported">Subscriptions exported.</string>
     <string name="settings_opml_export_failed">Exporting failed.</string>
@@ -515,7 +525,7 @@
     <string name="podcast_source_switch_taken">You already have the subscription “%1$s” at this address.</string>
     <string name="podcast_source_switch_changed">The subscription has changed in the meantime. Please check again.</string>
     <string name="podcast_source_switch_confirm_title">Change source?</string>
-    <string name="podcast_source_switch_matched">%1$d of %2$d episodes found. They keep their progress, downloads and statistics.</string>
+    <string name="podcast_source_switch_matched">%1$d of %2$s found. They keep their progress, downloads and statistics.</string>
     <plurals name="podcast_source_switch_kept">
         <item quantity="one">%1$d started or played episode is not in the new source; it stays in the subscription as it is.</item>
         <item quantity="other">%1$d started or played episodes are not in the new source; they stay in the subscription as they are.</item>
