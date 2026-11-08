@@ -1,6 +1,7 @@
 package de.kleinabersmart.tinyamp.core.data.backup
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import androidx.room.withTransaction
 import dagger.Lazy
@@ -22,12 +23,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,6 +48,9 @@ import javax.inject.Singleton
  *   Zurückspielen leer angelegt), Favoriten von Songs ohne Server, Hörverlauf und die Auswahl für die Uhr.
  * - **Spiegeln:** Danach überträgt jede Änderung der betroffenen Tabellen nur die Unterschiede, höchstens einmal je
  *   [MIRROR_INTERVAL_MS]. Das Backup läuft ohnehin selten (Cloud etwa täglich); so kann kein Schreibweg vergessen werden.
+ *   Gelesen werden nur die Teile, deren Tabellen sich geändert haben (beim Hören eines Buchs alle 15 s nur Fortschritt und
+ *   Statistik statt aller Nutzerdaten); alle [FULL_READ_INTERVAL_MS] wieder alles, für Änderungen über nicht beobachtete
+ *   Tabellen (etwa umbenannte Alben in den Schlüsseln).
  */
 @Singleton
 class UserDataBackup @Inject constructor(
@@ -69,6 +75,9 @@ class UserDataBackup @Inject constructor(
     /** Der zuletzt nach `user.db` geschriebene Stand; spart das erneute Lesen von `user.db` bei jedem Abgleich. */
     private var mirrored: UserDataSnapshot? = null
 
+    /** Wann zuletzt alle Teile gelesen wurden (`elapsedRealtime`). */
+    private var fullReadAt = 0L
+
     fun start() {
         if (!started.compareAndSet(false, true)) return
         scope.launch {
@@ -85,11 +94,15 @@ class UserDataBackup @Inject constructor(
             val saved = readUser()
             val pending = mutex.withLock { applySaved(saved, Pending.of(saved)) }
             if (!pending.isEmpty) launch { applyWhenLibraryChanges(saved, pending) }
+            // Was sich geändert hat, sammelt sich hier, auch während gerade gespiegelt wird oder gewartet (`conflate`).
+            val changed = ConcurrentHashMap.newKeySet<String>()
             database.invalidationTracker.createFlow(*MIRRORED_TABLES)
+                .onEach { changed += it }
                 .conflate()
                 .collect {
+                    val tables = changed.toSet().also { changed.removeAll(it) }
                     try {
-                        mutex.withLock { mirror() }
+                        mutex.withLock { mirror(tables) }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -223,9 +236,13 @@ class UserDataBackup @Inject constructor(
         mirrored = null
     }
 
-    internal suspend fun mirror() {
+    /** [changedTables]: nur deren Teile neu lesen; `null` = alles. */
+    internal suspend fun mirror(changedTables: Set<String>? = null) {
         val previous = mirrored ?: readUser()
-        val current = readMain().keepingUnchangedPlaylists(previous)
+        val now = SystemClock.elapsedRealtime()
+        val base = mirrored.takeIf { changedTables != null && now - fullReadAt < FULL_READ_INTERVAL_MS }
+        if (base == null) fullReadAt = now
+        val current = readMain(base, changedTables.orEmpty()).keepingUnchangedPlaylists(previous)
         // Fehlt das Buch bzw. der Song, ist der Eintrag noch nicht angewendet (oder die Folge steht nicht mehr im Feed, die
         // Datei ist weg): behalten. Gelöscht wird nur, was es hier gibt und was hier entfernt wurde.
         val changes = current.changesSince(previous).let { changes ->
@@ -242,20 +259,43 @@ class UserDataBackup @Inject constructor(
         mirrored = current
     }
 
-    private suspend fun readMain(): UserDataSnapshot {
-        val musicData = music.read()
-        return UserDataSnapshot.ofMain(
-            sources = sourceDao.getServers(),
-            spokenServers = bookDao.servers(),
-            feeds = podcastDao.keptFeeds(),
-            listeningStats = statsDao.all(),
-            listeningDays = statsDao.allDays(),
-            progress = bookDao.keyedProgress(),
-            playlists = musicData.playlists,
-            playlistEntries = musicData.playlistEntries,
-            favorites = musicData.favorites,
-            playEvents = musicData.playEvents,
-            wearSelections = musicData.wearSelections,
+    /** Liest die Teile, deren Tabellen in [changed] stehen, neu und nimmt die übrigen aus [base]; ohne [base] alles. */
+    private suspend fun readMain(base: UserDataSnapshot?, changed: Set<String>): UserDataSnapshot {
+        fun read(vararg tables: String) = base == null || tables.any { it in changed }
+        val servers = read("sources")
+        val spokenServers = read("spoken_servers")
+        val feeds = read("podcast_feeds")
+        val stats = read("listening_stats")
+        val days = read("listening_days")
+        // Welcher Fortschritt gesichert wird, hängt auch an den Audiobookshelf-Servern.
+        val progress = read("book_progress", "spoken_servers")
+        val musicData = if (read(*MUSIC_TABLES)) music.read() else null
+        val fresh = UserDataSnapshot.ofMain(
+            sources = if (servers) sourceDao.getServers() else emptyList(),
+            spokenServers = if (spokenServers || progress) bookDao.servers() else emptyList(),
+            feeds = if (feeds) podcastDao.keptFeeds() else emptyList(),
+            listeningStats = if (stats) statsDao.all() else emptyList(),
+            listeningDays = if (days) statsDao.allDays() else emptyList(),
+            progress = if (progress) bookDao.keyedProgress() else emptyList(),
+            playlists = musicData?.playlists.orEmpty(),
+            playlistEntries = musicData?.playlistEntries.orEmpty(),
+            favorites = musicData?.favorites.orEmpty(),
+            playEvents = musicData?.playEvents.orEmpty(),
+            wearSelections = musicData?.wearSelections.orEmpty(),
+        )
+        if (base == null) return fresh
+        return UserDataSnapshot(
+            servers = if (servers) fresh.servers else base.servers,
+            spokenServers = if (spokenServers) fresh.spokenServers else base.spokenServers,
+            podcasts = if (feeds) fresh.podcasts else base.podcasts,
+            listeningStats = if (stats) fresh.listeningStats else base.listeningStats,
+            listeningDays = if (days) fresh.listeningDays else base.listeningDays,
+            progress = if (progress) fresh.progress else base.progress,
+            playlists = if (musicData != null) fresh.playlists else base.playlists,
+            playlistEntries = if (musicData != null) fresh.playlistEntries else base.playlistEntries,
+            favorites = if (musicData != null) fresh.favorites else base.favorites,
+            playEvents = if (musicData != null) fresh.playEvents else base.playEvents,
+            wearSelections = if (musicData != null) fresh.wearSelections else base.wearSelections,
         )
     }
 
@@ -277,6 +317,8 @@ class UserDataBackup @Inject constructor(
         const val TAG = "UserDataBackup"
         const val RESTORED_MARKER = "user_data_restored"
         const val MIRROR_INTERVAL_MS = 60_000L
+        const val FULL_READ_INTERVAL_MS = 30 * 60_000L
+        val MUSIC_TABLES = arrayOf("songs", "playlists", "playlist_entries", "play_events", "wear_selections")
         const val APPLY_INTERVAL_MS = 5_000L
         const val MAX_ARGS = 500
         val MIRRORED_TABLES = arrayOf(

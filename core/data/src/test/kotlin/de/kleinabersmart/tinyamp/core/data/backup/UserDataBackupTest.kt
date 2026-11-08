@@ -126,6 +126,30 @@ class UserDataBackupTest {
     }
 
     @Test
+    fun `a mirror after a change reads only the changed parts`() = runTest {
+        fillMain()
+        val backup = backupFor(main)
+        backup.mirror()
+
+        main.statsDao().addListening(
+            ListeningStatEntity(
+                source = ListeningStatEntity.SOURCE_APP, kind = BookKind.EPISODE, groupKey = "https://example.org/feed",
+                groupTitle = "Logbuch", itemKey = "guid-1", itemTitle = "Folge 1", listenedMs = 30_000, lastListenedAt = 2_000,
+            ),
+            day = 20_000,
+        )
+        main.podcastDao().deleteFeed("feed-1")
+        backup.mirror(setOf("listening_stats", "listening_days"))
+
+        val dao = user.userDataDao()
+        assertEquals(90_000L, dao.listeningStats().single().listenedMs)
+        // Die Abos wurden nicht neu gelesen; das holt die nächste Änderung an ihnen bzw. der nächste volle Abgleich nach.
+        assertEquals(listOf("feed-1"), dao.podcasts().map { it.feedId })
+        backup.mirror(setOf("podcast_feeds"))
+        assertTrue(dao.podcasts().isEmpty())
+    }
+
+    @Test
     fun `a new device gets the saved data back with fresh sync state`() = runTest {
         fillMain()
         backupFor(main).mirror()
