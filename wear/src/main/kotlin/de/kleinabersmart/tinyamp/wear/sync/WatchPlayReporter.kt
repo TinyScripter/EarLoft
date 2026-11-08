@@ -29,7 +29,7 @@ class WatchPlayReporter @Inject constructor(
     private val libraryDao: LibraryDao,
 ) : PlayReporter {
 
-    override suspend fun report(songId: Long, playedAt: Long, listenedMs: Long) {
+    override suspend fun report(songId: Long, playedAt: Long, listenedMs: Long, live: Boolean) {
         val sources = libraryDao.getPlayableSources(songId)
         // Die uid eines Server-Songs ist auf Handy und Uhr gleich. Bei der Pseudo-Quelle `phone` ist die
         // `remoteId` die uid am Handy (`local:39`, Wear-Konzept 7.1); `phone:local:39` kennt das Handy nicht.

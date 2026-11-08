@@ -15,6 +15,8 @@ import de.kleinabersmart.tinyamp.core.datasource.RemotePlaybackReporting
 import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.model.SyncActionType
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicException
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -161,6 +163,33 @@ class SyncQueueProcessorTest {
         assertEquals(listOf("scrobble h ${playedAt - 40_000}"), home.calls)
     }
 
+    @Test
+    fun `a play passed on from the watch is queued even when it just ended`() = runTest {
+        val live = LiveServer(home)
+        val playedAt = System.currentTimeMillis()
+
+        reporter(live, office).report(songId, playedAt, listenedMs = 40_000, live = false)
+
+        assertTrue(live.reports.isEmpty())
+        assertTrue(db.syncQueueProcessor(live, office).process())
+        assertEquals(listOf("scrobble h ${playedAt - 40_000}"), home.calls)
+    }
+
+    @Test
+    fun `a play is in the queue while it is being reported live`() = runTest {
+        var queuedDuringReport = -1
+        val live = LiveServer(home).apply { onReport = { queuedDuringReport = db.syncDao().countActions() } }
+
+        // Echte Zeit: Die Room-Abfrage in der Meldung liefe sonst gegen die virtuelle Zeitgrenze von 10 s.
+        withContext(Dispatchers.IO) {
+            reporter(live, office).report(songId, playedAt = System.currentTimeMillis(), listenedMs = 40_000)
+        }
+
+        // Endet der Prozess während der Meldung, bleibt sie so erhalten; danach ist sie wieder weg.
+        assertEquals(1, queuedDuringReport)
+        assertEquals(0, db.syncDao().countActions())
+    }
+
     private fun reporter(vararg sources: MusicDataSource) = SyncQueuePlayReporter(
         libraryDao = db.libraryDao(),
         mergeDao = db.mergeDao(),
@@ -175,8 +204,10 @@ class SyncQueueProcessorTest {
         MusicDataSource by server, RemoteLibraryActions by server, RemotePlaybackReporting {
         val reports = mutableListOf<String>()
         var failure: Exception? = null
+        var onReport: suspend () -> Unit = {}
 
         override suspend fun reportPlayback(remoteId: String, durationMs: Long) {
+            onReport()
             failure?.let { throw it }
             reports += "live $remoteId $durationMs"
         }

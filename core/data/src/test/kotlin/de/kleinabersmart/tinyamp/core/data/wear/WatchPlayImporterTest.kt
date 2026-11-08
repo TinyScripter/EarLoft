@@ -23,7 +23,7 @@ class WatchPlayImporterTest {
 
     private class RecordingReporter : PlayReporter {
         val reported = mutableListOf<Triple<Long, Long, Long>>()
-        override suspend fun report(songId: Long, playedAt: Long, listenedMs: Long) {
+        override suspend fun report(songId: Long, playedAt: Long, listenedMs: Long, live: Boolean) {
             reported += Triple(songId, playedAt, listenedMs)
         }
     }

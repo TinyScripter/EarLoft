@@ -15,9 +15,12 @@ class PlaybackStateRepository @Inject constructor(
 
     suspend fun loadQueue(): List<Long> = playbackDao.getQueueSongIds()
 
-    /** Schreibt den Hörverlauf und gibt die Wiedergabe dem [PlayReporter] weiter (Handy: Scrobble, Uhr: ans Handy). */
-    suspend fun recordPlay(songId: Long, playedAt: Long, listenedMs: Long) {
+    /**
+     * Schreibt den Hörverlauf und gibt die Wiedergabe dem [PlayReporter] weiter (Handy: Scrobble, Uhr: ans Handy).
+     * @param live `false` für nachgereichte Wiedergaben (siehe [PlayReporter.report]).
+     */
+    suspend fun recordPlay(songId: Long, playedAt: Long, listenedMs: Long, live: Boolean = true) {
         playbackDao.insertPlayEvent(PlayEventEntity(songId = songId, playedAt = playedAt, listenedMs = listenedMs))
-        reporter.report(songId, playedAt, listenedMs)
+        reporter.report(songId, playedAt, listenedMs, live)
     }
 }

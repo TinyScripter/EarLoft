@@ -21,7 +21,8 @@ import javax.inject.Inject
  * Sync-Queue ([SyncQueuePlayReporter]), die Uhr schickt sie ans Handy (Wear-Konzept 10).
  */
 interface PlayReporter {
-    suspend fun report(songId: Long, playedAt: Long, listenedMs: Long)
+    /** @param live `false` für nachgereichte Wiedergaben (von der Uhr): nur in die Warteschlange, kein Netz. */
+    suspend fun report(songId: Long, playedAt: Long, listenedMs: Long, live: Boolean = true)
 }
 
 /**
@@ -31,6 +32,7 @@ interface PlayReporter {
  * Kann der Server Wiedergaben live annehmen ([RemotePlaybackReporting], Jellyfin) und ist sie gerade erst zu Ende
  * gegangen, geht sie sofort dorthin. Klappt das nicht (offline, Server weg) oder ist sie älter (z. B. von der Uhr),
  * kommt sie in die Sync-Queue und wird beim nächsten Verbinden mit ihrem Zeitpunkt nachgereicht (Konzept 14).
+ * Eingetragen wird sie vorher: Endet der Prozess während der Live-Meldung, bleibt sie in der Warteschlange.
  */
 class SyncQueuePlayReporter @Inject constructor(
     private val libraryDao: LibraryDao,
@@ -41,14 +43,13 @@ class SyncQueuePlayReporter @Inject constructor(
     private val sources: MusicDataSources,
 ) : PlayReporter {
 
-    override suspend fun report(songId: Long, playedAt: Long, listenedMs: Long) {
+    override suspend fun report(songId: Long, playedAt: Long, listenedMs: Long, live: Boolean) {
         if (!syncSettings.scrobble.first()) return
         val server = libraryDao.getPlayableSources(songId)
             .filter { it.sourceType.isServer }
             .minWithOrNull(SourcePreference)
             ?: return
-        if (System.currentTimeMillis() - playedAt <= LIVE_WINDOW_MS && reportLive(server, songId)) return
-        syncDao.insert(
+        val actionId = syncDao.insert(
             SyncActionEntity(
                 sourceId = server.sourceId,
                 actionType = SyncActionType.SCROBBLE,
@@ -57,6 +58,10 @@ class SyncQueuePlayReporter @Inject constructor(
                 createdAt = playedAt,
             ),
         )
+        if (live && System.currentTimeMillis() - playedAt <= LIVE_WINDOW_MS && reportLive(server, songId)) {
+            syncDao.deleteAction(actionId)
+            return
+        }
         syncScheduler.enqueue()
     }
 

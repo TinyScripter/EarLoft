@@ -19,6 +19,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import java.io.IOException
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -152,15 +153,21 @@ class JellyfinApi @Inject constructor(
     /**
      * Eine Wiedergabe wie ein Player: Start und Ende (bei [durationMs], also zu Ende gehört). Jellyfin und Emby zählen
      * sie schon beim Start (`PlayCount`, „gespielt“ mit der Serverzeit); das Ende brauchen Scrobble-Plugins und die Sitzung.
+     * Ist der Start angekommen, gilt die Wiedergabe als gemeldet, auch wenn das Ende scheitert – nachgereicht zählte sie
+     * der Server doppelt.
      */
     suspend fun reportPlayback(server: JellyfinServer, itemId: String, durationMs: Long) {
         val session = UUID.randomUUID().toString()
         postJson(server, "Sessions/Playing", JfPlaybackReport(itemId, positionTicks = 0, playSessionId = session))
-        postJson(
-            server,
-            "Sessions/Playing/Stopped",
-            JfPlaybackReport(itemId, positionTicks = durationMs * TICKS_PER_MS, playSessionId = session),
-        )
+        try {
+            postJson(
+                server,
+                "Sessions/Playing/Stopped",
+                JfPlaybackReport(itemId, positionTicks = durationMs * TICKS_PER_MS, playSessionId = session),
+            )
+        } catch (e: IOException) {
+            // Der Start zählt schon; ohne Ende bleibt am Server höchstens die Sitzung offen.
+        }
     }
 
     private suspend fun postJson(server: JellyfinServer, path: String, report: JfPlaybackReport) {

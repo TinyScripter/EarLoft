@@ -43,7 +43,8 @@ class WatchPlayImporter @Inject constructor(
                 Log.d(TAG, "Wiedergabe von ${play.songUid} übersprungen: Song unbekannt")
                 continue
             }
-            playbackState.recordPlay(songId, play.playedAt, play.listenedMs)
+            // Nicht live: Jede Meldung wartete sonst bis zu 10 s aufs Netz, und das Paket gälte erst danach als übernommen.
+            playbackState.recordPlay(songId, play.playedAt, play.listenedMs, live = false)
             imported++
         }
         importedPackets.remember(packetId)

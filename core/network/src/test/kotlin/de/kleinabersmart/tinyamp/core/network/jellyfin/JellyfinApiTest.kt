@@ -278,6 +278,29 @@ class JellyfinApiTest {
     }
 
     @Test
+    fun `a playback whose start arrived counts as reported even if the end fails`() = runTest {
+        mockServer.enqueue(MockResponse.Builder().code(204).build())
+        mockServer.enqueue(MockResponse.Builder().code(500).build())
+
+        // Keine Ausnahme: Der Server zählt schon beim Start, nachgereicht zählte er doppelt.
+        api.reportPlayback(server, "s1", durationMs = 118_000)
+
+        assertEquals(2, mockServer.requestCount)
+    }
+
+    @Test
+    fun `a playback whose start failed is not reported`() = runTest {
+        mockServer.enqueue(MockResponse.Builder().code(503).build())
+
+        try {
+            api.reportPlayback(server, "s1", durationMs = 118_000)
+            fail("HttpStatusException erwartet")
+        } catch (_: HttpStatusException) {
+        }
+        assertEquals(1, mockServer.requestCount)
+    }
+
+    @Test
     fun `newest songs stay in the given library`() = runTest {
         mockServer.enqueue(json("""{"Items":[],"TotalRecordCount":0}"""))
 
