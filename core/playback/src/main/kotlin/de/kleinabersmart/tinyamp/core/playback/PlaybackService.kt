@@ -158,7 +158,9 @@ class PlaybackService : MediaLibraryService() {
         val player = factory?.create(this, localPlayer) ?: localPlayer
         servicePlayer.attach(player)
         sleepTimer.attach(player.asSleepTimerTarget())
-        playTracker = PlayTracker(player, playbackStateRepository, applicationScope)
+        playTracker = PlayTracker(player) { songId, playedAt, listenedMs ->
+            applicationScope.launch { playbackStateRepository.recordPlay(songId, playedAt, listenedMs) }
+        }
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
         bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, spokenSettings, statsRepository, absSessionReporter, mainScope, applicationScope) { endedId ->
@@ -419,8 +421,9 @@ class PlaybackService : MediaLibraryService() {
     private inner class PersistenceListener(private val player: Player) : Player.Listener {
 
         // Hörbücher haben ihren Fortschritt in der Datenbank (BookPlaybackListener); die gespeicherte Musik-Warteschlange
-        // darf dadurch weder geleert noch auf ihre Position zurückgesetzt werden.
-        private val holdsSpoken: Boolean get() = player.currentMediaItem?.isSpoken == true
+        // darf dadurch weder geleert noch auf ihre Position zurückgesetzt werden. Ebenso wenig durch die kurz leere
+        // Warteschlange beim Wechsel aufs Cast-Gerät.
+        private val holdsSpoken: Boolean get() = player.currentMediaItem?.isSpoken == true || player.awaitsRemoteQueue
 
         override fun onTimelineChanged(timeline: Timeline, reason: Int) {
             if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED && !holdsSpoken) {
@@ -446,7 +449,16 @@ class PlaybackService : MediaLibraryService() {
         }
 
         override fun onEvents(player: Player, events: Player.Events) {
-            if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_METADATA_CHANGED)) {
+            // Bis der Empfänger die Warteschlange meldet, zeigen Widget und Co. weiter den letzten Titel. Kommt stattdessen
+            // nichts zurück aufs Handy (eine andere App hat den Empfänger übernommen), meldet der Gerätewechsel den Stand.
+            if (player.awaitsRemoteQueue) return
+            if (events.containsAny(
+                    Player.EVENT_MEDIA_ITEM_TRANSITION,
+                    Player.EVENT_IS_PLAYING_CHANGED,
+                    Player.EVENT_MEDIA_METADATA_CHANGED,
+                    Player.EVENT_DEVICE_INFO_CHANGED,
+                )
+            ) {
                 val item = player.currentMediaItem
                 val songId = item?.songId
                 val bookId = item?.bookId

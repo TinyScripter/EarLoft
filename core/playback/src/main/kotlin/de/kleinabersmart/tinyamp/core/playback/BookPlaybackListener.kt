@@ -75,6 +75,9 @@ internal class BookPlaybackListener(
     /** Cast meldet kein `STATE_ENDED`; die Wache erkennt das Ende am Stillstand des Empfängers. */
     private val remoteEnd = RemoteEndWatch()
 
+    /** Die Warteschlange ging gerade an den Cast-Empfänger ([awaitsRemoteQueue]); der lädt sie mit normaler Geschwindigkeit. */
+    private var handingOver = false
+
     init {
         scope.launch { settings.bookResume.collect { bookRule = it } }
         scope.launch { settings.podcastResume.collect { podcastRule = it } }
@@ -84,13 +87,22 @@ internal class BookPlaybackListener(
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         syncMeter()
         val bookId = mediaItem?.bookId
+        val handedOver = handingOver
+        handingOver = false
         if (bookId == null) {
+            if (player.awaitsRemoteQueue) {
+                handingOver = true
+                return
+            }
             // Musik läuft immer mit normaler Geschwindigkeit.
             if (player.playbackParameters.speed != 1f) player.setPlaybackSpeed(1f)
             return
         }
         // Innerhalb eines Buchs (nächste Datei) bleibt alles; bei einem anderen Buch gilt dessen Geschwindigkeit.
-        if (timelineBookId == bookId) return
+        if (timelineBookId == bookId) {
+            if (handedOver) scope.launch { applySavedSpeed(bookId) }
+            return
+        }
         timelineBookId = bookId
         // Ein frisch geladenes Buch hat seine Startposition schon aus dem gespeicherten Stand bekommen – außer es wurde
         // pausiert wiederhergestellt; dann zählt die Pause seit dem gespeicherten Stand.
@@ -105,9 +117,13 @@ internal class BookPlaybackListener(
                 rewindWhenLoaded = null
                 player.currentMediaItem?.takeIf { it.bookId == bookId }?.let { rewindAfterPause(it, bookId) }
             }
-            books.progressNow(bookId)?.speed?.let { speed ->
-                if (speed != player.playbackParameters.speed && player.currentMediaItem?.bookId == bookId) player.setPlaybackSpeed(speed)
-            }
+            applySavedSpeed(bookId)
+        }
+    }
+
+    private suspend fun applySavedSpeed(bookId: Long) {
+        books.progressNow(bookId)?.speed?.let { speed ->
+            if (speed != player.playbackParameters.speed && player.currentMediaItem?.bookId == bookId) player.setPlaybackSpeed(speed)
         }
     }
 

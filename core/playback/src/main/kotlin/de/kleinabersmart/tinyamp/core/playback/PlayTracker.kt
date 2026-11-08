@@ -3,18 +3,14 @@ package de.kleinabersmart.tinyamp.core.playback
 import android.os.SystemClock
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import de.kleinabersmart.tinyamp.core.data.repository.PlaybackStateRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 /**
- * Zählt die tatsächlich gehörte Zeit pro Titel und schreibt einen Eintrag in den Hörverlauf,
- * sobald ein Titel mindestens halb bzw. 30 Sekunden lang gehört wurde.
+ * Zählt die tatsächlich gehörte Zeit pro Titel und schreibt einen Eintrag in den Hörverlauf ([recordPlay]: Song,
+ * Zeitpunkt, gehörte Millisekunden), sobald ein Titel mindestens halb bzw. 30 Sekunden lang gehört wurde.
  */
 internal class PlayTracker(
     private val player: Player,
-    private val repository: PlaybackStateRepository,
-    private val scope: CoroutineScope,
+    private val recordPlay: (songId: Long, playedAt: Long, listenedMs: Long) -> Unit,
 ) : Player.Listener {
 
     private var songId: Long? = null
@@ -23,6 +19,12 @@ internal class PlayTracker(
     private var playingSince: Long? = null
     /** Wanduhrzeit, zu der zuletzt gehört wurde – Ende des Hörens, auch wenn erst später abgeschlossen wird. */
     private var lastHeardAt: Long = 0
+
+    /** Wo der Titel spielt (Handy oder Cast); wechselt es, läuft derselbe Titel weiter statt neu zu beginnen. */
+    private var playbackType = player.deviceInfo.playbackType
+
+    /** Die Warteschlange ging gerade an den Cast-Empfänger ([awaitsRemoteQueue]). */
+    private var handingOver = false
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         if (isPlaying) {
@@ -39,6 +41,23 @@ internal class PlayTracker(
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        if (mediaItem == null && player.awaitsRemoteQueue) {
+            accumulate()
+            handingOver = true
+            return
+        }
+        // Beim Wechsel zwischen Handy und Cast-Gerät kommt derselbe Titel als neue Warteschlange wieder: weiterzählen, sonst
+        // stünde er doppelt im Hörverlauf.
+        val type = player.deviceInfo.playbackType
+        val continues = mediaItem?.songId != null && mediaItem.songId == songId &&
+            reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED && (handingOver || type != playbackType)
+        handingOver = false
+        playbackType = type
+        if (continues) {
+            accumulate()
+            if (player.isPlaying) playingSince = SystemClock.elapsedRealtime()
+            return
+        }
         finishCurrent()
         songId = mediaItem?.songId
         durationMs = mediaItem?.mediaMetadata?.durationMs ?: 0
@@ -57,7 +76,7 @@ internal class PlayTracker(
         val listened = listenedMs
         if (id != null && listened >= threshold()) {
             val playedAt = lastHeardAt
-            scope.launch { repository.recordPlay(id, playedAt, listened) }
+            recordPlay(id, playedAt, listened)
         }
         listenedMs = 0
     }

@@ -1,5 +1,16 @@
 package de.kleinabersmart.tinyamp.core.playback
 
+import androidx.media3.common.DeviceInfo
+import androidx.media3.common.Player
+
+/**
+ * Der Cast-Empfänger hat die übergebene Warteschlange noch nicht gemeldet (am Gerät gemessen: gut 6 s bei einem Buch von
+ * Audiobookshelf). Der Wechsel auf „leer“ davor ist kein Titelwechsel: Die Listener des Service lassen Geschwindigkeit,
+ * Hörverlauf und gespeicherte Warteschlange so lange, wie sie sind (R24).
+ */
+internal val Player.awaitsRemoteQueue: Boolean
+    get() = deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE && currentTimeline.isEmpty
+
 /**
  * Beim Wechsel aufs Cast-Gerät übergibt der Player die Warteschlange, aber der Empfänger meldet sie erst nach dem Laden
  * zurück (am Gerät gesehen: gut eine Sekunde). Bis dahin ist die Warteschlange leer, und die Wiedergabe-Ansicht zeigte
