@@ -52,16 +52,26 @@
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
 
-        <!-- Änderungen und Nachrichten vom Handy (Wear-Konzept 4); die Play-Dienste starten den Dienst bei Bedarf. -->
+        <!-- Änderungen und Nachrichten vom Handy (Wear-Konzept 4); die Play-Dienste starten den Dienst bei Bedarf. Nur die
+             Pfade, die der Dienst verarbeitet: Fernsteuerung, Cover und Handy-Info liest nur die offene App, und jedes
+             Item startete sonst den Prozess (samt Abgleich, Planer und Status ans Handy). -->
         <service
             android:name=".sync.WatchListenerService"
             android:exported="true">
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data android:scheme="wear" />
+                <data android:host="*" />
+                <data android:path="/tinyamp/servers" />
+                <data android:path="/tinyamp/manifest" />
+                <data android:path="/tinyamp/settings" />
+                <data android:path="/tinyamp/podcasts" />
+            </intent-filter>
+            <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
                 <data
                     android:host="*"
-                    android:pathPrefix="/tinyamp/"
+                    android:path="/tinyamp/credentials"
                     android:scheme="wear" />
             </intent-filter>
         </service>

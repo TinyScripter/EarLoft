@@ -15,6 +15,8 @@ object WearCodec {
     @PublishedApi
     internal val json = Json {
         ignoreUnknownKeys = true
+        // Ein Enum-Wert einer neueren App-Version wird zum Standardwert des Feldes, statt alles unlesbar zu machen.
+        coerceInputValues = true
         encodeDefaults = true
         explicitNulls = false
     }

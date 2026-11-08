@@ -33,6 +33,7 @@ import de.kleinabersmart.tinyamp.wear.download.WatchState
 import de.kleinabersmart.tinyamp.wear.download.WearDownloadPlanner
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.serialization.SerializationException
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -51,6 +52,7 @@ class PhoneLibrarySync @Inject constructor(
     private val audiobookshelf: AudiobookshelfServers,
     private val manifestApplier: ManifestApplier,
     private val podcastMirror: PodcastMirror,
+    private val episodeReporter: WatchEpisodeReporter,
     private val episodeQueue: EpisodeQueue,
     private val state: WatchState,
     private val planner: WearDownloadPlanner,
@@ -66,14 +68,17 @@ class PhoneLibrarySync @Inject constructor(
     }
 
     suspend fun sync() = mutex.withLock {
-        // Zuerst die Einstellungen: Qualität und Speichergrenze bestimmen, was der Planer einreiht.
+        // Zuerst die Einstellungen: Qualität und Speichergrenze bestimmen, was der Planer einreiht. Versteht diese Uhr sie
+        // nicht (neuerer Wert vom Handy), gelten die bisherigen – Server und Manifest kommen trotzdem.
         val settingsChanged = dataClient.payloadsAt(WearPaths.SETTINGS).values.firstOrNull()
-            ?.let { state.updateSettings(WearCodec.decode<WearSettingsDto>(it)) } == true
+            ?.let { bytes -> decodeOrNull<WearSettingsDto>(bytes, "Einstellungen") }
+            ?.let { state.updateSettings(it) } == true
         val servers = dataClient.payloadsAt(WearPaths.SERVERS).entries.firstOrNull()
         // Jeder Prozessstart der Uhr stößt einen Lauf an (Nachricht vom Handy, Download-Versuch, Kachel …). Ist seit der
         // letzten Übernahme nichts Neues gekommen, bleibt es beim Nachfragen nach Passwörtern und beim Planen.
         val podcastsHash = dataClient.hashesAt(WearPaths.PODCASTS).values.firstOrNull()
-        val stamp = "$appVersionStamp:${servers?.value?.let(WearCodec::hash)}:${dataClient.hashesAt(WearPaths.MANIFEST).values.firstOrNull()}:$podcastsHash"
+        val manifestHash = dataClient.hashesAt(WearPaths.MANIFEST).values.firstOrNull()
+        val stamp = "$appVersionStamp:${servers?.value?.let(WearCodec::hash)}:$manifestHash:$podcastsHash"
         if (!settingsChanged && stamp == state.appliedPhoneStamp) {
             servers?.let { requestMissingPasswords(phoneNodeId = it.key) }
             planner.plan()
@@ -85,12 +90,20 @@ class PhoneLibrarySync @Inject constructor(
             audiobookshelf.mirror(dto.spokenServers.map { MirroredAbsServer(it.serverId, it.name, it.baseUrl) })
             requestMissingPasswords(phoneNodeId = servers.key)
         }
-        dataClient.assetPayloadsAt(WearPaths.MANIFEST).values.firstOrNull()
-            ?.let { manifestApplier.apply(WearCodec.decodeManifest(it)) }
-        dataClient.assetPayloadsAt(WearPaths.PODCASTS).values.firstOrNull()
-            ?.let { episodeQueue.setOrder(podcastMirror.apply(WearCodec.decodeCompressed<WearPodcastManifest>(it))) }
+        val manifest = dataClient.assetPayloadsAt(WearPaths.MANIFEST).values.firstOrNull()
+        manifest?.let { manifestApplier.apply(WearCodec.decodeManifest(it)) }
+        val podcasts = dataClient.assetPayloadsAt(WearPaths.PODCASTS).values.firstOrNull()
+        if (podcasts != null) {
+            // Erst die Stellen melden: Was das neue Manifest nicht mehr enthält, löscht der Spiegel samt Fortschritt.
+            episodeReporter.report()
+            episodeQueue.setOrder(podcastMirror.apply(WearCodec.decodeCompressed<WearPodcastManifest>(podcasts)))
+        }
         planner.plan(replaceSchedule = settingsChanged)
-        state.appliedPhoneStamp = stamp
+        // Ein DataItem, dessen Asset (noch) nicht lesbar war (Handy außer Reichweite, Übertragung läuft), gilt nicht als
+        // übernommen; sonst käme es erst mit der nächsten Änderung am Handy.
+        if ((manifestHash == null || manifest != null) && (podcastsHash == null || podcasts != null)) {
+            state.appliedPhoneStamp = stamp
+        }
     }
 
     /**
@@ -100,6 +113,14 @@ class PhoneLibrarySync @Inject constructor(
     private suspend fun requestMissingPasswords(phoneNodeId: String) {
         credentials.request(serverMirror.serversWithoutPassword() + audiobookshelf.withoutKey(), phoneNodeId)
     }
+
+    private inline fun <reified T> decodeOrNull(bytes: ByteArray, what: String): T? =
+        try {
+            WearCodec.decode<T>(bytes)
+        } catch (e: SerializationException) {
+            Log.w(TAG, "$what des Handys nicht lesbar (neuere App-Version?): ${e.message}")
+            null
+        }
 
     /** `null` für Typen, die diese Uhr-Version (noch) nicht kennt – ihre Songs lädt sie über das Handy. */
     private fun WearServerDto.toMirrored(): MirroredServer? {

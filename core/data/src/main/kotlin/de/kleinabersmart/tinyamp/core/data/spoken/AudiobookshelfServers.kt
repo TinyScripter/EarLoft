@@ -8,6 +8,7 @@ import de.kleinabersmart.tinyamp.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.tinyamp.core.network.audiobookshelf.AbsException
 import de.kleinabersmart.tinyamp.core.network.audiobookshelf.AbsServer
 import de.kleinabersmart.tinyamp.core.network.audiobookshelf.AbsServerRegistry
+import de.kleinabersmart.tinyamp.core.network.acceptsCredentialsOf
 import de.kleinabersmart.tinyamp.core.model.SpokenServer
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -18,6 +19,7 @@ import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 sealed interface AddServerResult {
     data class Added(val serverId: String) : AddServerResult
@@ -157,9 +159,17 @@ class AudiobookshelfServers @Inject constructor(
             val entity = (existing[server.serverId] ?: SpokenServerEntity(server.serverId, server.name, server.baseUrl))
                 .copy(name = server.name, baseUrl = server.baseUrl)
             if (entity != existing[server.serverId]) bookDao.upsertServer(entity)
-            if (entity.baseUrl != existing[server.serverId]?.baseUrl) {
-                // Neue Adresse: mit dem gespeicherten Schlüssel neu eintragen.
-                secretStore.get(tokenKey(server.serverId))?.let { key -> register(server.serverId, server.baseUrl, key) }
+            val previousUrl = existing[server.serverId]?.baseUrl
+            if (previousUrl != null && entity.baseUrl != previousUrl) {
+                val oldUrl = previousUrl.toHttpUrlOrNull()
+                if (oldUrl != null && entity.baseUrl.toHttpUrlOrNull()?.acceptsCredentialsOf(oldUrl) == true) {
+                    // Neue Adresse auf demselben Host: mit dem gespeicherten Schlüssel neu eintragen.
+                    secretStore.get(tokenKey(server.serverId))?.let { key -> register(server.serverId, server.baseUrl, key) }
+                } else {
+                    // Anderer Host: Der Schlüssel bleibt beim alten (die Uhr fragt ihn beim Handy neu an).
+                    secretStore.remove(tokenKey(server.serverId))
+                    registry.unregister(server.serverId)
+                }
             }
         }
         (existing.keys - servers.mapTo(HashSet()) { it.serverId }).forEach { remove(it) }

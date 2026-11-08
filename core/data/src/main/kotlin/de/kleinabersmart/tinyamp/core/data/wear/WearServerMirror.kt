@@ -9,8 +9,10 @@ import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
 import de.kleinabersmart.tinyamp.core.database.dao.LibraryDao
 import de.kleinabersmart.tinyamp.core.database.dao.SourceDao
 import de.kleinabersmart.tinyamp.core.database.entity.SourceEntity
+import de.kleinabersmart.tinyamp.core.network.acceptsCredentialsOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -58,15 +60,24 @@ class WearServerMirror @Inject constructor(
         }
         val removed = existing.keys - servers.mapTo(HashSet()) { it.sourceId }
         if (updated.all { it == existing[it.sourceId] } && removed.isEmpty()) return
+        // Anderer Host oder Benutzer: Das Geheimnis gehört zum alten Zugang und ginge sonst an den neuen Host
+        // (Zugangsdaten bleiben auf ihrem Host); die nächste Runde fragt es beim Handy neu an.
+        val moved = updated.filter { new -> existing[new.sourceId]?.let { old -> !sameAccess(old, new) } == true }.map { it.sourceId }
 
         database.withTransaction {
             updated.forEach { sourceDao.upsert(it) }
             removed.forEach { sourceDao.delete(it) }
             if (removed.isNotEmpty()) libraryDao.cleanupOrphans()
         }
-        removed.forEach { secretStore.remove(DataSourceRegistry.passwordKey(it)) }
+        (removed + moved).forEach { secretStore.remove(DataSourceRegistry.passwordKey(it)) }
         registry.reload()
         if (removed.isNotEmpty()) changeListeners.forEach { it.onSongSourcesRemoved() }
+    }
+
+    private fun sameAccess(old: SourceEntity, new: SourceEntity): Boolean {
+        if (old.username != new.username) return false
+        val oldUrl = old.baseUrl?.toHttpUrlOrNull() ?: return false
+        return new.baseUrl?.toHttpUrlOrNull()?.acceptsCredentialsOf(oldUrl) == true
     }
 
     /** Server, für die die Uhr noch kein (lesbares) Passwort hat. */
