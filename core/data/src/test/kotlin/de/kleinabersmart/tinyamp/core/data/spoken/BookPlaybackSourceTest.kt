@@ -71,7 +71,7 @@ class BookPlaybackSourceTest {
             servers,
             api,
             progressSync,
-            PodcastRepository(db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client)),
+            PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client)),
             EpisodeQueue(context, dao),
             settings,
             policy,

@@ -54,7 +54,7 @@ class StatsRepositoryTest {
                     .build()
             }
             .build()
-        feedId = (PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client)).subscribe(FEED_URL) as SubscribeResult.Added).feedId
+        feedId = (PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client)).subscribe(FEED_URL) as SubscribeResult.Added).feedId
         stats = StatsRepository(db.statsDao(), db.bookDao(), db.podcastDao())
     }
 

@@ -69,7 +69,7 @@ class PodcastRepositoryTest {
                     .build()
             }
             .build()
-        repository = PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client))
+        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client))
     }
 
     @After

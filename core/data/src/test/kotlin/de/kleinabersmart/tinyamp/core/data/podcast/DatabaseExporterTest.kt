@@ -44,7 +44,7 @@ class DatabaseExporterTest {
                     .build()
             }
             .build()
-        val repository = PodcastRepository(db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client))
+        val repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client))
         importer = DatabaseImporter(repository, db.podcastDao(), db.bookDao(), db.statsDao())
         exporter = DatabaseExporter(db.podcastDao(), db.bookDao(), db.statsDao())
         repository.subscribe(FEED_URL)

@@ -2,7 +2,9 @@ package de.kleinabersmart.tinyamp.core.data.podcast
 
 import android.text.Html
 import android.util.Log
+import androidx.room.withTransaction
 import de.kleinabersmart.tinyamp.core.common.normalizeForMerge
+import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
 import de.kleinabersmart.tinyamp.core.database.dao.BookDao
 import de.kleinabersmart.tinyamp.core.database.dao.PodcastDao
 import de.kleinabersmart.tinyamp.core.database.entity.BookChapterEntity
@@ -80,6 +82,7 @@ data class FeedDownload(val feed: PodcastFeed, val episodes: Int, val bytes: Lon
 /** Podcast-Abos und ihre Folgen (Konzept 12.1): abonnieren, abgleichen, Kapitel nachladen. */
 @Singleton
 class PodcastRepository @Inject constructor(
+    private val database: TinyAmpDatabase,
     private val dao: PodcastDao,
     private val bookDao: BookDao,
     private val api: PodcastFeedApi,
@@ -531,7 +534,11 @@ class PodcastRepository @Inject constructor(
     internal suspend fun applyLocked(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult =
         apply(feed, fetched).also { _refreshed.tryEmit(feed.feedId) }
 
-    private suspend fun apply(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult {
+    /**
+     * In einer Transaktion: Eine ARD-Sendung bringt Hunderte Folgen; einzeln geschrieben wurde jede Folge ein eigener Commit und
+     * eine eigene Benachrichtigung der Oberfläche (am Emulator 5 s für 352 Folgen, jetzt 0,3 s).
+     */
+    private suspend fun apply(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult = database.withTransaction {
         val parsed = fetched.feed
         val generation = feed.syncGeneration + 1
         val known = bookDao.booksOf(feed.feedId).associateBy { it.remoteId }
@@ -565,7 +572,7 @@ class PodcastRepository @Inject constructor(
                 syncGeneration = generation,
             ),
         )
-        return RefreshResult(newIds)
+        RefreshResult(newIds)
     }
 
     /** Lädt die Kapitelliste der Folge, falls der Feed eine anbietet und sie noch fehlt. Fehler sind unkritisch. */

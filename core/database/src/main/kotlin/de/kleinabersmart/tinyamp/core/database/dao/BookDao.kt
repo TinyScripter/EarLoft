@@ -102,14 +102,15 @@ abstract class BookDao {
     @Update
     abstract suspend fun updateBook(book: BookEntity)
 
-    /** Legt das Buch an oder aktualisiert es, die lokale ID bleibt stabil. */
+    /** Legt das Buch an oder aktualisiert es, die lokale ID bleibt stabil. Unverändert bleibt es ungeschrieben (Abgleiche). */
     @Transaction
     open suspend fun upsertBook(book: BookEntity): Long {
         val existing = bookByRemote(book.serverId, book.remoteId)
         return if (existing == null) {
             insertBook(book)
         } else {
-            updateBook(book.copy(bookId = existing.bookId, detailsLoaded = existing.detailsLoaded && existing.remoteUpdatedAt == book.remoteUpdatedAt))
+            val updated = book.copy(bookId = existing.bookId, detailsLoaded = existing.detailsLoaded && existing.remoteUpdatedAt == book.remoteUpdatedAt)
+            if (updated != existing) updateBook(updated)
             existing.bookId
         }
     }
