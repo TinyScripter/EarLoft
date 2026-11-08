@@ -4,9 +4,12 @@
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 ![Wear OS](https://img.shields.io/badge/Wear_OS-3%2B-4285F4?logo=wearos&logoColor=white)
 ![Navidrome](https://img.shields.io/badge/Navidrome-supported-00A4EF)
+![Jellyfin](https://img.shields.io/badge/Jellyfin-supported-00A4DC?logo=jellyfin&logoColor=white)
+![Emby](https://img.shields.io/badge/Emby-supported-52B54B?logo=emby&logoColor=white)
 
 **TinyAmp** is an audio player for your *own* collection: **music**, **podcasts** and **books**. It plays the
-files on your phone together with your self-hosted [Navidrome](https://www.navidrome.org) music server and your
+files on your phone together with your self-hosted music server ([Navidrome](https://www.navidrome.org),
+[Jellyfin](https://jellyfin.org) or [Emby](https://emby.media)) and your
 [Audiobookshelf](https://www.audiobookshelf.org) server in **one app** – on your phone and on your Wear OS watch.
 Podcasts come straight from their public RSS feeds. No streaming subscription, no account with a third party.
 
@@ -25,6 +28,9 @@ A switch at the top of **Home** and **Library** changes between the three areas:
   and German.
 - **Home screen widget** (4×1) with cover and playback controls, and **Chromecast** (see
   [Known limitations](#known-limitations)).
+- **Share** songs, albums, artists, podcasts, episodes and books as links to open sources (MusicBrainz, the podcast's
+  website and feed, Open Library), never to your own servers. Feed links shared from other apps open as a podcast
+  preview.
 
 ### Music
 
@@ -52,7 +58,8 @@ A switch at the top of **Home** and **Library** changes between the three areas:
 - **From your Audiobookshelf server and from your phone.** Books on your phone (folder **Audiobooks**, m4b with
   chapters or folders of MP3 files) show up next to the ones from your server.
 - **Progress syncs both ways** with your Audiobookshelf server, also after listening offline.
-- **Made for long listening:** speed per book, −30 s / +10 s jumps, chapters, remaining time, sleep timer.
+- **Made for long listening:** speed per book, adjustable jumps (default −10 s / +30 s, also for podcasts), chapters,
+  remaining time, sleep timer.
 - **Browse by series and authors**, download books for offline use.
 - **Statistics** from your Audiobookshelf server, next to the listening time counted on this device.
 
@@ -61,6 +68,9 @@ A switch at the top of **Home** and **Library** changes between the three areas:
 - **Navidrome and other Subsonic servers (music).** Add one or more [Navidrome](https://www.navidrome.org) servers
   (OpenSubsonic API; other Subsonic-compatible servers should work but are not actively tested). Sign in with your
   username and password; the password is stored encrypted with the Android Keystore.
+- **Jellyfin and Emby (music).** Add a [Jellyfin](https://jellyfin.org) or [Emby](https://emby.media) server with
+  your username and password. Only the music libraries are used, and the app keeps the sign-in token, not the password
+  (tested with Jellyfin 12.4 and Emby 4.10).
 - **Audiobookshelf (books).** Add your [Audiobookshelf](https://www.audiobookshelf.org) server with an API key.
 - **Podcast feeds.** Any public RSS or Atom feed.
 - **Your phone.** Music from the device, books from the **Audiobooks** folder and podcasts from the **Podcasts**
@@ -87,7 +97,8 @@ Covers embedded in your files or provided by your server are always used first.
   them by itself over Wi-Fi directly from your server or the podcast feed, or receives them from the phone (files
   stored on the phone, or when the server is not reachable).
 - **Play to Bluetooth headphones**, perfect for running or the gym. The watch speaker is not used. Books and episodes
-  have chapters and a sleep timer; progress and listening time go back to the phone and from there to Audiobookshelf.
+  have chapters, a sleep timer and the jump steps set on the phone; progress and listening time go back to the phone
+  and from there to Audiobookshelf.
 - **Two areas:** **Watch** lists what is on the watch (music, podcasts, books, storage & downloads); **Phone** shows
   the phone's music, podcasts and books, to play them on the phone or to load them onto the watch, and controls the
   phone's playback.
@@ -126,8 +137,9 @@ application ID (`de.kleinabersmart.tinyamp`), so install both for the watch feat
 
 1. Open the app and allow access to your audio files (and notifications) when asked, or skip it if you only use
    servers and feeds.
-2. **Music:** **Settings → Music → Add server**, then enter the address (for example `https://music.example.com`) and
-   your credentials. The first sync can take a while for large libraries.
+2. **Music:** **Settings → Music → Add server**, choose the server type (Navidrome / Subsonic, Jellyfin or Emby), then
+   enter the address (for example `https://music.example.com`) and your credentials. The first sync can take a while
+   for large libraries.
 3. **Podcasts:** switch to **Podcasts** on Home or Library and tap **Add podcast**, then search a directory or paste
    the feed address. Or copy podcast files into the **Podcasts** folder of your phone.
 4. **Books:** **Settings → Books → Add server**, then enter your Audiobookshelf address and an API key (created in
@@ -139,10 +151,10 @@ application ID (`de.kleinabersmart.tinyamp`), so install both for the watch feat
 ## Known limitations
 
 - Android Auto is in development (see above), and so far covers music only.
-- Chromecast plays from your servers and podcast feeds, not files stored on the phone. If your Cast device does not
-  play your server's public address, enter an address from your home network under **Address for casting** in the
-  server settings. Long queues are sent in parts (not yet tested on a device); casting books depends on the server
-  accepting a token in the address and has not been tested widely.
+- Chromecast plays from your servers and podcast feeds, not files stored on the phone. The Cast device must reach the
+  server address itself. If a song is on several servers and the Cast device cannot reach the first one, the app
+  switches to the next one after about 20 seconds. Long queues are sent in parts (not yet tested on a device);
+  casting books depends on the server accepting a token in the address and has not been tested widely.
 - Podcasts: no "download all episodes" for a podcast, and local podcast files have no description unless their tags
   contain one.
 - Local books and podcasts are picked up when the app is opened or refreshed, not while it is running.
@@ -162,7 +174,7 @@ application ID (`de.kleinabersmart.tinyamp`), so install both for the watch feat
 | Wear UI | Compose for Wear OS Material 3 |
 | Playback | Media3 1.11: ExoPlayer, `MediaLibraryService`, `OkHttpDataSource`, `SimpleCache`, Cast |
 | Database | Room with FTS4 search and auto-migrations |
-| Network / images | OkHttp 5, kotlinx.serialization, Coil 3; Subsonic, Audiobookshelf and RSS/Atom (own XML parser) |
+| Network / images | OkHttp 5, kotlinx.serialization, Coil 3; Subsonic, Jellyfin/Emby, Audiobookshelf and RSS/Atom (own XML parser) |
 | DI | Hilt |
 | Background work | WorkManager (sync queue, downloads) |
 | Secrets | Android Keystore (AES-GCM) + DataStore |
@@ -179,8 +191,8 @@ SDK levels: `minSdk` 26 (phone) and 30 (watch), `compileSdk` / `targetSdk` 37, J
 - **Sources are resolved at load time.** Queue items only carry `tinyamp://song/<id>`; a `ResolvingDataSource` decides
   between local file, download and stream when playback starts, so queues survive downloads finishing or servers
   going offline.
-- **One `OkHttpClient`.** An interceptor adds the Subsonic authentication, so stream and cover URLs stay stable and
-  cacheable and contain no secrets.
+- **One `OkHttpClient`.** Interceptors add the server authentication (Subsonic, Jellyfin/Emby, Audiobookshelf), so
+  stream and cover URLs stay stable and cacheable and contain no secrets.
 - **Offline changes** (favorites, playlists, scrobbles) go through a sync queue that coalesces actions and retries
   with backoff.
 - **Books and podcast episodes share one model.** Both are `books` rows (`kind = BOOK` or `EPISODE`) with files, chapters
@@ -197,8 +209,8 @@ SDK levels: `minSdk` 26 (phone) and 30 (watch), `compileSdk` / `targetSdk` 37, J
 :core:model           Plain Kotlin data classes
 :core:common          Dispatchers, normalization, shared helpers
 :core:database        Room entities, DAOs, FTS, migrations
-:core:network         OkHttp client, Subsonic / Audiobookshelf APIs, podcast feed parser
-:core:datasource      Local (MediaStore: music, Audiobooks, Podcasts) and Subsonic data sources
+:core:network         OkHttp client, Subsonic / Jellyfin / Emby / Audiobookshelf APIs, podcast feed parser
+:core:datasource      Local (MediaStore: music, Audiobooks, Podcasts), Subsonic and Jellyfin/Emby data sources
 :core:data            Repositories (music, books, podcasts), library syncer, merge resolver, sync queue
 :core:download        Download workers (songs, books, episodes), resumable transfers, storage
 :core:playback        Media library service, ReplayGain, source resolution, book/episode playback, Auto browse tree
