@@ -80,7 +80,9 @@ class CastMediaCache @Inject constructor(
         return CastMedia(
             streamUrl = withKey(source.url),
             mimeType = CastFormats.playableMimeType(source.mimeType) ?: guessMimeType(url.lastPathSegment),
-            coverUrl = source.coverUrl?.let(::withKey),
+            // Cover liefert Audiobookshelf ohne Anmeldung (geprüft 2026-11-08: Cover 200, Buchdaten 401). Ohne Schlüssel,
+            // denn Cover-Adressen der Cast-Metadaten laden auch andere Geräte (Google Home, Mediensteuerung anderer Handys).
+            coverUrl = source.coverUrl,
         )
     }
 

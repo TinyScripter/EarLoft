@@ -100,6 +100,7 @@ class PlaybackService : MediaLibraryService() {
 
     /** Für Player-Zugriffe (Main-Thread). */
     private val mainScope = MainScope() + LoggingExceptionHandler
+    private var restoreJob: Job? = null
 
     private var session: MediaLibrarySession? = null
     private lateinit var playTracker: PlayTracker
@@ -177,7 +178,9 @@ class PlaybackService : MediaLibraryService() {
         session = MediaLibrarySession.Builder(
             this,
             sessionPlayer,
-            LibrarySessionCallback(this, libraryRepository, playlistRepository, favoritesRepository, queuePersistence, bookPlaybackSource, factory, mainScope),
+            LibrarySessionCallback(this, libraryRepository, playlistRepository, favoritesRepository, queuePersistence, bookPlaybackSource, factory, mainScope) {
+                restoreJob?.join()
+            },
         )
             .setBitmapLoader(CacheBitmapLoader(ArtworkBitmapLoader(this, artworkRepository, bookCovers, mainScope)))
             .apply { sessionActivity()?.let { setSessionActivity(it) } }
@@ -273,7 +276,7 @@ class PlaybackService : MediaLibraryService() {
      * bleibt es dabei.
      */
     private fun restoreQueue(player: Player) {
-        mainScope.launch {
+        restoreJob = mainScope.launch {
             // Lief zuletzt ein Buch oder eine Folge, wird diese (pausiert) geladen statt der Musik-Warteschlange.
             val lastBookId = queuePersistence.lastBookId()
             if (lastBookId != null) {

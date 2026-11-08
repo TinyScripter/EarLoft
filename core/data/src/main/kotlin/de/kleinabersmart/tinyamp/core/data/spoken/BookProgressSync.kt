@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToLong
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Ergebnis von [BookProgressSync.pull]: der jetzt gültige Fortschritt und ob er vom Server kam und spürbar springt. */
 data class PullResult(val progress: BookProgress?, val tookRemote: Boolean, val noticeable: Boolean)
@@ -122,8 +123,10 @@ class BookProgressSync @Inject constructor(
         if (!policy.syncsWithBookServers) return PullResult(local, tookRemote = false, noticeable = false)
         val book = dao.book(bookId) ?: return PullResult(local, tookRemote = false, noticeable = false)
         val server = servers.server(book.serverId) ?: return PullResult(local, tookRemote = false, noticeable = false)
+        // Kurz: Der Nutzer wartet auf den Start (Kopfhörer, Weiterhören). Ist der Server nur zu Hause erreichbar, hingen
+        // Abspielen und Fortsetzen sonst bis zum Verbindungs-Timeout (15 s); dann gilt der eigene Stand.
         val remote = try {
-            api.progress(server, book.remoteId)
+            withTimeoutOrNull(PULL_TIMEOUT_MS) { api.progress(server, book.remoteId) }
         } catch (e: IOException) {
             Log.w(TAG, "Fortschritt von ${book.title} nicht abrufbar", e)
             null
@@ -171,6 +174,7 @@ class BookProgressSync @Inject constructor(
     private companion object {
         const val TAG = "BookProgressSync"
         const val PUSH_INTERVAL_MS = 30_000L
+        const val PULL_TIMEOUT_MS = 3_000L
     }
 }
 

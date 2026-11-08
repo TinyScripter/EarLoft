@@ -59,6 +59,8 @@ internal class LibrarySessionCallback(
     private val bookPlaybackSource: BookPlaybackSource,
     private val playerFactory: SessionPlayerFactory?,
     private val scope: CoroutineScope,
+    /** Wartet, bis der Service die letzte Warteschlange wiederhergestellt hat ([PlaybackService.restoreQueue]). */
+    private val awaitRestore: suspend () -> Unit = {},
 ) : MediaLibrarySession.Callback {
 
     override fun onGetLibraryRoot(
@@ -345,6 +347,18 @@ internal class LibrarySessionCallback(
         // Die Anfrage der System-Oberfläche kommt über den Benachrichtigungs-Controller der eigenen App (ohne onConnect der
         // System-Oberfläche); das Cover der Karte lädt sie aber selbst über den nicht exportierten CoverProvider.
         if (!isForPlayback) systemUiPackage()?.let(::grantCoverAccess)
+        if (isForPlayback) {
+            // Kommt „Abspielen“ (Kopfhörer, Widget, Fortsetzen-Karte) gleich nach dem Start des Service, läuft dessen
+            // Wiederherstellung noch. Gewann sie, steht das Buch schon im Player und hat sich die Pause gemerkt; ein
+            // zweites Laden über prepare() spulte dann doppelt zurück (prepare wendet die Regel an, das Abspielen
+            // danach noch einmal). Dann bleibt es beim geladenen Stand.
+            awaitRestore()
+            val player = mediaSession.player
+            if (player.mediaItemCount > 0) {
+                val items = (0 until player.mediaItemCount).map(player::getMediaItemAt)
+                return@future MediaItemsWithStartPosition(items, player.currentMediaItemIndex, player.currentPosition)
+            }
+        }
         // Lief zuletzt ein Buch oder eine Folge, wird diese fortgesetzt statt der Musik-Warteschlange.
         queuePersistence.lastBookId()?.let { bookId ->
             // Nur Metadaten (System-Oberfläche): ohne Zurückspulen und ohne Schreiben, wie beim Start des Service.

@@ -59,6 +59,9 @@ internal class BookPlaybackListener(
     private var pausedBookId: Long? = null
     private var pausedAt = 0L
 
+    /** Play kam, bevor die Zeitachse des Buchs geladen war (Kaltstart per Kopfhörer): die Regel danach anwenden. */
+    private var rewindWhenLoaded: Long? = null
+
     /** Pausiert wiederhergestellt ([restoredPaused]), aber [onMediaItemTransition] kam noch nicht: Buch und Pausenbeginn. */
     private var pendingRestore: Pair<Long, Long>? = null
 
@@ -98,6 +101,10 @@ internal class BookPlaybackListener(
         timeline = null
         scope.launch {
             timeline = books.timeline(bookId)
+            if (rewindWhenLoaded == bookId) {
+                rewindWhenLoaded = null
+                player.currentMediaItem?.takeIf { it.bookId == bookId }?.let { rewindAfterPause(it, bookId) }
+            }
             books.progressNow(bookId)?.speed?.let { speed ->
                 if (speed != player.playbackParameters.speed && player.currentMediaItem?.bookId == bookId) player.setPlaybackSpeed(speed)
             }
@@ -108,6 +115,7 @@ internal class BookPlaybackListener(
         val item = player.currentMediaItem
         val bookId = item?.bookId ?: return
         if (!playWhenReady) {
+            rewindWhenLoaded = null
             pausedBookId = bookId
             pausedAt = System.currentTimeMillis()
         } else if (pausedBookId == bookId) {
@@ -131,7 +139,12 @@ internal class BookPlaybackListener(
 
     /** Wiedergabe nach einer Pause im selben Buch: nach langer Pause ein Stück zurück, ggf. an den Kapitelanfang. */
     private fun rewindAfterPause(item: MediaItem, bookId: Long) {
-        val timeline = timeline.takeIf { timelineBookId == bookId } ?: return
+        val timeline = timeline.takeIf { timelineBookId == bookId } ?: run {
+            // Nach einem Kaltstart (Medientaste, Widget) kommt Play, während die Zeitachse noch lädt; ohne sie ginge die
+            // Regel verloren und es ginge ohne Zurückspulen weiter.
+            if (timelineBookId == bookId) rewindWhenLoaded = bookId
+            return
+        }
         val episode = item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE
         val current = timeline.toBookPosition(item.bookTrackIndex ?: 0, player.currentPosition)
         val target = resumePosition(
