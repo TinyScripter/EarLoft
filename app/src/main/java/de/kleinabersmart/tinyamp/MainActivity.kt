@@ -130,11 +130,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // Nur beim frischen Start: Nach einer Neuerstellung (Drehung, Prozess) steht der Intent noch an der Activity.
+        // Nur beim frischen Start: Nach einer Neuerstellung (Drehung, Prozess) steht der Intent noch an der Activity. Was die
+        // Oberfläche bis dahin nicht abgeholt hat (etwa während der Frage nach der Berechtigung), kommt aus dem Zustand.
         if (savedInstanceState == null) {
             openNowPlaying = intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)
             playFromSearch(intent)
             openSharedFeed(intent)
+        } else {
+            openNowPlaying = savedInstanceState.getBoolean(STATE_OPEN_NOW_PLAYING)
+            sharedFeedUrl = savedInstanceState.getString(STATE_SHARED_FEED)
         }
         setContent {
             val themeMode by themeSettings.mode.collectAsStateWithLifecycle(initialValue = null)
@@ -188,7 +192,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_OPEN_NOW_PLAYING, openNowPlaying)
+        outState.putString(STATE_SHARED_FEED, sharedFeedUrl)
+    }
+
     private companion object {
+        const val STATE_OPEN_NOW_PLAYING = "open_now_playing"
+        const val STATE_SHARED_FEED = "shared_feed"
+
         // Wie die Standardwerte von enableEdgeToEdge (dort nicht öffentlich).
         val LIGHT_SCRIM = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
         val DARK_SCRIM = Color.argb(0x80, 0x1b, 0x1b, 0x1b)

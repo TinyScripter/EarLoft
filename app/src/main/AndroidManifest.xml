@@ -49,7 +49,20 @@
 
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-            <!-- Geteilte Podcast-Adressen (Konzept 13) öffnen die Vorschau; TinyAmp nimmt sich aus dem eigenen Teilen-Menü aus. -->
+        </activity>
+
+        <!--
+            Geteilte Podcast-Adressen (Konzept 13) öffnen die Vorschau; TinyAmp nimmt sich aus dem eigenen Teilen-Menü aus.
+            Über diese Weiterleitung, sonst öffnete das Teilen eine zweite MainActivity in einer eigenen Aufgabe.
+        -->
+        <activity
+            android:name=".ShareReceiverActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter android:label="@string/podcast_add">
                 <action android:name="android.intent.action.SEND" />
 

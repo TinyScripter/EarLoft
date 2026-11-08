@@ -18,7 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
-import de.kleinabersmart.tinyamp.MainActivity
+import de.kleinabersmart.tinyamp.ShareReceiverActivity
 import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.data.share.ShareContent
 import de.kleinabersmart.tinyamp.core.data.share.ShareRepository
@@ -58,7 +58,7 @@ private fun Context.startShare(content: ShareContent) {
         .putExtra(Intent.EXTRA_TITLE, content.subject)
     // TinyAmp nimmt geteilten Text selbst an (Podcast hinzufügen); im eigenen Teilen-Menü wäre das nur verwirrend.
     val chooser = Intent.createChooser(send, null)
-        .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(this, MainActivity::class.java)))
+        .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(this, ShareReceiverActivity::class.java)))
     startActivity(chooser)
 }
 
