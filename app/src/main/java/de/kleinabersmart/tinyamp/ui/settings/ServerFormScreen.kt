@@ -136,23 +136,6 @@ private fun ServerFormContent(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth(),
             )
-            if (state.isHttp) {
-                Text(
-                    stringResource(R.string.add_server_http_warning),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                // Die ganze Zeile schaltet um; die Checkbox selbst trägt keinen Klick und keinen eigenen Namen.
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .toggleable(value = state.allowHttp, role = Role.Checkbox, onValueChange = onAllowHttpChange),
-                ) {
-                    Checkbox(checked = state.allowHttp, onCheckedChange = null)
-                    Text(stringResource(R.string.add_server_allow_http), modifier = Modifier.padding(start = 8.dp))
-                }
-            }
             OutlinedTextField(
                 value = state.username,
                 onValueChange = onUsernameChange,
@@ -187,7 +170,26 @@ private fun ServerFormContent(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth(),
             )
-            // Wie die Checkbox oben: Die ganze Zeile schaltet.
+            // Unter den Textfeldern statt unter der Adresse: Der Hinweis erscheint schon beim Tippen von „http://“ und schöbe sonst
+            // die folgenden Felder weg.
+            if (state.isHttp) {
+                Text(
+                    stringResource(R.string.add_server_http_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                // Die ganze Zeile schaltet um; die Checkbox selbst trägt keinen Klick und keinen eigenen Namen.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(value = state.allowHttp, role = Role.Checkbox, onValueChange = onAllowHttpChange),
+                ) {
+                    Checkbox(checked = state.allowHttp, onCheckedChange = null)
+                    Text(stringResource(R.string.add_server_allow_http), modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+            // Wie die Checkbox darüber: Die ganze Zeile schaltet.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
