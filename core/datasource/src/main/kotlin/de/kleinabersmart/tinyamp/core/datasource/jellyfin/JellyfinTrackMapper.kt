@@ -6,6 +6,7 @@ import de.kleinabersmart.tinyamp.core.datasource.RemotePlaylistInfo
 import de.kleinabersmart.tinyamp.core.datasource.local.FallbackNames
 import de.kleinabersmart.tinyamp.core.model.LyricLine
 import de.kleinabersmart.tinyamp.core.model.Lyrics
+import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinCover
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JfItem
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JfLyrics
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JfNameId
@@ -67,11 +68,15 @@ internal object JellyfinTrackMapper {
         )
     }
 
-    /** Das Albumcover, sonst das eigene Bild des Songs. */
-    private fun coverRemoteId(item: JfItem): String? = when {
-        item.albumId != null && item.albumPrimaryImageTag != null -> item.albumId
-        item.imageTags.containsKey("Primary") -> item.id
-        else -> null
+    /** Das Albumcover, sonst das eigene Bild des Songs; mit Bild-Tag, damit ein neues Cover eine neue URL bekommt. */
+    private fun coverRemoteId(item: JfItem): String? {
+        val albumId = item.albumId
+        val albumTag = item.albumPrimaryImageTag
+        return when {
+            albumId != null && albumTag != null -> JellyfinCover.id(albumId, albumTag)
+            item.imageTags.containsKey("Primary") -> JellyfinCover.id(item.id, item.imageTags["Primary"])
+            else -> null
+        }
     }
 
     /**

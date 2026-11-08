@@ -74,7 +74,7 @@ class JellyfinTrackMapperTest {
         assertEquals(-9.2f, track.rgTrackGainDb)
         assertEquals(-8.6f, track.rgAlbumGainDb)
         assertNull(track.rgTrackPeak)
-        assertEquals("al1", track.coverRemoteId)
+        assertEquals("al1:t2", track.coverRemoteId)
         assertEquals("audio/ogg", track.mimeType)
         assertEquals(157_936, track.bitRate)
         assertEquals(497_647L, track.sizeBytes)
@@ -118,7 +118,7 @@ class JellyfinTrackMapperTest {
             names,
         )
 
-        assertEquals("s2", track.coverRemoteId)
+        assertEquals("s2:x", track.coverRemoteId)
         assertEquals("Unbekannter Titel", track.title)
         assertEquals("Unbekannter Künstler", track.artistDisplay)
         assertEquals("Unbekanntes Album", track.albumTitle)

@@ -1,5 +1,6 @@
 package de.kleinabersmart.tinyamp.core.network.jellyfin
 
+import de.kleinabersmart.tinyamp.core.network.acceptsCredentialsOf
 import okhttp3.Interceptor
 import okhttp3.Response
 import javax.inject.Inject
@@ -9,7 +10,8 @@ import javax.inject.Inject
  *
  * Als *Network*-Interceptor registriert wie [de.kleinabersmart.tinyamp.core.network.audiobookshelf.AbsAuthInterceptor]:
  * Stream-, Download- und Cover-URLs enthalten keine Secrets, Cache-Schlüssel bleiben stabil. Der Server kommt aus dem
- * Request-Tag [JellyfinServer] (gesetzt von [JellyfinApi]) oder aus der [JellyfinServerRegistry].
+ * Request-Tag [JellyfinServer] (gesetzt von [JellyfinApi], nach einer Weiterleitung nur auf denselben Host) oder aus der
+ * [JellyfinServerRegistry].
  */
 class JellyfinAuthInterceptor @Inject constructor(
     private val registry: JellyfinServerRegistry,
@@ -19,7 +21,7 @@ class JellyfinAuthInterceptor @Inject constructor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
         if (original.header(AUTHORIZATION) != null) return chain.proceed(original)
-        val server = original.tag(JellyfinServer::class.java)
+        val server = original.tag(JellyfinServer::class.java)?.takeIf { original.url.acceptsCredentialsOf(it.baseUrl) }
             ?: registry.forUrl(original.url)
             ?: return chain.proceed(original)
         val authorized = original.newBuilder().header(AUTHORIZATION, clientInfo.authorization(server.deviceId, server.token)).build()

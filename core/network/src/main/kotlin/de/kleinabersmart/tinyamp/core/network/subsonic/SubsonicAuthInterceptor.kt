@@ -1,5 +1,6 @@
 package de.kleinabersmart.tinyamp.core.network.subsonic
 
+import de.kleinabersmart.tinyamp.core.network.acceptsCredentialsOf
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -14,8 +15,8 @@ import javax.inject.Inject
  * Token, und die Antwort wird wieder auf die ursprüngliche Anfrage umgeschrieben, damit weder
  * Cache-Schlüssel noch Cache-Dateien Secrets enthalten.
  *
- * Zugangsdaten kommen aus dem Request-Tag [SubsonicCredentials] (gesetzt von [SubsonicApi]) oder,
- * für Streams und Cover, aus der [SubsonicServerRegistry].
+ * Zugangsdaten kommen aus dem Request-Tag [SubsonicServer] (gesetzt von [SubsonicApi], nach einer Weiterleitung nur
+ * auf denselben Host) oder, für Streams und Cover, aus der [SubsonicServerRegistry].
  */
 class SubsonicAuthInterceptor @Inject constructor(
     private val registry: SubsonicServerRegistry,
@@ -23,7 +24,7 @@ class SubsonicAuthInterceptor @Inject constructor(
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
-        val credentials = original.tag(SubsonicCredentials::class.java)
+        val credentials = original.tag(SubsonicServer::class.java)?.takeIf { original.url.acceptsCredentialsOf(it.baseUrl) }?.credentials
             ?: registry.forUrl(original.url)?.credentials
             ?: return chain.proceed(original)
         if (original.url.queryParameter("u") != null || original.url.queryParameter("apiKey") != null) {

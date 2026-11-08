@@ -77,9 +77,9 @@ class JellyfinApi @Inject constructor(
             .addQueryParameter("sortOrder", "Ascending")
             .build())
 
-    /** Neueste Songs zuerst (Zwischenabgleich). */
-    suspend fun newestSongs(server: JellyfinServer, startIndex: Int, limit: Int): JfItemsPage =
-        get(server, songsUrl(server, startIndex, limit)
+    /** Neueste Songs der Bibliothek [parentId] zuerst (Zwischenabgleich). */
+    suspend fun newestSongs(server: JellyfinServer, parentId: String, startIndex: Int, limit: Int): JfItemsPage =
+        get(server, songsUrl(server, startIndex, limit) { addQueryParameter("parentId", parentId) }
             .addQueryParameter("sortBy", "DateCreated")
             .addQueryParameter("sortOrder", "Descending")
             .build())
@@ -109,16 +109,20 @@ class JellyfinApi @Inject constructor(
             .addQueryParameter("audioBitRate", (maxKbps * 1000).toString())
             .build()
 
-    fun imageUrl(server: JellyfinServer, itemId: String, sizePx: Int): HttpUrl =
-        server.endpoint("Items/$itemId/Images/Primary")
+    /** [coverId] aus [JellyfinCover.id] oder eine reine Item-ID. */
+    fun imageUrl(server: JellyfinServer, coverId: String, sizePx: Int): HttpUrl {
+        val tag = JellyfinCover.tag(coverId)
+        return server.endpoint("Items/${JellyfinCover.itemId(coverId)}/Images/Primary")
             .addQueryParameter("maxWidth", sizePx.toString())
             .addQueryParameter("maxHeight", sizePx.toString())
             .addQueryParameter("quality", "90")
+            .apply { if (tag != null) addQueryParameter("tag", tag) }
             .build()
+    }
 
     /** `null`, wenn der Eintrag kein Bild hat. */
-    suspend fun image(server: JellyfinServer, itemId: String, sizePx: Int): ByteArray? = withContext(Dispatchers.IO) {
-        client.newCall(request(server, imageUrl(server, itemId, sizePx))).await().use { response ->
+    suspend fun image(server: JellyfinServer, coverId: String, sizePx: Int): ByteArray? = withContext(Dispatchers.IO) {
+        client.newCall(request(server, imageUrl(server, coverId, sizePx))).await().use { response ->
             when {
                 response.code == 404 -> null
                 !response.isSuccessful -> throw HttpStatusException(response.code)
@@ -255,4 +259,18 @@ class JellyfinApi @Inject constructor(
             else -> codec
         }
     }
+}
+
+/**
+ * Cover-IDs für Jellyfin: Item-ID und Bild-Tag. Der Tag ändert sich mit dem Bild; steckt er in der ID, ändert sich mit
+ * dem Cover auch dessen URL, und der lange HTTP-Cache für Cover (`CoverArtCacheInterceptor`) liefert kein altes Bild.
+ */
+object JellyfinCover {
+    private const val SEPARATOR = ':'
+
+    fun id(itemId: String, tag: String?): String = if (tag.isNullOrEmpty()) itemId else "$itemId$SEPARATOR$tag"
+
+    fun itemId(coverId: String): String = coverId.substringBefore(SEPARATOR)
+
+    fun tag(coverId: String): String? = coverId.substringAfter(SEPARATOR, "").ifEmpty { null }
 }

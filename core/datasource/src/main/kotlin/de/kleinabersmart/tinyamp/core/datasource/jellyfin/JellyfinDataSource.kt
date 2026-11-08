@@ -55,17 +55,22 @@ class JellyfinDataSource internal constructor(
         }
     }
 
-    /** Neueste zuerst: Beim ersten älteren Song ist Schluss. */
+    /**
+     * Neueste zuerst, wie der Vollabgleich nur aus den Musik-Bibliotheken (sonst löschte der nächste Vollabgleich wieder,
+     * was hier aus anderen Bibliotheken käme). Je Bibliothek ist beim ersten älteren Song Schluss.
+     */
     override suspend fun tracksAddedSince(since: Long): List<RawTrack> {
         val tracks = mutableListOf<RawTrack>()
-        var start = 0
-        while (start < MAX_NEW_SONGS) {
-            val page = api.newestSongs(server, start, NEWEST_PAGE_SIZE).items
-            // Ohne Zeitstempel lieber laden (der Merge erkennt Unverändertes).
-            val fresh = page.takeWhile { item -> item.dateCreated?.toEpochMillis()?.let { it > since } ?: true }
-            fresh.filter(JellyfinTrackMapper::isMusic).mapTo(tracks) { JellyfinTrackMapper.map(it, names) }
-            if (fresh.size < page.size || page.size < NEWEST_PAGE_SIZE) break
-            start += page.size
+        api.musicLibraries(server).forEach { library ->
+            var start = 0
+            while (start < MAX_NEW_SONGS) {
+                val page = api.newestSongs(server, library.id, start, NEWEST_PAGE_SIZE).items
+                // Ohne Zeitstempel lieber laden (der Merge erkennt Unverändertes).
+                val fresh = page.takeWhile { item -> item.dateCreated?.toEpochMillis()?.let { it > since } ?: true }
+                fresh.filter(JellyfinTrackMapper::isMusic).mapTo(tracks) { JellyfinTrackMapper.map(it, names) }
+                if (fresh.size < page.size || page.size < NEWEST_PAGE_SIZE) break
+                start += page.size
+            }
         }
         return tracks
     }

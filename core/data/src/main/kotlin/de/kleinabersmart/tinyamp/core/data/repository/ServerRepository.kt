@@ -22,8 +22,13 @@ import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinServer
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicApi
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicCredentials
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicServer
+import de.kleinabersmart.tinyamp.core.data.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -61,6 +66,7 @@ class ServerRepository @Inject constructor(
     private val jellyfinApi: JellyfinApi,
     private val refresher: LibraryRefresher,
     private val changeListeners: Set<@JvmSuppressWildcards LibraryChangeListener>,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) {
     fun servers(): Flow<List<ServerInfo>> =
         sourceDao.observeServers().map { sources -> sources.map { it.toServerInfo() } }
@@ -252,16 +258,19 @@ class ServerRepository @Inject constructor(
         return result
     }
 
+    /** Die Anmeldung, die [logoutJellyfin] freigibt; `null` ohne gültige Adresse oder Token. */
+    private suspend fun jellyfinLogin(entity: SourceEntity): JellyfinServer? {
+        val baseUrl = entity.baseUrl?.toHttpUrlOrNull() ?: return null
+        val secret = storedJellyfinSecret(entity.sourceId) ?: return null
+        return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token)
+    }
+
     /** Gibt den Token frei; offline oder ohne Antwort bleibt er eben auf dem Server stehen. */
-    private suspend fun logoutJellyfin(entity: SourceEntity) {
-        val baseUrl = entity.baseUrl?.toHttpUrlOrNull() ?: return
-        val secret = storedJellyfinSecret(entity.sourceId) ?: return
+    private suspend fun logoutJellyfin(server: JellyfinServer) {
         try {
-            withTimeoutOrNull(LOGOUT_TIMEOUT_MS) {
-                jellyfinApi.logout(JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token))
-            }
+            withTimeoutOrNull(LOGOUT_TIMEOUT_MS) { jellyfinApi.logout(server) }
         } catch (e: IOException) {
-            Log.w(TAG, "Abmelden bei ${entity.name} fehlgeschlagen: ${e.message}")
+            Log.w(TAG, "Abmelden bei ${server.baseUrl} fehlgeschlagen: ${e.message}")
         }
     }
 
@@ -287,9 +296,13 @@ class ServerRepository @Inject constructor(
         if (enabled) refresher.refreshSource(sourceId)
     }
 
-    /** Entfernt den Server samt aller Songs, die nur er geliefert hat. */
-    suspend fun removeServer(sourceId: String) {
-        sourceDao.get(sourceId)?.takeIf { it.type == SourceType.JELLYFIN }?.let { logoutJellyfin(it) }
+    /**
+     * Entfernt den Server samt aller Songs, die nur er geliefert hat. Läuft zu Ende, auch wenn der Aufrufer (z. B. die
+     * Einstellungen) inzwischen weg ist; das Abmelden bei Jellyfin folgt danach im Hintergrund, damit ein Server ohne
+     * Antwort das Entfernen nicht aufhält.
+     */
+    suspend fun removeServer(sourceId: String) = withContext(NonCancellable) {
+        val login = sourceDao.get(sourceId)?.takeIf { it.type == SourceType.JELLYFIN }?.let { jellyfinLogin(it) }
         database.withTransaction {
             sourceDao.delete(sourceId)
             // Die Playlists des Servers liegen weiter dort; lokal verschwinden sie mit ihm.
@@ -299,6 +312,7 @@ class ServerRepository @Inject constructor(
         secretStore.remove(DataSourceRegistry.passwordKey(sourceId))
         registry.reload()
         changeListeners.forEach { it.onSongSourcesRemoved() }
+        if (login != null) applicationScope.launch { logoutJellyfin(login) }
     }
 
     fun syncNow(sourceId: String) = refresher.refreshSource(sourceId)

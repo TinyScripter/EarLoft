@@ -64,6 +64,28 @@ class SubsonicApiTest {
     }
 
     @Test
+    fun `credentials do not follow a redirect to another host`() = runTest {
+        MockWebServer().use { other ->
+            other.start()
+            other.enqueue(json("ping"))
+            // Gleicher Rechner, anderer Name und Port: für OkHttp ein fremder Host.
+            val target = other.url("/navidrome/rest/ping").newBuilder().host("127.0.0.1").build()
+            mockServer.enqueue(MockResponse.Builder().code(302).addHeader("Location", target.toString()).build())
+
+            try {
+                api.ping(server)
+            } catch (_: Exception) {
+                // Ohne Zugangsdaten muss der Ping nicht gelingen; hier zählt nur, was beim fremden Host ankommt.
+            }
+
+            assertEquals("kal", mockServer.takeRequest().url.queryParameter("u"))
+            val forwarded = other.takeRequest().url
+            assertNull(forwarded.queryParameter("u"))
+            assertNull(forwarded.queryParameter("t"))
+        }
+    }
+
+    @Test
     fun `api key replaces username and token`() = runTest {
         mockServer.enqueue(json("ping"))
 

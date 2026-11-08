@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.kleinabersmart.tinyamp.R
+import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.core.data.spoken.ResumeRule
 import de.kleinabersmart.tinyamp.core.data.podcast.PodcastSettings
@@ -216,7 +217,7 @@ internal fun ServerRow(
                 val status = when {
                     !server.enabled -> stringResource(R.string.server_disabled)
                     item.passwordLost -> stringResource(R.string.server_password_lost)
-                    item.error != null -> stringResource(R.string.server_sync_failed, syncFailureText(item.error))
+                    item.error != null -> stringResource(R.string.server_sync_failed, syncFailureText(item.error, server.type))
                     server.lastFullSyncAt == 0L -> stringResource(R.string.server_never_synced)
                     else -> {
                         val ageMs = System.currentTimeMillis() - server.lastFullSyncAt
@@ -258,9 +259,11 @@ private fun relativeAge(ageMs: Long): String = when {
 
 /** Dieselben Texte wie beim Verbindungstest im Server-Formular. */
 @Composable
-private fun syncFailureText(failure: SyncFailure): String = when (failure) {
+private fun syncFailureText(failure: SyncFailure, type: SourceType): String = when (failure) {
     SyncFailure.WrongCredentials -> stringResource(R.string.add_server_wrong_credentials)
-    SyncFailure.UnexpectedServer -> stringResource(R.string.add_server_not_subsonic)
+    SyncFailure.UnexpectedServer -> stringResource(
+        if (type == SourceType.JELLYFIN) R.string.add_server_not_jellyfin else R.string.add_server_not_subsonic,
+    )
     is SyncFailure.Unreachable -> stringResource(R.string.add_server_unreachable, failure.reason.orEmpty())
     is SyncFailure.ServerError -> stringResource(R.string.add_server_server_error, failure.code, failure.message.orEmpty())
     is SyncFailure.Other -> failure.message

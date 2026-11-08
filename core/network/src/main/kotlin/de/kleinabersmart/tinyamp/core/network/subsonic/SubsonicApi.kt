@@ -207,7 +207,7 @@ class SubsonicApi @Inject constructor(
     private fun request(server: SubsonicServer, url: HttpUrl): Request =
         Request.Builder()
             .url(url)
-            .tag(SubsonicCredentials::class.java, server.credentials)
+            .tag(SubsonicServer::class.java, server)
             .build()
 
     internal companion object {

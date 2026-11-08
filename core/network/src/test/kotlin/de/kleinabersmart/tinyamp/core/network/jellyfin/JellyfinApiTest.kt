@@ -79,6 +79,34 @@ class JellyfinApiTest {
     }
 
     @Test
+    fun `cover url carries the image tag so a new cover gets a new url`() {
+        val tagged = api.imageUrl(server, JellyfinCover.id("al1", "t2"), 300)
+        assertEquals("/jellyfin/Items/al1/Images/Primary", tagged.encodedPath)
+        assertEquals("t2", tagged.queryParameter("tag"))
+
+        // Vor dem nächsten Abgleich gespeicherte IDs ohne Tag gehen weiter.
+        val plain = api.imageUrl(server, "al1", 300)
+        assertEquals("/jellyfin/Items/al1/Images/Primary", plain.encodedPath)
+        assertNull(plain.queryParameter("tag"))
+    }
+
+    @Test
+    fun `token does not follow a redirect to another host`() = runTest {
+        MockWebServer().use { other ->
+            other.start()
+            other.enqueue(json("""{"Id":"u1","Name":"test"}"""))
+            // Gleicher Rechner, anderer Name und Port: für OkHttp ein fremder Host.
+            val target = other.url("/login").newBuilder().host("127.0.0.1").build()
+            mockServer.enqueue(MockResponse.Builder().code(302).addHeader("Location", target.toString()).build())
+
+            api.me(server)
+
+            assertTrue("Token=\"tok\"" in mockServer.takeRequest().headers["Authorization"]!!)
+            assertNull(other.takeRequest().headers["Authorization"])
+        }
+    }
+
+    @Test
     fun `rejected token is an auth error, foreign answers are not jellyfin`() = runTest {
         mockServer.enqueue(MockResponse.Builder().code(401).build())
         try {
@@ -120,6 +148,18 @@ class JellyfinApiTest {
         assertEquals("500", url.queryParameter("startIndex"))
         assertTrue("MediaSources" in url.queryParameter("fields")!!)
         assertTrue(url.queryParameter("sortBy")!!.startsWith("DateCreated"))
+    }
+
+    @Test
+    fun `newest songs stay in the given library`() = runTest {
+        mockServer.enqueue(json("""{"Items":[],"TotalRecordCount":0}"""))
+
+        api.newestSongs(server, "lib", startIndex = 0, limit = 50)
+
+        val url = mockServer.takeRequest().url
+        assertEquals("lib", url.queryParameter("parentId"))
+        assertEquals("DateCreated", url.queryParameter("sortBy"))
+        assertEquals("Descending", url.queryParameter("sortOrder"))
     }
 
     @Test
