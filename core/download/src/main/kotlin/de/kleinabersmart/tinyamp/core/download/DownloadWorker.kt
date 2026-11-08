@@ -52,7 +52,8 @@ class DownloadWorker(
             when (outcome) {
                 is DownloadOutcome.Retry -> {
                     Log.w(TAG, "Download ${next.sourceUid} unterbrochen (Versuch ${runAttemptCount + 1})", outcome.cause)
-                    if (runAttemptCount + 1 < MAX_ATTEMPTS) {
+                    // Abgelehnte Zugangsdaten ändern sich durch Warten nicht; sonst hielte der Song die Warteschlange auf.
+                    if (!outcome.isAuthRejection && runAttemptCount + 1 < MAX_ATTEMPTS) {
                         downloadDao.requeue(next.sourceUid)
                         return Result.retry()
                     }

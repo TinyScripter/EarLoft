@@ -138,8 +138,25 @@ class DownloaderTest {
 
         val outcome = downloader.download(queued())
 
-        assertTrue(outcome is DownloadOutcome.Failed)
+        assertEquals("Subsonic-Fehler 70", (outcome as DownloadOutcome.Failed).reason)
         assertNull(library.db.downloadDao().get(uid)!!.filePath)
+    }
+
+    @Test
+    fun `missing permission fails without asking for new credentials`() = runTest {
+        mockServer.enqueue(subsonicError(50))
+
+        val outcome = downloader.download(queued())
+
+        assertTrue(outcome is DownloadOutcome.Failed)
+        assertEquals(DownloadState.FAILED, library.db.downloadDao().get(uid)!!.state)
+    }
+
+    @Test
+    fun `rejected api key is retried with new credentials`() = runTest {
+        mockServer.enqueue(subsonicError(44))
+
+        assertTrue((downloader.download(queued()) as DownloadOutcome.Retry).isAuthRejection)
     }
 
     @Test

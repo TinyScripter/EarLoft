@@ -7,14 +7,23 @@ import kotlinx.serialization.SerializationException
 
 /** Der Server hat mit `status = failed` geantwortet; [serverMessage] ist seine Meldung ohne Code. */
 class SubsonicException(code: Int, serverMessage: String?) :
-    ServerApiException(code, serverMessage, "Subsonic-Fehler $code: $serverMessage") {
+    ServerApiException(code, serverMessage, "Subsonic-Fehler $code" + serverMessage?.let { ": $it" }.orEmpty()) {
 
-    override val isAuthError: Boolean get() = code == WRONG_CREDENTIALS || code == TOKEN_AUTH_NOT_SUPPORTED || code == NOT_AUTHORIZED
+    override val isAuthError: Boolean
+        get() = isRejectedCredentials || code == TOKEN_AUTH_NOT_SUPPORTED || code == NOT_AUTHORIZED
+
+    /**
+     * Passwort bzw. API-Schlüssel abgelehnt: Neue Zugangsdaten können helfen. Bei [TOKEN_AUTH_NOT_SUPPORTED] und
+     * [NOT_AUTHORIZED] (fehlende Berechtigung) ändern sie nichts.
+     */
+    val isRejectedCredentials: Boolean get() = code == WRONG_CREDENTIALS || code == INVALID_API_KEY
 
     companion object {
         const val GENERIC = 0
         const val WRONG_CREDENTIALS = 40
         const val TOKEN_AUTH_NOT_SUPPORTED = 41
+        /** OpenSubsonic-Extension `apiKeyAuthentication`. */
+        const val INVALID_API_KEY = 44
         const val NOT_AUTHORIZED = 50
         const val NOT_FOUND = 70
     }

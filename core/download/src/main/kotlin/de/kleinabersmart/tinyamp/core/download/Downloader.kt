@@ -120,7 +120,7 @@ class Downloader @Inject constructor(
                         // Subsonic meldet Fehler (z. B. Auth) als JSON/XML mit HTTP 200, andere Server per Status.
                         contentType.startsWith("application/json") || contentType.contains("xml") -> {
                             val error = subsonicErrorIn(response.peekBody(MAX_ERROR_BODY_BYTES).string())
-                            if (error?.isAuthError == true) throw error
+                            if (error?.isRejectedCredentials == true) throw error
                             return@withContext DownloadOutcome.Failed(error?.message ?: "Server-Fehler statt Audiodatei")
                         }
                     }
