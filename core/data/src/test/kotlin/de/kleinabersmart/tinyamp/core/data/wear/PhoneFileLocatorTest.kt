@@ -79,7 +79,7 @@ class PhoneFileLocatorTest {
             override suspend fun put(key: String, value: String) = Unit
             override suspend fun remove(key: String) = Unit
         }
-        val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry())
+        val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
         covers = BookCovers(context, db.bookDao(), db.podcastDao(), servers, api, PodcastFeedApi(client), LocalBookScanner(context))
         locator = PhoneFileLocator(context, db.wearDao(), FixedSources(nd, local), db.bookDao(), db.podcastDao(), covers)
         syncer.syncAdding(db, nd)

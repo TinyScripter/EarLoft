@@ -89,8 +89,8 @@ class PhoneLibrarySync @Inject constructor(
         }
         if (servers != null) {
             val dto = WearCodec.decode<WearServersDto>(servers.value)
-            val renewed = serverMirror.apply((dto.servers + dto.otherServers).mapNotNull { it.toMirrored() })
-            audiobookshelf.mirror(dto.spokenServers.map { MirroredAbsServer(it.serverId, it.name, it.baseUrl) })
+            val renewed = serverMirror.apply((dto.servers + dto.otherServers).mapNotNull { it.toMirrored() }) +
+                audiobookshelf.mirror(dto.spokenServers.map { MirroredAbsServer(it.serverId, it.name, it.baseUrl, it.credentialsStamp) })
             // Am Handy geänderte Zugangsdaten gleich holen, nicht erst nach der Wartezeit für fehlende.
             credentials.request(renewed, phoneNodeId = servers.key)
             requestMissingPasswords(phoneNodeId = servers.key)

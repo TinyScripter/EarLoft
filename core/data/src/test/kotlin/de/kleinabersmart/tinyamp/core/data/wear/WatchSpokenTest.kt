@@ -60,7 +60,7 @@ class WatchSpokenTest {
             override suspend fun remove(key: String) = Unit
         }
         val dao = db.bookDao()
-        val servers = AudiobookshelfServers(dao, secrets, api, AbsServerRegistry())
+        val servers = AudiobookshelfServers(dao, secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
         val progressSync = BookProgressSync(context, dao, servers, api, PlaybackPolicy())
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)

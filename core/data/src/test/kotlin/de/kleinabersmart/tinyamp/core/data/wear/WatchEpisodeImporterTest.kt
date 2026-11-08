@@ -54,7 +54,7 @@ class WatchEpisodeImporterTest {
             override suspend fun remove(key: String) = Unit
         }
         val api = AbsApi(OkHttpClient())
-        val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry())
+        val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
         val policy = PlaybackPolicy()
         val stats = StatsRepository(db.statsDao(), db.bookDao(), db.podcastDao())
         importer = WatchEpisodeImporter(

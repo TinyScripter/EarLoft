@@ -10,6 +10,7 @@ import de.kleinabersmart.tinyamp.core.data.podcast.EpisodeQueue
 import de.kleinabersmart.tinyamp.core.data.podcast.PodcastRepository
 import de.kleinabersmart.tinyamp.core.data.repository.PlaybackPolicy
 import de.kleinabersmart.tinyamp.core.data.security.SecretStore
+import de.kleinabersmart.tinyamp.core.data.wear.CredentialsStamps
 import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
 import de.kleinabersmart.tinyamp.core.database.entity.BookEntity
 import de.kleinabersmart.tinyamp.core.database.entity.BookProgressEntity
@@ -60,7 +61,7 @@ class BookPlaybackSourceTest {
             override suspend fun remove(key: String) = Unit
         }
         val dao = db.bookDao()
-        val servers = AudiobookshelfServers(dao, secrets, api, AbsServerRegistry())
+        val servers = AudiobookshelfServers(dao, secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
         val progressSync = BookProgressSync(context, dao, servers, api, policy)
         val settings = SpokenSettings(context)
         val scanner = LocalBookScanner(context)

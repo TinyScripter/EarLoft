@@ -7,6 +7,7 @@ import androidx.work.Configuration
 import androidx.work.WorkManager
 import de.kleinabersmart.tinyamp.core.data.repository.PlaybackPolicy
 import de.kleinabersmart.tinyamp.core.data.security.SecretStore
+import de.kleinabersmart.tinyamp.core.data.wear.CredentialsStamps
 import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
 import de.kleinabersmart.tinyamp.core.database.entity.BookEntity
 import de.kleinabersmart.tinyamp.core.database.entity.SpokenServerEntity
@@ -72,7 +73,7 @@ class AbsSessionReporterTest {
             override suspend fun remove(key: String) = Unit
         }
         db.bookDao().upsertServer(SpokenServerEntity("srv", "Server", "https://abs.example/"))
-        val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry())
+        val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
         reporter = AbsSessionReporter(context, db.absSessionDao(), db.bookDao(), servers, api, PlaybackPolicy())
         bookId = db.bookDao().upsertBook(
             BookEntity(serverId = "srv", kind = BookKind.BOOK, remoteId = "item-1", title = "Buch", normTitle = "buch", author = "Autor", durationMs = 36_000_000),

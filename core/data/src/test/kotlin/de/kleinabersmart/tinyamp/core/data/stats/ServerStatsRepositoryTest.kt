@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.tinyamp.core.data.security.SecretStore
 import de.kleinabersmart.tinyamp.core.data.spoken.AudiobookshelfServers
+import de.kleinabersmart.tinyamp.core.data.wear.CredentialsStamps
 import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
 import de.kleinabersmart.tinyamp.core.database.entity.BookEntity
 import de.kleinabersmart.tinyamp.core.database.entity.SpokenServerEntity
@@ -63,7 +64,7 @@ class ServerStatsRepositoryTest {
         db.bookDao().upsertBook(
             BookEntity(serverId = "srv", kind = BookKind.BOOK, remoteId = "item-1", title = "Buch Eins", normTitle = "buch eins", author = "A", durationMs = 1),
         )
-        repository = ServerStatsRepository(db.statsDao(), db.bookDao(), AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry()), api)
+        repository = ServerStatsRepository(db.statsDao(), db.bookDao(), AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry(), CredentialsStamps(secrets)), api)
     }
 
     @After

@@ -115,6 +115,8 @@ data class WearSpokenServerDto(
     val serverId: String,
     val name: String,
     val baseUrl: String,
+    /** Wie [WearServerDto.credentialsStamp], für den API-Schlüssel. */
+    val credentialsStamp: String? = null,
 )
 
 @Serializable

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.tinyamp.core.data.security.SecretStore
+import de.kleinabersmart.tinyamp.core.data.wear.CredentialsStamps
 import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
 import de.kleinabersmart.tinyamp.core.database.entity.BookEntity
 import de.kleinabersmart.tinyamp.core.database.entity.BookTrackEntity
@@ -65,7 +66,7 @@ class BookCoversTest {
         }
         val dao = db.bookDao()
         val api = AbsApi(client)
-        val servers = AudiobookshelfServers(dao, secrets, api, AbsServerRegistry())
+        val servers = AudiobookshelfServers(dao, secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
         covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), LocalBookScanner(context))
         db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast", imageUrl = FEED_IMAGE))
     }

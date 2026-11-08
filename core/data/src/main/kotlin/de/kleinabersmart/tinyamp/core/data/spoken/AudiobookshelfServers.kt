@@ -2,6 +2,7 @@ package de.kleinabersmart.tinyamp.core.data.spoken
 
 import android.util.Log
 import de.kleinabersmart.tinyamp.core.data.security.SecretStore
+import de.kleinabersmart.tinyamp.core.data.wear.CredentialsStamps
 import de.kleinabersmart.tinyamp.core.database.dao.BookDao
 import de.kleinabersmart.tinyamp.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.tinyamp.core.network.audiobookshelf.AbsApi
@@ -32,8 +33,11 @@ sealed interface AddServerResult {
 /** Ein Server zum Bearbeiten; der API-Key selbst verlässt den [SecretStore] nicht. */
 data class EditableAbsServer(val name: String, val baseUrl: String, val hasKey: Boolean)
 
-/** Ein Server, wie das Handy ihn der Uhr übergibt (ohne Schlüssel, Wear-Konzept 16.2). */
-data class MirroredAbsServer(val serverId: String, val name: String, val baseUrl: String)
+/**
+ * Ein Server, wie das Handy ihn der Uhr übergibt (ohne Schlüssel, Wear-Konzept 16.2). [credentialsStamp] ändert sich mit dem
+ * Schlüssel ([CredentialsStamps]); `null`, wenn das Handy keinen hat.
+ */
+data class MirroredAbsServer(val serverId: String, val name: String, val baseUrl: String, val credentialsStamp: String? = null)
 
 /** Eingerichtete Audiobookshelf-Server (Konzept 12.1); der API-Key liegt im [SecretStore]. */
 @Singleton
@@ -42,9 +46,20 @@ class AudiobookshelfServers @Inject constructor(
     private val secretStore: SecretStore,
     private val api: AbsApi,
     private val registry: AbsServerRegistry,
+    private val stamps: CredentialsStamps,
 ) {
     val servers: Flow<List<SpokenServer>> = bookDao.observeServers().map { list ->
         list.map { SpokenServer(it.serverId, it.name, it.baseUrl, it.lastFullSyncAt, it.enabled) }
+    }
+
+    /**
+     * Handy: die eingeschalteten Server für die Uhr. Ausgeschaltete fehlen, ihre Bücher sind am Handy ausgeblendet und fallen von
+     * der Uhr. Ein neuer Schlüssel schreibt auch den Server neu ([connect]); damit kommt ein neuer Stempel.
+     */
+    val mirrored: Flow<List<MirroredAbsServer>> = bookDao.observeServers().map { list ->
+        list.filter { it.enabled }.map {
+            MirroredAbsServer(it.serverId, it.name, it.baseUrl, stamps.absStamp(it.serverId, secretStore.get(tokenKey(it.serverId))))
+        }
     }
 
     /**
@@ -152,9 +167,14 @@ class AudiobookshelfServers @Inject constructor(
     /**
      * Uhr: übernimmt die Server des Handys. Fehlt einer dort, verschwindet er samt seinen Büchern und dem Schlüssel; die
      * übrigen behalten ihre Bücher (gleiche `serverId`).
+     * @return die Server, deren Schlüssel verworfen ist, weil er sich am Handy geändert hat oder zum alten Host gehört: Die
+     * Uhr fragt ihn gleich neu an.
      */
-    suspend fun mirror(servers: List<MirroredAbsServer>) {
+    suspend fun mirror(servers: List<MirroredAbsServer>): Set<String> {
         val existing = bookDao.servers().associateBy { it.serverId }
+        val renewed = stamps.changedAbs(servers.associate { it.serverId to it.credentialsStamp })
+            .filterTo(HashSet()) { it in existing }
+        renewed.forEach { forgetKey(it) }
         servers.forEach { server ->
             val entity = (existing[server.serverId] ?: SpokenServerEntity(server.serverId, server.name, server.baseUrl))
                 .copy(name = server.name, baseUrl = server.baseUrl)
@@ -167,12 +187,21 @@ class AudiobookshelfServers @Inject constructor(
                     secretStore.get(tokenKey(server.serverId))?.let { key -> register(server.serverId, server.baseUrl, key) }
                 } else {
                     // Anderer Host: Der Schlüssel bleibt beim alten (die Uhr fragt ihn beim Handy neu an).
-                    secretStore.remove(tokenKey(server.serverId))
-                    registry.unregister(server.serverId)
+                    forgetKey(server.serverId)
+                    renewed += server.serverId
                 }
             }
         }
-        (existing.keys - servers.mapTo(HashSet()) { it.serverId }).forEach { remove(it) }
+        (existing.keys - servers.mapTo(HashSet()) { it.serverId }).forEach {
+            remove(it)
+            stamps.forgetAbs(it)
+        }
+        return renewed
+    }
+
+    private suspend fun forgetKey(serverId: String) {
+        secretStore.remove(tokenKey(serverId))
+        registry.unregister(serverId)
     }
 
     /** Uhr: @return `false`, wenn der Server (noch) nicht gespiegelt ist. */

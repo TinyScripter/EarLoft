@@ -75,13 +75,12 @@ class WearPublisher @Inject constructor(
                 }
         }
         scope.launch {
-            combine(servers.servers(), audiobookshelf.servers) { music, spoken ->
+            combine(servers.servers(), audiobookshelf.mirrored) { music, spoken ->
                 val (subsonic, other) = music.partition { it.type == SourceType.SUBSONIC }
                 WearServersDto(
                     servers = subsonic.map { it.toDto() },
                     otherServers = other.map { it.toDto() },
-                    // Ausgeschaltete Server fehlen: Ihre Bücher sind am Handy ausgeblendet und fallen von der Uhr.
-                    spokenServers = spoken.filter { it.enabled }.map { WearSpokenServerDto(it.serverId, it.name, it.baseUrl) },
+                    spokenServers = spoken.map { WearSpokenServerDto(it.serverId, it.name, it.baseUrl, it.credentialsStamp) },
                 )
             }
                 .distinctUntilChanged()
