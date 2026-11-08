@@ -89,7 +89,6 @@
         <item quantity="other">%1$d Minuten</item>
     </plurals>
     <string name="sleep_timer_custom">Eigene Dauer</string>
-    <string name="sleep_timer_custom_minutes">Minuten</string>
     <string name="sleep_timer_start">Starten</string>
     <string name="sleep_timer_off">Timer ausschalten</string>
 
@@ -363,7 +362,6 @@
     <string name="watch_quality">Qualität</string>
     <string name="watch_quality_opus">Opus 128 kbit/s (spart Speicher)</string>
     <string name="watch_quality_original">Original</string>
-    <string name="watch_quality_summary">Gilt für neue Downloads. Opus wandelt der Server um.</string>
     <string name="watch_storage_limit">Speichergrenze</string>
     <string name="watch_storage_auto">Bis auf 1 GB freien Speicher</string>
     <string name="watch_storage_gb">Höchstens %1$d GB</string>
@@ -420,7 +418,6 @@
     </plurals>
     <string name="spoken_continue">Weiterhören</string>
     <string name="spoken_recent">Zuletzt hinzugefügt</string>
-    <string name="spoken_books">Bücher</string>
     <string name="spoken_no_server">Noch kein Audiobookshelf-Server eingerichtet.</string>
     <string name="spoken_no_books">Noch keine Bücher. In den Einstellungen abgleichen.</string>
     <string name="spoken_setup">Audiobookshelf einrichten</string>
@@ -431,12 +428,10 @@
     <string name="spoken_chapter_n">Kapitel %1$d</string>
     <string name="spoken_percent_listened">%1$d %% gehört</string>
     <string name="spoken_finished">Beendet</string>
-    <string name="spoken_duration">%1$s</string>
     <string name="spoken_previous_chapter">Voriges Kapitel</string>
     <string name="spoken_next_chapter">Nächstes Kapitel</string>
     <string name="spoken_speed">Geschwindigkeit</string>
     <string name="spoken_speed_value">%1$s×</string>
-    <string name="spoken_speed_reset">Normale Geschwindigkeit</string>
     <string name="spoken_description">Beschreibung</string>
     <string name="spoken_no_description">Keine Beschreibung vorhanden.</string>
     <string name="spoken_restart_episode">Folge neu starten</string>
@@ -449,7 +444,6 @@
     <string name="spoken_speed_description">Geschwindigkeit %1$s×</string>
     <string name="spoken_play_failed">Das Buch konnte nicht geladen werden. Ist der Server erreichbar?</string>
     <string name="spoken_resumed_from_server">Weiter an der Stelle von einem anderen Gerät (%1$s)</string>
-    <string name="spoken_abs_title">Audiobookshelf</string>
     <string name="spoken_abs_add">Audiobookshelf-Server hinzufügen</string>
     <string name="spoken_abs_none">Noch kein Audiobookshelf-Server.</string>
     <string name="spoken_abs_key_lost">Der gespeicherte API-Key lässt sich nicht mehr lesen (z. B. nach einer Wiederherstellung auf einem anderen Gerät). Tippe auf den Server und gib den API-Key neu ein.</string>
@@ -521,7 +515,6 @@
     <string name="podcast_source_feed">RSS-Feed (%1$s)</string>
     <string name="podcast_source_feed_summary">Wie in anderen Podcast-Apps. Gelistet bei %1$s.</string>
     <string name="podcast_source_ard_sounds_summary">Folgen und Bilder direkt aus ARD Sounds. Im OPML-Export über die RSS-Bridge.</string>
-    <string name="podcast_preview_open">Öffnen</string>
     <string name="podcast_preview_retry">Erneut versuchen</string>
     <string name="podcast_trial_notice">Nicht abonniert. Folgen, die du hier hörst oder lädst, kommen in die Warteschlange und bleiben, bis sie zu Ende gehört oder herausgenommen sind; die Hörzeit zählt nicht in die Statistik.</string>
     <string name="book_trial_notice">Podcast nicht abonniert – diese Folge zählt nicht in Statistik und Verlauf. Tippen, um zum Podcast zu gehen.</string>
@@ -534,9 +527,7 @@
     <string name="directory_ard_sounds">ARD Sounds</string>
     <string name="directory_ard_sounds_summary">Sendungen der ARD-Anstalten und des Deutschlandradios, auch solche ohne eigenen Feed. Nutzt eine inoffizielle Schnittstelle, die ausfallen kann. Suchbegriffe gehen an die ARD.</string>
     <string name="podcast_none">Noch keine Abos. Tippe auf „Podcast hinzufügen“, um eine Feed-Adresse einzugeben oder in einem Verzeichnis zu suchen.</string>
-    <string name="podcast_nothing_to_continue">Noch nichts zum Weiterhören. Abonniere unter „Abos“ einen Podcast.</string>
     <string name="podcast_refresh">Podcasts aktualisieren</string>
-    <string name="podcast_refresh_failed">Aktualisieren fehlgeschlagen.</string>
     <string name="podcast_auto_download">Neue Folgen automatisch herunterladen</string>
     <string name="podcast_auto_download_summary">Hält die neuesten ungehörten Folgen auf diesem Gerät bereit (Anzahl: Einstellungen → Podcasts).</string>
     <string name="podcast_download_episode">Folge herunterladen</string>

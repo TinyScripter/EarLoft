@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -57,8 +58,10 @@ fun letterOf(sortText: String): String {
 /** Schnellscroller für eine [androidx.compose.foundation.lazy.LazyColumn]; [labelAt] liefert zum Listenindex den Buchstaben. */
 @Composable
 fun LazyListFastScroller(state: LazyListState, labelAt: (Int) -> String, modifier: Modifier = Modifier) {
+    // layoutInfo ändert sich bei jedem Scroll-Frame; nur die Anzahl ist hier von Belang.
+    val itemCount by remember(state) { derivedStateOf { state.layoutInfo.totalItemsCount } }
     FastScroller(
-        itemCount = state.layoutInfo.totalItemsCount,
+        itemCount = itemCount,
         firstVisibleIndex = { state.firstVisibleItemIndex },
         isScrolling = state.isScrollInProgress,
         scrollToItem = { state.scrollToItem(it) },
@@ -70,8 +73,9 @@ fun LazyListFastScroller(state: LazyListState, labelAt: (Int) -> String, modifie
 /** Wie [LazyListFastScroller] für ein [androidx.compose.foundation.lazy.grid.LazyVerticalGrid]. */
 @Composable
 fun LazyGridFastScroller(state: LazyGridState, labelAt: (Int) -> String, modifier: Modifier = Modifier) {
+    val itemCount by remember(state) { derivedStateOf { state.layoutInfo.totalItemsCount } }
     FastScroller(
-        itemCount = state.layoutInfo.totalItemsCount,
+        itemCount = itemCount,
         firstVisibleIndex = { state.firstVisibleItemIndex },
         isScrolling = state.isScrollInProgress,
         scrollToItem = { state.scrollToItem(it) },
@@ -116,10 +120,11 @@ private fun FastScroller(
         val thumbPx = with(density) { THUMB_HEIGHT.toPx() }
         val rangePx = (trackPx - thumbPx).coerceAtLeast(1f)
 
-        val listFraction = if (itemCount > 1) firstVisibleIndex().coerceIn(0, itemCount - 1) / (itemCount - 1f) else 0f
-        val fraction = if (dragging) dragFraction else listFraction
-        val thumbTop = (fraction * rangePx).roundToInt()
-        val labelIndex = if (dragging) (dragFraction * (itemCount - 1)).roundToInt() else firstVisibleIndex()
+        // Erst beim Platzieren gelesen: Scrollen verschiebt dann nur den Griff, ohne neu zusammenzusetzen.
+        val thumbTop = {
+            val listFraction = if (itemCount > 1) firstVisibleIndex().coerceIn(0, itemCount - 1) / (itemCount - 1f) else 0f
+            ((if (dragging) dragFraction else listFraction) * rangePx).roundToInt()
+        }
 
         AnimatedVisibility(
             visible = visible && itemCount > 1,
@@ -151,7 +156,7 @@ private fun FastScroller(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset { IntOffset(0, thumbTop) }
+                        .offset { IntOffset(0, thumbTop()) }
                         .padding(end = 4.dp)
                         .size(width = THUMB_WIDTH, height = THUMB_HEIGHT)
                         .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(THUMB_WIDTH)),
@@ -165,9 +170,10 @@ private fun FastScroller(
             exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .offset { IntOffset(0, thumbTop + (thumbPx / 2 - with(density) { BUBBLE_SIZE.toPx() } / 2).roundToInt()) }
+                .offset { IntOffset(0, thumbTop() + (thumbPx / 2 - with(density) { BUBBLE_SIZE.toPx() } / 2).roundToInt()) }
                 .padding(end = TOUCH_WIDTH + 8.dp),
         ) {
+            val labelIndex = if (dragging) (dragFraction * (itemCount - 1)).roundToInt() else firstVisibleIndex()
             Box(
                 modifier = Modifier
                     .size(BUBBLE_SIZE)

@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -109,7 +110,7 @@ fun PodcastQueueList(
     // Die lokale Kopie wird beim Ziehen sofort umsortiert und erst am Ende des Ziehens gespeichert.
     val rows = remember { mutableStateListOf<BookWithProgress>() }
     var draggedId by remember { mutableStateOf<Long?>(null) }
-    var dragOffset by remember { mutableStateOf(0f) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(episodes) {
         val loaded = episodes.valueOrNull
         if (draggedId != null || loaded == null) return@LaunchedEffect

@@ -74,7 +74,6 @@
 
     <!-- Sleep timer -->
     <string name="sleep_timer_title">Sleep timer</string>
-    <string name="sleep_timer_remaining">Pauses in %1$s</string>
     <string name="sleep_timer_badge">%d min</string>
     <plurals name="sleep_timer_minutes">
         <item quantity="one">%1$d minute</item>
@@ -82,7 +81,6 @@
     </plurals>
     <string name="sleep_timer_custom">Custom</string>
     <string name="sleep_timer_start">Start</string>
-    <string name="sleep_timer_off">Turn off</string>
 
     <!-- Downloads -->
     <string name="download_channel_name">Downloads</string>
@@ -91,7 +89,6 @@
         <item quantity="one">%d track left</item>
         <item quantity="other">%d tracks left</item>
     </plurals>
-    <string name="download_error_server">Server unreachable</string>
     <string name="download_error_server_no_phone_copy">Server unreachable, phone has no copy</string>
     <string name="download_error_phone_no_copy">Phone has no copy</string>
     <string name="download_error_phone_unreachable">Phone unreachable</string>
@@ -129,8 +126,6 @@
     <string name="storage_clear_podcasts_confirm">Remove all episodes from the watch? They are deselected on the phone.</string>
     <string name="storage_clear_books">Remove books</string>
     <string name="storage_clear_books_confirm">Remove all books from the watch? They are deselected on the phone.</string>
-    <string name="storage_clear_yes">Remove</string>
-    <string name="storage_clear_no">Cancel</string>
     <string name="storage_clear_no_phone">Phone not connected – nothing removed.</string>
     <string name="storage_remove_title">Remove “%1$s”?</string>
     <string name="storage_remove_confirm">It is deselected on the phone and deleted from the watch.</string>
@@ -138,7 +133,6 @@
     <string name="storage_entry_loading">%1$s, still loading</string>
 
     <!-- Setup -->
-    <string name="setup_checking">Looking for phone …</string>
     <string name="setup_no_phone_title">Phone not connected</string>
     <string name="setup_no_phone_text">To set up, the watch needs the paired phone nearby.</string>
     <string name="setup_app_missing_title">App missing on the phone</string>
@@ -146,7 +140,5 @@
     <string name="setup_install_on_phone">Open on phone</string>
     <string name="setup_opened_on_phone">Continue on the phone</string>
     <string name="setup_open_failed">Could not be opened</string>
-    <string name="setup_waiting_title">Ready</string>
-    <string name="setup_waiting_text">In TinyAmp on the phone, choose music for the watch.</string>
     <string name="setup_retry">Check again</string>
 </resources>

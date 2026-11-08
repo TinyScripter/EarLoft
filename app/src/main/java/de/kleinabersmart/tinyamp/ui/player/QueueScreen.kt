@@ -23,6 +23,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -113,7 +114,7 @@ fun QueueList(
         val rows = remember { mutableStateListOf<QueueRow>() }
         var currentIndex by remember { mutableIntStateOf(state.currentIndex) }
         var draggedId by remember { mutableStateOf<Int?>(null) }
-        var dragOffset by remember { mutableStateOf(0f) }
+        var dragOffset by remember { mutableFloatStateOf(0f) }
         LaunchedEffect(state.queue, state.currentIndex) {
             if (draggedId != null) return@LaunchedEffect
             rows.clear()

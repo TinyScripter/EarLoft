@@ -72,7 +72,6 @@
 
     <!-- Einschlaf-Timer -->
     <string name="sleep_timer_title">Einschlaf-Timer</string>
-    <string name="sleep_timer_remaining">Pausiert in %1$s</string>
     <string name="sleep_timer_badge">%d Min.</string>
     <plurals name="sleep_timer_minutes">
         <item quantity="one">%1$d Minute</item>
@@ -80,7 +79,6 @@
     </plurals>
     <string name="sleep_timer_custom">Eigene Dauer</string>
     <string name="sleep_timer_start">Starten</string>
-    <string name="sleep_timer_off">Ausschalten</string>
 
     <!-- Downloads -->
     <string name="download_channel_name">Downloads</string>
@@ -89,7 +87,6 @@
         <item quantity="one">Noch %d Titel</item>
         <item quantity="other">Noch %d Titel</item>
     </plurals>
-    <string name="download_error_server">Server nicht erreichbar</string>
     <string name="download_error_server_no_phone_copy">Server nicht erreichbar, Telefon hat keine Kopie</string>
     <string name="download_error_phone_no_copy">Telefon hat keine Kopie</string>
     <string name="download_error_phone_unreachable">Telefon nicht erreichbar</string>
@@ -127,8 +124,6 @@
     <string name="storage_clear_podcasts_confirm">Alle Folgen von der Uhr entfernen? Sie werden am Telefon abgewählt.</string>
     <string name="storage_clear_books">Bücher entfernen</string>
     <string name="storage_clear_books_confirm">Alle Bücher von der Uhr entfernen? Sie werden am Telefon abgewählt.</string>
-    <string name="storage_clear_yes">Entfernen</string>
-    <string name="storage_clear_no">Abbrechen</string>
     <string name="storage_clear_no_phone">Telefon nicht verbunden – nichts entfernt.</string>
     <string name="storage_remove_title">„%1$s“ entfernen?</string>
     <string name="storage_remove_confirm">Wird am Telefon abgewählt und von der Uhr gelöscht.</string>
@@ -136,7 +131,6 @@
     <string name="storage_entry_loading">%1$s, lädt noch</string>
 
     <!-- Einrichtung -->
-    <string name="setup_checking">Suche Telefon …</string>
     <string name="setup_no_phone_title">Telefon nicht verbunden</string>
     <string name="setup_no_phone_text">Zum Einrichten braucht die Uhr das gekoppelte Telefon in der Nähe.</string>
     <string name="setup_app_missing_title">App fehlt auf dem Telefon</string>
@@ -144,7 +138,5 @@
     <string name="setup_install_on_phone">Auf Telefon öffnen</string>
     <string name="setup_opened_on_phone">Weiter auf dem Telefon</string>
     <string name="setup_open_failed">Konnte nicht geöffnet werden</string>
-    <string name="setup_waiting_title">Bereit</string>
-    <string name="setup_waiting_text">Wähle in TinyAmp auf dem Telefon Musik für die Uhr aus.</string>
     <string name="setup_retry">Erneut prüfen</string>
 </resources>
