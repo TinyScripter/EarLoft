@@ -1,4 +1,4 @@
-# TinyAmp
+# EarLoft
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
@@ -7,16 +7,22 @@
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-supported-00A4DC?logo=jellyfin&logoColor=white)
 ![Emby](https://img.shields.io/badge/Emby-supported-52B54B?logo=emby&logoColor=white)
 
-**TinyAmp** is an audio player for your *own* collection: **music**, **podcasts** and **books**. It plays the
+**EarLoft** is an audio player for your *own* collection: **music**, **podcasts** and **books**. It plays the
 files on your phone together with your self-hosted music server ([Navidrome](https://www.navidrome.org),
 [Jellyfin](https://jellyfin.org) or [Emby](https://emby.media)) and your
 [Audiobookshelf](https://www.audiobookshelf.org) server in **one app** – on your phone and on your Wear OS watch.
 Podcasts come straight from their public RSS feeds. No streaming subscription, no account with a third party.
 
+Why do you need yet another media player? Well, you don't. I built this app primarily for myself, because this is the way
+I like to listen to music, podcasts and audiobooks. There are a lot of good apps that deliver a fantastic experience in
+one or two of these areas, but not in all three. Or they want subscription money. Or, if they do cover all three, they
+don't support Android Auto or Wear OS, or they can't keep all your media offline on the watch. That's why this app
+exists.
+
 ## Features
 
-A switch at the top of **Home** and **Library** changes between the three areas: **Music**, **Podcasts** and
-**Books**.
+Three main areas: **Music**, **Podcasts** and **Books**. Each has a home view that shows what's new, and your complete
+library.
 
 ### Everywhere
 
@@ -46,12 +52,15 @@ A switch at the top of **Home** and **Library** changes between the three areas:
   The directories are off until you switch them on, because your search terms are sent to them. Feeds refresh
   automatically in the background.
 - **Try before you subscribe:** listen to and download episodes without subscribing. Subscriptions you no longer
-  follow can be archived instead of deleted.
+  follow can be archived instead of deleted, so you keep their listening statistics.
 - **Continue listening** is an editable queue: the next episode starts when one ends.
 - **Chapters, show notes and downloads** per episode, with automatic downloads of new episodes per podcast.
-- **Podcast files on your phone** (folder **Podcasts**) show up as podcasts.
+- **Podcast files on your phone** (folder **Podcasts**) show up as podcasts. Their features are limited, though, so I
+  wouldn't listen to podcasts this way.
 - **Import and export** your subscriptions as OPML, or subscriptions, progress and listening time as a database file.
 - **Statistics:** listening time per podcast and per month.
+- **Database export and import:** compatible with the great AntennaPod, so you can always switch back to the app you
+  prefer.
 
 ### Books
 
@@ -59,7 +68,7 @@ A switch at the top of **Home** and **Library** changes between the three areas:
   chapters or folders of MP3 files) show up next to the ones from your server.
 - **Progress syncs both ways** with your Audiobookshelf server, also after listening offline.
 - **Made for long listening:** speed per book, adjustable jumps (default −10 s / +30 s, also for podcasts), chapters,
-  remaining time, sleep timer.
+  remaining time, sleep timer. If you stopped within the first 30 s of a chapter, playback resumes at its beginning.
 - **Browse by series and authors**, download books for offline use.
 - **Statistics** from your Audiobookshelf server, next to the listening time counted on this device.
 
@@ -81,7 +90,7 @@ Servers at home (`http://192.168.x.x`) work too. The app warns you before using 
 ### Artist photos, album covers and author pictures (optional, off by default)
 
 Missing pictures can be filled in from the internet. These options are **off by default** because they send names to
-third parties, and you can switch them on in **Settings → General**:
+third parties, and you can switch them on in **Settings → Music**:
 
 - **Artist photos** from [Deezer](https://www.deezer.com) (artist names are sent).
 - **Missing album covers** from [MusicBrainz](https://musicbrainz.org) and the
@@ -96,22 +105,22 @@ Covers embedded in your files or provided by your server are always used first.
   episode or a book (or choose **Load onto watch**), on the phone or on the watch under **Phone**. The watch downloads
   them by itself over Wi-Fi directly from your server or the podcast feed, or receives them from the phone (files
   stored on the phone, or when the server is not reachable).
-- **Play to Bluetooth headphones**, perfect for running or the gym. The watch speaker is not used. Books and episodes
+- **Play to Bluetooth headphones**, perfect for running or the gym. The watch speaker is not used. Books and podcasts
   have chapters, a sleep timer and the jump steps set on the phone; progress and listening time go back to the phone
   and from there to Audiobookshelf.
 - **Two areas:** **Watch** lists what is on the watch (music, podcasts, books, storage & downloads); **Phone** shows
   the phone's music, podcasts and books, to play them on the phone or to load them onto the watch, and controls the
   phone's playback.
 - **Watch quality:** by default songs are converted by the server to Opus 128 kbit/s to save space on the watch;
-  you can choose the original files instead. Changing the setting affects new downloads only. Episodes and books are
+  you can choose the original files instead. Changing the setting affects new downloads only. Podcasts and books are
   loaded as they are.
 - **Storage & downloads** on the watch shows what is loaded and frees space: single entries, one area or everything.
 
 ### Android Auto (in development)
 
 Android Auto support is **work in progress** and has not been tested in a car or on the Desktop Head Unit yet.
-It covers music only and is implemented as a regular media app with four tabs (Recently played, Library, Playlists, Favorites), search, voice
-commands ("Play …") and a favorite button. Expect rough edges, and please report what you find.
+It covers music only and is implemented as a regular media app with four tabs (Recently played, Library, Playlists,
+Favorites), search, voice commands ("Play …") and a favorite button. Expect rough edges, and please report what you find.
 
 ## Privacy
 
@@ -126,12 +135,12 @@ commands ("Play …") and a favorite button. Expect rough edges, and please repo
 
 ## Installation
 
-TinyAmp is not yet available in an app store. Build it yourself (see [Building from source](#building-from-source));
+EarLoft is not yet available in an app store. Build it yourself (see [Building from source](#building-from-source));
 once a release build is published, it will be listed on the
-[Releases page](https://github.com/TinyScripter/TinyAmp/releases).
+[Releases page](https://github.com/TinyScripter/EarLoft/releases).
 
 **Requirements:** Android 8.0 or newer (phone), Wear OS 3 or newer (watch). The phone and watch app share one
-application ID (`de.kleinabersmart.tinyamp`), so install both for the watch features.
+application ID (`de.kleinabersmart.earloft`), so install both for the watch features.
 
 ## Getting started
 
@@ -146,15 +155,15 @@ application ID (`de.kleinabersmart.tinyamp`), so install both for the watch feat
    Audiobookshelf under *Settings → API Keys*). Or just copy books into the **Audiobooks** folder of your phone.
 5. Play something. On an album, playlist, book or episode you can download it (download arrow) or load it onto your
    watch (watch icon). Downloads are listed under **Settings → General → Downloads**; the watch is managed under
-   **Settings → Watch** (shown once a watch with TinyAmp is paired).
+   **Settings → Watch** (shown once a watch with EarLoft is paired).
 
 ## Known limitations
 
 - Android Auto is in development (see above), and so far covers music only.
 - Chromecast plays from your servers and podcast feeds, not files stored on the phone. The Cast device must reach the
   server address itself. If a song is on several servers and the Cast device cannot reach the first one, the app
-  switches to the next one after about 20 seconds. Long queues are sent in parts (not yet tested on a device);
-  casting books depends on the server accepting a token in the address and has not been tested widely.
+  switches to the next one after about 20 seconds. Long queues are sent in parts. Casting books depends on the server
+  accepting a token in the address and has not been tested widely.
 - Podcasts: no "download all episodes" for a podcast, and local podcast files have no description unless their tags
   contain one.
 - Local books and podcasts are picked up when the app is opened or refreshed, not while it is running.
@@ -188,7 +197,7 @@ SDK levels: `minSdk` 26 (phone) and 30 (watch), `compileSdk` / `targetSdk` 37, J
 - **Local database as single source of truth.** The UI only reads from Room; network access runs in the background.
 - **Logical song vs. physical source.** A `songs` row is the song the user sees; each file or server entry is a
   `song_sources` row. A merge resolver (MusicBrainz IDs, then normalized artist/album/title) joins them across sources.
-- **Sources are resolved at load time.** Queue items only carry `tinyamp://song/<id>`; a `ResolvingDataSource` decides
+- **Sources are resolved at load time.** Queue items only carry `earloft://song/<id>`; a `ResolvingDataSource` decides
   between local file, download and stream when playback starts, so queues survive downloads finishing or servers
   going offline.
 - **One `OkHttpClient`.** Interceptors add the server authentication (Subsonic, Jellyfin/Emby, Audiobookshelf), so
@@ -233,8 +242,8 @@ build-logic/          Convention plugins
 ### Build
 
 ```bash
-git clone https://github.com/TinyScripter/TinyAmp.git
-cd TinyAmp
+git clone https://github.com/TinyScripter/EarLoft.git
+cd EarLoft
 
 ./gradlew :app:assembleDebug      # phone APK  -> app/build/outputs/apk/debug/
 ./gradlew :wear:assembleDebug     # watch APK  -> wear/build/outputs/apk/debug/
@@ -288,12 +297,12 @@ Audiobookshelf works the same way, with its own port (by default `13378`).
 ## Contributing
 
 Bug reports and ideas are welcome in the
-[issue tracker](https://github.com/TinyScripter/TinyAmp/issues). For code changes, please open an issue first
+[issue tracker](https://github.com/TinyScripter/EarLoft/issues). For code changes, please open an issue first
 to discuss them and make sure unit tests pass (see [Tests](#tests)).
 
 ## License
 
-TinyAmp is free software, licensed under the **GNU General Public License v3.0**. You can redistribute it and/or
+EarLoft is free software, licensed under the **GNU General Public License v3.0**. You can redistribute it and/or
 modify it under the terms of the GPLv3 as published by the Free Software Foundation. The full text is in
 [LICENSE](LICENSE).
 
