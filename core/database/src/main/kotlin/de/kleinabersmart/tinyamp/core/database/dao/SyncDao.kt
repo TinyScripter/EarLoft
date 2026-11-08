@@ -30,6 +30,10 @@ interface SyncDao {
     @Query("DELETE FROM sync_actions WHERE actionId = :actionId")
     suspend fun deleteAction(actionId: Long)
 
+    /** Ziele von Aktionen, deren Ausführung schon einmal gescheitert ist. */
+    @Query("SELECT targetKey FROM sync_actions WHERE sourceId = :sourceId AND actionType = :actionType AND attempts > 0")
+    suspend fun getRetriedTargets(sourceId: String, actionType: SyncActionType): List<String>
+
     @Query("UPDATE sync_actions SET attempts = attempts + 1 WHERE actionId = :actionId")
     suspend fun incrementAttempts(actionId: Long)
 

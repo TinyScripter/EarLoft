@@ -138,7 +138,7 @@ class SyncQueueProcessor @Inject constructor(
                 val songSource = syncDao.getSongSource(action.targetKey) ?: return
                 remote.scrobble(songSource.remoteId, action.payloadJson!!.toLong())
             }
-            SyncActionType.UPSERT_PLAYLIST -> upsertPlaylist(action.sourceId, action.targetKey.toLong(), remote)
+            SyncActionType.UPSERT_PLAYLIST -> upsertPlaylist(action, remote)
             // Die lokale Playlist ist schon gelöscht, die Remote-ID steht deshalb im Payload.
             SyncActionType.DELETE_PLAYLIST -> remote.deletePlaylist(action.payloadJson!!)
         }
@@ -146,9 +146,13 @@ class SyncQueueProcessor @Inject constructor(
 
     /**
      * Sendet Name und Songs; Songs ohne Quelle auf diesem Server fehlen dort. Wurde die Playlist auf dem
-     * Server seit dem letzten Abgleich geändert, gewinnt der Server (Konzept 6.4) und nichts wird gesendet.
+     * Server seit dem letzten Abgleich geändert, gewinnt der Server (Konzept 6.4) und nichts wird gesendet –
+     * außer nach einem Fehlversuch: Emby ändert in mehreren Schritten, ein abgebrochener Versuch hinterlässt dort
+     * einen halben Stand, der wie eine Änderung auf dem Server aussieht. Dann gewinnt die lokale Fassung.
      */
-    private suspend fun upsertPlaylist(sourceId: String, playlistId: Long, remote: RemoteLibraryActions) {
+    private suspend fun upsertPlaylist(action: SyncActionEntity, remote: RemoteLibraryActions) {
+        val sourceId = action.sourceId
+        val playlistId = action.targetKey.toLong()
         val local = playlistDao.getPlaylist(playlistId) ?: return
         val songs = playlistDao.getRemoteSongIds(playlistId, sourceId)
         val remoteId = local.remotePlaylistId
@@ -156,7 +160,7 @@ class SyncQueueProcessor @Inject constructor(
             remote.createPlaylist(local.name, songs)
         } else {
             val current = remote.playlist(remoteId)
-            if (current.info.changedAt != local.remoteUpdatedAt) {
+            if (current.info.changedAt != local.remoteUpdatedAt && action.attempts == 0) {
                 Log.i(TAG, "Playlist ${local.name} wurde auf dem Server geändert – Server gewinnt")
                 database.withTransaction { playlistSyncer.applyRemote(sourceId, playlistId, current) }
                 return

@@ -146,7 +146,9 @@ class JellyfinDataSource internal constructor(
     override suspend fun createPlaylist(name: String, songRemoteIds: List<String>): RemotePlaylistInfo {
         val remoteId = api.createPlaylist(server, name, songRemoteIds)
         if (server.flavor == JellyfinFlavor.JELLYFIN) createdAt[remoteId] = System.nanoTime()
-        return playlist(remoteId).info
+        // Nicht zurücklesen: Scheiterte das, legte der nächste Versuch eine zweite Playlist an. Weicht der Server ab,
+        // holt der nächste Abgleich seinen Stand.
+        return JellyfinTrackMapper.playlistInfo(remoteId, name, songRemoteIds)
     }
 
     /** Jellyfin ersetzt Name und Einträge in einem Aufruf, Emby in mehreren. */

@@ -131,6 +131,24 @@ class PlaylistSyncTest {
     }
 
     @Test
+    fun `a change whose sending broke off wins over the half written server playlist`() = runTest {
+        val remoteId = nd.putPlaylist("Mix", listOf("a", "b"))
+        syncer.sync(nd)
+        val id = playlists.playlists().first().single().id
+        playlists.addSongs(id, listOf(songId("c")))
+        // Emby: Der erste Versuch hat schon Einträge entfernt und ist dann abgebrochen.
+        db.syncDao().getActions().forEach { db.syncDao().incrementAttempts(it.actionId) }
+        nd.putPlaylist("Mix", listOf("a"), remoteId)
+
+        syncer.sync(nd)
+        assertEquals(listOf("A", "B", "C"), titles(id))
+
+        assertTrue(processor().process())
+        assertEquals(listOf("replace pl1 Mix [a, b, c]"), nd.calls)
+        assertEquals(0, db.syncDao().countActions())
+    }
+
+    @Test
     fun `playlist deleted on the server disappears`() = runTest {
         val remoteId = nd.putPlaylist("Mix", listOf("a"))
         syncer.sync(nd)

@@ -245,7 +245,10 @@ class JellyfinApi @Inject constructor(
         return get<JfItemsPage>(server, url).items
     }
 
-    /** Emby nimmt beim Anlegen keinen JSON-Body; lange Listen gehen in Stücken, damit die URL kurz bleibt. */
+    /**
+     * Emby nimmt beim Anlegen keinen JSON-Body; lange Listen gehen in Stücken, damit die URL kurz bleibt. Scheitert ein
+     * Stück, wird die halbe Playlist wieder gelöscht – der nächste Versuch legt sie neu an.
+     */
     private suspend fun createEmbyPlaylist(server: JellyfinServer, name: String, itemIds: List<String>): String {
         val chunks = itemIds.chunked(EMBY_IDS_PER_REQUEST)
         val url = server.endpoint("Playlists")
@@ -255,7 +258,16 @@ class JellyfinApi @Inject constructor(
             .addQueryParameter("mediaType", "Audio")
             .build()
         val id = decode<JfCreated>(execute(request(server, url) { post(EMPTY_BODY) }), "Playlists").id
-        chunks.drop(1).forEach { addToEmbyPlaylist(server, id, it) }
+        try {
+            chunks.drop(1).forEach { addToEmbyPlaylist(server, id, it) }
+        } catch (e: IOException) {
+            try {
+                deleteItem(server, id)
+            } catch (e2: IOException) {
+                e.addSuppressed(e2)
+            }
+            throw e
+        }
         return id
     }
 

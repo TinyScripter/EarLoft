@@ -14,7 +14,8 @@ import javax.inject.Inject
 /**
  * Übernimmt die Playlists eines Servers nach dem Song-Abgleich (Konzept 6.3/6.4). Wurde eine Playlist
  * auf dem Server seit dem letzten Abgleich geändert, gewinnt der Server – auch gegen noch nicht
- * gesendete lokale Änderungen. Auf dem Server gelöschte Playlists verschwinden auch lokal.
+ * gesendete lokale Änderungen – außer solche, deren Senden schon einmal gescheitert ist (halber Stand auf dem
+ * Server, siehe [SyncQueueProcessor]). Auf dem Server gelöschte Playlists verschwinden auch lokal.
  */
 class PlaylistSyncer @Inject constructor(
     private val database: TinyAmpDatabase,
@@ -26,10 +27,11 @@ class PlaylistSyncer @Inject constructor(
         val infos = remote.playlists()
         val known = playlistDao.getBoundTo(sourceId)
         val byRemoteId = known.filter { it.remotePlaylistId != null }.associateBy { it.remotePlaylistId }
+        val retried = syncDao.getRetriedTargets(sourceId, SyncActionType.UPSERT_PLAYLIST).toSet()
 
         for (info in infos) {
             val local = byRemoteId[info.remoteId]
-            if (local != null && local.remoteUpdatedAt == info.changedAt) continue
+            if (local != null && (local.remoteUpdatedAt == info.changedAt || local.playlistId.toString() in retried)) continue
             val playlist = remote.playlist(info.remoteId)
             database.withTransaction { applyRemote(sourceId, local?.playlistId, playlist) }
         }
