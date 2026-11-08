@@ -151,10 +151,10 @@ private fun ServerFormContent(
                 supportingText = when {
                     !state.isEditing -> null
                     state.hasStoredPassword -> {
-                        { Text(stringResource(if (state.type == SourceType.JELLYFIN) R.string.edit_server_login_keep else R.string.edit_server_password_keep)) }
+                        { Text(stringResource(if (state.type.signsIn) R.string.edit_server_login_keep else R.string.edit_server_password_keep)) }
                     }
                     else -> {
-                        { Text(stringResource(if (state.type == SourceType.JELLYFIN) R.string.edit_server_login_required else R.string.edit_server_password_required)) }
+                        { Text(stringResource(if (state.type.signsIn) R.string.edit_server_login_required else R.string.edit_server_password_required)) }
                     }
                 },
                 singleLine = true,
@@ -222,7 +222,7 @@ private fun ServerFormContent(
     }
 }
 
-/** Navidrome/Subsonic oder Jellyfin; die Zeile ist eine Auswahlgruppe für Bedienungshilfen. */
+/** Navidrome/Subsonic, Jellyfin oder Emby; die Zeile ist eine Auswahlgruppe für Bedienungshilfen. */
 @Composable
 private fun ServerTypeSelector(selected: SourceType, onSelect: (SourceType) -> Unit) {
     val label = stringResource(R.string.add_server_type)
@@ -242,7 +242,11 @@ private fun ServerTypeSelector(selected: SourceType, onSelect: (SourceType) -> U
 private val SERVER_TYPES = listOf(
     SourceType.SUBSONIC to R.string.add_server_type_subsonic,
     SourceType.JELLYFIN to R.string.add_server_type_jellyfin,
+    SourceType.EMBY to R.string.add_server_type_emby,
 )
+
+/** Jellyfin und Emby: Das Passwort dient nur der Anmeldung, gespeichert wird der Token. */
+private val SourceType.signsIn: Boolean get() = this == SourceType.JELLYFIN || this == SourceType.EMBY
 
 @Composable
 private fun ResultText(result: ConnectionResult, type: SourceType) {
@@ -251,9 +255,7 @@ private fun ResultText(result: ConnectionResult, type: SourceType) {
             stringResource(R.string.add_server_success, result.serverName, result.serverVersion.orEmpty()) to false
         ConnectionResult.InvalidUrl -> stringResource(R.string.add_server_invalid_url) to true
         ConnectionResult.WrongCredentials -> stringResource(R.string.add_server_wrong_credentials) to true
-        ConnectionResult.UnexpectedServer -> stringResource(
-            if (type == SourceType.JELLYFIN) R.string.add_server_not_jellyfin else R.string.add_server_not_subsonic,
-        ) to true
+        ConnectionResult.UnexpectedServer -> stringResource(notServerText(type)) to true
         is ConnectionResult.Unreachable -> stringResource(R.string.add_server_unreachable, result.reason.orEmpty()) to true
         is ConnectionResult.ServerError ->
             stringResource(R.string.add_server_server_error, result.code, result.message.orEmpty()) to true

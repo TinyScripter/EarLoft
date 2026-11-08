@@ -110,7 +110,7 @@
 
     <!-- Settings & servers -->
     <string name="settings_title">Settings</string>
-    <string name="settings_no_servers">No server set up yet. Navidrome and other Subsonic servers as well as Jellyfin are supported.</string>
+    <string name="settings_no_servers">No server set up yet. Navidrome and other Subsonic servers as well as Jellyfin and Emby are supported.</string>
     <string name="settings_add_server">Add server</string>
     <string name="settings_refresh_all">Sync all sources now</string>
     <string name="settings_general">General</string>
@@ -199,7 +199,7 @@
     <string name="server_form_auto_download_summary">Every track on this server is downloaded to the device, including newly added ones. Needs a lot of storage.</string>
     <string name="about_title">About the app</string>
     <string name="about_version">Version %1$s</string>
-    <string name="about_text">TinyAmp is a player for your own collection: music, podcasts and books, from this device and from the network, each in one shared library. Music also comes from your Navidrome, Subsonic or Jellyfin servers, podcasts from any feed, and books from your Audiobookshelf server. Everything can be downloaded for offline listening, book progress is synced with your server, and music, podcasts and books also play on your Wear OS watch.</string>
+    <string name="about_text">TinyAmp is a player for your own collection: music, podcasts and books, from this device and from the network, each in one shared library. Music also comes from your Navidrome, Subsonic, Jellyfin or Emby servers, podcasts from any feed, and books from your Audiobookshelf server. Everything can be downloaded for offline listening, book progress is synced with your server, and music, podcasts and books also play on your Wear OS watch.</string>
     <string name="about_more_info">For more information and the source code, see GitHub:</string>
     <string name="about_repository_url" translatable="false">https://github.com/TinyScripter/TinyAmp/</string>
     <string name="about_feedback">Please report bugs and feature requests in the issue tracker:</string>
@@ -248,9 +248,11 @@
     <string name="add_server_wrong_credentials">Wrong username or password.</string>
     <string name="add_server_not_subsonic">No Subsonic server responds at this address.</string>
     <string name="add_server_not_jellyfin">No Jellyfin server responds at this address.</string>
+    <string name="add_server_not_emby">No Emby server responds at this address.</string>
     <string name="add_server_type">Server type</string>
-    <string name="add_server_type_subsonic">Navidrome / Subsonic</string>
+    <string name="add_server_type_subsonic" translatable="false">Navidrome</string>
     <string name="add_server_type_jellyfin" translatable="false">Jellyfin</string>
+    <string name="add_server_type_emby" translatable="false">Emby</string>
     <string name="edit_server_login_keep">Leave empty to stay signed in.</string>
     <string name="edit_server_login_required">Not signed in. Please enter the password to sign in again.</string>
     <string name="add_server_unreachable">Server unreachable (%1$s).</string>
@@ -745,7 +747,7 @@
     <string name="area_hide_podcasts">Hide podcasts</string>
     <string name="area_hide_books">Hide books</string>
     <string name="home_setup_server">Set up a music server</string>
-    <string name="settings_area_music_summary">Navidrome, Jellyfin, music on this device</string>
+    <string name="settings_area_music_summary">Navidrome, Jellyfin, Emby, music on this device</string>
     <string name="settings_area_podcasts_summary">RSS feeds, podcasts on this device</string>
     <string name="settings_area_books_summary">Audiobookshelf, books on this device</string>
 </resources>

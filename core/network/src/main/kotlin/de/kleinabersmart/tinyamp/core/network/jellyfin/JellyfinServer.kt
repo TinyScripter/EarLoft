@@ -1,5 +1,6 @@
 package de.kleinabersmart.tinyamp.core.network.jellyfin
 
+import de.kleinabersmart.tinyamp.core.model.SourceType
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URLEncoder
@@ -7,7 +8,21 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Ein angemeldeter Jellyfin-Server (Konzept 14) mit normalisierter Basis-URL (endet immer auf `/`).
+ * Jellyfin ist aus Emby hervorgegangen; beide sprechen dieselbe REST-API mit einigen abweichenden Pfaden (Konzept 14).
+ * Die Unterschiede stecken in [JellyfinApi].
+ */
+enum class JellyfinFlavor(val sourceType: SourceType, val productName: String) {
+    JELLYFIN(SourceType.JELLYFIN, "Jellyfin"),
+    EMBY(SourceType.EMBY, "Emby"),
+    ;
+
+    companion object {
+        fun of(type: SourceType): JellyfinFlavor? = entries.firstOrNull { it.sourceType == type }
+    }
+}
+
+/**
+ * Ein angemeldeter Jellyfin- oder Emby-Server (Konzept 14) mit normalisierter Basis-URL (endet immer auf `/`).
  * [token] gehört zum Gerät [deviceId]; meldet sich dasselbe Gerät neu an, verwirft der Server den alten Token.
  */
 data class JellyfinServer(
@@ -15,6 +30,7 @@ data class JellyfinServer(
     val baseUrl: HttpUrl,
     val userId: String,
     val token: String,
+    val flavor: JellyfinFlavor = JellyfinFlavor.JELLYFIN,
 ) {
     override fun toString() = "JellyfinServer($sourceId, $baseUrl)"
 
@@ -22,7 +38,7 @@ data class JellyfinServer(
 
     fun endpoint(path: String): HttpUrl.Builder = baseUrl.newBuilder().addPathSegments(path.trimStart('/'))
 
-    /** Jellyfin hat keinen festen API-Pfad: Alles unter der Basis-URL gehört zum Server. */
+    /** Jellyfin und Emby haben keinen festen API-Pfad: Alles unter der Basis-URL gehört zum Server. */
     fun owns(url: HttpUrl): Boolean =
         url.scheme == baseUrl.scheme &&
             url.host == baseUrl.host &&

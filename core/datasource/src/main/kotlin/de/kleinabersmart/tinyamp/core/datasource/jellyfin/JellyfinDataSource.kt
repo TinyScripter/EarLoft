@@ -19,22 +19,23 @@ import de.kleinabersmart.tinyamp.core.datasource.SourceBatch
 import de.kleinabersmart.tinyamp.core.datasource.decodeSampled
 import de.kleinabersmart.tinyamp.core.datasource.jellyfin.JellyfinTrackMapper.toEpochMillis
 import de.kleinabersmart.tinyamp.core.datasource.local.FallbackNames
+import de.kleinabersmart.tinyamp.core.model.LrcParser
 import de.kleinabersmart.tinyamp.core.model.Lyrics
 import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinApi
+import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinFlavor
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
-import okhttp3.HttpUrl
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ein Jellyfin-Server (Konzept 14); nur seine Musik-Bibliotheken. */
+/** Ein Jellyfin- oder Emby-Server (Konzept 14); nur seine Musik-Bibliotheken. */
 class JellyfinDataSource internal constructor(
     val server: JellyfinServer,
     override val displayName: String,
@@ -44,7 +45,7 @@ class JellyfinDataSource internal constructor(
     RemotePlaybackReporting {
 
     override val sourceId: String get() = server.sourceId
-    override val type: SourceType = SourceType.JELLYFIN
+    override val type: SourceType = server.flavor.sourceType
 
     /**
      * Bibliothek für Bibliothek in Seiten bis zur gemeldeten Gesamtzahl; Fehler brechen den Scan ab, damit der Abgleich
@@ -107,10 +108,10 @@ class JellyfinDataSource internal constructor(
         } else {
             api.transcodedStreamUrl(server, remoteId, transcodeTo.first, transcodeTo.second)
         }
-        return url.withApiKey().toString()
+        return api.withToken(server, url).toString()
     }
 
-    /** Jellyfin liefert Bilder ohne Anmeldung; der Token bleibt aus der URL für den Empfänger. */
+    /** Jellyfin und Emby liefern Bilder ohne Anmeldung; der Token bleibt aus der URL für den Empfänger. */
     override fun externalCoverUrl(coverRemoteId: String, sizePx: Int): String =
         api.imageUrl(server, coverRemoteId, sizePx).toString()
 
@@ -134,21 +135,21 @@ class JellyfinDataSource internal constructor(
         api.playlists(server)
             .filter { it.mediaType == null || it.mediaType == "Audio" }
             .filter { api.canEditPlaylist(server, it.id) }
-            .map { JellyfinTrackMapper.playlistInfo(it.id, it.name.orEmpty(), api.playlist(server, it.id).itemIds) }
+            .map { JellyfinTrackMapper.playlistInfo(it.id, it.name.orEmpty(), api.playlistItemIds(server, it.id)) }
 
     override suspend fun playlist(remoteId: String): RemotePlaylist {
-        val ids = api.playlist(server, remoteId).itemIds
+        val ids = api.playlistItemIds(server, remoteId)
         val name = api.item(server, remoteId).name.orEmpty()
         return RemotePlaylist(JellyfinTrackMapper.playlistInfo(remoteId, name, ids), ids)
     }
 
     override suspend fun createPlaylist(name: String, songRemoteIds: List<String>): RemotePlaylistInfo {
         val remoteId = api.createPlaylist(server, name, songRemoteIds)
-        createdAt[remoteId] = System.nanoTime()
+        if (server.flavor == JellyfinFlavor.JELLYFIN) createdAt[remoteId] = System.nanoTime()
         return playlist(remoteId).info
     }
 
-    /** Jellyfin ersetzt Name und Einträge in einem Aufruf. */
+    /** Jellyfin ersetzt Name und Einträge in einem Aufruf, Emby in mehreren. */
     override suspend fun replacePlaylist(current: RemotePlaylist, name: String, songRemoteIds: List<String>): RemotePlaylistInfo {
         awaitSettled(current.info.remoteId)
         api.updatePlaylist(server, current.info.remoteId, name, songRemoteIds)
@@ -157,23 +158,22 @@ class JellyfinDataSource internal constructor(
 
     override suspend fun deletePlaylist(remoteId: String) = api.deleteItem(server, remoteId)
 
-    override suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics =
-        api.lyrics(server, remoteId)?.let(JellyfinTrackMapper::lyrics) ?: Lyrics.None
+    override suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics = when (server.flavor) {
+        JellyfinFlavor.JELLYFIN -> api.lyrics(server, remoteId)?.let(JellyfinTrackMapper::lyrics) ?: Lyrics.None
+        JellyfinFlavor.EMBY -> api.embyLyricsText(server, remoteId)?.let(LrcParser::parse) ?: Lyrics.None
+    }
 
     /**
      * Jellyfin arbeitet eine neue Playlist kurz nach dem Anlegen noch einmal auf und setzt dabei Name und Einträge auf den
      * Stand beim Anlegen zurück (am Testserver mit 12.4: Änderung sofort danach verloren, nach 2 s nicht mehr). Offline
      * Angelegtes und Geändertes fasst die Sync-Queue zu einem Anlegen zusammen; betroffen ist eine Änderung gleich nach
-     * dem Anlegen.
+     * dem Anlegen. Emby 4.10 setzt nichts zurück (gemessen), dort wird nicht gewartet.
      */
     private suspend fun awaitSettled(remoteId: String) {
         val created = createdAt.remove(remoteId) ?: return
         val waitMs = CREATION_SETTLE_MS - (System.nanoTime() - created) / NANOS_PER_MS
         if (waitMs > 0) delay(waitMs)
     }
-
-    /** Nur für Empfänger außerhalb unseres OkHttpClients (Cast): nie speichern oder loggen. */
-    private fun HttpUrl.withApiKey(): HttpUrl = newBuilder().addQueryParameter("ApiKey", server.token).build()
 
     internal companion object {
         const val PAGE_SIZE = 500

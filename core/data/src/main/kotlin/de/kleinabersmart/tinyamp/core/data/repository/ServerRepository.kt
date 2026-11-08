@@ -18,6 +18,7 @@ import de.kleinabersmart.tinyamp.core.network.HttpStatusException
 import de.kleinabersmart.tinyamp.core.network.ServerApiException
 import de.kleinabersmart.tinyamp.core.network.UnexpectedResponseException
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinApi
+import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinFlavor
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinServer
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicApi
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicCredentials
@@ -53,7 +54,7 @@ sealed interface ConnectionResult {
 /** Ein Server zum Bearbeiten; Passwort bzw. Token verlassen das Repository nicht. */
 data class EditableServer(val info: ServerInfo, val hasPassword: Boolean)
 
-/** Einrichten, Prüfen, Bearbeiten und Entfernen von Musikservern (Navidrome/Subsonic, Jellyfin). */
+/** Einrichten, Prüfen, Bearbeiten und Entfernen von Musikservern (Navidrome/Subsonic, Jellyfin, Emby). */
 @Singleton
 class ServerRepository @Inject constructor(
     private val database: TinyAmpDatabase,
@@ -75,7 +76,7 @@ class ServerRepository @Inject constructor(
     suspend fun editableServer(sourceId: String): EditableServer? {
         val entity = sourceDao.get(sourceId)?.takeIf { it.type.isServer } ?: return null
         val hasSecret = when (entity.type) {
-            SourceType.JELLYFIN -> storedJellyfinSecret(sourceId) != null
+            SourceType.JELLYFIN, SourceType.EMBY -> storedJellyfinSecret(sourceId) != null
             else -> storedPassword(sourceId) != null
         }
         return EditableServer(entity.toServerInfo(), hasPassword = hasSecret)
@@ -86,9 +87,9 @@ class ServerRepository @Inject constructor(
      * Abgleich. @return das Testergebnis.
      */
     suspend fun addServer(type: SourceType, name: String, url: String, username: String, password: String): ConnectionResult =
-        when (type) {
-            SourceType.JELLYFIN -> addJellyfinServer(name, url, username, password)
-            else -> addSubsonicServer(name, url, username, password)
+        when (val flavor = JellyfinFlavor.of(type)) {
+            null -> addSubsonicServer(name, url, username, password)
+            else -> addJellyfinServer(flavor, name, url, username, password)
         }
 
     /**
@@ -107,9 +108,9 @@ class ServerRepository @Inject constructor(
         newPassword: String?,
     ): ConnectionResult {
         val existing = sourceDao.get(sourceId) ?: return ConnectionResult.InvalidUrl
-        return when (existing.type) {
-            SourceType.JELLYFIN -> updateJellyfinServer(existing, name, url, username, newPassword)
-            else -> updateSubsonicServer(existing, name, url, username, newPassword)
+        return when (val flavor = JellyfinFlavor.of(existing.type)) {
+            null -> updateSubsonicServer(existing, name, url, username, newPassword)
+            else -> updateJellyfinServer(flavor, existing, name, url, username, newPassword)
         }
     }
 
@@ -182,34 +183,41 @@ class ServerRepository @Inject constructor(
         return result
     }
 
-    // --- Jellyfin (Konzept 14): gespeichert werden nur Benutzer-ID und Token, nie das Passwort ---
+    // --- Jellyfin und Emby (Konzept 14): gespeichert werden nur Benutzer-ID und Token, nie das Passwort ---
 
     /** Meldet das Gerät der Quelle [sourceId] an; ein früherer Token dieses Geräts wird damit ungültig. */
     private suspend fun loginJellyfin(
+        flavor: JellyfinFlavor,
         sourceId: String,
         baseUrl: HttpUrl,
         username: String,
         password: String,
     ): Pair<ConnectionResult, JellyfinSecret?> =
         try {
-            val info = jellyfinApi.publicInfo(baseUrl)
+            val info = jellyfinApi.publicInfo(baseUrl, flavor)
             val auth = jellyfinApi.authenticate(baseUrl, JellyfinServer.deviceIdFor(sourceId), username, password)
-            ConnectionResult.Success(info.productName ?: JELLYFIN, info.version) to JellyfinSecret(auth.user.id, auth.accessToken)
+            ConnectionResult.Success(info.productName ?: flavor.productName, info.version) to JellyfinSecret(auth.user.id, auth.accessToken)
         } catch (e: IOException) {
             connectionFailure(e) to null
         }
 
-    private suspend fun addJellyfinServer(name: String, url: String, username: String, password: String): ConnectionResult {
+    private suspend fun addJellyfinServer(
+        flavor: JellyfinFlavor,
+        name: String,
+        url: String,
+        username: String,
+        password: String,
+    ): ConnectionResult {
         val baseUrl = JellyfinServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
         val sourceId = UUID.randomUUID().toString()
-        val (result, secret) = loginJellyfin(sourceId, baseUrl, username, password)
+        val (result, secret) = loginJellyfin(flavor, sourceId, baseUrl, username, password)
         if (result !is ConnectionResult.Success || secret == null) return result
 
         secretStore.put(DataSourceRegistry.passwordKey(sourceId), secret.encode())
         sourceDao.upsert(
             SourceEntity(
                 sourceId = sourceId,
-                type = SourceType.JELLYFIN,
+                type = flavor.sourceType,
                 name = name.trim().ifEmpty { baseUrl.host },
                 baseUrl = baseUrl.toString(),
                 username = username,
@@ -222,6 +230,7 @@ class ServerRepository @Inject constructor(
 
     /** Ohne neues Passwort bleibt der Token, solange er unter der (neuen) Adresse zum Konto [username] gehört. */
     private suspend fun updateJellyfinServer(
+        flavor: JellyfinFlavor,
         existing: SourceEntity,
         name: String,
         url: String,
@@ -231,17 +240,17 @@ class ServerRepository @Inject constructor(
         val sourceId = existing.sourceId
         val baseUrl = JellyfinServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
         val result = if (newPassword != null) {
-            val (result, secret) = loginJellyfin(sourceId, baseUrl, username, newPassword)
+            val (result, secret) = loginJellyfin(flavor, sourceId, baseUrl, username, newPassword)
             if (result !is ConnectionResult.Success || secret == null) return result
             secretStore.put(DataSourceRegistry.passwordKey(sourceId), secret.encode())
             result
         } else {
             val stored = storedJellyfinSecret(sourceId) ?: return ConnectionResult.WrongCredentials
             try {
-                val info = jellyfinApi.publicInfo(baseUrl)
-                val me = jellyfinApi.me(JellyfinServer(sourceId, baseUrl, stored.userId, stored.token))
+                val info = jellyfinApi.publicInfo(baseUrl, flavor)
+                val me = jellyfinApi.me(JellyfinServer(sourceId, baseUrl, stored.userId, stored.token, flavor))
                 if (!me.name.equals(username.trim(), ignoreCase = true)) return ConnectionResult.WrongCredentials
-                ConnectionResult.Success(info.productName ?: JELLYFIN, info.version)
+                ConnectionResult.Success(info.productName ?: flavor.productName, info.version)
             } catch (e: IOException) {
                 return connectionFailure(e)
             }
@@ -260,9 +269,10 @@ class ServerRepository @Inject constructor(
 
     /** Die Anmeldung, die [logoutJellyfin] freigibt; `null` ohne gültige Adresse oder Token. */
     private suspend fun jellyfinLogin(entity: SourceEntity): JellyfinServer? {
+        val flavor = JellyfinFlavor.of(entity.type) ?: return null
         val baseUrl = entity.baseUrl?.toHttpUrlOrNull() ?: return null
         val secret = storedJellyfinSecret(entity.sourceId) ?: return null
-        return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token)
+        return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token, flavor)
     }
 
     /** Gibt den Token frei; offline oder ohne Antwort bleibt er eben auf dem Server stehen. */
@@ -298,11 +308,11 @@ class ServerRepository @Inject constructor(
 
     /**
      * Entfernt den Server samt aller Songs, die nur er geliefert hat. Läuft zu Ende, auch wenn der Aufrufer (z. B. die
-     * Einstellungen) inzwischen weg ist; das Abmelden bei Jellyfin folgt danach im Hintergrund, damit ein Server ohne
+     * Einstellungen) inzwischen weg ist; das Abmelden bei Jellyfin und Emby folgt danach im Hintergrund, damit ein Server ohne
      * Antwort das Entfernen nicht aufhält.
      */
     suspend fun removeServer(sourceId: String) = withContext(NonCancellable) {
-        val login = sourceDao.get(sourceId)?.takeIf { it.type == SourceType.JELLYFIN }?.let { jellyfinLogin(it) }
+        val login = sourceDao.get(sourceId)?.let { jellyfinLogin(it) }
         database.withTransaction {
             sourceDao.delete(sourceId)
             // Die Playlists des Servers liegen weiter dort; lokal verschwinden sie mit ihm.
@@ -340,7 +350,6 @@ class ServerRepository @Inject constructor(
     private companion object {
         const val TAG = "ServerRepository"
         const val TEST_SOURCE_ID = "connection-test"
-        const val JELLYFIN = "Jellyfin"
         const val LOGOUT_TIMEOUT_MS = 5_000L
     }
 }

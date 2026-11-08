@@ -98,7 +98,7 @@ data class WearWatchInfoDto(
 
 /**
  * Server ohne Secrets; das Passwort bzw. der API-Schlüssel kommt nur per [WearCredentialsDto] auf Anfrage.
- * [servers]: die Subsonic-Server. [otherServers]: alle anderen Musikserver (Jellyfin, Konzept 14) – eigene Liste, weil
+ * [servers]: die Subsonic-Server. [otherServers]: alle anderen Musikserver (Jellyfin, Emby, Konzept 14) – eigene Liste, weil
  * ältere Uhren jeden Eintrag in [servers] als Subsonic spiegeln; diese Liste kennen sie nicht.
  * [spokenServers]: die eingeschalteten Audiobookshelf-Server (Bücher auf der Uhr, Wear-Konzept 16.2).
  */

@@ -10,6 +10,7 @@ import de.kleinabersmart.tinyamp.core.datasource.jellyfin.JellyfinDataSourceFact
 import de.kleinabersmart.tinyamp.core.datasource.local.LocalDataSource
 import de.kleinabersmart.tinyamp.core.datasource.subsonic.SubsonicDataSourceFactory
 import de.kleinabersmart.tinyamp.core.model.SourceType
+import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinFlavor
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinServer
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinServerRegistry
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicCredentials
@@ -100,7 +101,8 @@ class DataSourceRegistry @Inject constructor(
         val loaded = entities.mapNotNull { entity ->
             when (entity.type) {
                 SourceType.SUBSONIC -> toSubsonicServer(entity)?.also(subsonic::add)?.let { subsonicFactory.create(it, entity.name) }
-                SourceType.JELLYFIN -> toJellyfinServer(entity)?.also(jellyfin::add)?.let { jellyfinFactory.create(it, entity.name) }
+                SourceType.JELLYFIN, SourceType.EMBY ->
+                    toJellyfinServer(entity)?.also(jellyfin::add)?.let { jellyfinFactory.create(it, entity.name) }
                 SourceType.LOCAL, SourceType.PHONE -> null
             }
         }
@@ -111,13 +113,14 @@ class DataSourceRegistry @Inject constructor(
     }
 
     private suspend fun toJellyfinServer(entity: SourceEntity): JellyfinServer? {
+        val flavor = JellyfinFlavor.of(entity.type) ?: return null
         val baseUrl = entity.baseUrl?.toHttpUrlOrNull()
         val secret = secretStore.get(passwordKey(entity.sourceId))?.let(JellyfinSecret::decode)
         if (baseUrl == null || secret == null) {
             Log.w(TAG, "Server ${entity.name} ist unvollständig eingerichtet und wird übersprungen")
             return null
         }
-        return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token)
+        return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token, flavor)
     }
 
     private suspend fun toSubsonicServer(entity: SourceEntity): SubsonicServer? {
@@ -140,7 +143,7 @@ class DataSourceRegistry @Inject constructor(
     companion object {
         private const val TAG = "DataSourceRegistry"
 
-        /** Das Secret eines Servers: bei Subsonic das Passwort, bei Jellyfin [JellyfinSecret] (Benutzer-ID und Token). */
+        /** Das Secret eines Servers: bei Subsonic das Passwort, bei Jellyfin und Emby [JellyfinSecret] (Benutzer-ID und Token). */
         fun passwordKey(sourceId: String) = "server:$sourceId:password"
     }
 }

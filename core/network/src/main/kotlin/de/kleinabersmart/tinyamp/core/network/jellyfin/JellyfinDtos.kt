@@ -3,7 +3,7 @@ package de.kleinabersmart.tinyamp.core.network.jellyfin
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** `GET /System/Info/Public` – ohne Anmeldung; [productName] unterscheidet Jellyfin von anderen Servern. */
+/** `GET /System/Info/Public` – ohne Anmeldung; [productName] unterscheidet Jellyfin von Emby (das keinen nennt). */
 @Serializable
 data class JfPublicSystemInfo(
     @SerialName("ServerName") val serverName: String? = null,
@@ -70,6 +70,8 @@ data class JfItem(
     @SerialName("UserData") val userData: JfUserData? = null,
     @SerialName("ImageTags") val imageTags: Map<String, String> = emptyMap(),
     @SerialName("AlbumPrimaryImageTag") val albumPrimaryImageTag: String? = null,
+    /** Nur in den Einträgen einer Emby-Playlist: die Nummer des Eintrags zum Entfernen. */
+    @SerialName("PlaylistItemId") val playlistItemId: String? = null,
 )
 
 @Serializable
@@ -84,6 +86,18 @@ data class JfMediaSource(
     /** Bit/s. */
     @SerialName("Bitrate") val bitrate: Int? = null,
     @SerialName("Container") val container: String? = null,
+    @SerialName("Id") val id: String? = null,
+    @SerialName("MediaStreams") val mediaStreams: List<JfMediaStream> = emptyList(),
+)
+
+/** Emby führt Songtexte als Untertitel: eingebettet mit dem Text in [extradata], als `.lrc` daneben extern. */
+@Serializable
+data class JfMediaStream(
+    @SerialName("Type") val type: String? = null,
+    @SerialName("Codec") val codec: String? = null,
+    @SerialName("Index") val index: Int? = null,
+    @SerialName("IsExternal") val isExternal: Boolean = false,
+    @SerialName("Extradata") val extradata: String? = null,
 )
 
 @Serializable
@@ -118,11 +132,12 @@ data class JfUpdatePlaylist(
     @SerialName("Ids") val ids: List<String>,
 )
 
-/** `Sessions/Playing` und `Sessions/Playing/Stopped`; [positionTicks] in 100 ns. */
+/** `Sessions/Playing` und `Sessions/Playing/Stopped`; [positionTicks] in 100 ns. Emby verlangt [playSessionId]. */
 @Serializable
 data class JfPlaybackReport(
     @SerialName("ItemId") val itemId: String,
     @SerialName("PositionTicks") val positionTicks: Long,
+    @SerialName("PlaySessionId") val playSessionId: String,
     @SerialName("PlayMethod") val playMethod: String = "DirectPlay",
 )
 

@@ -1,5 +1,6 @@
 package de.kleinabersmart.tinyamp.ui.settings
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -257,13 +258,19 @@ private fun relativeAge(ageMs: Long): String = when {
     else -> (ageMs / DAY_MS).toInt().let { pluralStringResource(R.plurals.age_days, it, it) }
 }
 
+/** „Kein Server dieser Art“ – im Server-Formular und in der Serverliste. */
+@StringRes
+internal fun notServerText(type: SourceType): Int = when (type) {
+    SourceType.JELLYFIN -> R.string.add_server_not_jellyfin
+    SourceType.EMBY -> R.string.add_server_not_emby
+    else -> R.string.add_server_not_subsonic
+}
+
 /** Dieselben Texte wie beim Verbindungstest im Server-Formular. */
 @Composable
 private fun syncFailureText(failure: SyncFailure, type: SourceType): String = when (failure) {
     SyncFailure.WrongCredentials -> stringResource(R.string.add_server_wrong_credentials)
-    SyncFailure.UnexpectedServer -> stringResource(
-        if (type == SourceType.JELLYFIN) R.string.add_server_not_jellyfin else R.string.add_server_not_subsonic,
-    )
+    SyncFailure.UnexpectedServer -> stringResource(notServerText(type))
     is SyncFailure.Unreachable -> stringResource(R.string.add_server_unreachable, failure.reason.orEmpty())
     is SyncFailure.ServerError -> stringResource(R.string.add_server_server_error, failure.code, failure.message.orEmpty())
     is SyncFailure.Other -> failure.message
