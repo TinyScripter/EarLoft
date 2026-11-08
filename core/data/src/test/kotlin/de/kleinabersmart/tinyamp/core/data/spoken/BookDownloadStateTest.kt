@@ -94,6 +94,29 @@ class BookDownloadStateTest {
     }
 
     @Test
+    fun `new details from the server keep the download of unchanged files`() = runTest {
+        val book = addBook(BookKind.BOOK, "b", files = 2)
+        db.bookDao().queueBookDownload(book)
+        db.bookDao().markBookTrackRunning(book, 0)
+        db.bookDao().markBookTrackDone(book, 0, "/x/book-$book-0.m4b", 400)
+        db.bookDao().markBookTrackRunning(book, 1)
+        db.bookDao().markBookTrackDone(book, 1, "/x/book-$book-1.m4b", 400)
+
+        // Metadaten geändert: dieselbe erste Datei, die zweite ist ersetzt (andere Länge).
+        db.bookDao().replaceDetails(
+            book,
+            listOf(BookTrackEntity(book, 0, "file0", 0, 500), BookTrackEntity(book, 1, "file1", 500, 700)),
+            emptyList(),
+        )
+
+        val tracks = db.bookDao().tracks(book)
+        assertEquals(TrackDownload.DONE, tracks[0].downloadState)
+        assertEquals("/x/book-$book-0.m4b", tracks[0].filePath)
+        assertEquals(TrackDownload.NONE, tracks[1].downloadState)
+        assertNull(tracks[1].filePath)
+    }
+
+    @Test
     fun `removing a book resets its files and the heard cleanup of episodes ignores books`() = runTest {
         val book = addBook(BookKind.BOOK, "b", files = 1)
         db.bookDao().queueBookDownload(book)

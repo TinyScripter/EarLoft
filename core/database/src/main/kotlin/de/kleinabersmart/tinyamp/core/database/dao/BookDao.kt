@@ -14,6 +14,7 @@ import de.kleinabersmart.tinyamp.core.database.entity.BookTrackEntity
 import de.kleinabersmart.tinyamp.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.tinyamp.core.model.AuthorHit
 import de.kleinabersmart.tinyamp.core.model.BookKind
+import de.kleinabersmart.tinyamp.core.model.TrackDownload
 import kotlinx.coroutines.flow.Flow
 
 /** Bücher (und Folgen) der ausgeschalteten Audiobookshelf-Server sind ausgeblendet; Podcast-Feeds stehen nicht in `spoken_servers`. */
@@ -174,11 +175,25 @@ abstract class BookDao {
     @Query("UPDATE books SET detailsLoaded = 1 WHERE bookId = :bookId")
     abstract suspend fun markDetailsLoaded(bookId: Long)
 
+    /**
+     * Ersetzt Dateien und Kapitel. Der Download-Stand einer Datei bleibt, wenn sie gleich geblieben ist (gleiche
+     * Kennung und Länge) – sonst verlöre jede Metadaten-Änderung auf dem Server den Download des Buchs.
+     */
     @Transaction
     open suspend fun replaceDetails(bookId: Long, tracks: List<BookTrackEntity>, chapters: List<BookChapterEntity>) {
+        val previous = tracks(bookId).associateBy { it.remoteFileId }
         deleteTracks(bookId)
         deleteChapters(bookId)
-        insertTracks(tracks)
+        insertTracks(
+            tracks.map { track ->
+                val old = previous[track.remoteFileId]
+                if (old == null || old.downloadState == TrackDownload.NONE || old.durationMs != track.durationMs) {
+                    track
+                } else {
+                    track.copy(downloadState = old.downloadState, filePath = old.filePath, fileSize = old.fileSize)
+                }
+            },
+        )
         insertChapters(chapters)
         markDetailsLoaded(bookId)
     }

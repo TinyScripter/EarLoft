@@ -70,20 +70,25 @@ class BookSyncer @Inject constructor(
         var page = 0
         while (true) {
             val result = api.libraryItems(server, libraryId, page, PAGE_SIZE)
-            result.results
-                .filter { !it.isMissing && !it.isInvalid }
-                .forEach {
-                    val entityToStore = it.toEntity(server.serverId, generation)
-                    if (!firstSync && entityToStore.remoteId !in known) fresh++
-                    dao.upsertBook(entityToStore)
+            result.results.forEach {
+                if (it.isMissing || it.isInvalid) {
+                    // Fehlen die Dateien nur gerade (Freigabe beim Scan nicht eingehängt), bleibt ein bekanntes Buch
+                    // samt Download und Fortschritt stehen; neue kommen erst, wenn sie abspielbar sind.
+                    dao.markSeen(server.serverId, it.id, generation)
+                    return@forEach
                 }
+                val entityToStore = it.toEntity(server.serverId, generation)
+                if (!firstSync && entityToStore.remoteId !in known) fresh++
+                dao.upsertBook(entityToStore)
+            }
             if (result.results.isEmpty() || (page + 1) * PAGE_SIZE >= result.total) break
             page++
         }
+        // Erst ungemeldeten Fortschritt hochladen: Gelöschte Bücher nehmen ihn mit.
+        progressSync.pushPending()
         // Ein abgebrochener Abgleich kommt nie bis hierher und löscht deshalb nichts.
         dao.deleteUnseen(server.serverId, generation)
         dao.upsertServer(entity.copy(libraryId = libraryId, syncGeneration = generation, lastFullSyncAt = System.currentTimeMillis()))
-        progressSync.pushPending()
         progressSync.pullAll(server)
         loadMissingDetails(server)
         fresh

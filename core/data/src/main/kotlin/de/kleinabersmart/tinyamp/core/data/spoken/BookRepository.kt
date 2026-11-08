@@ -103,10 +103,13 @@ class BookRepository @Inject constructor(
 
     suspend fun progressNow(bookId: Long): BookProgress? = dao.progress(bookId)?.toModel()
 
-    /** Zeitachse mit Dateien und Kapiteln; lädt sie vom Server, falls sie noch fehlt. `null`, wenn das nicht gelingt. */
+    /**
+     * Zeitachse mit Dateien und Kapiteln; lädt sie vom Server, falls sie noch fehlt oder veraltet ist. Ist der Server
+     * nicht erreichbar, gilt die vorhandene (ein geladenes Buch bleibt offline abspielbar). `null` ohne Dateien.
+     */
     suspend fun timeline(bookId: Long): BookTimeline? {
         val book = dao.book(bookId) ?: return null
-        if (!syncer.ensureDetails(bookId)) return null
+        syncer.ensureDetails(bookId)
         val tracks = dao.tracks(bookId).map { it.toModel() }
         if (tracks.isEmpty()) return null
         return BookTimeline(book.durationMs, tracks, dao.chapters(bookId).map { it.toModel() })
