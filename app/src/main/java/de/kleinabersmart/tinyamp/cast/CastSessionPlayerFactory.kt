@@ -86,6 +86,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         prepareOnSessionStart(player)
         watchRemoteLoad(player)
         keepQueueFilled(player)
+        rememberRemoteState(player)
         return DeferredRemotePlayPlayer(player) { state -> watchQueue(state) }
     }
 
@@ -115,6 +116,33 @@ internal class CastSessionPlayerFactory @Inject constructor(
             override fun onTimelineChanged(timeline: Timeline, reason: Int) = refillIfNeeded(player)
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = refillIfNeeded(player)
             override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) = refillIfNeeded(player)
+        })
+    }
+
+    /**
+     * Übernimmt eine andere App den Empfänger, ist seine Warteschlange leer, und beim Wechsel zurück aufs Handy käme nichts
+     * an. Deshalb merkt sich [HandOver.lastRemote] den Stand des Empfängers bei jedem Ereignis und alle [SNAPSHOT_MS], solange
+     * er etwas hat; die Position ist dann höchstens so alt.
+     */
+    private fun rememberRemoteState(player: Player) {
+        val handler = Handler(player.applicationLooper)
+        fun isRemote() = player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+        fun snapshot() {
+            if (isRemote() && player.mediaItemCount > 0) handOver.lastRemote = PlayerTransferState.fromPlayer(player)
+        }
+        val tick = object : Runnable {
+            override fun run() {
+                snapshot()
+                if (isRemote()) handler.postDelayed(this, SNAPSHOT_MS)
+            }
+        }
+        player.addListener(object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) = snapshot()
+
+            override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
+                handler.removeCallbacks(tick)
+                if (isRemote()) handler.postDelayed(tick, SNAPSHOT_MS)
+            }
         })
     }
 
@@ -256,17 +284,20 @@ internal class CastSessionPlayerFactory @Inject constructor(
         private const val REFILL_BELOW = 15
         private const val REFILL_CHUNK = 25
         private const val QUEUE_WATCH_MS = 20_000L
+        private const val SNAPSHOT_MS = 5_000L
     }
 }
 
 /**
  * [state]: was zuletzt an den Empfänger ging (nur wenn nicht leer). [rescue]: nach einem gescheiterten
- * Laden – beim Zurückwechseln aufs Handy wird daraus die Warteschlange wiederhergestellt.
+ * Laden – beim Zurückwechseln aufs Handy wird daraus die Warteschlange wiederhergestellt. [lastRemote]: der letzte
+ * Stand des Empfängers mit Warteschlange, falls eine andere App ihn übernimmt.
  */
 @OptIn(UnstableApi::class)
 private class HandOver {
     @Volatile var state: PlayerTransferState? = null
     @Volatile var rescue: PlayerTransferState? = null
+    @Volatile var lastRemote: PlayerTransferState? = null
 }
 
 /** Übergibt nur Songs mit Server-Quelle an den Empfänger; zurück aufs Handy geht alles. */
@@ -281,15 +312,22 @@ private class CastTransferCallback(
     override fun transferState(sourcePlayer: Player, targetPlayer: Player) {
         if (targetPlayer !is RemoteCastPlayer) {
             val rescue = handOver.rescue
+            val lastRemote = handOver.lastRemote
             handOver.state = null
             handOver.rescue = null
+            handOver.lastRemote = null
             val remaining = reserve.takeUnless { it.isEmpty() }
+            val source = PlayerTransferState.fromPlayer(sourcePlayer)
+            // Leer, weil eine andere App den Empfänger übernommen hat: der letzte Stand kommt pausiert aufs Handy.
+            val takenOver = source.mediaItems.isEmpty() && lastRemote != null
+            val state = if (takenOver) lastRemote.buildUpon().setPlayWhenReady(false).build() else source
             if (rescue != null) {
                 rescue.buildUpon().setPlayWhenReady(false).build().setToPlayer(targetPlayer)
             } else if (remaining != null) {
-                val state = PlayerTransferState.fromPlayer(sourcePlayer)
                 val (all, index) = remaining.complete(state.mediaItems, state.currentMediaItemIndex)
                 state.buildUpon().setMediaItems(all).setCurrentMediaItemIndex(index).build().setToPlayer(targetPlayer)
+            } else if (takenOver) {
+                state.setToPlayer(targetPlayer)
             } else {
                 CastPlayer.TransferCallback.DEFAULT.transferState(sourcePlayer, targetPlayer)
             }
@@ -298,6 +336,7 @@ private class CastTransferCallback(
         }
         val state = PlayerTransferState.fromPlayer(sourcePlayer)
         handOver.rescue = null
+        handOver.lastRemote = null
         reserve.clear()
         handOver.state = state.takeIf { it.mediaItems.isNotEmpty() }
         val items = state.mediaItems
