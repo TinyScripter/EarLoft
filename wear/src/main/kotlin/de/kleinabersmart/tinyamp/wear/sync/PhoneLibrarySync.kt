@@ -1,5 +1,6 @@
 package de.kleinabersmart.tinyamp.wear.sync
 
+import android.content.Context
 import android.util.Log
 import androidx.room.withTransaction
 import com.google.android.gms.wearable.DataClient
@@ -30,6 +31,7 @@ import de.kleinabersmart.tinyamp.core.wearsync.hashesAt
 import de.kleinabersmart.tinyamp.core.wearsync.payloadsAt
 import de.kleinabersmart.tinyamp.wear.download.WatchState
 import de.kleinabersmart.tinyamp.wear.download.WearDownloadPlanner
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -42,6 +44,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class PhoneLibrarySync @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val dataClient: DataClient,
     private val credentials: CredentialsRequester,
     private val serverMirror: WearServerMirror,
@@ -54,6 +57,14 @@ class PhoneLibrarySync @Inject constructor(
 ) {
     private val mutex = Mutex()
 
+    /**
+     * Ändert sich mit jedem Update der Uhr-App: Eine neue Version versteht vielleicht mehr vom selben Stand (z. B. Server
+     * einer neuen Art in `otherServers`), den die alte schon als übernommen vermerkt hatte.
+     */
+    private val appVersionStamp: Long by lazy {
+        context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
+    }
+
     suspend fun sync() = mutex.withLock {
         // Zuerst die Einstellungen: Qualität und Speichergrenze bestimmen, was der Planer einreiht.
         val settingsChanged = dataClient.payloadsAt(WearPaths.SETTINGS).values.firstOrNull()
@@ -62,7 +73,7 @@ class PhoneLibrarySync @Inject constructor(
         // Jeder Prozessstart der Uhr stößt einen Lauf an (Nachricht vom Handy, Download-Versuch, Kachel …). Ist seit der
         // letzten Übernahme nichts Neues gekommen, bleibt es beim Nachfragen nach Passwörtern und beim Planen.
         val podcastsHash = dataClient.hashesAt(WearPaths.PODCASTS).values.firstOrNull()
-        val stamp = "${servers?.value?.let(WearCodec::hash)}:${dataClient.hashesAt(WearPaths.MANIFEST).values.firstOrNull()}:$podcastsHash"
+        val stamp = "$appVersionStamp:${servers?.value?.let(WearCodec::hash)}:${dataClient.hashesAt(WearPaths.MANIFEST).values.firstOrNull()}:$podcastsHash"
         if (!settingsChanged && stamp == state.appliedPhoneStamp) {
             servers?.let { requestMissingPasswords(phoneNodeId = it.key) }
             planner.plan()
