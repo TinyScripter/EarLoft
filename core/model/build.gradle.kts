@@ -1,3 +1,3 @@
 plugins {
-    alias(libs.plugins.tinyamp.jvm.library)
+    alias(libs.plugins.earloft.jvm.library)
 }

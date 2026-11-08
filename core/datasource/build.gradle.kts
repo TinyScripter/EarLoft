@@ -1,10 +1,10 @@
 plugins {
-    alias(libs.plugins.tinyamp.android.library)
-    alias(libs.plugins.tinyamp.hilt)
+    alias(libs.plugins.earloft.android.library)
+    alias(libs.plugins.earloft.hilt)
 }
 
 android {
-    namespace = "de.kleinabersmart.tinyamp.core.datasource"
+    namespace = "de.kleinabersmart.earloft.core.datasource"
 }
 
 dependencies {

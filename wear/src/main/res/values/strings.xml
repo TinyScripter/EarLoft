@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">TinyAmp</string>
+    <string name="app_name" translatable="false">EarLoft</string>
     <plurals name="song_count">
         <item quantity="one">%d track</item>
         <item quantity="other">%d tracks</item>
@@ -37,7 +37,7 @@
     <!-- Phone remote control -->
     <string name="remote_unreachable">Phone not reachable</string>
     <string name="remote_missing">No longer on the phone</string>
-    <string name="remote_no_library">Open TinyAmp on the phone once</string>
+    <string name="remote_no_library">Open EarLoft on the phone once</string>
     <string name="remote_truncated">Only the first tracks are shown</string>
     <string name="remote_play_on_phone">Play on phone</string>
     <string name="remote_download">Download</string>
@@ -136,7 +136,7 @@
     <string name="setup_no_phone_title">Phone not connected</string>
     <string name="setup_no_phone_text">To set up, the watch needs the paired phone nearby.</string>
     <string name="setup_app_missing_title">App missing on the phone</string>
-    <string name="setup_app_missing_text">Install TinyAmp on the phone. There you choose the music for the watch.</string>
+    <string name="setup_app_missing_text">Install EarLoft on the phone. There you choose the music for the watch.</string>
     <string name="setup_install_on_phone">Open on phone</string>
     <string name="setup_opened_on_phone">Continue on the phone</string>
     <string name="setup_open_failed">Could not be opened</string>

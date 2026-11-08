@@ -1,9 +1,9 @@
-import de.kleinabersmart.tinyamp.buildlogic.BuildConfig
+import de.kleinabersmart.earloft.buildlogic.BuildConfig
 
 plugins {
-    alias(libs.plugins.tinyamp.android.application)
-    alias(libs.plugins.tinyamp.android.compose)
-    alias(libs.plugins.tinyamp.hilt)
+    alias(libs.plugins.earloft.android.application)
+    alias(libs.plugins.earloft.android.compose)
+    alias(libs.plugins.earloft.hilt)
     alias(libs.plugins.kotlin.serialization)
     // Nur der Export der Bibliotheken für die Lizenzliste der Handy-App; die Uhr zeigt keine eigene.
     alias(libs.plugins.aboutlibraries.base)
@@ -20,11 +20,11 @@ aboutLibraries {
 tasks.matching { it.name.startsWith("prepareLibraryDefinitions") }.configureEach { enabled = false }
 
 android {
-    namespace = "de.kleinabersmart.tinyamp.wear"
+    namespace = "de.kleinabersmart.earloft.wear"
 
     defaultConfig {
         // Muss mit der Phone-App übereinstimmen (Wearable Data Layer).
-        applicationId = "de.kleinabersmart.tinyamp"
+        applicationId = "de.kleinabersmart.earloft"
         minSdk = BuildConfig.MIN_SDK_WEAR
         versionCode = 1
         versionName = "1.0"

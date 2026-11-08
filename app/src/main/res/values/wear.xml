@@ -2,6 +2,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@array/android_wear_capabilities">
     <!-- Damit die Uhr erkennt, dass die Handy-App installiert ist (WearCapabilities.PHONE_APP). -->
     <string-array name="android_wear_capabilities" translatable="false">
-        <item>tinyamp_phone_app</item>
+        <item>earloft_phone_app</item>
     </string-array>
 </resources>

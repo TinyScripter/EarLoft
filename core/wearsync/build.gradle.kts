@@ -1,11 +1,11 @@
 plugins {
-    alias(libs.plugins.tinyamp.android.library)
-    alias(libs.plugins.tinyamp.hilt)
+    alias(libs.plugins.earloft.android.library)
+    alias(libs.plugins.earloft.hilt)
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "de.kleinabersmart.tinyamp.core.wearsync"
+    namespace = "de.kleinabersmart.earloft.core.wearsync"
 }
 
 // Protokoll zwischen Handy und Uhr (Wear-Konzept 4) – von :app und :wear gemeinsam genutzt.

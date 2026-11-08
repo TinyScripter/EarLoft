@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Overrides the texts from main so the debug app can be told apart from the release app. -->
-    <string name="app_name" translatable="false">TinyAmp Debug</string>
+    <string name="app_name" translatable="false">EarLoft Debug</string>
     <string name="widget_name">Playback (Debug)</string>
 </resources>

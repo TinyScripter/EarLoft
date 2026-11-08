@@ -1,6 +1,6 @@
-import de.kleinabersmart.tinyamp.buildlogic.BuildConfig
-import de.kleinabersmart.tinyamp.buildlogic.libs
-import de.kleinabersmart.tinyamp.buildlogic.library
+import de.kleinabersmart.earloft.buildlogic.BuildConfig
+import de.kleinabersmart.earloft.buildlogic.libs
+import de.kleinabersmart.earloft.buildlogic.library
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPluginExtension

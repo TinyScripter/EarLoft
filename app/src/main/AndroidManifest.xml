@@ -19,7 +19,7 @@
     <!-- MissingMediaBrowserServiceIntentFilter: Der PlaybackService samt Filter steht im Manifest von core:playback, das
          Lint hier nicht mitliest. -->
     <application
-        android:name=".TinyAmpApplication"
+        android:name=".EarLoftApplication"
         tools:ignore="MissingMediaBrowserServiceIntentFilter"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -30,20 +30,20 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.TinyAmp">
+        android:theme="@style/Theme.EarLoft">
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.TinyAmp"
+            android:theme="@style/Theme.EarLoft"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Sprachsuche („Spiele … mit TinyAmp“); Android Auto geht über die Session. -->
+            <!-- Sprachsuche („Spiele … mit EarLoft“); Android Auto geht über die Session. -->
             <intent-filter>
                 <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
 
@@ -52,7 +52,7 @@
         </activity>
 
         <!--
-            Geteilte Podcast-Adressen (Konzept 13) öffnen die Vorschau; TinyAmp nimmt sich aus dem eigenen Teilen-Menü aus.
+            Geteilte Podcast-Adressen (Konzept 13) öffnen die Vorschau; EarLoft nimmt sich aus dem eigenen Teilen-Menü aus.
             Über diese Weiterleitung, sonst öffnete das Teilen eine zweite MainActivity in einer eigenen Aufgabe.
         -->
         <activity
@@ -88,7 +88,7 @@
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
 
-        <!-- Chromecast mit dem Default Media Receiver; initialisiert in TinyAmpApplication. -->
+        <!-- Chromecast mit dem Default Media Receiver; initialisiert in EarLoftApplication. -->
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="androidx.media3.cast.DefaultCastOptionsProvider" />
@@ -118,22 +118,22 @@
                 <action android:name="com.google.android.gms.wearable.CHANNEL_EVENT" />
                 <data
                     android:host="*"
-                    android:pathPrefix="/tinyamp/"
+                    android:pathPrefix="/earloft/"
                     android:scheme="wear" />
             </intent-filter>
-            <!-- Pakete der Uhr (/tinyamp/plays/<uuid>, /tinyamp/episodes/<uuid>), auch wenn die App nicht läuft. -->
+            <!-- Pakete der Uhr (/earloft/plays/<uuid>, /earloft/episodes/<uuid>), auch wenn die App nicht läuft. -->
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data
                     android:host="*"
-                    android:pathPrefix="/tinyamp/plays/"
+                    android:pathPrefix="/earloft/plays/"
                     android:scheme="wear" />
             </intent-filter>
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data
                     android:host="*"
-                    android:pathPrefix="/tinyamp/episodes/"
+                    android:pathPrefix="/earloft/episodes/"
                     android:scheme="wear" />
             </intent-filter>
         </service>

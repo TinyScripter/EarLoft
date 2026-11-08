@@ -1,11 +1,11 @@
 plugins {
-    alias(libs.plugins.tinyamp.android.library)
-    alias(libs.plugins.tinyamp.hilt)
-    alias(libs.plugins.tinyamp.room)
+    alias(libs.plugins.earloft.android.library)
+    alias(libs.plugins.earloft.hilt)
+    alias(libs.plugins.earloft.room)
 }
 
 android {
-    namespace = "de.kleinabersmart.tinyamp.core.database"
+    namespace = "de.kleinabersmart.earloft.core.database"
 
     // Migrationstests (Robolectric) lesen die exportierten Schemas als Assets.
     sourceSets.getByName("test").assets.directories.add("$projectDir/schemas")

@@ -2,7 +2,7 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "de.kleinabersmart.tinyamp.buildlogic"
+group = "de.kleinabersmart.earloft.buildlogic"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -26,27 +26,27 @@ dependencies {
 gradlePlugin {
     plugins {
         register("androidApplication") {
-            id = libs.plugins.tinyamp.android.application.get().pluginId
+            id = libs.plugins.earloft.android.application.get().pluginId
             implementationClass = "AndroidApplicationConventionPlugin"
         }
         register("androidLibrary") {
-            id = libs.plugins.tinyamp.android.library.get().pluginId
+            id = libs.plugins.earloft.android.library.get().pluginId
             implementationClass = "AndroidLibraryConventionPlugin"
         }
         register("androidCompose") {
-            id = libs.plugins.tinyamp.android.compose.get().pluginId
+            id = libs.plugins.earloft.android.compose.get().pluginId
             implementationClass = "AndroidComposeConventionPlugin"
         }
         register("jvmLibrary") {
-            id = libs.plugins.tinyamp.jvm.library.get().pluginId
+            id = libs.plugins.earloft.jvm.library.get().pluginId
             implementationClass = "JvmLibraryConventionPlugin"
         }
         register("hilt") {
-            id = libs.plugins.tinyamp.hilt.get().pluginId
+            id = libs.plugins.earloft.hilt.get().pluginId
             implementationClass = "HiltConventionPlugin"
         }
         register("room") {
-            id = libs.plugins.tinyamp.room.get().pluginId
+            id = libs.plugins.earloft.room.get().pluginId
             implementationClass = "RoomConventionPlugin"
         }
     }

@@ -154,9 +154,9 @@ aboutlibraries-android = { id = "com.mikepenz.aboutlibraries.plugin.android", ve
 aboutlibraries-base = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutLibraries" }
 
 # Convention Plugins aus build-logic
-tinyamp-android-application = { id = "tinyamp.android.application" }
-tinyamp-android-library = { id = "tinyamp.android.library" }
-tinyamp-android-compose = { id = "tinyamp.android.compose" }
-tinyamp-jvm-library = { id = "tinyamp.jvm.library" }
-tinyamp-hilt = { id = "tinyamp.hilt" }
-tinyamp-room = { id = "tinyamp.room" }
+earloft-android-application = { id = "earloft.android.application" }
+earloft-android-library = { id = "earloft.android.library" }
+earloft-android-compose = { id = "earloft.android.compose" }
+earloft-jvm-library = { id = "earloft.jvm.library" }
+earloft-hilt = { id = "earloft.hilt" }
+earloft-room = { id = "earloft.room" }

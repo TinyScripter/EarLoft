@@ -1,8 +1,8 @@
 import java.util.Properties
 
 plugins {
-    alias(libs.plugins.tinyamp.android.library)
-    alias(libs.plugins.tinyamp.hilt)
+    alias(libs.plugins.earloft.android.library)
+    alias(libs.plugins.earloft.hilt)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -14,7 +14,7 @@ val localProperties = Properties().apply {
 fun localString(name: String): String = "\"${localProperties.getProperty(name).orEmpty().trim()}\""
 
 android {
-    namespace = "de.kleinabersmart.tinyamp.core.network"
+    namespace = "de.kleinabersmart.earloft.core.network"
 
     buildFeatures {
         buildConfig = true

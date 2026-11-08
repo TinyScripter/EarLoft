@@ -25,7 +25,7 @@ dependencyResolutionManagement {
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "TinyAmp"
+rootProject.name = "EarLoft"
 include(":app")
 include(":wear")
 include(":core:model")
