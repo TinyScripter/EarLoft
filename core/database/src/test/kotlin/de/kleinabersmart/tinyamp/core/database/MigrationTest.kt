@@ -124,7 +124,108 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `v19 to v21 keeps podcasts and episodes, drops the feed validators and adds empty links`() {
+        helper.createDatabase(DB_NAME, 19).use { db ->
+            db.execSQL(
+                "INSERT INTO podcast_feeds (feedId, url, title, author, description, etag, lastModified, lastRefreshAt, syncGeneration, autoDownload) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'Logbuch', '', '', '\"abc\"', 'Sat, 01 Nov 2026 10:00:00 GMT', 5, 2, 1)",
+            )
+            db.execSQL(
+                "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
+                    "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
+                    "VALUES (7, 'f', 'EPISODE', 'guid-1', 'Folge 1', 'folge 1', 'Logbuch', '', '', '', 60000, 0, 1, 1, 2)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 20, true).close()
+        helper.runMigrationsAndValidate(DB_NAME, 21, true).use { db ->
+            db.query("SELECT title, etag, lastModified, websiteUrl, syncGeneration FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Logbuch", cursor.getString(0))
+                // Ohne Validatoren lädt der nächste Abgleich den Feed ganz und holt so die Webseiten.
+                assertTrue(cursor.isNull(1))
+                assertTrue(cursor.isNull(2))
+                assertTrue(cursor.isNull(3))
+                assertEquals(2, cursor.getInt(4))
+            }
+            db.query("SELECT title, durationMs, webUrl, isbn FROM books WHERE bookId = 7").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Folge 1", cursor.getString(0))
+                assertEquals(60_000, cursor.getInt(1))
+                assertTrue(cursor.isNull(2))
+                assertTrue(cursor.isNull(3))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
+    }
+}
+
+/** `user.db`: Auto-Migrationen v1 → v6 ([UserDatabase]); die Sicherung eines alten Geräts muss auf einem neuen lesbar bleiben. */
+@RunWith(RobolectricTestRunner::class)
+class UserMigrationTest {
+
+    @get:Rule
+    val helper = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), UserDatabase::class.java)
+
+    @Test
+    fun `v1 to v6 keeps servers and podcasts and adds the newer tables empty`() {
+        helper.createDatabase(DB_NAME, 1).use { db ->
+            db.execSQL(
+                "INSERT INTO servers (sourceId, type, name, baseUrl, username, priority, enabled) " +
+                    "VALUES ('nav', 'SUBSONIC', 'Navidrome', 'https://nav.example/', 'anna', 2, 1)",
+            )
+            db.execSQL(
+                "INSERT INTO podcasts (feedId, url, title, author, autoDownload, newestFirst, continuous, notifyNew) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'Logbuch', '', 1, 0, 1, 1)",
+            )
+        }
+
+        for (version in 2..6) helper.runMigrationsAndValidate(DB_NAME, version, true).close()
+        helper.runMigrationsAndValidate(DB_NAME, 6, true).use { db ->
+            db.query("SELECT name, baseUrl, username, priority FROM servers WHERE sourceId = 'nav'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Navidrome", cursor.getString(0))
+                assertEquals("https://nav.example/", cursor.getString(1))
+                assertEquals("anna", cursor.getString(2))
+                assertEquals(2, cursor.getInt(3))
+            }
+            db.query("SELECT title, autoDownload FROM podcasts WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Logbuch", cursor.getString(0))
+                assertEquals(1, cursor.getInt(1))
+            }
+            for (table in listOf("book_progress", "playlists", "playlist_entries", "favorites", "play_events", "wear_selections")) {
+                db.query("SELECT COUNT(*) FROM $table").use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals(table, 0, cursor.getInt(0))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `v5 to v6 drops the cast address and keeps the server`() {
+        helper.createDatabase(DB_NAME, 5).use { db ->
+            db.execSQL(
+                "INSERT INTO servers (sourceId, type, name, baseUrl, username, priority, enabled, castBaseUrl) " +
+                    "VALUES ('nav', 'SUBSONIC', 'Navidrome', 'https://nav.example/', 'anna', 0, 1, 'http://192.168.0.10:4533/')",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 6, true).use { db ->
+            db.query("SELECT name, baseUrl FROM servers WHERE sourceId = 'nav'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Navidrome", cursor.getString(0))
+                assertEquals("https://nav.example/", cursor.getString(1))
+            }
+        }
+    }
+
+    private companion object {
+        const val DB_NAME = "user-migration-test"
     }
 }
