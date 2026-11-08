@@ -142,6 +142,17 @@ class JellyfinDataSourceTest {
     }
 
     @Test
+    fun `own changes fetch the entries again even when the etag stays`() = runTest {
+        // Emby lässt den Etag beim Umsortieren gleich; die gemerkten Einträge gälten sonst als Änderung auf dem Server.
+        source.replacePlaylist(RemotePlaylist(source.playlists().single(), listOf("a")), "Sommer", listOf("a"))
+        val afterReplace = synchronized(requests) { requests.size }
+        source.playlists()
+
+        val calls = synchronized(requests) { requests.drop(afterReplace) }
+        assertEquals(1, calls.count { it == "Playlists/p1" })
+    }
+
+    @Test
     fun `cast cover url carries no token, the stream url does`() {
         assertFalse("ApiKey" in source.externalCoverUrl("al1:t1", 300))
         assertTrue("ApiKey=tok" in source.externalStreamUrl("s1", null))

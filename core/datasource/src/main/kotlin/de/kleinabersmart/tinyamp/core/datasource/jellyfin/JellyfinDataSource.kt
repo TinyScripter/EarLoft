@@ -52,8 +52,10 @@ class JellyfinDataSource internal constructor(
     /** Playlist → darf dieses Konto sie bearbeiten, und wann gefragt (`nanoTime`). */
     private val editable = ConcurrentHashMap<String, Pair<Boolean, Long>>()
 
-    /** Jellyfin: Playlist → `Etag` und Einträge dazu. */
-    private val playlistItems = ConcurrentHashMap<String, Pair<String, List<String>>>()
+    /** Playlist → `Etag` und Einträge dazu. */
+    private val playlistItems = ConcurrentHashMap<String, CachedItems>()
+
+    private class CachedItems(val etag: String, val ids: List<String>, val fetchedAt: Long)
 
     /**
      * Bibliothek für Bibliothek in Seiten bis zur gemeldeten Gesamtzahl; Fehler brechen den Scan ab, damit der Abgleich
@@ -154,11 +156,10 @@ class JellyfinDataSource internal constructor(
 
     override suspend fun reportPlayback(remoteId: String, durationMs: Long) = api.reportPlayback(server, remoteId, durationMs)
 
-    /** Nur Musik-Playlists, die das Konto ändern darf; je Playlist zwei Anfragen (Rechte, Einträge für den Hash). */
     /**
-     * Bei jedem Abgleich (auch dem schnellen nach dem Start) zwei Anfragen je sichtbarer Playlist, auch je fremder
-     * öffentlicher: deshalb das Bearbeitungsrecht [EDIT_CHECK_MS] lang gemerkt, und bei Jellyfin die Einträge nur neu geholt,
-     * wenn sich der `Etag` geändert hat. Der Änderungs-Hash bleibt derselbe (Name und Einträge).
+     * Nur Musik-Playlists, die das Konto ändern darf. Bei jedem Abgleich (auch dem schnellen nach dem Start) wären das zwei
+     * Anfragen je sichtbarer Playlist, auch je fremder öffentlicher: deshalb das Bearbeitungsrecht [EDIT_CHECK_MS] lang gemerkt
+     * und die Einträge nur neu geholt, wenn sich der `Etag` geändert hat. Der Änderungs-Hash bleibt derselbe (Name und Einträge).
      */
     override suspend fun playlists(): List<RemotePlaylistInfo> =
         api.playlists(server)
@@ -172,10 +173,21 @@ class JellyfinDataSource internal constructor(
         return api.canEditPlaylist(server, playlistId).also { editable[playlistId] = it to now }
     }
 
+    /**
+     * Jellyfin 12.4 ändert den `Etag` einer Playlist mit Name und Einträgen, auch beim Umsortieren. Emby 4.10 ändert ihn beim
+     * Hinzufügen, Entfernen und Umbenennen, beim Umsortieren nicht (beides gemessen): Dort gelten die Einträge höchstens
+     * [EMBY_ITEMS_MAX_AGE_MS] lang, eine Umsortierung in einem anderen Programm kommt so spätestens danach an.
+     */
     private suspend fun itemIds(playlist: JfItem): List<String> {
-        val etag = playlist.etag?.takeIf { server.flavor == JellyfinFlavor.JELLYFIN }
-        playlistItems[playlist.id]?.takeIf { etag != null && it.first == etag }?.let { return it.second }
-        return api.playlistItemIds(server, playlist.id).also { ids -> if (etag != null) playlistItems[playlist.id] = etag to ids }
+        val etag = playlist.etag
+        val now = System.nanoTime()
+        playlistItems[playlist.id]
+            ?.takeIf { etag != null && it.etag == etag }
+            ?.takeIf { server.flavor == JellyfinFlavor.JELLYFIN || (now - it.fetchedAt) / NANOS_PER_MS < EMBY_ITEMS_MAX_AGE_MS }
+            ?.let { return it.ids }
+        return api.playlistItemIds(server, playlist.id).also { ids ->
+            if (etag != null) playlistItems[playlist.id] = CachedItems(etag, ids, now)
+        }
     }
 
     override suspend fun playlist(remoteId: String): RemotePlaylist {
@@ -195,11 +207,17 @@ class JellyfinDataSource internal constructor(
     /** Jellyfin ersetzt Name und Einträge in einem Aufruf, Emby in mehreren. */
     override suspend fun replacePlaylist(current: RemotePlaylist, name: String, songRemoteIds: List<String>): RemotePlaylistInfo {
         awaitSettled(current.info.remoteId)
+        // Eine eigene Umsortierung ändert bei Emby den `Etag` nicht: Die gemerkten Einträge sind danach veraltet und gälten
+        // beim nächsten Abgleich als Änderung auf dem Server.
+        playlistItems.remove(current.info.remoteId)
         api.updatePlaylist(server, current.info.remoteId, name, songRemoteIds)
         return playlist(current.info.remoteId).info
     }
 
-    override suspend fun deletePlaylist(remoteId: String) = api.deleteItem(server, remoteId)
+    override suspend fun deletePlaylist(remoteId: String) {
+        playlistItems.remove(remoteId)
+        api.deleteItem(server, remoteId)
+    }
 
     override suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics = when (server.flavor) {
         JellyfinFlavor.JELLYFIN -> api.lyrics(server, remoteId)?.let(JellyfinTrackMapper::lyrics) ?: Lyrics.None
@@ -225,6 +243,7 @@ class JellyfinDataSource internal constructor(
         const val CREATION_SETTLE_MS = 10_000L
         private const val NANOS_PER_MS = 1_000_000L
         private const val EDIT_CHECK_MS = 6 * 60 * 60_000L
+        private const val EMBY_ITEMS_MAX_AGE_MS = 30 * 60_000L
 
         /** Je Prozess: Die Datenquelle wird beim Neuladen der Server neu erzeugt, die Playlist bleibt frisch. */
         private val createdAt = ConcurrentHashMap<String, Long>()
