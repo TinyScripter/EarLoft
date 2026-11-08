@@ -66,7 +66,8 @@ data class OpmlImportResult(val added: Int, val skipped: Int, val removed: Int)
 data class RefreshResult(val newEpisodeIds: List<Long>)
 
 /** Ergebnis von [PodcastRepository.refreshAll]: `ok`, wenn kein Feed fehlgeschlagen ist, und die Abos mit neuen Folgen. */
-data class PodcastRefreshSummary(val ok: Boolean, val newEpisodes: List<NewEpisodes>) {
+/** [allFailed]: Kein Feed war erreichbar – eher das Netz als einzelne tote Feeds. */
+data class PodcastRefreshSummary(val ok: Boolean, val newEpisodes: List<NewEpisodes>, val allFailed: Boolean = false) {
     val newCount: Int get() = newEpisodes.sumOf { it.count }
 }
 
@@ -476,17 +477,18 @@ class PodcastRepository @Inject constructor(
      * (sonst meldete jedes frische Abo seine ganze Folgenliste).
      */
     suspend fun refreshAll(): PodcastRefreshSummary {
-        var ok = true
+        var failed = 0
         val news = mutableListOf<NewEpisodes>()
-        dao.feeds().filter { !it.isLocal }.forEach { feed ->
+        val feeds = dao.feeds().filter { !it.isLocal }
+        feeds.forEach { feed ->
             val result = refresh(feed.feedId)
             if (result == null) {
-                ok = false
+                failed++
             } else if (feed.lastRefreshAt > 0 && result.newEpisodeIds.isNotEmpty()) {
                 news += NewEpisodes(feed.feedId, feed.title, result.newEpisodeIds.size, feed.notifyNew)
             }
         }
-        return PodcastRefreshSummary(ok, news)
+        return PodcastRefreshSummary(ok = failed == 0, newEpisodes = news, allFailed = failed > 0 && failed == feeds.size)
     }
 
     /** Gleicht einen Feed ab. `null`, wenn er nicht erreichbar oder unlesbar ist (die alten Folgen bleiben). */

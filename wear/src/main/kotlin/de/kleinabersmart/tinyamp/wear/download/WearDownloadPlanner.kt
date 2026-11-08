@@ -102,8 +102,11 @@ class WearDownloadPlanner @Inject constructor(
         // Auch wenn nichts mehr zu laden ist: Fehlende Cover holt derselbe Auftrag nach.
         val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
         // Neue Downloads ersetzen einen wartenden Auftrag: Sonst hängen sie hinter dem Backoff eines früheren Fehlversuchs.
+        // Ohne neue genügt ein wartender oder laufender Auftrag.
         val pending = downloadDao.countPending() + podcastDao.countPendingDownloads() + bookDao.countPendingBookDownloads()
-        if (pending > 0 || coversMissing) scheduler.enqueue(replace = replaceSchedule || queued > 0)
+        if (pending > 0 || coversMissing) {
+            if (replaceSchedule || queued > 0) scheduler.enqueue(replace = true) else scheduler.resume()
+        }
     }
 
     /** Noch nie geladene, nicht beendete Folgen in der Reihenfolge von „Weiterhören“, mit ihrer geschätzten Größe. */

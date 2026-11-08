@@ -11,6 +11,7 @@ import de.kleinabersmart.tinyamp.core.data.spoken.BookCovers
 import de.kleinabersmart.tinyamp.core.data.sync.FakeServer
 import de.kleinabersmart.tinyamp.core.data.sync.FixedSources
 import de.kleinabersmart.tinyamp.core.data.sync.LibrarySyncer
+import de.kleinabersmart.tinyamp.core.data.sync.syncAdding
 import de.kleinabersmart.tinyamp.core.data.sync.librarySyncer
 import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
 import de.kleinabersmart.tinyamp.core.database.entity.BookEntity
@@ -81,8 +82,8 @@ class PhoneFileLocatorTest {
         val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry())
         covers = BookCovers(context, db.bookDao(), db.podcastDao(), servers, api, PodcastFeedApi(client), LocalBookScanner(context))
         locator = PhoneFileLocator(context, db.wearDao(), FixedSources(nd, local), db.bookDao(), db.podcastDao(), covers)
-        syncer.sync(nd)
-        syncer.sync(local)
+        syncer.syncAdding(db, nd)
+        syncer.syncAdding(db, local)
     }
 
     @After

@@ -6,6 +6,7 @@ import de.kleinabersmart.tinyamp.core.data.repository.PlaylistRepository
 import de.kleinabersmart.tinyamp.core.data.sync.FakeLocalSource
 import de.kleinabersmart.tinyamp.core.data.sync.FakeServer
 import de.kleinabersmart.tinyamp.core.data.sync.LibrarySyncer
+import de.kleinabersmart.tinyamp.core.data.sync.syncAdding
 import de.kleinabersmart.tinyamp.core.data.sync.NoScheduler
 import de.kleinabersmart.tinyamp.core.data.sync.librarySyncer
 import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
@@ -52,8 +53,8 @@ class WearSelectionRepositoryTest {
         syncer = db.librarySyncer()
         playlists = PlaylistRepository(db, db.playlistDao(), db.syncDao(), NoScheduler)
         repository = WearSelectionRepository(db, db.wearDao(), db.playlistDao())
-        syncer.sync(nd)
-        syncer.sync(local)
+        syncer.syncAdding(db, nd)
+        syncer.syncAdding(db, local)
     }
 
     @After

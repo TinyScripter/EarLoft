@@ -36,7 +36,7 @@ class PlaylistSyncTest {
             .build()
         syncer = db.librarySyncer(notices = notices)
         playlists = PlaylistRepository(db, db.playlistDao(), db.syncDao(), NoScheduler)
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
     }
 
     @After
@@ -48,7 +48,7 @@ class PlaylistSyncTest {
     fun `server playlists are imported in order with duplicates`() = runTest {
         nd.putPlaylist("Mix", listOf("b", "a", "b", "unbekannt"))
 
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
 
         val playlist = playlists.playlists().first().single()
         assertEquals("Mix", playlist.name)
@@ -61,19 +61,19 @@ class PlaylistSyncTest {
     @Test
     fun `local change is sent when the server playlist is unchanged`() = runTest {
         nd.putPlaylist("Mix", listOf("a"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         val id = playlists.playlists().first().single().id
 
         playlists.addSongs(id, listOf(songId("b")))
         playlists.rename(id, "Mix 2")
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         assertEquals(listOf("A", "B"), titles(id))
 
         assertTrue(processor().process())
         assertEquals(listOf("replace pl1 Mix 2 [a, b]"), nd.calls)
 
         // Der eigene, gesendete Stand gilt beim nächsten Abgleich nicht als Server-Änderung.
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         assertEquals("Mix 2", playlists.playlists().first().single().name)
         assertEquals(listOf("A", "B"), titles(id))
     }
@@ -81,12 +81,12 @@ class PlaylistSyncTest {
     @Test
     fun `server change wins over an unsent local change`() = runTest {
         val remoteId = nd.putPlaylist("Mix", listOf("a"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         val id = playlists.playlists().first().single().id
         playlists.addSongs(id, listOf(songId("b")))
 
         nd.putPlaylist("Vom Nachbarn", listOf("c"), remoteId)
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
 
         assertEquals("Vom Nachbarn", playlists.playlists().first().single().name)
         assertEquals(listOf("C"), titles(id))
@@ -97,19 +97,19 @@ class PlaylistSyncTest {
     @Test
     fun `server change over an unsent local change is announced`() = runTest {
         val remoteId = nd.putPlaylist("Mix", listOf("a"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         val id = playlists.playlists().first().single().id
         val received = mutableListOf<SyncNotice>()
         val job = launch(UnconfinedTestDispatcher(testScheduler)) { notices.notices.toList(received) }
 
         // Ohne ausstehende Änderung gibt es nichts zu melden.
         nd.putPlaylist("Vom Nachbarn", listOf("b"), remoteId)
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         assertTrue(received.isEmpty())
 
         playlists.addSongs(id, listOf(songId("c")))
         nd.putPlaylist("Noch einmal", listOf("a"), remoteId)
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
 
         assertEquals(listOf<SyncNotice>(SyncNotice.PlaylistReplacedByServer("Noch einmal")), received)
         job.cancel()
@@ -118,7 +118,7 @@ class PlaylistSyncTest {
     @Test
     fun `server change noticed while sending wins as well`() = runTest {
         val remoteId = nd.putPlaylist("Mix", listOf("a"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         val id = playlists.playlists().first().single().id
         playlists.addSongs(id, listOf(songId("b")))
         nd.putPlaylist("Mix", listOf("c", "a"), remoteId)
@@ -133,14 +133,14 @@ class PlaylistSyncTest {
     @Test
     fun `a change whose sending broke off wins over the half written server playlist`() = runTest {
         val remoteId = nd.putPlaylist("Mix", listOf("a", "b"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         val id = playlists.playlists().first().single().id
         playlists.addSongs(id, listOf(songId("c")))
         // Emby: Der erste Versuch hat schon Einträge entfernt und ist dann abgebrochen.
         db.syncDao().getActions().forEach { db.syncDao().incrementAttempts(it.actionId) }
         nd.putPlaylist("Mix", listOf("a"), remoteId)
 
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         assertEquals(listOf("A", "B", "C"), titles(id))
 
         assertTrue(processor().process())
@@ -151,10 +151,10 @@ class PlaylistSyncTest {
     @Test
     fun `playlist deleted on the server disappears`() = runTest {
         val remoteId = nd.putPlaylist("Mix", listOf("a"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
 
         nd.playlists.remove(remoteId)
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
 
         assertTrue(playlists.playlists().first().isEmpty())
     }
@@ -166,7 +166,7 @@ class PlaylistSyncTest {
         assertEquals(listOf("create Neu [a, c]"), nd.calls)
 
         // Der nächste Abgleich erkennt sie wieder und legt sie nicht doppelt an.
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         assertEquals(listOf(id), playlists.playlists().first().map { it.id })
 
         playlists.delete(id)
@@ -195,7 +195,7 @@ class PlaylistSyncTest {
 
     @Test
     fun `songs missing on the server are marked and left out when sending`() = runTest {
-        syncer.sync(FakeLocalSource(listOf(track("1", "Nur lokal", 9))))
+        syncer.syncAdding(db, FakeLocalSource(listOf(track("1", "Nur lokal", 9))))
         val localSongId = db.syncDao().getSongSource("local:1")!!.songId
 
         val id = playlists.create("Neu", "nd", listOf(songId("a"), localSongId))

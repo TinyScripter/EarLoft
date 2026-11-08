@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import de.kleinabersmart.tinyamp.core.data.source.MusicDataSources
 import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
+import de.kleinabersmart.tinyamp.core.database.entity.SourceEntity
 import de.kleinabersmart.tinyamp.core.datasource.MusicDataSource
 import de.kleinabersmart.tinyamp.core.datasource.PlaybackLocation
 import de.kleinabersmart.tinyamp.core.datasource.RawTrack
@@ -151,3 +152,12 @@ internal fun TinyAmpDatabase.librarySyncer(
     syncQueue = SyncQueueStarter(syncDao(), scheduler),
     playlistSyncer = playlistSyncer(notices),
 )
+
+/**
+ * Gleicht [source] ab; einen Server legt es vorher an, wie das Serverformular ([LibrarySyncer] legt nur die lokale
+ * Quelle selbst an, damit ein gerade entfernter Server nicht zurückkommt).
+ */
+internal suspend fun LibrarySyncer.syncAdding(db: TinyAmpDatabase, source: MusicDataSource) {
+    if (source.type.isServer) db.sourceDao().insertIfAbsent(SourceEntity(source.sourceId, source.type, source.displayName))
+    sync(source)
+}

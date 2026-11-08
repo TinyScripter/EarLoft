@@ -165,7 +165,13 @@ class PodcastRefreshWorker(
         // Podcasts, für die der Nutzer keine Hinweise will, fehlen hier.
         val content = NewContent(episodes = summary.newEpisodes.filter { it.notify })
         if (!content.isEmpty) entryPoint.notifier().show(content)
-        return if (summary.ok) Result.success() else Result.retry()
+        // Nur wiederholen, wenn gar nichts ging (Netz weg). Ein einzelner toter Feed lüde sonst alle paar Minuten alle
+        // Abos neu; er kommt mit dem nächsten regulären Lauf wieder dran.
+        return if (summary.allFailed && runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
+    }
+
+    private companion object {
+        const val MAX_RETRIES = 3
     }
 
     @EntryPoint

@@ -38,53 +38,53 @@ class NewSongsCounterTest {
     @Test
     fun `the first import of a source counts nothing`() = runTest {
         val baseline = counter.begin(listOf("nd"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
 
         assertEquals(0, counter.newSongs(baseline))
     }
 
     @Test
     fun `songs added after the first import are counted`() = runTest {
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         nd.tracks = listOf(track("a", "Erstes"), track("b", "Zweites"), track("c", "Drittes"))
 
         val baseline = counter.begin(listOf("nd"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
 
         assertEquals(2, counter.newSongs(baseline))
     }
 
     @Test
     fun `a refresh without changes counts nothing and removed songs are not subtracted`() = runTest {
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         val unchanged = counter.begin(listOf("nd"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         assertEquals(0, counter.newSongs(unchanged))
 
         nd.tracks = emptyList()
         val removed = counter.begin(listOf("nd"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         assertEquals(0, counter.newSongs(removed))
     }
 
     @Test
     fun `retagged files keep their song and are not new`() = runTest {
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         nd.tracks = listOf(track("a", "Erstes (Remaster)", lastModified = 2))
 
         val baseline = counter.begin(listOf("nd"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
 
         assertEquals(0, counter.newSongs(baseline))
     }
 
     @Test
     fun `one source never synced makes the whole refresh a first import`() = runTest {
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         nd.tracks = listOf(track("a", "Erstes"), track("b", "Zweites"))
 
         val baseline = counter.begin(listOf("nd", "other"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
 
         assertEquals(0, counter.newSongs(baseline))
     }

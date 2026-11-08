@@ -41,7 +41,7 @@ class QuickSyncTest {
 
     @Test
     fun `new albums are added without a full scan`() = runTest {
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         nd.newTracks = listOf(track("b", "Zweites"))
 
         assertTrue(syncer.quickSync(nd))
@@ -53,7 +53,7 @@ class QuickSyncTest {
 
     @Test
     fun `quick sync never deletes and keeps the generation`() = runTest {
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         val before = db.sourceDao().get("nd")!!
         nd.tracks = emptyList()
 
@@ -62,7 +62,7 @@ class QuickSyncTest {
         assertEquals(listOf("Erstes"), titles())
         assertEquals(before.syncGeneration, db.sourceDao().get("nd")!!.syncGeneration)
         // Das nächste Vollabgleich räumt wie gewohnt auf.
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         assertEquals(emptyList<String>(), titles())
     }
 
@@ -83,7 +83,7 @@ class QuickSyncTest {
 
     @Test
     fun `favorites changed by another client are picked up`() = runTest {
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
 
         nd.starred = mapOf("a" to 5_000L)
         assertTrue(syncer.quickSync(nd))
@@ -99,7 +99,7 @@ class QuickSyncTest {
     @Test
     fun `unsent local favorite change wins over the server`() = runTest {
         nd.tracks = listOf(track("a", "Erstes", starredAt = 1_000))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         favorites.setFavorite(song().songId, false)
 
         nd.starred = mapOf("a" to 2_000L)
@@ -111,7 +111,7 @@ class QuickSyncTest {
 
     @Test
     fun `server playlists are synced as well`() = runTest {
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         nd.putPlaylist("Mix", listOf("a"))
 
         assertTrue(syncer.quickSync(nd))
@@ -121,7 +121,7 @@ class QuickSyncTest {
 
     @Test
     fun `an unreachable server changes nothing and is not reported as a failure`() = runTest {
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         nd.newTracks = listOf(track("b", "Zweites"))
         nd.failure = java.io.IOException("offline")
 

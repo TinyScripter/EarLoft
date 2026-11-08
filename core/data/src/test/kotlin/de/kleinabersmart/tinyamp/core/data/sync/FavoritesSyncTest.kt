@@ -43,23 +43,23 @@ class FavoritesSyncTest {
 
     @Test
     fun `server star becomes a favorite and unstarring removes it`() = runTest {
-        syncer.sync(source("nd", track("a", starredAt = 1_000)))
+        syncer.syncAdding(db, source("nd", track("a", starredAt = 1_000)))
         assertTrue(song().isFavorite)
 
-        syncer.sync(source("nd", track("a", starredAt = null)))
+        syncer.syncAdding(db, source("nd", track("a", starredAt = null)))
         assertFalse(song().isFavorite)
     }
 
     @Test
     fun `server unstar is applied after a sent local star`() = runTest {
         val nd = source("nd", track("a"))
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
         favorites.setFavorite(song().songId, true)
         assertTrue(db.syncQueueProcessor(nd).process())
         assertEquals(0, db.syncDao().countActions())
 
         // Auf dem Server wieder entsternt: Er liefert denselben Track wie beim ersten Abgleich.
-        syncer.sync(nd)
+        syncer.syncAdding(db, nd)
 
         assertFalse(song().isFavorite)
         assertEquals(0, db.syncDao().countActions())
@@ -67,10 +67,10 @@ class FavoritesSyncTest {
 
     @Test
     fun `unsent local change wins over the server`() = runTest {
-        syncer.sync(source("nd", track("a", starredAt = 1_000)))
+        syncer.syncAdding(db, source("nd", track("a", starredAt = 1_000)))
         favorites.setFavorite(song().songId, false)
 
-        syncer.sync(source("nd", track("a", starredAt = 2_000)))
+        syncer.syncAdding(db, source("nd", track("a", starredAt = 2_000)))
 
         assertFalse(song().isFavorite)
         assertEquals(listOf("false"), db.syncDao().getActions().map { it.payloadJson })
@@ -78,7 +78,7 @@ class FavoritesSyncTest {
 
     @Test
     fun `starring and unstarring before sending sends nothing`() = runTest {
-        syncer.sync(source("nd", track("a")))
+        syncer.syncAdding(db, source("nd", track("a")))
         val songId = song().songId
 
         favorites.setFavorite(songId, true)
@@ -90,8 +90,8 @@ class FavoritesSyncTest {
 
     @Test
     fun `favorite goes to every server of the song`() = runTest {
-        syncer.sync(source("nd", track("a")))
-        syncer.sync(source("office", track("x")))
+        syncer.syncAdding(db, source("nd", track("a")))
+        syncer.syncAdding(db, source("office", track("x")))
 
         favorites.setFavorite(song().songId, true)
 
@@ -102,12 +102,12 @@ class FavoritesSyncTest {
 
     @Test
     fun `local favorite is kept and sent when a server adds the song`() = runTest {
-        syncer.sync(source("local", track("1")))
+        syncer.syncAdding(db, source("local", track("1")))
         favorites.setFavorite(song().songId, true)
         assertEquals(0, db.syncDao().countActions())
         val scheduledBefore = scheduler.calls
 
-        syncer.sync(source("nd", track("a")))
+        syncer.syncAdding(db, source("nd", track("a")))
 
         assertTrue(song().isFavorite)
         assertEquals(listOf("nd:a"), db.syncDao().getActions().map { it.targetKey })
@@ -116,10 +116,10 @@ class FavoritesSyncTest {
 
     @Test
     fun `star on one server is passed on to the others`() = runTest {
-        syncer.sync(source("nd", track("a")))
-        syncer.sync(source("office", track("x")))
+        syncer.syncAdding(db, source("nd", track("a")))
+        syncer.syncAdding(db, source("office", track("x")))
 
-        syncer.sync(source("nd", track("a", starredAt = 5_000)))
+        syncer.syncAdding(db, source("nd", track("a", starredAt = 5_000)))
 
         assertTrue(song().isFavorite)
         assertEquals(listOf("office:x"), db.syncDao().getActions().map { it.targetKey })

@@ -77,8 +77,11 @@ fun AudioPermissionGate(
         onPauseOrDispose { }
     }
 
+    // Nur beim Wechsel: Jede neue Activity (Drehung, Hell/Dunkel, Sprache) liefe sonst einen vollen Scan der Musik.
+    var wasGranted by rememberSaveable { mutableStateOf(granted) }
     LaunchedEffect(granted) {
-        if (granted) onGranted()
+        if (granted && !wasGranted) onGranted()
+        wasGranted = granted
     }
 
     if (granted || !enabled) {

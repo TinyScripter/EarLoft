@@ -33,6 +33,14 @@ class WearDownloadScheduler @Inject constructor(
     }
 
     /**
+     * Bei jedem Prozessstart und Abgleich: Ein wartender Auftrag bleibt – auch einer, der nur noch am Ladegerät läuft.
+     * Angehängt begänne sonst jedes Mal ein neuer mit fünf frischen WLAN-Versuchen.
+     */
+    override suspend fun resume() {
+        enqueue(requireCharging = state.settings.value.requireCharging, policy = ExistingWorkPolicy.KEEP)
+    }
+
+    /**
      * Aus dem laufenden Worker, wenn es wiederholt kein WLAN gab: erst am Ladegerät weiter (dort ist die Uhr meist im WLAN),
      * statt alle paar Minuten das WLAN einzuschalten. Wird angehängt, läuft also nach dem jetzigen Auftrag; eine neue
      * Auswahl ersetzt ihn wieder durch einen normalen.

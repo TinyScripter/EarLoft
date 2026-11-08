@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,8 +47,8 @@ class LibrarySyncTest {
 
     @Test
     fun `same song from two sources appears once with two sources`() = runTest {
-        syncer.sync(FakeSource("local", listOf(track("1", "Hoppípolla", track = 3))))
-        syncer.sync(FakeSource("navidrome", listOf(track("x", "Hoppipolla", track = 3))))
+        syncer.syncAdding(db, FakeSource("local", listOf(track("1", "Hoppípolla", track = 3))))
+        syncer.syncAdding(db, FakeSource("navidrome", listOf(track("x", "Hoppipolla", track = 3))))
 
         val songs = db.libraryDao().observeSongRows().first()
         assertEquals(1, songs.size)
@@ -55,8 +56,21 @@ class LibrarySyncTest {
     }
 
     @Test
+    fun `a server removed while its sync waited does not come back`() = runTest {
+        val server = FakeSource("navidrome", listOf(track("x", "Hoppipolla", track = 3)))
+        syncer.syncAdding(db, server)
+        db.sourceDao().delete("navidrome")
+
+        // Der Abgleich hielt das alte Objekt noch (wartete am Mutex), als der Server entfernt wurde.
+        syncer.sync(server)
+
+        assertEquals(null, db.sourceDao().get("navidrome"))
+        assertTrue(db.libraryDao().observeSongRows().first().isEmpty())
+    }
+
+    @Test
     fun `albums with the same name but different years stay separate`() = runTest {
-        syncer.sync(
+        syncer.syncAdding(db,
             FakeSource(
                 "local",
                 listOf(
@@ -71,8 +85,8 @@ class LibrarySyncTest {
 
     @Test
     fun `missing year merges with the only candidate`() = runTest {
-        syncer.sync(FakeSource("local", listOf(track("1", "Glósóli", track = 2, year = 2005))))
-        syncer.sync(FakeSource("navidrome", listOf(track("x", "Glósóli", track = 2, year = null))))
+        syncer.syncAdding(db, FakeSource("local", listOf(track("1", "Glósóli", track = 2, year = 2005))))
+        syncer.syncAdding(db, FakeSource("navidrome", listOf(track("x", "Glósóli", track = 2, year = null))))
 
         val albums = db.libraryDao().observeAlbumRows().first()
         assertEquals(1, albums.size)
@@ -81,43 +95,43 @@ class LibrarySyncTest {
 
     @Test
     fun `different musicbrainz ids are never merged`() = runTest {
-        syncer.sync(FakeSource("local", listOf(track("1", "Glósóli", mbidAlbum = "release-a"))))
-        syncer.sync(FakeSource("navidrome", listOf(track("x", "Glósóli", mbidAlbum = "release-b"))))
+        syncer.syncAdding(db, FakeSource("local", listOf(track("1", "Glósóli", mbidAlbum = "release-a"))))
+        syncer.syncAdding(db, FakeSource("navidrome", listOf(track("x", "Glósóli", mbidAlbum = "release-b"))))
 
         assertEquals(2, db.libraryDao().observeAlbumRows().first().size)
     }
 
     @Test
     fun `second source fills in a missing song musicbrainz id`() = runTest {
-        syncer.sync(FakeSource("navidrome", listOf(track("x", "Glósóli", track = 2))))
-        syncer.sync(FakeSource("local", listOf(track("1", "Glósóli", track = 2, mbidTrack = "recording-a"))))
+        syncer.syncAdding(db, FakeSource("navidrome", listOf(track("x", "Glósóli", track = 2))))
+        syncer.syncAdding(db, FakeSource("local", listOf(track("1", "Glósóli", track = 2, mbidTrack = "recording-a"))))
 
         assertEquals("recording-a", db.mergeDao().getSong(db.libraryDao().observeSongRows().first().single().songId)!!.mbid)
     }
 
     @Test
     fun `tracks removed from a source disappear after the next full sync`() = runTest {
-        syncer.sync(FakeSource("local", listOf(track("1", "Glósóli", track = 2), track("2", "Hoppípolla", track = 3))))
-        syncer.sync(FakeSource("local", listOf(track("2", "Hoppípolla", track = 3))))
+        syncer.syncAdding(db, FakeSource("local", listOf(track("1", "Glósóli", track = 2), track("2", "Hoppípolla", track = 3))))
+        syncer.syncAdding(db, FakeSource("local", listOf(track("2", "Hoppípolla", track = 3))))
 
         assertEquals(listOf("Hoppípolla"), db.libraryDao().observeSongRows().first().map { it.title })
     }
 
     @Test
     fun `failed scan deletes nothing`() = runTest {
-        syncer.sync(FakeSource("local", listOf(track("1", "Glósóli"))))
+        syncer.syncAdding(db, FakeSource("local", listOf(track("1", "Glósóli"))))
 
-        runCatching { syncer.sync(FakeSource("local", emptyList(), failAfterFirstBatch = true)) }
+        runCatching { syncer.syncAdding(db, FakeSource("local", emptyList(), failAfterFirstBatch = true)) }
 
         assertEquals(1, db.libraryDao().observeSongRows().first().size)
     }
 
     @Test
     fun `retagged file keeps its song id`() = runTest {
-        syncer.sync(FakeSource("local", listOf(track("1", "Glosoli", lastModified = 1))))
+        syncer.syncAdding(db, FakeSource("local", listOf(track("1", "Glosoli", lastModified = 1))))
         val before = db.libraryDao().observeSongRows().first().single()
 
-        syncer.sync(FakeSource("local", listOf(track("1", "Glósóli", lastModified = 2))))
+        syncer.syncAdding(db, FakeSource("local", listOf(track("1", "Glósóli", lastModified = 2))))
 
         val after = db.libraryDao().observeSongRows().first().single()
         assertEquals(before.songId, after.songId)
@@ -126,15 +140,15 @@ class LibrarySyncTest {
 
     @Test
     fun `download is fetched again only when the server file itself changed`() = runTest {
-        syncer.sync(FakeSource("nd", listOf(track("x", "Gong", lastModified = 1, sizeBytes = 100))))
+        syncer.syncAdding(db, FakeSource("nd", listOf(track("x", "Gong", lastModified = 1, sizeBytes = 100))))
         val songId = db.libraryDao().observeSongRows().first().single().songId
         db.downloadDao().insertIfAbsent(listOf(DownloadEntity("nd:x", songId, DownloadState.DONE, filePath = "/dl/x.flac")))
 
         // Nur Metadaten (z. B. Album-Cover) geändert: Download bleibt.
-        syncer.sync(FakeSource("nd", listOf(track("x", "Gong", lastModified = 2, sizeBytes = 100))))
+        syncer.syncAdding(db, FakeSource("nd", listOf(track("x", "Gong", lastModified = 2, sizeBytes = 100))))
         assertEquals(DownloadState.DONE, db.downloadDao().get("nd:x")!!.state)
 
-        syncer.sync(FakeSource("nd", listOf(track("x", "Gong", lastModified = 3, sizeBytes = 120))))
+        syncer.syncAdding(db, FakeSource("nd", listOf(track("x", "Gong", lastModified = 3, sizeBytes = 120))))
         assertEquals(DownloadState.QUEUED, db.downloadDao().get("nd:x")!!.state)
     }
 

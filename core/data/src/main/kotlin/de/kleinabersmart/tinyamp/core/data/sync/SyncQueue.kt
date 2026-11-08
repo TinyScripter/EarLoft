@@ -43,19 +43,28 @@ import javax.inject.Singleton
 
 /** Startet die Abarbeitung der Sync-Queue (Konzept 6.4). */
 interface SyncScheduler {
+    /** Neue Aktion: Ein laufender Durchgang hat sie vielleicht nicht mehr gesehen, deshalb einer danach. */
     suspend fun enqueue()
+
+    /** Ausstehendes nachholen: Ein wartender oder laufender Durchgang genügt. */
+    suspend fun resume() = enqueue()
 }
 
 @Singleton
 internal class WorkManagerSyncScheduler @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) : SyncScheduler {
-    override suspend fun enqueue() {
+    override suspend fun enqueue() = enqueue(ExistingWorkPolicy.APPEND_OR_REPLACE)
+
+    // Nach jedem Abgleich: APPEND hängte sonst jedes Mal einen weiteren Durchgang an einen, der im Backoff wartet.
+    override suspend fun resume() = enqueue(ExistingWorkPolicy.KEEP)
+
+    private fun enqueue(policy: ExistingWorkPolicy) {
         val request = OneTimeWorkRequestBuilder<SyncQueueWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request)
     }
 
     private companion object {
@@ -219,7 +228,7 @@ class SyncQueueStarter @Inject constructor(
     private val scheduler: SyncScheduler,
 ) {
     suspend fun startIfPending() {
-        if (syncDao.countActions() > 0) scheduler.enqueue()
+        if (syncDao.countActions() > 0) scheduler.resume()
     }
 }
 

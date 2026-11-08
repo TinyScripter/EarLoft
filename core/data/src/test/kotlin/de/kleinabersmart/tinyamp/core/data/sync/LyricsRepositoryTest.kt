@@ -32,7 +32,7 @@ class LyricsRepositoryTest {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), TinyAmpDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        db.librarySyncer().sync(nd)
+        db.librarySyncer().syncAdding(db, nd)
         lyrics = LyricsRepository(db.lyricsDao(), db.mergeDao(), FixedSources(nd))
     }
 

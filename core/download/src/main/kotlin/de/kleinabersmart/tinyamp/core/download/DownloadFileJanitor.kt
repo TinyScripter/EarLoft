@@ -32,7 +32,8 @@ internal class DownloadFileJanitor @Inject constructor(
     override suspend fun onSyncFinished() {
         // Ersetzte Dateien mit anderer Endung bleiben sonst liegen.
         onSongSourcesRemoved()
-        if (downloadDao.countPending() > 0) scheduler.enqueue()
+        // Ein laufender Worker holt Neues selbst ab; angehängt liefe nach jedem Abgleich ein weiterer Auftrag.
+        if (downloadDao.countPending() > 0) scheduler.resume()
     }
 
     private companion object {

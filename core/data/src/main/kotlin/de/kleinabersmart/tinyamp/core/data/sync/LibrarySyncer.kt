@@ -102,9 +102,12 @@ class LibrarySyncer @Inject constructor(
     suspend fun sync(source: MusicDataSource) = mutex.withLock {
         runningSyncs.update { it + 1 }
         try {
-            sourceDao.insertIfAbsent(
-                SourceEntity(sourceId = source.sourceId, type = source.type, name = source.displayName),
-            )
+            if (source.type.isServer) {
+                // Während des Wartens auf den Mutex entfernt: nicht als Server ohne Adresse samt Bibliothek zurückholen.
+                if (sourceDao.get(source.sourceId) == null) return@withLock
+            } else {
+                sourceDao.insertIfAbsent(SourceEntity(sourceId = source.sourceId, type = source.type, name = source.displayName))
+            }
             val generation = (sourceDao.get(source.sourceId)?.syncGeneration ?: 0) + 1
             val syncsFavorites = source.type.isServer
 

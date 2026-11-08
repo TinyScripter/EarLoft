@@ -11,6 +11,7 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
@@ -33,7 +34,8 @@ class AutoDownloads @Inject constructor(
     fun start(scope: CoroutineScope) {
         if (!started.compareAndSet(false, true)) return
         scope.launch {
-            combine(settings.autoDownloadFavorites, repository.favoriteSongIds()) { enabled, _ -> enabled }
+            // Room meldet jede Änderung an `songs` (jeder Abgleichsschritt); abgleichen nur, wenn sich die Favoriten ändern.
+            combine(settings.autoDownloadFavorites, repository.favoriteSongIds().distinctUntilChanged()) { enabled, _ -> enabled }
                 .collectLatest { repository.reconcileFavoriteDownloads(it) }
         }
         scope.launch {

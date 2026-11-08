@@ -164,7 +164,13 @@ class BookRefreshWorker(
         val results = servers.map { entryPoint.bookSyncer().syncSafely(it) }
         val fresh = results.sumOf { it.newBooks }
         if (fresh > 0) entryPoint.notifier().show(NewContent(books = fresh))
-        return if (results.all { it.ok }) Result.success() else Result.retry()
+        // Wie bei Podcasts: Ein Server, der hier nicht erreichbar ist (nur im Heimnetz), glich sonst alle paar Minuten
+        // alle Server neu ab; wiederholt wird nur, wenn keiner ging.
+        return if (results.none { it.ok } && runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
+    }
+
+    private companion object {
+        const val MAX_RETRIES = 3
     }
 
     @EntryPoint
