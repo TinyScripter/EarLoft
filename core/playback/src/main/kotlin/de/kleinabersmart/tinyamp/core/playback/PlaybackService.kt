@@ -210,7 +210,12 @@ class PlaybackService : MediaLibraryService() {
 
     /**
      * Herz neben den Wiedergabetasten (Android Auto, Benachrichtigung); zeigt den Favoriten-Zustand des aktuellen Songs.
-     * Bei Büchern und Folgen stattdessen die Spulen-Knöpfe mit den eingestellten Sprungweiten.
+     * Bei Büchern und Folgen stattdessen die Spulen-Knöpfe an Stelle von ⏮/⏭; der Pfeil ohne Zahl, weil die
+     * Sprungweite einstellbar ist und Media3 nicht für jede ein Symbol hat.
+     *
+     * Über `setMediaButtonPreferences`, nicht `setCustomLayout`: Nur dann macht Media3 aus Knöpfen mit Player-Befehl
+     * (Spulen) Custom Actions der Plattform-Session. Sonst fehlen sie in der Mediensteuerung des Systems und in Android
+     * Auto, die nur diese Session sehen.
      */
     private fun bindFavoriteButton(player: SpokenAwarePlayer, session: MediaLibrarySession) {
         var favoriteJob: Job? = null
@@ -219,13 +224,13 @@ class PlaybackService : MediaLibraryService() {
             val songId = player.currentMediaItem?.songId
             val steps = player.currentSteps
             if (steps != null) {
-                session.setCustomLayout(
+                session.setMediaButtonPreferences(
                     listOf(
-                        CommandButton.Builder(seekBackIcon(steps.backSeconds))
+                        CommandButton.Builder(CommandButton.ICON_SKIP_BACK)
                             .setDisplayName(resources.getQuantityString(R.plurals.spoken_seek_back, steps.backSeconds, steps.backSeconds))
                             .setPlayerCommand(Player.COMMAND_SEEK_BACK)
                             .build(),
-                        CommandButton.Builder(seekForwardIcon(steps.forwardSeconds))
+                        CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD)
                             .setDisplayName(resources.getQuantityString(R.plurals.spoken_seek_forward, steps.forwardSeconds, steps.forwardSeconds))
                             .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
                             .build(),
@@ -234,7 +239,7 @@ class PlaybackService : MediaLibraryService() {
                 return
             }
             if (songId == null) {
-                session.setCustomLayout(emptyList())
+                session.setMediaButtonPreferences(emptyList())
                 return
             }
             favoriteJob = mainScope.launch {
@@ -243,7 +248,7 @@ class PlaybackService : MediaLibraryService() {
                         .setDisplayName(getString(if (favorite) R.string.favorite_remove else R.string.favorite_add))
                         .setSessionCommand(SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
                         .build()
-                    session.setCustomLayout(listOf(button))
+                    session.setMediaButtonPreferences(listOf(button))
                 }
             }
         }
@@ -457,23 +462,6 @@ class PlaybackService : MediaLibraryService() {
             }
         }
     }
-}
-
-/** Media3 hat Symbole mit Zahl nur für 5, 10, 15 und 30 s; sonst der Pfeil ohne Zahl. */
-private fun seekBackIcon(seconds: Int): Int = when (seconds) {
-    5 -> CommandButton.ICON_SKIP_BACK_5
-    10 -> CommandButton.ICON_SKIP_BACK_10
-    15 -> CommandButton.ICON_SKIP_BACK_15
-    30 -> CommandButton.ICON_SKIP_BACK_30
-    else -> CommandButton.ICON_SKIP_BACK
-}
-
-private fun seekForwardIcon(seconds: Int): Int = when (seconds) {
-    5 -> CommandButton.ICON_SKIP_FORWARD_5
-    10 -> CommandButton.ICON_SKIP_FORWARD_10
-    15 -> CommandButton.ICON_SKIP_FORWARD_15
-    30 -> CommandButton.ICON_SKIP_FORWARD_30
-    else -> CommandButton.ICON_SKIP_FORWARD
 }
 
 private fun audioAttributes(contentType: @C.AudioContentType Int): AudioAttributes =
