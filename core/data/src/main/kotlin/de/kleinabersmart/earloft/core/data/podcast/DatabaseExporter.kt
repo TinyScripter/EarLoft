@@ -8,6 +8,8 @@ import de.kleinabersmart.earloft.core.database.dao.StatsDao
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsBridgeUrl
+import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsShowId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -22,7 +24,9 @@ data class DatabaseExportResult(val feeds: Int, val episodes: Int)
  * Schreibt Abos, Hörfortschritt und gehörte Zeit in eine SQLite-Datei mit genau den Tabellen, die [DatabaseReader] liest
  * (`Feeds`, `FeedItems`, `FeedMedia`; dazu leere Hilfstabellen im selben Format). Der Export ist das Gegenstück zum Import.
  *
- * - Podcasts vom Gerät fehlen (kein Feed).
+ * - Podcasts vom Gerät fehlen (kein Feed). Archivierte Abos gehen als archiviert mit, samt Folgen und Fortschritt.
+ * - Sendungen aus ARD Sounds stehen wie im OPML-Export als Feed der RSS-Bridge darin, damit auch andere Apps sie abonnieren
+ *   können; der Import macht daraus wieder `ardsounds:<Kennung>`. Ohne Bridge gehen sie als archiviert mit.
  * - Gehörte Zeit, deren Folge oder Podcast es in der App nicht mehr gibt, steht unter der Feed-Adresse der Statistik
  *   (ein Podcast ohne Abo als archiviert), damit sie nicht verloren geht. Ihr „gehört“-Stand ist nicht bekannt.
  */
@@ -32,9 +36,9 @@ class DatabaseExporter @Inject constructor(
     private val bookDao: BookDao,
     private val statsDao: StatsDao,
 ) {
-    /** Schreibt nach [file] (eine vorhandene Datei wird ersetzt). */
-    suspend fun export(file: File): DatabaseExportResult {
-        val feeds = buildFeeds()
+    /** Schreibt nach [file] (eine vorhandene Datei wird ersetzt); [rssBridge]: Instanz für Sendungen aus ARD Sounds, `null` = keine. */
+    suspend fun export(file: File, rssBridge: String?): DatabaseExportResult {
+        val feeds = buildFeeds(rssBridge)
         withContext(Dispatchers.IO) {
             file.delete()
             SQLiteDatabase.openOrCreateDatabase(file, null).use { db ->
@@ -79,14 +83,18 @@ class DatabaseExporter @Inject constructor(
         val lastPlayedAt: Long,
     )
 
-    private suspend fun buildFeeds(): List<OutFeed> {
+    private suspend fun buildFeeds(rssBridge: String?): List<OutFeed> {
         val progress = bookDao.observeAllProgress().first().associateBy { it.bookId }
         val stats = statsDao.all().filter { it.kind == BookKind.EPISODE }.groupBy { it.groupKey to it.itemKey }.toMutableMap()
 
         val result = LinkedHashMap<String, OutFeed>()
-        for (feed in podcastDao.feeds().filter { !it.feedId.startsWith(LOCAL_FEED_PREFIX) }.sortedBy { it.title.lowercase() }) {
-            // Sendungen aus ARD Sounds kann keine andere App abonnieren: Sie gehen als archiviert mit, samt Folgen und Fortschritt.
-            val out = OutFeed(feed.url, feed.title, feed.author, feed.description, feed.imageUrl, feed.autoDownload, active = feed.hasRssFeed)
+        for (feed in podcastDao.keptFeeds().filter { !it.feedId.startsWith(LOCAL_FEED_PREFIX) }.sortedBy { it.title.lowercase() }) {
+            // `ardsounds:` kann keine andere App abonnieren: als Feed der Bridge, ohne Bridge archiviert (samt Folgen und Fortschritt).
+            val bridgeUrl = ardSoundsShowId(feed.url)?.let { show -> rssBridge?.let { ardSoundsBridgeUrl(it, show) } }
+            val out = OutFeed(
+                bridgeUrl ?: feed.url, feed.title, feed.author, feed.description, feed.imageUrl, feed.autoDownload,
+                active = !feed.archived && (feed.hasRssFeed || bridgeUrl != null),
+            )
             result[feed.url] = out
             for (book in bookDao.booksOf(feed.feedId).filter { it.kind == BookKind.EPISODE }.sortedBy { it.addedAt }) {
                 val p = progress[book.bookId]

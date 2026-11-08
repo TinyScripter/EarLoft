@@ -72,13 +72,16 @@ class DatabaseExporterTest {
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "local:x", url = "local:x", title = "Gerät"))
         val file = folder.newFile("export.db")
 
-        val result = exporter.export(file)
+        val result = exporter.export(file, rssBridge = null)
 
-        assertEquals(DatabaseExportResult(feeds = 2, episodes = 4), result)
+        // Das archivierte Abo (der Test-Feed liefert dieselben zwei Folgen) mit seiner Hörzeit ohne Folge in der App.
+        assertEquals(DatabaseExportResult(feeds = 2, episodes = 6), result)
         val read = DatabaseReader.read(file)
-        assertEquals(listOf(ImportFeed(FEED_URL, "Test-Podcast", true), ImportFeed(OLD_URL, "Altes Abo", false)), read.feeds.sortedBy { !it.active })
-        val byGuid = read.episodes.associateBy { it.guid }
-        assertEquals(setOf("guid-A", "guid-B", "guid-weg", "old-1"), byGuid.keys)
+        assertEquals(listOf(ImportFeed(FEED_URL, "Test-Podcast", true), ImportFeed(OLD_URL, "Test-Podcast", false)), read.feeds.sortedBy { !it.active })
+        // Gelesen wird nur, was Fortschritt oder Hörzeit hat.
+        assertEquals(listOf("old-1"), read.episodes.filter { it.feedUrl == OLD_URL }.map { it.guid })
+        val byGuid = read.episodes.filter { it.feedUrl != OLD_URL }.associateBy { it.guid }
+        assertEquals(setOf("guid-A", "guid-B", "guid-weg"), byGuid.keys)
         with(byGuid.getValue("guid-A")) {
             assertEquals(true, played)
             assertEquals(500_000, listenedMs)
@@ -90,15 +93,44 @@ class DatabaseExporterTest {
             assertEquals(130_000, listenedMs)
         }
         assertEquals(60_000, byGuid.getValue("guid-weg").listenedMs)
-        assertEquals(OLD_URL, byGuid.getValue("old-1").feedUrl)
+    }
+
+    @Test
+    fun `shows from ARD Sounds go out as feeds of the RSS bridge and come back as subscriptions`() = runTest {
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard", url = ARD_URL, title = "Kalk & Welk"))
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard-alt", url = ARD_ARCHIVED_URL, title = "Satire Deluxe", archived = true))
+        val file = folder.newFile("export.db")
+
+        exporter.export(file, rssBridge = "https://bridge.example.com/")
+
+        val read = DatabaseReader.read(file).feeds.filter { "bridge.example.com" in it.url }
+        assertEquals(listOf(true, false), read.sortedBy { !it.active }.map { it.active })
+        // In einer frischen App: aus den Bridge-Feeds werden wieder Sendungen aus ARD Sounds, das archivierte bleibt archiviert.
+        db.clearAllTables()
+        importer.import(DatabaseReader.read(file))
+        assertEquals(false, db.podcastDao().feedByUrl(ARD_URL)!!.archived)
+        assertEquals(true, db.podcastDao().feedByUrl(ARD_ARCHIVED_URL)!!.archived)
+    }
+
+    @Test
+    fun `without a bridge shows from ARD Sounds go out archived and still come back as subscriptions`() = runTest {
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard", url = ARD_URL, title = "Kalk & Welk"))
+        val file = folder.newFile("export.db")
+
+        exporter.export(file, rssBridge = null)
+
+        assertEquals(ImportFeed(ARD_URL, "Kalk & Welk", active = false), DatabaseReader.read(file).feeds.single { it.url == ARD_URL })
+        db.clearAllTables()
+        importer.import(DatabaseReader.read(file))
+        assertEquals(false, db.podcastDao().feedByUrl(ARD_URL)!!.archived)
     }
 
     @Test
     fun `exporting twice replaces the file`() = runTest {
         val file = folder.newFile("export.db")
 
-        exporter.export(file)
-        val again = exporter.export(file)
+        exporter.export(file, rssBridge = null)
+        val again = exporter.export(file, rssBridge = null)
 
         assertEquals(DatabaseExportResult(feeds = 1, episodes = 2), again)
         assertEquals(1, DatabaseReader.read(file).feeds.size)
@@ -107,6 +139,8 @@ class DatabaseExporterTest {
     private companion object {
         const val FEED_URL = "https://example.com/feed.xml"
         const val OLD_URL = "https://old.example.com/feed.xml"
+        const val ARD_URL = "ardsounds:urn:ard:show:8e6d4d6fa453e7f7"
+        const val ARD_ARCHIVED_URL = "ardsounds:urn:ard:show:b4ca0b835f537610"
         val FEED = """<rss version="2.0"><channel><title>Test-Podcast</title>
             <item><title>A</title><guid>guid-A</guid><enclosure url="https://example.com/A.mp3" type="audio/mpeg"/></item>
             <item><title>B</title><guid>guid-B</guid><enclosure url="https://example.com/B.mp3" type="audio/mpeg"/></item>

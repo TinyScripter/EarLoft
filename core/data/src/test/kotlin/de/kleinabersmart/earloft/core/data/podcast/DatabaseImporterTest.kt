@@ -16,7 +16,6 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -70,7 +69,7 @@ class DatabaseImporterTest {
     fun `progress is applied to known episodes and listening time is kept for all`() = runTest {
         val result = importer.import(backup)
 
-        assertEquals(DatabaseImportResult(feedsAdded = 0, progressApplied = 2, progressKept = 0, progressMissing = 2, statsImported = 4), result)
+        assertEquals(DatabaseImportResult(feedsAdded = 1, progressApplied = 2, progressKept = 0, progressMissing = 2, statsImported = 4), result)
         val a = db.bookDao().progress(bookId("guid-A"))!!
         assertEquals(true, a.finished)
         assertEquals(600_000, a.positionMs)
@@ -82,8 +81,8 @@ class DatabaseImporterTest {
         assertEquals(1_690_000, stats.sumOf { it.listenedMs })
         assertEquals(setOf(ListeningStatEntity.SOURCE_IMPORTED), stats.map { it.source }.toSet())
         assertEquals("Altes Abo", stats.single { it.itemKey == "old-1" }.groupTitle)
-        // Das archivierte Abo wird nicht abonniert.
-        assertNull(db.podcastDao().feedByUrl(OLD_URL))
+        // Das archivierte Abo kommt als archiviertes Abo.
+        assertEquals(true, db.podcastDao().feedByUrl(OLD_URL)!!.archived)
     }
 
     @Test
@@ -99,6 +98,35 @@ class DatabaseImporterTest {
         assertEquals(4, second.statsImported)
         assertEquals(4, db.statsDao().all().size)
         assertNotNull(db.bookDao().progress(bookId("guid-B")))
+    }
+
+    @Test
+    fun `subscriptions from ARD Sounds are imported, also as feeds of the RSS bridge`() = runTest {
+        fun bridge(show: String) = "https://rss-bridge.org/bridge01/?action=display&bridge=ARDAudiothekBridge" +
+            "&path=https%3A%2F%2Fwww.ardsounds.de%2Fsendung%2Fx%2Furn%3Aard%3Ashow%3A$show%2F&format=Atom"
+        val ard = ImportData(
+            feeds = listOf(
+                // So schrieben ältere Exporte (und der Export ohne RSS-Bridge) ein Abo: archiviert, damit andere Apps es nicht abonnieren.
+                ImportFeed("ardsounds:urn:ard:show:8e6d4d6fa453e7f7", "Kalk & Welk", active = false),
+                ImportFeed(bridge("7ae4f72cbe4a75e2"), "Hateland", active = true),
+                ImportFeed(bridge("b4ca0b835f537610"), "Satire Deluxe", active = false),
+            ),
+            episodes = emptyList(),
+        )
+
+        val result = importer.import(ard)
+
+        assertEquals(3, result.feedsAdded)
+        assertEquals(false, db.podcastDao().feedByUrl("ardsounds:urn:ard:show:8e6d4d6fa453e7f7")!!.archived)
+        assertEquals(false, db.podcastDao().feedByUrl("ardsounds:urn:ard:show:7ae4f72cbe4a75e2")!!.archived)
+        assertEquals(true, db.podcastDao().feedByUrl("ardsounds:urn:ard:show:b4ca0b835f537610")!!.archived)
+    }
+
+    @Test
+    fun `an archived entry does not archive a subscription of the app`() = runTest {
+        importer.import(ImportData(feeds = listOf(ImportFeed(FEED_URL, "Test", active = false)), episodes = emptyList()))
+
+        assertEquals(false, db.podcastDao().feedByUrl(FEED_URL)!!.archived)
     }
 
     private companion object {

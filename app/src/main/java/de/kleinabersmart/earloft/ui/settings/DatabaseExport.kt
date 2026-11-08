@@ -10,10 +10,12 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.podcast.DatabaseExportResult
 import de.kleinabersmart.earloft.core.data.podcast.DatabaseExporter
+import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -28,6 +30,7 @@ import javax.inject.Singleton
 class DatabaseExport @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val exporter: DatabaseExporter,
+    private val podcastSettings: PodcastSettings,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) {
     /** @return was geschrieben wurde; `null`, wenn der Export scheiterte. */
@@ -35,7 +38,7 @@ class DatabaseExport @Inject constructor(
         applicationScope.async {
             val file = withContext(Dispatchers.IO) { File.createTempFile("export", ".db", context.cacheDir) }
             try {
-                exporter.export(file).also {
+                exporter.export(file, podcastSettings.rssBridge.first().ifBlank { null }).also {
                     withContext(Dispatchers.IO) {
                         context.contentResolver.openOutputStream(uri, "wt")?.use { out -> file.inputStream().use { it.copyTo(out) } }
                             ?: throw IOException("Datei nicht beschreibbar")

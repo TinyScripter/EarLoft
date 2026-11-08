@@ -8,12 +8,14 @@ import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.network.podcast.OpmlFeed
+import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsShowId
+import de.kleinabersmart.earloft.core.network.podcast.ardsounds.parseArdSoundsInput
 import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Was ein Backup-Import getan hat: neu abonnierte Podcasts, übernommene Fortschritte, Fortschritte, die in der App neuer
+ * Was ein Backup-Import getan hat: neu angelegte Podcasts (auch archivierte), übernommene Fortschritte, Fortschritte, die in der App neuer
  * waren ([progressKept]) oder deren Folge nicht (mehr) im Feed steht ([progressMissing]), und die Zahl der Statistik-Einträge.
  */
 data class DatabaseImportResult(
@@ -27,7 +29,9 @@ data class DatabaseImportResult(
 /**
  * Übernimmt aus einer Datenbank-Datei die Abos, den Hörfortschritt und die gehörte Zeit.
  *
- * - Aktive Abos, die es noch nicht gibt, werden angelegt und abgeglichen; archivierte nie.
+ * - Abos, die es noch nicht gibt, werden angelegt und abgeglichen; archivierte als archivierte Abos (ein Abo der App bleibt,
+ *   wie es ist). Steht eine Sendung aus ARD Sounds als `ardsounds:` darin, ist sie ein Abo: So schreibt der Export sie ohne
+ *   RSS-Bridge (und ältere Exporte immer) als archiviert, weil andere Apps sie nicht abonnieren können.
  * - Fortschritt wird über Feed-Adresse und guid zugeordnet und nur übernommen, wenn er neuer ist als der in der App.
  * - Die gehörte Zeit wandert für **alle** Folgen (auch archivierter Abos und nicht mehr im Feed stehender Folgen) in die
  *   Statistik ([ListeningStatEntity]); ein erneuter Import ersetzt seine eigenen Zeilen.
@@ -41,14 +45,19 @@ class DatabaseImporter @Inject constructor(
 ) {
     suspend fun import(backup: ImportData): DatabaseImportResult {
         val known = podcastDao.feeds().mapTo(HashSet()) { it.url }
-        val active = backup.feeds.filter { it.active }.mapNotNull { f -> key(f.url)?.let { url -> OpmlFeed(f.title.ifBlank { url }, url) } }
-        repository.importOpml(active, replace = false)
-        val feeds = podcastDao.feeds()
-        val added = feeds.filter { it.url !in known }
+        // Steht eine Adresse aktiv und archiviert in der Datei, gilt sie als aktiv.
+        val wanted = backup.feeds
+            .mapNotNull { f -> key(f.url)?.let { url -> WantedFeed(url, f.title.ifBlank { url }, f.active || ardSoundsShowId(f.url) != null) } }
+            .groupBy { it.url }
+            .map { (_, same) -> same.firstOrNull { it.active } ?: same.first() }
+        repository.importOpml(wanted.map { OpmlFeed(it.title, it.url) }, replace = false)
+        val added = wanted.filter { it.url !in known }.mapNotNull { wish ->
+            podcastDao.feedByUrl(wish.url)?.also { if (!wish.active) podcastDao.setArchived(it.feedId, true) }
+        }
         // Ohne Folgen gibt es nichts, dem sich ein Fortschritt zuordnen ließe.
         added.forEach { repository.refresh(it.feedId) }
 
-        val feedByUrl = feeds.associateBy { it.url }
+        val feedByUrl = (podcastDao.feeds() + added).associateBy { it.url }
         val titles = backup.feeds.associate { (key(it.url) ?: it.url) to it.title }
         val booksByFeed = HashMap<String, Map<String, BookEntity>>()
         var applied = 0
@@ -109,5 +118,8 @@ class DatabaseImporter @Inject constructor(
         return true
     }
 
-    private fun key(url: String): String? = normalizeFeedUrl(url)?.toString()
+    private data class WantedFeed(val url: String, val title: String, val active: Boolean)
+
+    /** Abo-Adresse wie in der App: Sendungen aus ARD Sounds (auch über die RSS-Bridge) als `ardsounds:<Kennung>`, sonst der Feed. */
+    private fun key(url: String): String? = parseArdSoundsInput(url) ?: normalizeFeedUrl(url)?.toString()
 }
