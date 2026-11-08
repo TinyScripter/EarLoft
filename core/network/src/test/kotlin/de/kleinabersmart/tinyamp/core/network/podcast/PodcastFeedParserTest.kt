@@ -75,6 +75,29 @@ class PodcastFeedParserTest {
     }
 
     @Test
+    fun `own entity declarations are refused, a plain doctype is fine`() {
+        val laughs = """
+            <?xml version="1.0"?>
+            <!DOCTYPE rss [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">]>
+            <rss><channel><title>&lol2;</title></channel></rss>
+        """
+        try {
+            parse(laughs)
+            org.junit.Assert.fail("PodcastFeedException erwartet")
+        } catch (_: PodcastFeedException) {
+        }
+
+        val old = parse(
+            """
+            <?xml version="1.0"?>
+            <!DOCTYPE rss PUBLIC "-//Netscape Communications//DTD RSS 0.91//EN" "http://my.netscape.com/publish/formats/rss-0.91.dtd">
+            <rss version="0.91"><channel><title>Alt</title></channel></rss>
+            """,
+        )
+        assertEquals("Alt", old.title)
+    }
+
+    @Test
     fun `rss image falls back to the plain image element`() {
         val feed = parse(
             """

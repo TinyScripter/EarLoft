@@ -303,7 +303,10 @@ class DownloadRepositoryTest {
         val file = storage.fileFor("home:e", "audio/flac").apply {
             parentFile!!.mkdirs()
             writeBytes(ByteArray(10))
+            // Eine eben fertige Datei bliebe (ihr Pfad steht vielleicht noch nicht in der Datenbank).
+            setLastModified(System.currentTimeMillis() - 2 * DownloadStorage.FRESH_FILE_MS)
         }
+        val fresh = storage.fileFor("home:f", "audio/flac").apply { writeBytes(ByteArray(10)) }
         library.db.downloadDao().insertIfAbsent(
             listOf(DownloadEntity("home:e", songId, DownloadState.DONE, filePath = file.absolutePath)),
         )
@@ -313,5 +316,6 @@ class DownloadRepositoryTest {
 
         assertTrue(library.db.downloadDao().getAll().isEmpty())
         assertFalse(file.exists())
+        assertTrue(fresh.exists())
     }
 }

@@ -22,7 +22,7 @@ object Opml {
         val feeds = mutableListOf<OpmlFeed>()
         try {
             val parser = XmlPullParserFactory.newInstance().newPullParser()
-            parser.setInput(input, null)
+            parser.setInput(input.rejectingEntityDeclarations() ?: throw OpmlException("OPML mit eigenen XML-Entities"), null)
             var sawOpml = false
             var event = parser.eventType
             while (event != XmlPullParser.END_DOCUMENT) {

@@ -45,20 +45,22 @@ class DownloadStorage internal constructor(val directory: File) {
 
     /**
      * Löscht Dateien, zu denen es keinen Eintrag in `downloads` mehr gibt, und angefangene Übertragungen vom Handy zu
-     * Einträgen, die inzwischen fertig sind. @return Anzahl.
+     * Einträgen, die inzwischen fertig sind. Frische Dateien bleiben: Der Aufräumer läuft nach jedem Abgleich neben dem
+     * Download-Worker, und eine eben umbenannte Datei hat ihren Pfad in [downloads] vielleicht noch nicht. @return Anzahl.
      */
-    fun deleteOrphans(downloads: List<DownloadEntity>): Int {
+    fun deleteOrphans(downloads: List<DownloadEntity>, nowMs: Long = System.currentTimeMillis()): Int {
         val keep = downloads.flatMapTo(HashSet()) { download ->
             val uid = download.sourceUid
             val phoneParts = if (download.filePath == null) listOf(phonePartFileFor(uid).name, phoneLengthFileFor(uid).name) else emptyList()
             listOfNotNull(download.filePath?.let { File(it).name }, partFileFor(uid).name) + phoneParts
         }
         return directory.listFiles().orEmpty()
-            .filter { it.isFile && it.name !in keep }
+            .filter { it.isFile && it.name !in keep && nowMs - it.lastModified() > FRESH_FILE_MS }
             .count { it.delete() }
     }
 
     internal companion object {
+        const val FRESH_FILE_MS = 60_000L
         const val PART_SUFFIX = ".part"
         const val PHONE_PART_SUFFIX = ".phone.part"
         const val PHONE_LENGTH_SUFFIX = ".phone.part.len"

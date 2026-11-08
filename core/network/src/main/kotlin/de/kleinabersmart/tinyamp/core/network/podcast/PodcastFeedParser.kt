@@ -192,7 +192,7 @@ object PodcastFeedParser {
 
     private fun readTree(input: InputStream): Node? {
         val parser = XmlPullParserFactory.newInstance().apply { isNamespaceAware = true }.newPullParser()
-        parser.setInput(input, null)
+        parser.setInput(input.rejectingEntityDeclarations() ?: throw PodcastFeedException("Feed mit eigenen XML-Entities"), null)
         val stack = ArrayDeque<Node>()
         var root: Node? = null
         while (true) {
