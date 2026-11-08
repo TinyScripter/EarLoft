@@ -50,6 +50,7 @@ import de.kleinabersmart.tinyamp.ui.theme.ThemeSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -408,10 +409,13 @@ class SettingsViewModel @Inject constructor(
     /** Ergebnis des letzten OPML-Im- oder -Exports, einmalig anzuzeigen. */
     val transferMessages: Flow<TransferMessage> = _transferMessages.receiveAsFlow()
 
-    /** Liest die Abos aus [uri] und übernimmt sie ([replace]: alle anderen Abos entfallen); danach werden die Feeds abgeglichen. */
+    /**
+     * Liest die Abos aus [uri] und übernimmt sie ([replace]: alle anderen Abos entfallen); danach werden die Feeds abgeglichen.
+     * Im- und Exporte laufen im App-Scope: Verlässt der Nutzer die Seite, bräche er sonst mitten im Löschen bzw. Schreiben ab.
+     */
     fun importOpml(uri: Uri, replace: Boolean) {
         viewModelScope.launch {
-            val result = opmlImporter.import(uri, replace)
+            val result = applicationScope.async { opmlImporter.import(uri, replace) }.await()
             _transferMessages.send(if (result != null) TransferMessage.Imported(result) else TransferMessage.ImportFailed)
         }
     }
@@ -426,22 +430,29 @@ class SettingsViewModel @Inject constructor(
         if (backupRunning) return
         backupRunning = true
         viewModelScope.launch {
-            val file = File(context.cacheDir, "import.db")
             try {
                 _transferMessages.send(TransferMessage.DatabaseImportStarted)
-                val backup = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } }
-                        ?: throw IOException("Datei nicht lesbar")
-                    DatabaseReader.read(file)
-                }
-                _transferMessages.send(TransferMessage.DatabaseImported(databaseImporter.import(backup)))
+                // Die Datei gehört dem Auftrag im App-Scope; er räumt sie selbst weg, auch wenn die Seite vorher geht.
+                val imported = applicationScope.async {
+                    val file = File(context.cacheDir, "import.db")
+                    try {
+                        val backup = withContext(Dispatchers.IO) {
+                            context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } }
+                                ?: throw IOException("Datei nicht lesbar")
+                            DatabaseReader.read(file)
+                        }
+                        databaseImporter.import(backup)
+                    } finally {
+                        file.delete()
+                    }
+                }.await()
+                _transferMessages.send(TransferMessage.DatabaseImported(imported))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
                 Log.w(TAG, "Backup-Import fehlgeschlagen", e)
                 _transferMessages.send(TransferMessage.DatabaseImportFailed)
             } finally {
-                file.delete()
                 backupRunning = false
             }
         }
@@ -466,13 +477,20 @@ class SettingsViewModel @Inject constructor(
     /** Schreibt Abos, Hörfortschritt und gehörte Zeit als Datenbank-Datei nach [uri]. */
     fun exportDatabase(uri: Uri) {
         viewModelScope.launch {
-            val file = File(context.cacheDir, "export.db")
             val message = try {
-                val result = databaseExporter.export(file)
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri, "wt")?.use { out -> file.inputStream().use { it.copyTo(out) } }
-                        ?: throw IOException("Datei nicht beschreibbar")
-                }
+                val result = applicationScope.async {
+                    val file = File(context.cacheDir, "export.db")
+                    try {
+                        databaseExporter.export(file).also {
+                            withContext(Dispatchers.IO) {
+                                context.contentResolver.openOutputStream(uri, "wt")?.use { out -> file.inputStream().use { it.copyTo(out) } }
+                                    ?: throw IOException("Datei nicht beschreibbar")
+                            }
+                        }
+                    } finally {
+                        file.delete()
+                    }
+                }.await()
                 TransferMessage.DatabaseExported(result)
             } catch (e: CancellationException) {
                 throw e
@@ -482,8 +500,6 @@ class SettingsViewModel @Inject constructor(
             } catch (e: SQLiteException) {
                 Log.w(TAG, "Datenbank-Export fehlgeschlagen", e)
                 TransferMessage.DatabaseExportFailed
-            } finally {
-                file.delete()
             }
             _transferMessages.send(message)
         }
