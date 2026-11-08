@@ -48,6 +48,8 @@ data class JfItem(
     @SerialName("Type") val type: String? = null,
     @SerialName("CollectionType") val collectionType: String? = null,
     @SerialName("MediaType") val mediaType: String? = null,
+    /** Nur mit `fields=Etag`; bei Playlists ändert Jellyfin ihn mit Name und Einträgen (12.4 gemessen). */
+    @SerialName("Etag") val etag: String? = null,
     @SerialName("Album") val album: String? = null,
     @SerialName("AlbumId") val albumId: String? = null,
     @SerialName("AlbumArtist") val albumArtist: String? = null,

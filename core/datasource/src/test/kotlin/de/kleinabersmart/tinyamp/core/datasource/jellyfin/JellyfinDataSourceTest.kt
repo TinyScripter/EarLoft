@@ -35,13 +35,23 @@ class JellyfinDataSourceTest {
     /** Antworten je Pfad; Songs-Seiten über [songPage]. */
     private var songPage: (startIndex: Int) -> String = { "" }
 
+    /** Etag der Playlists p1 (eigene) und p2 (fremde öffentliche) in der Liste. */
+    private var playlistEtag = "e1"
+    private val requests = mutableListOf<String>()
+
     @Before
     fun setUp() {
         mockServer = MockWebServer().apply {
             dispatcher = object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest): MockResponse {
                     val url = request.url
+                    synchronized(requests) { requests += url.encodedPath.substringAfter("/jf/") }
                     val body = when {
+                        url.encodedPath.endsWith("/Items") && url.queryParameter("includeItemTypes") == "Playlist" ->
+                            """{"Items":[{"Id":"p1","Name":"Sommer","MediaType":"Audio","Etag":"$playlistEtag"},""" +
+                                """{"Id":"p2","Name":"Fremd","MediaType":"Audio","Etag":"x"}],"TotalRecordCount":2}"""
+                        url.encodedPath.endsWith("/Playlists/p1/Users/u1") -> """{"CanEdit":true}"""
+                        url.encodedPath.endsWith("/Playlists/p2/Users/u1") -> return MockResponse.Builder().code(403).build()
                         url.encodedPath.endsWith("/UserViews") ->
                             """{"Items":[{"Id":"lib","Name":"Musik","CollectionType":"music"}],"TotalRecordCount":1}"""
                         url.encodedPath.endsWith("/Items") && url.queryParameter("includeItemTypes") == "Audio" ->
@@ -114,6 +124,21 @@ class JellyfinDataSourceTest {
         val before = testScheduler.currentTime
         source.replacePlaylist(current, "Sommer 3", listOf("a"))
         assertEquals(before, testScheduler.currentTime)
+    }
+
+    @Test
+    fun `playlists ask for rights once and for entries only when the etag changed`() = runTest {
+        val first = source.playlists()
+        val second = source.playlists()
+        playlistEtag = "e2"
+        source.playlists()
+
+        assertEquals(listOf("p1"), first.map { it.remoteId })
+        assertEquals(first, second)
+        val calls = synchronized(requests) { requests.toList() }
+        assertEquals(1, calls.count { it == "Playlists/p1/Users/u1" })
+        assertEquals(1, calls.count { it == "Playlists/p2/Users/u1" })
+        assertEquals(2, calls.count { it == "Playlists/p1" })
     }
 
     @Test

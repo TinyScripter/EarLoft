@@ -49,6 +49,12 @@ class JellyfinDataSource internal constructor(
     override val sourceId: String get() = server.sourceId
     override val type: SourceType = server.flavor.sourceType
 
+    /** Playlist → darf dieses Konto sie bearbeiten, und wann gefragt (`nanoTime`). */
+    private val editable = ConcurrentHashMap<String, Pair<Boolean, Long>>()
+
+    /** Jellyfin: Playlist → `Etag` und Einträge dazu. */
+    private val playlistItems = ConcurrentHashMap<String, Pair<String, List<String>>>()
+
     /**
      * Bibliothek für Bibliothek in Seiten bis zur gemeldeten Gesamtzahl; Fehler brechen den Scan ab, damit der Abgleich
      * nichts löscht. Kürzt ein Proxy die Seiten, geht es mit der nächsten weiter; bleibt eine Seite vor dem Ende leer,
@@ -149,11 +155,28 @@ class JellyfinDataSource internal constructor(
     override suspend fun reportPlayback(remoteId: String, durationMs: Long) = api.reportPlayback(server, remoteId, durationMs)
 
     /** Nur Musik-Playlists, die das Konto ändern darf; je Playlist zwei Anfragen (Rechte, Einträge für den Hash). */
+    /**
+     * Bei jedem Abgleich (auch dem schnellen nach dem Start) zwei Anfragen je sichtbarer Playlist, auch je fremder
+     * öffentlicher: deshalb das Bearbeitungsrecht [EDIT_CHECK_MS] lang gemerkt, und bei Jellyfin die Einträge nur neu geholt,
+     * wenn sich der `Etag` geändert hat. Der Änderungs-Hash bleibt derselbe (Name und Einträge).
+     */
     override suspend fun playlists(): List<RemotePlaylistInfo> =
         api.playlists(server)
             .filter { it.mediaType == null || it.mediaType == "Audio" }
-            .filter { api.canEditPlaylist(server, it.id) }
-            .map { JellyfinTrackMapper.playlistInfo(it.id, it.name.orEmpty(), api.playlistItemIds(server, it.id)) }
+            .filter { canEdit(it.id) }
+            .map { JellyfinTrackMapper.playlistInfo(it.id, it.name.orEmpty(), itemIds(it)) }
+
+    private suspend fun canEdit(playlistId: String): Boolean {
+        val now = System.nanoTime()
+        editable[playlistId]?.takeIf { (now - it.second) / NANOS_PER_MS < EDIT_CHECK_MS }?.let { return it.first }
+        return api.canEditPlaylist(server, playlistId).also { editable[playlistId] = it to now }
+    }
+
+    private suspend fun itemIds(playlist: JfItem): List<String> {
+        val etag = playlist.etag?.takeIf { server.flavor == JellyfinFlavor.JELLYFIN }
+        playlistItems[playlist.id]?.takeIf { etag != null && it.first == etag }?.let { return it.second }
+        return api.playlistItemIds(server, playlist.id).also { ids -> if (etag != null) playlistItems[playlist.id] = etag to ids }
+    }
 
     override suspend fun playlist(remoteId: String): RemotePlaylist {
         val ids = api.playlistItemIds(server, remoteId)
@@ -201,6 +224,7 @@ class JellyfinDataSource internal constructor(
         const val MAX_NEW_SONGS = 1000
         const val CREATION_SETTLE_MS = 10_000L
         private const val NANOS_PER_MS = 1_000_000L
+        private const val EDIT_CHECK_MS = 6 * 60 * 60_000L
 
         /** Je Prozess: Die Datenquelle wird beim Neuladen der Server neu erzeugt, die Playlist bleibt frisch. */
         private val createdAt = ConcurrentHashMap<String, Long>()

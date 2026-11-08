@@ -199,6 +199,7 @@ class JellyfinApi @Inject constructor(
             .addQueryParameter("includeItemTypes", "Playlist")
             .addQueryParameter("recursive", "true")
             .addQueryParameter("enableImages", "false")
+            .addQueryParameter("fields", "Etag")
             .build()
         return get<JfItemsPage>(server, url).items
     }
