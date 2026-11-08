@@ -462,6 +462,17 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `refresh keeps downloaded episodes the feed no longer lists`() = runTest {
+        val feedId = subscribe()
+        db.podcastDao().queueDownload(idOf(feedId, "C"))
+        served = feed("D" to "Fri, 31 Oct 2025 06:00:00 GMT")
+
+        repository.refresh(feedId)
+
+        assertEquals(setOf("C", "D"), repository.episodes(feedId).first().map { it.book.title }.toSet())
+    }
+
+    @Test
     fun `a failed refresh changes nothing`() = runTest {
         val feedId = subscribe()
         served = null

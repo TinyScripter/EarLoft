@@ -315,12 +315,13 @@ abstract class PodcastDao {
     abstract suspend fun finishedDownloads(feedId: String): List<BookTrackEntity>
 
     /**
-     * Folgen, die der letzte Abgleich nicht mehr gesehen hat, fallen weg – außer angefangenen: wer eine Folge schon
-     * hört, behält sie auch dann, wenn der Feed nur die neuesten führt.
+     * Folgen, die der letzte Abgleich nicht mehr gesehen hat, fallen weg – außer angefangenen und geladenen: wer eine
+     * Folge schon hört oder für unterwegs geladen hat, behält sie auch dann, wenn der Feed nur die neuesten führt.
      */
     @Query(
         "DELETE FROM books WHERE serverId = :feedId AND seenInGeneration < :generation " +
-            "AND bookId NOT IN (SELECT bookId FROM book_progress WHERE positionMs > 0)",
+            "AND bookId NOT IN (SELECT bookId FROM book_progress WHERE positionMs > 0) " +
+            "AND bookId NOT IN (SELECT bookId FROM book_tracks WHERE downloadState IN ('QUEUED', 'RUNNING', 'DONE'))",
     )
     abstract suspend fun deleteUnseenEpisodes(feedId: String, generation: Long)
 }
