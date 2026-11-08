@@ -1,6 +1,7 @@
 [versions]
 # Build
-agp = "9.6.0-alpha03"
+# 9.6.0-alpha03 (R8) breaks static initializers in release builds (null static fields in Media3, Compose, Room): crash at start.
+agp = "9.6.0-alpha02"
 kotlin = "2.4.21"
 ksp = "2.3.13"
 
