@@ -151,7 +151,20 @@ data class WearSettingsDto(
     val preAmpDb: Float = 0f,
     /** Eingeschaltete Bereiche wie am Handy (Allgemein → Bereiche); die Uhr zeigt nur diese. */
     val areas: List<SpokenMode> = SpokenMode.entries,
+    /** Sprungweiten der Spulen-Knöpfe wie am Handy (Konzept 12.4), in Sekunden; Standard wie dort. */
+    val bookSeekBackSeconds: Int = 10,
+    val bookSeekForwardSeconds: Int = 30,
+    val podcastSeekBackSeconds: Int = 10,
+    val podcastSeekForwardSeconds: Int = 30,
 ) {
+    /** Dieselben Einstellungen ohne die Sprungweiten: Nur Änderungen daran betreffen die Downloads der Uhr. */
+    fun withoutSeek(): WearSettingsDto = copy(
+        bookSeekBackSeconds = 0,
+        bookSeekForwardSeconds = 0,
+        podcastSeekBackSeconds = 0,
+        podcastSeekForwardSeconds = 0,
+    )
+
     companion object {
         const val DEFAULT_MIN_FREE_BYTES = 1_000_000_000L
     }

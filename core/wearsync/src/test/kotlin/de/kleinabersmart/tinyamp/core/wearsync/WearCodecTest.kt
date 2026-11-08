@@ -95,13 +95,23 @@ class WearCodecTest {
         assertEquals(ReplayGainMode.AUTO, settings.replayGainMode)
         assertNull(settings.storageLimitBytes)
         assertEquals(SpokenMode.entries, settings.areas)
+        assertEquals(10, settings.bookSeekBackSeconds)
+        assertEquals(30, settings.podcastSeekForwardSeconds)
     }
 
     @Test
-    fun `areas survive the round trip`() {
-        val settings = WearSettingsDto(areas = listOf(SpokenMode.MUSIC, SpokenMode.BOOKS))
+    fun `areas and seek steps survive the round trip`() {
+        val settings = WearSettingsDto(areas = listOf(SpokenMode.MUSIC, SpokenMode.BOOKS), bookSeekBackSeconds = 15, podcastSeekForwardSeconds = 60)
 
         assertEquals(settings, WearCodec.decode<WearSettingsDto>(WearCodec.encode(settings)))
+    }
+
+    @Test
+    fun `seek steps alone do not count as a download change`() {
+        val settings = WearSettingsDto(requireCharging = false)
+
+        assertEquals(settings.withoutSeek(), settings.copy(bookSeekBackSeconds = 5, podcastSeekForwardSeconds = 45).withoutSeek())
+        assertTrue(settings.withoutSeek() != settings.copy(requireCharging = true).withoutSeek())
     }
 
     @Test

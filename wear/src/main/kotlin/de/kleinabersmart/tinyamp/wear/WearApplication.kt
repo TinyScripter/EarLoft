@@ -5,6 +5,8 @@ import android.content.pm.ApplicationInfo
 import dagger.hilt.android.HiltAndroidApp
 import de.kleinabersmart.tinyamp.core.data.di.ApplicationScope
 import de.kleinabersmart.tinyamp.core.data.repository.PlaybackPolicy
+import de.kleinabersmart.tinyamp.core.data.spoken.SeekSteps
+import de.kleinabersmart.tinyamp.core.data.spoken.SpokenSettings
 import de.kleinabersmart.tinyamp.core.playback.ReplayGainSettings
 import de.kleinabersmart.tinyamp.wear.download.WatchState
 import de.kleinabersmart.tinyamp.wear.sync.PhoneSyncWorker
@@ -30,6 +32,7 @@ class WearApplication : Application() {
     @Inject lateinit var playbackPolicy: PlaybackPolicy
     @Inject lateinit var replayGainSettings: ReplayGainSettings
     @Inject lateinit var watchState: WatchState
+    @Inject lateinit var spokenSettings: SpokenSettings
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onCreate() {
@@ -44,6 +47,16 @@ class WearApplication : Application() {
             watchState.settings.map { it.replayGainMode to it.preAmpDb }.distinctUntilChanged().collect { (mode, preAmp) ->
                 replayGainSettings.setMode(mode)
                 replayGainSettings.setPreAmpDb(preAmp)
+            }
+        }
+        // Sprungweiten wie am Handy; Wiedergabe-Service und Player lesen sie aus SpokenSettings.
+        applicationScope.launch {
+            watchState.settings.map {
+                SeekSteps(it.bookSeekBackSeconds, it.bookSeekForwardSeconds) to
+                    SeekSteps(it.podcastSeekBackSeconds, it.podcastSeekForwardSeconds)
+            }.distinctUntilChanged().collect { (book, podcast) ->
+                spokenSettings.setBookSeek(book)
+                spokenSettings.setPodcastSeek(podcast)
             }
         }
         applicationScope.launch { watchInfoPublisher.publish() }

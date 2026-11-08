@@ -93,7 +93,8 @@ class WearPublisher @Inject constructor(
                 replayGainSettings.mode,
                 replayGainSettings.preAmpDb,
                 spokenSettings.areas,
-            ) { watch, mode, preAmp, areas ->
+                combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair),
+            ) { watch, mode, preAmp, areas, (bookSeek, podcastSeek) ->
                 WearSettingsDto(
                     quality = watch.quality,
                     storageLimitBytes = watch.storageLimitGb?.let { it * BYTES_PER_GB },
@@ -101,6 +102,10 @@ class WearPublisher @Inject constructor(
                     replayGainMode = mode,
                     preAmpDb = preAmp,
                     areas = areas,
+                    bookSeekBackSeconds = bookSeek.backSeconds,
+                    bookSeekForwardSeconds = bookSeek.forwardSeconds,
+                    podcastSeekBackSeconds = podcastSeek.backSeconds,
+                    podcastSeekForwardSeconds = podcastSeek.forwardSeconds,
                 )
             }
                 .distinctUntilChanged()

@@ -69,10 +69,13 @@ class PhoneLibrarySync @Inject constructor(
 
     suspend fun sync() = mutex.withLock {
         // Zuerst die Einstellungen: Qualität und Speichergrenze bestimmen, was der Planer einreiht. Versteht diese Uhr sie
-        // nicht (neuerer Wert vom Handy), gelten die bisherigen – Server und Manifest kommen trotzdem.
+        // nicht (neuerer Wert vom Handy), gelten die bisherigen – Server und Manifest kommen trotzdem. Geänderte Sprungweiten
+        // allein planen nicht neu: Das ersetzte den Download-Auftrag und bräche einen laufenden Download ab.
+        val previous = state.settings.value
         val settingsChanged = dataClient.payloadsAt(WearPaths.SETTINGS).values.firstOrNull()
             ?.let { bytes -> decodeOrNull<WearSettingsDto>(bytes, "Einstellungen") }
-            ?.let { state.updateSettings(it) } == true
+            ?.takeIf { state.updateSettings(it) }
+            ?.let { it.withoutSeek() != previous.withoutSeek() } == true
         val servers = dataClient.payloadsAt(WearPaths.SERVERS).entries.firstOrNull()
         // Jeder Prozessstart der Uhr stößt einen Lauf an (Nachricht vom Handy, Download-Versuch, Kachel …). Ist seit der
         // letzten Übernahme nichts Neues gekommen, bleibt es beim Nachfragen nach Passwörtern und beim Planen.
