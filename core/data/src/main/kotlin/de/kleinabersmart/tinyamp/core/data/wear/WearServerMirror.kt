@@ -29,12 +29,14 @@ class WearServerMirror @Inject constructor(
     private val libraryDao: LibraryDao,
     private val secretStore: SecretStore,
     private val registry: DataSourceRegistry,
+    private val stamps: CredentialsStamps,
     private val changeListeners: Set<@JvmSuppressWildcards LibraryChangeListener>,
 ) {
     // --- Handy ---
 
+    /** Neue Zugangsdaten schreiben auch den Server neu (`ServerRepository`); damit kommt ein neuer [MirroredServer.credentialsStamp]. */
     fun servers(): Flow<List<MirroredServer>> =
-        sourceDao.observeServers().map { sources -> sources.mapNotNull { it.toMirrored() } }
+        sourceDao.observeServers().map { sources -> sources.mapNotNull { it.toMirrored(stamps.stamp(it.sourceId)) } }
 
     suspend fun password(sourceId: String): String? =
         if (sourceDao.get(sourceId)?.type?.isServer == true) secretStore.get(DataSourceRegistry.passwordKey(sourceId)) else null
@@ -48,8 +50,17 @@ class WearServerMirror @Inject constructor(
     /**
      * Übernimmt die Server des Handys. Server, die dort fehlen, verschwinden mit ihren Songs, Downloads und
      * Passwörtern; Sync-Zustand und Songs der übrigen bleiben (gleiche `sourceId`, z. B. nach dem Bearbeiten).
+     * @return die Server, deren Zugangsdaten verworfen sind, weil sie sich am Handy geändert haben oder der Zugang (Host,
+     * Benutzer) ein anderer ist: Die Uhr fragt sie gleich neu an.
      */
-    suspend fun apply(servers: List<MirroredServer>) {
+    suspend fun apply(servers: List<MirroredServer>): Set<String> {
+        val renewed = stamps.renewChanged(servers)
+        if (renewed.isNotEmpty()) registry.reload()
+        return renewed + applyServers(servers)
+    }
+
+    /** @return die Server mit anderem Zugang. */
+    private suspend fun applyServers(servers: List<MirroredServer>): List<String> {
         val existing = sourceDao.getServers().associateBy { it.sourceId }
         val updated = servers.map { server ->
             (existing[server.sourceId] ?: SourceEntity(server.sourceId, server.type, server.name)).copy(
@@ -63,7 +74,7 @@ class WearServerMirror @Inject constructor(
             )
         }
         val removed = existing.keys - servers.mapTo(HashSet()) { it.sourceId }
-        if (updated.all { it == existing[it.sourceId] } && removed.isEmpty()) return
+        if (updated.all { it == existing[it.sourceId] } && removed.isEmpty()) return emptyList()
         // Anderer Host oder Benutzer: Das Geheimnis gehört zum alten Zugang und ginge sonst an den neuen Host
         // (Zugangsdaten bleiben auf ihrem Host); die nächste Runde fragt es beim Handy neu an.
         val moved = updated.filter { new -> existing[new.sourceId]?.let { old -> !sameAccess(old, new) } == true }.map { it.sourceId }
@@ -77,8 +88,10 @@ class WearServerMirror @Inject constructor(
             secretStore.remove(DataSourceRegistry.passwordKey(it))
             secretStore.remove(DataSourceRegistry.deviceIdKey(it))
         }
+        removed.forEach { stamps.forget(it) }
         registry.reload()
         if (removed.isNotEmpty()) changeListeners.forEach { it.onSongSourcesRemoved() }
+        return moved
     }
 
     private fun sameAccess(old: SourceEntity, new: SourceEntity): Boolean {
@@ -106,7 +119,7 @@ class WearServerMirror @Inject constructor(
         return true
     }
 
-    private fun SourceEntity.toMirrored(): MirroredServer? = MirroredServer(
+    private fun SourceEntity.toMirrored(credentialsStamp: String?): MirroredServer? = MirroredServer(
         sourceId = sourceId,
         type = type,
         name = name,
@@ -114,6 +127,7 @@ class WearServerMirror @Inject constructor(
         username = username ?: return null,
         priority = priority,
         formPost = serverCapabilities?.contains(FORM_POST) == true,
+        credentialsStamp = credentialsStamp,
     )
 
     private companion object {

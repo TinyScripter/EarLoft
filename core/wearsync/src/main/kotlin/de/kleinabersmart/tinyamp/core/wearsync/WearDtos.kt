@@ -127,6 +127,8 @@ data class WearServerDto(
     val username: String,
     val priority: Int = 0,
     val formPost: Boolean = false,
+    /** Ändert sich mit den Zugangsdaten am Handy (HMAC, verrät nichts über sie); `null`, wenn das Handy keine hat. */
+    val credentialsStamp: String? = null,
 )
 
 enum class WearQuality {

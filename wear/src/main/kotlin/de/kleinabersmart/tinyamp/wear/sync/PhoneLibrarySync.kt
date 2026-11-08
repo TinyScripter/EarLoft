@@ -89,8 +89,10 @@ class PhoneLibrarySync @Inject constructor(
         }
         if (servers != null) {
             val dto = WearCodec.decode<WearServersDto>(servers.value)
-            serverMirror.apply((dto.servers + dto.otherServers).mapNotNull { it.toMirrored() })
+            val renewed = serverMirror.apply((dto.servers + dto.otherServers).mapNotNull { it.toMirrored() })
             audiobookshelf.mirror(dto.spokenServers.map { MirroredAbsServer(it.serverId, it.name, it.baseUrl) })
+            // Am Handy geänderte Zugangsdaten gleich holen, nicht erst nach der Wartezeit für fehlende.
+            credentials.request(renewed, phoneNodeId = servers.key)
             requestMissingPasswords(phoneNodeId = servers.key)
         }
         val manifest = dataClient.assetPayloadsAt(WearPaths.MANIFEST).values.firstOrNull()
@@ -111,10 +113,11 @@ class PhoneLibrarySync @Inject constructor(
 
     /**
      * Fragt beim Handy nach Passwörtern und API-Schlüsseln, die der Uhr fehlen (neuer Server, Uhr zurückgesetzt). Die
-     * Antwort kommt als Message an den `WatchListenerService`. Ist das Handy nicht erreichbar, fragt der nächste Lauf.
+     * Antwort kommt als Message an den `WatchListenerService`. Hat das Handy selbst keine, käme keine Antwort, und jeder Start
+     * der Uhr weckte das Handy erneut; deshalb je Quelle höchstens alle [CredentialsRequester.MISSING_RETRY_MS].
      */
     private suspend fun requestMissingPasswords(phoneNodeId: String) {
-        credentials.request(serverMirror.serversWithoutPassword() + audiobookshelf.withoutKey(), phoneNodeId)
+        credentials.requestMissing(serverMirror.serversWithoutPassword() + audiobookshelf.withoutKey(), phoneNodeId)
     }
 
     private inline fun <reified T> decodeOrNull(bytes: ByteArray, what: String): T? =
@@ -132,7 +135,7 @@ class PhoneLibrarySync @Inject constructor(
             Log.w(TAG, "Server $sourceId: Typ $type wird nicht unterstützt")
             return null
         }
-        return MirroredServer(sourceId, sourceType, name, baseUrl, username, priority, formPost)
+        return MirroredServer(sourceId, sourceType, name, baseUrl, username, priority, formPost, credentialsStamp)
     }
 
     private companion object {

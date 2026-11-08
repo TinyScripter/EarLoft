@@ -75,4 +75,9 @@ data class MirroredServer(
     val username: String,
     val priority: Int,
     val formPost: Boolean,
+    /**
+     * Ändert sich mit den Zugangsdaten am Handy (neues Passwort, neu angemeldet), verrät aber nichts über sie; `null`, wenn
+     * das Handy keine hat. Die Uhr fragt dann neu an, statt erst an einer Ablehnung des Servers zu merken, dass ihre veraltet sind.
+     */
+    val credentialsStamp: String? = null,
 )

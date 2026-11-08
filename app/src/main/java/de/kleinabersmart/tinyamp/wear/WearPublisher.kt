@@ -113,7 +113,7 @@ class WearPublisher @Inject constructor(
         }
     }
 
-    private fun MirroredServer.toDto() = WearServerDto(sourceId, type.name, name, baseUrl, username, priority, formPost)
+    private fun MirroredServer.toDto() = WearServerDto(sourceId, type.name, name, baseUrl, username, priority, formPost, credentialsStamp)
 
     /** Nur bei geändertem Inhalt – sonst löste jeder Abgleich am Handy Arbeit auf der Uhr aus. */
     private suspend fun publishManifest(content: WearContent) {
