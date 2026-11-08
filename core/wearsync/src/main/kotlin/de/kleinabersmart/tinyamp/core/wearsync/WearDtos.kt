@@ -323,8 +323,12 @@ data class WearSelectRequest(
 @Serializable
 data class WearCredentialsRequest(val sourceId: String)
 
+/**
+ * [deviceId]: bei Jellyfin und Emby das Gerät, zu dem der Token gehört; die Uhr weist sich damit aus wie das Handy.
+ * `null` bei anderen Servern und bei Anmeldungen von vorher (dann gilt `tinyamp-<sourceId>`).
+ */
 @Serializable
-data class WearCredentialsDto(val sourceId: String, val password: String)
+data class WearCredentialsDto(val sourceId: String, val password: String, val deviceId: String? = null)
 
 // ---- Fernsteuerung des Handys von der Uhr aus ----
 

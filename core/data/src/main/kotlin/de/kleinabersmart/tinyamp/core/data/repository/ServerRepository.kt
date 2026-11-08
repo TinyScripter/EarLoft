@@ -185,7 +185,10 @@ class ServerRepository @Inject constructor(
 
     // --- Jellyfin und Emby (Konzept 14): gespeichert werden nur Benutzer-ID und Token, nie das Passwort ---
 
-    /** Meldet das Gerät der Quelle [sourceId] an; ein früherer Token dieses Geräts wird damit ungültig. */
+    /**
+     * Meldet dieses Gerät für die Quelle [sourceId] an; bei Jellyfin wird ein früherer Token desselben Geräts damit ungültig.
+     * Das Gerät bleibt je Installation dasselbe; eine Anmeldung von vorher bekommt beim nächsten Mal ein eigenes (R28).
+     */
     private suspend fun loginJellyfin(
         flavor: JellyfinFlavor,
         sourceId: String,
@@ -195,7 +198,10 @@ class ServerRepository @Inject constructor(
     ): Pair<ConnectionResult, JellyfinSecret?> =
         try {
             val info = jellyfinApi.publicInfo(baseUrl, flavor)
-            val auth = jellyfinApi.authenticate(baseUrl, JellyfinServer.deviceIdFor(sourceId), username, password)
+            val deviceKey = DataSourceRegistry.deviceIdKey(sourceId)
+            val deviceId = secretStore.get(deviceKey) ?: JellyfinServer.newDeviceId()
+            val auth = jellyfinApi.authenticate(baseUrl, deviceId, username, password)
+            secretStore.put(deviceKey, deviceId)
             ConnectionResult.Success(info.productName ?: flavor.productName, info.version) to JellyfinSecret(auth.user.id, auth.accessToken)
         } catch (e: IOException) {
             connectionFailure(e) to null
@@ -240,15 +246,21 @@ class ServerRepository @Inject constructor(
         val sourceId = existing.sourceId
         val baseUrl = JellyfinServer.normalizeBaseUrl(url) ?: return ConnectionResult.InvalidUrl
         val result = if (newPassword != null) {
+            val previous = jellyfinLogin(existing)
             val (result, secret) = loginJellyfin(flavor, sourceId, baseUrl, username, newPassword)
             if (result !is ConnectionResult.Success || secret == null) return result
             secretStore.put(DataSourceRegistry.passwordKey(sourceId), secret.encode())
+            // Der alte Token bliebe sonst auf dem Server stehen: bei Emby immer, bei Jellyfin, wenn er von einer Anmeldung
+            // unter dem früheren Gerät stammt.
+            if (previous != null && previous.token != secret.token) {
+                applicationScope.launch { logoutJellyfin(previous) }
+            }
             result
         } else {
             val stored = storedJellyfinSecret(sourceId) ?: return ConnectionResult.WrongCredentials
             try {
                 val info = jellyfinApi.publicInfo(baseUrl, flavor)
-                val me = jellyfinApi.me(JellyfinServer(sourceId, baseUrl, stored.userId, stored.token, flavor))
+                val me = jellyfinApi.me(JellyfinServer(sourceId, baseUrl, stored.userId, stored.token, flavor, registry.jellyfinDeviceId(sourceId)))
                 if (!me.name.equals(username.trim(), ignoreCase = true)) return ConnectionResult.WrongCredentials
                 ConnectionResult.Success(info.productName ?: flavor.productName, info.version)
             } catch (e: IOException) {
@@ -272,7 +284,7 @@ class ServerRepository @Inject constructor(
         val flavor = JellyfinFlavor.of(entity.type) ?: return null
         val baseUrl = entity.baseUrl?.toHttpUrlOrNull() ?: return null
         val secret = storedJellyfinSecret(entity.sourceId) ?: return null
-        return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token, flavor)
+        return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token, flavor, registry.jellyfinDeviceId(entity.sourceId))
     }
 
     /** Gibt den Token frei; offline oder ohne Antwort bleibt er eben auf dem Server stehen. */
@@ -320,6 +332,7 @@ class ServerRepository @Inject constructor(
             libraryDao.cleanupOrphans()
         }
         secretStore.remove(DataSourceRegistry.passwordKey(sourceId))
+        secretStore.remove(DataSourceRegistry.deviceIdKey(sourceId))
         registry.reload()
         changeListeners.forEach { it.onSongSourcesRemoved() }
         if (login != null) applicationScope.launch { logoutJellyfin(login) }

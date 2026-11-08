@@ -45,7 +45,7 @@ class WatchListenerService : WearableListenerService() {
         }
         applicationScope.launch {
             // Das Passwort bzw. der API-Schlüssel (Audiobookshelf, 16.2) liegt danach nur im Keystore der Uhr (KeystoreSecretStore).
-            if (!serverMirror.storePassword(credentials.sourceId, credentials.password) &&
+            if (!serverMirror.storePassword(credentials.sourceId, credentials.password, credentials.deviceId) &&
                 !audiobookshelf.storeKey(credentials.sourceId, credentials.password)
             ) {
                 Log.w(TAG, "Passwort für unbekannten Server ${credentials.sourceId} verworfen")

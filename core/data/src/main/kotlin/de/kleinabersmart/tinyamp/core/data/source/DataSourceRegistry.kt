@@ -120,8 +120,12 @@ class DataSourceRegistry @Inject constructor(
             Log.w(TAG, "Server ${entity.name} ist unvollständig eingerichtet und wird übersprungen")
             return null
         }
-        return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token, flavor)
+        return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token, flavor, jellyfinDeviceId(entity.sourceId))
     }
+
+    /** Das Gerät, als das diese Installation bei Jellyfin bzw. Emby angemeldet ist (siehe [deviceIdKey]). */
+    suspend fun jellyfinDeviceId(sourceId: String): String =
+        secretStore.get(deviceIdKey(sourceId)) ?: JellyfinServer.legacyDeviceId(sourceId)
 
     private suspend fun toSubsonicServer(entity: SourceEntity): SubsonicServer? {
         val baseUrl = entity.baseUrl?.toHttpUrlOrNull()
@@ -145,5 +149,11 @@ class DataSourceRegistry @Inject constructor(
 
         /** Das Secret eines Servers: bei Subsonic das Passwort, bei Jellyfin und Emby [JellyfinSecret] (Benutzer-ID und Token). */
         fun passwordKey(sourceId: String) = "server:$sourceId:password"
+
+        /**
+         * Jellyfin und Emby: das Gerät der Anmeldung. Liegt wie das Secret nicht in der Sicherung, damit ein zweites Gerät mit
+         * derselben Sicherung sich als eigenes anmeldet. Fehlt bei Anmeldungen von vorher ([JellyfinServer.legacyDeviceId]).
+         */
+        fun deviceIdKey(sourceId: String) = "server:$sourceId:device"
     }
 }

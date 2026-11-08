@@ -216,7 +216,8 @@ class PhoneWearListenerService : WearableListenerService() {
             Log.w(TAG, "Kein Passwort für $sourceId")
             return
         }
-        messageClient.sendPayload(nodeId, WearPaths.CREDENTIALS, WearCodec.encode(WearCredentialsDto(sourceId, password)))
+        val credentials = WearCredentialsDto(sourceId, password, serverMirror.deviceId(sourceId))
+        messageClient.sendPayload(nodeId, WearPaths.CREDENTIALS, WearCodec.encode(credentials))
     }
 
     private inline fun <reified T> decodeOrNull(event: MessageEvent): T? = try {

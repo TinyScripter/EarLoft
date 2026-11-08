@@ -39,6 +39,10 @@ class WearServerMirror @Inject constructor(
     suspend fun password(sourceId: String): String? =
         if (sourceDao.get(sourceId)?.type?.isServer == true) secretStore.get(DataSourceRegistry.passwordKey(sourceId)) else null
 
+    /** Jellyfin und Emby: das Gerät, zu dem der Token aus [password] gehört; `null` bei Anmeldungen von vorher. */
+    suspend fun deviceId(sourceId: String): String? =
+        if (sourceDao.get(sourceId)?.type?.isServer == true) secretStore.get(DataSourceRegistry.deviceIdKey(sourceId)) else null
+
     // --- Uhr ---
 
     /**
@@ -69,7 +73,10 @@ class WearServerMirror @Inject constructor(
             removed.forEach { sourceDao.delete(it) }
             if (removed.isNotEmpty()) libraryDao.cleanupOrphans()
         }
-        (removed + moved).forEach { secretStore.remove(DataSourceRegistry.passwordKey(it)) }
+        (removed + moved).forEach {
+            secretStore.remove(DataSourceRegistry.passwordKey(it))
+            secretStore.remove(DataSourceRegistry.deviceIdKey(it))
+        }
         registry.reload()
         if (removed.isNotEmpty()) changeListeners.forEach { it.onSongSourcesRemoved() }
     }
@@ -86,10 +93,15 @@ class WearServerMirror @Inject constructor(
             .map { it.sourceId }
             .filter { secretStore.get(DataSourceRegistry.passwordKey(it)) == null }
 
-    /** @return `false`, wenn der Server (noch) nicht gespiegelt ist. */
-    suspend fun storePassword(sourceId: String, password: String): Boolean {
+    /** [deviceId] siehe [deviceId]. @return `false`, wenn der Server (noch) nicht gespiegelt ist. */
+    suspend fun storePassword(sourceId: String, password: String, deviceId: String? = null): Boolean {
         if (sourceDao.get(sourceId)?.type?.isServer != true) return false
         secretStore.put(DataSourceRegistry.passwordKey(sourceId), password)
+        if (deviceId != null) {
+            secretStore.put(DataSourceRegistry.deviceIdKey(sourceId), deviceId)
+        } else {
+            secretStore.remove(DataSourceRegistry.deviceIdKey(sourceId))
+        }
         registry.reload()
         return true
     }

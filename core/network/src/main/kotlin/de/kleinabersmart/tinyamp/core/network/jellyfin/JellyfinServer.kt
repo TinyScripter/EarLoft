@@ -4,6 +4,7 @@ import de.kleinabersmart.tinyamp.core.model.SourceType
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URLEncoder
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,7 +24,7 @@ enum class JellyfinFlavor(val sourceType: SourceType, val productName: String) {
 
 /**
  * Ein angemeldeter Jellyfin- oder Emby-Server (Konzept 14) mit normalisierter Basis-URL (endet immer auf `/`).
- * [token] gehört zum Gerät [deviceId]; meldet sich dasselbe Gerät neu an, verwirft der Server den alten Token.
+ * [token] gehört zum Gerät [deviceId]; meldet sich dasselbe Gerät neu an, verwirft Jellyfin den alten Token (Emby nicht).
  */
 data class JellyfinServer(
     val sourceId: String,
@@ -31,10 +32,9 @@ data class JellyfinServer(
     val userId: String,
     val token: String,
     val flavor: JellyfinFlavor = JellyfinFlavor.JELLYFIN,
+    val deviceId: String = legacyDeviceId(sourceId),
 ) {
     override fun toString() = "JellyfinServer($sourceId, $baseUrl)"
-
-    val deviceId: String get() = deviceIdFor(sourceId)
 
     fun endpoint(path: String): HttpUrl.Builder = baseUrl.newBuilder().addPathSegments(path.trimStart('/'))
 
@@ -46,8 +46,14 @@ data class JellyfinServer(
             url.encodedPath.startsWith(baseUrl.encodedPath)
 
     companion object {
-        /** Je eingerichtetem Server ein eigenes Gerät, damit zwei Konten auf demselben Server sich nicht abmelden. */
-        fun deviceIdFor(sourceId: String) = "tinyamp-$sourceId"
+        /**
+         * Gerät für eine neue Anmeldung: je Server und Installation eine eigene, damit sich zwei Konten auf demselben Server
+         * und zwei Geräte mit derselben Sicherung (gleiche `sourceId`) nicht gegenseitig abmelden.
+         */
+        fun newDeviceId(): String = "tinyamp-${UUID.randomUUID()}"
+
+        /** Gerät der Anmeldungen von vor [newDeviceId]; deren Token gilt weiter. */
+        fun legacyDeviceId(sourceId: String) = "tinyamp-$sourceId"
 
         /**
          * Ergänzt `https://`, schneidet die Weboberfläche (`/web/…`, `#/home`) ab und sorgt für den

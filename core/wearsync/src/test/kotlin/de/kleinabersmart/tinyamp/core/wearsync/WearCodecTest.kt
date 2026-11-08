@@ -68,6 +68,13 @@ class WearCodecTest {
     }
 
     @Test
+    fun `credentials carry the device only when there is one`() {
+        assertEquals("""{"sourceId":"jf","password":"u:t"}""", WearCodec.encode(WearCredentialsDto("jf", "u:t")).decodeToString())
+        val withDevice = WearCredentialsDto("jf", "u:t", deviceId = "tinyamp-1234")
+        assertEquals(withDevice, WearCodec.decode<WearCredentialsDto>(WearCodec.encode(withDevice)))
+    }
+
+    @Test
     fun `servers of an older phone are subsonic servers`() {
         val json = """{"servers":[{"sourceId":"nd","name":"Navidrome","baseUrl":"https://nd.example","username":"anna"}]}"""
 
