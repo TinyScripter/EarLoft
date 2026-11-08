@@ -6,6 +6,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
+import de.kleinabersmart.tinyamp.core.network.HttpStatusException
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -68,7 +69,9 @@ internal class ResumableTransfer(
                             throw IOException("Bereich nicht erfüllbar, beginne von vorn")
                         }
                         response.code in 500..599 -> throw IOException("HTTP ${response.code}")
-                        response.code == 401 || response.code == 403 -> return@withContext TransferResult.Failed("Nicht angemeldet")
+                        // 401 ist ein Netzfehler im Sinne des Aufrufers: Auf der Uhr kann ein neuer Schlüssel vom Handy kommen.
+                        response.code == 401 -> throw HttpStatusException(response.code)
+                        response.code == 403 -> return@withContext TransferResult.Failed("Nicht angemeldet")
                         !response.isSuccessful -> return@withContext TransferResult.Failed("HTTP ${response.code}")
                     }
                     val contentType = response.header("Content-Type").orEmpty().substringBefore(';').trim().lowercase()

@@ -1,5 +1,6 @@
 package de.kleinabersmart.tinyamp.core.download
 
+import de.kleinabersmart.tinyamp.core.network.HttpStatusException
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -210,9 +211,21 @@ class ResumableTransferTest {
     }
 
     @Test
-    fun `login errors and non audio answers fail permanently`() = runTest {
+    fun `a rejected login is reported as an auth error and a forbidden one fails permanently`() = runTest {
         server.enqueue(MockResponse.Builder().code(401).build())
+        try {
+            run()
+            fail("401 muss als Fehler gemeldet werden, damit der Aufrufer neue Zugangsdaten holen kann")
+        } catch (e: HttpStatusException) {
+            assertTrue(e.isAuthError)
+        }
+
+        server.enqueue(MockResponse.Builder().code(403).build())
         assertEquals(TransferResult.Failed("Nicht angemeldet"), run())
+    }
+
+    @Test
+    fun `non audio answers fail permanently`() = runTest {
 
         server.enqueue(MockResponse.Builder().addHeader("Content-Type", "text/html").body("<html>").build())
         assertTrue(run() is TransferResult.Failed)

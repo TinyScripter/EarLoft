@@ -60,7 +60,8 @@ class BookDownloadWorker(
             when (outcome) {
                 is DownloadOutcome.Retry -> {
                     Log.w(TAG, "Buch ${next.bookId} Datei ${next.trackIndex} unterbrochen (Versuch ${runAttemptCount + 1})", outcome.cause)
-                    if (runAttemptCount + 1 < MAX_ATTEMPTS) {
+                    // Ein abgelehnter Schlüssel ändert sich durch Warten nicht.
+                    if (!outcome.isAuthRejection && runAttemptCount + 1 < MAX_ATTEMPTS) {
                         dao.requeueBookTrack(next.bookId, next.trackIndex)
                         return Result.retry()
                     }

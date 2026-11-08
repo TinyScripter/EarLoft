@@ -191,6 +191,8 @@ class WearDownloadWorker(
                         Log.w(TAG, "Buch ${track.bookId} Datei ${track.trackIndex} unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
                         // Die Teildatei bleibt; der nächste Lauf macht dort weiter.
                         bookDao.requeueBookTrack(track.bookId, track.trackIndex)
+                        // Neuer Schlüssel am Handy: Die Antwort ersetzt ihn vor dem nächsten Versuch.
+                        if (outcome.isAuthRejection) entryPoint.credentials().request(listOf(book.serverId))
                         if (failures < WatchState.SERVER_ATTEMPTS) return Result.retry()
                         if (!bookViaPhone(track)) return Result.retry()
                     }
