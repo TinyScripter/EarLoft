@@ -22,6 +22,9 @@ internal sealed interface TransferResult {
 
     /** Dauerhaft fehlgeschlagen; die Teildatei ist verworfen. */
     data class Failed(val reason: String) : TransferResult
+
+    /** Unterwegs nicht mehr gewünscht (Download entfernt); die Teildatei verwirft der Aufrufer. */
+    data object Cancelled : TransferResult
 }
 
 /**
@@ -43,6 +46,8 @@ internal class ResumableTransfer(
         bookId: Long,
         trackIndex: Int,
         onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit,
+        /** Im Takt des Fortschritts gefragt; `false` bricht ab (Download unterwegs entfernt). */
+        stillWanted: suspend () -> Boolean = { true },
     ): TransferResult {
         // Vor dem Merkmal: Beim allerersten Buch auf dem Gerät (z. B. auf der Uhr) gibt es den Ordner noch nicht.
         storage.ensureDirectory()
@@ -104,7 +109,9 @@ internal class ResumableTransfer(
                         storage.deletePart(bookId, trackIndex)
                         return@withContext TransferResult.Failed("Zu wenig Speicher")
                     }
-                    write(part, response.body.byteStream(), append = offset > 0, offset, total, onProgress)
+                    if (!write(part, response.body.byteStream(), append = offset > 0, offset, total, onProgress, stillWanted)) {
+                        return@withContext TransferResult.Cancelled
+                    }
                     meta.delete()
                     TransferResult.Completed(contentType.takeIf { it.startsWith("audio/") })
                 }
@@ -142,7 +149,8 @@ internal class ResumableTransfer(
         offset: Long,
         total: Long?,
         onProgress: suspend (Long, Long?) -> Unit,
-    ) {
+        stillWanted: suspend () -> Boolean,
+    ): Boolean {
         storage.ensureDirectory()
         var written = offset
         var lastReport = 0L
@@ -157,11 +165,13 @@ internal class ResumableTransfer(
                 val now = System.nanoTime()
                 if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
                     lastReport = now
+                    if (!stillWanted()) return false
                     onProgress(written, total)
                 }
             }
         }
         if (total != null && written != total) throw IOException("Unvollständig: $written von $total Bytes")
+        return true
     }
 
     private class Resume(val offset: Long, val validator: String)

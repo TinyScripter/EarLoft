@@ -4,6 +4,7 @@ import android.net.Network
 import android.util.Log
 import de.kleinabersmart.tinyamp.core.database.dao.PodcastDao
 import de.kleinabersmart.tinyamp.core.database.entity.BookTrackEntity
+import de.kleinabersmart.tinyamp.core.model.TrackDownload
 import de.kleinabersmart.tinyamp.core.network.podcast.PodcastFeedApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -72,7 +73,9 @@ class EpisodeDownloader @Inject constructor(
                     if (total != null && storage.freeBytes() < total + FREE_SPACE_RESERVE_BYTES) {
                         return@withContext DownloadOutcome.Failed("Zu wenig Speicher")
                     }
-                    writeToPart(track.bookId, response.body.byteStream(), total, onProgress)
+                    if (!writeToPart(track.bookId, response.body.byteStream(), total, onProgress)) {
+                        return@withContext DownloadOutcome.Cancelled
+                    }
                     val mimeType = contentType.takeIf { it.startsWith("audio/") } ?: track.mimeType
                     finish(track.bookId, mimeType)
                 }
@@ -92,7 +95,8 @@ class EpisodeDownloader @Inject constructor(
                 .build()
         }
 
-    private suspend fun writeToPart(bookId: Long, input: java.io.InputStream, total: Long?, onProgress: suspend (Long, Long?) -> Unit) {
+    /** @return `false`, wenn der Download unterwegs entfernt wurde (sonst liefe er bis zum Ende weiter). */
+    private suspend fun writeToPart(bookId: Long, input: java.io.InputStream, total: Long?, onProgress: suspend (Long, Long?) -> Unit): Boolean {
         storage.ensureDirectory()
         var written = 0L
         var lastReport = 0L
@@ -107,11 +111,13 @@ class EpisodeDownloader @Inject constructor(
                 val now = System.nanoTime()
                 if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
                     lastReport = now
+                    if (dao.trackOf(bookId)?.downloadState != TrackDownload.RUNNING) return false
                     onProgress(written, total)
                 }
             }
         }
         if (total != null && written != total) throw IOException("Unvollständig: $written von $total Bytes")
+        return true
     }
 
     private suspend fun finish(bookId: Long, mimeType: String?): DownloadOutcome {

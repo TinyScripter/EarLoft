@@ -94,6 +94,15 @@ class ResumableTransferTest {
     }
 
     @Test
+    fun `a download removed on the way stops instead of loading to the end`() = runTest {
+        server.enqueue(full())
+
+        val result = transfer.run(server.url("/file"), bookId = 7, trackIndex = 0, onProgress = progress, stillWanted = { false })
+
+        assertEquals(TransferResult.Cancelled, result)
+    }
+
+    @Test
     fun `the very first download creates the folder before writing the marker`() = runTest {
         // Wie auf einer frisch eingerichteten Uhr: Der Ordner für Bücher existiert noch nicht.
         val fresh = BookStorage(java.io.File(tempFolder.root, "neu/books"))

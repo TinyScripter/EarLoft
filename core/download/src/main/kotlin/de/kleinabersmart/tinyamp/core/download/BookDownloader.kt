@@ -5,6 +5,7 @@ import android.util.Log
 import de.kleinabersmart.tinyamp.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.tinyamp.core.database.dao.BookDao
 import de.kleinabersmart.tinyamp.core.database.entity.BookTrackEntity
+import de.kleinabersmart.tinyamp.core.model.TrackDownload
 import de.kleinabersmart.tinyamp.core.network.audiobookshelf.AbsApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -60,8 +61,11 @@ class BookDownloader @Inject constructor(
         val server = servers.server(book.serverId) ?: return DownloadOutcome.Failed("Server nicht eingerichtet")
         val url = api.fileUrl(server, book.remoteId, track.remoteFileId)
         val transfer = if (network == null) transfer else ResumableTransfer(clientFor(network), storage)
-        return when (val result = transfer.run(url, track.bookId, track.trackIndex, onProgress)) {
+        // „Download entfernen“ setzt den Zustand zurück; ohne die Frage liefe die Übertragung bis zum Ende weiter.
+        val stillWanted = suspend { dao.tracks(track.bookId).getOrNull(track.trackIndex)?.downloadState == TrackDownload.RUNNING }
+        return when (val result = transfer.run(url, track.bookId, track.trackIndex, onProgress, stillWanted)) {
             is TransferResult.Failed -> DownloadOutcome.Failed(result.reason)
+            TransferResult.Cancelled -> DownloadOutcome.Cancelled
             is TransferResult.Completed -> finish(track, result.mimeType ?: track.mimeType)
         }
     }
