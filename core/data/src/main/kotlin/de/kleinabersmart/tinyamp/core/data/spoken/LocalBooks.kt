@@ -39,7 +39,7 @@ class LocalBooks @Inject constructor(
      */
     suspend fun sync(): Boolean = mutex.withLock {
         if (!settings.useLocalBooks.first()) return@withLock true
-        val generation = System.currentTimeMillis()
+        val generation = dao.nextGeneration()
         val scanned = try {
             scanner.scan { key, fingerprint ->
                 dao.bookByRemote(LOCAL_BOOK_SERVER_ID, key)?.let { it.remoteUpdatedAt == fingerprint && it.detailsLoaded } == true

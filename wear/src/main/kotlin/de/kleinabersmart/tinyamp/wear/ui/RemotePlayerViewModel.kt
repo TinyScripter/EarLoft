@@ -1,6 +1,7 @@
 package de.kleinabersmart.tinyamp.wear.ui
 
 import android.graphics.Bitmap
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -68,15 +69,22 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerState())
 
-    /** Aus dem gemeldeten Stand fortgerechnet; regelmäßig nur, solange das Handy spielt, sonst bei jeder neuen Meldung. */
+    /**
+     * Aus dem gemeldeten Stand fortgerechnet; regelmäßig nur, solange das Handy spielt, sonst bei jeder neuen Meldung. Nur der
+     * Startwert vergleicht Handy- und Uhr-Uhrzeit (die Meldung kann älter sein, Wear OS stellt die Uhr nach dem Handy); weiter
+     * zählt die monotone Uhr, damit ein Zeitabgleich unterwegs die Anzeige nicht springen lässt.
+     */
     @OptIn(ExperimentalCoroutinesApi::class)
     override val positionMs: StateFlow<Long> = remoteState
         .flatMapLatest { dto ->
             flow {
-                emit(dto?.positionAt(System.currentTimeMillis()) ?: 0L)
+                val start = dto?.positionAt(System.currentTimeMillis()) ?: 0L
+                val startedAt = SystemClock.elapsedRealtime()
+                emit(start)
                 while (dto?.isPlaying == true) {
                     delay(POSITION_INTERVAL_MS)
-                    emit(dto.positionAt(System.currentTimeMillis()))
+                    val position = start + ((SystemClock.elapsedRealtime() - startedAt) * dto.speed.toDouble()).toLong()
+                    emit(if (dto.durationMs > 0) position.coerceAtMost(dto.durationMs) else position)
                 }
             }
         }

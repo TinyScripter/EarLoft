@@ -49,7 +49,7 @@ class PodcastMirror @Inject constructor(
     private class Applied(val ids: List<Long>, val removedEpisodeFiles: List<Pair<Long, String>>, val removedBooks: Set<Long>)
 
     private suspend fun applyRows(manifest: WearPodcastManifest): Applied = database.withTransaction {
-        val generation = System.currentTimeMillis()
+        val generation = bookDao.nextGeneration()
         val feeds = manifest.feeds.associateBy { it.feedId }
         manifest.feeds.forEach { dto ->
             val existing = podcastDao.feed(dto.feedId)

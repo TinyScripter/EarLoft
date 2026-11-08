@@ -126,6 +126,15 @@ abstract class BookDao {
     @Query("DELETE FROM books WHERE kind = 'BOOK' AND seenInGeneration < :generation")
     abstract suspend fun deleteUnseenBooks(generation: Long)
 
+    @Query("SELECT MAX(IFNULL((SELECT MAX(seenInGeneration) FROM books), 0) + 1, :nowMs)")
+    protected abstract suspend fun nextGeneration(nowMs: Long): Long
+
+    /**
+     * Generation für einen Abgleich ohne eigenen Zähler (Bücher und Podcasts auf dem Gerät, Spiegel der Uhr): die Uhrzeit, aber
+     * immer größer als jede gespeicherte. Geht die Uhr nach (Zeitabgleich), bliebe sonst bei [deleteUnseen] stehen, was weg ist.
+     */
+    suspend fun nextGeneration(): Long = nextGeneration(System.currentTimeMillis())
+
     // --- Dateien und Kapitel ---
 
     @Query("SELECT * FROM book_tracks WHERE bookId = :bookId ORDER BY trackIndex")
@@ -293,6 +302,10 @@ abstract class BookDao {
             "WHERE bookId = :bookId AND downloadState IN ('QUEUED', 'RUNNING')",
     )
     abstract suspend fun markBookDownloadFailed(bookId: Long)
+
+    /** Uhr, „Erneut versuchen“: gescheiterte Dateien von Büchern und Folgen wieder zum Laden freigeben. @return Anzahl. */
+    @Query("UPDATE book_tracks SET downloadState = 'NONE' WHERE downloadState = 'FAILED'")
+    abstract suspend fun resetFailedDownloads(): Int
 
     /** `0`, wenn der Eintrag inzwischen entfernt oder zurückgesetzt wurde. */
     @Query(

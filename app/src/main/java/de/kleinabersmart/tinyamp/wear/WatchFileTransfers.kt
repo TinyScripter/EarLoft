@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import de.kleinabersmart.tinyamp.core.download.R as DownloadR
@@ -47,10 +48,18 @@ class WatchFileTransfers @Inject constructor(
     /** Anzahl der laufenden Übertragungen. */
     val running: StateFlow<Int> = active
 
+    /** Der Auftrag läuft und bemerkt neue Übertragungen selbst. */
+    internal val workerRunning = AtomicBoolean(false)
+
+    /** Ein Auftrag ist eingereiht, aber noch nicht gestartet. */
+    internal val workerQueued = AtomicBoolean(false)
+
     /** Führt [send] aus und hält den Prozess so lange mit dem Auftrag wach. */
     suspend fun <T> track(send: suspend () -> T): T {
         active.update { it + 1 }
-        WatchTransferWorker.enqueue(context)
+        // Erst zählen, dann nachsehen: Beendet sich der Auftrag gerade, sieht er entweder die neue Übertragung, oder hier ist
+        // [workerRunning] schon aus, und ein neuer kommt hinterher (sonst verwürfe `KEEP` ihn, und die Übertragung liefe ohne).
+        if (!workerRunning.get() && workerQueued.compareAndSet(false, true)) WatchTransferWorker.enqueue(context)
         try {
             return send()
         } finally {
@@ -67,13 +76,19 @@ class WatchTransferWorker(context: Context, params: WorkerParameters) : Coroutin
 
     override suspend fun doWork(): Result {
         val transfers = EntryPointAccessors.fromApplication(applicationContext, TransferEntryPoint::class.java).watchFileTransfers()
+        transfers.workerRunning.set(true)
+        transfers.workerQueued.set(false)
         val finished = withTimeoutOrNull(MAX_RUN_MS) {
             while (true) {
                 transfers.running.first { it == 0 }
                 // Kommt in der Karenz eine neue Übertragung, weiter warten; sonst fertig.
-                withTimeoutOrNull(GRACE_MS) { transfers.running.first { it > 0 } } ?: break
+                if (withTimeoutOrNull(GRACE_MS) { transfers.running.first { it > 0 } } != null) continue
+                transfers.workerRunning.set(false)
+                if (transfers.running.value == 0) break
+                transfers.workerRunning.set(true)
             }
         }
+        transfers.workerRunning.set(false)
         if (finished == null) Log.w(TAG, "Übertragung zur Uhr läuft länger als ${MAX_RUN_MS / 60_000} min, Auftrag endet")
         return Result.success()
     }
@@ -118,12 +133,15 @@ class WatchTransferWorker(context: Context, params: WorkerParameters) : Coroutin
         /** Obergrenze, falls eine Übertragung hängt; die Uhr bricht selbst nach 30 s ohne Daten ab. */
         private const val MAX_RUN_MS = 60 * 60_000L
 
-        /** Läuft der Auftrag schon, bleibt er (er wartet auf alle Übertragungen). */
+        /**
+         * Nur aufgerufen, wenn kein Auftrag läuft oder der laufende sich gerade beendet ([WatchFileTransfers.track]); den ersetzt
+         * dieser.
+         */
         fun enqueue(context: Context) {
             val request = OneTimeWorkRequestBuilder<WatchTransferWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
-            WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request)
+            WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request)
         }
     }
 }

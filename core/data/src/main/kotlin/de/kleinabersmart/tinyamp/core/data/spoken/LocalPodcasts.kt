@@ -45,7 +45,7 @@ class LocalPodcasts @Inject constructor(
      */
     suspend fun sync(): Boolean = mutex.withLock {
         if (!settings.useLocalPodcasts.first()) return@withLock true
-        val generation = System.currentTimeMillis()
+        val generation = bookDao.nextGeneration()
         val scanned = try {
             scanner.scanPodcasts { podcast, key, fingerprint ->
                 bookDao.bookByRemote(feedIdOf(podcast), key)?.let { it.remoteUpdatedAt == fingerprint && it.detailsLoaded } == true

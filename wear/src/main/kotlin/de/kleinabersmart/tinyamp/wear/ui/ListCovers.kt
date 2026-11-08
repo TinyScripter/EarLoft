@@ -3,6 +3,7 @@ package de.kleinabersmart.tinyamp.wear.ui
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.SystemClock
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -53,8 +54,8 @@ sealed interface CoverRef {
  *
  * Bilder vom Handy (Alben, Abos, Bücher, Folgen) holt die Uhr erst, wenn der Eintrag sichtbar wird, klein über den
  * Datei-Kanal ([PhoneFileFetcher.fetchThumbnail]) und legt sie im Cache-Verzeichnis ab; höchstens [PHONE_PARALLEL] gleichzeitig,
- * damit schnelles Scrollen die Verbindung nicht verstopft. Was das Handy nicht liefert, fragt sie bis zum Neustart nicht
- * noch einmal.
+ * damit schnelles Scrollen die Verbindung nicht verstopft. Was das Handy nicht liefert (keine Datei oder Abbruch der
+ * Übertragung), fragt sie erst nach [PHONE_RETRY_MS] wieder.
  */
 @Singleton
 class ListCovers @Inject constructor(
@@ -66,7 +67,8 @@ class ListCovers @Inject constructor(
 ) {
     private val cache = LruCache<CoverRef, ImageBitmap>(CACHE_ENTRIES)
     private val phoneRequests = Semaphore(PHONE_PARALLEL)
-    private val phoneMissing = ConcurrentHashMap.newKeySet<WearThumbnailFile.Ref>()
+    /** Bilder, die das Handy nicht geliefert hat, mit dem Zeitpunkt (`elapsedRealtime`). */
+    private val phoneMissing = ConcurrentHashMap<WearThumbnailFile.Ref, Long>()
 
     /** Liegt das Bild schon im Speicher? Dann zeigt die Liste es ohne Platzhalter. */
     fun cached(ref: CoverRef): ImageBitmap? = cache.get(ref)
@@ -84,14 +86,16 @@ class ListCovers @Inject constructor(
     private suspend fun fromPhone(thumbnail: WearThumbnailFile.Ref): Bitmap? {
         val file = File(context.cacheDir, "$PHONE_DIRECTORY/${fileName(thumbnail)}.jpg")
         if (!file.isFile) {
-            if (thumbnail in phoneMissing) return null
+            val missedAt = phoneMissing[thumbnail]
+            if (missedAt != null && SystemClock.elapsedRealtime() - missedAt < PHONE_RETRY_MS) return null
             // Ohne Handy nichts als „fehlt“ merken: Nach dem Verbinden soll das Bild kommen.
             phone.connectedPhoneNodeId() ?: return null
             val bytes = phoneRequests.withPermit { phoneFiles.fetchThumbnail(thumbnail) }
             if (bytes == null) {
-                phoneMissing += thumbnail
+                phoneMissing[thumbnail] = SystemClock.elapsedRealtime()
                 return null
             }
+            phoneMissing.remove(thumbnail)
             withContext(Dispatchers.IO) {
                 file.parentFile?.mkdirs()
                 file.writeBytes(bytes)
@@ -110,6 +114,7 @@ class ListCovers @Inject constructor(
         /** Je Bild rund 37 KB (vom Handy 120 px: rund 58 KB): zusammen unter 5 MB. */
         const val CACHE_ENTRIES = 80
         const val PHONE_PARALLEL = 2
+        const val PHONE_RETRY_MS = 10 * 60_000L
         const val PHONE_DIRECTORY = "phone_thumbnails"
     }
 }

@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import de.kleinabersmart.tinyamp.core.database.dao.BookDao
 import de.kleinabersmart.tinyamp.core.download.DownloadRepository
 import de.kleinabersmart.tinyamp.core.model.BookKind
 import de.kleinabersmart.tinyamp.core.model.DownloadOverview
@@ -21,6 +22,7 @@ import de.kleinabersmart.tinyamp.wear.download.SelectionItem
 import de.kleinabersmart.tinyamp.wear.download.StoredSpoken
 import de.kleinabersmart.tinyamp.wear.download.WatchState
 import de.kleinabersmart.tinyamp.wear.download.WatchStorageRepository
+import de.kleinabersmart.tinyamp.wear.download.WearDownloadPlanner
 import de.kleinabersmart.tinyamp.wear.sync.PhoneSelections
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
@@ -88,6 +90,8 @@ class StorageViewModel @Inject constructor(
     private val phoneSelections: PhoneSelections,
     private val storage: WatchStorageRepository,
     private val watchState: WatchState,
+    private val bookDao: BookDao,
+    private val planner: WearDownloadPlanner,
 ) : ViewModel() {
 
     private val _removeFailed = MutableStateFlow(false)
@@ -167,9 +171,13 @@ class StorageViewModel @Inject constructor(
         _removeFailed.value = false
     }
 
+    /** Songs wie Folgen und Bücher; Letztere warteten sonst, bis das Handy sie neu ins Manifest nimmt. */
     fun retryFailed() {
         watchState.clearAllServerFailures()
-        viewModelScope.launch { downloads.retryFailed() }
+        viewModelScope.launch {
+            downloads.retryFailed()
+            if (bookDao.resetFailedDownloads() > 0) planner.plan()
+        }
     }
 }
 

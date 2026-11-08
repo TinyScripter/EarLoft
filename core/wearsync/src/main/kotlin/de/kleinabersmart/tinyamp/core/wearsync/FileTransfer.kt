@@ -180,10 +180,13 @@ private suspend fun ChannelClient.receive(
             withContext(Dispatchers.IO) {
                 val input = DataInputStream(getInputStream(channel).await().buffered(BUFFER_BYTES))
                 val length = input.readLong()
+                // Die Frist für eine stockende Übertragung beginnt erst jetzt; die Wartezeit auf die Kopfzeile zählt nicht mit.
+                lastActivity.set(System.nanoTime())
                 headerRead.set(true)
                 if (length == NO_FILE) return@withContext FileReceive.Missing
                 if (from > 0 && from >= length) throw LengthChanged()
                 val output = open(length)
+                lastActivity.set(System.nanoTime())
                 copyExactly(input, output, length - from) { done, _ ->
                     lastActivity.set(System.nanoTime())
                     onProgress(from + done, length)
