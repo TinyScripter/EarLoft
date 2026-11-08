@@ -26,7 +26,7 @@ library.
 
 ### Everywhere
 
-- **Offline listening.** Download music, episodes and books; everything you browse comes from a local database, so the
+- **Offline listening.** Download music, podcasts and books; everything you browse comes from a local database, so the
   app stays usable without a connection.
 - **Search** across all three areas or only the selected one, ignoring accents ("Bjork" finds "Björk").
 - **Material 3 design** in the colors of the logo or, if you like, of your wallpaper (Material You); the player and
@@ -34,7 +34,7 @@ library.
   and German.
 - **Home screen widget** (4×1) with cover and playback controls, and **Chromecast** (see
   [Known limitations](#known-limitations)).
-- **Share** songs, albums, artists, podcasts, episodes and books as links to open sources (MusicBrainz, the podcast's
+- **Share** songs, albums, artists, podcasts and books as links to open sources (MusicBrainz, the podcast's
   website and feed, Open Library), never to your own servers. Feed links shared from other apps open as a podcast
   preview.
 
@@ -51,7 +51,7 @@ library.
 - **Find podcasts** in Apple Podcasts, Podcast Index, fyyd and ARD Sounds, or add any RSS or Atom feed directly.
   The directories are off until you switch them on, because your search terms are sent to them. Feeds refresh
   automatically in the background.
-- **Try before you subscribe:** listen to and download episodes without subscribing. Subscriptions you no longer
+- **Try before you subscribe:** listen to and download podcasts without subscribing. Subscriptions you no longer
   follow can be archived instead of deleted, so you keep their listening statistics.
 - **Continue listening** is an editable queue: the next episode starts when one ends.
 - **Chapters, show notes and downloads** per episode, with automatic downloads of new episodes per podcast.
