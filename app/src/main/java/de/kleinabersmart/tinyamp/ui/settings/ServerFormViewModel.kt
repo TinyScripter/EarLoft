@@ -45,7 +45,8 @@ data class ServerFormUiState(
 
     val canSubmit: Boolean
         get() = !isBusy && !isLoading && url.isNotBlank() && username.isNotBlank() &&
-            (password.isNotEmpty() || keepsStoredPassword) && (!isHttp || allowHttp)
+            (password.isNotEmpty() || keepsStoredPassword || (!isEditing && type != SourceType.SUBSONIC)) &&
+            (!isHttp || allowHttp)
 }
 
 /** Formular zum Anlegen ([sourceId] `null`) oder Bearbeiten eines Servers. */

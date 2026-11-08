@@ -86,7 +86,8 @@ class MergeResolver @Inject constructor(
         val serverChanged = if (isNewSource) starred else starred != (previousStarredAt != null)
         when {
             serverChanged && starred != isFavorite -> {
-                syncDao.setSongFavorite(songId, starred, starredAt ?: System.currentTimeMillis())
+                // Jellyfin/Emby kennen keinen Zeitpunkt (0): dann gilt jetzt, sonst stünde der Favorit ganz unten (1970).
+                syncDao.setSongFavorite(songId, starred, starredAt?.takeIf { it > 0 } ?: System.currentTimeMillis())
                 syncDao.pushFavoriteToServers(songId, starred, exceptUid = uid)
             }
             isNewSource && isFavorite && !starred -> syncDao.pushFavoriteToServers(songId, favorite = true)

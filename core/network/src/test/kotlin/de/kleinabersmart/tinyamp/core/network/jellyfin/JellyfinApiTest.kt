@@ -107,6 +107,23 @@ class JellyfinApiTest {
     }
 
     @Test
+    fun `the password is not sent on to a redirect target`() = runTest {
+        MockWebServer().use { other ->
+            other.start()
+            mockServer.enqueue(MockResponse.Builder().code(307).addHeader("Location", other.url("/login").toString()).build())
+
+            try {
+                api.authenticate(server.baseUrl, "dev", "test", "geheim")
+                fail("HttpStatusException erwartet")
+            } catch (e: HttpStatusException) {
+                assertEquals(307, e.status)
+            }
+
+            assertEquals(0, other.requestCount)
+        }
+    }
+
+    @Test
     fun `rejected token is an auth error, foreign answers are not jellyfin`() = runTest {
         mockServer.enqueue(MockResponse.Builder().code(401).build())
         try {

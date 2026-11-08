@@ -124,6 +124,8 @@ class JellyfinTrackMapperTest {
         assertEquals("Unbekanntes Album", track.albumTitle)
         assertEquals(1, track.discNumber)
         assertNull(JellyfinTrackMapper.map(JfItem(id = "s3", type = "Audio"), names).coverRemoteId)
+        // Emby nennt den Bild-Tag des Albums nie: ohne eigenes Bild das Album ohne Tag.
+        assertEquals("al4", JellyfinTrackMapper.map(JfItem(id = "s4", type = "Audio", albumId = "al4"), names).coverRemoteId)
     }
 
     @Test

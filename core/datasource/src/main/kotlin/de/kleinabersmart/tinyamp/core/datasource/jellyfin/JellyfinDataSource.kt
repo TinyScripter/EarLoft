@@ -25,9 +25,11 @@ import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinApi
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinFlavor
 import de.kleinabersmart.tinyamp.core.network.jellyfin.JellyfinServer
+import de.kleinabersmart.tinyamp.core.network.jellyfin.JfItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -54,19 +56,35 @@ class JellyfinDataSource internal constructor(
      */
     override fun fullScan(): Flow<SourceBatch> = flow {
         api.musicLibraries(server).forEach { library ->
-            var start = 0
-            while (true) {
-                val result = api.songs(server, library.id, start, PAGE_SIZE)
-                val page = result.items
-                val tracks = page.filter(JellyfinTrackMapper::isMusic).map { JellyfinTrackMapper.map(it, names) }
-                if (tracks.isNotEmpty()) emit(SourceBatch(tracks))
-                start += page.size
-                val total = result.totalRecordCount.takeIf { it > 0 }
-                    // Ohne Gesamtzahl wie früher: Eine kurze Seite ist die letzte.
-                    ?: if (page.size < PAGE_SIZE) break else continue
-                if (start >= total) break
-                if (page.isEmpty()) throw IOException("Jellyfin lieferte nur $start von $total Songs aus ${library.name}")
+            // Hat sich die Bibliothek unterwegs verschoben (Scan oder Löschen am Server), einmal von vorn.
+            if (!scanLibrary(library) && !scanLibrary(library)) {
+                throw IOException("${library.name} hat sich während des Abgleichs geändert")
             }
+        }
+    }
+
+    /**
+     * Ab der zweiten Seite beginnt jede Anfrage einen Song früher: Er muss der letzte der vorigen Seite sein. Sonst ist
+     * vor dem Offset etwas weggefallen, und der erste Song der Seite fehlte – der Abgleich löschte ihn samt Playlist-
+     * Einträgen, Verlauf und Favorit. @return `false` bei einer Verschiebung.
+     */
+    private suspend fun FlowCollector<SourceBatch>.scanLibrary(library: JfItem): Boolean {
+        var start = 0
+        var lastId: String? = null
+        while (true) {
+            val overlap = if (lastId == null) 0 else 1
+            val result = api.songs(server, library.id, start - overlap, PAGE_SIZE + overlap)
+            if (lastId != null && result.items.firstOrNull()?.id != lastId) return false
+            val page = result.items.drop(overlap)
+            val tracks = page.filter(JellyfinTrackMapper::isMusic).map { JellyfinTrackMapper.map(it, names) }
+            if (tracks.isNotEmpty()) emit(SourceBatch(tracks))
+            start += page.size
+            lastId = page.lastOrNull()?.id ?: lastId
+            val total = result.totalRecordCount.takeIf { it > 0 }
+                // Ohne Gesamtzahl wie früher: Eine kurze Seite ist die letzte.
+                ?: if (page.size < PAGE_SIZE) return true else continue
+            if (start >= total) return true
+            if (page.isEmpty()) throw IOException("Jellyfin lieferte nur $start von $total Songs aus ${library.name}")
         }
     }
 

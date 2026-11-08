@@ -60,8 +60,14 @@ class JellyfinApi @Inject constructor(
             .header(JellyfinAuthInterceptor.AUTHORIZATION, clientInfo.authorization(deviceId, token = null))
             .post(body.toRequestBody(JSON_MEDIA_TYPE))
             .build()
-        return decode(execute(request), "Users/AuthenticateByName")
+        return decode(execute(request, noRedirectClient), "Users/AuthenticateByName")
     }
+
+    /**
+     * Für die Anmeldung: Das Passwort steht im Body, und den schickte OkHttp bei 307/308 an jedes Ziel mit, auch von
+     * HTTPS auf HTTP und zu einem fremden Host (anders als die Kopfzeile mit dem Token). Eine Weiterleitung scheitert so.
+     */
+    private val noRedirectClient by lazy { client.newBuilder().followRedirects(false).followSslRedirects(false).build() }
 
     /** Prüft den Token. Emby kennt `Users/Me` nicht. */
     suspend fun me(server: JellyfinServer): JfUser = get(server, server.endpoint(server.choose("Users/Me", "Users/${server.userId}")).build())
@@ -373,8 +379,8 @@ class JellyfinApi @Inject constructor(
         configure: Request.Builder.() -> Request.Builder = { this },
     ): Request = Request.Builder().url(url).tag(JellyfinServer::class.java, server).configure().build()
 
-    private suspend fun execute(request: Request): String = withContext(Dispatchers.IO) {
-        client.newCall(request).await().use { response ->
+    private suspend fun execute(request: Request, using: OkHttpClient = client): String = withContext(Dispatchers.IO) {
+        using.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code)
             response.body.string()
         }

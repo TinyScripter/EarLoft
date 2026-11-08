@@ -77,6 +77,21 @@ class JellyfinDataSourceTest {
     }
 
     @Test
+    fun `a song removed before the offset during the scan does not make the next one go missing`() = runTest {
+        // Nach der ersten Seite fällt s0 am Server weg; alles rückt um eins nach vorn.
+        var removed = false
+        songPage = { start ->
+            val all = if (removed) listOf("s1", "s2", "s3", "s4") else listOf("s0", "s1", "s2", "s3", "s4")
+            page(ids = all.drop(start).take(2), total = all.size).also { removed = true }
+        }
+
+        val ids = source.fullScan().toList().flatMap { batch -> batch.tracks.map { it.remoteId } }.toSet()
+
+        // Ohne Prüfung begänne die zweite Seite bei s3, und s2 fehlte (der Abgleich löschte ihn).
+        assertEquals(setOf("s0", "s1", "s2", "s3", "s4"), ids)
+    }
+
+    @Test
     fun `full scan aborts instead of losing songs when pages end before the total`() = runTest {
         songPage = { start -> if (start == 0) page(listOf("s0", "s1"), total = 5) else page(emptyList(), total = 5) }
 

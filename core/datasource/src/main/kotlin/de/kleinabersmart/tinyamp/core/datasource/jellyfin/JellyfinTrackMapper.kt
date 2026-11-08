@@ -68,13 +68,18 @@ internal object JellyfinTrackMapper {
         )
     }
 
-    /** Das Albumcover, sonst das eigene Bild des Songs; mit Bild-Tag, damit ein neues Cover eine neue URL bekommt. */
+    /**
+     * Das Albumcover, sonst das eigene Bild des Songs; mit Bild-Tag, damit ein neues Cover eine neue URL bekommt. Emby
+     * nennt den Tag des Albums nie: Hat der Song kein eigenes Bild, bleibt das Album ohne Tag (am Emby-Testserver 11 von
+     * 1286 Songs, deren Alben alle ein Bild haben; ohne Bild antwortet der Server mit 404 = kein Cover).
+     */
     private fun coverRemoteId(item: JfItem): String? {
         val albumId = item.albumId
         val albumTag = item.albumPrimaryImageTag
         return when {
             albumId != null && albumTag != null -> JellyfinCover.id(albumId, albumTag)
             item.imageTags.containsKey("Primary") -> JellyfinCover.id(item.id, item.imageTags["Primary"])
+            albumId != null -> JellyfinCover.id(albumId, null)
             else -> null
         }
     }
