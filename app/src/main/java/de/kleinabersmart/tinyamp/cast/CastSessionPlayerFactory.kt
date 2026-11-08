@@ -2,6 +2,7 @@ package de.kleinabersmart.tinyamp.cast
 
 import android.content.Context
 import android.os.Handler
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.compose.material3.SnackbarDuration
 import androidx.media3.cast.Cast
@@ -49,10 +50,11 @@ import javax.inject.Singleton
  * folgen ([refillIfNeeded]). Beim Wechsel zurück aufs Handy kommt die ganze Warteschlange wieder zusammen.
  *
  * Kann der Empfänger die Titel nicht laden (zum Beispiel weil er den Server nicht erreicht oder dessen
- * Zertifikat ablehnt), bleibt seine Warteschlange leer und der Player zeigt nichts mehr an. Dann beendet
- * [watchRemoteLoad] die Sitzung und die ursprüngliche Warteschlange kommt pausiert aufs Handy zurück – beim
- * Verbinden wie bei jeder neuen Warteschlange während der Sitzung ([RemoteQueueWatch]). Ein Empfänger in diesem
- * Zustand lehnte sonst auch alles Weitere ab („Invalid Request“), und ein danach gestartetes Buch ginge ins Leere.
+ * Zertifikat ablehnt), bleibt seine Warteschlange leer und der Player zeigt nichts mehr an ([RemoteQueueWatch], beim
+ * Verbinden wie bei jeder neuen Warteschlange während der Sitzung). Liegen die Songs auch auf einem anderen Server, geht
+ * die Warteschlange noch einmal von dort hinaus ([watchRemoteLoad]); sonst endet die Sitzung und die ursprüngliche
+ * Warteschlange kommt pausiert aufs Handy zurück. Ein Empfänger ohne Warteschlange lehnte sonst auch alles Weitere ab
+ * („Invalid Request“), und ein danach gestartetes Buch ginge ins Leere.
  */
 @OptIn(UnstableApi::class)
 @Singleton
@@ -216,24 +218,52 @@ internal class CastSessionPlayerFactory @Inject constructor(
 
     /**
      * Hat der Empfänger eine Warteschlange verworfen, die beim Verbinden oder während der Sitzung an ihn ging
-     * ([RemoteQueueWatch], Frist [QUEUE_WATCH_MS]), endet die Sitzung und sie kommt pausiert aufs Handy zurück.
-     * Bis 2026-11-04 galt beim Verbinden „nach 8 s noch leer“; Bücher von Audiobookshelf brauchen am Empfänger aber
-     * etwa 9 s, und das Verbinden scheiterte daran.
+     * ([RemoteQueueWatch], Frist [QUEUE_WATCH_MS]), erreicht er vermutlich den Server des aktuellen Songs nicht. Der Server
+     * bleibt dann für die Sitzung außen vor ([CastMediaCache.exclude]), und die Warteschlange geht noch einmal mit den
+     * Songs hinaus, die auch auf einem anderen Server liegen (`retryElsewhere`; am Gerät: Jellyfin per öffentlicher Adresse
+     * unerreichbar, derselbe Song von Emby im LAN). Bleibt nichts übrig, endet die Sitzung und die Warteschlange kommt
+     * pausiert aufs Handy zurück. Bis 2026-11-04 galt beim Verbinden „nach 8 s noch leer“; Bücher von Audiobookshelf
+     * brauchen am Empfänger aber etwa 9 s, und das Verbinden scheiterte daran.
      */
     private fun watchRemoteLoad(player: Player) {
         val handler = Handler(player.applicationLooper)
         val queueWatch = RemoteQueueWatch()
         fun isRemote() = player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
         fun itemIds() = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
-        fun rescue() {
-            val handedOver = handOver.state ?: return
+        fun rescue(handedOver: PlayerTransferState) {
             queueWatch.stop()
             handOver.rescue = handedOver
             snackbars.show(appContext.getString(R.string.cast_load_failed), SnackbarDuration.Long)
             Cast.getSingletonInstance(appContext).endCurrentSession(true)
         }
-        val timeout = Runnable { if (queueWatch.onTimeout(player.mediaItemCount) && isRemote()) rescue() }
-        fun watch(state: PlayerTransferState) {
+        lateinit var watch: (PlayerTransferState) -> Unit
+
+        fun retryElsewhere(handedOver: PlayerTransferState, failedSource: String) {
+            val expected = ++generation
+            scope.launch {
+                cache.prepare(handedOver.mediaItems.mapNotNull { it.songId })
+                withContext(Dispatchers.Main) {
+                    if (expected != generation || !isRemote() || handOver.state !== handedOver) return@withContext
+                    if (handedOver.mediaItems.none(cache::isCastable)) {
+                        rescue(handedOver)
+                        return@withContext
+                    }
+                    Log.i(TAG, "Empfänger erreicht $failedSource nicht, die Warteschlange geht von einem anderen Server hinaus")
+                    reserve.clear()
+                    castableState(handedOver, cache, reserve, ::showSkipped).setToPlayer(player)
+                    watch(handedOver)
+                }
+            }
+        }
+
+        fun onLoadFailed() {
+            val handedOver = handOver.state ?: return
+            queueWatch.stop()
+            val failedSource = handedOver.mediaItems.getOrNull(handedOver.currentMediaItemIndex)?.let(cache::get)?.sourceId
+            if (failedSource != null && cache.exclude(failedSource)) retryElsewhere(handedOver, failedSource) else rescue(handedOver)
+        }
+        val timeout = Runnable { if (queueWatch.onTimeout(player.mediaItemCount) && isRemote()) onLoadFailed() }
+        watch = { state ->
             handler.removeCallbacks(timeout)
             queueWatch.start(state.mediaItems.map { it.mediaId })
             // Der Stand vor dem Senden (beim Verbinden: leer) zählt schon mit.
@@ -248,7 +278,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
                 val (all, index) = reserve.complete(state.mediaItems, state.currentMediaItemIndex)
                 state.buildUpon().setMediaItems(all).setCurrentMediaItemIndex(index).build()
             }
-            handOver.state?.let(::watch)
+            handOver.state?.let { watch(it) }
         }
         player.addListener(object : Player.Listener {
             override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
@@ -262,7 +292,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
                 if (!queueWatch.isWatching || !isRemote()) return
                 if (queueWatch.onItems(itemIds())) {
                     handler.removeCallbacks(timeout)
-                    rescue()
+                    onLoadFailed()
                 }
             }
         })
@@ -285,7 +315,38 @@ internal class CastSessionPlayerFactory @Inject constructor(
         private const val REFILL_CHUNK = 25
         private const val QUEUE_WATCH_MS = 20_000L
         private const val SNAPSHOT_MS = 5_000L
+        private const val TAG = "CastSession"
     }
+}
+
+/**
+ * Was vom Stand [state] an den Empfänger geht: nur Songs, die er laden kann (Adressen in [cache] vorbereitet), höchstens
+ * [CastSessionPlayerFactory.MAX_REMOTE_QUEUE] um den aktuellen herum; der Rest kommt in die [reserve]. Meldet übersprungene
+ * Songs über [onSkipped].
+ */
+@OptIn(UnstableApi::class)
+private fun castableState(
+    state: PlayerTransferState,
+    cache: CastMediaCache,
+    reserve: QueueReserve<MediaItem>,
+    onSkipped: (skipped: Int, total: Int) -> Unit,
+): PlayerTransferState {
+    val items = state.mediaItems
+    val castable = items.indices.filter { cache.isCastable(items[it]) }
+    if (castable.size == items.size && items.size <= CastSessionPlayerFactory.MAX_REMOTE_QUEUE) return state
+    onSkipped(items.size - castable.size, items.size)
+    if (castable.isEmpty()) {
+        return state.buildUpon().setMediaItems(emptyList()).setCurrentMediaItemIndex(C.INDEX_UNSET).build()
+    }
+    val current = state.currentMediaItemIndex
+    val startInCastable = castable.indexOfFirst { it >= current }.takeIf { it >= 0 } ?: 0
+    val window = queueWindow(castable, startInCastable, CastSessionPlayerFactory.MAX_REMOTE_QUEUE, state.shuffleModeEnabled)
+    reserve.reset(window.before.map(items::get), window.after.map(items::get))
+    return state.buildUpon()
+        .setMediaItems(window.items.map(items::get))
+        .setCurrentMediaItemIndex(window.startIndex)
+        .apply { if (window.items[window.startIndex] != current) setCurrentPosition(0) }
+        .build()
 }
 
 /**
@@ -339,28 +400,8 @@ private class CastTransferCallback(
         handOver.lastRemote = null
         reserve.clear()
         handOver.state = state.takeIf { it.mediaItems.isNotEmpty() }
-        val items = state.mediaItems
-        cache.prepareBlocking(items.mapNotNull { it.songId })
-        val castable = items.indices.filter { cache.isCastable(items[it]) }
-        if (castable.size == items.size && items.size <= CastSessionPlayerFactory.MAX_REMOTE_QUEUE) {
-            state.setToPlayer(targetPlayer)
-            return
-        }
-        onSkipped(items.size - castable.size, items.size)
-        if (castable.isEmpty()) {
-            state.buildUpon().setMediaItems(emptyList()).setCurrentMediaItemIndex(C.INDEX_UNSET).build().setToPlayer(targetPlayer)
-            return
-        }
-        val current = state.currentMediaItemIndex
-        val startInCastable = castable.indexOfFirst { it >= current }.takeIf { it >= 0 } ?: 0
-        val window = queueWindow(castable, startInCastable, CastSessionPlayerFactory.MAX_REMOTE_QUEUE, sourcePlayer.shuffleModeEnabled)
-        reserve.reset(window.before.map(items::get), window.after.map(items::get))
-        state.buildUpon()
-            .setMediaItems(window.items.map(items::get))
-            .setCurrentMediaItemIndex(window.startIndex)
-            .apply { if (window.items[window.startIndex] != current) setCurrentPosition(0) }
-            .build()
-            .setToPlayer(targetPlayer)
+        cache.prepareBlocking(state.mediaItems.mapNotNull { it.songId })
+        castableState(state, cache, reserve, onSkipped).setToPlayer(targetPlayer)
     }
 }
 

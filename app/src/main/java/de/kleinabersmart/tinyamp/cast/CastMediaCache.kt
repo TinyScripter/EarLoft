@@ -21,6 +21,7 @@ import javax.inject.Singleton
  * liefern; deshalb wird vorher aufgelöst ([prepare]) – beim Start einer Cast-Sitzung für die ganze
  * Warteschlange, beim Einreihen für die neuen Songs. Nur im Speicher, weil die Adressen Zugangsdaten enthalten.
  * Ebenso die Schlüssel der Audiobookshelf-Server für Bücher und Folgen ([prepareServerKeys]).
+ * Erreicht der Empfänger einen Musikserver nicht, bleibt der bis zum Ende der Sitzung außen vor ([exclude]).
  */
 @Singleton
 class CastMediaCache @Inject constructor(
@@ -31,6 +32,9 @@ class CastMediaCache @Inject constructor(
     private class Entry(val media: CastMedia?)
 
     private val entries = ConcurrentHashMap<Long, Entry>()
+
+    /** Server, die der Empfänger in dieser Sitzung nicht erreicht hat. */
+    private val excluded: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /** Schlüssel je Audiobookshelf-Server; `null`, solange nicht geladen. */
     @Volatile
@@ -43,8 +47,18 @@ class CastMediaCache @Inject constructor(
     suspend fun prepare(songIds: Collection<Long>) {
         val missing = songIds.filterNot(entries::containsKey).distinct()
         if (missing.isEmpty()) return
-        val resolved = resolver.resolve(missing)
+        val resolved = resolver.resolve(missing, excluded.toSet())
         missing.forEach { entries[it] = Entry(resolved[it]) }
+    }
+
+    /**
+     * Der Empfänger erreicht [sourceId] nicht: Songs von dort löst [prepare] neu auf, mit dem nächsten Server.
+     * @return `false`, wenn der Server schon ausgeschlossen war.
+     */
+    fun exclude(sourceId: String): Boolean {
+        if (!excluded.add(sourceId)) return false
+        entries.entries.removeIf { it.value.media?.sourceId == sourceId }
+        return true
     }
 
     /** Synchron für Media3; was nicht vorbereitet wurde, wird blockierend nachgeladen (sollte selten sein). */
@@ -105,6 +119,7 @@ class CastMediaCache @Inject constructor(
     /** Zu Beginn jeder Sitzung: Server oder Passwort können sich seit der letzten geändert haben. */
     fun clear() {
         entries.clear()
+        excluded.clear()
         serverKeys = null
     }
 

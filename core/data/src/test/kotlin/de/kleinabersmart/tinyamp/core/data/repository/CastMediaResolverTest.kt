@@ -70,6 +70,18 @@ class CastMediaResolverTest {
     }
 
     @Test
+    fun `a server the receiver could not reach is skipped`() = runTest {
+        val both = song("nd" to "1", "nd2" to "2")
+        val onlyExcluded = song("nd2" to "3")
+
+        val media = resolver.resolve(listOf(both, onlyExcluded), excludedSources = setOf("nd2"))
+
+        assertEquals("http://nd/stream/1", media[both]?.streamUrl)
+        assertEquals("nd", media[both]?.sourceId)
+        assertNull(media[onlyExcluded])
+    }
+
+    @Test
     fun `unsupported or unknown formats are transcoded to mp3`() = runTest {
         val flac = song("nd" to "1", mimeType = "audio/flac")
         val wma = song("nd" to "2", mimeType = "audio/x-ms-wma")

@@ -9,9 +9,10 @@ import javax.inject.Singleton
 
 /**
  * Was ein Cast-Empfänger zum Abspielen eines Songs braucht. [streamUrl] und [coverUrl] enthalten
- * Zugangsdaten – nicht speichern, nicht loggen.
+ * Zugangsdaten – nicht speichern, nicht loggen. [sourceId]: der Musikserver, von dem der Empfänger lädt (`null` bei
+ * Büchern und Folgen).
  */
-class CastMedia(val streamUrl: String, val mimeType: String, val coverUrl: String?) {
+class CastMedia(val streamUrl: String, val mimeType: String, val coverUrl: String?, val sourceId: String? = null) {
     override fun toString() = "CastMedia(mimeType=$mimeType)"
 }
 
@@ -25,12 +26,15 @@ class CastMediaResolver @Inject constructor(
     private val libraryDao: LibraryDao,
     private val registry: MusicDataSources,
 ) {
-    /** Songs ohne nutzbare Server-Quelle fehlen im Ergebnis. */
-    suspend fun resolve(songIds: Collection<Long>): Map<Long, CastMedia> {
+    /**
+     * Songs ohne nutzbare Server-Quelle fehlen im Ergebnis. [excludedSources]: Server, die der Empfänger in dieser Sitzung
+     * nicht erreicht hat; Songs weichen auf den nächsten aus.
+     */
+    suspend fun resolve(songIds: Collection<Long>, excludedSources: Set<String> = emptySet()): Map<Long, CastMedia> {
         val result = HashMap<Long, CastMedia>()
         songIds.distinct().chunked(SQLITE_MAX_VARIABLES).forEach { chunk ->
             libraryDao.getPlayableSourcesOfSongs(chunk)
-                .filter { it.sourceType.isServer }
+                .filter { it.sourceType.isServer && it.sourceId !in excludedSources }
                 .groupBy { it.songId }
                 .forEach { (songId, rows) ->
                     rows.sortedWith(SourcePreference).firstNotNullOfOrNull { castMedia(it) }?.let { result[songId] = it }
@@ -46,6 +50,7 @@ class CastMediaResolver @Inject constructor(
             streamUrl = source.externalStreamUrl(row.remoteId, if (playable == null) CastFormats.TRANSCODE_TARGET else null),
             mimeType = playable ?: CastFormats.TRANSCODED_MIME_TYPE,
             coverUrl = source.externalCoverUrl(row.coverRemoteId ?: row.remoteId, COVER_SIZE_PX),
+            sourceId = row.sourceId,
         )
     }
 
