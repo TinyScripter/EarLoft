@@ -58,8 +58,14 @@
     <string name="player_output">Bluetooth-Ausgabe</string>
     <string name="player_position">Position im Titel</string>
     <string name="player_position_spoken">Wiedergabeposition</string>
-    <string name="player_skip_back_30">30 Sekunden zurück</string>
-    <string name="player_skip_forward_10">10 Sekunden vor</string>
+    <plurals name="player_skip_back">
+        <item quantity="one">%d Sekunde zurück</item>
+        <item quantity="other">%d Sekunden zurück</item>
+    </plurals>
+    <plurals name="player_skip_forward">
+        <item quantity="one">%d Sekunde vor</item>
+        <item quantity="other">%d Sekunden vor</item>
+    </plurals>
     <string name="player_volume">Lautstärke</string>
     <string name="player_volume_percent">%d %%</string>
     <string name="player_chapters">Kapitel</string>

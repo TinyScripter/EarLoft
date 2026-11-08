@@ -28,6 +28,8 @@ import de.kleinabersmart.tinyamp.core.data.repository.ArtworkRepository
 import de.kleinabersmart.tinyamp.core.data.repository.seedColorOf
 import de.kleinabersmart.tinyamp.core.data.spoken.BookCovers
 import de.kleinabersmart.tinyamp.core.data.spoken.BookRepository
+import de.kleinabersmart.tinyamp.core.data.spoken.SeekSteps
+import de.kleinabersmart.tinyamp.core.data.spoken.SpokenSettings
 import de.kleinabersmart.tinyamp.core.model.BookTimeline
 import de.kleinabersmart.tinyamp.core.playback.CoverProvider
 import de.kleinabersmart.tinyamp.core.playback.NowPlaying
@@ -110,7 +112,13 @@ data class WidgetState(
     val seedColor: Int? = null,
     /** Spielzeit bei Büchern und Folgen; `null` bei Musik oder solange sie nicht feststeht. */
     val clock: BookClock? = null,
-)
+    /** Sprungweiten aus den Einstellungen, für Bücher bzw. Folgen. */
+    val bookSeek: SeekSteps = SeekSteps.DEFAULT,
+    val podcastSeek: SeekSteps = SeekSteps.DEFAULT,
+) {
+    /** Sprungweiten des gezeigten Buchs bzw. der Folge. */
+    val seek: SeekSteps get() = if (nowPlaying?.isEpisode == true) podcastSeek else bookSeek
+}
 
 /**
  * Hält den Zustand für das Widget und aktualisiert es gedrosselt. Der letzte Stand bleibt stehen, auch wenn der Service
@@ -126,6 +134,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
     private val books: BookRepository,
     private val servicePlayer: ServicePlayer,
     private val store: WidgetStateStore,
+    spokenSettings: SpokenSettings,
     @ApplicationScope scope: CoroutineScope,
 ) : NowPlayingObserver {
 
@@ -155,6 +164,12 @@ class NowPlayingWidgetUpdater @Inject constructor(
                 .distinctUntilChanged()
                 .collect { store.save(it) }
         }
+        combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair)
+            .onEach { (book, podcast) ->
+                _state.value = _state.value.copy(bookSeek = book, podcastSeek = podcast)
+                NowPlayingWidget().updateAll(context)
+            }
+            .launchIn(scope)
         @OptIn(FlowPreview::class)
         nowPlaying
             .debounce(UPDATE_THROTTLE_MS)
@@ -324,7 +339,13 @@ class NowPlayingWidgetUpdater @Inject constructor(
         // Die Spielzeit kommt vom eigenen Takt; sie bleibt, bis der nächste Wert da ist. Der aktuelle Stand wird erst
         // jetzt gelesen, weil sie sich während des Ladens oben ändern kann.
         val clock = _state.value.clock?.takeIf { bookId != null && it.bookId == bookId }
-        _state.value = WidgetState(nowPlaying, coverUri, aspectRatio, seedColor, clock)
+        _state.value = _state.value.copy(
+            nowPlaying = nowPlaying,
+            coverUri = coverUri,
+            coverAspectRatio = aspectRatio,
+            seedColor = seedColor,
+            clock = clock,
+        )
         NowPlayingWidget().updateAll(context)
     }
 

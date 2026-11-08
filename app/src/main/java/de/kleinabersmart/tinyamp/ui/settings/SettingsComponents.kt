@@ -49,6 +49,7 @@ import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.model.SpokenMode
 import de.kleinabersmart.tinyamp.core.data.spoken.ResumeRule
+import de.kleinabersmart.tinyamp.core.data.spoken.SeekSteps
 import de.kleinabersmart.tinyamp.core.data.podcast.PodcastSettings
 import de.kleinabersmart.tinyamp.core.data.sync.LibrarySettings
 import de.kleinabersmart.tinyamp.core.data.sync.SyncFailure
@@ -366,6 +367,51 @@ internal fun ResumeRows(rule: ResumeRule, icon: Int, keyPrefix: String, onChange
                 choosingRewind = false
             },
             onDismiss = { choosingRewind = false },
+        )
+    }
+}
+
+/** Die zwei Zeilen „Zurückspulen per Knopf“ und „Vorspulen per Knopf“ samt Auswahldialogen. */
+@Composable
+internal fun SeekRows(steps: SeekSteps, keyPrefix: String, onChange: (SeekSteps) -> Unit) {
+    var choosingBack by rememberSaveable(keyPrefix) { mutableStateOf(false) }
+    var choosingForward by rememberSaveable(keyPrefix) { mutableStateOf(false) }
+    ClickRow(
+        title = stringResource(R.string.settings_seek_back),
+        value = resumeSecondsLabel(steps.backSeconds),
+        icon = DesignR.drawable.ic_replay,
+        onClick = { choosingBack = true },
+    )
+    ClickRow(
+        title = stringResource(R.string.settings_seek_forward),
+        value = resumeSecondsLabel(steps.forwardSeconds),
+        icon = DesignR.drawable.ic_forward,
+        onClick = { choosingForward = true },
+    )
+    if (choosingBack) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_seek_back),
+            options = (SeekSteps.CHOICES + steps.backSeconds).distinct().sorted(),
+            selected = steps.backSeconds,
+            label = { resumeSecondsLabel(it) },
+            onSelect = {
+                onChange(steps.copy(backSeconds = it))
+                choosingBack = false
+            },
+            onDismiss = { choosingBack = false },
+        )
+    }
+    if (choosingForward) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_seek_forward),
+            options = (SeekSteps.CHOICES + steps.forwardSeconds).distinct().sorted(),
+            selected = steps.forwardSeconds,
+            label = { resumeSecondsLabel(it) },
+            onSelect = {
+                onChange(steps.copy(forwardSeconds = it))
+                choosingForward = false
+            },
+            onDismiss = { choosingForward = false },
         )
     }
 }

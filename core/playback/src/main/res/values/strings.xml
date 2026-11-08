@@ -9,6 +9,12 @@
     <string name="song_unavailable">Song unavailable: server not reachable and not downloaded</string>
     <string name="favorite_add">Add to favorites</string>
     <string name="favorite_remove">Remove from favorites</string>
-    <string name="spoken_seek_back">Back 30 seconds</string>
-    <string name="spoken_seek_forward">Forward 10 seconds</string>
+    <plurals name="spoken_seek_back">
+        <item quantity="one">Back %d second</item>
+        <item quantity="other">Back %d seconds</item>
+    </plurals>
+    <plurals name="spoken_seek_forward">
+        <item quantity="one">Forward %d second</item>
+        <item quantity="other">Forward %d seconds</item>
+    </plurals>
 </resources>

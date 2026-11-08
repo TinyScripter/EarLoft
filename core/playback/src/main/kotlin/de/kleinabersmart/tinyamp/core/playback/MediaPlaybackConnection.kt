@@ -17,6 +17,8 @@ import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.tinyamp.core.data.podcast.ContinueListening
 import de.kleinabersmart.tinyamp.core.data.spoken.BookPlaybackSource
 import de.kleinabersmart.tinyamp.core.data.spoken.PreparedBook
+import de.kleinabersmart.tinyamp.core.data.spoken.SeekSteps
+import de.kleinabersmart.tinyamp.core.data.spoken.SpokenSettings
 import de.kleinabersmart.tinyamp.core.model.Song
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -31,8 +33,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,8 +59,16 @@ class MediaPlaybackConnection @Inject constructor(
     private val sleepTimer: SleepTimer,
     private val bookPlaybackSource: BookPlaybackSource,
     private val continueListening: ContinueListening,
+    spokenSettings: SpokenSettings,
 ) : PlaybackConnection {
     private val scope = MainScope()
+
+    /** Sprungweiten für Bücher bzw. Folgen; nur auf dem Main-Thread. */
+    private var bookSteps = SeekSteps.DEFAULT
+    private var podcastSteps = SeekSteps.DEFAULT
+
+    /** Ob das laufende Item eine Folge ist; damit lassen sich die Sprungweiten ohne Controller neu setzen. */
+    private var currentIsEpisode = false
 
     /** Die laufende bzw. aufgebaute Verbindung; `null`, solange keine besteht. Nur auf dem Main-Thread. */
     private var connection: CompletableDeferred<MediaController>? = null
@@ -78,6 +90,13 @@ class MediaPlaybackConnection @Inject constructor(
         get() = remoteHandOver.positionMs(SystemClock.elapsedRealtime()) ?: connectedController()?.currentPosition ?: 0
 
     init {
+        scope.launch {
+            combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair).collect { (book, podcast) ->
+                bookSteps = book
+                podcastSteps = podcast
+                _state.update { state -> state.copy(spoken = state.spoken?.copy(seek = stepsFor(currentIsEpisode))) }
+            }
+        }
         scope.launch {
             _state.subscriptionCount.map { it > 0 }.distinctUntilChanged().collect { observed ->
                 if (observed) connect() else scheduleRelease()
@@ -299,13 +318,17 @@ class MediaPlaybackConnection @Inject constructor(
 
     private fun MediaItem.toSpokenEntry(): SpokenEntry? {
         val id = bookId ?: return null
+        currentIsEpisode = isEpisode
         return SpokenEntry(
             bookId = id,
             trackIndex = bookTrackIndex ?: 0,
             title = mediaMetadata.title?.toString().orEmpty(),
             author = mediaMetadata.artist?.toString().orEmpty(),
+            seek = stepsFor(isEpisode),
         )
     }
+
+    private fun stepsFor(episode: Boolean): SeekSteps = if (episode) podcastSteps else bookSteps
 
     private fun MediaItem.toQueueEntry(): QueueEntry? {
         val id = songId ?: return null

@@ -342,6 +342,9 @@ data class WearRemoteStateDto(
     val isPlaying: Boolean = false,
     /** Wiedergabetempo; bei Musik immer 1. */
     val speed: Float = 1f,
+    /** Sprungweiten der Spulen-Knöpfe am Handy in Sekunden (nur Gesprochenes). */
+    val seekBackSeconds: Int = 10,
+    val seekForwardSeconds: Int = 30,
     val shuffle: Boolean = false,
     /** Akzentfarbe des Albums (ARGB); `null`, solange sie fehlt. */
     val seedColor: Int? = null,

@@ -2,6 +2,7 @@ package de.kleinabersmart.tinyamp.core.playback
 
 import androidx.media3.common.Player
 import de.kleinabersmart.tinyamp.core.data.spoken.PreparedBook
+import de.kleinabersmart.tinyamp.core.data.spoken.SeekSteps
 import de.kleinabersmart.tinyamp.core.model.Song
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,8 @@ data class SpokenEntry(
     val trackIndex: Int,
     val title: String,
     val author: String,
+    /** Sprungweiten der Spulen-Knöpfe, aus den Einstellungen des Bereichs (Bücher bzw. Podcasts). */
+    val seek: SeekSteps = SeekSteps.DEFAULT,
 )
 
 data class PlayerState(

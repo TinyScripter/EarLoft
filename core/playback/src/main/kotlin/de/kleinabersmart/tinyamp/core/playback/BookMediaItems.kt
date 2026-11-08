@@ -36,6 +36,9 @@ val MediaItem.bookTrackIndex: Int? get() = BookIds.trackIndex(mediaId)
 
 val MediaItem.isSpoken: Boolean get() = bookId != null
 
+/** Podcast-Folge (sonst Buch); nur bei [isSpoken] aussagekräftig. */
+val MediaItem.isEpisode: Boolean get() = mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE
+
 @OptIn(UnstableApi::class)
 internal fun PreparedBook.toMediaItems(): List<MediaItem> =
     trackUrls.mapIndexed { index, url ->

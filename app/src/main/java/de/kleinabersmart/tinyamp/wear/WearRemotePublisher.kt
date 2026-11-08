@@ -188,6 +188,8 @@ class WearRemotePublisher @Inject constructor(
             sampledAt = System.currentTimeMillis(),
             isPlaying = state.isPlaying,
             speed = state.speed,
+            seekBackSeconds = spoken.seek.backSeconds,
+            seekForwardSeconds = spoken.seek.forwardSeconds,
             seedColor = bookCovers.seedColor(spoken.bookId),
             volume = musicVolume(),
             volumeMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),

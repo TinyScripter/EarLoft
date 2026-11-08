@@ -5,31 +5,38 @@ import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-
-/** Springen bei Hörbüchern: −30 s zurück, +10 s vor (Konzept 12.4). */
-const val SPOKEN_SEEK_BACK_MS = 30_000L
-const val SPOKEN_SEEK_FORWARD_MS = 10_000L
+import de.kleinabersmart.tinyamp.core.data.spoken.SeekSteps
 
 /**
- * Bei Hörbüchern gelten andere Sprungweiten als bei Musik. Media3 kennt pro Player nur ein Paar; deshalb beantwortet
- * dieser Wrapper [getSeekBackIncrement], [getSeekForwardIncrement], [seekBack] und [seekForward] je nach aktuellem
- * Item. Benachrichtigung, Android Auto, Widget und App sprechen alle mit der Session und damit mit diesem Player.
+ * Bei Hörbüchern und Folgen gelten andere Sprungweiten als bei Musik, einstellbar je Bereich (Konzept 12.4). Media3
+ * kennt pro Player nur ein Paar; deshalb beantwortet dieser Wrapper [getSeekBackIncrement], [getSeekForwardIncrement],
+ * [seekBack] und [seekForward] je nach aktuellem Item. Benachrichtigung, Android Auto, Widget und App sprechen alle mit
+ * der Session und damit mit diesem Player.
  */
 @OptIn(UnstableApi::class)
 internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
 
-    private val isSpokenNow: Boolean get() = currentMediaItem?.isSpoken == true
+    /** Aus den Einstellungen; nur auf dem Main-Thread setzen. */
+    var bookSteps: SeekSteps = SeekSteps.DEFAULT
+    var podcastSteps: SeekSteps = SeekSteps.DEFAULT
 
-    override fun getSeekBackIncrement(): Long = if (isSpokenNow) SPOKEN_SEEK_BACK_MS else super.getSeekBackIncrement()
+    /** Sprungweiten des aktuellen Items; `null` bei Musik. */
+    val currentSteps: SeekSteps?
+        get() {
+            val item = currentMediaItem?.takeIf { it.isSpoken } ?: return null
+            return if (item.isEpisode) podcastSteps else bookSteps
+        }
 
-    override fun getSeekForwardIncrement(): Long = if (isSpokenNow) SPOKEN_SEEK_FORWARD_MS else super.getSeekForwardIncrement()
+    override fun getSeekBackIncrement(): Long = currentSteps?.backMs ?: super.getSeekBackIncrement()
+
+    override fun getSeekForwardIncrement(): Long = currentSteps?.forwardMs ?: super.getSeekForwardIncrement()
 
     override fun seekBack() {
-        if (isSpokenNow) seekByMs(-SPOKEN_SEEK_BACK_MS) else super.seekBack()
+        currentSteps?.let { seekByMs(-it.backMs) } ?: super.seekBack()
     }
 
     override fun seekForward() {
-        if (isSpokenNow) seekByMs(SPOKEN_SEEK_FORWARD_MS) else super.seekForward()
+        currentSteps?.let { seekByMs(it.forwardMs) } ?: super.seekForward()
     }
 
     /** Springt auch über Dateigrenzen hinweg (Hörbuch aus mehreren MP3-Dateien). */

@@ -54,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -78,6 +79,7 @@ import de.kleinabersmart.tinyamp.ui.components.ShareButton
 import de.kleinabersmart.tinyamp.ui.components.WatchTarget
 import de.kleinabersmart.tinyamp.ui.components.WatchToggleButton
 import de.kleinabersmart.tinyamp.core.data.share.ShareTarget
+import de.kleinabersmart.tinyamp.core.data.spoken.SeekSteps
 import de.kleinabersmart.tinyamp.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.tinyamp.ui.player.CoverThenCentered
 import de.kleinabersmart.tinyamp.ui.player.PlayerTopBar
@@ -90,8 +92,9 @@ import de.kleinabersmart.tinyamp.ui.player.playPauseLabel
 import de.kleinabersmart.tinyamp.ui.player.rememberPlaybackPosition
 import kotlinx.coroutines.flow.Flow
 import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
+import de.kleinabersmart.tinyamp.core.playback.R as PlaybackR
 
-/** Wiedergabe-Ansicht für Hörbücher: Kapitel, Restzeiten, −30 s / +10 s, Geschwindigkeit (Konzept 12.5). */
+/** Wiedergabe-Ansicht für Hörbücher: Kapitel, Restzeiten, Spulen (einstellbar), Geschwindigkeit (Konzept 12.5). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookPlayerScreen(
@@ -123,6 +126,7 @@ private fun BookPlayerContent(
     val hasNextEpisode by viewModel.hasNextEpisode.collectAsStateWithLifecycle()
     val bookWithProgress by viewModel.book.collectAsStateWithLifecycle()
     val entry = state.spoken
+    val seek = entry?.seek ?: SeekSteps.DEFAULT
     // Die Position im Buch braucht die Zeitachse; ist sie geladen, einmal neu lesen (auch pausiert).
     // Im Takt liest sie nur BookProgress; der übrige Player hängt nur am laufenden Kapitel.
     val position = rememberPlaybackPosition(state.isPlaying, viewModel.positionJumps, entry, timeline) { viewModel.bookPositionMs() }
@@ -192,7 +196,7 @@ private fun BookPlayerContent(
                     }
                 }
             }
-            ControlCell { SeekButton(DesignR.drawable.ic_replay, "30", stringResource(R.string.spoken_seek_back_30), viewModel::skipBack) }
+            ControlCell { SeekBackButton(seek.backSeconds, viewModel::skipBack) }
             FilledIconButton(onClick = viewModel::togglePlayPause, modifier = Modifier.size(if (shortHeight) 56.dp else 72.dp)) {
                 Icon(
                     painterResource(playPauseIcon(state.isPlaying)),
@@ -200,7 +204,7 @@ private fun BookPlayerContent(
                     modifier = Modifier.size(if (shortHeight) 28.dp else 36.dp),
                 )
             }
-            ControlCell { SeekButton(DesignR.drawable.ic_forward, "10", stringResource(R.string.spoken_seek_forward_10), viewModel::skipForward) }
+            ControlCell { SeekForwardButton(seek.forwardSeconds, viewModel::skipForward) }
             if (hasChapters && !episode) {
                 ControlCell {
                     IconButton(onClick = viewModel::nextChapter) {
@@ -602,12 +606,20 @@ private fun RowScope.ControlCell(content: @Composable () -> Unit) {
 
 /** Zurück- oder Vorspringen mit der Sekundenzahl im Pfeil. */
 @Composable
-private fun SeekButton(icon: Int, seconds: String, description: String, onClick: () -> Unit) {
+private fun SeekBackButton(seconds: Int, onClick: () -> Unit) =
+    SeekButton(DesignR.drawable.ic_replay, seconds, pluralStringResource(PlaybackR.plurals.spoken_seek_back, seconds, seconds), onClick)
+
+@Composable
+private fun SeekForwardButton(seconds: Int, onClick: () -> Unit) =
+    SeekButton(DesignR.drawable.ic_forward, seconds, pluralStringResource(PlaybackR.plurals.spoken_seek_forward, seconds, seconds), onClick)
+
+@Composable
+private fun SeekButton(icon: Int, seconds: Int, description: String, onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier = Modifier.size(56.dp)) {
         Box(contentAlignment = Alignment.Center) {
             Icon(painterResource(icon), contentDescription = description, modifier = Modifier.size(40.dp))
             // Die Zahl steckt schon in der Beschreibung des Symbols; TalkBack soll sie nicht noch einmal vorlesen.
-            Text(seconds, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp).clearAndSetSemantics {})
+            Text(seconds.toString(), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp).clearAndSetSemantics {})
         }
     }
 }
@@ -702,7 +714,7 @@ private fun DescriptionPane(description: String, modifier: Modifier = Modifier) 
     }
 }
 
-/** Mini-Player für Hörbücher: Cover, Titel, −30 s, Wiedergabe/Pause, +10 s, dünner Fortschrittsbalken des Buchs. */
+/** Mini-Player für Hörbücher: Cover, Titel, zurück, Wiedergabe/Pause, vor, dünner Fortschrittsbalken des Buchs. */
 @Composable
 fun SpokenMiniPlayer(
     state: PlayerState,
@@ -743,11 +755,11 @@ fun SpokenMiniPlayer(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                SeekButton(DesignR.drawable.ic_replay, "30", stringResource(R.string.spoken_seek_back_30), onSkipBack)
+                SeekBackButton(entry.seek.backSeconds, onSkipBack)
                 IconButton(onClick = onTogglePlayPause) {
                     Icon(painterResource(playPauseIcon(state.isPlaying)), contentDescription = stringResource(playPauseLabel(state.isPlaying)))
                 }
-                SeekButton(DesignR.drawable.ic_forward, "10", stringResource(R.string.spoken_seek_forward_10), onSkipForward)
+                SeekForwardButton(entry.seek.forwardSeconds, onSkipForward)
             }
         }
     }

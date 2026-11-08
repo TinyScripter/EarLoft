@@ -524,6 +524,11 @@ fun PodcastsSettingsScreen(
                     onCheckedChange = viewModel::setPodcastAutoPlayNext,
                 )
             }
+            row("podcast-seek") {
+                Column {
+                    SeekRows(state.podcastSeek, "podcast", viewModel::setPodcastSeek)
+                }
+            }
             row("podcast-resume") {
                 Column {
                     ResumeRows(state.podcastResume, DesignR.drawable.ic_playlist_play, "podcast", viewModel::setPodcastResume)
@@ -807,6 +812,11 @@ fun AudiobookSettingsScreen(
         }
 
         group("playback", R.string.settings_playback) {
+            row("book-seek") {
+                Column {
+                    SeekRows(state.bookSeek, "book", viewModel::setBookSeek)
+                }
+            }
             row("book-resume") {
                 Column {
                     ResumeRows(state.bookResume, DesignR.drawable.ic_book, "book", viewModel::setBookResume)

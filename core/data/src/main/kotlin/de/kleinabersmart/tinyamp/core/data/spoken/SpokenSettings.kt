@@ -100,6 +100,30 @@ class SpokenSettings @Inject constructor(
         }
     }
 
+    /** Sprungweiten der Spulen-Knöpfe bei Büchern (Standard −10 s / +30 s). */
+    val bookSeek: Flow<SeekSteps> = context.spokenSettingsDataStore.data.map {
+        SeekSteps(it[KEY_BOOK_SEEK_BACK] ?: SeekSteps.DEFAULT_BACK_S, it[KEY_BOOK_SEEK_FORWARD] ?: SeekSteps.DEFAULT_FORWARD_S)
+    }
+
+    suspend fun setBookSeek(steps: SeekSteps) {
+        context.spokenSettingsDataStore.edit {
+            it[KEY_BOOK_SEEK_BACK] = steps.backSeconds
+            it[KEY_BOOK_SEEK_FORWARD] = steps.forwardSeconds
+        }
+    }
+
+    /** Sprungweiten der Spulen-Knöpfe bei Podcast-Folgen (Standard −10 s / +30 s). */
+    val podcastSeek: Flow<SeekSteps> = context.spokenSettingsDataStore.data.map {
+        SeekSteps(it[KEY_PODCAST_SEEK_BACK] ?: SeekSteps.DEFAULT_BACK_S, it[KEY_PODCAST_SEEK_FORWARD] ?: SeekSteps.DEFAULT_FORWARD_S)
+    }
+
+    suspend fun setPodcastSeek(steps: SeekSteps) {
+        context.spokenSettingsDataStore.edit {
+            it[KEY_PODCAST_SEEK_BACK] = steps.backSeconds
+            it[KEY_PODCAST_SEEK_FORWARD] = steps.forwardSeconds
+        }
+    }
+
     /** Ein Buch, das kurz nach einem Kapitelanfang beendet wurde, beginnt das Kapitel von vorn (Standard: aus). */
     val restartChapter: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_CHAPTER_RESTART] ?: false }
 
@@ -120,6 +144,10 @@ class SpokenSettings @Inject constructor(
         val KEY_BOOK_REWIND = intPreferencesKey("book_rewind_s")
         val KEY_PODCAST_REWIND_AFTER = intPreferencesKey("podcast_rewind_after_s")
         val KEY_PODCAST_REWIND = intPreferencesKey("podcast_rewind_s")
+        val KEY_BOOK_SEEK_BACK = intPreferencesKey("book_seek_back_s")
+        val KEY_BOOK_SEEK_FORWARD = intPreferencesKey("book_seek_forward_s")
+        val KEY_PODCAST_SEEK_BACK = intPreferencesKey("podcast_seek_back_s")
+        val KEY_PODCAST_SEEK_FORWARD = intPreferencesKey("podcast_seek_forward_s")
         val KEY_CHAPTER_RESTART = booleanPreferencesKey("book_chapter_restart")
         val KEY_LOCAL_PODCASTS = booleanPreferencesKey("local_podcasts")
         val KEY_LOCAL_BOOKS = booleanPreferencesKey("local_books")

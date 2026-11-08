@@ -439,8 +439,6 @@
     <string name="spoken_percent_listened">%1$d %% listened</string>
     <string name="spoken_finished">Finished</string>
     <string name="spoken_duration">%1$s</string>
-    <string name="spoken_seek_back_30">Back 30 seconds</string>
-    <string name="spoken_seek_forward_10">Forward 10 seconds</string>
     <string name="spoken_previous_chapter">Previous chapter</string>
     <string name="spoken_next_chapter">Next chapter</string>
     <string name="spoken_speed">Speed</string>
@@ -694,6 +692,8 @@
     <string name="settings_resume_seconds">%d s</string>
     <string name="settings_resume_minutes">%d min</string>
     <string name="settings_resume_hours">%d h</string>
+    <string name="settings_seek_back">Skip back button</string>
+    <string name="settings_seek_forward">Skip forward button</string>
     <string name="settings_chapter_restart">Restart recent chapters</string>
     <string name="settings_chapter_restart_summary">If you stopped within 30 seconds of a chapter\'s start, it begins again from its start.</string>
     <string name="new_content_channel_name">New episodes and books</string>

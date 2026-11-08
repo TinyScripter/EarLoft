@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.kleinabersmart.tinyamp.core.data.spoken.SeekSteps
 import de.kleinabersmart.tinyamp.core.playback.PlayerState
 import de.kleinabersmart.tinyamp.core.playback.QueueEntry
 import de.kleinabersmart.tinyamp.core.playback.SpokenEntry
@@ -55,7 +56,11 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
         PlayerState(
             current = if (dto.hasMedia && !spoken) QueueEntry(0, dto.title, dto.artist, dto.albumId, dto.albumTitle) else null,
             // Position und Länge sind schon Buchzeiten; eine Datei (trackIndex) gibt es für die Uhr nicht.
-            spoken = if (spoken) SpokenEntry(dto.bookId ?: 0, 0, dto.title, dto.artist) else null,
+            spoken = if (spoken) {
+                SpokenEntry(dto.bookId ?: 0, 0, dto.title, dto.artist, SeekSteps(dto.seekBackSeconds, dto.seekForwardSeconds))
+            } else {
+                null
+            },
             speed = dto.speed,
             isPlaying = playing ?: dto.isPlaying,
             durationMs = dto.durationMs,

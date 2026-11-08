@@ -48,6 +48,7 @@ import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -278,7 +279,8 @@ private fun NowPlayingContent(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(CONTROL_SPACING)) {
                     if (spoken != null) {
-                        SeekButton(R.drawable.ic_replay, "30", R.string.player_skip_back_30, onSkipBack)
+                        val back = spoken.seek.backSeconds
+                        SeekButton(R.drawable.ic_replay, back, pluralStringResource(R.plurals.player_skip_back, back, back), onSkipBack)
                     } else {
                         ControlButton(R.drawable.ic_skip_previous, R.string.player_previous, SKIP_BUTTON_SIZE, onPrevious)
                     }
@@ -290,7 +292,8 @@ private fun NowPlayingContent(
                         active = true,
                     )
                     if (spoken != null) {
-                        SeekButton(R.drawable.ic_forward, "10", R.string.player_skip_forward_10, onSkipForward)
+                        val forward = spoken.seek.forwardSeconds
+                        SeekButton(R.drawable.ic_forward, forward, pluralStringResource(R.plurals.player_skip_forward, forward, forward), onSkipForward)
                     } else {
                         ControlButton(R.drawable.ic_skip_next, R.string.player_next, SKIP_BUTTON_SIZE, onNext)
                     }
@@ -523,7 +526,7 @@ private fun ControlButton(
 
 /** Zurück- oder Vorspringen mit der Sekundenzahl im Pfeil (wie im Buch-Player am Handy). */
 @Composable
-private fun SeekButton(iconRes: Int, seconds: String, descriptionRes: Int, onClick: () -> Unit) {
+private fun SeekButton(iconRes: Int, seconds: Int, description: String, onClick: () -> Unit) {
     IconButton(
         onClick = onClick,
         modifier = Modifier.size(SKIP_BUTTON_SIZE),
@@ -532,12 +535,12 @@ private fun SeekButton(iconRes: Int, seconds: String, descriptionRes: Int, onCli
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 painterResource(iconRes),
-                contentDescription = stringResource(descriptionRes),
+                contentDescription = description,
                 // Größer als die anderen Symbole: Die Zahl muss in den Kreis des Pfeils passen.
                 modifier = Modifier.size(SEEK_ICON_SIZE),
             )
             // Die Zahl steckt schon in der Beschreibung des Symbols; TalkBack soll sie nicht noch einmal vorlesen.
-            Text(seconds, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp).clearAndSetSemantics {})
+            Text(seconds.toString(), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp).clearAndSetSemantics {})
         }
     }
 }

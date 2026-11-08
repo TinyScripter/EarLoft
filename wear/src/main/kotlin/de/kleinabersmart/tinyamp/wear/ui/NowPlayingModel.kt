@@ -33,7 +33,7 @@ interface NowPlayingModel {
 
     fun toggleShuffle()
 
-    /** Buch oder Folge: 30 s zurück bzw. 10 s vor. */
+    /** Buch oder Folge: um die eingestellte Sprungweite zurück bzw. vor ([de.kleinabersmart.tinyamp.core.playback.SpokenEntry.seek]). */
     fun skipBack()
 
     fun skipForward()

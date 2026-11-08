@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -39,6 +40,7 @@ class WidgetStateStore @Inject constructor(
                 albumId = prefs[KEY_ALBUM_ID],
                 isPlaying = false,
                 bookId = bookId,
+                isEpisode = prefs[KEY_EPISODE] ?: false,
             ),
             positionMs = prefs[KEY_POSITION_MS]?.takeIf { bookId != null },
             durationMs = prefs[KEY_DURATION_MS]?.takeIf { bookId != null },
@@ -53,6 +55,7 @@ class WidgetStateStore @Inject constructor(
             prefs.setOrRemove(KEY_SONG_ID, nowPlaying.songId)
             prefs.setOrRemove(KEY_ALBUM_ID, nowPlaying.albumId)
             prefs.setOrRemove(KEY_BOOK_ID, nowPlaying.bookId)
+            prefs[KEY_EPISODE] = nowPlaying.isEpisode
             prefs.setOrRemove(KEY_POSITION_MS, saved.positionMs)
             prefs.setOrRemove(KEY_DURATION_MS, saved.durationMs)
         }
@@ -68,6 +71,7 @@ class WidgetStateStore @Inject constructor(
         val KEY_SONG_ID = longPreferencesKey("song_id")
         val KEY_ALBUM_ID = longPreferencesKey("album_id")
         val KEY_BOOK_ID = longPreferencesKey("book_id")
+        val KEY_EPISODE = booleanPreferencesKey("episode")
         val KEY_POSITION_MS = longPreferencesKey("position_ms")
         val KEY_DURATION_MS = longPreferencesKey("duration_ms")
     }

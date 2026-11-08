@@ -71,6 +71,7 @@ import com.materialkolor.dynamicColorScheme
 import de.kleinabersmart.tinyamp.core.playback.EXTRA_OPEN_NOW_PLAYING
 import de.kleinabersmart.tinyamp.core.playback.PlaybackConnection
 import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
+import de.kleinabersmart.tinyamp.core.playback.R as PlaybackR
 
 /** Widget 4 × 1: Cover links vollflächig & ungeschnitten; rechts Titel, Künstler und Steuerung zentriert. */
 class NowPlayingWidget : GlanceAppWidget() {
@@ -179,14 +180,19 @@ private fun NowPlayingContent(state: WidgetState) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (nowPlaying != null) {
-                    // Bei Büchern −30 s / +10 s statt Titelsprung (wie im Buch-Player und in der Benachrichtigung).
+                    // Bei Büchern und Folgen Spulen statt Titelsprung (wie im Buch-Player und in der Benachrichtigung).
                     val isBook = nowPlaying.isBook
+                    val back = state.seek.backSeconds
                     ControlButton(
                         icon = if (isBook) DesignR.drawable.ic_replay else DesignR.drawable.ic_skip_previous,
-                        label = context.getString(if (isBook) R.string.spoken_seek_back_30 else R.string.action_previous),
+                        label = if (isBook) {
+                            context.resources.getQuantityString(PlaybackR.plurals.spoken_seek_back, back, back)
+                        } else {
+                            context.getString(R.string.action_previous)
+                        },
                         action = playerCommand(if (isBook) WidgetPlayerAction.SKIP_BACK else WidgetPlayerAction.PREVIOUS),
                         isPrimary = false,
-                        badge = if (isBook) "30" else null,
+                        badge = if (isBook) back.toString() else null,
                     )
                     Spacer(modifier = GlanceModifier.width(12.dp))
                 }
@@ -201,12 +207,17 @@ private fun NowPlayingContent(state: WidgetState) {
                 if (nowPlaying != null) {
                     Spacer(modifier = GlanceModifier.width(12.dp))
                     val isBook = nowPlaying.isBook
+                    val forward = state.seek.forwardSeconds
                     ControlButton(
                         icon = if (isBook) DesignR.drawable.ic_forward else DesignR.drawable.ic_skip_next,
-                        label = context.getString(if (isBook) R.string.spoken_seek_forward_10 else R.string.action_next),
+                        label = if (isBook) {
+                            context.resources.getQuantityString(PlaybackR.plurals.spoken_seek_forward, forward, forward)
+                        } else {
+                            context.getString(R.string.action_next)
+                        },
                         action = playerCommand(if (isBook) WidgetPlayerAction.SKIP_FORWARD else WidgetPlayerAction.NEXT),
                         isPrimary = false,
-                        badge = if (isBook) "10" else null,
+                        badge = if (isBook) forward.toString() else null,
                     )
                 }
             }

@@ -29,6 +29,7 @@ import de.kleinabersmart.tinyamp.core.data.podcast.PodcastSettings
 import de.kleinabersmart.tinyamp.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.tinyamp.core.data.spoken.AuthorImages
 import de.kleinabersmart.tinyamp.core.data.spoken.ResumeRule
+import de.kleinabersmart.tinyamp.core.data.spoken.SeekSteps
 import de.kleinabersmart.tinyamp.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.tinyamp.core.data.spoken.SpokenSettings
 import de.kleinabersmart.tinyamp.core.data.sync.LibrarySettings
@@ -108,6 +109,8 @@ data class SettingsUiState(
     val bookResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val podcastResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val restartChapter: Boolean = false,
+    val bookSeek: SeekSteps = SeekSteps.DEFAULT,
+    val podcastSeek: SeekSteps = SeekSteps.DEFAULT,
     val bookMobileData: Boolean = false,
     /** Verzeichnisse, die dieser Build kennt, und die eingeschalteten (Konzept 12.10). */
     val podcastDirectories: List<PodcastDirectory> = emptyList(),
@@ -247,6 +250,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(podcastAutoPlayNext = autoPlay)
     }.combine(combine(spokenSettings.bookResume, spokenSettings.podcastResume, spokenSettings.restartChapter, ::Triple)) { state, (book, podcast, chapter) ->
         state.copy(bookResume = book, podcastResume = podcast, restartChapter = chapter)
+    }.combine(combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair)) { state, (book, podcast) ->
+        state.copy(bookSeek = book, podcastSeek = podcast)
     }.combine(spokenSettings.bookMobileData) { state, mobile ->
         state.copy(bookMobileData = mobile)
     }.combine(spokenSettings.areas) { state, areas ->
@@ -294,6 +299,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setPodcastResume(rule: ResumeRule) {
         viewModelScope.launch { spokenSettings.setPodcastResume(rule) }
+    }
+
+    fun setBookSeek(steps: SeekSteps) {
+        viewModelScope.launch { spokenSettings.setBookSeek(steps) }
+    }
+
+    fun setPodcastSeek(steps: SeekSteps) {
+        viewModelScope.launch { spokenSettings.setPodcastSeek(steps) }
     }
 
     /** Wartende Buch-Downloads bekommen die neue Netzbedingung sofort (BookDownloads). */

@@ -170,17 +170,18 @@ class PlaybackService : MediaLibraryService() {
                 .collect { (mode, preAmpDb) -> replayGain.setSettings(mode, preAmpDb) }
         }
 
+        // Bei Büchern und Folgen gelten eigene, einstellbare Sprungweiten, siehe SpokenAwarePlayer.
+        val sessionPlayer = SpokenAwarePlayer(player)
         session = MediaLibrarySession.Builder(
             this,
-            // Bei Hörbüchern gelten andere Sprungweiten (-30 s / +10 s), siehe SpokenAwarePlayer.
-            SpokenAwarePlayer(player),
+            sessionPlayer,
             LibrarySessionCallback(this, libraryRepository, playlistRepository, favoritesRepository, queuePersistence, bookPlaybackSource, factory, mainScope),
         )
             .setBitmapLoader(CacheBitmapLoader(ArtworkBitmapLoader(this, artworkRepository, bookCovers, mainScope)))
             .apply { sessionActivity()?.let { setSessionActivity(it) } }
             .build()
 
-        session?.let { bindFavoriteButton(player, it) }
+        session?.let { bindFavoriteButton(sessionPlayer, it) }
         restoreQueue(player)
     }
 
@@ -207,22 +208,25 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
-    /** Herz neben den Wiedergabetasten (Android Auto, Benachrichtigung); zeigt den Favoriten-Zustand des aktuellen Songs. */
-    private fun bindFavoriteButton(player: Player, session: MediaLibrarySession) {
+    /**
+     * Herz neben den Wiedergabetasten (Android Auto, Benachrichtigung); zeigt den Favoriten-Zustand des aktuellen Songs.
+     * Bei Büchern und Folgen stattdessen die Spulen-Knöpfe mit den eingestellten Sprungweiten.
+     */
+    private fun bindFavoriteButton(player: SpokenAwarePlayer, session: MediaLibrarySession) {
         var favoriteJob: Job? = null
         fun update() {
             favoriteJob?.cancel()
             val songId = player.currentMediaItem?.songId
-            if (player.currentMediaItem?.isSpoken == true) {
-                // Hörbuch: Springen statt Favorit.
+            val steps = player.currentSteps
+            if (steps != null) {
                 session.setCustomLayout(
                     listOf(
-                        CommandButton.Builder(CommandButton.ICON_SKIP_BACK_30)
-                            .setDisplayName(getString(R.string.spoken_seek_back))
+                        CommandButton.Builder(seekBackIcon(steps.backSeconds))
+                            .setDisplayName(resources.getQuantityString(R.plurals.spoken_seek_back, steps.backSeconds, steps.backSeconds))
                             .setPlayerCommand(Player.COMMAND_SEEK_BACK)
                             .build(),
-                        CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD_10)
-                            .setDisplayName(getString(R.string.spoken_seek_forward))
+                        CommandButton.Builder(seekForwardIcon(steps.forwardSeconds))
+                            .setDisplayName(resources.getQuantityString(R.plurals.spoken_seek_forward, steps.forwardSeconds, steps.forwardSeconds))
                             .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
                             .build(),
                     ),
@@ -246,6 +250,13 @@ class PlaybackService : MediaLibraryService() {
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = update()
         })
+        mainScope.launch {
+            combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair).collect { (book, podcast) ->
+                player.bookSteps = book
+                player.podcastSteps = podcast
+                update()
+            }
+        }
         update()
     }
 
@@ -437,6 +448,7 @@ class PlaybackService : MediaLibraryService() {
                             albumId = if (bookId == null) item.mediaMetadata.albumIdExtra else null,
                             isPlaying = player.isPlaying,
                             bookId = bookId,
+                            isEpisode = bookId != null && item.isEpisode,
                         )
                     } else {
                         null
@@ -445,6 +457,23 @@ class PlaybackService : MediaLibraryService() {
             }
         }
     }
+}
+
+/** Media3 hat Symbole mit Zahl nur für 5, 10, 15 und 30 s; sonst der Pfeil ohne Zahl. */
+private fun seekBackIcon(seconds: Int): Int = when (seconds) {
+    5 -> CommandButton.ICON_SKIP_BACK_5
+    10 -> CommandButton.ICON_SKIP_BACK_10
+    15 -> CommandButton.ICON_SKIP_BACK_15
+    30 -> CommandButton.ICON_SKIP_BACK_30
+    else -> CommandButton.ICON_SKIP_BACK
+}
+
+private fun seekForwardIcon(seconds: Int): Int = when (seconds) {
+    5 -> CommandButton.ICON_SKIP_FORWARD_5
+    10 -> CommandButton.ICON_SKIP_FORWARD_10
+    15 -> CommandButton.ICON_SKIP_FORWARD_15
+    30 -> CommandButton.ICON_SKIP_FORWARD_30
+    else -> CommandButton.ICON_SKIP_FORWARD
 }
 
 private fun audioAttributes(contentType: @C.AudioContentType Int): AudioAttributes =
