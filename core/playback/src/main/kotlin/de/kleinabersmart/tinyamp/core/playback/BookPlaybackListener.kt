@@ -24,7 +24,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Alles, was nur für Hörbücher gilt (Konzept 12.3/12.4): Fortschritt festhalten und melden, Geschwindigkeit je Buch
- * setzen und merken. Läuft im Service auf dem Player-Thread; [scope] ist der Main-Scope.
+ * setzen und merken. Läuft im Service auf dem Player-Thread; [scope] ist der Main-Scope, [persistScope] der App-Scope
+ * für das Schreiben – es muss das Ende des Service überleben (der Main-Scope endet in `onDestroy` gleich nach [finish]).
  */
 @OptIn(UnstableApi::class)
 internal class BookPlaybackListener(
@@ -35,6 +36,7 @@ internal class BookPlaybackListener(
     private val stats: StatsRepository,
     private val sessions: AbsSessionReporter,
     private val scope: CoroutineScope,
+    private val persistScope: CoroutineScope,
     /** Eine Podcast-Folge ist bis zum Ende gelaufen und der Player wartet (Parameter: Buch-ID der Folge). */
     private val onEpisodeEnded: (Long) -> Unit,
 ) : Player.Listener {
@@ -149,7 +151,7 @@ internal class BookPlaybackListener(
         meter.setSpeed(playbackParameters.speed)
         if (player.isPlaying) sampleRemoteEnd()
         val bookId = player.currentMediaItem?.bookId ?: return
-        scope.launch { books.setSpeed(bookId, playbackParameters.speed) }
+        persistScope.launch { books.setSpeed(bookId, playbackParameters.speed) }
     }
 
     override fun onPositionDiscontinuity(
@@ -239,7 +241,7 @@ internal class BookPlaybackListener(
         val ended = remoteEnd.ended() ?: return
         // Was danach noch kommt (Position 0 der entladenen Datei), darf diesen Stand nicht überschreiben.
         touched -= ended.bookId
-        scope.launch { progressSync.record(ended.bookId, ended.durationMs, ended.durationMs, finished = true, force = true) }
+        persistScope.launch { progressSync.record(ended.bookId, ended.durationMs, ended.durationMs, finished = true, force = true) }
         if (ended.isEpisode) onEpisodeEnded(ended.bookId)
     }
 
@@ -269,7 +271,7 @@ internal class BookPlaybackListener(
         val ms = meter.drain()
         if (ms <= 0) return
         if (meterIsEpisode) {
-            scope.launch { stats.recordEpisodeListening(bookId, ms) }
+            persistScope.launch { stats.recordEpisodeListening(bookId, ms) }
             return
         }
         // Die Position kommt aus dem Player, solange er noch dieses Buch spielt; sonst bleibt die bisherige.
@@ -277,7 +279,7 @@ internal class BookPlaybackListener(
         val timeline = timeline.takeIf { timelineBookId == bookId && item?.bookId == bookId }
         val position = timeline?.toBookPosition(item?.bookTrackIndex ?: 0, player.currentPosition)
         val duration = timeline?.durationMs
-        scope.launch {
+        persistScope.launch {
             stats.recordBookListening(bookId, ms)
             sessions.record(bookId, ms, position, duration, force)
         }
@@ -306,7 +308,7 @@ internal class BookPlaybackListener(
         // Ohne bekannte Dauer (Folge, deren Länge noch nicht gelernt ist) kann es nicht zu Ende sein.
         val finished = (timeline.durationMs > 0 && position >= timeline.durationMs - FINISHED_TOLERANCE_MS) ||
             (player.playbackState == Player.STATE_ENDED && player.currentMediaItem?.bookId == bookId)
-        scope.launch { progressSync.record(bookId, position, timeline.durationMs, finished, force) }
+        persistScope.launch { progressSync.record(bookId, position, timeline.durationMs, finished, force) }
     }
 
     private companion object {

@@ -45,6 +45,7 @@ import de.kleinabersmart.tinyamp.core.data.spoken.SpokenSettings
 import de.kleinabersmart.tinyamp.core.data.stats.StatsRepository
 import de.kleinabersmart.tinyamp.core.data.spoken.BookRepository
 import de.kleinabersmart.tinyamp.core.data.di.ApplicationScope
+import de.kleinabersmart.tinyamp.core.data.di.LoggingExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -52,6 +53,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.util.Optional
@@ -97,7 +99,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     /** Für Player-Zugriffe (Main-Thread). */
-    private val mainScope = MainScope()
+    private val mainScope = MainScope() + LoggingExceptionHandler
 
     private var session: MediaLibrarySession? = null
     private lateinit var playTracker: PlayTracker
@@ -158,7 +160,7 @@ class PlaybackService : MediaLibraryService() {
         playTracker = PlayTracker(player, playbackStateRepository, applicationScope)
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
-        bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, spokenSettings, statsRepository, absSessionReporter, mainScope) { endedId ->
+        bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, spokenSettings, statsRepository, absSessionReporter, mainScope, applicationScope) { endedId ->
             continueWithNextEpisode(player, endedId)
         }
         player.addListener(bookListener)
@@ -315,7 +317,8 @@ class PlaybackService : MediaLibraryService() {
         session?.let { session ->
             playTracker.finishCurrent()
             bookListener.finish()
-            queuePersistence.savePosition(session.player, applicationScope)
+            // Mit einem Buch im Player gehörten dessen Datei und Position sonst in den Stand der Musik-Warteschlange.
+            if (session.player.currentMediaItem?.isSpoken != true) queuePersistence.savePosition(session.player, applicationScope)
             session.player.release()
             session.release()
         }

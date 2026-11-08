@@ -20,7 +20,8 @@ class PlaybackStateRepository @Inject constructor(
      * @param live `false` für nachgereichte Wiedergaben (siehe [PlayReporter.report]).
      */
     suspend fun recordPlay(songId: Long, playedAt: Long, listenedMs: Long, live: Boolean = true) {
-        playbackDao.insertPlayEvent(PlayEventEntity(songId = songId, playedAt = playedAt, listenedMs = listenedMs))
+        val event = PlayEventEntity(songId = songId, playedAt = playedAt, listenedMs = listenedMs)
+        if (!playbackDao.insertPlayEventIfSongExists(event)) return
         reporter.report(songId, playedAt, listenedMs, live)
     }
 }

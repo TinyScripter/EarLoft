@@ -34,5 +34,19 @@ abstract class PlaybackDao {
     protected abstract suspend fun existingSongIds(songIds: List<Long>): List<Long>
 
     @Insert
-    abstract suspend fun insertPlayEvent(event: PlayEventEntity)
+    protected abstract suspend fun insertPlayEvent(event: PlayEventEntity)
+
+    @Query("SELECT EXISTS (SELECT 1 FROM songs WHERE songId = :songId)")
+    protected abstract suspend fun songExists(songId: Long): Boolean
+
+    /**
+     * Nur, wenn es den Song noch gibt: Ein gerade entfernter Server nimmt seine Songs mit, der Player meldet sie danach.
+     * @return `false`, wenn der Song fehlt.
+     */
+    @Transaction
+    open suspend fun insertPlayEventIfSongExists(event: PlayEventEntity): Boolean {
+        if (!songExists(event.songId)) return false
+        insertPlayEvent(event)
+        return true
+    }
 }

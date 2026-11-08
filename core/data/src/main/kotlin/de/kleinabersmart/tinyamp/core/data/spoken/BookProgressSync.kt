@@ -60,6 +60,8 @@ class BookProgressSync @Inject constructor(
      * Stop) sofort. Schlägt das Senden fehl, bleibt der Eintrag `dirty` und [BookProgressWorker] holt es nach.
      */
     suspend fun record(bookId: Long, positionMs: Long, durationMs: Long, finished: Boolean, force: Boolean = false) {
+        // Abo beendet bzw. Buch gelöscht, während es noch im Player liegt: kein Fortschritt mehr (Fremdschlüssel).
+        if (dao.book(bookId) == null) return
         val previous = dao.progress(bookId)
         val speed = previous?.speed ?: 1f
         if (previous?.finished == true && !finished && positionMs > 0) reopened.add(bookId)

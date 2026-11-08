@@ -130,6 +130,15 @@ class SyncQueueProcessorTest {
     }
 
     @Test
+    fun `a play of a song removed meanwhile is dropped instead of breaking the foreign key`() = runTest {
+        val repository = PlaybackStateRepository(db.playbackDao(), reporter(home, office))
+
+        repository.recordPlay(songId = 999_999, playedAt = 100_000, listenedMs = 40_000)
+
+        assertEquals(0, db.syncDao().countActions())
+    }
+
+    @Test
     fun `a play that just ended goes live to a server that takes it and skips the queue`() = runTest {
         val live = LiveServer(home)
 
