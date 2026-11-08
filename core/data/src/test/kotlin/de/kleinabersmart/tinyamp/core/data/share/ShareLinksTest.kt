@@ -2,6 +2,8 @@ package de.kleinabersmart.tinyamp.core.data.share
 
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ShareLinksTest {
@@ -92,5 +94,20 @@ class ShareLinksTest {
         val url = ShareLinks.musicBrainz(MusicBrainzKind.ARTIST, null, "Die Ärzte").toHttpUrl()
         assertEquals("artist:\"Die Ärzte\"", url.queryParameter("query"))
         assertEquals("artist", url.queryParameter("type"))
+    }
+
+    @Test
+    fun `feeds with credentials, at home or on an own server are private`() {
+        assertTrue(ShareLinks.isPrivateSource("https://www.patreon.com/rss/show?auth=abc123"))
+        assertTrue(ShareLinks.isPrivateSource("https://feeds.example.com/p.xml?access_token=x"))
+        assertTrue(ShareLinks.isPrivateSource("https://user:pw@example.com/feed.xml"))
+        assertTrue(ShareLinks.isPrivateSource("http://192.168.0.140/feed.xml"))
+        assertTrue(ShareLinks.isPrivateSource("http://nas.local/feed.xml"))
+        assertTrue(ShareLinks.isPrivateSource("http://nas:13378/feed"))
+        assertTrue(ShareLinks.isPrivateSource("https://abs.example.org/feed/1", ownHosts = setOf("abs.example.org")))
+
+        assertFalse(ShareLinks.isPrivateSource("https://www.tagesschau.de/export/podcast/hi/tagesschau-in-100-sekunden/"))
+        assertFalse(ShareLinks.isPrivateSource("https://feeds.example.com/podcast.xml?format=mp3"))
+        assertFalse(ShareLinks.isPrivateSource("http://172.32.0.1/feed.xml"))
     }
 }

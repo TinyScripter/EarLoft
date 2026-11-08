@@ -3,11 +3,13 @@ package de.kleinabersmart.tinyamp.core.data.share
 import de.kleinabersmart.tinyamp.core.database.dao.BookDao
 import de.kleinabersmart.tinyamp.core.database.dao.LibraryDao
 import de.kleinabersmart.tinyamp.core.database.dao.PodcastDao
+import de.kleinabersmart.tinyamp.core.database.dao.SourceDao
 import de.kleinabersmart.tinyamp.core.database.entity.BookEntity
 import de.kleinabersmart.tinyamp.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.tinyamp.core.model.BookKind
 import de.kleinabersmart.tinyamp.core.network.podcast.ardsounds.ardSoundsPageUrl
 import de.kleinabersmart.tinyamp.core.network.podcast.ardsounds.ardSoundsShowId
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -31,6 +33,7 @@ class ShareRepository @Inject constructor(
     private val libraryDao: LibraryDao,
     private val podcastDao: PodcastDao,
     private val bookDao: BookDao,
+    private val sourceDao: SourceDao,
 ) {
     suspend fun content(target: ShareTarget): ShareContent? = when (target) {
         is ShareTarget.Song -> libraryDao.getSongEntity(target.songId)?.let { song ->
@@ -45,7 +48,7 @@ class ShareRepository @Inject constructor(
             content(artist.name, ShareLinks.musicBrainz(MusicBrainzKind.ARTIST, artist.mbid, artist.name))
         }
         is ShareTarget.Feed -> podcastDao.feed(target.feedId)?.takeIf(::isShareable)?.let { feed ->
-            content(feed.title, *feedLinks(feed, ShareLinks.publicPage(feed.websiteUrl)))
+            content(feed.title, *feedLinks(feed, ShareLinks.publicPage(feed.websiteUrl), ownHosts()))
         }
         is ShareTarget.Book -> bookDao.book(target.bookId)?.let { book ->
             when (book.kind) {
@@ -60,18 +63,28 @@ class ShareRepository @Inject constructor(
 
     private suspend fun episode(book: BookEntity): ShareContent? {
         val feed = podcastDao.feed(book.serverId)?.takeIf(::isShareable) ?: return null
-        val audio = bookDao.tracks(book.bookId).firstOrNull()?.remoteFileId
+        val ownHosts = ownHosts()
+        val audio = bookDao.tracks(book.bookId).firstOrNull()?.remoteFileId?.takeUnless { ShareLinks.isPrivateSource(it, ownHosts) }
         val page = ShareLinks.publicPage(book.webUrl) ?: audio?.let(ShareLinks::sourceUrl)
-        val links = feedLinks(feed, website = null)
+        val links = feedLinks(feed, website = null, ownHosts)
         return content(book.title, feed.title, page, *links)
     }
 
-    /** Seite der Sendung (ARD Sounds) bzw. Webseite und Feed-Adresse (RSS). */
-    private fun feedLinks(feed: PodcastFeedEntity, website: String?): Array<String?> {
+    /**
+     * Seite der Sendung (ARD Sounds) bzw. Webseite und Feed-Adresse (RSS). Ein privater Feed (Zugangstoken, Heimnetz,
+     * eigener Server; [ShareLinks.isPrivateSource]) bleibt weg – Konzept 13: nie die eigenen Server.
+     */
+    private fun feedLinks(feed: PodcastFeedEntity, website: String?, ownHosts: Set<String>): Array<String?> {
         val show = ardSoundsShowId(feed.url)
         if (show != null) return arrayOf(website ?: ardSoundsPageUrl(show))
-        return arrayOf(website?.takeUnless { it == feed.url }, "RSS: ${feed.url}")
+        val rss = "RSS: ${feed.url}".takeUnless { ShareLinks.isPrivateSource(feed.url, ownHosts) }
+        return arrayOf(website?.takeUnless { it == feed.url }, rss)
     }
+
+    /** Hosts der eingerichteten Musik- und Audiobookshelf-Server. */
+    private suspend fun ownHosts(): Set<String> =
+        (sourceDao.getServers().mapNotNull { it.baseUrl } + bookDao.servers().map { it.baseUrl })
+            .mapNotNullTo(HashSet()) { it.toHttpUrlOrNull()?.host?.lowercase() }
 
     /** Podcasts vom Gerät (`local:`) haben keine öffentliche Adresse. */
     private fun isShareable(feed: PodcastFeedEntity) = ardSoundsShowId(feed.url) != null || ShareLinks.sourceUrl(feed.url) != null

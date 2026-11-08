@@ -27,7 +27,7 @@ class ShareRepositoryTest {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), TinyAmpDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = ShareRepository(db.libraryDao(), db.podcastDao(), db.bookDao())
+        repository = ShareRepository(db.libraryDao(), db.podcastDao(), db.bookDao(), db.sourceDao())
     }
 
     @After
@@ -51,6 +51,12 @@ class ShareRepositoryTest {
             ShareContent("Podcast a", "Podcast a\nhttps://example.com/\nRSS: https://example.com/feed.xml"),
             repository.content(ShareTarget.Feed("a")),
         )
+    }
+
+    @Test
+    fun `a private feed address with its token is left out, the website stays`() = runTest {
+        feed("a", "https://www.patreon.com/rss/show?auth=geheim", website = "https://example.com/")
+        assertEquals("Podcast a\nhttps://example.com/", repository.content(ShareTarget.Feed("a"))?.text)
     }
 
     @Test

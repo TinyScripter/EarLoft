@@ -49,6 +49,7 @@ import de.kleinabersmart.tinyamp.R
 import de.kleinabersmart.tinyamp.ui.LoadState
 import de.kleinabersmart.tinyamp.ui.components.EmptyHint
 import de.kleinabersmart.tinyamp.ui.components.LoadFailedHint
+import de.kleinabersmart.tinyamp.ui.permission.rememberLocalNetworkRequester
 import de.kleinabersmart.tinyamp.ui.valueOrNull
 import de.kleinabersmart.tinyamp.core.designsystem.R as DesignR
 
@@ -142,7 +143,7 @@ fun AudiobookshelfFormScreen(
     val connectState by viewModel.connect.collectAsStateWithLifecycle()
     var name by rememberSaveable { mutableStateOf("") }
     var url by rememberSaveable { mutableStateOf("") }
-    var key by rememberSaveable { mutableStateOf("") }
+    var key by viewModel::keyInput
     // Beim Bearbeiten: leer = gespeicherter Schlüssel bleibt.
     var hasStoredKey by rememberSaveable { mutableStateOf(false) }
     // HTTP nur nach ausdrücklicher Bestätigung (Konzept 10), wie im Formular der Musik-Server.
@@ -229,7 +230,8 @@ fun AudiobookshelfFormScreen(
                 )
             }
             Button(
-                onClick = { viewModel.connect(serverId, name, url, key) },
+                // Ab Android 17 erreicht die App Server im Heimnetz nur mit dieser Berechtigung (wie im Musik-Formular).
+                onClick = rememberLocalNetworkRequester { viewModel.connect(serverId, name, url, key) },
                 enabled = url.isNotBlank() && (key.isNotBlank() || hasStoredKey) && (!isHttp || allowHttp) &&
                     connectState != ConnectState.Connecting,
                 modifier = Modifier.padding(top = 16.dp),

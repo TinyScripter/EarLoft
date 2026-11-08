@@ -83,6 +83,41 @@ object ShareLinks {
     fun sourceUrl(url: String?): String? = url?.trim()?.takeIf { it.toHttpUrlOrNull() != null }
 
     /**
+     * Feed oder Audiodatei, die nicht weitergegeben werden darf: mit Zugangsdaten (Benutzer in der Adresse, Parameter wie
+     * `auth`, `token`, `key` bei Bezahl-Feeds), im Heimnetz oder auf einem eigenen Server ([ownHosts]). Ein Token im
+     * Pfad (manche Hoster) ist so nicht zu erkennen.
+     */
+    fun isPrivateSource(url: String, ownHosts: Set<String> = emptySet()): Boolean {
+        val parsed = url.trim().toHttpUrlOrNull() ?: return false
+        if (parsed.username.isNotEmpty() || parsed.password.isNotEmpty()) return true
+        if (parsed.queryParameterNames.any(::isSecretParameter)) return true
+        val host = parsed.host.lowercase()
+        return host in ownHosts || isLocalHost(host)
+    }
+
+    private fun isSecretParameter(name: String): Boolean {
+        val key = name.lowercase().replace("-", "_")
+        return key in SECRET_PARAMETERS || SECRET_SUFFIXES.any { key.endsWith(it) }
+    }
+
+    private val SECRET_PARAMETERS = setOf("auth", "authorization", "key", "secret", "sig", "signature", "password", "pass", "pwd", "session", "sid")
+    private val SECRET_SUFFIXES = listOf("token", "_key", "apikey", "secret")
+
+    /** Heimnetz: Loopback, private und Link-Local-Adressen, Namen ohne Punkt und lokale Endungen. */
+    private fun isLocalHost(host: String): Boolean {
+        if ('.' !in host && ':' !in host) return true
+        if (LOCAL_SUFFIXES.any { host.endsWith(it) }) return true
+        if (':' in host) return host == "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80")
+        val octets = host.split('.').map { it.toIntOrNull() ?: return false }
+        if (octets.size != 4) return false
+        val (a, b) = octets
+        return a == 10 || a == 127 || (a == 172 && b in 16..31) || (a == 192 && b == 168) || (a == 169 && b == 254) ||
+            (a == 100 && b in 64..127)
+    }
+
+    private val LOCAL_SUFFIXES = listOf("localhost", ".local", ".lan", ".home", ".internal", ".home.arpa", ".fritz.box")
+
+    /**
      * Händler, Streaming- und Podcast-Plattformen, auf die nie verlinkt wird (Konzept 13). Hoster bleiben: Ihre Seiten
      * gehören dem Podcast selbst.
      */

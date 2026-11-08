@@ -1,5 +1,8 @@
 package de.kleinabersmart.tinyamp.ui.spoken
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,6 +33,9 @@ class AudiobookshelfViewModel @Inject constructor(
     private val servers: AudiobookshelfServers,
     private val refresher: SpokenRefresher,
 ) : ViewModel() {
+
+    /** Eingegebener API-Schlüssel: nur hier im Speicher, nicht im gespeicherten Zustand der Activity (wie das Passwort im Musik-Formular). */
+    var keyInput by mutableStateOf("")
 
     val list: StateFlow<LoadState<List<SpokenServer>>> = servers.servers
         .asLoadState()
