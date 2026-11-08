@@ -2,7 +2,9 @@ package de.kleinabersmart.tinyamp.core.playback
 
 import androidx.annotation.OptIn
 import androidx.media3.common.C
+import androidx.media3.common.FlagSet
 import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import de.kleinabersmart.tinyamp.core.data.spoken.SeekSteps
@@ -12,13 +14,35 @@ import de.kleinabersmart.tinyamp.core.data.spoken.SeekSteps
  * kennt pro Player nur ein Paar; deshalb beantwortet dieser Wrapper [getSeekBackIncrement], [getSeekForwardIncrement],
  * [seekBack] und [seekForward] je nach aktuellem Item. Benachrichtigung, Android Auto, Widget und App sprechen alle mit
  * der Session und damit mit diesem Player.
+ *
+ * Ändern sich die Sprungweiten (anderes Item, neue Einstellung), meldet er das seinen Listenern: Die Session gibt es an die
+ * Controller weiter, die sonst mit der alten Weite rechneten (die App zeigte nach dem Spulen kurz eine falsche Position).
  */
 @OptIn(UnstableApi::class)
 internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
 
     /** Aus den Einstellungen; nur auf dem Main-Thread setzen. */
     var bookSteps: SeekSteps = SeekSteps.DEFAULT
+        set(value) {
+            field = value
+            reportIncrements()
+        }
     var podcastSteps: SeekSteps = SeekSteps.DEFAULT
+        set(value) {
+            field = value
+            reportIncrements()
+        }
+
+    /** Die Listener, die hier angemeldet sind (an den eigentlichen Player gehen sie weiter); Main-Thread. */
+    private val listeners = LinkedHashSet<Player.Listener>()
+    private var reportedBack = seekBackIncrement
+    private var reportedForward = seekForwardIncrement
+
+    init {
+        player.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = reportIncrements()
+        })
+    }
 
     /** Sprungweiten des aktuellen Items; `null` bei Musik. */
     val currentSteps: SeekSteps?
@@ -26,6 +50,16 @@ internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
             val item = currentMediaItem?.takeIf { it.isSpoken } ?: return null
             return if (item.isEpisode) podcastSteps else bookSteps
         }
+
+    override fun addListener(listener: Player.Listener) {
+        super.addListener(listener)
+        listeners += listener
+    }
+
+    override fun removeListener(listener: Player.Listener) {
+        super.removeListener(listener)
+        listeners -= listener
+    }
 
     override fun getSeekBackIncrement(): Long = currentSteps?.backMs ?: super.getSeekBackIncrement()
 
@@ -37,6 +71,24 @@ internal class SpokenAwarePlayer(player: Player) : ForwardingPlayer(player) {
 
     override fun seekForward() {
         currentSteps?.let { seekByMs(it.forwardMs) } ?: super.seekForward()
+    }
+
+    private fun reportIncrements() {
+        val back = seekBackIncrement
+        val forward = seekForwardIncrement
+        val events = FlagSet.Builder()
+        if (back != reportedBack) {
+            reportedBack = back
+            events.add(Player.EVENT_SEEK_BACK_INCREMENT_CHANGED)
+            listeners.toList().forEach { it.onSeekBackIncrementChanged(back) }
+        }
+        if (forward != reportedForward) {
+            reportedForward = forward
+            events.add(Player.EVENT_SEEK_FORWARD_INCREMENT_CHANGED)
+            listeners.toList().forEach { it.onSeekForwardIncrementChanged(forward) }
+        }
+        val flags = events.build()
+        if (flags.size() > 0) listeners.toList().forEach { it.onEvents(this, Player.Events(flags)) }
     }
 
     /** Springt auch über Dateigrenzen hinweg (Hörbuch aus mehreren MP3-Dateien). */

@@ -43,6 +43,27 @@ class SpokenAwarePlayerTest {
     }
 
     @Test
+    fun `changed steps are reported to listeners such as the session`() {
+        val player = SpokenAwarePlayer(FakePlayer(item("book:2/0", MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE), positionMs = 0))
+        val reported = mutableListOf<String>()
+        player.addListener(object : Player.Listener {
+            override fun onSeekBackIncrementChanged(seekBackIncrementMs: Long) {
+                reported += "back $seekBackIncrementMs"
+            }
+
+            override fun onSeekForwardIncrementChanged(seekForwardIncrementMs: Long) {
+                reported += "forward $seekForwardIncrementMs"
+            }
+        })
+
+        player.bookSteps = SeekSteps(5, 60)
+        player.podcastSteps = SeekSteps(10, 45)
+        player.podcastSteps = SeekSteps(10, 45)
+
+        assertEquals(listOf("forward 45000"), reported)
+    }
+
+    @Test
     fun `music keeps the player's own steps`() {
         val player = SpokenAwarePlayer(FakePlayer(item("song:1", MediaMetadata.MEDIA_TYPE_MUSIC), positionMs = 60_000))
 
