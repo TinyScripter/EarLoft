@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -175,6 +176,7 @@ fun AudiobookshelfFormScreen(
                 onValueChange = { name = it },
                 label = { Text(stringResource(R.string.spoken_abs_name)) },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
@@ -183,9 +185,23 @@ fun AudiobookshelfFormScreen(
                 label = { Text(stringResource(R.string.spoken_abs_url)) },
                 placeholder = { Text(stringResource(R.string.spoken_abs_url_hint)) },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
+            OutlinedTextField(
+                value = key,
+                onValueChange = { key = it },
+                label = { Text(stringResource(R.string.spoken_abs_key)) },
+                supportingText = {
+                    Text(stringResource(if (hasStoredKey) R.string.spoken_abs_key_keep else R.string.spoken_abs_key_summary))
+                },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            // Unter dem Schlüssel statt unter der Adresse: Der Hinweis erscheint schon beim Tippen von „http://“ und schöbe sonst die
+            // folgenden Felder weg.
             if (isHttp) {
                 Text(
                     stringResource(R.string.spoken_abs_http_warning),
@@ -204,18 +220,6 @@ fun AudiobookshelfFormScreen(
                     Text(stringResource(R.string.add_server_allow_http), modifier = Modifier.padding(start = 8.dp))
                 }
             }
-            OutlinedTextField(
-                value = key,
-                onValueChange = { key = it },
-                label = { Text(stringResource(R.string.spoken_abs_key)) },
-                supportingText = {
-                    Text(stringResource(if (hasStoredKey) R.string.spoken_abs_key_keep else R.string.spoken_abs_key_summary))
-                },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            )
             (connectState as? ConnectState.Failed)?.let {
                 Text(
                     stringResource(it.message),
