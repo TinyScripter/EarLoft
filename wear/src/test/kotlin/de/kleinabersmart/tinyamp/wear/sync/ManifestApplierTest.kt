@@ -10,7 +10,9 @@ import de.kleinabersmart.tinyamp.core.data.sync.SyncNotices
 import de.kleinabersmart.tinyamp.core.data.sync.SyncQueueStarter
 import de.kleinabersmart.tinyamp.core.data.sync.SyncScheduler
 import de.kleinabersmart.tinyamp.core.database.TinyAmpDatabase
+import de.kleinabersmart.tinyamp.core.database.entity.DownloadEntity
 import de.kleinabersmart.tinyamp.core.database.entity.SourceEntity
+import de.kleinabersmart.tinyamp.core.model.DownloadState
 import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.model.WearSelectionKind
 import de.kleinabersmart.tinyamp.core.wearsync.PhoneFileDto
@@ -131,6 +133,22 @@ class ManifestApplierTest {
         assertEquals(1, db.playlistDao().getSongIds(playlistId).size)
         assertNull(db.playlistDao().getPlaylist(favoritesPlaylistId))
         assertNull(db.syncDao().getSongSource("phone:local:5"))
+    }
+
+    @Test
+    fun `a song loaded over the phone keeps its download when the watch learns its server`() = runTest {
+        // Am Handy auf Jellyfin, die Uhr kennt den Server noch nicht (ältere Uhr-App): Sie lud die Datei übers Handy.
+        val onJellyfin = summer.copy(serverSources = listOf(server("jf", "x")))
+        applier.apply(manifest(listOf("album:9" to listOf(onJellyfin))))
+        val id = songId("phone:local:5")
+        db.downloadDao().insertIfAbsent(listOf(DownloadEntity("phone:local:5", id, DownloadState.DONE, filePath = "/x/a.mp3")))
+
+        db.sourceDao().upsert(SourceEntity("jf", SourceType.JELLYFIN, "Jellyfin"))
+        applier.apply(manifest(listOf("album:9" to listOf(onJellyfin))))
+
+        // Beide Quellen gehören zum selben Song; der Download über das Handy bleibt (sonst löschte der Abgleich die Datei).
+        assertEquals(id, songId("jf:x"))
+        assertEquals(DownloadState.DONE, db.downloadDao().get("phone:local:5")?.state)
     }
 
     @Test

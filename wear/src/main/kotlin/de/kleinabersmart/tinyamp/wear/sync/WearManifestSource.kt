@@ -48,16 +48,19 @@ class WearManifestSource(
  * ohne (bekannte) Server-Quelle einmal unter [WearManifestSource.PHONE_SOURCE_ID] mit der `sourceUid`
  * des Handys als `remoteId` (z. B. `phone:local:123`).
  */
-fun manifestTracks(manifest: WearManifest, servers: Set<String>): Map<String, List<RawTrack>> {
+fun manifestTracks(manifest: WearManifest, servers: Set<String>, keepPhone: Set<String> = emptySet()): Map<String, List<RawTrack>> {
     val result = HashMap<String, MutableList<RawTrack>>()
     for (song in manifest.songs) {
         val version = song.version()
         val known = song.serverSources.filter { it.sourceId in servers }
-        if (known.isEmpty()) {
-            result.getOrPut(WearManifestSource.PHONE_SOURCE_ID) { mutableListOf() } += song.toRawTrack(phoneRemoteId(song), null, version)
-        } else {
-            known.forEach { result.getOrPut(it.sourceId) { mutableListOf() } += song.toRawTrack(it.remoteId, it, version) }
+        val phoneId = phoneRemoteId(song)
+        // Schon übers Handy geladen ([keepPhone]): bleibt auch unter `phone`, wenn die Uhr den Server inzwischen kennt
+        // (Update, neuer Server am Handy). Sonst nähme der Abgleich die Quelle samt Download und Datei mit, und der
+        // Song käme erst wieder vom Server – per WLAN, meist erst am Ladegerät.
+        if (known.isEmpty() || phoneId in keepPhone) {
+            result.getOrPut(WearManifestSource.PHONE_SOURCE_ID) { mutableListOf() } += song.toRawTrack(phoneId, null, version)
         }
+        known.forEach { result.getOrPut(it.sourceId) { mutableListOf() } += song.toRawTrack(it.remoteId, it, version) }
     }
     return result
 }

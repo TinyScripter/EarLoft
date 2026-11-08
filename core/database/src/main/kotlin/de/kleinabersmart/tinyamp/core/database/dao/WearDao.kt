@@ -18,6 +18,13 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WearDao {
+    /** Uhr: `remoteId`s der Songs von [sourceId], die fertig geladen sind. */
+    @Query(
+        "SELECT ss.remoteId FROM downloads d JOIN song_sources ss ON ss.uid = d.sourceUid " +
+            "WHERE ss.sourceId = :sourceId AND d.state = 'DONE'",
+    )
+    suspend fun doneDownloadRemoteIds(sourceId: String): List<String>
+
     /** In der Reihenfolge des Hinzufügens (bestimmt die Download-Reihenfolge auf der Uhr). */
     @Query("SELECT * FROM wear_selections ORDER BY addedAt, `key`")
     fun observeSelections(): Flow<List<WearSelectionEntity>>
