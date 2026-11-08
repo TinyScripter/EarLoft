@@ -343,7 +343,10 @@
     <string name="watch_added">Kommt auf die Uhr</string>
     <string name="watch_removed">Wird von der Uhr entfernt</string>
     <string name="watch_status_progress">Auf der Uhr: %1$d von %2$d</string>
-    <string name="watch_status_done">Auf der Uhr: alle %1$d Titel</string>
+    <plurals name="watch_status_done">
+        <item quantity="one">Auf der Uhr: %1$d Titel</item>
+        <item quantity="other">Auf der Uhr: alle %1$d Titel</item>
+    </plurals>
     <string name="watch_status_failed">Auf der Uhr: %1$d von %2$d, %3$d fehlgeschlagen</string>
     <string name="watch_status_full">Speicher der Uhr voll</string>
     <string name="settings_watch">Uhr</string>
@@ -506,7 +509,10 @@
     <string name="podcast_source_switch_changed">Das Abo hat sich inzwischen geändert. Bitte erneut prüfen.</string>
     <string name="podcast_source_switch_confirm_title">Quelle wechseln?</string>
     <string name="podcast_source_switch_matched">%1$d von %2$d Folgen gefunden. Sie behalten Fortschritt, Downloads und Statistik.</string>
-    <string name="podcast_source_switch_kept">%1$d angefangene oder gehörte Folgen gibt es in der neuen Quelle nicht; sie bleiben mit ihrem Stand im Abo.</string>
+    <plurals name="podcast_source_switch_kept">
+        <item quantity="one">%1$d angefangene oder gehörte Folge gibt es in der neuen Quelle nicht; sie bleibt mit ihrem Stand im Abo.</item>
+        <item quantity="other">%1$d angefangene oder gehörte Folgen gibt es in der neuen Quelle nicht; sie bleiben mit ihrem Stand im Abo.</item>
+    </plurals>
     <string name="podcast_source_switch_do">Wechseln</string>
     <string name="podcast_source_switch_back">Zurück</string>
     <string name="podcast_source_switch_switching">Quelle wird gewechselt …</string>

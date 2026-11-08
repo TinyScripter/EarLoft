@@ -13,6 +13,7 @@ import de.kleinabersmart.tinyamp.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.tinyamp.core.model.SpokenServer
 import de.kleinabersmart.tinyamp.ui.LoadState
 import de.kleinabersmart.tinyamp.ui.asLoadState
+import de.kleinabersmart.tinyamp.ui.orOnError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +44,7 @@ class AudiobookshelfViewModel @Inject constructor(
 
     /** Server ohne lesbaren API-Key; die Liste zeigt bei ihnen „API-Key neu eingeben“. */
     val withoutKey: StateFlow<Set<String>> = servers.serversWithoutKey
+        .orOnError(emptySet())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)

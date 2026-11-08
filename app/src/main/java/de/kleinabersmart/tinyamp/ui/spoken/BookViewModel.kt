@@ -21,7 +21,10 @@ import de.kleinabersmart.tinyamp.core.data.podcast.TrialPodcastPages
 import de.kleinabersmart.tinyamp.core.download.DownloadStart
 import de.kleinabersmart.tinyamp.core.download.EpisodeDownloadProgress
 import de.kleinabersmart.tinyamp.core.download.EpisodeDownloads
+import de.kleinabersmart.tinyamp.ui.orOnError
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import de.kleinabersmart.tinyamp.core.model.TrackDownload
 import de.kleinabersmart.tinyamp.core.playback.PlaybackConnection
@@ -34,6 +37,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -127,12 +131,14 @@ class BookViewModel @AssistedInject constructor(
     }
 
     val chapters: StateFlow<List<BookChapter>> = books.chapters(bookId)
+        .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val _openPlayer = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    // Kanal statt SharedFlow: Ein Ereignis während einer Drehung (kein Sammler) bliebe sonst verloren.
+    private val _openPlayer = Channel<Unit>(Channel.CONFLATED)
 
     /** Die Wiedergabe-Ansicht soll aufgehen: [play] hat das Buch gestartet oder fortgesetzt. */
-    val openPlayer: SharedFlow<Unit> = _openPlayer.asSharedFlow()
+    val openPlayer: Flow<Unit> = _openPlayer.receiveAsFlow()
 
     /**
      * „Abspielen“/„Weiterhören“: Ist das Buch schon geladen, geht es dort weiter, sonst wird es gestartet (ein zu Ende
@@ -142,9 +148,9 @@ class BookViewModel @AssistedInject constructor(
         val state = playback.state.value
         if (state.spoken?.bookId == bookId && book.value?.progress?.finished != true) {
             if (!state.isPlaying) playback.togglePlayPause()
-            _openPlayer.tryEmit(Unit)
+            _openPlayer.trySend(Unit)
         } else {
-            viewModelScope.launch { if (launcher.playAndAwait(bookId)) _openPlayer.emit(Unit) }
+            viewModelScope.launch { if (launcher.playAndAwait(bookId)) _openPlayer.send(Unit) }
         }
     }
 

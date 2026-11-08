@@ -23,6 +23,7 @@ import de.kleinabersmart.tinyamp.core.model.TrackDownload
 import de.kleinabersmart.tinyamp.ui.LoadState
 import de.kleinabersmart.tinyamp.ui.asLoadState
 import de.kleinabersmart.tinyamp.ui.asLoadStateOrMissing
+import de.kleinabersmart.tinyamp.ui.orOnError
 import de.kleinabersmart.tinyamp.ui.valueOrNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -109,6 +110,7 @@ class PodcastFeedViewModel @AssistedInject constructor(
 
     /** Download-Zustand je Folge. */
     val downloadStates: StateFlow<Map<Long, TrackDownload>> = podcasts.downloadStates(feedId)
+        .orOnError(emptyMap())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     private val _messages = MutableSharedFlow<Int>(extraBufferCapacity = 2)

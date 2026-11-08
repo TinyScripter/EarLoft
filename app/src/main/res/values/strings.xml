@@ -350,7 +350,10 @@
     <string name="watch_added">Coming to the watch</string>
     <string name="watch_removed">Will be removed from the watch</string>
     <string name="watch_status_progress">On the watch: %1$d of %2$d</string>
-    <string name="watch_status_done">On the watch: all %1$d tracks</string>
+    <plurals name="watch_status_done">
+        <item quantity="one">On the watch: %1$d track</item>
+        <item quantity="other">On the watch: all %1$d tracks</item>
+    </plurals>
     <string name="watch_status_failed">On the watch: %1$d of %2$d, %3$d failed</string>
     <string name="watch_status_full">Watch storage full</string>
     <string name="settings_watch">Watch</string>
@@ -513,7 +516,10 @@
     <string name="podcast_source_switch_changed">The subscription has changed in the meantime. Please check again.</string>
     <string name="podcast_source_switch_confirm_title">Change source?</string>
     <string name="podcast_source_switch_matched">%1$d of %2$d episodes found. They keep their progress, downloads and statistics.</string>
-    <string name="podcast_source_switch_kept">%1$d started or played episodes are not in the new source; they stay in the subscription as they are.</string>
+    <plurals name="podcast_source_switch_kept">
+        <item quantity="one">%1$d started or played episode is not in the new source; it stays in the subscription as it is.</item>
+        <item quantity="other">%1$d started or played episodes are not in the new source; they stay in the subscription as they are.</item>
+    </plurals>
     <string name="podcast_source_switch_do">Change</string>
     <string name="podcast_source_switch_back">Back</string>
     <string name="podcast_source_switch_switching">Changing the source …</string>

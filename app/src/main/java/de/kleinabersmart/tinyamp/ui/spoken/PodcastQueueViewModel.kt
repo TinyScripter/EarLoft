@@ -9,6 +9,7 @@ import de.kleinabersmart.tinyamp.core.model.BookWithProgress
 import de.kleinabersmart.tinyamp.core.playback.PlaybackConnection
 import de.kleinabersmart.tinyamp.ui.LoadState
 import de.kleinabersmart.tinyamp.ui.asLoadState
+import de.kleinabersmart.tinyamp.ui.orOnError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,6 +54,7 @@ class PodcastQueueViewModel @Inject constructor(
         EpisodeHits(query, if (needle.isEmpty()) emptyList() else index.filter { it.matches(needle) }.map { it.episode })
     }
         .flowOn(Dispatchers.Default)
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun remove(bookId: Long) {

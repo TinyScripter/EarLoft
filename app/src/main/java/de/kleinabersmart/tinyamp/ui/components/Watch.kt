@@ -14,6 +14,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -122,7 +123,7 @@ fun WatchStatusText(kind: WearSelectionKind, refId: Long?, modifier: Modifier = 
         progress.failed > 0 -> stringResource(R.string.watch_status_failed, progress.done, progress.total, progress.failed)
         progress.done < progress.total && controller.missingForStorage > 0 -> stringResource(R.string.watch_status_full)
         progress.done < progress.total -> stringResource(R.string.watch_status_progress, progress.done, progress.total)
-        else -> stringResource(R.string.watch_status_done, progress.total)
+        else -> pluralStringResource(R.plurals.watch_status_done, progress.total, progress.total)
     }
     Text(text, modifier, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

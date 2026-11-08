@@ -98,7 +98,8 @@ class MainActivity : ComponentActivity() {
     /** Geteilter Text oder ein Link wie `feed://…`: Die Adresse öffnet die Vorschau als Probeabo (Konzept 12.10, 13). */
     private fun openSharedFeed(intent: Intent) {
         val address = when (intent.action) {
-            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)?.let(IncomingFeed::fromText)
+            // EXTRA_TEXT ist eine CharSequence; formatierter Text (Spanned) käme über getStringExtra als null an.
+            Intent.ACTION_SEND -> intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.let(IncomingFeed::fromText)
             Intent.ACTION_VIEW -> intent.dataString?.let(IncomingFeed::fromLink)
             else -> null
         }

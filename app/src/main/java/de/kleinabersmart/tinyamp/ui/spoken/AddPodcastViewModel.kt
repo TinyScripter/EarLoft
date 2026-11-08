@@ -18,6 +18,7 @@ import de.kleinabersmart.tinyamp.core.network.podcast.directory.DirectoryPodcast
 import de.kleinabersmart.tinyamp.core.network.podcast.directory.PodcastDirectory
 import de.kleinabersmart.tinyamp.core.network.podcast.directory.feedKey
 import de.kleinabersmart.tinyamp.core.data.di.ApplicationScope
+import de.kleinabersmart.tinyamp.ui.orOnError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -110,6 +111,7 @@ class AddPodcastViewModel @Inject constructor(
 
     /** Abos nach [feedKey], um Treffer als schon abonniert zu kennzeichnen. */
     val subscribed: StateFlow<Map<String, String>> = podcasts.subscribedByKey
+        .orOnError(emptyMap())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     private val _search = MutableStateFlow<DirectorySearchState>(DirectorySearchState.Idle)
