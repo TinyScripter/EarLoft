@@ -118,6 +118,14 @@ data class JfUpdatePlaylist(
     @SerialName("Ids") val ids: List<String>,
 )
 
+/** `Sessions/Playing` und `Sessions/Playing/Stopped`; [positionTicks] in 100 ns. */
+@Serializable
+data class JfPlaybackReport(
+    @SerialName("ItemId") val itemId: String,
+    @SerialName("PositionTicks") val positionTicks: Long,
+    @SerialName("PlayMethod") val playMethod: String = "DirectPlay",
+)
+
 @Serializable
 data class JfCreated(
     @SerialName("Id") val id: String,

@@ -151,6 +151,22 @@ class JellyfinApiTest {
     }
 
     @Test
+    fun `a playback is reported as started and stopped at the end`() = runTest {
+        mockServer.enqueue(MockResponse.Builder().code(204).build())
+        mockServer.enqueue(MockResponse.Builder().code(204).build())
+
+        api.reportPlayback(server, "s1", durationMs = 118_000)
+
+        val start = mockServer.takeRequest()
+        assertEquals("/jellyfin/Sessions/Playing", start.url.encodedPath)
+        assertEquals("""{"ItemId":"s1","PositionTicks":0,"PlayMethod":"DirectPlay"}""", start.body?.utf8())
+        val stop = mockServer.takeRequest()
+        assertEquals("/jellyfin/Sessions/Playing/Stopped", stop.url.encodedPath)
+        assertEquals("""{"ItemId":"s1","PositionTicks":1180000000,"PlayMethod":"DirectPlay"}""", stop.body?.utf8())
+        assertTrue("Token=\"tok\"" in stop.headers["Authorization"]!!)
+    }
+
+    @Test
     fun `newest songs stay in the given library`() = runTest {
         mockServer.enqueue(json("""{"Items":[],"TotalRecordCount":0}"""))
 

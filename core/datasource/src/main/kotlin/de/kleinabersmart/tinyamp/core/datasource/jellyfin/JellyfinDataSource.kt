@@ -10,6 +10,7 @@ import de.kleinabersmart.tinyamp.core.datasource.PlaybackLocation
 import de.kleinabersmart.tinyamp.core.datasource.RawTrack
 import de.kleinabersmart.tinyamp.core.datasource.RemoteLibraryActions
 import de.kleinabersmart.tinyamp.core.datasource.RemoteLyrics
+import de.kleinabersmart.tinyamp.core.datasource.RemotePlaybackReporting
 import de.kleinabersmart.tinyamp.core.datasource.RemotePlaylist
 import de.kleinabersmart.tinyamp.core.datasource.RemotePlaylistInfo
 import de.kleinabersmart.tinyamp.core.datasource.RemoteQuickSync
@@ -39,7 +40,8 @@ class JellyfinDataSource internal constructor(
     override val displayName: String,
     private val api: JellyfinApi,
     private val names: FallbackNames,
-) : MusicDataSource, RemoteLibraryActions, RemoteLyrics, RemoteQuickSync, ExternalPlayback, RemoteTranscoding {
+) : MusicDataSource, RemoteLibraryActions, RemoteLyrics, RemoteQuickSync, ExternalPlayback, RemoteTranscoding,
+    RemotePlaybackReporting {
 
     override val sourceId: String get() = server.sourceId
     override val type: SourceType = SourceType.JELLYFIN
@@ -119,8 +121,13 @@ class JellyfinDataSource internal constructor(
 
     override suspend fun setFavorite(remoteId: String, favorite: Boolean) = api.setFavorite(server, remoteId, favorite)
 
-    /** „Gehört“ mit Zeitpunkt; Last.fm und ListenBrainz erreichen nur Plugins des Servers (Konzept 14). */
+    /**
+     * Nachgereicht: „gehört“ mit Zeitpunkt. Scrobble-Plugins des Servers sehen das nur, wenn sie auf geänderte
+     * Nutzerdaten hören (ListenBrainz: Modus `UserDataSaved`); live geht es über [reportPlayback] (Konzept 14).
+     */
     override suspend fun scrobble(remoteId: String, playedAt: Long) = api.markPlayed(server, remoteId, playedAt)
+
+    override suspend fun reportPlayback(remoteId: String, durationMs: Long) = api.reportPlayback(server, remoteId, durationMs)
 
     /** Nur Musik-Playlists, die das Konto ändern darf; je Playlist zwei Anfragen (Rechte, Einträge für den Hash). */
     override suspend fun playlists(): List<RemotePlaylistInfo> =

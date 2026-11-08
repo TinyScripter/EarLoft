@@ -9,6 +9,9 @@ import de.kleinabersmart.tinyamp.core.database.entity.AlbumEntity
 import de.kleinabersmart.tinyamp.core.database.entity.SongEntity
 import de.kleinabersmart.tinyamp.core.database.entity.SongSourceEntity
 import de.kleinabersmart.tinyamp.core.database.entity.SourceEntity
+import de.kleinabersmart.tinyamp.core.datasource.MusicDataSource
+import de.kleinabersmart.tinyamp.core.datasource.RemoteLibraryActions
+import de.kleinabersmart.tinyamp.core.datasource.RemotePlaybackReporting
 import de.kleinabersmart.tinyamp.core.model.SourceType
 import de.kleinabersmart.tinyamp.core.model.SyncActionType
 import de.kleinabersmart.tinyamp.core.network.subsonic.SubsonicException
@@ -114,14 +117,7 @@ class SyncQueueProcessorTest {
 
     @Test
     fun `plays are scrobbled once to the preferred server with the start time`() = runTest {
-        val reporter = SyncQueuePlayReporter(
-            database = db,
-            libraryDao = db.libraryDao(),
-            syncDao = db.syncDao(),
-            syncSettings = SyncSettings(ApplicationProvider.getApplicationContext()),
-            syncScheduler = NoScheduler,
-        )
-        val repository = PlaybackStateRepository(db.playbackDao(), reporter)
+        val repository = PlaybackStateRepository(db.playbackDao(), reporter(home, office))
 
         repository.recordPlay(songId, playedAt = 100_000, listenedMs = 40_000)
         assertTrue(processor().process())
@@ -129,6 +125,61 @@ class SyncQueueProcessorTest {
         // „home“ hat die höhere Priorität; die lokale Quelle zählt nicht.
         assertEquals(listOf("scrobble h 60000"), home.calls)
         assertTrue(office.calls.isEmpty())
+    }
+
+    @Test
+    fun `a play that just ended goes live to a server that takes it and skips the queue`() = runTest {
+        val live = LiveServer(home)
+
+        reporter(live, office).report(songId, playedAt = System.currentTimeMillis(), listenedMs = 40_000)
+
+        assertEquals(listOf("live h 1"), live.reports)
+        assertTrue(db.syncQueueProcessor(live, office).process())
+        assertTrue(home.calls.isEmpty())
+    }
+
+    @Test
+    fun `a play the server could not take live is queued with its start time`() = runTest {
+        val live = LiveServer(home).apply { failure = IOException("offline") }
+        val playedAt = System.currentTimeMillis()
+
+        reporter(live, office).report(songId, playedAt, listenedMs = 40_000)
+
+        assertTrue(db.syncQueueProcessor(live, office).process())
+        assertEquals(listOf("scrobble h ${playedAt - 40_000}"), home.calls)
+    }
+
+    @Test
+    fun `an older play, e g from the watch, is queued instead of reported live`() = runTest {
+        val live = LiveServer(home)
+        val playedAt = System.currentTimeMillis() - SyncQueuePlayReporter.LIVE_WINDOW_MS - 60_000
+
+        reporter(live, office).report(songId, playedAt, listenedMs = 40_000)
+
+        assertTrue(live.reports.isEmpty())
+        assertTrue(db.syncQueueProcessor(live, office).process())
+        assertEquals(listOf("scrobble h ${playedAt - 40_000}"), home.calls)
+    }
+
+    private fun reporter(vararg sources: MusicDataSource) = SyncQueuePlayReporter(
+        libraryDao = db.libraryDao(),
+        mergeDao = db.mergeDao(),
+        syncDao = db.syncDao(),
+        syncSettings = SyncSettings(ApplicationProvider.getApplicationContext()),
+        syncScheduler = NoScheduler,
+        sources = FixedSources(*sources),
+    )
+
+    /** Wie [FakeServer], nimmt aber Wiedergaben live an (Jellyfin). */
+    private class LiveServer(private val server: FakeServer) :
+        MusicDataSource by server, RemoteLibraryActions by server, RemotePlaybackReporting {
+        val reports = mutableListOf<String>()
+        var failure: Exception? = null
+
+        override suspend fun reportPlayback(remoteId: String, durationMs: Long) {
+            failure?.let { throw it }
+            reports += "live $remoteId $durationMs"
+        }
     }
 
     private fun processor() = db.syncQueueProcessor(home, office)

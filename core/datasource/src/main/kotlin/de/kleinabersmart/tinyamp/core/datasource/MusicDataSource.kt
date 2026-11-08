@@ -57,6 +57,16 @@ interface RemoteLibraryActions {
 }
 
 /**
+ * Meldet eine gerade gezählte Wiedergabe wie ein Player des Servers, damit Statistik und Plugins des Servers (Last.fm,
+ * ListenBrainz) sie als Wiedergabe sehen. Nachgereichtes (offline Gehörtes, Wiedergaben der Uhr) geht weiter über
+ * [RemoteLibraryActions.scrobble] mit dem richtigen Zeitpunkt. Fehler: `IOException`.
+ */
+interface RemotePlaybackReporting {
+    /** [durationMs] = Länge des Songs; gemeldet wird er als zu Ende gehört. */
+    suspend fun reportPlayback(remoteId: String, durationMs: Long)
+}
+
+/**
  * Billiger Zwischenabgleich für Server (statt des Vollabgleichs): erfasst neu hinzugekommene Alben und den
  * Favoriten-Stand, den andere Clients geändert haben. Gelöschte oder geänderte Songs findet nur der Vollabgleich.
  */

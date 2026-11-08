@@ -137,6 +137,20 @@ class JellyfinApi @Inject constructor(
         execute(request(server, url) { if (favorite) post(EMPTY_BODY) else delete() })
     }
 
+    /**
+     * Eine Wiedergabe wie ein Player: Start und Ende (bei [durationMs], also zu Ende gehört). Jellyfin zählt sie schon
+     * beim Start (`PlayCount`, „gespielt“ mit der Serverzeit); das Ende brauchen Scrobble-Plugins und die Sitzung.
+     */
+    suspend fun reportPlayback(server: JellyfinServer, itemId: String, durationMs: Long) {
+        postJson(server, "Sessions/Playing", JfPlaybackReport(itemId, positionTicks = 0))
+        postJson(server, "Sessions/Playing/Stopped", JfPlaybackReport(itemId, positionTicks = durationMs * TICKS_PER_MS))
+    }
+
+    private suspend fun postJson(server: JellyfinServer, path: String, report: JfPlaybackReport) {
+        val body = JSON.encodeToString(JfPlaybackReport.serializer(), report).toRequestBody(JSON_MEDIA_TYPE)
+        execute(request(server, server.endpoint(path).build()) { post(body) })
+    }
+
     /** Markiert als gehört, mit dem Zeitpunkt [playedAt] (ms) – auch nachträglich aus der Sync-Queue. */
     suspend fun markPlayed(server: JellyfinServer, itemId: String, playedAt: Long) {
         val url = server.endpoint("UserPlayedItems/$itemId")
@@ -242,6 +256,7 @@ class JellyfinApi @Inject constructor(
     internal companion object {
         /** `MediaSources` liefert Größe und Bitrate; ohne Feld fehlen sie. */
         const val SONG_FIELDS = "ProviderIds,DateCreated,Genres,MediaSources"
+        const val TICKS_PER_MS = 10_000L
 
         val JSON = Json {
             ignoreUnknownKeys = true
