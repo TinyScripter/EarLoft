@@ -84,6 +84,15 @@ class EpisodeDownloads @Inject constructor(
     /** Wie [removeFeed], dazu wartende und laufende Downloads (beim Archivieren eines Abos). @return Anzahl. */
     suspend fun removeAllOf(feedId: String): Int = dao.episodeIdsWithDownload(feedId).onEach { remove(it) }.size
 
+    /**
+     * Löscht Dateien ohne Folge (Abo beendet, OPML ersetzt, Folge aus dem Feed gefallen) – sonst räumt nur der nächste
+     * Download auf. Nur, wenn nichts lädt oder wartet: Eine gerade fertige Datei hätte ihren Pfad noch nicht. @return Anzahl.
+     */
+    suspend fun deleteOrphans(): Int {
+        if (dao.countPendingDownloads() > 0) return 0
+        return storage.deleteOrphans(dao.downloadedTracks().mapNotNull { it.filePath }, emptyList())
+    }
+
     /** Löscht die Dateien aller geladenen Folgen. @return Anzahl. */
     suspend fun removeAll(): Int = dao.allDownloadedEpisodeIds().onEach { remove(it) }.size
 

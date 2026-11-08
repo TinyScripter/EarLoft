@@ -24,10 +24,11 @@ class HeardCleanupWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val removed = EntryPointAccessors.fromApplication(applicationContext, CleanupEntryPoint::class.java)
-            .episodeDownloads()
-            .removeExpiredHeard()
+        val entryPoint = EntryPointAccessors.fromApplication(applicationContext, CleanupEntryPoint::class.java)
+        val removed = entryPoint.episodeDownloads().removeExpiredHeard()
         if (removed > 0) Log.i(TAG, "$removed gehörte Folgen gelöscht")
+        val orphans = entryPoint.episodeDownloads().deleteOrphans() + entryPoint.bookDownloads().deleteOrphans()
+        if (orphans > 0) Log.i(TAG, "$orphans verwaiste Dateien von Folgen und Büchern gelöscht")
         return Result.success()
     }
 
@@ -35,6 +36,7 @@ class HeardCleanupWorker(
     @InstallIn(SingletonComponent::class)
     internal interface CleanupEntryPoint {
         fun episodeDownloads(): EpisodeDownloads
+        fun bookDownloads(): BookDownloads
     }
 
     companion object {

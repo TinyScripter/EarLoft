@@ -66,6 +66,12 @@ class BookDownloads @Inject constructor(
     }
 
     /** Einmal beim Start der App: wartende Downloads nach einem Prozessende fortsetzen, Netzeinstellung nachziehen. */
+    /** Wie [EpisodeDownloads.deleteOrphans]: Dateien gelöschter Bücher, nur ohne laufende oder wartende Downloads. */
+    suspend fun deleteOrphans(): Int {
+        if (dao.countPendingBookDownloads() > 0) return 0
+        return storage.deleteOrphans(dao.downloadedBookTracks().mapNotNull { it.filePath }) + storage.deleteParts()
+    }
+
     fun start(scope: CoroutineScope) {
         if (!started.compareAndSet(false, true)) return
         scope.launch {

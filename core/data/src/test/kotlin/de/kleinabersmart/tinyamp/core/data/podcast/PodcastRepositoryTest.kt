@@ -157,6 +157,22 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `replacing with a file without feeds or without ard sounds keeps those subscriptions`() = runTest {
+        val feed = subscribe()
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard", url = "ardsounds:urn:ard:show:5fa94a3212aa9829", title = "ARD"))
+
+        // Leere oder fremd aufgebaute Datei (z. B. `url` statt `xmlUrl`): nichts löschen.
+        assertEquals(OpmlImportResult(added = 0, skipped = 0, removed = 0), repository.importOpml(emptyList(), replace = true))
+        assertEquals(2, db.podcastDao().feeds().size)
+
+        // Ohne RSS-Bridge exportiert TinyAmp keine ARD-Abos; die Datei ersetzt sie deshalb nicht.
+        val result = repository.importOpml(listOf(OpmlFeed("Neu", "https://example.com/new.xml")), replace = true)
+        assertEquals(1, result.removed)
+        val ids = db.podcastDao().feeds().map { it.feedId }
+        assertTrue("ard" in ids && feed !in ids)
+    }
+
+    @Test
     fun `opml export lists subscriptions but not device podcasts`() = runTest {
         subscribe()
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "local:x", url = "local:x", title = "Gerät"))
@@ -701,9 +717,12 @@ class PodcastRepositoryTest {
         assertEquals(OpmlImportResult(added = 0, skipped = 2, removed = 0), repository.importOpml(exported, replace = true))
         assertTrue(ard in db.podcastDao().feeds().map { it.feedId })
 
-        // Ersetzen ohne die Sendung entfernt sie wie jedes andere Abo; eine Bridge-Adresse legt sie wieder an.
+        // Eine Datei ohne ARD-Sendungen (ohne Bridge exportiert) ersetzt sie nicht; eine mit anderen Sendungen schon.
         repository.importOpml(withoutBridge, replace = true)
+        assertTrue(ard in db.podcastDao().feeds().map { it.feedId })
+        repository.importOpml(withoutBridge + OpmlFeed("Andere", "ardsounds:urn:ard:show:xyz"), replace = true)
         assertTrue(ard !in db.podcastDao().feeds().map { it.feedId })
+        // Eine Bridge-Adresse legt sie wieder an.
         repository.importOpml(listOf(bridgeFeed), replace = false)
         assertEquals("ardsounds:urn:ard:show:abc", db.podcastDao().feeds().single { it.title == "Radio Tatort" }.url)
     }

@@ -152,8 +152,12 @@ class PodcastFeedViewModel @AssistedInject constructor(
         viewModelScope.launch { podcasts.setNotifyNew(feedId, enabled) }
     }
 
+    /** Löscht erst die Downloads (sonst blieben die Dateien liegen), dann das Abo; im App-Scope wie [archive]. */
     fun unsubscribe() {
-        viewModelScope.launch { podcasts.unsubscribe(feedId) }
+        applicationScope.launch {
+            downloads.removeAllOf(feedId)
+            podcasts.unsubscribe(feedId)
+        }
     }
 
     /** Archiviert das Abo und löscht seine Downloads; im App-Scope, denn die Seite schließt sich sofort. */

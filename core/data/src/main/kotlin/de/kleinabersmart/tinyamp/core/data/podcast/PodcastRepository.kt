@@ -421,16 +421,18 @@ class PodcastRepository @Inject constructor(
     /**
      * Übernimmt die Abos aus [feeds]. Abos, die es schon gibt (oder die in der Datei mehrfach stehen), werden übersprungen.
      * Mit [replace] fallen zuvor alle anderen Abos weg (samt Folgen und Hörfortschritt); Podcasts vom Gerät bleiben, denn
-     * eine OPML-Datei kann sie nicht enthalten. Feeds der RSS-Bridge für ARD Sounds (und Links von Sendungsseiten) werden
+     * eine OPML-Datei kann sie nicht enthalten, ebenso ARD-Sounds-Abos, wenn die Datei keine enthält (ohne RSS-Bridge
+     * exportiert sie TinyAmp nicht). Eine Datei ohne Abos ersetzt nichts. Feeds der RSS-Bridge für ARD Sounds (und Links von Sendungsseiten) werden
      * wieder zu Abos `ardsounds:<Kennung>`, die ohne die Bridge auskommen. Die Folgen der neuen Abos kommen erst mit dem
      * nächsten Abgleich.
      */
     suspend fun importOpml(feeds: List<OpmlFeed>, replace: Boolean): OpmlImportResult = mutex.withLock {
         val wanted = feeds.map { feed -> parseArdSoundsInput(feed.url)?.let { feed.copy(url = it) } ?: feed }.distinctBy { it.url }
         var removed = 0
-        if (replace) {
+        if (replace && wanted.isNotEmpty()) {
             val keep = wanted.mapTo(HashSet()) { it.url }
-            dao.feeds().filter { !it.isLocal && it.url !in keep }.forEach {
+            val fileHasArdSounds = wanted.any { ardSoundsShowId(it.url) != null }
+            dao.feeds().filter { !it.isLocal && it.url !in keep && (fileHasArdSounds || ardSoundsShowId(it.url) == null) }.forEach {
                 dao.deleteFeed(it.feedId)
                 removed++
             }
