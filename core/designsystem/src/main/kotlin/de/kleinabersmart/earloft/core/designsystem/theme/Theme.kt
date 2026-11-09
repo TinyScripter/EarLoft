@@ -30,8 +30,16 @@ fun EarLoftTheme(
         val context = LocalContext.current
         if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     } else {
-        // „Vibrant“ statt des gedeckten Standards: Akzente tragen sichtbar Farbe, die Flächen bleiben ruhig.
-        rememberDynamicColorScheme(seedColor = BrandOrange, isDark = darkTheme, isAmoled = false, style = PaletteStyle.Vibrant)
+        // „Vibrant“ statt des gedeckten Standards: Akzente tragen sichtbar Farbe. Die Flächen kommen aus dem Navy des Logos
+        // statt aus dem Orange, sonst wird alles pfirsich- bzw. braunstichig.
+        rememberDynamicColorScheme(
+            seedColor = BrandOrange,
+            isDark = darkTheme,
+            isAmoled = false,
+            neutral = BrandNavy,
+            neutralVariant = BrandNavy,
+            style = PaletteStyle.Vibrant,
+        )
     }
 
     CompositionLocalProvider(LocalDarkTheme provides darkTheme) {
