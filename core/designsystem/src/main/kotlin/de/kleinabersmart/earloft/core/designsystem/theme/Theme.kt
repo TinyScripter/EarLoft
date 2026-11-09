@@ -2,15 +2,18 @@ package de.kleinabersmart.earloft.core.designsystem.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.materialkolor.PaletteStyle
+import com.materialkolor.dynamicColorScheme
 import com.materialkolor.rememberDynamicColorScheme
 
 /** Ob [EarLoftTheme] dunkel ist – kann per Einstellung vom System abweichen. */
@@ -30,16 +33,7 @@ fun EarLoftTheme(
         val context = LocalContext.current
         if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     } else {
-        // „Vibrant“ statt des gedeckten Standards: Akzente tragen sichtbar Farbe. Die Flächen bekommen ein eigenes, schwächeres
-        // Orange, sonst werden sie kräftig pfirsich- bzw. braunstichig.
-        rememberDynamicColorScheme(
-            seedColor = BrandOrange,
-            isDark = darkTheme,
-            isAmoled = false,
-            neutral = BrandOrangeMuted,
-            neutralVariant = BrandOrangeMuted,
-            style = PaletteStyle.Vibrant,
-        )
+        remember(darkTheme) { appColorScheme(darkTheme) }
     }
 
     CompositionLocalProvider(LocalDarkTheme provides darkTheme) {
@@ -50,6 +44,20 @@ fun EarLoftTheme(
         )
     }
 }
+
+/**
+ * Die App-Farben aus dem Logo, ohne Systemfarben; auch für das Widget. „Vibrant“ statt des gedeckten Standards: Akzente
+ * tragen sichtbar Farbe. Die Flächen bekommen ein eigenes, schwächeres Orange, sonst werden sie kräftig pfirsich- bzw.
+ * braunstichig.
+ */
+fun appColorScheme(isDark: Boolean): ColorScheme = dynamicColorScheme(
+    seedColor = BrandOrange,
+    isDark = isDark,
+    isAmoled = false,
+    neutral = BrandOrangeMuted,
+    neutralVariant = BrandOrangeMuted,
+    style = PaletteStyle.Vibrant,
+)
 
 /**
  * Färbt [content] nach der Grundfarbe eines Albums (ARGB, siehe `albums.seedColor`) um.

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -39,6 +40,7 @@ import de.kleinabersmart.earloft.core.playback.EXTRA_OPEN_NOW_PLAYING
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.EarLoftApp
 import de.kleinabersmart.earloft.ui.permission.AudioPermissionGate
+import de.kleinabersmart.earloft.ui.theme.LocalPlayerCoverColors
 import de.kleinabersmart.earloft.ui.theme.ThemeMode
 import de.kleinabersmart.earloft.ui.theme.ThemeSettings
 import kotlinx.coroutines.launch
@@ -149,6 +151,7 @@ class MainActivity : ComponentActivity() {
             val systemColors = systemColorsSetting ?: return@setContent
             val localMedia = useLocalMedia ?: return@setContent
             val alwaysNavigationBar by themeSettings.alwaysShowNavigationBar.collectAsStateWithLifecycle(initialValue = true)
+            val playerCoverColors by themeSettings.playerCoverColors.collectAsStateWithLifecycle(initialValue = true)
 
             val darkTheme = when (mode) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -171,13 +174,15 @@ class MainActivity : ComponentActivity() {
                         onGranted = libraryRefresher::refreshNow,
                         onSkip = { lifecycleScope.launch { librarySettings.setUseLocalMedia(false) } },
                     ) {
-                        EarLoftApp(
-                            openNowPlaying = openNowPlaying,
-                            onNowPlayingOpened = { openNowPlaying = false },
-                            sharedFeedUrl = sharedFeedUrl,
-                            onSharedFeedOpened = { sharedFeedUrl = null },
-                            alwaysShowNavigationBar = alwaysNavigationBar,
-                        )
+                        CompositionLocalProvider(LocalPlayerCoverColors provides playerCoverColors) {
+                            EarLoftApp(
+                                openNowPlaying = openNowPlaying,
+                                onNowPlayingOpened = { openNowPlaying = false },
+                                sharedFeedUrl = sharedFeedUrl,
+                                onSharedFeedOpened = { sharedFeedUrl = null },
+                                alwaysShowNavigationBar = alwaysNavigationBar,
+                            )
+                        }
                     }
                     CastVolumeIndicator(
                         presses = castVolumePresses,

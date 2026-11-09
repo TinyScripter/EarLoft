@@ -35,6 +35,7 @@ import de.kleinabersmart.earloft.core.playback.CoverProvider
 import de.kleinabersmart.earloft.core.playback.NowPlaying
 import de.kleinabersmart.earloft.core.playback.NowPlayingObserver
 import de.kleinabersmart.earloft.core.playback.ServicePlayer
+import de.kleinabersmart.earloft.ui.theme.ThemeSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -108,8 +109,12 @@ data class WidgetState(
     val coverUri: Uri? = null,
     /** Breite durch Höhe des Covers (Album quadratisch, Buch meist hochkant). */
     val coverAspectRatio: Float = 1f,
-    /** Grundfarbe des Covers (ARGB) für die Widget-Farben; `null` = Systemfarben. */
+    /** Grundfarbe des Covers (ARGB) für die Widget-Farben; `null` = App-Farben. */
     val seedColor: Int? = null,
+    /** Farben aus dem Cover ([seedColor]) statt der App-Farben ([ThemeSettings.widgetCoverColors]). */
+    val coverColors: Boolean = true,
+    /** App-Farben sind die Systemfarben ([ThemeSettings.systemColors]). */
+    val systemColors: Boolean = false,
     /** Spielzeit bei Büchern und Folgen; `null` bei Musik oder solange sie nicht feststeht. */
     val clock: BookClock? = null,
     /** Sprungweiten aus den Einstellungen, für Bücher bzw. Folgen. */
@@ -135,6 +140,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
     private val servicePlayer: ServicePlayer,
     private val store: WidgetStateStore,
     spokenSettings: SpokenSettings,
+    themeSettings: ThemeSettings,
     @ApplicationScope scope: CoroutineScope,
 ) : NowPlayingObserver {
 
@@ -167,6 +173,12 @@ class NowPlayingWidgetUpdater @Inject constructor(
         combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair)
             .onEach { (book, podcast) ->
                 _state.value = _state.value.copy(bookSeek = book, podcastSeek = podcast)
+                NowPlayingWidget().updateAll(context)
+            }
+            .launchIn(scope)
+        combine(themeSettings.widgetCoverColors, themeSettings.systemColors, ::Pair)
+            .onEach { (cover, system) ->
+                _state.value = _state.value.copy(coverColors = cover, systemColors = system)
                 NowPlayingWidget().updateAll(context)
             }
             .launchIn(scope)

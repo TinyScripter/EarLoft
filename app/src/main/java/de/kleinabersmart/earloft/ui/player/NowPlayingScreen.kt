@@ -48,7 +48,7 @@ import androidx.media3.common.Player
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.cast.CastButton
 import de.kleinabersmart.earloft.cast.rememberCastDeviceName
-import de.kleinabersmart.earloft.core.designsystem.theme.AlbumColorTheme
+import de.kleinabersmart.earloft.ui.theme.PlayerColorTheme
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.playback.PlayerState
@@ -77,7 +77,7 @@ fun NowPlayingScreen(
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
     val sleepTimerRemainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
-    AlbumColorTheme(seedColor) {
+    PlayerColorTheme(seedColor) {
         Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             NowPlayingContent(
                 state = state,

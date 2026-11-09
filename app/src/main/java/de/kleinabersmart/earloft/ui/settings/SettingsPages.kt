@@ -105,6 +105,25 @@ fun GeneralSettingsScreen(
                     )
                 }
             }
+            // Aus: die App-Farben wie überall sonst, mit eingeschalteten Systemfarben also diese.
+            row("player-cover-colors") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_player_cover_colors),
+                    summary = stringResource(R.string.settings_player_cover_colors_summary),
+                    icon = DesignR.drawable.ic_play,
+                    checked = state.playerCoverColors,
+                    onCheckedChange = viewModel::setPlayerCoverColors,
+                )
+            }
+            row("widget-cover-colors") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_widget_cover_colors),
+                    summary = stringResource(R.string.settings_widget_cover_colors_summary),
+                    icon = DesignR.drawable.ic_music_note,
+                    checked = state.widgetCoverColors,
+                    onCheckedChange = viewModel::setWidgetCoverColors,
+                )
+            }
             row("always-nav") {
                 SwitchRow(
                     title = stringResource(R.string.settings_always_navigation_bar),

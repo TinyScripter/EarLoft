@@ -70,7 +70,7 @@ import androidx.window.core.layout.WindowSizeClass
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.cast.CastButton
 import de.kleinabersmart.earloft.cast.rememberCastDeviceName
-import de.kleinabersmart.earloft.core.designsystem.theme.AlbumColorTheme
+import de.kleinabersmart.earloft.ui.theme.PlayerColorTheme
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookTimeline
 import de.kleinabersmart.earloft.core.playback.PlayerState
@@ -104,7 +104,7 @@ fun BookPlayerScreen(
     viewModel: BookPlayerViewModel = hiltViewModel(),
 ) {
     val seedColor by viewModel.seedColor.collectAsStateWithLifecycle()
-    AlbumColorTheme(seedColor) {
+    PlayerColorTheme(seedColor) {
         Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             BookPlayerContent(onClose, onEpisodeClick, viewModel = viewModel)
         }

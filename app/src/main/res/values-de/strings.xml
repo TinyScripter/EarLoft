@@ -183,6 +183,10 @@
     <string name="settings_theme">App-Darstellung</string>
     <string name="settings_system_colors">Systemfarben verwenden</string>
     <string name="settings_system_colors_summary">Farben aus dem Hintergrundbild (Material You) statt der App-Farben.</string>
+    <string name="settings_player_cover_colors">Coverfarben im Player</string>
+    <string name="settings_player_cover_colors_summary">Mini-Player und Player nehmen die Farben des Covers an. Aus: App-Farben.</string>
+    <string name="settings_widget_cover_colors">Coverfarben im Widget</string>
+    <string name="settings_widget_cover_colors_summary">Das 4×1-Widget nimmt die Farben des Covers an. Aus: App-Farben.</string>
     <string name="settings_always_navigation_bar">Navigationsleiste immer anzeigen</string>
     <string name="settings_always_navigation_bar_summary">Betrifft nur die Wiedergabefenster. Aus blendet die Leiste dort aus.</string>
     <string name="theme_system">Systemeinstellung folgen</string>

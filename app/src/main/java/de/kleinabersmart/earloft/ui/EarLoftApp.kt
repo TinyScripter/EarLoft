@@ -39,7 +39,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import de.kleinabersmart.earloft.core.designsystem.theme.AlbumColorTheme
+import de.kleinabersmart.earloft.ui.theme.PlayerColorTheme
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
@@ -497,7 +497,7 @@ private fun MiniPlayerHost(playerViewModel: PlayerViewModel, playerState: State<
         val bookSeedColor by bookPlayer.seedColor.collectAsStateWithLifecycle()
         // Ohne Beobachter bliebe die Zeitachse leer und der Anteil am Buch 0.
         val bookTimeline by bookPlayer.timeline.collectAsStateWithLifecycle()
-        AlbumColorTheme(bookSeedColor) {
+        PlayerColorTheme(bookSeedColor) {
             SpokenMiniPlayer(
                 state = state,
                 fractionProvider = bookPlayer::bookFraction,
@@ -511,7 +511,7 @@ private fun MiniPlayerHost(playerViewModel: PlayerViewModel, playerState: State<
         }
     } else if (state.hasMedia) {
         val seedColor by playerViewModel.seedColor.collectAsStateWithLifecycle()
-        AlbumColorTheme(seedColor) {
+        PlayerColorTheme(seedColor) {
             MiniPlayer(
                 state = state,
                 positionProvider = { playerViewModel.currentPositionMs },

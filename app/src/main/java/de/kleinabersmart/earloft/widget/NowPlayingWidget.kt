@@ -11,6 +11,7 @@ import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
@@ -70,6 +71,7 @@ import de.kleinabersmart.earloft.R
 import com.materialkolor.dynamicColorScheme
 import de.kleinabersmart.earloft.core.playback.EXTRA_OPEN_NOW_PLAYING
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import de.kleinabersmart.earloft.core.designsystem.theme.appColorScheme
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 import de.kleinabersmart.earloft.core.playback.R as PlaybackR
 
@@ -84,7 +86,7 @@ class NowPlayingWidget : GlanceAppWidget() {
         updater.onWidgetShown()
         provideContent {
             val state by updater.state.collectAsState()
-            GlanceTheme(colors = state.seedColor?.let(::albumColorProviders) ?: GlanceTheme.colors) {
+            GlanceTheme(colors = widgetColors(state)) {
                 NowPlayingContent(state)
             }
         }
@@ -100,6 +102,25 @@ class NowPlayingWidgetReceiver : GlanceAppWidgetReceiver() {
         context.widgetEntryPoint().widgetUpdater().onAllWidgetsRemoved()
     }
 }
+
+/**
+ * Nach dem Cover, wenn so eingestellt und es eine Farbe hat; sonst die App-Farben: Systemfarben (Standard von Glance, ab
+ * Android 12) oder das Farbschema aus dem Logo.
+ */
+@Composable
+private fun widgetColors(state: WidgetState): ColorProviders {
+    val seedColor = state.seedColor?.takeIf { state.coverColors }
+    return when {
+        seedColor != null -> remember(seedColor) { albumColorProviders(seedColor) }
+        state.systemColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> GlanceTheme.colors
+        else -> remember { appColorProviders() }
+    }
+}
+
+private fun appColorProviders(): ColorProviders = material3ColorProviders(
+    light = appColorScheme(isDark = false),
+    dark = appColorScheme(isDark = true),
+)
 
 private fun albumColorProviders(seedColor: Int): ColorProviders {
     val seed = Color(seedColor)
