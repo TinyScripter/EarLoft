@@ -5,5 +5,5 @@ import androidx.compose.ui.graphics.Color
 /** Orange aus dem Logo („Loft“, Ring, Schallwellen); Grundfarbe des App-Farbschemas. */
 internal val BrandOrange = Color(0xFFFB9C1E)
 
-/** Navy aus dem Logo (Hintergrund des Banners); Grundton der Flächen. */
-internal val BrandNavy = Color(0xFF141420)
+/** Grundton der Flächen: Farbton von [BrandOrange], aber nur etwa halb so gesättigt wie bei „Vibrant“ aus dem Orange allein. */
+internal val BrandOrangeMuted = Color(0xFF8A827C)
