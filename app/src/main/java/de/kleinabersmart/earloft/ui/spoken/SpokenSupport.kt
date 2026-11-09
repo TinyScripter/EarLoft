@@ -181,14 +181,18 @@ private fun SpokenModeScaffold(
     Column(
         modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .windowInsetsPadding(TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Top))
             .nestedScroll(collapse),
     ) {
         // Start und Bibliothek teilen sich den Kopf: Beim Wechsel zwischen ihnen bleibt er stehen, nur der Inhalt blendet über.
         // Der geteilte Rahmen sitzt außerhalb des Einklappens, damit ein eingeklappter Kopf auch im Übergang eingeklappt bleibt.
+        // Band und Statusleiste gehören mit dazu; sonst blendete die Farbe dahinter mit der Seite aus und wieder ein.
         SharedAcrossScreens(APP_HEADER_KEY) {
-            Column(Modifier.collapsingHeader(collapse)) {
+            Column(
+                Modifier
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .windowInsetsPadding(TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Top))
+                    .collapsingHeader(collapse),
+            ) {
                 TopAppBar(
                     windowInsets = TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Horizontal),
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
