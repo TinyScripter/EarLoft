@@ -17,7 +17,7 @@ import com.materialkolor.rememberDynamicColorScheme
 val LocalDarkTheme = staticCompositionLocalOf { false }
 
 /**
- * Farbschema der App: aus dem Logo-Violett ([BrandViolet]) oder, mit [systemColors] ab Android 12, aus den Systemfarben
+ * Farbschema der App: aus dem Logo-Orange ([BrandOrange]) oder, mit [systemColors] ab Android 12, aus den Systemfarben
  * (Material You, vom Hintergrundbild abgeleitet).
  */
 @Composable
@@ -31,7 +31,7 @@ fun EarLoftTheme(
         if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     } else {
         // „Vibrant“ statt des gedeckten Standards: Akzente tragen sichtbar Farbe, die Flächen bleiben ruhig.
-        rememberDynamicColorScheme(seedColor = BrandViolet, isDark = darkTheme, isAmoled = false, style = PaletteStyle.Vibrant)
+        rememberDynamicColorScheme(seedColor = BrandOrange, isDark = darkTheme, isAmoled = false, style = PaletteStyle.Vibrant)
     }
 
     CompositionLocalProvider(LocalDarkTheme provides darkTheme) {

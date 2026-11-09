@@ -31,7 +31,7 @@ import de.kleinabersmart.earloft.core.model.OfflineMark
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Markierung „heruntergeladen“ unten links auf einem Cover (Alben, Bücher, Folgen, Abos): violetter Punkt mit Haken (ganz
+ * Markierung „heruntergeladen“ unten links auf einem Cover (Alben, Bücher, Folgen, Abos): Punkt in der Grundfarbe mit Haken (ganz
  * geladen), mit Kontur statt Füllung (teilweise), grau mit Pfeil (wartet/lädt) oder rot (Fehler). Mit [count] steht die
  * Zahl neben dem Haken (geladene Folgen eines Abos). Ohne [mark] nichts.
  */
