@@ -22,6 +22,7 @@ import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import de.kleinabersmart.earloft.core.data.repository.FavoritesRepository
 import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
@@ -63,16 +64,21 @@ internal class LibrarySessionCallback(
     private val awaitRestore: suspend () -> Unit = {},
 ) : MediaLibrarySession.Callback {
 
+    /**
+     * Muss sofort fertig sein: Für alte `MediaBrowser` (Android Auto, System) beantwortet Media3 `onGetRoot` auf dem
+     * Main-Thread und wartet dort ohne Zeitlimit auf dieses Future. Ein `scope.future` auf dem Main-Dispatcher käme nie dran
+     * (App hängt, ANR).
+     */
     override fun onGetLibraryRoot(
         session: MediaLibrarySession,
         browser: MediaSession.ControllerInfo,
         params: LibraryParams?,
-    ): ListenableFuture<LibraryResult<MediaItem>> = scope.future {
+    ): ListenableFuture<LibraryResult<MediaItem>> = Futures.immediateFuture(
         LibraryResult.ofItem(
             folderMediaItem(MediaIds.ROOT, context.getString(R.string.app_library), MediaMetadata.MEDIA_TYPE_FOLDER_MIXED),
             params,
-        )
-    }
+        ),
+    )
 
     override fun onGetChildren(
         session: MediaLibrarySession,
