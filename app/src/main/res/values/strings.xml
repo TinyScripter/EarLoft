@@ -707,8 +707,14 @@
     <string name="settings_seek_forward">Skip forward button</string>
     <string name="settings_chapter_restart">Restart recent chapters</string>
     <string name="settings_chapter_restart_summary">If you stopped within 30 seconds of a chapter\'s start, it begins again from its start.</string>
-    <string name="new_content_channel_name">New episodes and books</string>
-    <string name="new_content_title">New in your library</string>
+    <!-- Benachrichtigungen über Neues: Titel bei mehreren Alben, Podcasts bzw. Büchern, zugleich Namen der Kanäle -->
+    <string name="new_content_music_title">New music</string>
+    <string name="new_content_episodes_title">New episodes</string>
+    <string name="new_content_books_title">New books</string>
+    <plurals name="new_content_on_albums">
+        <item quantity="one">on %1$d album</item>
+        <item quantity="other">on %1$d albums</item>
+    </plurals>
     <plurals name="new_content_episodes">
         <item quantity="one">%1$d new episode</item>
         <item quantity="other">%1$d new episodes</item>

@@ -168,6 +168,10 @@ abstract class LibraryDao {
     @Query("SELECT COUNT(*) FROM songs s WHERE s.songId > :songId AND $SONG_VISIBLE")
     abstract suspend fun countVisibleSongsAfter(songId: Long): Int
 
+    /** Alben mit sichtbaren Songs, die nach [songId] angelegt wurden; `songCount` zählt nur diese, die meisten zuerst. */
+    @Query("$SELECT_ALBUM_ROWS AND s.songId > :songId GROUP BY a.albumId ORDER BY songCount DESC, a.sortTitle")
+    abstract suspend fun albumsWithSongsAfter(songId: Long): List<AlbumRow>
+
     @Query("$SELECT_ALBUM_ROWS GROUP BY a.albumId ORDER BY RANDOM() LIMIT :limit")
     abstract suspend fun getRandomAlbumRows(limit: Int): List<AlbumRow>
 

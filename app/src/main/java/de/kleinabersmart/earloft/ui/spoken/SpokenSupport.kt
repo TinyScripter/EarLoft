@@ -92,6 +92,9 @@ import kotlin.math.floor
 import kotlin.math.round
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectIndexed
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.AppUris
@@ -164,8 +167,18 @@ private fun SpokenModeScaffold(
         // ausgeblendet, gilt sonst nach dem Einschalten eines weiteren wieder dessen erster statt des gezeigten.
         LaunchedEffect(pagerState) {
             snapshotFlow { pagerState.settledPage }.collectIndexed { index, page ->
+                // War der Bereich schon gespeichert, kam der Wechsel von außen (unten); die Seite darüber bleibt dann offen.
+                val changed = pages[page] != viewModel.loaded.value?.mode
                 viewModel.setMode(pages[page])
-                if (index > 0) currentOnModeChange()
+                if (index > 0 && changed) currentOnModeChange()
+            }
+        }
+        // Von außen gewählter Bereich (Tipp auf eine Benachrichtigung über Neues): Der Pager fährt dorthin, außer der Finger
+        // ist gerade auf ihm. Nach einem eigenen Wischen ist der gespeicherte Bereich schon der gezeigte.
+        LaunchedEffect(pagerState) {
+            viewModel.loaded.filterNotNull().map { it.mode }.distinctUntilChanged().collect { stored ->
+                val index = pages.indexOf(stored)
+                if (index >= 0 && index != pagerState.settledPage && !pagerState.isScrollInProgress) pagerState.scrollToPage(index)
             }
         }
     }

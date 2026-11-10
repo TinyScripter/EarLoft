@@ -43,6 +43,7 @@ import de.kleinabersmart.earloft.ui.theme.PlayerColorTheme
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
+import de.kleinabersmart.earloft.notification.NewContentTarget
 import de.kleinabersmart.earloft.navigation.AboutRoute
 import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
 import de.kleinabersmart.earloft.navigation.AddAudiobookshelfRoute
@@ -149,6 +150,8 @@ fun EarLoftApp(
     onNowPlayingOpened: () -> Unit = {},
     sharedFeedUrl: String? = null,
     onSharedFeedOpened: () -> Unit = {},
+    newContentTarget: NewContentTarget? = null,
+    onNewContentOpened: () -> Unit = {},
     alwaysShowNavigationBar: Boolean = true,
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
@@ -170,6 +173,18 @@ fun EarLoftApp(
             navigator.navigate(PodcastPreviewRoute(sharedFeedUrl, title = sharedFeedUrl, author = "", imageUrl = null))
             onSharedFeedOpened()
         }
+    }
+    // Tipp auf eine Benachrichtigung über Neues (der Bereich ist schon gewählt): Start, bei genau einem Album, Podcast oder
+    // Buch dessen Seite darüber.
+    LaunchedEffect(newContentTarget) {
+        val target = newContentTarget ?: return@LaunchedEffect
+        navigator.navigate(HomeRoute)
+        when {
+            target.albumId != null -> navigator.navigate(AlbumRoute(target.albumId))
+            target.feedId != null -> navigator.navigate(PodcastRoute(target.feedId))
+            target.bookId != null -> navigator.navigate(BookRoute(target.bookId))
+        }
+        onNewContentOpened()
     }
     // Hier nur ableiten: Jede Änderung am Player (Play/Pause, Titel, Warteschlange, Tempo) setzte sonst Navigation und
     // Scaffold neu zusammen. Den ganzen Zustand liest erst der Mini-Player.

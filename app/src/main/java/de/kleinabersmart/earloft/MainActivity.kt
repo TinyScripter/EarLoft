@@ -38,6 +38,7 @@ import de.kleinabersmart.earloft.core.data.sync.LibrarySettings
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.playback.EXTRA_OPEN_NOW_PLAYING
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import de.kleinabersmart.earloft.notification.NewContentTarget
 import de.kleinabersmart.earloft.ui.EarLoftApp
 import de.kleinabersmart.earloft.ui.permission.AudioPermissionGate
 import de.kleinabersmart.earloft.ui.theme.LocalPlayerCoverColors
@@ -69,6 +70,9 @@ class MainActivity : ComponentActivity() {
     /** Von einer anderen App geteilte Podcast-Adresse (Konzept 13); die Oberfläche öffnet sie als Vorschau. */
     private var sharedFeedUrl by mutableStateOf<String?>(null)
 
+    /** Tipp auf eine Benachrichtigung über Neues; gesetzt erst, wenn der Bereich gespeichert ist (siehe [openNewContent]). */
+    private var newContentTarget by mutableStateOf<NewContentTarget?>(null)
+
     /** Zählt die abgefangenen Lautstärketasten beim Casten; jede Änderung blendet [CastVolumeIndicator] ein. */
     private var castVolumePresses by mutableIntStateOf(0)
 
@@ -95,6 +99,20 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)) openNowPlaying = true
         playFromSearch(intent)
         openSharedFeed(intent)
+        openNewContent(NewContentTarget.from(intent))
+    }
+
+    /**
+     * Neue Musik, Folgen oder Bücher: Erst wird der Bereich gewählt (Start und Bibliothek fahren dorthin), dann öffnet
+     * die Oberfläche Start bzw. die Seite des einzelnen Albums, Podcasts oder Buchs. Andersherum schlösse der Wechsel des
+     * Bereichs die eben geöffnete Seite wieder.
+     */
+    private fun openNewContent(target: NewContentTarget?) {
+        if (target == null) return
+        lifecycleScope.launch {
+            spokenSettings.setMode(target.mode)
+            newContentTarget = target
+        }
     }
 
     /** Geteilter Text oder ein Link wie `feed://…`: Die Adresse öffnet die Vorschau als Probeabo (Konzept 12.10, 13). */
@@ -138,9 +156,11 @@ class MainActivity : ComponentActivity() {
             openNowPlaying = intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)
             playFromSearch(intent)
             openSharedFeed(intent)
+            openNewContent(NewContentTarget.from(intent))
         } else {
             openNowPlaying = savedInstanceState.getBoolean(STATE_OPEN_NOW_PLAYING)
             sharedFeedUrl = savedInstanceState.getString(STATE_SHARED_FEED)
+            newContentTarget = NewContentTarget.from(savedInstanceState.getBundle(STATE_NEW_CONTENT))
         }
         setContent {
             val themeMode by themeSettings.mode.collectAsStateWithLifecycle(initialValue = null)
@@ -180,6 +200,8 @@ class MainActivity : ComponentActivity() {
                                 onNowPlayingOpened = { openNowPlaying = false },
                                 sharedFeedUrl = sharedFeedUrl,
                                 onSharedFeedOpened = { sharedFeedUrl = null },
+                                newContentTarget = newContentTarget,
+                                onNewContentOpened = { newContentTarget = null },
                                 alwaysShowNavigationBar = alwaysNavigationBar,
                             )
                         }
@@ -201,11 +223,13 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
         outState.putBoolean(STATE_OPEN_NOW_PLAYING, openNowPlaying)
         outState.putString(STATE_SHARED_FEED, sharedFeedUrl)
+        outState.putBundle(STATE_NEW_CONTENT, newContentTarget?.toBundle())
     }
 
     private companion object {
         const val STATE_OPEN_NOW_PLAYING = "open_now_playing"
         const val STATE_SHARED_FEED = "shared_feed"
+        const val STATE_NEW_CONTENT = "new_content"
 
         // Wie die Standardwerte von enableEdgeToEdge (dort nicht öffentlich).
         val LIGHT_SCRIM = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)

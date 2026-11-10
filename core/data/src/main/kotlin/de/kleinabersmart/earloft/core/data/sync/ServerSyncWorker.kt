@@ -13,6 +13,8 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import de.kleinabersmart.earloft.core.data.refresh.NewContent
+import de.kleinabersmart.earloft.core.data.refresh.NewContentNotifier
 import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
 import de.kleinabersmart.earloft.core.data.work.ensurePeriodicWork
 import java.util.concurrent.TimeUnit
@@ -30,9 +32,14 @@ class ServerSyncWorker(
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, SyncEntryPoint::class.java)
         // Ausgeblendete Musik (Allgemein → Bereiche): kein Abgleich mit den Servern.
         if (SpokenMode.MUSIC !in entryPoint.spokenSettings().areas.first()) return Result.success()
-        val allSucceeded = entryPoint.registry().servers()
+        val servers = entryPoint.registry().servers()
+        // Neu heißt wie beim Aktualisieren von Hand: nach dem Start angelegt, beim ersten Einlesen eines Servers nichts.
+        val baseline = entryPoint.newSongs().begin(servers.map { it.sourceId })
+        val allSucceeded = servers
             .map { entryPoint.syncer().syncSafely(it) }
             .all { it }
+        val albums = entryPoint.newSongs().newAlbums(baseline)
+        if (albums.isNotEmpty()) entryPoint.notifier().show(NewContent.Music(albums))
         return if (allSucceeded || runAttemptCount >= MAX_ATTEMPTS) Result.success() else Result.retry()
     }
 
@@ -41,6 +48,8 @@ class ServerSyncWorker(
     internal interface SyncEntryPoint {
         fun syncer(): LibrarySyncer
         fun registry(): DataSourceRegistry
+        fun newSongs(): NewSongsCounter
+        fun notifier(): NewContentNotifier
         fun spokenSettings(): SpokenSettings
     }
 

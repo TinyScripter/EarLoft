@@ -16,6 +16,6 @@ import de.kleinabersmart.earloft.core.data.refresh.NewContentNotifier
 internal object NotificationModule {
     @Provides
     fun provideNewContentNotifier(): NewContentNotifier = object : NewContentNotifier {
-        override fun show(content: NewContent) = Unit
+        override suspend fun show(content: NewContent) = Unit
     }
 }

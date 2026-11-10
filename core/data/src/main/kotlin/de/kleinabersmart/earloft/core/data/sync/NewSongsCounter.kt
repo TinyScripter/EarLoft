@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.sync
 
+import de.kleinabersmart.earloft.core.data.refresh.NewAlbum
 import de.kleinabersmart.earloft.core.database.dao.LibraryDao
 import de.kleinabersmart.earloft.core.database.dao.SourceDao
 import javax.inject.Inject
@@ -23,4 +24,12 @@ class NewSongsCounter @Inject constructor(
 
     suspend fun newSongs(baseline: Baseline): Int =
         if (baseline.firstImport) 0 else libraryDao.countVisibleSongsAfter(baseline.maxSongId)
+
+    /** Die Alben der neuen Songs ([NewAlbum.songs] zählt nur die neuen), die mit den meisten neuen zuerst. */
+    suspend fun newAlbums(baseline: Baseline): List<NewAlbum> =
+        if (baseline.firstImport) {
+            emptyList()
+        } else {
+            libraryDao.albumsWithSongsAfter(baseline.maxSongId).map { NewAlbum(it.albumId, it.title, it.albumArtistDisplay, it.songCount) }
+        }
 }

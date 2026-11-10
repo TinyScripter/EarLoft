@@ -6,17 +6,37 @@ import kotlinx.coroutines.flow.asSharedFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Neue Folgen eines Podcasts; [notify] sagt, ob der Nutzer dafür benachrichtigt werden will. */
-data class NewEpisodes(val feedId: String, val feedTitle: String, val count: Int, val notify: Boolean = true)
-
-/** Was ein Abgleich im Hintergrund Neues gebracht hat. */
-data class NewContent(val episodes: List<NewEpisodes> = emptyList(), val books: Int = 0) {
-    val isEmpty: Boolean get() = episodes.isEmpty() && books == 0
+/** Neue Folgen eines Podcasts ([episodeIds] sind `books`-Ids); [notify] sagt, ob der Nutzer dafür benachrichtigt werden will. */
+data class NewEpisodes(val feedId: String, val feedTitle: String, val episodeIds: List<Long>, val notify: Boolean = true) {
+    val count: Int get() = episodeIds.size
 }
 
-/** Zeigt [NewContent] als Benachrichtigung; die App liefert die Umsetzung (Texte, Kanal, Ziel des Tipps). */
+/** Ein Album mit [songs] neuen Titeln. */
+data class NewAlbum(val albumId: Long, val title: String, val artist: String, val songs: Int)
+
+/** Ein neues Buch. */
+data class NewBook(val bookId: Long, val title: String, val author: String)
+
+/** Was ein Abgleich im Hintergrund in einem Bereich Neues gebracht hat; jeder Bereich hat seine eigene Benachrichtigung. */
+sealed interface NewContent {
+    val isEmpty: Boolean
+
+    data class Music(val albums: List<NewAlbum>) : NewContent {
+        override val isEmpty: Boolean get() = albums.isEmpty()
+    }
+
+    data class Podcasts(val episodes: List<NewEpisodes>) : NewContent {
+        override val isEmpty: Boolean get() = episodes.isEmpty()
+    }
+
+    data class Books(val books: List<NewBook>) : NewContent {
+        override val isEmpty: Boolean get() = books.isEmpty()
+    }
+}
+
+/** Zeigt [NewContent] als Benachrichtigung; die App liefert die Umsetzung (Texte, Kanal, Cover, Ziel des Tipps). */
 interface NewContentNotifier {
-    fun show(content: NewContent)
+    suspend fun show(content: NewContent)
 }
 
 enum class RefreshKind { MUSIC, PODCASTS, BOOKS }

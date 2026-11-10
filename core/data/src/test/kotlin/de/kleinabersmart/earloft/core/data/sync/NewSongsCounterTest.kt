@@ -55,6 +55,33 @@ class NewSongsCounterTest {
     }
 
     @Test
+    fun `new songs are grouped by album with the most new songs first`() = runTest {
+        syncer.syncAdding(db, nd)
+        nd.tracks = listOf(
+            track("a", "Erstes"),
+            track("b", "Zweites"),
+            track("c", "Glósóli", album = "Takk... (Live)"),
+            track("d", "Hoppípolla", album = "Takk... (Live)"),
+            track("e", "Sæglópur", album = "Takk... (Live)"),
+        )
+
+        val baseline = counter.begin(listOf("nd"))
+        syncer.syncAdding(db, nd)
+
+        val albums = counter.newAlbums(baseline)
+        assertEquals(listOf("Takk... (Live)" to 3, "Takk..." to 1), albums.map { it.title to it.songs })
+        assertEquals("Sigur Rós", albums.first().artist)
+    }
+
+    @Test
+    fun `the first import lists no new albums`() = runTest {
+        val baseline = counter.begin(listOf("nd"))
+        syncer.syncAdding(db, nd)
+
+        assertEquals(emptyList<Any>(), counter.newAlbums(baseline))
+    }
+
+    @Test
     fun `a refresh without changes counts nothing and removed songs are not subtracted`() = runTest {
         syncer.syncAdding(db, nd)
         val unchanged = counter.begin(listOf("nd"))
@@ -89,12 +116,12 @@ class NewSongsCounterTest {
         assertEquals(0, counter.newSongs(baseline))
     }
 
-    private fun track(remoteId: String, title: String, lastModified: Long = 1) = RawTrack(
+    private fun track(remoteId: String, title: String, lastModified: Long = 1, album: String = "Takk...") = RawTrack(
         remoteId = remoteId,
         title = title,
         artistDisplay = "Sigur Rós",
         artists = listOf(RawArtist("Sigur Rós")),
-        albumTitle = "Takk...",
+        albumTitle = album,
         albumArtistDisplay = "Sigur Rós",
         albumArtists = listOf(RawArtist("Sigur Rós")),
         trackNumber = 3,

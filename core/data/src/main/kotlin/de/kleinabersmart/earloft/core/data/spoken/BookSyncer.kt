@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.core.data.spoken
 
 import android.util.Log
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
+import de.kleinabersmart.earloft.core.data.refresh.NewBook
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
@@ -23,8 +24,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToLong
 
-/** Ergebnis eines Bücher-Abgleichs: `ok`, wenn nichts fehlgeschlagen ist, und die Zahl neuer Bücher. */
-data class BookSyncResult(val ok: Boolean, val newBooks: Int)
+/** Ergebnis eines Bücher-Abgleichs: `ok`, wenn nichts fehlgeschlagen ist, und die neuen Bücher. */
+data class BookSyncResult(val ok: Boolean, val newBooks: List<NewBook>)
 
 /**
  * Gleicht die Bibliothek eines Audiobookshelf-Servers ab (Konzept 12.1/12.3): Bücher anlegen und aktualisieren,
@@ -44,7 +45,7 @@ class BookSyncer @Inject constructor(
     suspend fun syncAll(): BookSyncResult {
         val local = localBooks.sync()
         val results = servers.all().map { syncSafely(it) }
-        return BookSyncResult(results.all { it.ok } && local, results.sumOf { it.newBooks })
+        return BookSyncResult(results.all { it.ok } && local, results.flatMap { it.newBooks })
     }
 
     suspend fun syncSafely(server: AbsServer): BookSyncResult =
@@ -54,19 +55,19 @@ class BookSyncer @Inject constructor(
             throw e
         } catch (e: IOException) {
             Log.w(TAG, "Abgleich mit ${server.baseUrl} fehlgeschlagen", e)
-            BookSyncResult(ok = false, newBooks = 0)
+            BookSyncResult(ok = false, newBooks = emptyList())
         }
 
-    /** Gibt die Zahl der Bücher zurück, die es auf dem Server neu gibt (0 beim allerersten Abgleich). */
-    private suspend fun sync(server: AbsServer): Int = syncMutex.withLock {
-        val entity = dao.server(server.serverId) ?: return@withLock 0
+    /** Gibt die Bücher zurück, die es auf dem Server neu gibt (keine beim allerersten Abgleich). */
+    private suspend fun sync(server: AbsServer): List<NewBook> = syncMutex.withLock {
+        val entity = dao.server(server.serverId) ?: return@withLock emptyList()
         val libraryId = entity.libraryId
             ?: api.libraries(server).firstOrNull { it.mediaType == "book" }?.id
-            ?: return@withLock 0
+            ?: return@withLock emptyList()
         val generation = entity.syncGeneration + 1
         val firstSync = entity.lastFullSyncAt == 0L
         val known = if (firstSync) emptySet() else dao.booksOf(server.serverId).mapTo(HashSet()) { it.remoteId }
-        var fresh = 0
+        val fresh = HashSet<String>()
         var page = 0
         while (true) {
             val result = api.libraryItems(server, libraryId, page, PAGE_SIZE)
@@ -78,7 +79,7 @@ class BookSyncer @Inject constructor(
                     return@forEach
                 }
                 val entityToStore = it.toEntity(server.serverId, generation)
-                if (!firstSync && entityToStore.remoteId !in known) fresh++
+                if (!firstSync && entityToStore.remoteId !in known) fresh += entityToStore.remoteId
                 dao.upsertBook(entityToStore)
             }
             if (result.results.isEmpty() || (page + 1) * PAGE_SIZE >= result.total) break
@@ -91,7 +92,8 @@ class BookSyncer @Inject constructor(
         dao.upsertServer(entity.copy(libraryId = libraryId, syncGeneration = generation, lastFullSyncAt = System.currentTimeMillis()))
         progressSync.pullAll(server)
         loadMissingDetails(server)
-        fresh
+        if (fresh.isEmpty()) emptyList()
+        else dao.booksOf(server.serverId).filter { it.remoteId in fresh }.map { NewBook(it.bookId, it.title, it.author) }
     }
 
     /** Kapitel und Dateien aller Bücher, die sie noch nicht haben (wenige gleichzeitig). */

@@ -112,7 +112,7 @@ class SpokenRefresher @Inject constructor(
             servers.all().forEach { server ->
                 if (now - (dao.server(server.serverId)?.lastFullSyncAt ?: 0) > FULL_SYNC_INTERVAL_MS) {
                     // Der Vollabgleich übernimmt den Fortschritt des Kontos mit.
-                    fresh += syncer.syncSafely(server).newBooks
+                    fresh += syncer.syncSafely(server).newBooks.size
                     return@forEach
                 }
                 try {
@@ -134,7 +134,7 @@ class SpokenRefresher @Inject constructor(
             try {
                 events.emit(RefreshEvent.Started(RefreshKind.BOOKS))
                 val result = syncer.syncAll()
-                events.emit(RefreshEvent.Finished(RefreshKind.BOOKS, result.newBooks, failed = !result.ok))
+                events.emit(RefreshEvent.Finished(RefreshKind.BOOKS, result.newBooks.size, failed = !result.ok))
             } finally {
                 _refreshing.value = false
             }
@@ -162,8 +162,8 @@ class BookRefreshWorker(
         val servers = entryPoint.bookServers().all()
         if (servers.isEmpty()) return Result.success()
         val results = servers.map { entryPoint.bookSyncer().syncSafely(it) }
-        val fresh = results.sumOf { it.newBooks }
-        if (fresh > 0) entryPoint.notifier().show(NewContent(books = fresh))
+        val fresh = results.flatMap { it.newBooks }
+        if (fresh.isNotEmpty()) entryPoint.notifier().show(NewContent.Books(fresh))
         // Wie bei Podcasts: Ein Server, der hier nicht erreichbar ist (nur im Heimnetz), glich sonst alle paar Minuten
         // alle Server neu ab; wiederholt wird nur, wenn keiner ging.
         return if (results.none { it.ok } && runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()

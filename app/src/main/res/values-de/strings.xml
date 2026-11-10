@@ -700,8 +700,14 @@
     <string name="settings_seek_forward">Vorspulen per Knopf</string>
     <string name="settings_chapter_restart">Neue Kapitel von vorn starten</string>
     <string name="settings_chapter_restart_summary">Wurde die Wiedergabe innerhalb von 30 Sekunden nach dem Kapitelanfang beendet, beginnt das Kapitel wieder von vorn.</string>
-    <string name="new_content_channel_name">Neue Folgen und Bücher</string>
-    <string name="new_content_title">Neu in deiner Bibliothek</string>
+    <!-- Benachrichtigungen über Neues: Titel bei mehreren Alben, Podcasts bzw. Büchern, zugleich Namen der Kanäle -->
+    <string name="new_content_music_title">Neue Musik</string>
+    <string name="new_content_episodes_title">Neue Folgen</string>
+    <string name="new_content_books_title">Neue Bücher</string>
+    <plurals name="new_content_on_albums">
+        <item quantity="one">auf %1$d Album</item>
+        <item quantity="other">auf %1$d Alben</item>
+    </plurals>
     <plurals name="new_content_episodes">
         <item quantity="one">%1$d neue Folge</item>
         <item quantity="other">%1$d neue Folgen</item>

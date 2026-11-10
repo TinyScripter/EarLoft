@@ -490,7 +490,7 @@ class PodcastRepository @Inject constructor(
             if (result == null) {
                 failed++
             } else if (feed.lastRefreshAt > 0 && result.newEpisodeIds.isNotEmpty()) {
-                news += NewEpisodes(feed.feedId, feed.title, result.newEpisodeIds.size, feed.notifyNew)
+                news += NewEpisodes(feed.feedId, feed.title, result.newEpisodeIds, feed.notifyNew)
             }
         }
         return PodcastRefreshSummary(ok = failed == 0, newEpisodes = news, allFailed = failed > 0 && failed == feeds.size)
