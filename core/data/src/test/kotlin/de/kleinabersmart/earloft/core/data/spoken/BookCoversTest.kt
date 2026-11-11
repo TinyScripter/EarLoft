@@ -25,6 +25,8 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -46,15 +48,21 @@ class BookCoversTest {
     fun setUp() = runTest {
         context = ApplicationProvider.getApplicationContext()
         context.cacheDir.resolve("book_covers").deleteRecursively()
+        context.noBackupFilesDir.resolve("book_covers").deleteRecursively()
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java)
             .allowMainThreadQueries()
             .build()
         val client = OkHttpClient.Builder()
             .addInterceptor { chain ->
                 val bytes = images[chain.request().url.toString()]
+                val code = when {
+                    bytes != null -> 200
+                    chain.request().url.toString() == BROKEN_IMAGE -> 500
+                    else -> 404
+                }
                 Response.Builder()
                     .request(chain.request()).protocol(Protocol.HTTP_1_1)
-                    .code(if (bytes != null) 200 else 404).message("")
+                    .code(code).message("")
                     .body((bytes ?: ByteArray(0)).toResponseBody())
                     .build()
             }
@@ -132,6 +140,57 @@ class BookCoversTest {
         assertEquals(72, thumbnail.height)
     }
 
+    @Test
+    fun `images are kept outside the cache directory`() = runTest {
+        val id = episode("f1", "g1", coverUrl = EPISODE_IMAGE)
+        covers.coverBytes(id)
+        context.cacheDir.deleteRecursively()
+        assertArrayEquals(byteArrayOf(1, 2, 3), covers.coverBytes(id))
+    }
+
+    @Test
+    fun `subscription image is stored under its address`() = runTest {
+        assertNull(covers.storedImage(FEED_IMAGE))
+        assertTrue(covers.ensureFeedImageCached("f1"))
+        assertArrayEquals(byteArrayOf(7, 8, 9), covers.storedImage(FEED_IMAGE)!!.readBytes())
+    }
+
+    @Test
+    fun `own image tells a missing image from an unreachable server`() = runTest {
+        val gone = episode("f1", "g1", coverUrl = "https://example.org/weg.jpg")
+        val broken = episode("f1", "g2", coverUrl = BROKEN_IMAGE)
+        val fine = episode("f1", "g3", coverUrl = EPISODE_IMAGE)
+        assertTrue(covers.ensureOwnCached(gone))
+        assertFalse(covers.ensureOwnCached(broken))
+        assertTrue(covers.ensureOwnCached(fine))
+        assertArrayEquals(byteArrayOf(1, 2, 3), covers.storedImage(EPISODE_IMAGE)!!.readBytes())
+    }
+
+    @Test
+    fun `large images are stored scaled down`() = runTest {
+        val id = db.bookDao().upsertBook(book("abs", "item"))
+        val jpeg = ByteArrayOutputStream().also {
+            Bitmap.createBitmap(3000, 1500, Bitmap.Config.RGB_565).compress(Bitmap.CompressFormat.JPEG, 90, it)
+        }.toByteArray()
+        covers.store(id, jpeg)
+        val stored = covers.cover(id)!!
+        assertEquals(800, stored.width)
+        assertEquals(400, stored.height)
+    }
+
+    @Test
+    fun `images without book or subscription are removed`() = runTest {
+        val kept = episode("f1", "g1", coverUrl = EPISODE_IMAGE)
+        val removed = episode("f2", "g2", coverUrl = null)
+        covers.coverBytes(kept)
+        covers.ensureFeedImageCached("f1")
+        covers.store(removed, byteArrayOf(5))
+        db.bookDao().deleteBooksOf("f2")
+        assertEquals(1, covers.retainKnown())
+        assertArrayEquals(byteArrayOf(1, 2, 3), covers.coverBytes(kept))
+        assertArrayEquals(byteArrayOf(7, 8, 9), covers.storedImage(FEED_IMAGE)!!.readBytes())
+    }
+
     private suspend fun episode(feedId: String, guid: String, coverUrl: String?): Long =
         db.bookDao().upsertBook(book(feedId, guid).copy(kind = BookKind.EPISODE, coverUrl = coverUrl))
 
@@ -149,5 +208,6 @@ class BookCoversTest {
     private companion object {
         const val EPISODE_IMAGE = "https://example.org/folge.jpg"
         const val FEED_IMAGE = "https://example.org/abo.jpg"
+        const val BROKEN_IMAGE = "https://example.org/kaputt.jpg"
     }
 }

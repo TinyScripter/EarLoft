@@ -262,6 +262,19 @@ abstract class LibraryDao {
     )
     abstract suspend fun getCoverSource(albumId: Long): PlayableSourceRow?
 
+    @Query("SELECT albumId FROM albums")
+    abstract suspend fun getAllAlbumIds(): List<Long>
+
+    @Query("SELECT artistId FROM artists")
+    abstract suspend fun getAllArtistIds(): List<Long>
+
+    /** Ändert sich, sobald Alben oder Interpreten hinzukommen oder wegfallen (Anlass, ihre Bilder für offline zu laden). */
+    @Query(
+        "SELECT (SELECT COUNT(*) || ':' || IFNULL(MAX(albumId), 0) FROM albums) || '/' || " +
+            "(SELECT COUNT(*) || ':' || IFNULL(MAX(artistId), 0) FROM artists)",
+    )
+    abstract fun observeImageStamp(): Flow<String>
+
     @Query("SELECT albumId, title, albumArtistDisplay AS artist, mbid FROM albums WHERE albumId = :albumId")
     abstract suspend fun getAlbumLookup(albumId: Long): AlbumLookupRow?
 

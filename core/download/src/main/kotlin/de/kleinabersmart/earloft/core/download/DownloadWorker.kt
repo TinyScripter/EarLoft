@@ -16,7 +16,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
-import de.kleinabersmart.earloft.core.data.repository.CoverFiles
 import de.kleinabersmart.earloft.core.database.dao.DownloadDao
 import kotlinx.coroutines.CancellationException
 
@@ -35,7 +34,6 @@ class DownloadWorker(
     private val downloader = entryPoint.downloader()
     private val storage = entryPoint.storage()
     private val artwork = entryPoint.artwork()
-    private val coverFiles = entryPoint.coverFiles()
 
     override suspend fun doWork(): Result {
         downloadDao.requeueRunning()
@@ -72,13 +70,12 @@ class DownloadWorker(
     private suspend fun finish(): Result {
         storage.deleteOrphans(downloadDao.getAll())
         cacheCovers()
-        coverFiles.retainOnly(downloadDao.getAlbumIdsWithDoneDownload().toSet())
         return Result.success()
     }
 
     /**
-     * Je Album mit geladenen Songs einmal das Cover als Datei: Es gehört zum Download, zählt nicht zum Cover-Cache und
-     * bleibt, auch wenn alle Cover zusammen größer werden. Fehlt es, bleibt die Wiedergabe unberührt.
+     * Je Album mit geladenen Songs einmal das Cover als Datei (meist schon von `OfflineImages` da): Es zählt nicht zum
+     * Cover-Cache und bleibt, solange es das Album gibt. Fehlt es, bleibt die Wiedergabe unberührt.
      */
     private suspend fun cacheCovers() {
         for (albumId in downloadDao.getAlbumIdsWithDoneDownload()) {
@@ -150,7 +147,6 @@ class DownloadWorker(
         fun downloader(): Downloader
         fun storage(): DownloadStorage
         fun artwork(): ArtworkRepository
-        fun coverFiles(): CoverFiles
     }
 
     private companion object {

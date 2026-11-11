@@ -11,6 +11,7 @@ import coil3.request.crossfade
 import dagger.hilt.android.HiltAndroidApp
 import de.kleinabersmart.earloft.core.data.backup.UserDataBackup
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
+import de.kleinabersmart.earloft.core.data.repository.OfflineImages
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.spoken.AuthorImages
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
@@ -27,6 +28,7 @@ import de.kleinabersmart.earloft.ui.image.AlbumCoverFetcher
 import de.kleinabersmart.earloft.ui.image.ArtistImageFetcher
 import de.kleinabersmart.earloft.ui.image.AuthorImageFetcher
 import de.kleinabersmart.earloft.ui.image.BookCoverFetcher
+import de.kleinabersmart.earloft.ui.image.StoredPodcastImageFetcher
 import de.kleinabersmart.earloft.wear.PhoneInfoPublisher
 import de.kleinabersmart.earloft.core.playback.TrialPodcastCleaner
 import de.kleinabersmart.earloft.wear.WearPublisher
@@ -45,6 +47,7 @@ class EarLoftApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var bookCovers: BookCovers
     @Inject lateinit var authorImages: AuthorImages
     @Inject lateinit var artworkRepository: ArtworkRepository
+    @Inject lateinit var offlineImages: OfflineImages
     @Inject lateinit var downloadRepository: DownloadRepository
     @Inject lateinit var autoDownloads: AutoDownloads
     @Inject lateinit var episodeDownloads: EpisodeDownloads
@@ -73,6 +76,7 @@ class EarLoftApplication : Application(), SingletonImageLoader.Factory {
         episodeDownloads.start(applicationScope)
         bookDownloads.start(applicationScope)
         trialPodcastCleaner.start(applicationScope)
+        offlineImages.start()
         applicationScope.launch { podcastSettings.rememberAppleCountry() }
         applicationScope.launch {
             downloadRepository.resumePending()
@@ -91,6 +95,8 @@ class EarLoftApplication : Application(), SingletonImageLoader.Factory {
                 add(ArtistImageFetcher.Factory(artworkRepository))
                 add(BookCoverFetcher.Factory(bookCovers))
                 add(AuthorImageFetcher.Factory(authorImages))
+                // Vor dem Netz-Fetcher von Coil: Abo-Bilder, die schon auf dem Gerät liegen, auch offline.
+                add(StoredPodcastImageFetcher.Factory(bookCovers))
             }
             .crossfade(true)
             .build()

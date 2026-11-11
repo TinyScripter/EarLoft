@@ -10,7 +10,8 @@ import javax.inject.Singleton
 
 /**
  * Cover als Dateien auf dem Gerät (Wear-Konzept 8.2): Die Uhr lädt sie einmal je Album mit den Downloads
- * und zeigt sie danach ohne Server. Am Handy gibt es keine, dort fragt [ArtworkRepository] direkt die Quelle.
+ * und zeigt sie danach ohne Server. Das Handy lädt sie für alle Server-Alben vorab (`OfflineImages`) und mit den Downloads,
+ * damit Cover auch offline da sind; sie bleiben, solange es das Album gibt.
  */
 @Singleton
 class CoverFiles @Inject constructor(

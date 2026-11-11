@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.database.model
 
 import androidx.room.Embedded
+import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.DownloadState
 import de.kleinabersmart.earloft.core.model.SourceType
 
@@ -42,6 +43,14 @@ data class PlayableSourceRow(
     val sourcePriority: Int,
     val mimeType: String?,
     val bitRate: Int?,
+)
+
+/** Was ein Buch bzw. eine Folge für ihr Bild braucht (ohne Beschreibung und andere lange Spalten). */
+data class BookCoverRow(
+    val bookId: Long,
+    val serverId: String,
+    val kind: BookKind,
+    val coverUrl: String?,
 )
 
 /** ReplayGain-Werte einer Song-Quelle. */

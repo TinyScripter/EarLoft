@@ -141,7 +141,6 @@ class DownloadRepository @Inject constructor(
         val all = downloadDao.getAll()
         downloadDao.deleteAll()
         withContext(Dispatchers.IO) { all.forEach(storage::delete) }
-        dropOrphanCovers()
     }
 
     /** Ein laufender Download bemerkt das Entfernen beim nächsten Fortschritt und bricht ab. */
@@ -149,13 +148,7 @@ class DownloadRepository @Inject constructor(
         if (downloads.isEmpty()) return
         downloads.map { it.sourceUid }.chunked(SQLITE_MAX_VARIABLES).forEach { downloadDao.delete(it) }
         withContext(Dispatchers.IO) { downloads.forEach(storage::delete) }
-        dropOrphanCovers()
-    }
-
-    /** Die Cover heruntergeladener Alben bleiben dauerhaft (außerhalb des Cover-Caches); mit dem letzten Download verschwindet auch das Cover. */
-    private suspend fun dropOrphanCovers() {
-        val albumIds = downloadDao.getAlbumIdsWithDoneDownload().toSet()
-        withContext(Dispatchers.IO) { coverFiles.retainOnly(albumIds) }
+        // Das Cover bleibt: Es gehört zu den Bildern für offline, solange es das Album gibt (`OfflineImages`).
     }
 
     suspend fun retryFailed() {
@@ -169,7 +162,6 @@ class DownloadRepository @Inject constructor(
 
     /** Nach App-Start: Wartende Downloads fortsetzen, falls WorkManager den Auftrag verloren hat. */
     suspend fun resumePending() {
-        dropOrphanCovers()
         // Auch ohne wartende Downloads: Der Auftrag holt fehlende Cover heruntergeladener Alben nach.
         val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
         if (downloadDao.countPending() > 0 || coversMissing) scheduler.resume()

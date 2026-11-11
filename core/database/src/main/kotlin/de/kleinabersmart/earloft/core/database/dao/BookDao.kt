@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
+import de.kleinabersmart.earloft.core.database.model.BookCoverRow
 import de.kleinabersmart.earloft.core.model.AuthorHit
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.TrackDownload
@@ -80,6 +81,25 @@ abstract class BookDao {
 
     @Query("SELECT * FROM books WHERE serverId = :serverId")
     abstract suspend fun booksOf(serverId: String): List<BookEntity>
+
+    /** Alle Bücher und Folgen, auch ausgeblendete: Ihre Bilder bleiben auf dem Gerät, solange es sie gibt. */
+    @Query("SELECT bookId, serverId, kind, coverUrl FROM books")
+    abstract suspend fun coverRows(): List<BookCoverRow>
+
+    /** Bücher bzw. Folgen [kind] in den Listen, neueste zuerst (deren Bilder lädt die App zuerst für offline). */
+    @Query("SELECT bookId, serverId, kind, coverUrl FROM books WHERE kind = :kind AND $BOOK_LISTED ORDER BY addedAt DESC")
+    abstract suspend fun listedCoverRows(kind: BookKind): List<BookCoverRow>
+
+    /** Autoren wie in der Bibliothek (`authorGroups`): je Buch der ganze Eintrag. */
+    @Query("SELECT DISTINCT TRIM(author) FROM books WHERE kind = 'BOOK' AND TRIM(author) != '' AND $BOOK_LISTED")
+    abstract suspend fun listedAuthors(): List<String>
+
+    /** Ändert sich, sobald Bücher, Folgen oder Abos hinzukommen, wegfallen oder ein anderes Bild bekommen. */
+    @Query(
+        "SELECT (SELECT COUNT(*) || ':' || IFNULL(MAX(bookId), 0) || ':' || IFNULL(SUM(LENGTH(coverUrl)), 0) FROM books) || '/' || " +
+            "(SELECT COUNT(*) || ':' || IFNULL(SUM(LENGTH(imageUrl)), 0) FROM podcast_feeds)",
+    )
+    abstract fun observeImageStamp(): Flow<String>
 
     @Query("SELECT * FROM books WHERE kind = :kind AND (normTitle LIKE :pattern ESCAPE '\\' OR author LIKE :pattern ESCAPE '\\') AND $BOOK_LISTED ORDER BY normTitle LIMIT :limit")
     abstract suspend fun search(kind: BookKind, pattern: String, limit: Int): List<BookEntity>

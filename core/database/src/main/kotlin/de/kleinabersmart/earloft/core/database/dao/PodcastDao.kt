@@ -47,6 +47,10 @@ abstract class PodcastDao {
     @Query("SELECT * FROM podcast_feeds WHERE subscribed = 1 AND archived = 0")
     abstract suspend fun feeds(): List<PodcastFeedEntity>
 
+    /** Die Bilder aller Abos, auch der Probe- und archivierten: Sie bleiben auf dem Gerät, solange es das Abo gibt. */
+    @Query("SELECT imageUrl FROM podcast_feeds WHERE imageUrl IS NOT NULL")
+    abstract suspend fun allImageUrls(): List<String>
+
     @Query("SELECT * FROM podcast_feeds WHERE subscribed = 1 AND archived = 1 ORDER BY title COLLATE NOCASE")
     abstract fun observeArchivedFeeds(): Flow<List<PodcastFeedEntity>>
 

@@ -8,6 +8,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
 import de.kleinabersmart.earloft.core.data.repository.ArtworkSettings
 import de.kleinabersmart.earloft.core.data.repository.OnlineArtworkClient
+import de.kleinabersmart.earloft.core.data.repository.offlineImageDirectory
+import de.kleinabersmart.earloft.core.data.repository.shrinkImage
+import de.kleinabersmart.earloft.core.data.repository.writeAtomically
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthorDto
@@ -24,8 +27,8 @@ import javax.inject.Singleton
 
 /**
  * Autorenbilder: zuerst die von Audiobookshelf, dann (nur bei eingeschalteter Option) aus dem Internet (Audnexus).
- * `null`, wenn es keines gibt – die Oberfläche nimmt dann das Cover eines Buchs. Gefundene Bilder liegen im
- * Cache-Verzeichnis; Bilder aus dem Internet verschwinden, wenn die Option ausgeschaltet wird.
+ * `null`, wenn es keines gibt – die Oberfläche nimmt dann das Cover eines Buchs. Gefundene Bilder liegen auf dem Gerät (nicht
+ * im Cache-Verzeichnis, `OfflineImages` lädt sie vorab); Bilder aus dem Internet verschwinden, wenn die Option ausgeschaltet wird.
  */
 @Singleton
 class AuthorImages @Inject constructor(
@@ -46,8 +49,7 @@ class AuthorImages @Inject constructor(
         val serverFile = File(directory(SERVER), fileName(key))
         decode(serverFile)?.let { return@withContext it }
         fromServers(candidates)?.let { bytes ->
-            serverFile.parentFile?.mkdirs()
-            serverFile.writeBytes(bytes)
+            writeAtomically(serverFile, bytes)
             decode(serverFile)?.let { return@withContext it }
             serverFile.delete()
         }
@@ -69,7 +71,7 @@ class AuthorImages @Inject constructor(
             marker.setLastModified(System.currentTimeMillis())
             return@withContext null
         }
-        onlineFile.writeBytes(bytes)
+        writeAtomically(onlineFile, shrinkImage(bytes, MAX_STORED_PX))
         decode(onlineFile) ?: run {
             onlineFile.delete()
             marker.createNewFile()
@@ -118,7 +120,9 @@ class AuthorImages @Inject constructor(
 
     private fun decode(file: File): Bitmap? = if (file.isFile) BitmapFactory.decodeFile(file.path) else null
 
-    private fun directory(kind: String) = File(File(context.cacheDir, DIRECTORY), kind)
+    private val root by lazy { offlineImageDirectory(context, DIRECTORY) }
+
+    private fun directory(kind: String) = File(root, kind)
 
     private fun fileName(key: String) = "${key.hashCode()}.img"
 
@@ -128,6 +132,7 @@ class AuthorImages @Inject constructor(
         const val SERVER = "server"
         const val ONLINE = "online"
         const val WIDTH_PX = 600
+        const val MAX_STORED_PX = 800
         const val NOT_FOUND_MS = 7 * 24 * 60 * 60 * 1000L
         const val INDEX_TTL_MS = 10 * 60 * 1000L
         val SEPARATORS = Regex(",| & | und | and ")
