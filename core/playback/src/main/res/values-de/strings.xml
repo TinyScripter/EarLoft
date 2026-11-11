@@ -5,6 +5,25 @@
     <string name="favorites">Favoriten</string>
     <string name="recently_played">Zuletzt gehört</string>
     <string name="library">Bibliothek</string>
+    <string name="songs">Songs</string>
+    <string name="browse_recent">Zuletzt</string>
+    <string name="area_music">Musik</string>
+    <string name="area_podcasts">Podcasts</string>
+    <string name="area_books">Bücher</string>
+    <string name="continue_listening">Weiterhören</string>
+    <string name="new_episodes">Neue Folgen</string>
+    <string name="subscriptions">Abos</string>
+    <string name="downloaded">Heruntergeladen</string>
+    <string name="episodes">Folgen</string>
+    <string name="recently_added">Zuletzt hinzugefügt</string>
+    <string name="all_books">Alle Bücher</string>
+    <string name="authors">Autoren</string>
+    <string name="series">Serien</string>
+    <string name="area_disabled">Dieser Bereich ist in den Einstellungen ausgeschaltet</string>
+    <plurals name="book_count">
+        <item quantity="one">%d Buch</item>
+        <item quantity="other">%d Bücher</item>
+    </plurals>
     <string name="song_unavailable">Song nicht verfügbar: Server nicht erreichbar und nicht heruntergeladen</string>
     <string name="favorite_add">Zu Favoriten hinzufügen</string>
     <string name="favorite_remove">Aus Favoriten entfernen</string>

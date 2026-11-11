@@ -18,7 +18,8 @@ import java.io.FileNotFoundException
 import java.io.FileOutputStream
 
 /**
- * Liefert Album-Cover als `content://<Anwendungs-ID>.covers/album/<id>` (Bücher und Folgen: `…/book/<id>`). Android Auto lädt die Cover der Browse-Listen
+ * Liefert Album-Cover als `content://<Anwendungs-ID>.covers/album/<id>` (Bücher und Folgen: `…/book/<id>`, Podcast-Abos:
+ * `…/feed/<id>`). Android Auto lädt die Cover der Browse-Listen
  * selbst über eine solche URI; `earloft://cover/…` kann es nicht lesen. Die Bilder kommen aus derselben Pipeline wie in der
  * App ([ArtworkRepository]), also auch von Servern mit Anmeldung.
  *
@@ -41,13 +42,18 @@ class CoverProvider : ContentProvider() {
         if (mode != "r") throw FileNotFoundException("Nur lesbar")
         val albumId = albumId(uri)
         val bookId = bookId(uri)
-        if (albumId == null && bookId == null) throw FileNotFoundException(uri.toString())
+        val feedId = feedId(uri)
+        if (albumId == null && bookId == null && feedId == null) throw FileNotFoundException(uri.toString())
         val context = context ?: throw FileNotFoundException(uri.toString())
         val entry = EntryPointAccessors.fromApplication(context, Entry::class.java)
         // Die Pipe-Helfer-Threads dürfen blockieren; der Binder-Thread kehrt sofort zurück.
         return openPipeHelper(uri, MIME_TYPE, null, null) { output, _, _, _, _ ->
             val bitmap = runBlocking {
-                if (albumId != null) entry.artworkRepository().albumCover(albumId, SIZE_PX) else entry.bookCovers().cover(bookId!!)
+                when {
+                    albumId != null -> entry.artworkRepository().albumCover(albumId, SIZE_PX)
+                    bookId != null -> entry.bookCovers().cover(bookId)
+                    else -> entry.bookCovers().feedThumbnail(feedId!!, SIZE_PX)
+                }
             }
             FileOutputStream(output.fileDescriptor).use { stream ->
                 bitmap?.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, stream)
@@ -55,7 +61,7 @@ class CoverProvider : ContentProvider() {
         }
     }
 
-    override fun getType(uri: Uri): String? = MIME_TYPE.takeIf { albumId(uri) != null || bookId(uri) != null }
+    override fun getType(uri: Uri): String? = MIME_TYPE.takeIf { albumId(uri) != null || bookId(uri) != null || feedId(uri) != null }
 
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor? = null
 
@@ -69,6 +75,7 @@ class CoverProvider : ContentProvider() {
         private const val MIME_TYPE = "image/jpeg"
         private const val ALBUM_SEGMENT = "album"
         private const val BOOK_SEGMENT = "book"
+        private const val FEED_SEGMENT = "feed"
         private const val SIZE_PX = 512
         private const val JPEG_QUALITY = 90
 
@@ -93,13 +100,26 @@ class CoverProvider : ContentProvider() {
                 .appendPath(bookId.toString())
                 .build()
 
+        /** Bild eines Podcast-Abos; die Kennung wird kodiert, sie kann Schrägstriche enthalten (Abos vom Gerät). */
+        fun feedCoverUri(context: Context, feedId: String): Uri =
+            Uri.Builder()
+                .scheme("content")
+                .authority(authority(context))
+                .appendPath(FEED_SEGMENT)
+                .appendPath(feedId)
+                .build()
+
         internal fun albumId(uri: Uri): Long? = id(uri, ALBUM_SEGMENT)
 
         internal fun bookId(uri: Uri): Long? = id(uri, BOOK_SEGMENT)
 
-        private fun id(uri: Uri, segment: String): Long? {
+        internal fun feedId(uri: Uri): String? = segment(uri, FEED_SEGMENT)?.takeIf { it.isNotEmpty() }
+
+        private fun id(uri: Uri, segment: String): Long? = segment(uri, segment)?.toLongOrNull()
+
+        private fun segment(uri: Uri, segment: String): String? {
             val segments = uri.pathSegments
-            return segments.takeIf { it.size == 2 && it[0] == segment }?.get(1)?.toLongOrNull()
+            return segments.takeIf { it.size == 2 && it[0] == segment }?.get(1)
         }
     }
 }

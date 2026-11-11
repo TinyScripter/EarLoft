@@ -19,7 +19,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.pluralStringResource
 import de.kleinabersmart.earloft.core.common.sortKey
-import de.kleinabersmart.earloft.core.model.parseSeries
+import de.kleinabersmart.earloft.core.data.spoken.BookGroup
+import de.kleinabersmart.earloft.core.data.spoken.authorGroups
+import de.kleinabersmart.earloft.core.data.spoken.seriesGroups
 import de.kleinabersmart.earloft.navigation.BookGroupKind
 import de.kleinabersmart.earloft.ui.components.LazyGridFastScroller
 import de.kleinabersmart.earloft.ui.library.BackButton
@@ -82,26 +84,6 @@ import de.kleinabersmart.earloft.ui.components.gridTile
 import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.components.ShelfInset
 import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
-
-/** Bücher mit gleichem Autor bzw. aus der gleichen Serie. */
-data class BookGroup(val name: String, val books: List<BookWithProgress>)
-
-/** Nach Autor; Bücher ohne Autor entfallen. Gruppen nach Name, Bücher darin nach Titel. */
-fun List<BookWithProgress>.authorGroups(): List<BookGroup> =
-    filter { it.book.author.isNotBlank() }
-        .groupBy { it.book.author.trim() }
-        .map { (name, books) -> BookGroup(name, books.sortedBy { it.book.title.sortKey() }) }
-        .sortedBy { it.name.sortKey() }
-
-/** Nach Serie (ohne Bandnummer, ein Buch kann in mehreren stehen); Bücher darin nach Band, dann Titel. */
-fun List<BookWithProgress>.seriesGroups(): List<BookGroup> =
-    flatMap { item -> parseSeries(item.book.series).map { Triple(it.name, it.sequence, item) } }
-        .groupBy { it.first }
-        .map { (name, entries) ->
-            val sorted = entries.sortedWith(compareBy({ it.second ?: Double.MAX_VALUE }, { it.third.book.title.sortKey() }))
-            BookGroup(name, sorted.map { it.third })
-        }
-        .sortedBy { it.name.sortKey() }
 
 fun List<BookWithProgress>.groups(kind: BookGroupKind): List<BookGroup> =
     if (kind == BookGroupKind.SERIES) seriesGroups() else authorGroups()

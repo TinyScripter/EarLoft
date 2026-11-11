@@ -24,15 +24,15 @@ import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.repository.FavoritesRepository
 import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
-import de.kleinabersmart.earloft.core.data.repository.PlaylistRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookPlaybackSource
 import de.kleinabersmart.earloft.core.model.Song
+import de.kleinabersmart.earloft.core.model.SpokenMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
 
 /** Benutzerdefinierte Aktion „Favorit umschalten“ (Herz in Android Auto, Benachrichtigung, Uhr). */
@@ -41,9 +41,10 @@ internal const val ACTION_TOGGLE_FAVORITE = "de.kleinabersmart.earloft.TOGGLE_FA
 /**
  * Browse-Tree und Auflösung von Media-Items für alle Controller (App, System, Uhr, Android Auto).
  *
- * Die Wurzel hat höchstens vier Einträge, weil Android Auto sie als Tabs zeigt: Zuletzt gehört, Bibliothek,
- * Playlists, Favoriten. Songs in Listen tragen ihren Ordner in der Media-ID ([MediaIds.inContext]); wird einer
- * davon allein gesetzt (Antippen in Auto), lädt [onSetMediaItems] die ganze Liste als Warteschlange.
+ * Den Inhalt des Trees liefert [BrowseTree] (Tabs je nach eingeschalteten Bereichen, höchstens vier). Songs in Listen
+ * tragen ihren Ordner in der Media-ID ([MediaIds.inContext]); wird einer davon allein gesetzt (Antippen in Auto), lädt
+ * [onSetMediaItems] die ganze Liste als Warteschlange. Ein Buch bzw. eine Folge (`spoken:<id>`) bereitet die Session
+ * selbst vor wie die App ([startSpoken]).
  *
  * Controller schicken Items ohne abspielbare URI über Prozessgrenzen; [onAddMediaItems] und
  * [onSetMediaItems] bauen sie deshalb anhand der Media-ID neu aus der Datenbank. Songs, die der
@@ -54,10 +55,11 @@ internal const val ACTION_TOGGLE_FAVORITE = "de.kleinabersmart.earloft.TOGGLE_FA
 internal class LibrarySessionCallback(
     private val context: Context,
     private val libraryRepository: LibraryRepository,
-    private val playlistRepository: PlaylistRepository,
     private val favoritesRepository: FavoritesRepository,
     private val queuePersistence: QueuePersistence,
     private val bookPlaybackSource: BookPlaybackSource,
+    private val browseTree: BrowseTree,
+    private val continueListening: ContinueListening,
     private val playerFactory: SessionPlayerFactory?,
     private val scope: CoroutineScope,
     /** Wartet, bis der Service die letzte Warteschlange wiederhergestellt hat ([PlaybackService.restoreQueue]). */
@@ -76,7 +78,7 @@ internal class LibrarySessionCallback(
     ): ListenableFuture<LibraryResult<MediaItem>> = Futures.immediateFuture(
         LibraryResult.ofItem(
             folderMediaItem(MediaIds.ROOT, context.getString(R.string.app_library), MediaMetadata.MEDIA_TYPE_FOLDER_MIXED),
-            params,
+            LibraryParams.Builder().setExtras(rootExtras()).build(),
         ),
     )
 
@@ -88,29 +90,9 @@ internal class LibrarySessionCallback(
         pageSize: Int,
         params: LibraryParams?,
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future {
-        val children = when {
-            parentId == MediaIds.ROOT -> listOf(
-                folderMediaItem(MediaIds.RECENT, context.getString(R.string.recently_played), MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS),
-                folderMediaItem(MediaIds.LIBRARY, context.getString(R.string.library), MediaMetadata.MEDIA_TYPE_FOLDER_MIXED),
-                folderMediaItem(MediaIds.PLAYLISTS, context.getString(R.string.playlists), MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS),
-                folderMediaItem(MediaIds.FAVORITES, context.getString(R.string.favorites), MediaMetadata.MEDIA_TYPE_PLAYLIST),
-            )
-            parentId == MediaIds.RECENT ->
-                libraryRepository.recentlyPlayedAlbums(RECENT_ALBUMS).first()
-                    .ifEmpty { libraryRepository.recentlyAddedAlbums(RECENT_ALBUMS).first() }
-                    .map { it.toBrowsableMediaItem(context) }
-            parentId == MediaIds.LIBRARY -> listOf(
-                folderMediaItem(MediaIds.ALBUMS, context.getString(R.string.albums), MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS),
-                folderMediaItem(MediaIds.ARTISTS, context.getString(R.string.artists), MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS),
-            )
-            parentId == MediaIds.ALBUMS -> libraryRepository.albums().first().map { it.toBrowsableMediaItem(context) }
-            parentId == MediaIds.ARTISTS -> libraryRepository.artists().first().map { it.toBrowsableMediaItem() }
-            parentId == MediaIds.PLAYLISTS -> playlistRepository.playlists().first().map { it.toBrowsableMediaItem() }
-            MediaIds.artistId(parentId) != null ->
-                libraryRepository.artist(MediaIds.artistId(parentId)!!).first()?.albums.orEmpty().map { it.toBrowsableMediaItem(context) }
-            else -> songsOf(parentId)?.map { it.toBrowsableSongItem(context, parentId) }
-                ?: return@future LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
-        }
+        // Android Auto merkt sich Listen: Ordner eines inzwischen ausgeschalteten Bereichs gibt es nicht mehr.
+        if (browseTree.isHidden(parentId)) return@future LibraryResult.ofError(areaDisabled())
+        val children = browseTree.children(parentId) ?: return@future LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
         val paged = children.drop(page * pageSize).take(pageSize)
         LibraryResult.ofItemList(paged, params)
     }
@@ -121,8 +103,7 @@ internal class LibrarySessionCallback(
         query: String,
         params: LibraryParams?,
     ): ListenableFuture<LibraryResult<Void>> = scope.future {
-        val results = libraryRepository.search(query)
-        session.notifySearchResultChanged(browser, query, results.albums.size + results.artists.size + results.songs.size, params)
+        session.notifySearchResultChanged(browser, query, searchResults(query).size, params)
         LibraryResult.ofVoid()
     }
 
@@ -134,12 +115,45 @@ internal class LibrarySessionCallback(
         pageSize: Int,
         params: LibraryParams?,
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future {
-        val results = libraryRepository.search(query)
-        val items = results.albums.map { it.toBrowsableMediaItem(context) } +
-            results.artists.map { it.toBrowsableMediaItem() } +
-            results.songs.map { it.toBrowsableSongItem(context, MediaIds.search(query)) }
+        val items = searchResults(query)
         LibraryResult.ofItemList(items.drop(page * pageSize).take(pageSize), params)
     }
+
+    /**
+     * Zuletzt gesuchter Begriff samt eingeschalteten Bereichen und seine Treffer: Auf [onSearch] folgt gleich
+     * [onGetSearchResult], oft seitenweise.
+     */
+    private var lastSearch: Pair<Pair<String, List<SpokenMode>>, List<MediaItem>>? = null
+
+    /** Läuft auf dem Main-Thread (scope), [lastSearch] braucht also keine Sperre. */
+    private suspend fun searchResults(query: String): List<MediaItem> {
+        val key = query to browseTree.areas()
+        lastSearch?.takeIf { it.first == key }?.let { return it.second }
+        val items = browseTree.search(query)
+        lastSearch = key to items
+        return items
+    }
+
+    /**
+     * Nimmt jedes Abo eines Ordners an, der nicht zu einem ausgeschalteten Bereich gehört. Der Standard prüft über
+     * [onGetItem], das nur Songs und Bücher kennt, und lehnte damit alle Ordner ab; Android Auto (Compat-Browser) erfuhr dann
+     * nie von [MediaLibrarySession.notifyChildrenChanged] (Bereiche umgeschaltet).
+     */
+    override fun onSubscribe(
+        session: MediaLibrarySession,
+        browser: MediaSession.ControllerInfo,
+        parentId: String,
+        params: LibraryParams?,
+    ): ListenableFuture<LibraryResult<Void>> = scope.future {
+        if (browseTree.isHidden(parentId)) return@future LibraryResult.ofError(areaDisabled())
+        // Wie der Standard: Media3-Browser holen den Inhalt daraufhin, alte bekommen ihn ohnehin direkt.
+        if (browser.controllerVersion != MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION) {
+            session.notifyChildrenChanged(browser, parentId, Int.MAX_VALUE, params)
+        }
+        LibraryResult.ofVoid()
+    }
+
+    private fun areaDisabled() = SessionError(SessionError.ERROR_NOT_SUPPORTED, context.getString(R.string.area_disabled))
 
     /**
      * Der Service ist für System, Uhr und Android Auto exportiert, damit aber für jede App erreichbar. Vertrauenswürdige
@@ -218,8 +232,14 @@ internal class LibrarySessionCallback(
         browser: MediaSession.ControllerInfo,
         mediaId: String,
     ): ListenableFuture<LibraryResult<MediaItem>> = scope.future {
+        if (browseTree.isHidden(mediaId)) return@future LibraryResult.ofError(areaDisabled())
         val songId = MediaIds.songId(mediaId)
-        val item = songId?.let { libraryRepository.songs(listOf(it)).firstOrNull()?.toMediaItem() }
+        val spokenId = MediaIds.spokenId(mediaId)
+        val item = when {
+            songId != null -> libraryRepository.songs(listOf(songId)).firstOrNull()?.toMediaItem()
+            spokenId != null -> browseTree.spokenItem(spokenId)
+            else -> null
+        }
         if (item != null) LibraryResult.ofItem(item, null) else LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
     }
 
@@ -255,7 +275,18 @@ internal class LibrarySessionCallback(
         startPositionMs: Long,
     ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
         val player = mediaSession.player
-        val (requested, requestedStart) = expandContext(mediaItems, startIndex)
+        val single = mediaItems.singleOrNull()
+        val voiceQuery = single?.takeIf { it.mediaId.isEmpty() }?.requestMetadata?.searchQuery
+        val spokenId = single?.let { MediaIds.spokenId(it.mediaId) }
+        val (requested, requestedStart) = when {
+            spokenId != null -> return@future startSpoken(player, spokenId)
+            voiceQuery != null -> when (val target = voiceTarget(player, voiceQuery)) {
+                is VoiceStart.Ready -> return@future target.items
+                is VoiceStart.Spoken -> return@future startSpoken(player, target.bookId)
+                is VoiceStart.Songs -> target.songs.map { it.toMediaItem() } to 0
+            }
+            else -> expandContext(mediaItems, startIndex)
+        }
         val resolved = resolve(player, requested)
         if (resolved.isEmpty() && requested.isNotEmpty()) {
             // Nichts abspielbar: Warteschlange behalten statt sie zu leeren.
@@ -278,53 +309,71 @@ internal class LibrarySessionCallback(
         MediaItemsWithStartPosition(window.items, window.startIndex, position)
     }
 
-    /** Die Songs eines Ordners (Album, Playlist, Favoriten); `null`, wenn [folderId] keine Songliste ist. */
-    private suspend fun songsOf(folderId: String): List<Song>? = when {
-        folderId == MediaIds.FAVORITES -> favoritesRepository.favorites().first()
-        MediaIds.searchQuery(folderId) != null -> libraryRepository.search(MediaIds.searchQuery(folderId)!!).songs
-        MediaIds.albumId(folderId) != null -> libraryRepository.album(MediaIds.albumId(folderId)!!).first()?.songs.orEmpty()
-        MediaIds.playlistId(folderId) != null ->
-            playlistRepository.playlist(MediaIds.playlistId(folderId)!!).first()?.entries.orEmpty().map { it.song }
-        else -> null
-    }
-
     /**
      * Ein einzelner Song aus einer Liste (Android Auto schickt nur die Media-ID) wird zur ganzen Liste mit diesem
      * Song als Start. Alles andere bleibt unverändert.
      */
     private suspend fun expandContext(mediaItems: List<MediaItem>, startIndex: Int): Pair<List<MediaItem>, Int> {
         val item = mediaItems.singleOrNull() ?: return mediaItems to startIndex
-        val voiceQuery = item.requestMetadata.searchQuery
-        if (item.mediaId.isEmpty() && voiceQuery != null) {
-            return voiceSongs(voiceQuery).map { it.toMediaItem() } to 0
-        }
         val folderId = MediaIds.contextOf(item.mediaId) ?: return mediaItems to startIndex
-        val songs = songsOf(folderId) ?: return mediaItems to startIndex
+        val songs = browseTree.songsOf(folderId) ?: return mediaItems to startIndex
         val index = songs.indexOfFirst { it.id == item.songId }
         if (index < 0) return mediaItems to startIndex
         return songs.map { it.toMediaItem() } to index
     }
 
+    /** Wie die Session auf „Spiele …“ startet. */
+    private sealed interface VoiceStart {
+        /** Fertige Warteschlange (Fortsetzen). */
+        class Ready(val items: MediaItemsWithStartPosition) : VoiceStart
+        class Spoken(val bookId: Long) : VoiceStart
+        class Songs(val songs: List<Song>) : VoiceStart
+    }
+
     /**
-     * Was auf „Spiele …“ hin läuft: ohne Suchbegriff gemischte Favoriten (sonst die Bibliothek); mit Begriff ein Song
-     * mit genau diesem Titel, sonst der erste passende Künstler oder das erste passende Album, sonst die Treffer.
+     * Was auf „Spiele …“ hin läuft, nur aus eingeschalteten Bereichen. Mit Begriff: [BrowseTree.voice]. Ohne Begriff wird
+     * fortgesetzt: was im Player steht, sonst das zuletzt gehörte Buch bzw. die Folge, sonst die gespeicherte
+     * Musik-Warteschlange; gibt es nichts davon, [BrowseTree.voiceWithoutQuery].
      */
-    private suspend fun voiceSongs(query: String): List<Song> {
-        if (query.isBlank()) {
-            val favorites = favoritesRepository.favorites().first()
-            return favorites.ifEmpty { libraryRepository.songs().first() }.shuffled().take(VOICE_QUEUE_SIZE)
+    private suspend fun voiceTarget(player: Player, query: String): VoiceStart {
+        if (query.isNotBlank()) return browseTree.voice(query).toVoiceStart()
+        val areas = browseTree.areas()
+        if (player.mediaItemCount > 0 && player.currentMediaItem?.area in areas) {
+            val items = (0 until player.mediaItemCount).map(player::getMediaItemAt)
+            return VoiceStart.Ready(MediaItemsWithStartPosition(items, player.currentMediaItemIndex, player.currentPosition))
         }
-        val results = libraryRepository.search(query)
-        val exact = results.songs.filter { it.title.equals(query, ignoreCase = true) }
-        if (exact.isNotEmpty()) return exact
-        results.artists.firstOrNull()?.let { artist ->
-            val albums = libraryRepository.artist(artist.id).first()?.albums.orEmpty()
-            return albums.flatMap { libraryRepository.album(it.id).first()?.songs.orEmpty() }
+        queuePersistence.lastBookId()?.takeIf { browseTree.isSpokenEnabled(it, areas) }?.let { return VoiceStart.Spoken(it) }
+        if (SpokenMode.MUSIC in areas) {
+            queuePersistence.restore()?.let { restored ->
+                player.shuffleModeEnabled = restored.shuffle
+                player.repeatMode = restored.repeatMode
+                return VoiceStart.Ready(MediaItemsWithStartPosition(restored.items, restored.startIndex, restored.startPositionMs))
+            }
         }
-        results.albums.firstOrNull()?.let { album ->
-            return libraryRepository.album(album.id).first()?.songs.orEmpty()
-        }
-        return results.songs
+        return browseTree.voiceWithoutQuery().toVoiceStart()
+    }
+
+    private fun VoiceTarget.toVoiceStart(): VoiceStart = when (this) {
+        is VoiceTarget.Spoken -> VoiceStart.Spoken(bookId)
+        is VoiceTarget.Songs -> VoiceStart.Songs(songs)
+        else -> VoiceStart.Songs(emptyList())
+    }
+
+    /**
+     * Ein Buch bzw. eine Folge aus dem Browse-Tree oder per Sprachbefehl: wie [PlaybackConnection.playBook] in der App
+     * (gespeicherte Stelle mit Zurückspulen, Tempo, ohne Shuffle/Wiederholen, Folge vorn in „Weiterhören“).
+     */
+    private suspend fun startSpoken(player: Player, bookId: Long): MediaItemsWithStartPosition {
+        if (!browseTree.isSpokenEnabled(bookId)) throw UnsupportedOperationException("Bereich von Buch $bookId ausgeschaltet")
+        continueListening.started(bookId)
+        val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.prepare(bookId) }
+            ?: throw UnsupportedOperationException("Buch $bookId nicht abspielbar")
+        val start = prepared.timeline.locate(prepared.startPositionMs)
+        playerFactory?.onQueueReplaced(emptyList(), emptyList())
+        player.shuffleModeEnabled = false
+        player.repeatMode = Player.REPEAT_MODE_OFF
+        player.setPlaybackSpeed(prepared.speed)
+        return MediaItemsWithStartPosition(prepared.toMediaItems(), start.trackIndex, start.offsetMs)
     }
 
     private fun maxQueueSize(player: Player): Int = playerFactory?.maxQueueSize(player) ?: Int.MAX_VALUE
@@ -365,8 +414,10 @@ internal class LibrarySessionCallback(
                 return@future MediaItemsWithStartPosition(items, player.currentMediaItemIndex, player.currentPosition)
             }
         }
-        // Lief zuletzt ein Buch oder eine Folge, wird diese fortgesetzt statt der Musik-Warteschlange.
-        queuePersistence.lastBookId()?.let { bookId ->
+        // Lief zuletzt ein Buch oder eine Folge, wird diese fortgesetzt statt der Musik-Warteschlange; nicht, wenn ihr
+        // Bereich inzwischen ausgeschaltet ist.
+        val areas = browseTree.areas()
+        queuePersistence.lastBookId()?.takeIf { browseTree.isSpokenEnabled(it, areas) }?.let { bookId ->
             // Nur Metadaten (System-Oberfläche): ohne Zurückspulen und ohne Schreiben, wie beim Start des Service.
             val prepared = withContext(Dispatchers.IO) {
                 if (isForPlayback) bookPlaybackSource.prepare(bookId) else bookPlaybackSource.restore(bookId)
@@ -390,6 +441,7 @@ internal class LibrarySessionCallback(
                 return@future MediaItemsWithStartPosition(items, start.trackIndex, start.offsetMs)
             }
         }
+        if (SpokenMode.MUSIC !in areas) throw UnsupportedOperationException("Musik ausgeschaltet")
         val restored = queuePersistence.restore() ?: throw UnsupportedOperationException("Keine gespeicherte Warteschlange")
         if (!isForPlayback) {
             val current = restored.items.getOrNull(restored.startIndex)
@@ -409,8 +461,6 @@ internal class LibrarySessionCallback(
     private companion object {
         const val TAG = "LibrarySession"
         const val DEFAULT_SYSTEM_UI_PACKAGE = "com.android.systemui"
-        const val RECENT_ALBUMS = 50
-        const val VOICE_QUEUE_SIZE = 100
 
         /** Abspielen, Spulen, Titel wechseln, Lautstärke – aber keine Titel setzen oder die Warteschlange ändern. */
         val UNTRUSTED_PLAYER_COMMANDS: Player.Commands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()

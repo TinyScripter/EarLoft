@@ -5,15 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.data.repository.FavoritesRepository
-import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
-import de.kleinabersmart.earloft.core.data.spoken.BookRepository
+import de.kleinabersmart.earloft.core.data.search.LibrarySearch
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import androidx.annotation.StringRes
 import de.kleinabersmart.earloft.R
-import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.model.SeriesHit
 import de.kleinabersmart.earloft.core.model.AuthorHit
-import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.SearchResults
@@ -77,9 +74,7 @@ enum class SearchScope(val music: Boolean, val podcasts: Boolean, val books: Boo
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
-    private val libraryRepository: LibraryRepository,
-    private val bookRepository: BookRepository,
-    private val podcastRepository: PodcastRepository,
+    private val librarySearch: LibrarySearch,
     spokenSettings: SpokenSettings,
     private val playbackConnection: PlaybackConnection,
     private val favoritesRepository: FavoritesRepository,
@@ -99,18 +94,16 @@ class SearchViewModel @Inject constructor(
         if (query.isEmpty()) {
             SearchUiState(scope = scope)
         } else {
-            // Ausgeblendete Bereiche durchsucht auch „Überall suchen“ nicht.
-            val music = scope.includes(SpokenMode.MUSIC, areas)
-            val podcasts = scope.includes(SpokenMode.PODCASTS, areas)
-            val books = scope.includes(SpokenMode.BOOKS, areas)
+            // Ausgeblendete Bereiche durchsucht auch „Überall suchen“ nicht (das prüft LibrarySearch selbst noch einmal).
+            val hits = librarySearch.search(query, SpokenMode.entries.filter { scope.includes(it, areas) })
             SearchUiState(
                 query = query,
-                results = if (music) libraryRepository.search(query) else SearchResults.EMPTY,
-                feeds = if (podcasts) podcastRepository.searchFeeds(query) else emptyList(),
-                episodes = if (podcasts) bookRepository.search(query, BookKind.EPISODE) else emptyList(),
-                series = if (books) bookRepository.searchSeries(query) else emptyList(),
-                authors = if (books) bookRepository.searchAuthors(query) else emptyList(),
-                books = if (books) bookRepository.search(query, BookKind.BOOK) else emptyList(),
+                results = hits.music,
+                feeds = hits.feeds,
+                episodes = hits.episodes,
+                series = hits.series,
+                authors = hits.authors,
+                books = hits.books,
                 scope = scope,
             )
         }

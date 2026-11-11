@@ -35,7 +35,6 @@ import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
 import de.kleinabersmart.earloft.core.data.repository.PlaybackPolicy
 import de.kleinabersmart.earloft.core.data.repository.PlaybackSourceResolver
 import de.kleinabersmart.earloft.core.data.repository.PlaybackStateRepository
-import de.kleinabersmart.earloft.core.data.repository.PlaylistRepository
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.spoken.AbsSessionReporter
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
@@ -52,6 +51,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
@@ -72,7 +73,6 @@ class PlaybackService : MediaLibraryService() {
 
     @Inject lateinit var sourceResolver: PlaybackSourceResolver
     @Inject lateinit var libraryRepository: LibraryRepository
-    @Inject lateinit var playlistRepository: PlaylistRepository
     @Inject lateinit var favoritesRepository: FavoritesRepository
     @Inject lateinit var artworkRepository: ArtworkRepository
     @Inject lateinit var playbackStateRepository: PlaybackStateRepository
@@ -94,6 +94,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var continueListening: ContinueListening
     @Inject lateinit var bookCovers: BookCovers
     @Inject lateinit var servicePlayer: ServicePlayer
+    @Inject internal lateinit var browseTree: BrowseTree
 
     /** Für Datenbankarbeit, die das Beenden des Service überleben darf (nur suspendierende DataStore-/Room-Aufrufe). */
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
@@ -180,7 +181,9 @@ class PlaybackService : MediaLibraryService() {
         session = MediaLibrarySession.Builder(
             this,
             sessionPlayer,
-            LibrarySessionCallback(this, libraryRepository, playlistRepository, favoritesRepository, queuePersistence, bookPlaybackSource, factory, mainScope) {
+            LibrarySessionCallback(
+                this, libraryRepository, favoritesRepository, queuePersistence, bookPlaybackSource, browseTree, continueListening, factory, mainScope,
+            ) {
                 restoreJob?.join()
             },
         )
@@ -189,7 +192,21 @@ class PlaybackService : MediaLibraryService() {
             .build()
 
         session?.let { bindFavoriteButton(sessionPlayer, it) }
+        session?.let { notifyAreaChanges(it) }
         restoreQueue(player)
+    }
+
+    /**
+     * Bereiche ein- oder ausgeschaltet: Die Tabs der Wurzel und „Zuletzt“ ändern sich. Android Auto lädt sie daraufhin neu
+     * (ob sofort oder erst beim nächsten Verbinden, entscheidet Auto).
+     */
+    private fun notifyAreaChanges(session: MediaLibrarySession) {
+        mainScope.launch {
+            spokenSettings.areas.distinctUntilChanged().drop(1).collect { areas ->
+                session.notifyChildrenChanged(MediaIds.ROOT, rootFolders(areas).size, null)
+                session.notifyChildrenChanged(MediaIds.HOME, browseTree.children(MediaIds.HOME)?.size ?: 0, null)
+            }
+        }
     }
 
     /**
