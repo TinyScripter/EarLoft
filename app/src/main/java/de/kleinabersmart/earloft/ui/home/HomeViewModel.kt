@@ -18,6 +18,7 @@ data class HomeUiState(
     val recentlyAdded: List<Album> = emptyList(),
     val rediscover: List<Album> = emptyList(),
     val recentlyPlayed: List<Album> = emptyList(),
+    val mostPlayed: List<Album> = emptyList(),
     val randomArtists: List<Artist> = emptyList(),
     val randomAlbums: List<Album> = emptyList(),
     val isSyncing: Boolean = false,
@@ -41,13 +42,14 @@ class HomeViewModel @Inject constructor(
             libraryRepository.recentlyPlayedAlbums(),
             ::Triple,
         ),
-        combine(libraryRepository.randomArtists(), libraryRepository.randomAlbums(), ::Pair),
+        combine(libraryRepository.mostPlayedAlbums(), libraryRepository.randomArtists(), libraryRepository.randomAlbums(), ::Triple),
         librarySyncer.activeSyncs,
-    ) { (added, rediscover, played), (artists, albums), syncs ->
+    ) { (added, rediscover, played), (mostPlayed, artists, albums), syncs ->
         HomeUiState(
             recentlyAdded = added,
             rediscover = rediscover,
             recentlyPlayed = played,
+            mostPlayed = mostPlayed,
             randomArtists = artists,
             randomAlbums = albums,
             isSyncing = syncs > 0,

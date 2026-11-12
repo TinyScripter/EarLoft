@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.database.dao.SourceDao
 import de.kleinabersmart.earloft.core.database.entity.AlbumArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.AlbumEntity
 import de.kleinabersmart.earloft.core.database.entity.ArtistEntity
+import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.SongArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
@@ -178,6 +179,70 @@ class LibraryDaoTest {
             listOf("Glósóli", "Hoppípolla", "Svefn-g-englar").sorted(),
             libraryDao.getSongRowsOfGenre("post-rock").map { it.title }.sorted(),
         )
+    }
+
+    @Test
+    fun `albums, artists and songs follow the chosen order`() = runTest {
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        val beatles = libraryDao.insertArtist(ArtistEntity(name = "The Beatles", sortName = "Beatles", normName = "thebeatles"))
+        val abba = libraryDao.insertArtist(ArtistEntity(name = "ABBA", sortName = "ABBA", normName = "abba"))
+        val help = libraryDao.insertAlbum(album("Help!", "The Beatles").copy(year = 1965))
+        val arrival = libraryDao.insertAlbum(album("Arrival", "ABBA").copy(year = 1976))
+        val abbeyRoad = libraryDao.insertAlbum(album("Abbey Road", "The Beatles").copy(year = 1969))
+        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(help, beatles, 0))
+        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(abbeyRoad, beatles, 0))
+        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(arrival, abba, 0))
+        val songs = listOf(
+            Triple(help, "Yesterday", beatles) to 3L,
+            Triple(arrival, "Dancing Queen", abba) to 1L,
+            Triple(abbeyRoad, "Something", beatles) to 2L,
+        ).mapIndexed { index, (song, added) ->
+            val (albumId, title, artistId) = song
+            val songId = libraryDao.insertSong(song(albumId, title, track = 1).copy(dateAdded = added))
+            libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
+            libraryDao.insertSongArtist(SongArtistCrossRef(songId, artistId, 0))
+            songId
+        }
+
+        suspend fun albums(sort: String) = libraryDao.observeAlbumRowsSorted(sort).first().map { it.title }
+        assertEquals(listOf("Abbey Road", "Arrival", "Help!"), albums("TITLE"))
+        // „The Beatles“ steht unter B, darin nach Jahr.
+        assertEquals(listOf("Arrival", "Help!", "Abbey Road"), albums("ARTIST"))
+        assertEquals(listOf("Arrival", "Abbey Road", "Help!"), albums("YEAR"))
+        assertEquals(listOf("Help!", "Abbey Road", "Arrival"), albums("RECENTLY_ADDED"))
+
+        db.playbackDao().insertPlayEventIfSongExists(PlayEventEntity(songId = songs[1], playedAt = 100, listenedMs = 1))
+        db.playbackDao().insertPlayEventIfSongExists(PlayEventEntity(songId = songs[0], playedAt = 200, listenedMs = 1))
+        assertEquals(listOf("Help!", "Arrival", "Abbey Road"), libraryDao.observeAlbumRowsByLastPlayed().first().map { it.title })
+
+        assertEquals(listOf("ABBA", "The Beatles"), libraryDao.observeArtistRowsSorted("NAME").first().map { it.name })
+        assertEquals(listOf("The Beatles", "ABBA"), libraryDao.observeArtistRowsSorted("ALBUM_COUNT").first().map { it.name })
+
+        suspend fun songs(sort: String) = libraryDao.observeSongRowsSorted(sort).first().map { it.title }
+        assertEquals(listOf("Dancing Queen", "Something", "Yesterday"), songs("TITLE"))
+        assertEquals(listOf("Dancing Queen", "Something", "Yesterday"), songs("ARTIST"))
+        assertEquals(listOf("Something", "Dancing Queen", "Yesterday"), songs("ALBUM"))
+        assertEquals(listOf("Yesterday", "Something", "Dancing Queen"), songs("RECENTLY_ADDED"))
+    }
+
+    @Test
+    fun `most played albums count plays in the period`() = runTest {
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val agaetis = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
+        val glosoli = libraryDao.insertSong(song(takk, "Glósóli", track = 2))
+        val hoppipolla = libraryDao.insertSong(song(takk, "Hoppípolla", track = 3))
+        val svefn = libraryDao.insertSong(song(agaetis, "Svefn-g-englar", track = 1))
+        listOf(glosoli, hoppipolla, svefn).forEachIndexed { index, songId -> libraryDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
+        val playback = db.playbackDao()
+        // Takk: drei Wiedergaben im Zeitraum, eine davor; Ágætis: vier, aber nur zwei im Zeitraum.
+        listOf(glosoli to 1_000L, hoppipolla to 1_100L, glosoli to 1_200L, glosoli to 10L, svefn to 1_300L, svefn to 1_400L, svefn to 5L, svefn to 6L)
+            .forEach { (songId, at) -> playback.insertPlayEventIfSongExists(PlayEventEntity(songId = songId, playedAt = at, listenedMs = 1)) }
+
+        val rows = libraryDao.observeMostPlayedAlbumRows(since = 1_000, minPlays = 2, limit = 10).first()
+        assertEquals(listOf("Takk...", "Ágætis byrjun"), rows.map { it.title })
+        assertEquals(2, rows.first().songCount)
+        assertEquals(listOf("Takk..."), libraryDao.observeMostPlayedAlbumRows(since = 1_000, minPlays = 3, limit = 10).first().map { it.title })
     }
 
     private fun album(title: String, artist: String) = AlbumEntity(

@@ -6,8 +6,12 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import de.kleinabersmart.earloft.core.model.AlbumSort
+import de.kleinabersmart.earloft.core.model.ArtistSort
+import de.kleinabersmart.earloft.core.model.SongSort
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -41,6 +45,27 @@ class LibrarySettings @Inject constructor(
         context.librarySettingsDataStore.edit { it[KEY_SYNC_DAYS] = days.coerceAtLeast(SYNC_NEVER) }
     }
 
+    /** Reihenfolge der Alben in der Bibliothek (Standard: nach Titel). */
+    val albumSort: Flow<AlbumSort> = context.librarySettingsDataStore.data.map { it[KEY_ALBUM_SORT].toEnum(AlbumSort.TITLE) }
+
+    suspend fun setAlbumSort(sort: AlbumSort) {
+        context.librarySettingsDataStore.edit { it[KEY_ALBUM_SORT] = sort.name }
+    }
+
+    /** Reihenfolge der Künstler in der Bibliothek (Standard: nach Name). */
+    val artistSort: Flow<ArtistSort> = context.librarySettingsDataStore.data.map { it[KEY_ARTIST_SORT].toEnum(ArtistSort.NAME) }
+
+    suspend fun setArtistSort(sort: ArtistSort) {
+        context.librarySettingsDataStore.edit { it[KEY_ARTIST_SORT] = sort.name }
+    }
+
+    /** Reihenfolge der Songs in der Bibliothek (Standard: nach Titel). */
+    val songSort: Flow<SongSort> = context.librarySettingsDataStore.data.map { it[KEY_SONG_SORT].toEnum(SongSort.TITLE) }
+
+    suspend fun setSongSort(sort: SongSort) {
+        context.librarySettingsDataStore.edit { it[KEY_SONG_SORT] = sort.name }
+    }
+
     companion object {
         /** Kein automatischer Abgleich; nur von Hand (und beim Einrichten oder Einschalten eines Servers). */
         const val SYNC_NEVER = 0
@@ -48,5 +73,12 @@ class LibrarySettings @Inject constructor(
         const val DEFAULT_SYNC_DAYS = 1
 
         private val KEY_SYNC_DAYS = intPreferencesKey("sync_interval_days")
+        private val KEY_ALBUM_SORT = stringPreferencesKey("album_sort")
+        private val KEY_ARTIST_SORT = stringPreferencesKey("artist_sort")
+        private val KEY_SONG_SORT = stringPreferencesKey("song_sort")
+
+        /** Unbekannte Werte (z. B. aus einer neueren Sicherung) fallen auf [default] zurück. */
+        private inline fun <reified T : Enum<T>> String?.toEnum(default: T): T =
+            enumValues<T>().firstOrNull { it.name == this } ?: default
     }
 }

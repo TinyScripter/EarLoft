@@ -115,6 +115,72 @@ abstract class LibraryDao {
     )
     abstract fun observeAlbumRowsOfArtist(artistId: Long): Flow<List<AlbumRow>>
 
+    /**
+     * Alben in der Reihenfolge [sort] (Name eines `AlbumSort` außer `RECENTLY_PLAYED`, siehe
+     * [observeAlbumRowsByLastPlayed]): `ARTIST` nach dem ersten Album-Künstler (ohne „The“), dann Jahr; `YEAR` das neueste
+     * zuerst; `RECENTLY_ADDED` das zuletzt hinzugefügte zuerst; sonst und bei Gleichstand nach Titel.
+     */
+    @Query(
+        """
+        $SELECT_ALBUM_ROWS
+        GROUP BY a.albumId
+        ORDER BY
+            CASE WHEN :sort = 'ARTIST' THEN COALESCE(
+                (SELECT ar.sortName FROM album_artists aa JOIN artists ar ON ar.artistId = aa.artistId
+                 WHERE aa.albumId = a.albumId ORDER BY aa.position LIMIT 1),
+                a.albumArtistDisplay) END COLLATE NOCASE,
+            CASE WHEN :sort = 'ARTIST' THEN a.year END,
+            CASE WHEN :sort = 'YEAR' THEN a.year END DESC,
+            CASE WHEN :sort = 'RECENTLY_ADDED' THEN MAX(s.dateAdded) END DESC,
+            a.sortTitle COLLATE NOCASE
+        """,
+    )
+    abstract fun observeAlbumRowsSorted(sort: String): Flow<List<AlbumRow>>
+
+    /** Alben, das zuletzt gehörte zuerst; nie gehörte danach nach Titel. */
+    @Query(
+        """
+        $SELECT_ALBUM_ROWS
+        GROUP BY a.albumId
+        ORDER BY (SELECT MAX(pe.playedAt) FROM play_events pe JOIN songs ps ON ps.songId = pe.songId
+                  WHERE ps.albumId = a.albumId) DESC,
+            a.sortTitle COLLATE NOCASE
+        """,
+    )
+    abstract fun observeAlbumRowsByLastPlayed(): Flow<List<AlbumRow>>
+
+    /** Künstler in der Reihenfolge [sort] (Name eines `ArtistSort`): `ALBUM_COUNT` die mit den meisten Alben zuerst. */
+    @Query(
+        """
+        $SELECT_ARTIST_ROWS
+        GROUP BY ar.artistId
+        ORDER BY CASE WHEN :sort = 'ALBUM_COUNT' THEN albumCount END DESC, ar.sortName COLLATE NOCASE
+        """,
+    )
+    abstract fun observeArtistRowsSorted(sort: String): Flow<List<ArtistRow>>
+
+    /**
+     * Songs in der Reihenfolge [sort] (Name eines `SongSort`): `ARTIST` nach dem ersten Künstler (ohne „The“), darin wie
+     * `ALBUM` Album für Album in Albumreihenfolge; `RECENTLY_ADDED` der zuletzt hinzugefügte zuerst; sonst nach Titel.
+     */
+    @Query(
+        """
+        $SELECT_SONG_ROWS
+        ORDER BY
+            CASE WHEN :sort = 'ARTIST' THEN COALESCE(
+                (SELECT ar.sortName FROM song_artists sa JOIN artists ar ON ar.artistId = sa.artistId
+                 WHERE sa.songId = s.songId ORDER BY sa.position LIMIT 1),
+                s.artistDisplay) END COLLATE NOCASE,
+            CASE WHEN :sort IN ('ARTIST', 'ALBUM') THEN a.sortTitle END COLLATE NOCASE,
+            CASE WHEN :sort IN ('ARTIST', 'ALBUM') THEN a.albumId END,
+            CASE WHEN :sort IN ('ARTIST', 'ALBUM') THEN s.discNumber END,
+            CASE WHEN :sort IN ('ARTIST', 'ALBUM') THEN s.trackNumber END,
+            CASE WHEN :sort = 'RECENTLY_ADDED' THEN s.dateAdded END DESC,
+            s.title COLLATE NOCASE
+        """,
+    )
+    abstract fun observeSongRowsSorted(sort: String): Flow<List<SongRow>>
+
     @Query("$SELECT_GENRE_ROWS ORDER BY name COLLATE NOCASE")
     abstract fun observeGenreRows(): Flow<List<GenreRow>>
 
@@ -182,6 +248,25 @@ abstract class LibraryDao {
         """,
     )
     abstract fun observeRecentlyPlayedAlbumRows(limit: Int): Flow<List<AlbumRow>>
+
+    /**
+     * Die seit [since] am häufigsten gehörten Alben (mindestens [minPlays] gezählte Wiedergaben), bei Gleichstand das zuletzt
+     * gehörte zuerst. `songCount` zählt alle Songs des Albums, nicht die Wiedergaben.
+     */
+    @Query(
+        """
+        SELECT a.albumId, a.title, a.albumArtistDisplay, a.year,
+               (SELECT COUNT(*) FROM songs cs WHERE cs.albumId = a.albumId) AS songCount
+        FROM albums a
+        JOIN songs s ON s.albumId = a.albumId AND $SONG_VISIBLE
+        JOIN play_events pe ON pe.songId = s.songId AND pe.playedAt >= :since
+        GROUP BY a.albumId
+        HAVING COUNT(*) >= :minPlays
+        ORDER BY COUNT(*) DESC, MAX(pe.playedAt) DESC
+        LIMIT :limit
+        """,
+    )
+    abstract fun observeMostPlayedAlbumRows(since: Long, minPlays: Int, limit: Int): Flow<List<AlbumRow>>
 
     /** Alben, die schon einmal gespielt wurden, zuletzt aber vor [playedBefore]; das älteste zuerst. */
     @Query(

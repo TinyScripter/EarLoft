@@ -38,6 +38,15 @@
     <string name="library_songs">Songs</string>
     <string name="library_genres">Genres</string>
     <string name="genres_empty">No genres yet. Your music has no genre tags.</string>
+    <string name="sort_label">Sort</string>
+    <string name="sort_title">Title</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_artist">Artist</string>
+    <string name="sort_album">Album</string>
+    <string name="sort_year">Year</string>
+    <string name="sort_recently_added">Recently added</string>
+    <string name="sort_recently_played">Recently played</string>
+    <string name="sort_album_count">Most albums</string>
     <string name="library_empty">No music yet. Set up a music server or use the music on this device (Settings → Music).</string>
     <string name="spoken_no_series">No series yet.</string>
     <string name="spoken_no_authors">No authors yet.</string>
@@ -58,6 +67,7 @@
     <string name="home_recently_added">Recently added</string>
     <string name="home_rediscover">Rediscover albums</string>
     <string name="home_recently_played">Recently played albums</string>
+    <string name="home_most_played">Most played albums</string>
     <string name="home_random_artists">Random artists</string>
     <string name="home_random_albums">Random albums</string>
 

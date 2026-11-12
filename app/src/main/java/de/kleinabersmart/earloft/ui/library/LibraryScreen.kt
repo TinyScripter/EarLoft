@@ -49,6 +49,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.common.sortKey
 import de.kleinabersmart.earloft.core.model.Album
+import de.kleinabersmart.earloft.core.model.AlbumSort
+import de.kleinabersmart.earloft.core.model.ArtistSort
+import de.kleinabersmart.earloft.core.model.SongSort
+import de.kleinabersmart.earloft.ui.components.SortChip
+import androidx.compose.foundation.layout.Row
 import de.kleinabersmart.earloft.core.model.Artist
 import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.Playlist
@@ -104,6 +109,9 @@ fun LibraryScreen(
     val artists by viewModel.artists.collectAsStateWithLifecycle()
     val songs by viewModel.songs.collectAsStateWithLifecycle()
     val genres by viewModel.genres.collectAsStateWithLifecycle()
+    val albumSort by viewModel.albumSort.collectAsStateWithLifecycle()
+    val artistSort by viewModel.artistSort.collectAsStateWithLifecycle()
+    val songSort by viewModel.songSort.collectAsStateWithLifecycle()
     val favoriteCount by viewModel.favoriteCount.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val servers by viewModel.servers.collectAsStateWithLifecycle()
@@ -130,15 +138,27 @@ fun LibraryScreen(
             key = { it },
         ) { page ->
             when (LibraryTab.entries[page]) {
-                LibraryTab.ALBUMS -> LoadableList(albums, empty) { AlbumGrid(it, onAlbumClick, fastScroll = true) }
-                LibraryTab.ARTISTS -> LoadableList(artists, empty) { ArtistGrid(it, onArtistClick) }
+                LibraryTab.ALBUMS -> LoadableList(albums, empty) {
+                    AlbumGrid(
+                        albums = it,
+                        onAlbumClick = onAlbumClick,
+                        scrollLabel = albumSort.scrollLabel(),
+                        header = {
+                            SortRow { SortChip(albumSort, AlbumSort.entries, { sort -> stringResource(sort.label) }, viewModel::setAlbumSort) }
+                        },
+                    )
+                }
+                LibraryTab.ARTISTS -> LoadableList(artists, empty) {
+                    ArtistGrid(it, onArtistClick, sorted = { SortChip(artistSort, ArtistSort.entries, { sort -> stringResource(sort.label) }, viewModel::setArtistSort) }, byName = artistSort == ArtistSort.NAME)
+                }
                 LibraryTab.SONGS -> LoadableList(songs, empty) {
                     SongList(
                         songs = it,
                         onSongClick = viewModel::playSongs,
                         onShuffle = viewModel::shuffleSongs,
                         actions = viewModel,
-                        fastScroll = true,
+                        scrollLabel = songSort.scrollLabel(),
+                        sortChip = { SortChip(songSort, SongSort.entries, { sort -> stringResource(sort.label) }, viewModel::setSongSort) },
                     )
                 }
                 LibraryTab.GENRES -> LoadableList(
@@ -268,10 +288,10 @@ fun AlbumGrid(
     albums: List<Album>,
     onAlbumClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    /** Mit Schnellscroller, wenn die Liste nach Titel sortiert ist (nicht zusammen mit [header]). */
-    fastScroll: Boolean = false,
-    /** Einträge über den Alben, z. B. Knöpfe; jeweils über die ganze Breite ([fullWidthItem]). */
-    header: (LazyGridScope.() -> Unit)? = null,
+    /** Mit Schnellscroller, der zu jedem Album diese Marke zeigt (z. B. den Anfangsbuchstaben); `null`: ohne. */
+    scrollLabel: ((Album) -> String)? = null,
+    /** Eine Zeile über den Alben (z. B. Knöpfe oder die Sortierung), über die ganze Breite. */
+    header: (@Composable () -> Unit)? = null,
 ) {
     val state = rememberLazyGridState()
     val playControl: PlayControlViewModel = hiltViewModel()
@@ -285,7 +305,7 @@ fun AlbumGrid(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            header?.invoke(this)
+            if (header != null) fullWidthItem("header", header)
             items(albums, key = { it.id }) { album ->
                 AlbumCard(
                     album = album,
@@ -297,10 +317,55 @@ fun AlbumGrid(
                 )
             }
         }
-        if (fastScroll) {
-            LazyGridFastScroller(state, labelAt = { index -> letterOf(albums.getOrNull(index)?.title.orEmpty().sortKey()) })
+        if (scrollLabel != null) {
+            val offset = if (header != null) 1 else 0
+            LazyGridFastScroller(state, labelAt = { index -> albums.getOrNull((index - offset).coerceAtLeast(0))?.let(scrollLabel) ?: "" })
         }
     }
+}
+
+/** Die Sortierung links über einer Liste. */
+@Composable
+private fun SortRow(content: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+}
+
+private val AlbumSort.label: Int
+    get() = when (this) {
+        AlbumSort.TITLE -> R.string.sort_title
+        AlbumSort.ARTIST -> R.string.sort_artist
+        AlbumSort.YEAR -> R.string.sort_year
+        AlbumSort.RECENTLY_ADDED -> R.string.sort_recently_added
+        AlbumSort.RECENTLY_PLAYED -> R.string.sort_recently_played
+    }
+
+private val ArtistSort.label: Int
+    get() = when (this) {
+        ArtistSort.NAME -> R.string.sort_name
+        ArtistSort.ALBUM_COUNT -> R.string.sort_album_count
+    }
+
+private val SongSort.label: Int
+    get() = when (this) {
+        SongSort.TITLE -> R.string.sort_title
+        SongSort.ARTIST -> R.string.sort_artist
+        SongSort.ALBUM -> R.string.sort_album
+        SongSort.RECENTLY_ADDED -> R.string.sort_recently_added
+    }
+
+/** Marke des Schnellscrollers passend zur Reihenfolge; nach Datum ohne Schnellscroller. */
+private fun AlbumSort.scrollLabel(): ((Album) -> String)? = when (this) {
+    AlbumSort.TITLE -> { album -> letterOf(album.title.sortKey()) }
+    AlbumSort.ARTIST -> { album -> letterOf(album.artist.sortKey()) }
+    AlbumSort.YEAR -> { album -> album.year?.toString() ?: "#" }
+    AlbumSort.RECENTLY_ADDED, AlbumSort.RECENTLY_PLAYED -> null
+}
+
+private fun SongSort.scrollLabel(): ((Song) -> String)? = when (this) {
+    SongSort.TITLE -> { song -> letterOf(song.title) }
+    SongSort.ARTIST -> { song -> letterOf(song.artist.sortKey()) }
+    SongSort.ALBUM -> { song -> letterOf(song.albumTitle.sortKey()) }
+    SongSort.RECENTLY_ADDED -> null
 }
 
 /** Ein Eintrag über die ganze Breite eines Rasters. */
@@ -310,7 +375,14 @@ fun LazyGridScope.fullWidthItem(key: Any, content: @Composable () -> Unit) {
 
 /** Künstler als Raster, zwei pro Reihe, aufgebaut wie die Autoren der Bücher: Bild, darunter Name und Zahl der Alben. */
 @Composable
-private fun ArtistGrid(artists: List<Artist>, onArtistClick: (Long) -> Unit) {
+private fun ArtistGrid(
+    artists: List<Artist>,
+    onArtistClick: (Long) -> Unit,
+    /** Die Sortierung über dem Raster. */
+    sorted: @Composable () -> Unit,
+    /** Nach Name sortiert: mit Schnellscroller. */
+    byName: Boolean,
+) {
     val state = rememberLazyGridState()
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -321,6 +393,7 @@ private fun ArtistGrid(artists: List<Artist>, onArtistClick: (Long) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
+            fullWidthItem("sort") { SortRow(sorted) }
             items(artists, key = { it.id }) { artist ->
                 Column(
                     Modifier
@@ -345,7 +418,10 @@ private fun ArtistGrid(artists: List<Artist>, onArtistClick: (Long) -> Unit) {
                 }
             }
         }
-        LazyGridFastScroller(state, labelAt = { index -> letterOf(artists.getOrNull(index)?.name.orEmpty().sortKey()) })
+        if (byName) {
+            // Index 0 ist die Sortierung.
+            LazyGridFastScroller(state, labelAt = { index -> letterOf(artists.getOrNull((index - 1).coerceAtLeast(0))?.name.orEmpty().sortKey()) })
+        }
     }
 }
 
@@ -356,25 +432,34 @@ fun SongList(
     onSongClick: (Int) -> Unit,
     onShuffle: () -> Unit,
     actions: SongActions,
-    /** Mit Schnellscroller, wenn die Songs nach Titel sortiert sind. */
-    fastScroll: Boolean = false,
+    /** Mit Schnellscroller, der zu jedem Song diese Marke zeigt (z. B. den Anfangsbuchstaben); `null`: ohne. */
+    scrollLabel: ((Song) -> String)? = null,
+    /** Die Sortierung rechts neben „Zufällig“. */
+    sortChip: (@Composable () -> Unit)? = null,
 ) {
     val state = rememberLazyListState()
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 16.dp)) {
             item(key = "shuffle") {
-                FilledTonalButton(onClick = onShuffle, modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp)) {
-                    Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = null)
-                    Text(stringResource(R.string.action_shuffle), modifier = Modifier.padding(start = 8.dp))
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FilledTonalButton(onClick = onShuffle) {
+                        Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = null)
+                        Text(stringResource(R.string.action_shuffle), modifier = Modifier.padding(start = 8.dp))
+                    }
+                    sortChip?.invoke()
                 }
             }
             groupedItemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
                 SongListItem(song = song, onClick = { onSongClick(index) }, actions = actions)
             }
         }
-        if (fastScroll) {
+        if (scrollLabel != null) {
             // Index 0 ist der „Zufällig“-Knopf.
-            LazyListFastScroller(state, labelAt = { index -> letterOf(songs.getOrNull(index - 1)?.title.orEmpty()) })
+            LazyListFastScroller(state, labelAt = { index -> songs.getOrNull((index - 1).coerceAtLeast(0))?.let(scrollLabel) ?: "" })
         }
     }
 }

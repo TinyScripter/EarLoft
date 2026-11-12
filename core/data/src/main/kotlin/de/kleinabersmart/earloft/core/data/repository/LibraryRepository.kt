@@ -3,6 +3,9 @@ package de.kleinabersmart.earloft.core.data.repository
 import de.kleinabersmart.earloft.core.database.dao.LibraryDao
 import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.AlbumDetails
+import de.kleinabersmart.earloft.core.model.AlbumSort
+import de.kleinabersmart.earloft.core.model.ArtistSort
+import de.kleinabersmart.earloft.core.model.SongSort
 import de.kleinabersmart.earloft.core.model.Artist
 import de.kleinabersmart.earloft.core.model.ArtistDetails
 import de.kleinabersmart.earloft.core.model.Genre
@@ -24,6 +27,16 @@ class LibraryRepository @Inject constructor(
     fun artists(): Flow<List<Artist>> = libraryDao.observeArtistRows().map { rows -> rows.map { it.toArtist() } }
 
     fun songs(): Flow<List<Song>> = libraryDao.observeSongRows().map { rows -> rows.map { it.toSong() } }
+
+    fun albums(sort: AlbumSort): Flow<List<Album>> = when (sort) {
+        AlbumSort.RECENTLY_PLAYED -> libraryDao.observeAlbumRowsByLastPlayed()
+        else -> libraryDao.observeAlbumRowsSorted(sort.name)
+    }.map { rows -> rows.map { it.toAlbum() } }
+
+    fun artists(sort: ArtistSort): Flow<List<Artist>> =
+        libraryDao.observeArtistRowsSorted(sort.name).map { rows -> rows.map { it.toArtist() } }
+
+    fun songs(sort: SongSort): Flow<List<Song>> = libraryDao.observeSongRowsSorted(sort.name).map { rows -> rows.map { it.toSong() } }
 
     fun genres(): Flow<List<Genre>> = libraryDao.observeGenreRows().map { rows -> rows.map { it.toGenre() } }
 
@@ -52,6 +65,14 @@ class LibraryRepository @Inject constructor(
 
     fun recentlyPlayedAlbums(limit: Int = 20): Flow<List<Album>> =
         libraryDao.observeRecentlyPlayedAlbumRows(limit).map { rows -> rows.map { it.toAlbum() } }
+
+    /**
+     * Die in den letzten [periodMs] am häufigsten gehörten Alben; nur Alben mit mindestens [MOST_PLAYED_MIN_PLAYS] Wiedergaben,
+     * damit die Zeile nicht nur „Zuletzt gehört“ wiederholt. Der Zeitraum gilt ab dem Abonnieren.
+     */
+    fun mostPlayedAlbums(periodMs: Long = MOST_PLAYED_PERIOD_MS, limit: Int = 20): Flow<List<Album>> =
+        libraryDao.observeMostPlayedAlbumRows(System.currentTimeMillis() - periodMs, MOST_PLAYED_MIN_PLAYS, limit)
+            .map { rows -> rows.map { it.toAlbum() } }
 
     /** Gespielte Alben, die seit mindestens [notPlayedForMs] nicht mehr liefen; das älteste zuerst. */
     fun rediscoverAlbums(notPlayedForMs: Long = REDISCOVER_AFTER_MS, limit: Int = 20): Flow<List<Album>> =
@@ -111,5 +132,7 @@ class LibraryRepository @Inject constructor(
         const val SQLITE_MAX_VARIABLES = 900
         val SEARCH_SEPARATORS = Regex("[^\\p{L}\\p{N}]+")
         const val REDISCOVER_AFTER_MS = 30L * 24 * 60 * 60 * 1000
+        const val MOST_PLAYED_PERIOD_MS = 90L * 24 * 60 * 60 * 1000
+        const val MOST_PLAYED_MIN_PLAYS = 3
     }
 }

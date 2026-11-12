@@ -162,6 +162,7 @@ private fun HomeContent(
             albumSection("added", R.string.home_recently_added, state.recentlyAdded, onAlbumClick, playingAlbumId, onPlayAlbum)
             albumSection("rediscover", R.string.home_rediscover, state.rediscover, onAlbumClick, playingAlbumId, onPlayAlbum)
             albumSection("played", R.string.home_recently_played, state.recentlyPlayed, onAlbumClick, playingAlbumId, onPlayAlbum)
+            albumSection("most", R.string.home_most_played, state.mostPlayed, onAlbumClick, playingAlbumId, onPlayAlbum)
             if (state.randomArtists.isNotEmpty()) {
                 item(key = "artists") {
                     Shelf(stringResource(R.string.home_random_artists)) {

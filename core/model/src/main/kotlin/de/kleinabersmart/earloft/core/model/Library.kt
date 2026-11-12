@@ -54,3 +54,12 @@ data class SearchResults(
         val EMPTY = SearchResults(emptyList(), emptyList(), emptyList())
     }
 }
+
+/** Reihenfolge der Alben in der Bibliothek. */
+enum class AlbumSort { TITLE, ARTIST, YEAR, RECENTLY_ADDED, RECENTLY_PLAYED }
+
+/** Reihenfolge der Künstler in der Bibliothek. */
+enum class ArtistSort { NAME, ALBUM_COUNT }
+
+/** Reihenfolge der Songs in der Bibliothek. */
+enum class SongSort { TITLE, ARTIST, ALBUM, RECENTLY_ADDED }

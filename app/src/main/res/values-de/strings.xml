@@ -37,6 +37,15 @@
     <string name="library_songs">Songs</string>
     <string name="library_genres">Genres</string>
     <string name="genres_empty">Noch keine Genres. Deine Musik hat keine Genre-Angaben.</string>
+    <string name="sort_label">Sortieren</string>
+    <string name="sort_title">Titel</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_artist">Künstler</string>
+    <string name="sort_album">Album</string>
+    <string name="sort_year">Jahr</string>
+    <string name="sort_recently_added">Zuletzt hinzugefügt</string>
+    <string name="sort_recently_played">Zuletzt gehört</string>
+    <string name="sort_album_count">Meiste Alben</string>
     <string name="library_empty">Noch keine Musik. Richte einen Musikserver ein oder nutze die Musik auf diesem Gerät (Einstellungen → Musik).</string>
     <string name="spoken_no_series">Noch keine Serien.</string>
     <string name="spoken_no_authors">Noch keine Autoren.</string>
@@ -57,6 +66,7 @@
     <string name="home_recently_added">Neu hinzugefügt</string>
     <string name="home_rediscover">Alben wiederentdecken</string>
     <string name="home_recently_played">Zuletzt gespielte Alben</string>
+    <string name="home_most_played">Meistgehörte Alben</string>
     <string name="home_random_artists">Zufällige Interpreten</string>
     <string name="home_random_albums">Zufällige Alben</string>
 

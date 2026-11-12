@@ -58,11 +58,7 @@ fun GenreScreen(
                 AlbumGrid(
                     albums = current.value,
                     onAlbumClick = onAlbumClick,
-                    header = {
-                        fullWidthItem("actions") {
-                            PlayShuffleRow(onPlay = { viewModel.play(shuffle = false) }, onShuffle = { viewModel.play(shuffle = true) })
-                        }
-                    },
+                    header = { PlayShuffleRow(onPlay = { viewModel.play(shuffle = false) }, onShuffle = { viewModel.play(shuffle = true) }) },
                 )
             }
         }
