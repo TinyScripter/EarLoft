@@ -93,7 +93,6 @@ class AbsOpenIdTest {
     fun `status tells whether OpenID is offered`() = runTest {
         val options = servers.loginOptions(baseUrl)!!
         assertTrue(options.openId)
-        assertEquals("Login mit OpenId", options.openIdButtonText)
     }
 
     @Test

@@ -23,8 +23,11 @@ import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Was ein Server vor der Anmeldung über sich verrät (`GET /status`). */
-data class AbsLoginOptions(val openId: Boolean, val openIdButtonText: String?)
+/**
+ * Was ein Server vor der Anmeldung über sich verrät (`GET /status`). Die Beschriftung des Knopfs (`authOpenIDButtonText`)
+ * bleibt außen vor: Sie ist für die Weboberfläche gedacht und folgt nicht der Sprache der App.
+ */
+data class AbsLoginOptions(val openId: Boolean)
 
 /** Ergebnis einer Anmeldung oder Erneuerung. [refreshToken] `null`: Server vor 2.26, [accessToken] läuft nicht ab. */
 data class AbsTokens(val accessToken: String, val refreshToken: String?)
@@ -52,7 +55,7 @@ class AbsAuthApi @Inject constructor(
         val url = baseUrl.newBuilder().addPathSegment("status").build()
         val status = client.newCall(Request.Builder().url(url).build()).await().use { decode<AbsStatusDto>(it.textOrThrow()) }
         if (status.app != "audiobookshelf") throw AbsException(0, "Kein Audiobookshelf-Server")
-        AbsLoginOptions(openId = "openid" in status.authMethods, openIdButtonText = status.authFormData?.authOpenIDButtonText)
+        AbsLoginOptions(openId = "openid" in status.authMethods)
     }
 
     /**
@@ -186,11 +189,7 @@ class AbsAuthApi @Inject constructor(
 internal data class AbsStatusDto(
     val app: String? = null,
     val authMethods: List<String> = emptyList(),
-    val authFormData: AbsAuthFormData? = null,
 )
-
-@Serializable
-internal data class AbsAuthFormData(val authOpenIDButtonText: String? = null)
 
 @Serializable
 internal data class AbsLoginResponse(val user: AbsLoginUser)

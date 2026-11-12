@@ -36,7 +36,9 @@
     <string name="library_albums">Albums</string>
     <string name="library_artists">Artists</string>
     <string name="library_songs">Songs</string>
-    <string name="library_empty">No music found. New files appear automatically.</string>
+    <string name="library_empty">No music yet. Set up a music server or use the music on this device (Settings → Music).</string>
+    <string name="spoken_no_series">No series yet.</string>
+    <string name="spoken_no_authors">No authors yet.</string>
     <string name="library_syncing">Updating library …</string>
     <string name="item_missing">No longer in the library.</string>
     <string name="load_failed">Could not be loaded. Please try again later.</string>

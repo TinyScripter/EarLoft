@@ -232,7 +232,7 @@ private fun BookGrid(
 @Composable
 private fun AuthorGrid(authors: List<BookGroup>, onClick: (String) -> Unit) {
     if (authors.isEmpty()) {
-        EmptyHint(stringResource(R.string.library_empty))
+        EmptyHint(stringResource(R.string.spoken_no_authors))
         return
     }
     val state = rememberLazyGridState()
@@ -287,7 +287,7 @@ private fun AuthorGrid(authors: List<BookGroup>, onClick: (String) -> Unit) {
 @Composable
 private fun BookGroupList(groups: List<BookGroup>, onClick: (String) -> Unit) {
     if (groups.isEmpty()) {
-        EmptyHint(stringResource(R.string.library_empty))
+        EmptyHint(stringResource(R.string.spoken_no_series))
         return
     }
     val state = rememberLazyListState()

@@ -309,7 +309,7 @@ fun AudiobookshelfFormScreen(
                     enabled = (!isHttp || allowHttp) && connectState != ConnectState.Connecting,
                     modifier = Modifier.padding(top = 8.dp),
                 ) {
-                    Text(options.openIdButtonText?.takeIf { it.isNotBlank() } ?: stringResource(R.string.spoken_abs_openid))
+                    Text(stringResource(R.string.spoken_abs_openid))
                 }
                 if (authTab == null) {
                     Text(
