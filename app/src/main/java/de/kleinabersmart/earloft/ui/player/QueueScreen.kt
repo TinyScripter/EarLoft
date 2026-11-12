@@ -49,6 +49,7 @@ import de.kleinabersmart.earloft.ui.components.AlbumArt
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.reorderActions
 import de.kleinabersmart.earloft.ui.library.BackButton
+import de.kleinabersmart.earloft.ui.playlists.AddToPlaylistDialog
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 @Composable
@@ -78,10 +79,20 @@ private fun QueueContent(
     onMove: (from: Int, to: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var saving by remember { mutableStateOf(false) }
+    if (saving) AddToPlaylistDialog(songIds = state.queue.map { it.songId }, onDismiss = { saving = false })
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text(stringResource(R.string.player_queue)) },
             navigationIcon = { BackButton(onBack) },
+            actions = {
+                // Neue oder bestehende Playlist; dieselbe Auswahl wie „Zur Playlist“ bei Songs und Alben.
+                if (state.queue.isNotEmpty()) {
+                    IconButton(onClick = { saving = true }) {
+                        Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = stringResource(R.string.queue_save_as_playlist))
+                    }
+                }
+            },
         )
         QueueList(
             state = state,

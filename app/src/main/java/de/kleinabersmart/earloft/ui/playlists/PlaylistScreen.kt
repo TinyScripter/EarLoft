@@ -12,7 +12,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -87,6 +90,7 @@ fun PlaylistScreen(
         onRename = viewModel::rename,
         onDelete = { viewModel.delete(onDeleted = onBack) },
         onRemoveEntry = viewModel::removeEntry,
+        onReorder = viewModel::reorder,
         actions = viewModel,
         modifier = modifier,
     )
@@ -105,10 +109,33 @@ private fun PlaylistContent(
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
     onRemoveEntry: (Long) -> Unit,
+    onReorder: (entryIds: List<Long>) -> Unit,
     actions: SongActions,
     modifier: Modifier = Modifier,
 ) {
+    // Beim Umsortieren eine Arbeitskopie; erst „Speichern“ übernimmt sie, Zurück verwirft sie.
+    var order by remember { mutableStateOf<SnapshotStateList<PlaylistEntry>?>(null) }
+    val editing = order
+    BackHandler(enabled = editing != null) { order = null }
     Column(modifier.fillMaxSize()) {
+        if (editing != null) {
+            TopAppBar(
+                title = { Text(stringResource(R.string.playlist_reorder)) },
+                navigationIcon = {
+                    IconButton(onClick = { order = null }) {
+                        Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_cancel))
+                    }
+                },
+                actions = {
+                    TextButton(onClick = {
+                        onReorder(editing.map { it.entryId })
+                        order = null
+                    }) { Text(stringResource(R.string.playlist_save)) }
+                },
+            )
+            PlaylistOrderList(editing)
+            return@Column
+        }
         TopAppBar(
             title = {
                 if (state is LoadState.Ready) {
@@ -122,7 +149,13 @@ private fun PlaylistContent(
             actions = {
                 if (state is LoadState.Ready) {
                     WatchToggleButton(WearSelectionKind.PLAYLIST, state.value.playlist.id)
-                    PlaylistMenu(state.value.playlist, onRename, onDelete)
+                    val entries = state.value.entries
+                    PlaylistMenu(
+                        playlist = state.value.playlist,
+                        onRename = onRename,
+                        onDelete = onDelete,
+                        onReorder = if (entries.size > 1) ({ order = entries.toMutableStateList() }) else null,
+                    )
                 }
             },
         )
@@ -207,7 +240,7 @@ private fun PlaylistEntries(
 }
 
 @Composable
-private fun PlaylistMenu(playlist: Playlist, onRename: (String) -> Unit, onDelete: () -> Unit) {
+private fun PlaylistMenu(playlist: Playlist, onRename: (String) -> Unit, onDelete: () -> Unit, onReorder: (() -> Unit)?) {
     var menuOpen by remember { mutableStateOf(false) }
     var renaming by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -217,6 +250,16 @@ private fun PlaylistMenu(playlist: Playlist, onRename: (String) -> Unit, onDelet
             Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            if (onReorder != null) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.playlist_reorder)) },
+                    leadingIcon = { Icon(painterResource(DesignR.drawable.ic_drag_handle), contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        onReorder()
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.playlist_rename)) },
                 onClick = {
@@ -292,6 +335,7 @@ private fun PlaylistContentPreview() {
             onRename = {},
             onDelete = {},
             onRemoveEntry = {},
+            onReorder = {},
             actions = NoSongActions,
         )
     }

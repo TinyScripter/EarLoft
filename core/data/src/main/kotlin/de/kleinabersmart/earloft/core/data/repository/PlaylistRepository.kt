@@ -77,6 +77,22 @@ class PlaylistRepository @Inject constructor(
         }
     }
 
+    /**
+     * Neue Reihenfolge: [entryIds] in der gewünschten Folge (Einträge, nicht Songs – ein Song kann mehrfach vorkommen).
+     * Einträge, die [entryIds] nicht nennt (z. B. gerade vom Abgleich hinzugekommen), bleiben vorn. Eine Server-Playlist
+     * wird als Ganzes neu gesendet.
+     */
+    suspend fun reorder(playlistId: Long, entryIds: List<Long>) {
+        if (entryIds.isEmpty()) return
+        change {
+            // Hinter alle bisherigen Stellen, damit keine Stelle doppelt vergeben wird.
+            val start = playlistDao.nextPosition(playlistId)
+            entryIds.forEachIndexed { index, entryId -> playlistDao.setPosition(playlistId, entryId, start + index) }
+            playlistDao.touch(playlistId, System.currentTimeMillis())
+            playlistId
+        }
+    }
+
     /** Auf dem Server wird sie ebenfalls gelöscht – falls sie dort schon angelegt war. */
     suspend fun delete(playlistId: Long) {
         val queued = database.withTransaction {

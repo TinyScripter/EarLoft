@@ -368,6 +368,8 @@
     <string name="playlist_create">Create</string>
     <string name="playlist_save">Save</string>
     <string name="playlist_rename">Rename</string>
+    <string name="playlist_reorder">Change order</string>
+    <string name="queue_save_as_playlist">Save as playlist</string>
     <string name="playlist_delete">Delete</string>
     <string name="playlist_delete_title">Delete playlist?</string>
     <string name="playlist_delete_text">“%1$s” will be deleted.</string>

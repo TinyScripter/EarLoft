@@ -361,6 +361,8 @@
     <string name="playlist_create">Anlegen</string>
     <string name="playlist_save">Speichern</string>
     <string name="playlist_rename">Umbenennen</string>
+    <string name="playlist_reorder">Reihenfolge ändern</string>
+    <string name="queue_save_as_playlist">Als Playlist speichern</string>
     <string name="playlist_delete">Löschen</string>
     <string name="playlist_delete_title">Playlist löschen?</string>
     <string name="playlist_delete_text">„%1$s“ wird gelöscht.</string>

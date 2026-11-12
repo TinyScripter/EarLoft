@@ -79,6 +79,24 @@ class PlaylistSyncTest {
     }
 
     @Test
+    fun `new order is sent as a whole and kept after the next sync`() = runTest {
+        nd.putPlaylist("Mix", listOf("a", "b", "c", "a"))
+        syncer.syncAdding(db, nd)
+        val id = playlists.playlists().first().single().id
+        val entries = playlists.playlist(id).first()!!.entries
+
+        // Das zweite „A“ nach vorn, „C“ ans Ende.
+        playlists.reorder(id, listOf(entries[3], entries[1], entries[0], entries[2]).map { it.entryId })
+        assertEquals(listOf("A", "B", "A", "C"), titles(id))
+        assertEquals(listOf(entries[3].entryId, entries[1].entryId), playlists.playlist(id).first()!!.entries.take(2).map { it.entryId })
+
+        assertTrue(processor().process())
+        assertEquals(listOf("replace pl1 Mix [a, b, a, c]"), nd.calls)
+        syncer.syncAdding(db, nd)
+        assertEquals(listOf("A", "B", "A", "C"), titles(id))
+    }
+
+    @Test
     fun `server change wins over an unsent local change`() = runTest {
         val remoteId = nd.putPlaylist("Mix", listOf("a"))
         syncer.syncAdding(db, nd)

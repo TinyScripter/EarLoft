@@ -17,7 +17,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
+import de.kleinabersmart.earloft.ui.playlists.AddToPlaylistDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -196,6 +199,7 @@ private fun NowPlayingContent(
                         label = stringResource(if (sleepActive) R.string.sleep_timer_off else R.string.sleep_timer_title),
                         onClick = { if (sleepActive) onCancelSleepTimer() else sleepSheetVisible = true },
                     )
+                    PlayerMoreMenu(state)
                 }
             }
         }
@@ -504,6 +508,43 @@ private fun SeekBar(durationMs: Long, positionMs: () -> Long, onSeek: (Long) -> 
             Text(formatDuration(durationMs), style = MaterialTheme.typography.labelSmall)
         }
     }
+}
+
+/** ⋮ am Ende der Aktionszeile: laufenden Song zu einer Playlist, Warteschlange als Playlist speichern. */
+@Composable
+private fun PlayerMoreMenu(state: PlayerState) {
+    val current = state.current ?: return
+    var open by remember { mutableStateOf(false) }
+    var playlistSongs by remember { mutableStateOf<List<Long>?>(null) }
+    Box {
+        IconButton(
+            onClick = { open = true },
+            colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+        ) {
+            Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.action_add_to_playlist)) },
+                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = null) },
+                onClick = {
+                    open = false
+                    playlistSongs = listOf(current.songId)
+                },
+            )
+            if (state.queue.size > 1) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.queue_save_as_playlist)) },
+                    leadingIcon = { Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = null) },
+                    onClick = {
+                        open = false
+                        playlistSongs = state.queue.map { it.songId }
+                    },
+                )
+            }
+        }
+    }
+    playlistSongs?.let { AddToPlaylistDialog(songIds = it, onDismiss = { playlistSongs = null }) }
 }
 
 @Composable

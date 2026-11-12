@@ -73,6 +73,11 @@ class PlaylistViewModel @AssistedInject constructor(
         viewModelScope.launch { playlistRepository.removeEntry(playlistId, entryId) }
     }
 
+    /** Speichert die beim Umsortieren gewählte Reihenfolge der Einträge. */
+    fun reorder(entryIds: List<Long>) {
+        viewModelScope.launch { playlistRepository.reorder(playlistId, entryIds) }
+    }
+
     override fun playNext(song: Song) = playbackConnection.playNext(listOf(song))
 
     override fun addToQueue(song: Song) = playbackConnection.addToQueue(listOf(song))
