@@ -208,6 +208,52 @@ abstract class LibraryDao {
     )
     abstract suspend fun getSongRowsOfGenre(genre: String): List<SongRow>
 
+    /**
+     * Alben, auf denen [artistId] mindestens einen Song singt bzw. spielt, ohne Album-Künstler zu sein (Gäste, Sampler),
+     * nach Jahr.
+     */
+    @Query(
+        """
+        $SELECT_ALBUM_ROWS
+        WHERE EXISTS (
+            SELECT 1 FROM songs xs JOIN song_artists sa ON sa.songId = xs.songId
+            WHERE xs.albumId = a.albumId AND sa.artistId = :artistId
+        )
+        AND NOT EXISTS (SELECT 1 FROM album_artists aa WHERE aa.albumId = a.albumId AND aa.artistId = :artistId)
+        GROUP BY a.albumId
+        ORDER BY a.year IS NULL, a.year, a.sortTitle COLLATE NOCASE
+        """,
+    )
+    abstract fun observeAppearsOnAlbumRows(artistId: Long): Flow<List<AlbumRow>>
+
+    /**
+     * Alle Songs eines Künstlers: seine Alben ganz und von anderen Alben die Songs, die er singt bzw. spielt; Album für Album
+     * nach Jahr, darin in Albumreihenfolge.
+     */
+    @Query(
+        """
+        $SELECT_SONG_ROWS
+        WHERE EXISTS (SELECT 1 FROM album_artists aa WHERE aa.albumId = s.albumId AND aa.artistId = :artistId)
+           OR EXISTS (SELECT 1 FROM song_artists sa WHERE sa.songId = s.songId AND sa.artistId = :artistId)
+        ORDER BY a.year IS NULL, a.year, a.sortTitle COLLATE NOCASE, a.albumId, s.discNumber, s.trackNumber, s.title
+        """,
+    )
+    abstract suspend fun getSongRowsOfArtist(artistId: Long): List<SongRow>
+
+    /** Die meistgehörten Songs eines Künstlers (wie [getSongRowsOfArtist]); nie gehörte fehlen. */
+    @Query(
+        """
+        $SELECT_SONG_ROWS
+        JOIN play_events pe ON pe.songId = s.songId
+        WHERE EXISTS (SELECT 1 FROM album_artists aa WHERE aa.albumId = s.albumId AND aa.artistId = :artistId)
+           OR EXISTS (SELECT 1 FROM song_artists sa WHERE sa.songId = s.songId AND sa.artistId = :artistId)
+        GROUP BY s.songId
+        ORDER BY COUNT(*) DESC, MAX(pe.playedAt) DESC
+        LIMIT :limit
+        """,
+    )
+    abstract fun observeTopSongRowsOfArtist(artistId: Long, limit: Int): Flow<List<SongRow>>
+
     /** Welche Künstler zu welchem Album gehören (Albumkünstler); die Uhr leitet daraus ihre Künstler ab. */
     @Query("SELECT * FROM album_artists")
     abstract fun observeAlbumArtists(): Flow<List<AlbumArtistCrossRef>>

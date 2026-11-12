@@ -1,6 +1,8 @@
 package de.kleinabersmart.earloft.ui.library
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -306,16 +308,7 @@ fun AlbumGrid(
             modifier = Modifier.fillMaxSize(),
         ) {
             if (header != null) fullWidthItem("header", header)
-            items(albums, key = { it.id }) { album ->
-                AlbumCard(
-                    album = album,
-                    onClick = { onAlbumClick(album.id) },
-                    modifier = Modifier.gridTile(MaterialTheme.colorScheme.surfaceContainer),
-                    onPlay = { playControl.playOrPauseAlbum(album.id) },
-                    playing = album.id == playingAlbumId,
-                    contentPadding = GridTilePadding,
-                )
-            }
+            albumTiles(albums, onAlbumClick, playingAlbumId, playControl::playOrPauseAlbum)
         }
         if (scrollLabel != null) {
             val offset = if (header != null) 1 else 0
@@ -368,6 +361,26 @@ private fun SongSort.scrollLabel(): ((Song) -> String)? = when (this) {
     SongSort.RECENTLY_ADDED -> null
 }
 
+/** Album-Kacheln mit Play-Knopf für ein Raster; [keyPrefix] trennt mehrere Gruppen derselben Alben in einem Raster. */
+fun LazyGridScope.albumTiles(
+    albums: List<Album>,
+    onAlbumClick: (Long) -> Unit,
+    playingAlbumId: Long?,
+    onPlay: (Long) -> Unit,
+    keyPrefix: String = "",
+) {
+    items(albums, key = { "$keyPrefix${it.id}" }) { album ->
+        AlbumCard(
+            album = album,
+            onClick = { onAlbumClick(album.id) },
+            modifier = Modifier.gridTile(MaterialTheme.colorScheme.surfaceContainer),
+            onPlay = { onPlay(album.id) },
+            playing = album.id == playingAlbumId,
+            contentPadding = GridTilePadding,
+        )
+    }
+}
+
 /** Ein Eintrag über die ganze Breite eines Rasters. */
 fun LazyGridScope.fullWidthItem(key: Any, content: @Composable () -> Unit) {
     item(key = key, span = { GridItemSpan(maxLineSpan) }) { content() }
@@ -395,12 +408,18 @@ private fun ArtistGrid(
         ) {
             fullWidthItem("sort") { SortRow(sorted) }
             items(artists, key = { it.id }) { artist ->
+                var menu by remember { mutableStateOf(false) }
                 Column(
                     Modifier
                         .gridTile(MaterialTheme.colorScheme.surfaceContainer)
-                        .clickable { onArtistClick(artist.id) }
+                        .combinedClickable(
+                            onClick = { onArtistClick(artist.id) },
+                            onLongClickLabel = stringResource(R.string.action_more),
+                            onLongClick = { menu = true },
+                        )
                         .padding(GridTilePadding),
                 ) {
+                    if (menu) ArtistMenu(artist.id, artist.name, onDismiss = { menu = false })
                     ArtistAvatar(artistId = artist.id, modifier = Modifier.fillMaxWidth(), iconSize = 64.dp)
                     Text(
                         artist.name,

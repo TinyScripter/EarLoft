@@ -298,6 +298,12 @@
     <string name="download_album_running">Wird heruntergeladen – abbrechen</string>
     <string name="download_album_remove_title">Download entfernen?</string>
     <string name="download_album_remove_text">Die heruntergeladenen Dateien von „%1$s“ werden gelöscht. Das Album bleibt in der Bibliothek und lässt sich weiter streamen.</string>
+    <string name="action_download_artist">Alle Alben herunterladen</string>
+    <string name="download_artist_remove_title">Downloads entfernen?</string>
+    <string name="download_artist_remove_text">Die heruntergeladenen Dateien aller Alben von „%1$s“ werden gelöscht. Die Alben bleiben in der Bibliothek und lassen sich weiter streamen.</string>
+    <string name="artist_most_played">Meistgehört</string>
+    <string name="artist_albums">Alben</string>
+    <string name="artist_appears_on">Auch dabei auf</string>
     <string name="download_playlist_remove_text">Die heruntergeladenen Dateien der Songs aus „%1$s“ werden gelöscht – auch, wenn sie in anderen Alben oder Playlists vorkommen. Die Songs bleiben in der Bibliothek und lassen sich weiter streamen.</string>
     <string name="download_album_progress">Wird heruntergeladen: %1$d von %2$d</string>
     <plurals name="download_album_failed">

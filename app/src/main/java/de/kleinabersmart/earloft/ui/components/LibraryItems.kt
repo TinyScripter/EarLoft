@@ -58,6 +58,7 @@ import de.kleinabersmart.earloft.core.model.Song
 import de.kleinabersmart.earloft.core.model.SongOfflineState
 import de.kleinabersmart.earloft.core.model.SongOfflineStatus
 import de.kleinabersmart.earloft.ui.library.AlbumMenu
+import de.kleinabersmart.earloft.ui.library.ArtistMenu
 import de.kleinabersmart.earloft.ui.playlists.AddToPlaylistDialog
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 import coil3.compose.AsyncImage
@@ -226,20 +227,29 @@ private fun OfflineIndicator(offline: SongOfflineStatus, modifier: Modifier = Mo
     }
 }
 
+/** Künstler-Zeile; Langklick öffnet das [ArtistMenu]. */
 @Composable
 fun ArtistListItem(
     artist: Artist,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ListItem(
-        headlineContent = { Text(artist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { Text(pluralStringResource(R.plurals.album_count, artist.albumCount, artist.albumCount)) },
-        leadingContent = {
-            ArtistAvatar(artistId = artist.id, modifier = Modifier.size(48.dp), iconSize = 24.dp)
-        },
-        modifier = modifier.clickable(onClick = onClick),
-    )
+    var menu by remember { mutableStateOf(false) }
+    Box(modifier) {
+        ListItem(
+            headlineContent = { Text(artist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            supportingContent = { Text(pluralStringResource(R.plurals.album_count, artist.albumCount, artist.albumCount)) },
+            leadingContent = {
+                ArtistAvatar(artistId = artist.id, modifier = Modifier.size(48.dp), iconSize = 24.dp)
+            },
+            modifier = Modifier.combinedClickable(
+                onClick = onClick,
+                onLongClickLabel = stringResource(R.string.action_more),
+                onLongClick = { menu = true },
+            ),
+        )
+        if (menu) ArtistMenu(artist.id, artist.name, onDismiss = { menu = false })
+    }
 }
 
 /** Genre-Zeile: Name, darunter Zahl der Alben und Songs. */
@@ -348,7 +358,7 @@ fun AlbumCard(
     }
 }
 
-/** Künstler-Kachel für horizontale Listen: Bild (wie die Autoren der Bücher eckig), Name, Albenzahl. */
+/** Künstler-Kachel für horizontale Listen: Bild (wie die Autoren der Bücher eckig), Name, Albenzahl; Langklick öffnet das [ArtistMenu]. */
 @Composable
 fun ArtistCard(
     artist: Artist,
@@ -356,13 +366,19 @@ fun ArtistCard(
     modifier: Modifier = Modifier,
     width: Dp = 120.dp,
 ) {
+    var menu by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .width(width)
             .clip(MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClickLabel = stringResource(R.string.action_more),
+                onLongClick = { menu = true },
+            )
             .padding(4.dp),
     ) {
+        if (menu) ArtistMenu(artist.id, artist.name, onDismiss = { menu = false })
         ArtistAvatar(artistId = artist.id, modifier = Modifier.fillMaxWidth(), iconSize = 48.dp)
         Spacer(Modifier.height(6.dp))
         Text(

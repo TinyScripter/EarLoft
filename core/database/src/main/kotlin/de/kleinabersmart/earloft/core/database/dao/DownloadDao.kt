@@ -243,6 +243,27 @@ interface DownloadDao {
     )
     fun observeOfflineRowsOfAlbum(albumId: Long): Flow<List<SongOfflineRow>>
 
+    /** Wie [observeOfflineRowsOfAlbum], für alle Alben, deren Album-Künstler [artistId] ist. */
+    @Query(
+        """
+        SELECT s.songId,
+               EXISTS(
+                   SELECT 1 FROM song_sources ls JOIN sources src ON src.sourceId = ls.sourceId
+                   WHERE ls.songId = s.songId AND src.type = 'LOCAL'
+               ) AS isLocal,
+               d.state, d.bytesDone, d.bytesTotal
+        FROM songs s
+        LEFT JOIN song_sources ss ON ss.songId = s.songId AND ss.uid IN (SELECT sourceUid FROM downloads)
+        LEFT JOIN downloads d ON d.sourceUid = ss.uid
+        WHERE s.albumId IN (SELECT albumId FROM album_artists WHERE artistId = :artistId)
+        GROUP BY s.songId
+        """,
+    )
+    fun observeOfflineRowsOfArtist(artistId: Long): Flow<List<SongOfflineRow>>
+
+    @Query("SELECT albumId FROM album_artists WHERE artistId = :artistId")
+    suspend fun getAlbumIdsOfArtist(artistId: Long): List<Long>
+
     /**
      * Download-Zustand aller Songs mit Download (einer je Song); lokale Songs liefert [observeLocalSongIds].
      * Zusammen ergibt das den Offline-Zustand jedes Songs, ohne die ganze Bibliothek zu laden.

@@ -53,11 +53,8 @@ internal class MusicBrowse @Inject constructor(
         else -> null
     }
 
-    /** Alle Songs der Alben eines Künstlers, Album für Album. */
-    suspend fun artistSongs(artistId: Long): List<Song> {
-        val albums = libraryRepository.artist(artistId).first()?.albums.orEmpty()
-        return albums.flatMap { libraryRepository.album(it.id).first()?.songs.orEmpty() }
-    }
+    /** Alle Songs eines Künstlers (seine Alben und seine Songs auf anderen), Album für Album nach Jahr – wie auf der Künstlerseite. */
+    suspend fun artistSongs(artistId: Long): List<Song> = libraryRepository.songsOfArtist(artistId)
 
     suspend fun albumSongs(albumId: Long): List<Song> = libraryRepository.album(albumId).first()?.songs.orEmpty()
 

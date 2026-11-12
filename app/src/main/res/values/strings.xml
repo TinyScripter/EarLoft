@@ -305,6 +305,12 @@
     <string name="download_album_running">Downloading – cancel</string>
     <string name="download_album_remove_title">Remove download?</string>
     <string name="download_album_remove_text">The downloaded files of “%1$s” will be deleted. The album stays in the library and can still be streamed.</string>
+    <string name="action_download_artist">Download all albums</string>
+    <string name="download_artist_remove_title">Remove downloads?</string>
+    <string name="download_artist_remove_text">The downloaded files of all albums by “%1$s” will be deleted. The albums stay in the library and can still be streamed.</string>
+    <string name="artist_most_played">Most played</string>
+    <string name="artist_albums">Albums</string>
+    <string name="artist_appears_on">Appears on</string>
     <string name="download_playlist_remove_text">The downloaded files of the songs in “%1$s” will be deleted – even if they appear in other albums or playlists. The songs stay in the library and can still be streamed.</string>
     <string name="download_album_progress">Downloading: %1$d of %2$d</string>
     <plurals name="download_album_failed">

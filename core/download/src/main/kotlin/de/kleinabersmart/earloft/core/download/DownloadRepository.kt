@@ -46,6 +46,9 @@ class DownloadRepository @Inject constructor(
 
     suspend fun downloadSongs(songIds: List<Long>): Int = enqueue(songIds, pinnedBy = PINNED_MANUAL)
 
+    /** Lädt alle Alben, deren Album-Künstler [artistId] ist – Album für Album, wie von Hand (Downloads-Übersicht je Album). */
+    suspend fun downloadArtist(artistId: Long): Int = downloadDao.getAlbumIdsOfArtist(artistId).sumOf { downloadAlbum(it) }
+
     suspend fun downloadPlaylist(playlistId: Long): Int =
         enqueue(playlistDao.getSongIds(playlistId), pinnedBy = "playlist:$playlistId")
 
@@ -91,6 +94,8 @@ class DownloadRepository @Inject constructor(
     }
 
     suspend fun removeAlbum(albumId: Long) = remove(downloadDao.getForAlbum(albumId))
+
+    suspend fun removeArtist(artistId: Long) = downloadDao.getAlbumIdsOfArtist(artistId).forEach { removeAlbum(it) }
 
     suspend fun removeSongs(songIds: List<Long>) =
         remove(songIds.distinct().chunked(SQLITE_MAX_VARIABLES).flatMap { downloadDao.getForSongs(it) })
@@ -174,6 +179,12 @@ class DownloadRepository @Inject constructor(
 
     fun albumStatus(albumId: Long): Flow<AlbumOfflineStatus> =
         downloadDao.observeOfflineRowsOfAlbum(albumId)
+            .map { rows -> AlbumOfflineStatus(rows.associate { it.songId to it.toStatus() }) }
+            .distinctUntilChanged()
+
+    /** Download-Zustand aller Alben eines Künstlers zusammen (wie [albumStatus]). */
+    fun artistStatus(artistId: Long): Flow<AlbumOfflineStatus> =
+        downloadDao.observeOfflineRowsOfArtist(artistId)
             .map { rows -> AlbumOfflineStatus(rows.associate { it.songId to it.toStatus() }) }
             .distinctUntilChanged()
 

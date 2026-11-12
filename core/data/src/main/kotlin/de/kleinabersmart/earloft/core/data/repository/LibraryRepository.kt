@@ -55,6 +55,16 @@ class LibraryRepository @Inject constructor(
             artist?.let { ArtistDetails(it.toArtist(), albums.map { row -> row.toAlbum() }) }
         }
 
+    /** Alben anderer Künstler, auf denen [artistId] mitwirkt. */
+    fun appearsOn(artistId: Long): Flow<List<Album>> =
+        libraryDao.observeAppearsOnAlbumRows(artistId).map { rows -> rows.map { it.toAlbum() } }
+
+    /** Alle Songs des Künstlers: seine Alben und seine Songs auf anderen Alben, nach Jahr. */
+    suspend fun songsOfArtist(artistId: Long): List<Song> = libraryDao.getSongRowsOfArtist(artistId).map { it.toSong() }
+
+    fun topSongsOfArtist(artistId: Long, limit: Int = 5): Flow<List<Song>> =
+        libraryDao.observeTopSongRowsOfArtist(artistId, limit).map { rows -> rows.map { it.toSong() } }
+
     /** Die Alben jedes Künstlers (Albumkünstler): Künstler-ID → Album-IDs. */
     fun albumIdsByArtist(): Flow<Map<Long, Set<Long>>> = libraryDao.observeAlbumArtists().map { refs ->
         refs.groupBy({ it.artistId }, { it.albumId }).mapValues { it.value.toSet() }

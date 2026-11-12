@@ -245,6 +245,42 @@ class LibraryDaoTest {
         assertEquals(listOf("Takk..."), libraryDao.observeMostPlayedAlbumRows(since = 1_000, minPlays = 3, limit = 10).first().map { it.title })
     }
 
+    @Test
+    fun `artist page lists all songs, most played and appearances`() = runTest {
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        val jonsi = libraryDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
+        val sigur = libraryDao.insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"))
+        val go = libraryDao.insertAlbum(album("Go", "Jónsi").copy(year = 2010))
+        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
+        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(go, jonsi, 0))
+        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(takk, sigur, 0))
+        val boyLilikoi = libraryDao.insertSong(song(go, "Boy Lilikoi", track = 2))
+        val goDo = libraryDao.insertSong(song(go, "Go Do", track = 1))
+        val glosoli = libraryDao.insertSong(song(takk, "Glósóli", track = 2))
+        val hoppipolla = libraryDao.insertSong(song(takk, "Hoppípolla", track = 3))
+        listOf(boyLilikoi, goDo, glosoli, hoppipolla).forEachIndexed { index, songId ->
+            libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
+        }
+        libraryDao.insertSongArtist(SongArtistCrossRef(goDo, jonsi, 0))
+        libraryDao.insertSongArtist(SongArtistCrossRef(boyLilikoi, jonsi, 0))
+        libraryDao.insertSongArtist(SongArtistCrossRef(glosoli, sigur, 0))
+        // Jónsi singt auch auf „Takk...“ mit (nur dieser eine Song).
+        libraryDao.insertSongArtist(SongArtistCrossRef(hoppipolla, sigur, 0))
+        libraryDao.insertSongArtist(SongArtistCrossRef(hoppipolla, jonsi, 1))
+
+        // Nach Jahr: erst „Takk...“ (2005) mit nur Hoppípolla, dann „Go“ in Albumreihenfolge.
+        assertEquals(listOf("Hoppípolla", "Go Do", "Boy Lilikoi"), libraryDao.getSongRowsOfArtist(jonsi).map { it.title })
+        assertEquals(listOf("Takk..."), libraryDao.observeAppearsOnAlbumRows(jonsi).first().map { it.title })
+        assertTrue(libraryDao.observeAppearsOnAlbumRows(sigur).first().isEmpty())
+
+        assertTrue(libraryDao.observeTopSongRowsOfArtist(jonsi, 5).first().isEmpty())
+        val playback = db.playbackDao()
+        listOf(boyLilikoi to 1L, hoppipolla to 2L, hoppipolla to 3L, glosoli to 4L)
+            .forEach { (songId, at) -> playback.insertPlayEventIfSongExists(PlayEventEntity(songId = songId, playedAt = at, listenedMs = 1)) }
+        assertEquals(listOf("Hoppípolla", "Boy Lilikoi"), libraryDao.observeTopSongRowsOfArtist(jonsi, 5).first().map { it.title })
+        assertEquals(listOf("Hoppípolla"), libraryDao.observeTopSongRowsOfArtist(jonsi, 1).first().map { it.title })
+    }
+
     private fun album(title: String, artist: String) = AlbumEntity(
         title = title,
         sortTitle = title,
