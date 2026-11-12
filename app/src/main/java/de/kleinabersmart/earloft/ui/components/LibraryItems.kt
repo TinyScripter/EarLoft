@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.ui.LoadState
+import de.kleinabersmart.earloft.core.data.mix.MixSeed
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.model.Album
@@ -143,6 +144,7 @@ fun SongListItem(
                                 actions.addToQueue(song)
                             },
                         )
+                        MixMenuItem(MixSeed.Song(song.id), onDismiss = { menuOpen = false })
                         DropdownMenuItem(
                             text = {
                                 Text(stringResource(if (song.isFavorite) R.string.action_remove_favorite else R.string.action_add_favorite))

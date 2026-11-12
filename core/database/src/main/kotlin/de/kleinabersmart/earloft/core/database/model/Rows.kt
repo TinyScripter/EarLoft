@@ -171,6 +171,8 @@ data class WearSourceRow(
 
 data class SourceSongIdRow(val uid: String, val songId: Long)
 
+data class RemoteSongIdRow(val remoteId: String, val songId: Long)
+
 /** Eine Server-Quelle eines Songs mit dem, was der Planer der Uhr für die Speicherschätzung braucht. */
 data class WearCandidateRow(
     val uid: String,
@@ -192,6 +194,21 @@ data class WearSelectionProgressRow(
     val bytes: Long = 0,
     /** Geladener Anteil der gerade laufenden Songs (0–1 je Song, aufsummiert). */
     val runningFraction: Double = 0.0,
+)
+
+/**
+ * Was der Mix über einen Song wissen muss: erster Künstler (Song-Künstler, sonst Album-Künstler), Genre, Jahr (Song, sonst
+ * Album) und Hörverlauf.
+ */
+data class MixCandidateRow(
+    val songId: Long,
+    val albumId: Long,
+    val artistId: Long?,
+    val genre: String?,
+    val year: Int?,
+    val isFavorite: Boolean,
+    val playCount: Int,
+    val lastPlayedAt: Long?,
 )
 
 /** Eine Quelle eines Songs mit ihren Eigenschaften (Titel-Info). */

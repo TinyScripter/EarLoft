@@ -116,6 +116,17 @@ class JellyfinApi @Inject constructor(
         return get<JfItemsPage>(server, url).items.map { it.id }
     }
 
+    /** IDs von bis zu [limit] Songs, die der Server zu [itemId] mischt (Instant Mix; Jellyfin und Emby). */
+    suspend fun instantMix(server: JellyfinServer, itemId: String, limit: Int): List<String> {
+        val url = server.endpoint("Items/$itemId/InstantMix")
+            .addQueryParameter("userId", server.userId)
+            .addQueryParameter("limit", limit.toString())
+            .addQueryParameter("enableImages", "false")
+            .addQueryParameter("enableUserData", "false")
+            .build()
+        return get<JfItemsPage>(server, url).items.map { it.id }
+    }
+
     /** Original-Datei ohne Transcoding (Gapless, Klangtreue); kann `Range`. */
     fun streamUrl(server: JellyfinServer, itemId: String): HttpUrl =
         server.endpoint("Audio/$itemId/stream").addQueryParameter("static", "true").build()

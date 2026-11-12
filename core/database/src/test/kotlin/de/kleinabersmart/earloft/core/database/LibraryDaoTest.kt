@@ -285,6 +285,50 @@ class LibraryDaoTest {
         assertEquals(listOf("Hoppípolla"), libraryDao.observeTopSongRowsOfArtist(jonsi, 1).first().map { it.title })
     }
 
+    @Test
+    fun `mix candidates match genre, artist or year and carry the play history`() = runTest {
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
+        val jonsi = libraryDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
+        val sigur = libraryDao.insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"))
+        val go = libraryDao.insertAlbum(album("Go", "Jónsi").copy(year = 2010))
+        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
+        val old = libraryDao.insertAlbum(album("Old", "Someone").copy(year = 1970))
+        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(go, jonsi, 0))
+        libraryDao.insertAlbumArtist(AlbumArtistCrossRef(takk, sigur, 0))
+        val goDo = libraryDao.insertSong(song(go, "Go Do", track = 1).copy(genre = "Post-Rock"))
+        val glosoli = libraryDao.insertSong(song(takk, "Glósóli", track = 2).copy(genre = "post-rock"))
+        val hoppipolla = libraryDao.insertSong(song(takk, "Hoppípolla", track = 3).copy(genre = "Ambient"))
+        val oldSong = libraryDao.insertSong(song(old, "Old Song", track = 1).copy(genre = "Jazz", year = 2008))
+        val hidden = libraryDao.insertSong(song(old, "Hidden", track = 2).copy(genre = "Post-Rock"))
+        listOf(goDo, glosoli, hoppipolla, oldSong).forEachIndexed { index, songId ->
+            libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
+        }
+        libraryDao.insertSongSource(songSource(hidden, NAVIDROME, "h"))
+        libraryDao.insertSongArtist(SongArtistCrossRef(goDo, jonsi, 0))
+        db.playbackDao().insertPlayEventIfSongExists(PlayEventEntity(songId = goDo, playedAt = 5, listenedMs = 1))
+        db.playbackDao().insertPlayEventIfSongExists(PlayEventEntity(songId = goDo, playedAt = 9, listenedMs = 1))
+
+        val seed = libraryDao.getMixRows(listOf(goDo, glosoli)).associateBy { it.songId }
+        assertEquals(jonsi, seed.getValue(goDo).artistId)
+        // Ohne Song-Künstler zählt der Album-Künstler, ohne Song-Jahr das des Albums.
+        assertEquals(sigur, seed.getValue(glosoli).artistId)
+        assertEquals(2005, seed.getValue(glosoli).year)
+        assertEquals(2, seed.getValue(goDo).playCount)
+        assertEquals(9L, seed.getValue(goDo).lastPlayedAt)
+
+        suspend fun ids(genres: List<String>, artists: List<Long>, from: Int, to: Int) =
+            libraryDao.getMixCandidates(genres, artists, from, to, limit = 10).map { it.songId }.toSet()
+        // Genre ohne Unterschied von Groß/Klein; der Song des ausgeschalteten Servers fehlt.
+        assertEquals(setOf(goDo, glosoli), ids(listOf("POST-ROCK"), emptyList(), 1, 0))
+        assertEquals(setOf(glosoli, hoppipolla), ids(emptyList(), listOf(sigur), 1, 0))
+        // Das Song-Jahr geht vor: „Old Song“ (2008) passt, obwohl sein Album von 1970 ist.
+        assertEquals(setOf(goDo, oldSong), ids(emptyList(), emptyList(), 2007, 2012))
+        assertEquals(4, libraryDao.getRandomMixCandidates(10).size)
+
+        assertEquals(listOf(goDo), libraryDao.getSongIdsByRemoteId(LOCAL, listOf("0", "x")).map { it.songId })
+    }
+
     private fun album(title: String, artist: String) = AlbumEntity(
         title = title,
         sortTitle = title,

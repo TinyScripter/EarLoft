@@ -14,7 +14,9 @@ import de.kleinabersmart.earloft.core.database.model.AlbumLookupRow
 import de.kleinabersmart.earloft.core.database.model.AlbumRow
 import de.kleinabersmart.earloft.core.database.model.ArtistRow
 import de.kleinabersmart.earloft.core.database.model.GenreRow
+import de.kleinabersmart.earloft.core.database.model.MixCandidateRow
 import de.kleinabersmart.earloft.core.database.model.PlayableSourceRow
+import de.kleinabersmart.earloft.core.database.model.RemoteSongIdRow
 import de.kleinabersmart.earloft.core.database.model.ReplayGainRow
 import de.kleinabersmart.earloft.core.database.model.SongRow
 import de.kleinabersmart.earloft.core.database.model.SongSourceInfoRow
@@ -55,6 +57,19 @@ private const val SELECT_GENRE_ROWS = """
     FROM songs s
     WHERE s.genre IS NOT NULL AND TRIM(s.genre) != '' AND $SONG_VISIBLE
     GROUP BY s.genre COLLATE NOCASE
+"""
+
+/** Merkmale sichtbarer Songs für den Mix (`MixCandidateRow`); Bedingungen hängen hinten an. */
+private const val SELECT_MIX_CANDIDATES = """
+    SELECT s.songId, s.albumId,
+           COALESCE(
+               (SELECT sa.artistId FROM song_artists sa WHERE sa.songId = s.songId ORDER BY sa.position LIMIT 1),
+               (SELECT aa.artistId FROM album_artists aa WHERE aa.albumId = s.albumId ORDER BY aa.position LIMIT 1)
+           ) AS artistId,
+           s.genre, COALESCE(s.year, a.year) AS year, s.isFavorite,
+           (SELECT COUNT(*) FROM play_events pe WHERE pe.songId = s.songId) AS playCount,
+           (SELECT MAX(pe.playedAt) FROM play_events pe WHERE pe.songId = s.songId) AS lastPlayedAt
+    FROM songs s JOIN albums a ON a.albumId = s.albumId AND $SONG_VISIBLE
 """
 
 /** Lesender Zugriff auf die Bibliothek für UI und Wiedergabe. */
@@ -254,6 +269,44 @@ abstract class LibraryDao {
         """,
     )
     abstract fun observeTopSongRowsOfArtist(artistId: Long, limit: Int): Flow<List<SongRow>>
+
+    // --- Mix ---
+
+    /** Mix-Merkmale der Songs [songIds] (höchstens ~900, SQLite-Variablenlimit). */
+    @Query("$SELECT_MIX_CANDIDATES WHERE s.songId IN (:songIds)")
+    abstract suspend fun getMixRows(songIds: List<Long>): List<MixCandidateRow>
+
+    /**
+     * Bis zu [limit] zufällige Songs, die zum Ausgangspunkt eines Mixes passen könnten: gleiches Genre (ohne Unterschied von
+     * Groß/Klein), einer der Künstler [artistIds] (als Song- oder Album-Künstler) oder ein Jahr zwischen [fromYear] und
+     * [toYear]. Ohne Jahr `fromYear > toYear` übergeben.
+     */
+    @Query(
+        """
+        $SELECT_MIX_CANDIDATES
+        WHERE s.genre COLLATE NOCASE IN (:genres)
+           OR EXISTS (SELECT 1 FROM song_artists sa WHERE sa.songId = s.songId AND sa.artistId IN (:artistIds))
+           OR EXISTS (SELECT 1 FROM album_artists aa WHERE aa.albumId = s.albumId AND aa.artistId IN (:artistIds))
+           OR COALESCE(s.year, a.year) BETWEEN :fromYear AND :toYear
+        ORDER BY RANDOM()
+        LIMIT :limit
+        """,
+    )
+    abstract suspend fun getMixCandidates(
+        genres: List<String>,
+        artistIds: List<Long>,
+        fromYear: Int,
+        toYear: Int,
+        limit: Int,
+    ): List<MixCandidateRow>
+
+    /** Bis zu [limit] zufällige sichtbare Songs, um einen Mix aufzufüllen. */
+    @Query("$SELECT_MIX_CANDIDATES ORDER BY RANDOM() LIMIT :limit")
+    abstract suspend fun getRandomMixCandidates(limit: Int): List<MixCandidateRow>
+
+    /** Die Songs, die die Quelle [sourceId] unter [remoteIds] führt (höchstens ~900). */
+    @Query("SELECT remoteId, songId FROM song_sources WHERE sourceId = :sourceId AND remoteId IN (:remoteIds)")
+    abstract suspend fun getSongIdsByRemoteId(sourceId: String, remoteIds: List<String>): List<RemoteSongIdRow>
 
     /** Welche Künstler zu welchem Album gehören (Albumkünstler); die Uhr leitet daraus ihre Künstler ab. */
     @Query("SELECT * FROM album_artists")

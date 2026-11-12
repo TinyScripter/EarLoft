@@ -61,6 +61,21 @@ class SubsonicApi @Inject constructor(
     suspend fun starredSongs(server: SubsonicServer): List<SongDto> =
         get(server, "getStarred2").starred2?.song.orEmpty()
 
+    /**
+     * Bis zu [count] Songs, die zu Song, Album oder Künstler [id] passen (`getSimilarSongs`). Navidrome braucht dafür einen
+     * externen Agenten (Last.fm); ohne ihn und bei Servern, die den Aufruf nicht kennen, leer.
+     */
+    suspend fun similarSongs(server: SubsonicServer, id: String, count: Int): List<SongDto> =
+        try {
+            get(server, "getSimilarSongs") {
+                addQueryParameter("id", id)
+                addQueryParameter("count", count.toString())
+            }.similarSongs?.song.orEmpty()
+        } catch (e: SubsonicException) {
+            if (e.isAuthError) throw e
+            emptyList()
+        }
+
     suspend fun star(server: SubsonicServer, songId: String) {
         get(server, "star") { addQueryParameter("id", songId) }
     }

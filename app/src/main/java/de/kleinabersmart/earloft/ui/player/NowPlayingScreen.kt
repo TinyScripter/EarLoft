@@ -59,6 +59,8 @@ import de.kleinabersmart.earloft.core.playback.QueueEntry
 import de.kleinabersmart.earloft.ui.components.AlbumArt
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.FitSquare
+import de.kleinabersmart.earloft.ui.components.MixMenuItem
+import de.kleinabersmart.earloft.core.data.mix.MixSeed
 import de.kleinabersmart.earloft.ui.components.ShareButton
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
@@ -510,7 +512,10 @@ private fun SeekBar(durationMs: Long, positionMs: () -> Long, onSeek: (Long) -> 
     }
 }
 
-/** ⋮ am Ende der Aktionszeile: laufenden Song zu einer Playlist, Warteschlange als Playlist speichern, Titel-Info. */
+/**
+ * ⋮ am Ende der Aktionszeile: Mix ab dem laufenden Song (er spielt weiter, der Mix ersetzt, was nach ihm kommt), laufenden
+ * Song zu einer Playlist, Warteschlange als Playlist speichern, Titel-Info.
+ */
 @Composable
 private fun PlayerMoreMenu(state: PlayerState) {
     val current = state.current ?: return
@@ -525,6 +530,7 @@ private fun PlayerMoreMenu(state: PlayerState) {
             Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            MixMenuItem(MixSeed.Song(current.songId), onDismiss = { open = false }, afterCurrent = true)
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.action_add_to_playlist)) },
                 leadingIcon = { Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = null) },

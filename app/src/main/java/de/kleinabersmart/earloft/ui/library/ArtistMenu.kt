@@ -25,11 +25,13 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
+import de.kleinabersmart.earloft.core.data.mix.MixSeed
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.core.download.DownloadRepository
 import de.kleinabersmart.earloft.core.model.AlbumOfflineStatus
 import de.kleinabersmart.earloft.core.model.Song
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import de.kleinabersmart.earloft.ui.components.MixMenuItem
 import de.kleinabersmart.earloft.ui.components.ShareMenuItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -38,7 +40,7 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
  * Kontextmenü eines Künstlers (Langklick auf Kachel oder Zeile, ⋮ auf der Künstlerseite), aufgebaut wie das der Alben: oben der
- * Name, darunter Als Nächstes spielen, Zur Warteschlange (alle seine Songs), Teilen, Herunterladen bzw. Download entfernen
+ * Name, darunter Als Nächstes spielen, Zur Warteschlange (alle seine Songs), Mix starten, Teilen, Herunterladen bzw. Download entfernen
  * (seine Alben). Erst einbinden, wenn es offen ist.
  */
 @Composable
@@ -76,6 +78,7 @@ fun ArtistMenu(
                 onDismiss()
             },
         )
+        MixMenuItem(MixSeed.Artist(artistId), onDismiss)
         ShareMenuItem(ShareTarget.Artist(artistId), onDismiss)
         // Wie bei den Alben: rein lokale Künstler brauchen keinen Download; teilweise geladen bietet beides.
         if (offline.downloadableCount > 0 && !offline.isFullyOffline && offline.pendingCount == 0) {

@@ -84,6 +84,12 @@ interface RemoteLyrics {
     suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics
 }
 
+/** Server, die zu einem Song passende Songs vorschlagen (Mix). Fehler: Ausnahmen; leer, wenn der Server nichts weiß. */
+interface RemoteSimilarSongs {
+    /** `remoteId`s von bis zu [count] Songs, die zum Song [remoteId] passen, in der Reihenfolge des Servers. */
+    suspend fun similarSongs(remoteId: String, count: Int): List<String>
+}
+
 /** Quellen, deren Dateien Songtexte einbetten. Fehler beim Lesen gelten als „kein Text“. */
 interface LocalLyrics {
     suspend fun embeddedLyrics(remoteId: String): Lyrics

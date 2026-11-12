@@ -55,6 +55,7 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
     override fun setSpeed(speed: Float) = record(Command.Simple("setSpeed $speed"))
     override fun playNext(songs: List<Song>) = record(Command.Simple("playNext"))
     override fun addToQueue(songs: List<Song>) = record(Command.Simple("addToQueue"))
+    override fun replaceUpcoming(songs: List<Song>) = record(Command.ReplaceUpcoming(songs.map { it.id }))
     override fun togglePlayPause() = record(Command.Simple("togglePlayPause"))
     override fun pause() = record(Command.Simple("pause"))
     override fun next() = record(Command.Simple("next"))
@@ -71,6 +72,7 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
 
     sealed interface Command {
         data class Play(val songIds: List<Long>, val startIndex: Int, val shuffle: Boolean) : Command
+        data class ReplaceUpcoming(val songIds: List<Long>) : Command
         data class PlayFromSearch(val query: String) : Command
         data class PlayBook(val bookId: Long, val startPositionMs: Long?) : Command
         data class SeekToTrack(val trackIndex: Int, val positionMs: Long) : Command

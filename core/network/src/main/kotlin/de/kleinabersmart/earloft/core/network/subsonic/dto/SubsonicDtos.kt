@@ -26,6 +26,7 @@ data class SubsonicResponse(
     val albumList2: AlbumList2Dto? = null,
     val album: AlbumDto? = null,
     val starred2: Starred2Dto? = null,
+    val similarSongs: SimilarSongsDto? = null,
     val playlists: PlaylistsDto? = null,
     val playlist: PlaylistDto? = null,
     val lyricsList: LyricsListDto? = null,
@@ -56,6 +57,11 @@ data class AlbumList2Dto(
 
 @Serializable
 data class Starred2Dto(
+    val song: List<SongDto> = emptyList(),
+)
+
+@Serializable
+data class SimilarSongsDto(
     val song: List<SongDto> = emptyList(),
 )
 

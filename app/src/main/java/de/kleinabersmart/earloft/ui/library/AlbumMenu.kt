@@ -25,7 +25,9 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.AlbumOfflineStatus
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
+import de.kleinabersmart.earloft.core.data.mix.MixSeed
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
+import de.kleinabersmart.earloft.ui.components.MixMenuItem
 import de.kleinabersmart.earloft.ui.components.ShareMenuItem
 import de.kleinabersmart.earloft.ui.components.WatchMenuItem
 import de.kleinabersmart.earloft.ui.components.WatchTarget
@@ -35,7 +37,7 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
  * Kontextmenü eines Albums (Langklick), aufgebaut wie das der Folgen: oben der Titel, darunter Als Nächstes spielen,
- * Zur Warteschlange, Zur Playlist, Teilen, Herunterladen, Auf Uhr laden bzw. Von Uhr entfernen, Download entfernen. Erst einbinden, wenn es offen ist; [onDismiss]
+ * Zur Warteschlange, Mix starten, Zur Playlist, Teilen, Herunterladen, Auf Uhr laden bzw. Von Uhr entfernen, Download entfernen. Erst einbinden, wenn es offen ist; [onDismiss]
  * schließt es (auch nach den Dialogen für Playlist und Entfernen).
  */
 @Composable
@@ -74,6 +76,7 @@ fun AlbumMenu(
                 onDismiss()
             },
         )
+        MixMenuItem(MixSeed.Album(album.id), onDismiss)
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_add_to_playlist)) },
             leadingIcon = { Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = null) },

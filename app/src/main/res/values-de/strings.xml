@@ -25,6 +25,12 @@
     <string name="action_previous">Vorheriger Titel</string>
     <string name="action_play_next">Als Nächstes spielen</string>
     <string name="action_add_to_queue">Zur Warteschlange hinzufügen</string>
+    <string name="action_start_mix">Mix starten</string>
+    <string name="mix_empty">Keine passenden Songs für einen Mix</string>
+    <plurals name="mix_queued">
+        <item quantity="one">Als Nächstes: Mix mit %1$d Song</item>
+        <item quantity="other">Als Nächstes: Mix mit %1$d Songs</item>
+    </plurals>
     <string name="action_remove_from_queue">Aus der Warteschlange entfernen</string>
     <string name="action_reorder_queue_item">Zum Umsortieren ziehen</string>
     <string name="action_move_up">Nach oben</string>

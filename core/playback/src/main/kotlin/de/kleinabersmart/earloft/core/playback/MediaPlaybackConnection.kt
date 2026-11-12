@@ -242,6 +242,19 @@ class MediaPlaybackConnection @Inject constructor(
         if (playbackState == Player.STATE_IDLE) prepare()
     }
 
+    override fun replaceUpcoming(songs: List<Song>) = withController {
+        if (mediaItemCount == 0) {
+            setMediaItems(songs.map { it.toMediaItem() })
+            prepare()
+            play()
+            return@withController
+        }
+        val next = currentMediaItemIndex + 1
+        if (next < mediaItemCount) removeMediaItems(next, mediaItemCount)
+        addMediaItems(songs.map { it.toMediaItem() })
+        if (playbackState == Player.STATE_IDLE) prepare()
+    }
+
     override fun togglePlayPause() = withController {
         if (isPlaying) {
             pause()

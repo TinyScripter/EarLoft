@@ -14,6 +14,7 @@ import de.kleinabersmart.earloft.core.datasource.RemotePlaybackReporting
 import de.kleinabersmart.earloft.core.datasource.RemotePlaylist
 import de.kleinabersmart.earloft.core.datasource.RemotePlaylistInfo
 import de.kleinabersmart.earloft.core.datasource.RemoteQuickSync
+import de.kleinabersmart.earloft.core.datasource.RemoteSimilarSongs
 import de.kleinabersmart.earloft.core.datasource.RemoteTranscoding
 import de.kleinabersmart.earloft.core.datasource.SourceBatch
 import de.kleinabersmart.earloft.core.datasource.decodeSampled
@@ -44,7 +45,7 @@ class JellyfinDataSource internal constructor(
     private val api: JellyfinApi,
     private val names: FallbackNames,
 ) : MusicDataSource, RemoteLibraryActions, RemoteLyrics, RemoteQuickSync, ExternalPlayback, RemoteTranscoding,
-    RemotePlaybackReporting {
+    RemotePlaybackReporting, RemoteSimilarSongs {
 
     override val sourceId: String get() = server.sourceId
     override val type: SourceType = server.flavor.sourceType
@@ -118,6 +119,10 @@ class JellyfinDataSource internal constructor(
 
     /** Jellyfin merkt sich nicht, seit wann ein Song Favorit ist. */
     override suspend fun starredSongs(): Map<String, Long> = api.favoriteSongIds(server).associateWith { 0L }
+
+    /** Unbekanntes (z. B. aus anderen Bibliotheken) verwirft der Mix ohnehin. */
+    override suspend fun similarSongs(remoteId: String, count: Int): List<String> =
+        api.instantMix(server, remoteId, count).filter { it != remoteId }
 
     override suspend fun resolvePlayback(remoteId: String): PlaybackLocation =
         PlaybackLocation.Remote(uri = api.streamUrl(server, remoteId).toString().toUri(), cacheKey = "$sourceId:$remoteId")

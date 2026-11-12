@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.datasource.RawTrack
 import de.kleinabersmart.earloft.core.datasource.RemotePlaylist
 import de.kleinabersmart.earloft.core.datasource.RemotePlaylistInfo
 import de.kleinabersmart.earloft.core.datasource.RemoteQuickSync
+import de.kleinabersmart.earloft.core.datasource.RemoteSimilarSongs
 import de.kleinabersmart.earloft.core.datasource.RemoteTranscoding
 import de.kleinabersmart.earloft.core.datasource.SourceBatch
 import de.kleinabersmart.earloft.core.datasource.decodeSampled
@@ -39,7 +40,8 @@ class SubsonicDataSource internal constructor(
     override val displayName: String,
     private val api: SubsonicApi,
     private val names: FallbackNames,
-) : MusicDataSource, RemoteLibraryActions, RemoteLyrics, RemoteQuickSync, ExternalPlayback, RemoteTranscoding {
+) : MusicDataSource, RemoteLibraryActions, RemoteLyrics, RemoteQuickSync, ExternalPlayback, RemoteTranscoding,
+    RemoteSimilarSongs {
 
     override val sourceId: String get() = server.sourceId
     override val type: SourceType = SourceType.SUBSONIC
@@ -93,6 +95,9 @@ class SubsonicDataSource internal constructor(
 
     override suspend fun starredSongs(): Map<String, Long> =
         api.starredSongs(server).associate { it.id to (it.starred?.toEpochMillis() ?: 0L) }
+
+    override suspend fun similarSongs(remoteId: String, count: Int): List<String> =
+        api.similarSongs(server, remoteId, count).filter(SubsonicTrackMapper::isMusic).map { it.id }
 
     override suspend fun resolvePlayback(remoteId: String): PlaybackLocation =
         PlaybackLocation.Remote(

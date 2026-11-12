@@ -97,9 +97,11 @@ import de.kleinabersmart.earloft.navigation.TopLevelDestination
 import de.kleinabersmart.earloft.navigation.isFullScreenPlayer
 import de.kleinabersmart.earloft.navigation.rememberNavigationState
 import de.kleinabersmart.earloft.ui.components.LocalOfflineController
+import de.kleinabersmart.earloft.ui.components.LocalMixController
 import de.kleinabersmart.earloft.ui.components.LocalShareController
 import de.kleinabersmart.earloft.ui.components.LocalWatchController
 import de.kleinabersmart.earloft.ui.components.rememberOfflineController
+import de.kleinabersmart.earloft.ui.components.rememberMixController
 import de.kleinabersmart.earloft.ui.components.rememberShareController
 import de.kleinabersmart.earloft.ui.components.rememberWatchController
 import de.kleinabersmart.earloft.ui.downloads.DownloadsScreen
@@ -493,6 +495,7 @@ fun EarLoftApp(
         LocalOfflineController provides rememberOfflineController(),
         LocalWatchController provides rememberWatchController(),
         LocalShareController provides rememberShareController(),
+        LocalMixController provides rememberMixController(),
         LocalBookDownloads provides rememberBookDownloads(),
         LocalFeedDownloads provides rememberFeedDownloads(),
     ) {

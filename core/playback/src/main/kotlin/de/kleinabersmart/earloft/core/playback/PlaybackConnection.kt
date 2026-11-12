@@ -100,6 +100,9 @@ interface PlaybackConnection {
 
     fun addToQueue(songs: List<Song>)
 
+    /** Der laufende Titel spielt weiter, alles nach ihm weicht [songs] (Mix aus Now Playing); ohne Warteschlange wie [play]. */
+    fun replaceUpcoming(songs: List<Song>)
+
     fun togglePlayPause()
 
     fun pause()

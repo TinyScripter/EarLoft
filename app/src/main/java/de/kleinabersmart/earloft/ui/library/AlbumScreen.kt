@@ -67,7 +67,9 @@ import de.kleinabersmart.earloft.ui.components.PreviewAlbum
 import de.kleinabersmart.earloft.ui.components.PreviewSong
 import de.kleinabersmart.earloft.ui.components.GroupedItem
 import de.kleinabersmart.earloft.ui.components.SectionHeader
+import de.kleinabersmart.earloft.ui.components.MixButton
 import de.kleinabersmart.earloft.ui.components.ShareButton
+import de.kleinabersmart.earloft.core.data.mix.MixSeed
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.ui.components.SongActions
 import de.kleinabersmart.earloft.ui.components.SongListItem
@@ -124,6 +126,7 @@ private fun AlbumContent(
             actions = {
                 if (state is LoadState.Ready) {
                     WatchToggleButton(WearSelectionKind.ALBUM, state.value.album.id)
+                    MixButton(MixSeed.Album(state.value.album.id))
                     AddAlbumToPlaylistButton(state.value.songs.map { it.id })
                     ShareButton(ShareTarget.Album(state.value.album.id))
                 }
