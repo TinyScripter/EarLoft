@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.QueueEntry
 import de.kleinabersmart.earloft.core.playback.SpokenEntry
+import de.kleinabersmart.earloft.core.playback.nextRepeatMode
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteAction
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteStateDto
 import de.kleinabersmart.earloft.wear.sync.PhoneRemote
@@ -30,7 +31,7 @@ import kotlin.math.roundToInt
 
 /**
  * Wiedergabe-Ansicht des Handys (Wear-Konzept 15): zeigt, was das Handy meldet, und schickt die Bedienung dorthin.
- * Play/Pause und Zufall springen sofort um und gelten, bis das Handy seinen Zustand meldet.
+ * Play/Pause, Zufall und Wiederholen springen sofort um und gelten, bis das Handy seinen Zustand meldet.
  */
 @HiltViewModel
 class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote) : ViewModel(), NowPlayingModel {
@@ -43,15 +44,22 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
                 // Das Handy hat gemeldet: Die vorläufigen Werte gelten nicht mehr.
                 pendingPlaying.value = null
                 pendingShuffle.value = null
+                pendingRepeat.value = null
                 if (dto != null && !_volumeVisible.value) _volume.value = dto.volume
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val pendingPlaying = MutableStateFlow<Boolean?>(null)
     private val pendingShuffle = MutableStateFlow<Boolean?>(null)
+    private val pendingRepeat = MutableStateFlow<Int?>(null)
     private var pendingJob: Job? = null
 
-    override val state: StateFlow<PlayerState> = combine(remoteState, pendingPlaying, pendingShuffle) { remote, playing, shuffle ->
+    override val state: StateFlow<PlayerState> = combine(
+        remoteState,
+        pendingPlaying,
+        pendingShuffle,
+        pendingRepeat,
+    ) { remote, playing, shuffle, repeat ->
         val dto = remote ?: return@combine PlayerState()
         val spoken = dto.hasMedia && dto.isSpoken
         PlayerState(
@@ -66,6 +74,7 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
             isPlaying = playing ?: dto.isPlaying,
             durationMs = dto.durationMs,
             shuffle = shuffle ?: dto.shuffle,
+            repeatMode = repeat ?: dto.repeatMode,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerState())
 
@@ -122,6 +131,11 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
         send(WearRemoteAction.TOGGLE_SHUFFLE)
     }
 
+    override fun cycleRepeat() {
+        pending { pendingRepeat.value = nextRepeatMode(state.value.repeatMode) }
+        send(WearRemoteAction.CYCLE_REPEAT)
+    }
+
     override fun skipBack() = send(WearRemoteAction.SKIP_BACK)
 
     override fun skipForward() = send(WearRemoteAction.SKIP_FORWARD)
@@ -161,6 +175,7 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
             delay(PENDING_MS)
             pendingPlaying.value = null
             pendingShuffle.value = null
+            pendingRepeat.value = null
         }
     }
 

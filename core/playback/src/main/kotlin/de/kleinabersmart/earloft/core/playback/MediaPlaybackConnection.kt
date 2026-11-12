@@ -272,13 +272,7 @@ class MediaPlaybackConnection @Inject constructor(
 
     override fun toggleShuffle() = withController { shuffleModeEnabled = !shuffleModeEnabled }
 
-    override fun cycleRepeatMode() = withController {
-        repeatMode = when (repeatMode) {
-            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-            else -> Player.REPEAT_MODE_OFF
-        }
-    }
+    override fun cycleRepeatMode() = withController { repeatMode = nextRepeatMode(repeatMode) }
 
     override fun changeRemoteVolume(up: Boolean) = withController {
         if (deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return@withController

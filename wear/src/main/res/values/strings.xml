@@ -57,6 +57,9 @@
     <string name="player_pause">Pause</string>
     <string name="player_next">Next</string>
     <string name="player_shuffle">Shuffle order</string>
+    <string name="player_repeat_off">Repeat off</string>
+    <string name="player_repeat_all">Repeat all</string>
+    <string name="player_repeat_one">Repeat track</string>
     <string name="player_output">Bluetooth output</string>
     <string name="player_position">Position in track</string>
     <string name="player_position_spoken">Playback position</string>

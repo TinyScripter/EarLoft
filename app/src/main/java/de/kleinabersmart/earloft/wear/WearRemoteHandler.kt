@@ -61,6 +61,7 @@ class WearRemoteHandler @Inject constructor(
             WearRemoteAction.SKIP_BACK -> playback.skipBack()
             WearRemoteAction.SKIP_FORWARD -> playback.skipForward()
             WearRemoteAction.VOLUME_STEPS -> changeVolume(command.value.toInt())
+            WearRemoteAction.CYCLE_REPEAT -> playback.cycleRepeatMode()
         }
     }
 

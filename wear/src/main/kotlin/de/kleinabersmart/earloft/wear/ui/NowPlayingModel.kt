@@ -33,6 +33,9 @@ interface NowPlayingModel {
 
     fun toggleShuffle()
 
+    /** Wiederholen: aus → alle → Titel → aus. */
+    fun cycleRepeat()
+
     /** Buch oder Folge: um die eingestellte Sprungweite zurück bzw. vor ([de.kleinabersmart.earloft.core.playback.SpokenEntry.seek]). */
     fun skipBack()
 

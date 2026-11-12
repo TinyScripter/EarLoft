@@ -55,6 +55,9 @@
     <string name="player_pause">Pause</string>
     <string name="player_next">Weiter</string>
     <string name="player_shuffle">Zufällige Reihenfolge</string>
+    <string name="player_repeat_off">Wiederholen aus</string>
+    <string name="player_repeat_all">Alle wiederholen</string>
+    <string name="player_repeat_one">Titel wiederholen</string>
     <string name="player_output">Bluetooth-Ausgabe</string>
     <string name="player_position">Position im Titel</string>
     <string name="player_position_spoken">Wiedergabeposition</string>

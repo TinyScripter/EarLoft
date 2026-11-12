@@ -7,6 +7,13 @@ import de.kleinabersmart.earloft.core.model.Song
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
+/** Wiederholen reihum: aus → alle → Titel → aus (`Player.REPEAT_MODE_*`). */
+fun nextRepeatMode(mode: Int): Int = when (mode) {
+    Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+    Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+    else -> Player.REPEAT_MODE_OFF
+}
+
 data class QueueEntry(
     val songId: Long,
     val title: String,

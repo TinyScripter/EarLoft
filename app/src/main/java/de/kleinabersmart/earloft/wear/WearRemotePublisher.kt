@@ -166,6 +166,7 @@ class WearRemotePublisher @Inject constructor(
             sampledAt = System.currentTimeMillis(),
             isPlaying = state.isPlaying,
             shuffle = state.shuffle,
+            repeatMode = state.repeatMode,
             seedColor = albumId?.let { albumColors.seedColorNow(it) },
             volume = musicVolume(),
             volumeMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),

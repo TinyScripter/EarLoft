@@ -153,6 +153,7 @@ private fun NowPlayingHost(
             onSkipBack = model::skipBack,
             onSkipForward = model::skipForward,
             onShuffle = model::toggleShuffle,
+            onRepeat = model::cycleRepeat,
             onOutput = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
             onCrown = model::onCrown,
             onSeek = model::seekTo,
@@ -179,6 +180,7 @@ private fun NowPlayingContent(
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
     onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
     onOutput: () -> Unit,
     onCrown: (Float) -> Unit,
     onSeek: (Long) -> Unit,
@@ -312,6 +314,18 @@ private fun NowPlayingContent(
                                 onShuffle,
                                 active = state.shuffle,
                                 toggle = true,
+                            )
+                            // Wie am Handy reihum: aus → alle → Titel; die Beschreibung nennt den Zustand.
+                            ControlButton(
+                                if (state.repeatMode == Player.REPEAT_MODE_ONE) R.drawable.ic_repeat_one else R.drawable.ic_repeat,
+                                when (state.repeatMode) {
+                                    Player.REPEAT_MODE_ONE -> R.string.player_repeat_one
+                                    Player.REPEAT_MODE_ALL -> R.string.player_repeat_all
+                                    else -> R.string.player_repeat_off
+                                },
+                                SECONDARY_BUTTON_SIZE,
+                                onRepeat,
+                                active = state.repeatMode != Player.REPEAT_MODE_OFF,
                             )
                         }
                         if (sleepTimerAvailable) {
@@ -591,6 +605,7 @@ private fun NowPlayingPreview() {
                 onSkipBack = {},
                 onSkipForward = {},
                 onShuffle = {},
+                onRepeat = {},
                 onOutput = {},
                 onCrown = {},
                 onSeek = {},
@@ -626,6 +641,7 @@ private fun NowPlayingBookPreview() {
                 onSkipBack = {},
                 onSkipForward = {},
                 onShuffle = {},
+                onRepeat = {},
                 onOutput = {},
                 onCrown = {},
                 onSeek = {},

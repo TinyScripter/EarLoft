@@ -146,6 +146,8 @@ class PlayerViewModel @Inject constructor(
 
     override fun toggleShuffle() = playback.toggleShuffle()
 
+    override fun cycleRepeat() = playback.cycleRepeatMode()
+
     // Podcast-Folgen auf der Uhr (Wear-Konzept 16.1); die Ansicht zeigt die Knöpfe nur bei Gesprochenem.
     override fun skipBack() = playback.skipBack()
 

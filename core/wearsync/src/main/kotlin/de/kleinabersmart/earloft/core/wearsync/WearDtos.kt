@@ -367,6 +367,8 @@ data class WearRemoteStateDto(
     val seekBackSeconds: Int = 10,
     val seekForwardSeconds: Int = 30,
     val shuffle: Boolean = false,
+    /** `Player.REPEAT_MODE_*` des Handys; ältere Handys melden nichts (= aus). */
+    val repeatMode: Int = 0,
     /** Akzentfarbe des Albums (ARGB); `null`, solange sie fehlt. */
     val seedColor: Int? = null,
     /** Medienlautstärke des Handys, 0..1. */
@@ -499,6 +501,9 @@ enum class WearRemoteAction {
 
     /** [WearRemoteCommand.value] = Schritte der Medienlautstärke, negativ = leiser. */
     VOLUME_STEPS,
+
+    /** Wiederholen: aus → alle → Titel → aus. Ältere Handys verwerfen den unbekannten Befehl. */
+    CYCLE_REPEAT,
 }
 
 @Serializable
