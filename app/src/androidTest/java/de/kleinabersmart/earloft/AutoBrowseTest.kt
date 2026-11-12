@@ -77,6 +77,18 @@ class AutoBrowseTest {
         assertEquals(listOf("recent", "library", "playlists", "favorites"), children("root")!!.map { it.mediaId })
     }
 
+    /** „Zuletzt“ liefert, was „Weiterhören“ der Podcasts liefert (so sieht es Android Auto). */
+    @Test
+    fun homeListsWhatContinueListeningHas() {
+        val continueEpisodes = children("podcasts:continue").orEmpty().map { it.mediaId }
+        val home = children("home")
+        assertNotNull(home)
+        android.util.Log.i("AutoBrowseTest", "home=${home!!.map { it.mediaId + "|" + group(it) }} continue=$continueEpisodes")
+        if (continueEpisodes.isNotEmpty()) {
+            assertTrue("Zuletzt ist leer, obwohl Weiterhören ${continueEpisodes.size} Folgen hat", home.isNotEmpty())
+        }
+    }
+
     /**
      * Umschalten meldet die Session selbst (notifyChildrenChanged) an alle, die die Wurzel abonniert haben. Der alte
      * [MediaBrowser] des Frameworks abonniert nicht bei der Session (nur die Compat-Fassung von Android Auto); daher hier ein
