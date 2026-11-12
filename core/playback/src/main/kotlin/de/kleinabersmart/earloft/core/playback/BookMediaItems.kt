@@ -1,6 +1,5 @@
 package de.kleinabersmart.earloft.core.playback
 
-import android.net.Uri
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
@@ -8,7 +7,6 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import de.kleinabersmart.earloft.core.data.spoken.PreparedBook
-import de.kleinabersmart.earloft.core.model.AppUris
 import de.kleinabersmart.earloft.core.model.BookKind
 
 /**
@@ -52,7 +50,7 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> =
                     .setTitle(book.title)
                     .setArtist(book.author)
                     .setAlbumTitle(book.title)
-                    .setArtworkUri(Uri.parse(AppUris.bookCover(book.id)))
+                    .setArtworkUri(CoverProvider.queueBookCoverUri(book.id))
                     .setDurationMs(timeline.tracks[index].durationMs)
                     .setIsBrowsable(false)
                     .setIsPlayable(true)

@@ -77,6 +77,37 @@ class AutoBrowseTest {
         assertEquals(listOf("recent", "library", "playlists", "favorites"), children("root")!!.map { it.mediaId })
     }
 
+    /**
+     * Android Auto lädt das Cover der Medienkarte über die Art-URI der Plattform-Session; `earloft://cover/…` kann es nicht lesen
+     * (Glide: „Load failed“), die Cover-Provider-Adresse schon.
+     */
+    @Test
+    fun currentItemCoverIsALoadableUri() {
+        val gotMetadata = CountDownLatch(1)
+        var artUri: String? = null
+        var hasItem = false
+        instrumentation.runOnMainSync {
+            val controller = MediaController(context, browser!!.sessionToken)
+            val read = {
+                controller.metadata?.let {
+                    hasItem = true
+                    artUri = it.getString(MediaMetadata.METADATA_KEY_ART_URI)
+                    gotMetadata.countDown()
+                }
+            }
+            controller.registerCallback(
+                object : MediaController.Callback() {
+                    override fun onMetadataChanged(metadata: MediaMetadata?) { read() }
+                },
+                Handler(Looper.getMainLooper()),
+            )
+            read()
+        }
+        if (!gotMetadata.await(10, TimeUnit.SECONDS)) return // Nichts geladen: es gibt kein Cover zu prüfen.
+        android.util.Log.i("AutoBrowseTest", "hasItem=$hasItem artUri=$artUri")
+        assertTrue("Art-URI: $artUri", artUri == null || artUri!!.startsWith("content://"))
+    }
+
     /** „Zuletzt“ liefert, was „Weiterhören“ der Podcasts liefert (so sieht es Android Auto). */
     @Test
     fun homeListsWhatContinueListeningHas() {

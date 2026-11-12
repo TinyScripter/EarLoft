@@ -194,12 +194,27 @@ class PlaybackService : MediaLibraryService() {
         session?.let { bindFavoriteButton(sessionPlayer, it) }
         session?.let { notifyAreaChanges(it) }
         restoreQueue(player)
+        session?.let { notifyContentChanges(it, player) }
     }
 
     /**
      * Bereiche ein- oder ausgeschaltet: Die Tabs der Wurzel und „Zuletzt“ ändern sich. Android Auto lädt sie daraufhin neu
      * (ob sofort oder erst beim nächsten Verbinden, entscheidet Auto).
      */
+    /**
+     * „Zuletzt“ und die Weiterhören-Ordner ändern sich mit dem, was läuft. Android Auto merkt sich jede Antwort bis zur nächsten
+     * Meldung: Eine Abfrage direkt nach dem Start des Dienstes (vor der wiederhergestellten Warteschlange) blieb sonst leer.
+     */
+    private fun notifyContentChanges(session: MediaLibrarySession, player: Player) {
+        fun notifyAll() {
+            for (id in CONTENT_FOLDERS) session.notifyChildrenChanged(id, Int.MAX_VALUE, null)
+        }
+        player.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = notifyAll()
+        })
+        restoreJob?.invokeOnCompletion { mainScope.launch { notifyAll() } }
+    }
+
     private fun notifyAreaChanges(session: MediaLibrarySession) {
         mainScope.launch {
             spokenSettings.areas.distinctUntilChanged().drop(1).collect { areas ->
@@ -498,6 +513,14 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 }
+
+/** Ordner im Browse-Tree, deren Inhalt von der letzten Wiedergabe abhängt. */
+private val CONTENT_FOLDERS = listOf(
+    MediaIds.HOME,
+    MediaIds.RECENT,
+    MediaIds.EPISODES_CONTINUE,
+    MediaIds.BOOKS_CONTINUE,
+)
 
 private fun audioAttributes(contentType: @C.AudioContentType Int): AudioAttributes =
     AudioAttributes.Builder()

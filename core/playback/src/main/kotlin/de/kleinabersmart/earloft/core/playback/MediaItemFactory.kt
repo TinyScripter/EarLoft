@@ -125,10 +125,10 @@ val MediaMetadata.albumIdExtra: Long? get() = extras?.getLong(EXTRA_ALBUM_ID, -1
  * Die URI zeigt nur auf `earloft://song/<id>` – welche Datei bzw. welcher Stream gespielt wird,
  * entscheidet [SongDataSource] erst beim Laden.
  *
- * Das Cover ist `earloft://cover/…` für App, Benachrichtigung und Uhr; im Browse-Tree ([toBrowsableSongItem]) dagegen die
- * [CoverProvider]-URI, die auch Android Auto lesen kann.
+ * Das Cover ist die [CoverProvider]-URI ([CoverProvider.queueCoverUri]), die auch Android Auto und die System-Oberfläche lesen
+ * können (Medienkarte); `earloft://cover/…` kann nur die App selbst laden, den Bitmap-Loader der Session verstehen beide.
  */
-fun Song.toMediaItem(): MediaItem = toMediaItem(MediaIds.song(id), Uri.parse(AppUris.albumCover(albumId)))
+fun Song.toMediaItem(): MediaItem = toMediaItem(MediaIds.song(id), CoverProvider.queueCoverUri(albumId))
 
 internal fun Song.toBrowsableSongItem(context: Context, contextId: String): MediaItem =
     toMediaItem(MediaIds.inContext(contextId, id), CoverProvider.albumCoverUri(context, albumId))

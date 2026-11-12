@@ -13,6 +13,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
+import de.kleinabersmart.earloft.core.model.AppUris
 import kotlinx.coroutines.runBlocking
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
@@ -36,7 +37,11 @@ class CoverProvider : ContentProvider() {
         fun bookCovers(): BookCovers
     }
 
-    override fun onCreate(): Boolean = true
+    override fun onCreate(): Boolean {
+        // Der Provider startet mit dem Prozess, vor Service und App: Ab hier gibt es die Adressen ohne Context ([queueCoverUri]).
+        context?.let { authorityName = authority(it) }
+        return true
+    }
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
         if (mode != "r") throw FileNotFoundException("Nur lesbar")
@@ -80,6 +85,21 @@ class CoverProvider : ContentProvider() {
         private const val JPEG_QUALITY = 90
 
         fun authority(context: Context): String = "${context.packageName}.covers"
+
+        @Volatile
+        private var authorityName: String? = null
+
+        /**
+         * Cover eines Eintrags der Warteschlange: die [CoverProvider]-Adresse, die Android Auto und die System-Oberfläche laden
+         * können; ohne laufenden Provider (Unit-Tests) `earloft://cover/…`. [ArtworkBitmapLoader] versteht beide.
+         */
+        fun queueCoverUri(albumId: Long): Uri =
+            authorityName?.let { Uri.Builder().scheme("content").authority(it).appendPath(ALBUM_SEGMENT).appendPath(albumId.toString()).build() }
+                ?: Uri.parse(AppUris.albumCover(albumId))
+
+        fun queueBookCoverUri(bookId: Long): Uri =
+            authorityName?.let { Uri.Builder().scheme("content").authority(it).appendPath(BOOK_SEGMENT).appendPath(bookId.toString()).build() }
+                ?: Uri.parse(AppUris.bookCover(bookId))
 
         /** Wurzel aller Cover-URIs, für eine Freigabe mit `FLAG_GRANT_PREFIX_URI_PERMISSION`. */
         fun rootUri(context: Context): Uri = Uri.Builder().scheme("content").authority(authority(context)).build()
