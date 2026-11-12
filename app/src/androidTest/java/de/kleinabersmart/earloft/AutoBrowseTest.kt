@@ -108,6 +108,17 @@ class AutoBrowseTest {
         assertTrue("Art-URI: $artUri", artUri == null || artUri!!.startsWith("content://"))
     }
 
+    /** Die Bücher-Ordner liefern etwas, wenn es Bücher gibt; zeigt, wie viele (Logcat `AutoBrowseTest`). */
+    @Test
+    fun bookFoldersListTheBooks() {
+        val sizes = listOf("books:continue", "books:recent", "books:all", "books:authors", "books:series")
+            .associateWith { children(it)?.size }
+        android.util.Log.i("AutoBrowseTest", "books=$sizes")
+        val all = sizes.getValue("books:all")
+        assertNotNull("Alle Bücher nicht abrufbar", all)
+        if (sizes.getValue("books:authors") ?: 0 > 0) assertTrue("Autoren da, aber keine Bücher", all!! > 0)
+    }
+
     /** „Zuletzt“ liefert, was „Weiterhören“ der Podcasts liefert (so sieht es Android Auto). */
     @Test
     fun homeListsWhatContinueListeningHas() {
