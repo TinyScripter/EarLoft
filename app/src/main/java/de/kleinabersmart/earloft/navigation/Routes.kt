@@ -166,7 +166,7 @@ data object AboutRoute : NavKey
 data object LicensesRoute : NavKey
 
 /** Seiten des Einrichtungsassistenten (Konzept 15) in ihrer Reihenfolge. */
-enum class SetupPage { WELCOME, NOTIFICATIONS, DONE }
+enum class SetupPage { WELCOME, AREAS, MUSIC, PODCASTS, BOOKS, NOTIFICATIONS, DONE }
 
 /**
  * Eine Seite des Einrichtungsassistenten. Jede Seite liegt als eigener Eintrag im Stack: „Zurück“ und die Zurück-Geste

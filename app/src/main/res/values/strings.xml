@@ -786,6 +786,14 @@
     <string name="setup_welcome_title">Welcome to EarLoft</string>
     <string name="setup_welcome_text">EarLoft plays your own collection: music from your Navidrome, Subsonic, Jellyfin or Emby server, podcasts from any feed and audiobooks from Audiobookshelf, plus the files on this device. Everything can be downloaded and also plays on your Wear OS watch and in Android Auto.</string>
     <string name="setup_welcome_hint">The next steps set up where it all comes from. You can skip any step and change everything later in the settings.</string>
+    <string name="setup_areas_title">What do you listen to?</string>
+    <string name="setup_areas_text">Choose the sections EarLoft shows. The next steps only cover these.</string>
+    <string name="setup_music_text">Add your music server, use the music on this device, or both. Songs that exist on several sources show up once.</string>
+    <string name="setup_podcasts_text">Subscribe to podcasts by searching a directory or entering the feed address. Switch on the directories you want to search.</string>
+    <string name="setup_books_text">Connect your Audiobookshelf server or use the books in the “Audiobooks” folder on this device.</string>
+    <string name="setup_section_servers">Servers</string>
+    <string name="setup_section_subscriptions">Subscriptions</string>
+    <string name="setup_section_device">On this device</string>
     <string name="setup_notifications_title">Notifications</string>
     <string name="setup_notifications_text">EarLoft lets you know about new music, episodes and books and shows the progress of downloads. The notification for what is playing appears even without this permission.</string>
     <string name="setup_notifications_allow">Allow notifications</string>

@@ -210,8 +210,10 @@ application ID (`de.kleinabersmart.earloft`), so install both for the watch feat
 
 ## Getting started
 
-1. Open the app. At the first start a short setup explains what EarLoft does and lets you allow notifications. You can
-   skip it at any time and open it again under **Settings → General → Show setup again**. Access to your audio files is
+1. Open the app. At the first start a short setup guides you through the sections you want (music, podcasts, books),
+   their sources (servers, subscriptions, files on this device, images from the internet) and notifications. You can
+   skip it at any time and open it again under **Settings → General → Show setup again**. The steps below do the same
+   by hand. Access to your audio files is
    only asked for when you switch on music, podcasts or books on this device, access to your local network (from
    Android 17) when you add a server. See [Permissions](#permissions) for what each one is needed for.
 2. **Music:** switch on **Settings → Music → Use music on this device** for the music on your phone. For a server:

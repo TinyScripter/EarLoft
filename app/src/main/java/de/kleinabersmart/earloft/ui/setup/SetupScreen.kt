@@ -1,6 +1,5 @@
 package de.kleinabersmart.earloft.ui.setup
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -36,20 +35,32 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
+import de.kleinabersmart.earloft.core.model.SpokenMode
+import de.kleinabersmart.earloft.core.model.SpokenServer
 import de.kleinabersmart.earloft.navigation.SetupPage
 import de.kleinabersmart.earloft.ui.components.AppLogo
 import de.kleinabersmart.earloft.ui.components.ListGroup
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.permission.NotificationPermission
+import de.kleinabersmart.earloft.ui.permission.rememberAudioPermissionRequester
 import de.kleinabersmart.earloft.ui.permission.rememberNotificationPermissionRequester
+import de.kleinabersmart.earloft.ui.settings.SettingsUiState
+import de.kleinabersmart.earloft.ui.settings.SettingsViewModel
+import de.kleinabersmart.earloft.ui.spoken.AudiobookshelfViewModel
+import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Die Seiten, die auf diesem Gerät vorkommen, in ihrer Reihenfolge. */
-internal fun visibleSetupPages(): List<SetupPage> = SetupPage.entries.filter { page ->
+/** Die Seiten, die auf diesem Gerät und für die eingeschalteten Bereiche ([areas]) vorkommen, in ihrer Reihenfolge. */
+internal fun visibleSetupPages(areas: List<SpokenMode>): List<SetupPage> = SetupPage.entries.filter { page ->
     when (page) {
+        SetupPage.MUSIC -> SpokenMode.MUSIC in areas
+        SetupPage.PODCASTS -> SpokenMode.PODCASTS in areas
+        SetupPage.BOOKS -> SpokenMode.BOOKS in areas
         SetupPage.NOTIFICATIONS -> NotificationPermission.isRequired
         else -> true
     }
@@ -57,7 +68,8 @@ internal fun visibleSetupPages(): List<SetupPage> = SetupPage.entries.filter { p
 
 /**
  * Eine Seite des Einrichtungsassistenten (Konzept 15). Jede Einstellung darauf wirkt sofort; Beenden verwirft deshalb
- * nichts. [onNext] öffnet die folgende Seite, [onFinish] beendet den Assistenten, [onSkip] fragt vorher nach.
+ * nichts. [onNext] öffnet die folgende Seite, [onFinish] beendet den Assistenten, [onSkip] fragt vorher nach. Die
+ * `on…`-Formulare öffnen sich über dem Assistenten und kehren mit „Zurück“ hierher zurück.
  */
 @Composable
 fun SetupScreen(
@@ -66,9 +78,57 @@ fun SetupScreen(
     onBack: () -> Unit,
     onSkip: () -> Unit,
     onFinish: () -> Unit,
+    onAddMusicServer: () -> Unit,
+    onEditMusicServer: (sourceId: String) -> Unit,
+    onAddPodcast: () -> Unit,
+    onAddAudiobookshelf: () -> Unit,
+    onEditAudiobookshelf: (serverId: String) -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    // Nur die Bücher-Seite listet Audiobookshelf-Server; die Seite eines Eintrags wechselt nie.
+    val absServers = if (page == SetupPage.BOOKS) {
+        val list by hiltViewModel<AudiobookshelfViewModel>().list.collectAsStateWithLifecycle()
+        list.valueOrNull.orEmpty()
+    } else {
+        emptyList()
+    }
+    // Einschalten erst mit Berechtigung, wie auf den Einstellungsseiten.
+    val requestLocalMusic = rememberAudioPermissionRequester { if (it) viewModel.setUseLocalMedia(true) }
+    val requestLocalPodcasts = rememberAudioPermissionRequester { if (it) viewModel.setUseLocalPodcasts(true) }
+    val requestLocalBooks = rememberAudioPermissionRequester { if (it) viewModel.setUseLocalBooks(true) }
+    val actions = SetupActions(
+        onAddMusicServer = onAddMusicServer,
+        onEditMusicServer = onEditMusicServer,
+        onAddPodcast = onAddPodcast,
+        onAddAudiobookshelf = onAddAudiobookshelf,
+        onEditAudiobookshelf = onEditAudiobookshelf,
+        setArea = viewModel::setAreaEnabled,
+        setLocalMusic = { if (it) requestLocalMusic() else viewModel.setUseLocalMedia(false) },
+        setLocalPodcasts = { if (it) requestLocalPodcasts() else viewModel.setUseLocalPodcasts(false) },
+        setLocalBooks = { if (it) requestLocalBooks() else viewModel.setUseLocalBooks(false) },
+        setDirectory = viewModel::setPodcastDirectory,
+        setArtistImages = viewModel::setArtistImages,
+        setAlbumCovers = viewModel::setAlbumCovers,
+        setAuthorImages = viewModel::setAuthorImages,
+    )
+    SetupContent(page, state, absServers, actions, onNext, onBack, onSkip, onFinish, modifier)
+}
+
+@Composable
+private fun SetupContent(
+    page: SetupPage,
+    state: SettingsUiState,
+    absServers: List<SpokenServer>,
+    actions: SetupActions,
+    onNext: (SetupPage) -> Unit,
+    onBack: () -> Unit,
+    onSkip: () -> Unit,
+    onFinish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val pages = remember { visibleSetupPages() }
+    val pages = visibleSetupPages(state.areas)
     val index = pages.indexOf(page).coerceAtLeast(0)
     val next = pages.getOrNull(index + 1)
     SetupScaffold(
@@ -86,6 +146,10 @@ fun SetupScreen(
     ) {
         when (page) {
             SetupPage.WELCOME -> welcomePage()
+            SetupPage.AREAS -> areasPage(state, actions)
+            SetupPage.MUSIC -> musicPage(state, actions)
+            SetupPage.PODCASTS -> podcastsPage(state, actions)
+            SetupPage.BOOKS -> booksPage(state, absServers, actions)
             SetupPage.NOTIFICATIONS -> notificationsPage()
             SetupPage.DONE -> donePage()
         }
@@ -124,7 +188,6 @@ private fun SetupScaffold(
         LazyColumn(
             Modifier.weight(1f).readableWidth(),
             contentPadding = PaddingValues(vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
             content = content,
         )
         Row(
@@ -139,10 +202,10 @@ private fun SetupScaffold(
 }
 
 /** Überschrift einer Seite: Bild (oder Logo), Titel und ein kurzer Text, mittig. */
-private fun LazyListScope.pageHeader(title: Int, text: Int, icon: Int? = null, logo: Boolean = false) {
+internal fun LazyListScope.pageHeader(title: Int, text: Int, icon: Int? = null, logo: Boolean = false) {
     item(key = "header") {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (logo) {
@@ -174,7 +237,7 @@ private fun LazyListScope.pageHeader(title: Int, text: Int, icon: Int? = null, l
 }
 
 /** Ein Hinweis unter der Überschrift, kleiner und links. */
-private fun LazyListScope.pageHint(key: String, text: Int) {
+internal fun LazyListScope.pageHint(key: String, text: Int) {
     item(key = key) {
         Text(
             stringResource(text),
@@ -241,6 +304,7 @@ fun SetupExitDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 @Composable
 private fun SetupWelcomePreview() {
     EarLoftTheme {
-        SetupScreen(page = SetupPage.WELCOME, onNext = {}, onBack = {}, onSkip = {}, onFinish = {})
+        val actions = SetupActions({}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, { _, _ -> }, {}, {}, {})
+        SetupContent(SetupPage.WELCOME, SettingsUiState(), emptyList(), actions, onNext = {}, onBack = {}, onSkip = {}, onFinish = {})
     }
 }

@@ -446,13 +446,18 @@ fun EarLoftApp(
                 onBack = navigator::goBack,
                 onSkip = { confirmSetupExit = true },
                 onFinish = finishSetup,
+                onAddMusicServer = addMusicServer,
+                onEditMusicServer = { navigator.navigate(EditServerRoute(it)) },
+                onAddPodcast = openAddPodcast,
+                onAddAudiobookshelf = setupAudiobookshelf,
+                onEditAudiobookshelf = { navigator.navigate(EditAudiobookshelfRoute(it)) },
             )
         }
     }
 
     // Navigationsleiste (unten bzw. als Rail links) bleibt auf Wunsch auch im Player sichtbar; der Mini-Player entfällt dort immer.
     // Im Assistenten keins von beiden, auch nicht in den daraus geöffneten Formularen; er endet nur über seine Knöpfe.
-    val showMiniPlayer = !navigator.currentRoute.isFullScreenPlayer && navigator.currentRoute !is SetupRoute
+    val showMiniPlayer = !navigator.currentRoute.isFullScreenPlayer && !navigator.inSetup
     val showNavigation = !navigator.inSetup && (alwaysShowNavigationBar || showMiniPlayer)
     val navigationSuiteState = rememberNavigationSuiteScaffoldState()
     LaunchedEffect(showNavigation) {
