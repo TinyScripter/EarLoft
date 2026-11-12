@@ -514,7 +514,7 @@ private fun SeekBar(durationMs: Long, positionMs: () -> Long, onSeek: (Long) -> 
 
 /**
  * ⋮ am Ende der Aktionszeile: Mix ab dem laufenden Song (er spielt weiter, der Mix ersetzt, was nach ihm kommt), laufenden
- * Song zu einer Playlist, Warteschlange als Playlist speichern, Titel-Info.
+ * Song zu einer Playlist, Warteschlange als Playlist speichern, Equalizer (nur wenn es einen gibt), Titel-Info.
  */
 @Composable
 private fun PlayerMoreMenu(state: PlayerState) {
@@ -522,6 +522,7 @@ private fun PlayerMoreMenu(state: PlayerState) {
     var open by remember { mutableStateOf(false) }
     var playlistSongs by remember { mutableStateOf<List<Long>?>(null) }
     var infoVisible by remember { mutableStateOf(false) }
+    val openEqualizer = rememberEqualizerLauncher(state.isRemote)
     Box {
         IconButton(
             onClick = { open = true },
@@ -546,6 +547,16 @@ private fun PlayerMoreMenu(state: PlayerState) {
                     onClick = {
                         open = false
                         playlistSongs = state.queue.map { it.songId }
+                    },
+                )
+            }
+            if (openEqualizer != null) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_equalizer)) },
+                    leadingIcon = { Icon(painterResource(DesignR.drawable.ic_equalizer), contentDescription = null) },
+                    onClick = {
+                        open = false
+                        openEqualizer()
                     },
                 )
             }

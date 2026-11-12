@@ -95,6 +95,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var bookCovers: BookCovers
     @Inject lateinit var servicePlayer: ServicePlayer
     @Inject lateinit var playingSources: PlayingSources
+    @Inject lateinit var audioEffectSession: AudioEffectSession
     @Inject internal lateinit var browseTree: BrowseTree
 
     /** Für Datenbankarbeit, die das Beenden des Service überleben darf (nur suspendierende DataStore-/Room-Aufrufe). */
@@ -148,6 +149,7 @@ class PlaybackService : MediaLibraryService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
         localPlayer.addListener(SourceErrorRecovery(localPlayer))
+        audioEffectSession.attach(this, localPlayer)
         localPlayer.addListener(WakeModeListener(localPlayer, playbackPolicy.allowStreaming))
         localPlayer.addListener(ContentTypeListener(localPlayer))
         localPlayer.addListener(object : Player.Listener {
@@ -351,6 +353,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        audioEffectSession.close(this)
         sleepTimer.detach()
         servicePlayer.detach()
         session?.let { session ->

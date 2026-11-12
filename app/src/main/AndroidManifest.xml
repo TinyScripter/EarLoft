@@ -18,6 +18,10 @@
         <intent>
             <action android:name="android.support.customtabs.action.CustomTabsService" />
         </intent>
+        <!-- Now Playing → Equalizer: nur anbieten, wenn das System oder eine App einen hat. -->
+        <intent>
+            <action android:name="android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL" />
+        </intent>
     </queries>
 
     <!-- MissingMediaBrowserServiceIntentFilter: Der PlaybackService samt Filter steht im Manifest von core:playback, das
