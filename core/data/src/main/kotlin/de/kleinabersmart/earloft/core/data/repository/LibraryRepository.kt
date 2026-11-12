@@ -6,6 +6,7 @@ import de.kleinabersmart.earloft.core.model.AlbumDetails
 import de.kleinabersmart.earloft.core.model.AlbumSort
 import de.kleinabersmart.earloft.core.model.ArtistSort
 import de.kleinabersmart.earloft.core.model.SongSort
+import de.kleinabersmart.earloft.core.model.SongSourceInfo
 import de.kleinabersmart.earloft.core.model.Artist
 import de.kleinabersmart.earloft.core.model.ArtistDetails
 import de.kleinabersmart.earloft.core.model.Genre
@@ -109,6 +110,11 @@ class LibraryRepository @Inject constructor(
             .flatMap { libraryDao.getSongRows(it) }
             .associate { it.songId to it.toSong() }
         return songIds.mapNotNull { byId[it] }
+    }
+
+    /** Die Quellen eines Songs mit Format, Bitrate, Größe und ReplayGain (Titel-Info). */
+    suspend fun sourcesOf(songId: Long): List<SongSourceInfo> = libraryDao.getSourceInfoRows(songId).map {
+        SongSourceInfo(it.sourceId, it.sourceName, it.sourceType, it.mimeType, it.bitRate, it.sizeBytes, it.trackGainDb, it.albumGainDb, it.isDownloaded)
     }
 
     /** Welche der Song-Quellen (`sourceUid`) es noch gibt. */

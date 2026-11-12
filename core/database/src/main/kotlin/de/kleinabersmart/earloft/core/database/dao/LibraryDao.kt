@@ -17,6 +17,7 @@ import de.kleinabersmart.earloft.core.database.model.GenreRow
 import de.kleinabersmart.earloft.core.database.model.PlayableSourceRow
 import de.kleinabersmart.earloft.core.database.model.ReplayGainRow
 import de.kleinabersmart.earloft.core.database.model.SongRow
+import de.kleinabersmart.earloft.core.database.model.SongSourceInfoRow
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -407,6 +408,19 @@ abstract class LibraryDao {
         """,
     )
     abstract suspend fun getPlayableSourcesOfSongs(songIds: List<Long>): List<PlayableSourceRow>
+
+    /** Die eingeschalteten Quellen eines Songs, lokale zuerst, dann nach Priorität (Titel-Info). */
+    @Query(
+        """
+        SELECT ss.sourceId, src.name AS sourceName, src.type AS sourceType, ss.mimeType, ss.bitRate, ss.sizeBytes,
+               ss.rgTrackGainDb AS trackGainDb, ss.rgAlbumGainDb AS albumGainDb,
+               EXISTS(SELECT 1 FROM downloads d WHERE d.sourceUid = ss.uid AND d.state = 'DONE') AS isDownloaded
+        FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId
+        WHERE ss.songId = :songId AND src.enabled = 1
+        ORDER BY src.type = 'LOCAL' DESC, src.priority DESC, src.name
+        """,
+    )
+    abstract suspend fun getSourceInfoRows(songId: Long): List<SongSourceInfoRow>
 
     @Query("SELECT rgTrackGainDb, rgTrackPeak, rgAlbumGainDb, rgAlbumPeak FROM song_sources WHERE uid = :uid")
     abstract suspend fun getReplayGain(uid: String): ReplayGainRow?

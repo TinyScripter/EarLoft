@@ -510,12 +510,13 @@ private fun SeekBar(durationMs: Long, positionMs: () -> Long, onSeek: (Long) -> 
     }
 }
 
-/** ⋮ am Ende der Aktionszeile: laufenden Song zu einer Playlist, Warteschlange als Playlist speichern. */
+/** ⋮ am Ende der Aktionszeile: laufenden Song zu einer Playlist, Warteschlange als Playlist speichern, Titel-Info. */
 @Composable
 private fun PlayerMoreMenu(state: PlayerState) {
     val current = state.current ?: return
     var open by remember { mutableStateOf(false) }
     var playlistSongs by remember { mutableStateOf<List<Long>?>(null) }
+    var infoVisible by remember { mutableStateOf(false) }
     Box {
         IconButton(
             onClick = { open = true },
@@ -542,9 +543,19 @@ private fun PlayerMoreMenu(state: PlayerState) {
                     },
                 )
             }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.track_info_title)) },
+                leadingIcon = { Icon(painterResource(DesignR.drawable.ic_info), contentDescription = null) },
+                onClick = {
+                    open = false
+                    infoVisible = true
+                },
+            )
         }
     }
     playlistSongs?.let { AddToPlaylistDialog(songIds = it, onDismiss = { playlistSongs = null }) }
+    // Folgt dem laufenden Titel, auch wenn er während der Anzeige wechselt.
+    if (infoVisible) TrackInfoSheet(songId = current.songId, title = current.title, onDismiss = { infoVisible = false })
 }
 
 @Composable

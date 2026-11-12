@@ -63,3 +63,17 @@ enum class ArtistSort { NAME, ALBUM_COUNT }
 
 /** Reihenfolge der Songs in der Bibliothek. */
 enum class SongSort { TITLE, ARTIST, ALBUM, RECENTLY_ADDED }
+
+/** Eine Quelle eines Songs, für die Titel-Info; [bitRate] in bit/s, Gain in dB. */
+data class SongSourceInfo(
+    val sourceId: String,
+    val sourceName: String,
+    val sourceType: SourceType,
+    val mimeType: String?,
+    val bitRate: Int?,
+    val sizeBytes: Long?,
+    val trackGainDb: Float?,
+    val albumGainDb: Float?,
+    /** Von dieser Quelle liegt ein fertiger Download auf dem Gerät. */
+    val isDownloaded: Boolean,
+)

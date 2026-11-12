@@ -94,6 +94,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var continueListening: ContinueListening
     @Inject lateinit var bookCovers: BookCovers
     @Inject lateinit var servicePlayer: ServicePlayer
+    @Inject lateinit var playingSources: PlayingSources
     @Inject internal lateinit var browseTree: BrowseTree
 
     /** Für Datenbankarbeit, die das Beenden des Service überleben darf (nur suspendierende DataStore-/Room-Aufrufe). */
@@ -122,6 +123,7 @@ class PlaybackService : MediaLibraryService() {
             SourceHealth(),
             getString(R.string.song_unavailable),
             replayGain::onSourceResolved,
+            playingSources::record,
         )
         val renderersFactory = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(

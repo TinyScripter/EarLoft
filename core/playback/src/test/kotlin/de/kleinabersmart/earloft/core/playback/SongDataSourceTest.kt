@@ -22,12 +22,19 @@ class SongDataSourceTest {
     private val health = SourceHealth(clock = { now })
     private val upstream = FakeUpstream()
     private val resolved = mutableListOf<Pair<Long, ReplayGain?>>()
+    private val playing = PlayingSources()
 
     private val home = stream("home", "home:1", ReplayGain(trackGainDb = -3f))
     private val office = stream("office", "office:1", ReplayGain(trackGainDb = -4f))
 
     private fun dataSource(vararg candidates: ResolvedPlayback) =
-        SongDataSource(upstream, { candidates.toList() }, health) { songId, rg -> resolved += songId to rg }
+        SongDataSource(
+            upstream,
+            { candidates.toList() },
+            health,
+            onResolved = { songId, rg -> resolved += songId to rg },
+            onOpened = playing::record,
+        )
 
     @Test
     fun `unreachable server falls back to the next source`() {
@@ -38,6 +45,7 @@ class SongDataSourceTest {
         assertEquals(100L, length)
         assertEquals(listOf("home", "office"), upstream.opened)
         assertEquals(listOf(1L to office.replayGain), resolved)
+        assertEquals(PlayedFrom(PlayedFrom.Kind.STREAM, "office"), playing.bySong.value[1L])
     }
 
     @Test
@@ -85,6 +93,18 @@ class SongDataSourceTest {
 
         dataSource(download, home).open(spec(songId = 2))
         assertEquals(listOf("1.flac"), upstream.opened)
+        assertEquals(PlayedFrom(PlayedFrom.Kind.DOWNLOAD, null), playing.bySong.value[2L])
+    }
+
+    @Test
+    fun `local file counts as device, opening in the middle records nothing`() {
+        val local = ResolvedPlayback(PlaybackLocation.LocalFile(Uri.parse("content://media/7")), null, sourceId = "local")
+        dataSource(local, home).open(spec(songId = 3))
+        assertEquals(PlayedFrom(PlayedFrom.Kind.DEVICE, "local"), playing.bySong.value[3L])
+
+        // Gemeldet wird nur der Anfang: Ein Sprung mitten in die Datei sagt nichts darüber, woher der Titel spielt.
+        dataSource(home).open(spec(songId = 4, position = 5000))
+        assertEquals(null, playing.bySong.value[4L])
     }
 
     private fun spec(songId: Long, position: Long = 0) =

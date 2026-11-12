@@ -193,3 +193,16 @@ data class WearSelectionProgressRow(
     /** Geladener Anteil der gerade laufenden Songs (0–1 je Song, aufsummiert). */
     val runningFraction: Double = 0.0,
 )
+
+/** Eine Quelle eines Songs mit ihren Eigenschaften (Titel-Info). */
+data class SongSourceInfoRow(
+    val sourceId: String,
+    val sourceName: String,
+    val sourceType: SourceType,
+    val mimeType: String?,
+    val bitRate: Int?,
+    val sizeBytes: Long?,
+    val trackGainDb: Float?,
+    val albumGainDb: Float?,
+    val isDownloaded: Boolean,
+)

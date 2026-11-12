@@ -35,6 +35,8 @@ internal class SongDataSource(
     private val unavailableMessage: String = "No playable source",
     /** ReplayGain der gewählten Quelle; wird vor dem Abspielen der Samples gemeldet. */
     private val onResolved: (songId: Long, replayGain: ReplayGain?) -> Unit,
+    /** Der Ort, der den Anfang geliefert hat (Titel-Info). */
+    private val onOpened: (songId: Long, playback: ResolvedPlayback) -> Unit = { _, _ -> },
 ) : DataSource {
 
     override fun addTransferListener(transferListener: TransferListener) = upstream.addTransferListener(transferListener)
@@ -57,6 +59,7 @@ internal class SongDataSource(
                 health.succeeded(candidate.sourceId)
                 health.rememberOpened(songId, candidate.key)
                 onResolved(songId, candidate.replayGain)
+                if (dataSpec.position == 0L) onOpened(songId, candidate)
                 return length
             } catch (e: IOException) {
                 Log.w(TAG, "Song $songId: ${candidate.key} nicht erreichbar", e)
@@ -82,9 +85,10 @@ internal class SongDataSource(
         private val health: SourceHealth,
         private val unavailableMessage: String,
         private val onResolved: (songId: Long, replayGain: ReplayGain?) -> Unit,
+        private val onOpened: (songId: Long, playback: ResolvedPlayback) -> Unit = { _, _ -> },
     ) : DataSource.Factory {
         override fun createDataSource(): DataSource =
-            SongDataSource(upstream.createDataSource(), sourceResolver::candidates, health, unavailableMessage, onResolved)
+            SongDataSource(upstream.createDataSource(), sourceResolver::candidates, health, unavailableMessage, onResolved, onOpened)
     }
 
     private companion object {
