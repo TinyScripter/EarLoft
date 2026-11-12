@@ -40,6 +40,7 @@ import de.kleinabersmart.earloft.core.playback.EXTRA_OPEN_NOW_PLAYING
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.notification.NewContentTarget
 import de.kleinabersmart.earloft.ui.EarLoftApp
+import de.kleinabersmart.earloft.ui.permission.AskForNotificationsOnce
 import de.kleinabersmart.earloft.ui.permission.AudioPermissionGate
 import de.kleinabersmart.earloft.ui.theme.LocalPlayerCoverColors
 import de.kleinabersmart.earloft.ui.theme.ThemeMode
@@ -194,6 +195,8 @@ class MainActivity : ComponentActivity() {
                         onGranted = libraryRefresher::refreshNow,
                         onSkip = { lifecycleScope.launch { librarySettings.setUseLocalMedia(false) } },
                     ) {
+                        // Erst hier: Die Seite davor fragt die Benachrichtigungen schon mit.
+                        AskForNotificationsOnce()
                         CompositionLocalProvider(LocalPlayerCoverColors provides playerCoverColors) {
                             EarLoftApp(
                                 openNowPlaying = openNowPlaying,

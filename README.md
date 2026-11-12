@@ -89,7 +89,8 @@ library.
   in with OpenID, if your server offers it.
 - **Podcast feeds.** Any public RSS or Atom feed.
 - **Your phone.** Music from the device, books from the **Audiobooks** folder and podcasts from the **Podcasts**
-  folder (each can be switched off in the settings).
+  folder. Each is off until you switch it on in the settings; only then does the app ask for access to your audio
+  files.
 
 Servers at home (`http://192.168.x.x`) work too. The app warns you before using an unencrypted connection.
 
@@ -147,7 +148,7 @@ Android Auto support is included and works fine with my car. So far this is the 
 
 ## Permissions
 
-EarLoft asks for three permissions and works with whatever you allow. You can refuse each of them and change your
+EarLoft asks for three permissions, each only when it is needed, and works with whatever you allow. You can refuse each of them and change your
 mind later under **System settings → Apps → EarLoft → Permissions** (or **→ Notifications**). The app does not ask for
 location, microphone, camera, contacts, phone or Bluetooth access.
 
@@ -155,17 +156,18 @@ location, microphone, camera, contacts, phone or Bluetooth access.
 
 **Music and audio** (`READ_MEDIA_AUDIO`; on Android 8–12 *Files and media*, `READ_EXTERNAL_STORAGE`)
 
-- *Asked:* at the first start, and again when you switch on **Use music on this device** (**Settings → Music**).
+- *Asked:* when you switch on **Use music on this device** (**Settings → Music**), **Use podcasts on this device**
+  (**Settings → Podcasts**) or **Use books on this device** (**Settings → Books**). All three are off by default.
 - *Used for:* reading the music on your phone and the **Audiobooks** and **Podcasts** folders.
-- *If you don't allow it:* EarLoft works with your servers and podcast feeds only. Music, books and podcasts stored on
-  the phone don't show up and can't be played or loaded onto the watch from the phone. **Continue without music on
-  this device** switches **Use music on this device** off; switch off **Use books on this device** and **Use podcasts
-  on this device** as well (**Settings → Books** / **Podcasts**), otherwise refreshing the books reports an error. Once
-  Android stops showing the dialog after a refusal, the app opens its system settings page instead.
+- *If you don't allow it:* the switch stays off and EarLoft works with your servers and podcast feeds only. Music,
+  books and podcasts stored on the phone don't show up and can't be played or loaded onto the watch from the phone.
+  Once Android stops showing the dialog after a refusal, the app opens its system settings page instead. If you take
+  the permission away later while a switch is on, the app shows a page to allow it again or to continue without music
+  on this device.
 
 **Notifications** (`POST_NOTIFICATIONS`, Android 13 and newer)
 
-- *Asked:* at the first start, together with music and audio.
+- *Asked:* once at the first start (only the system dialog).
 - *If you don't allow it:* no notifications about new music, episodes and books, and no progress notifications for
   downloads and transfers to the watch (the downloads and transfers still run). The playback controls in the
   notification shade and on the lock screen keep working, because Android exempts media playback from this
@@ -174,7 +176,7 @@ location, microphone, camera, contacts, phone or Bluetooth access.
 
 **Devices on your local network** (`ACCESS_LOCAL_NETWORK`, Android 17 and newer)
 
-- *Asked:* at the first start, and when you save a server.
+- *Asked:* when you save a server.
 - *Used for:* reaching servers in your home network, for example `http://192.168.x.x`.
 - *If you don't allow it:* connections to addresses in your home network time out, so syncing, streaming and
   downloading from such servers fail and adding one ends with a connection error. Servers you reach over the internet
@@ -208,19 +210,21 @@ application ID (`de.kleinabersmart.earloft`), so install both for the watch feat
 
 ## Getting started
 
-1. Open the app and allow access to your audio files, notifications and (from Android 17) devices on your local
-   network when asked, or skip it if you only use servers and feeds. See [Permissions](#permissions) for what each one
-   is needed for.
-2. **Music:** **Settings → Music → Add server**, choose the server type (Navidrome / Subsonic, Jellyfin or Emby), then
-   enter the address (for example `https://music.example.com`) and your credentials. The first sync can take a while
-   for large libraries.
+1. Open the app and allow notifications when asked. Access to your audio files is only asked for when you switch on
+   music, podcasts or books on this device, access to your local network (from Android 17) when you add a server. See
+   [Permissions](#permissions) for what each one is needed for.
+2. **Music:** switch on **Settings → Music → Use music on this device** for the music on your phone. For a server:
+   **Settings → Music → Add server**, choose the server type (Navidrome / Subsonic, Jellyfin or Emby), then enter the
+   address (for example `https://music.example.com`) and your credentials. The first sync can take a while for large
+   libraries.
 3. **Podcasts:** switch to **Podcasts** on Home or Library and tap **Add podcast**, then search a directory or paste
-   the feed address. Or copy podcast files into the **Podcasts** folder of your phone.
+   the feed address. Or copy podcast files into the **Podcasts** folder of your phone and switch on **Settings →
+   Podcasts → Use podcasts on this device**.
 4. **Books:** **Settings → Books → Add server**, then enter your Audiobookshelf address and either tap **Sign in with
    OpenID** (shown when your server offers it) or enter an API key (created in Audiobookshelf under *Settings → API
    Keys*). If your default browser can't hand the sign-in back to the app, EarLoft tells you which address to add in
    Audiobookshelf under *Settings → Authentication → Allowed Mobile Redirect URIs*. Or just copy books into the
-   **Audiobooks** folder of your phone.
+   **Audiobooks** folder of your phone and switch on **Settings → Books → Use books on this device**.
 5. Play something. On an album, playlist, book or episode you can download it (download arrow) or load it onto your
    watch (watch icon). Downloads are listed under **Settings → General → Downloads**; the watch is managed under
    **Settings → Watch** (shown once a watch with EarLoft is paired).

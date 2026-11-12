@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import de.kleinabersmart.earloft.core.data.sync.LocalSourcesDefault
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -17,7 +18,13 @@ import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.spokenSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "spoken_settings")
+private val KEY_LOCAL_PODCASTS = booleanPreferencesKey("local_podcasts")
+private val KEY_LOCAL_BOOKS = booleanPreferencesKey("local_books")
+
+private val Context.spokenSettingsDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "spoken_settings",
+    produceMigrations = { context -> listOf(LocalSourcesDefault(context, listOf(KEY_LOCAL_BOOKS, KEY_LOCAL_PODCASTS))) },
+)
 
 @Singleton
 class SpokenSettings @Inject constructor(
@@ -62,15 +69,15 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_SEARCH_ALL] = enabled }
     }
 
-    /** Bücher aus dem Ordner „Audiobooks“ auf diesem Gerät anzeigen (Standard: an, wie die lokale Musik). */
-    val useLocalBooks: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_LOCAL_BOOKS] ?: true }
+    /** Bücher aus dem Ordner „Audiobooks“ auf diesem Gerät anzeigen (Standard: aus, siehe [LocalSourcesDefault]). */
+    val useLocalBooks: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_LOCAL_BOOKS] ?: false }
 
     suspend fun setUseLocalBooks(enabled: Boolean) {
         context.spokenSettingsDataStore.edit { it[KEY_LOCAL_BOOKS] = enabled }
     }
 
-    /** Podcast-Dateien aus dem Ordner „Podcasts“ auf diesem Gerät anzeigen (Standard: an). */
-    val useLocalPodcasts: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_LOCAL_PODCASTS] ?: true }
+    /** Podcast-Dateien aus dem Ordner „Podcasts“ auf diesem Gerät anzeigen (Standard: aus). */
+    val useLocalPodcasts: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_LOCAL_PODCASTS] ?: false }
 
     suspend fun setUseLocalPodcasts(enabled: Boolean) {
         context.spokenSettingsDataStore.edit { it[KEY_LOCAL_PODCASTS] = enabled }
@@ -149,8 +156,6 @@ class SpokenSettings @Inject constructor(
         val KEY_PODCAST_SEEK_BACK = intPreferencesKey("podcast_seek_back_s")
         val KEY_PODCAST_SEEK_FORWARD = intPreferencesKey("podcast_seek_forward_s")
         val KEY_CHAPTER_RESTART = booleanPreferencesKey("book_chapter_restart")
-        val KEY_LOCAL_PODCASTS = booleanPreferencesKey("local_podcasts")
-        val KEY_LOCAL_BOOKS = booleanPreferencesKey("local_books")
         val KEY_MODE = stringPreferencesKey("mode")
         // Gespeichert sind die ausgeschalteten, damit ein neuer Bereich von selbst eingeschaltet ist.
         val KEY_HIDDEN_AREAS = stringSetPreferencesKey("hidden_areas")

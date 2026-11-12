@@ -81,9 +81,9 @@ data class SettingsUiState(
     val playerCoverColors: Boolean = true,
     val widgetCoverColors: Boolean = true,
     val alwaysShowNavigationBar: Boolean = true,
-    val useLocalMedia: Boolean = true,
-    val useLocalBooks: Boolean = true,
-    val useLocalPodcasts: Boolean = true,
+    val useLocalMedia: Boolean = false,
+    val useLocalBooks: Boolean = false,
+    val useLocalPodcasts: Boolean = false,
     val servers: List<ServerItem> = emptyList(),
     /** Bis die Quellen geantwortet haben; so blitzt „Keine Server“ beim Öffnen nicht auf. */
     val isLoading: Boolean = true,

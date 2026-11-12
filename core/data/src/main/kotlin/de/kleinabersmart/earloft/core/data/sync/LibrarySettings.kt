@@ -13,17 +13,22 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.librarySettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "library_settings")
+private val KEY_LOCAL_MEDIA = booleanPreferencesKey("use_local_media")
+
+private val Context.librarySettingsDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "library_settings",
+    produceMigrations = { context -> listOf(LocalSourcesDefault(context, listOf(KEY_LOCAL_MEDIA))) },
+)
 
 @Singleton
 class LibrarySettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
     /**
-     * Musik auf dem Gerät (MediaStore) in die Bibliothek aufnehmen (Standard: an). Aus = nur Server;
-     * die lokalen Songs verschwinden dann aus der Bibliothek, siehe [LibraryRefresher].
+     * Musik auf dem Gerät (MediaStore) in die Bibliothek aufnehmen (Standard: aus, siehe [LocalSourcesDefault]). Aus = nur
+     * Server; die lokalen Songs verschwinden dann aus der Bibliothek, siehe [LibraryRefresher].
      */
-    val useLocalMedia: Flow<Boolean> = context.librarySettingsDataStore.data.map { it[KEY_LOCAL_MEDIA] ?: true }
+    val useLocalMedia: Flow<Boolean> = context.librarySettingsDataStore.data.map { it[KEY_LOCAL_MEDIA] ?: false }
 
     suspend fun setUseLocalMedia(enabled: Boolean) {
         context.librarySettingsDataStore.edit { it[KEY_LOCAL_MEDIA] = enabled }
@@ -42,7 +47,6 @@ class LibrarySettings @Inject constructor(
         val SYNC_DAY_CHOICES = listOf(SYNC_NEVER, 1, 7, 30)
         const val DEFAULT_SYNC_DAYS = 1
 
-        private val KEY_LOCAL_MEDIA = booleanPreferencesKey("use_local_media")
         private val KEY_SYNC_DAYS = intPreferencesKey("sync_interval_days")
     }
 }
