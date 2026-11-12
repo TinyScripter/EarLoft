@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.backup
 
+import de.kleinabersmart.earloft.core.database.dao.KeyedEpisodeDownload
 import de.kleinabersmart.earloft.core.database.dao.KeyedFavorite
 import de.kleinabersmart.earloft.core.database.dao.KeyedPlayEvent
 import de.kleinabersmart.earloft.core.database.dao.KeyedPlaylistEntry
@@ -16,6 +17,7 @@ import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserListeningDayEntity
 import de.kleinabersmart.earloft.core.database.entity.UserListeningStatEntity
@@ -28,6 +30,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserSongKey
 import de.kleinabersmart.earloft.core.database.entity.UserSpokenServerEntity
 import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
+import de.kleinabersmart.earloft.core.model.TrackDownload
 
 /** Der Inhalt von `user.db` (bzw. was hineingehört), je Tabelle nach ihrem stabilen Schlüssel. */
 data class UserDataSnapshot(
@@ -42,11 +45,12 @@ data class UserDataSnapshot(
     val favorites: Map<UserSongKey, UserFavoriteEntity> = emptyMap(),
     val playEvents: Map<PlayKey, UserPlayEventEntity> = emptyMap(),
     val wearSelections: Map<String, UserWearSelectionEntity> = emptyMap(),
+    val episodeDownloads: Map<BookKey, UserEpisodeDownloadEntity> = emptyMap(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty() && spokenServers.isEmpty() && podcasts.isEmpty() && listeningStats.isEmpty() &&
             listeningDays.isEmpty() && progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() &&
-            playEvents.isEmpty() && wearSelections.isEmpty()
+            playEvents.isEmpty() && wearSelections.isEmpty() && episodeDownloads.isEmpty()
 
     /** Einträge der gesicherten Playlists, in ihrer Reihenfolge. */
     fun entriesOf(playlistKey: String): List<UserSongKey> =
@@ -84,6 +88,7 @@ data class UserDataSnapshot(
             favorites = newest(favorites, other.favorites) { it.changedAt },
             playEvents = other.playEvents + playEvents,
             wearSelections = other.wearSelections + wearSelections,
+            episodeDownloads = other.episodeDownloads + episodeDownloads,
         )
     }
 
@@ -100,6 +105,7 @@ data class UserDataSnapshot(
         favorites = rowChanges(previous.favorites, favorites),
         playEvents = rowChanges(previous.playEvents, playEvents),
         wearSelections = rowChanges(previous.wearSelections, wearSelections),
+        episodeDownloads = rowChanges(previous.episodeDownloads, episodeDownloads),
     )
 
     companion object {
@@ -116,6 +122,7 @@ data class UserDataSnapshot(
             favorites: List<UserFavoriteEntity> = emptyList(),
             playEvents: List<UserPlayEventEntity> = emptyList(),
             wearSelections: List<UserWearSelectionEntity> = emptyList(),
+            episodeDownloads: List<UserEpisodeDownloadEntity> = emptyList(),
         ) = UserDataSnapshot(
             servers = servers.associateBy { it.sourceId },
             spokenServers = spokenServers.associateBy { it.serverId },
@@ -128,12 +135,14 @@ data class UserDataSnapshot(
             favorites = favorites.associateBy { it.song },
             playEvents = playEvents.associateBy { PlayKey(it.song, it.playedAt) },
             wearSelections = wearSelections.associateBy { it.key },
+            episodeDownloads = episodeDownloads.associateBy { BookKey(it.serverId, it.remoteId) },
         )
 
         /**
          * Was aus der Hauptdatenbank gesichert wird: Musik-Server, ABS-Server, abonnierte Podcasts, die Statistik und der
          * Fortschritt (bei Audiobookshelf nur der noch nicht gemeldete), lokale Playlists (mit `backupKey`), Favoriten von
-         * Songs ohne Server, der Hörverlauf und die Auswahl für die Uhr (schon mit Schlüsseln, siehe `UserDataBackup`).
+         * Songs ohne Server, der Hörverlauf, die Auswahl für die Uhr (schon mit Schlüsseln, siehe `UserDataBackup`) und die
+         * Downloads der Folgen gesicherter Abos.
          */
         fun ofMain(
             sources: List<SourceEntity>,
@@ -147,11 +156,15 @@ data class UserDataSnapshot(
             favorites: List<KeyedFavorite> = emptyList(),
             playEvents: List<KeyedPlayEvent> = emptyList(),
             wearSelections: List<UserWearSelectionEntity> = emptyList(),
+            episodeDownloads: List<KeyedEpisodeDownload> = emptyList(),
         ) = ofUser(
             servers = sources.filter { it.type.isServer }.map { it.toUser() },
             spokenServers = spokenServers.map { it.toUser() },
             // Podcasts vom Gerät baut der Scan aus den Ordnern neu auf.
             podcasts = feeds.filterNot { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }.map { it.toUser() },
+            episodeDownloads = feeds.filterNot { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }.map { it.feedId }.toSet().let { kept ->
+                episodeDownloads.filter { it.serverId in kept }.map { it.toUser() }
+            },
             listeningStats = listeningStats.map { it.toUser() },
             listeningDays = listeningDays.map { it.toUser() },
             progress = spokenServers.map { it.serverId }.toSet().let { abs ->
@@ -200,6 +213,7 @@ suspend fun UserDataDao.snapshot() = UserDataSnapshot.ofUser(
     favorites = favorites(),
     playEvents = playEvents(),
     wearSelections = wearSelections(),
+    episodeDownloads = episodeDownloads(),
 )
 
 /** [mine], wo es mindestens so neu ist wie [other], sonst [other]. */
@@ -275,6 +289,13 @@ fun UserListeningStatEntity.toMain() = ListeningStatEntity(
 )
 
 fun UserListeningDayEntity.toMain() = ListeningDayEntity(day, kind, groupKey, listenedMs)
+
+/** Geladen oder wartend zählt als gewollt; entfernt oder fehlgeschlagen nicht. */
+fun KeyedEpisodeDownload.toUser() = UserEpisodeDownloadEntity(
+    serverId = serverId,
+    remoteId = remoteId,
+    wanted = downloadState == TrackDownload.QUEUED || downloadState == TrackDownload.RUNNING || downloadState == TrackDownload.DONE,
+)
 
 fun UserBookProgressEntity.toMain(bookId: Long) = BookProgressEntity(
     bookId = bookId,

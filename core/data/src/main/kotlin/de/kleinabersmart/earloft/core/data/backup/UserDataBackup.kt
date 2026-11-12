@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.database.dao.SourceDao
 import de.kleinabersmart.earloft.core.database.dao.StatsDao
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
@@ -23,9 +24,10 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -47,6 +49,10 @@ import javax.inject.Singleton
  *   Solange sein Buch fehlt, bleibt er in `user.db` stehen; mit seinem Abo oder Server fällt er weg.
  * - **Musik** ([MusicBackup]) ebenso, sobald ihre Songs, Alben und Playlists wieder da sind: lokale Playlists (werden beim
  *   Zurückspielen leer angelegt), Favoriten von Songs ohne Server, Hörverlauf und die Auswahl für die Uhr.
+ * - **Downloads der Folgen** ebenso, nach dem Fortschritt: Was auf dem alten Gerät geladen war, kommt wieder, solange es
+ *   nicht gehört ist; mehr nicht – bei einem zurückgespielten Abo lässt die Automatik nach dem ersten Abgleich alle übrigen
+ *   Folgen aus, erst danach erscheinende lädt sie wieder. Sie wendet vor jeder Entscheidung an, was schon passt
+ *   ([applyWaiting]); sonst lüde sie nach dem Abgleich eines zurückgespielten Abos, bevor der Fortschritt da ist.
  * - **Spiegeln:** Danach überträgt jede Änderung der betroffenen Tabellen nur die Unterschiede, höchstens einmal je
  *   [MIRROR_INTERVAL_MS]. Das Backup läuft ohnehin selten (Cloud etwa täglich); so kann kein Schreibweg vergessen werden.
  *   Gelesen werden nur die Teile, deren Tabellen sich geändert haben (beim Hören eines Buchs alle 15 s nur Fortschritt und
@@ -77,6 +83,20 @@ class UserDataBackup @Inject constructor(
     @Volatile
     private var restoreSucceeded = false
 
+    /** Fertig, sobald nach dem Start einmal angewendet wurde, was schon passt (auch wenn das Zurückspielen fehlschlug). */
+    private val firstApplied = CompletableDeferred<Unit>()
+
+    /** Gesichertes, das noch auf sein Buch, seinen Song usw. wartet, samt dem Stand, aus dem es stammt; ändert sich unter [mutex]. */
+    @Volatile
+    private var waiting: Waiting? = null
+
+    private class Waiting(val saved: UserDataSnapshot, val pending: Pending)
+
+    private val _downloadsQueued = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Gesicherte Downloads von Folgen stehen wieder an; `EpisodeDownloads` startet dann seinen Auftrag. */
+    val downloadsQueued: Flow<Unit> = _downloadsQueued
+
     /** Spiegeln und Anwenden lesen und schreiben dieselben Zeilen. */
     private val mutex = Mutex()
 
@@ -90,21 +110,25 @@ class UserDataBackup @Inject constructor(
         if (!started.compareAndSet(false, true)) return
         scope.launch {
             try {
-                restoreOnce()
-                restoreSucceeded = true
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // Ohne Merker: Beim nächsten Start wird es erneut versucht. Gespiegelt wird trotzdem nicht, damit eine noch
-                // nicht zurückgespielte Sicherung nicht vom leeren Stand überschrieben wird.
-                Log.e(TAG, "Nutzerdaten konnten nicht zurückgespielt werden", e)
-                return@launch
+                try {
+                    restoreOnce()
+                    restoreSucceeded = true
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Ohne Merker: Beim nächsten Start wird es erneut versucht. Gespiegelt wird trotzdem nicht, damit eine
+                    // noch nicht zurückgespielte Sicherung nicht vom leeren Stand überschrieben wird.
+                    Log.e(TAG, "Nutzerdaten konnten nicht zurückgespielt werden", e)
+                    return@launch
+                } finally {
+                    restoreFinished.complete(Unit)
+                }
+                val saved = readUser()
+                mutex.withLock { applyAndWait(saved, pendingOf(saved)) }
             } finally {
-                restoreFinished.complete(Unit)
+                firstApplied.complete(Unit)
             }
-            val saved = readUser()
-            val pending = mutex.withLock { applySaved(saved, Pending.of(saved)) }
-            if (!pending.isEmpty) launch { applyWhenLibraryChanges(saved, pending) }
+            launch { applyWhenLibraryChanges() }
             // Was sich geändert hat, sammelt sich hier, auch während gerade gespiegelt wird oder gewartet (`conflate`).
             val changed = ConcurrentHashMap.newKeySet<String>()
             database.invalidationTracker.createFlow(*MIRRORED_TABLES)
@@ -132,6 +156,35 @@ class UserDataBackup @Inject constructor(
     suspend fun awaitRestore() = restoreFinished.await()
 
     /**
+     * Wendet an, was von der Sicherung jetzt passt. Die Download-Automatik ruft das vor jeder Entscheidung: Gesicherter
+     * Fortschritt und Downloads sollen gelten, bevor sie die neuesten ungehörten Folgen lädt – sonst lüde sie nach dem
+     * Abgleich eines zurückgespielten Abos gehörte Folgen und solche, deren Download auf dem alten Gerät entfernt wurde.
+     */
+    suspend fun applyWaiting() {
+        // Ohne [start] (etwa in Tests) gibt es nichts anzuwenden.
+        if (!started.get()) return
+        firstApplied.await()
+        if (waiting == null) return
+        mutex.withLock { waiting?.let { applyAndWait(it.saved, it.pending) } }
+    }
+
+    /**
+     * Alles aus [saved] als noch anzuwenden; dazu die zurückgespielten Abos, die noch nie abgeglichen wurden und noch keine
+     * Folgen haben: Nach ihrem ersten Abgleich lädt die Automatik dort nur, was auf dem alten Gerät geladen war.
+     */
+    private suspend fun pendingOf(saved: UserDataSnapshot): Pending = Pending.of(saved).copy(
+        restoredFeeds = saved.podcasts.keys.filter { feedId ->
+            podcastDao.feed(feedId)?.lastRefreshAt == 0L && podcastDao.episodeCount(feedId) == 0
+        },
+    )
+
+    /** Unter [mutex]: wendet an und merkt sich den Rest für später. */
+    private suspend fun applyAndWait(saved: UserDataSnapshot, pending: Pending) {
+        val rest = applySaved(saved, pending)
+        waiting = if (rest.isEmpty) null else Waiting(saved, rest)
+    }
+
+    /**
      * Der Stand für die Komplett-Sicherung (`FullBackup`): `user.db` frisch gespiegelt, samt dem, was noch auf sein Buch,
      * seinen Song usw. wartet.
      */
@@ -155,8 +208,9 @@ class UserDataBackup @Inject constructor(
      * eingeben“.
      */
     suspend fun import(saved: UserDataSnapshot): BackupCounts {
-        restoreFinished.await()
-        val (merged, pending, result) = mutex.withLock {
+        // Erst nach dem ersten Anwenden beim Start: Das überschriebe sonst mit seinem älteren Stand, was hier wartet.
+        if (started.get()) firstApplied.await() else restoreFinished.await()
+        val result = mutex.withLock {
             val adjusted = withLocalIds(saved)
             val musicIds = sourceDao.getServers().map { it.sourceId }.toSet()
             val spokenIds = bookDao.servers().map { it.serverId }.toSet()
@@ -173,9 +227,9 @@ class UserDataBackup @Inject constructor(
             if (!changes.isEmpty) userDao.apply(changes)
             // Der gemerkte Stand stimmt nicht mehr mit `user.db` überein; beim nächsten Spiegeln neu lesen.
             mirrored = null
-            Triple(merged, applySaved(merged, Pending.of(merged)), result)
+            applyAndWait(merged, pendingOf(merged))
+            result
         }
-        if (!pending.isEmpty) scope.launch { applyWhenLibraryChanges(merged, pending) }
         // Den Hinweis auf fehlende Passwörter meldet `FullBackup` mit seinem Ergebnis.
         if (result.musicServers > 0) registry.get().reload()
         Log.i(TAG, "Sicherung eingespielt: $result")
@@ -183,8 +237,8 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Nimmt aus [saved] Server und Abos heraus, die es hier unter anderer Kennung gibt, und hängt ihren Fortschritt an die
-     * hiesige Kennung.
+     * Nimmt aus [saved] Server und Abos heraus, die es hier unter anderer Kennung gibt, und hängt ihren Fortschritt und ihre
+     * Downloads an die hiesige Kennung.
      */
     private suspend fun withLocalIds(saved: UserDataSnapshot): UserDataSnapshot {
         val music = sourceDao.getServers()
@@ -209,6 +263,9 @@ class UserDataBackup @Inject constructor(
                 .map { it.copy(serverId = ids[it.serverId] ?: it.serverId) }
                 .groupBy { BookKey(it.serverId, it.remoteId) }
                 .mapValues { (_, rows) -> rows.maxBy { it.updatedAt } },
+            episodeDownloads = saved.episodeDownloads.values
+                .map { it.copy(serverId = ids[it.serverId] ?: it.serverId) }
+                .associateBy { BookKey(it.serverId, it.remoteId) },
         )
     }
 
@@ -232,7 +289,8 @@ class UserDataBackup @Inject constructor(
                 "Nutzerdaten zurückgespielt: ${saved.servers.size} Musik-Server, ${saved.spokenServers.size} ABS-Server, " +
                     "${saved.podcasts.size} Podcasts, ${saved.listeningStats.size} Statistik-Einträge, " +
                     "${saved.progress.size} Fortschritte, ${saved.playlists.size} Playlists, ${saved.favorites.size} Favoriten, " +
-                    "${saved.playEvents.size} Einträge im Hörverlauf, ${saved.wearSelections.size} Auswahlen für die Uhr " +
+                    "${saved.playEvents.size} Einträge im Hörverlauf, ${saved.wearSelections.size} Auswahlen für die Uhr, " +
+                    "${saved.episodeDownloads.size} Downloads von Folgen " +
                     "(folgen mit ihren Büchern und Songs)",
             )
         }
@@ -283,12 +341,53 @@ class UserDataBackup @Inject constructor(
         return unresolved
     }
 
+    /**
+     * Überträgt den gesicherten Download-Zustand auf Folgen, die es hier gibt und die hier noch nie geladen wurden:
+     * entfernte und fehlgeschlagene lässt die Automatik aus, geladene kommen wieder, solange sie nicht zu Ende gehört sind.
+     * Liefert den Rest, dessen Folge (noch) fehlt.
+     */
+    internal suspend fun applyEpisodeDownloads(saved: Collection<UserEpisodeDownloadEntity>): List<UserEpisodeDownloadEntity> {
+        if (saved.isEmpty()) return emptyList()
+        val unresolved = mutableListOf<UserEpisodeDownloadEntity>()
+        var excluded = 0
+        var queued = 0
+        database.withTransaction {
+            saved.groupBy { it.serverId }.forEach { (serverId, rows) ->
+                val bookIds = rows.chunked(MAX_ARGS)
+                    .flatMap { chunk -> bookDao.bookRefs(serverId, chunk.map { it.remoteId }) }
+                    .associate { it.remoteId to it.bookId }
+                val finished = bookIds.values.chunked(MAX_ARGS).flatMap { bookDao.progressOf(it) }.filter { it.finished }.map { it.bookId }.toSet()
+                val found = rows.mapNotNull { row ->
+                    val bookId = bookIds[row.remoteId]
+                    if (bookId == null) unresolved += row
+                    bookId?.let { row to it }
+                }
+                val (wanted, notWanted) = found.partition { (row, _) -> row.wanted }
+                notWanted.map { it.second }.chunked(MAX_ARGS).forEach { excluded += podcastDao.excludeFromAutomatic(it) }
+                wanted.map { it.second }.filter { it !in finished }.chunked(MAX_ARGS).forEach { queued += podcastDao.queueNeverDownloaded(it) }
+            }
+        }
+        if (excluded > 0 || queued > 0) Log.i(TAG, "Downloads zurückgespielt: $queued geladen, $excluded ausgelassen, noch ohne Folge: ${unresolved.size}")
+        if (queued > 0) _downloadsQueued.tryEmit(Unit)
+        return unresolved
+    }
+
     /** Wendet von [saved] an, was davon in [pending] steht; liefert, was (noch) kein Buch, keinen Song usw. hat. */
     internal suspend fun applySaved(saved: UserDataSnapshot, pending: Pending): Pending {
         val progress = applyProgress(pending.progress)
+        // Nach dem Fortschritt: Gehörte Folgen kommen nicht wieder.
+        val episodeDownloads = applyEpisodeDownloads(pending.episodeDownloads)
+        // Danach: Mehr als auf dem alten Gerät geladen war, lädt die Automatik für zurückgespielte Abos nicht.
+        val restoredFeeds = pending.restoredFeeds.filter { feedId ->
+            val arrived = podcastDao.episodeCount(feedId) > 0
+            if (arrived) podcastDao.excludeAllFromAutomatic(feedId)
+            !arrived
+        }
         val rest = database.withTransaction {
             Pending(
                 progress = progress,
+                episodeDownloads = episodeDownloads,
+                restoredFeeds = restoredFeeds,
                 playlists = music.applyPlaylists(saved, pending.playlists),
                 favorites = music.applyFavorites(pending.favorites),
                 playEvents = music.applyPlayEvents(pending.playEvents),
@@ -311,15 +410,14 @@ class UserDataBackup @Inject constructor(
         return rest
     }
 
-    /** Wendet [initial] nach und nach an, sobald Scan oder Abgleich Bücher, Songs und Playlists anlegen. */
-    private suspend fun applyWhenLibraryChanges(saved: UserDataSnapshot, initial: Pending) {
-        var pending = initial
+    /** Wendet nach und nach an, was wartet, sobald Scan oder Abgleich Bücher, Songs und Playlists anlegen. */
+    private suspend fun applyWhenLibraryChanges() {
         database.invalidationTracker.createFlow("books", "songs", "playlists")
             .conflate()
-            .takeWhile { !pending.isEmpty }
             .collect {
+                if (waiting == null) return@collect
                 try {
-                    pending = mutex.withLock { applySaved(saved, pending) }
+                    mutex.withLock { waiting?.let { applyAndWait(it.saved, it.pending) } }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -349,11 +447,21 @@ class UserDataBackup @Inject constructor(
         val current = readMain(base, changedTables.orEmpty()).keepingUnchangedPlaylists(previous)
         // Fehlt das Buch bzw. der Song, ist der Eintrag noch nicht angewendet (oder die Folge steht nicht mehr im Feed, die
         // Datei ist weg): behalten. Gelöscht wird nur, was es hier gibt und was hier entfernt wurde.
+        // Was noch angewendet werden soll, bleibt ebenso, auch wenn sein Buch schon da ist.
+        val stillWaiting = waiting?.pending
+        val waitingProgress = stillWaiting?.progress.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
+        val waitingDownloads = stillWaiting?.episodeDownloads.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
         val changes = current.changesSince(previous).let { changes ->
-            val progressDeletes = changes.progress.deletes.filter { bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty() }
+            val progressDeletes = changes.progress.deletes.filter {
+                BookKey(it.serverId, it.remoteId) !in waitingProgress && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
+            }
+            val downloadDeletes = changes.episodeDownloads.deletes.filter {
+                BookKey(it.serverId, it.remoteId) !in waitingDownloads && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
+            }
             val songs = music.resolve((changes.favorites.deletes.map { it.song } + changes.playEvents.deletes.map { it.song }).toSet())
             changes.copy(
                 progress = changes.progress.copy(deletes = progressDeletes),
+                episodeDownloads = changes.episodeDownloads.copy(deletes = downloadDeletes),
                 favorites = changes.favorites.copy(deletes = changes.favorites.deletes.filter { it.song in songs }),
                 playEvents = changes.playEvents.copy(deletes = changes.playEvents.deletes.filter { it.song in songs }),
                 wearSelections = changes.wearSelections.copy(deletes = changes.wearSelections.deletes.filter { music.wearTarget(it) != null }),
@@ -373,11 +481,13 @@ class UserDataBackup @Inject constructor(
         val days = read("listening_days")
         // Welcher Fortschritt gesichert wird, hängt auch an den Audiobookshelf-Servern.
         val progress = read("book_progress", "spoken_servers")
+        // Welche Downloads gesichert werden, hängt an den gesicherten Abos.
+        val downloads = read("book_tracks", "podcast_feeds")
         val musicData = if (read(*MUSIC_TABLES)) music.read() else null
         val fresh = UserDataSnapshot.ofMain(
             sources = if (servers) sourceDao.getServers() else emptyList(),
             spokenServers = if (spokenServers || progress) bookDao.servers() else emptyList(),
-            feeds = if (feeds) podcastDao.keptFeeds() else emptyList(),
+            feeds = if (feeds || downloads) podcastDao.keptFeeds() else emptyList(),
             listeningStats = if (stats) statsDao.all() else emptyList(),
             listeningDays = if (days) statsDao.allDays() else emptyList(),
             progress = if (progress) bookDao.keyedProgress() else emptyList(),
@@ -386,6 +496,7 @@ class UserDataBackup @Inject constructor(
             favorites = musicData?.favorites.orEmpty(),
             playEvents = musicData?.playEvents.orEmpty(),
             wearSelections = musicData?.wearSelections.orEmpty(),
+            episodeDownloads = if (downloads) podcastDao.keyedEpisodeDownloads() else emptyList(),
         )
         if (base == null) return fresh
         return UserDataSnapshot(
@@ -400,6 +511,7 @@ class UserDataBackup @Inject constructor(
             favorites = if (musicData != null) fresh.favorites else base.favorites,
             playEvents = if (musicData != null) fresh.playEvents else base.playEvents,
             wearSelections = if (musicData != null) fresh.wearSelections else base.wearSelections,
+            episodeDownloads = if (downloads) fresh.episodeDownloads else base.episodeDownloads,
         )
     }
 
@@ -415,7 +527,7 @@ class UserDataBackup @Inject constructor(
         const val MAX_ARGS = 500
         val MIRRORED_TABLES = arrayOf(
             "sources", "spoken_servers", "podcast_feeds", "listening_stats", "listening_days", "book_progress",
-            "songs", "playlists", "playlist_entries", "play_events", "wear_selections",
+            "songs", "playlists", "playlist_entries", "play_events", "wear_selections", "book_tracks",
         )
     }
 }
@@ -428,16 +540,20 @@ data class BackupCounts(
     val playlists: Int = 0,
 )
 
-/** Gesichertes, dessen Buch, Song, Album oder Playlist es (noch) nicht gibt; Playlists über ihren Schlüssel. */
+/** Gesichertes, dessen Buch, Folge, Song, Album oder Playlist es (noch) nicht gibt; Playlists über ihren Schlüssel. */
 internal data class Pending(
     val progress: List<UserBookProgressEntity> = emptyList(),
     val playlists: List<String> = emptyList(),
     val favorites: List<UserFavoriteEntity> = emptyList(),
     val playEvents: List<UserPlayEventEntity> = emptyList(),
     val wearSelections: List<UserWearSelectionEntity> = emptyList(),
+    val episodeDownloads: List<UserEpisodeDownloadEntity> = emptyList(),
+    /** Zurückgespielte Abos, deren Folgen noch nicht da sind (siehe `PodcastDao.excludeAllFromAutomatic`). */
+    val restoredFeeds: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean
-        get() = progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() && playEvents.isEmpty() && wearSelections.isEmpty()
+        get() = progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() && playEvents.isEmpty() &&
+            wearSelections.isEmpty() && episodeDownloads.isEmpty() && restoredFeeds.isEmpty()
 
     companion object {
         fun of(saved: UserDataSnapshot) = Pending(
@@ -446,6 +562,7 @@ internal data class Pending(
             favorites = saved.favorites.values.toList(),
             playEvents = saved.playEvents.values.toList(),
             wearSelections = saved.wearSelections.values.toList(),
+            episodeDownloads = saved.episodeDownloads.values.toList(),
         )
     }
 }

@@ -225,6 +225,27 @@ class UserMigrationTest {
         }
     }
 
+    @Test
+    fun `v7 to v8 keeps progress and adds empty episode downloads`() {
+        helper.createDatabase(DB_NAME, 7).use { db ->
+            db.execSQL(
+                "INSERT INTO book_progress (serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty) " +
+                    "VALUES ('f', 'guid', 1000, 2000, 1, 1.0, 10, 0)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 8, true).use { db ->
+            db.query("SELECT finished FROM book_progress WHERE serverId = 'f' AND remoteId = 'guid'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+            }
+            db.query("SELECT COUNT(*) FROM episode_downloads").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "user-migration-test"
     }

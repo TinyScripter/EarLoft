@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
@@ -20,6 +21,7 @@ import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.UserDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
@@ -30,6 +32,7 @@ import de.kleinabersmart.earloft.core.datasource.local.LocalDataSource
 import de.kleinabersmart.earloft.core.datasource.subsonic.SubsonicDataSourceFactory
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.SourceType
+import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinApi
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinClientInfo
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinServerRegistry
@@ -138,6 +141,18 @@ class FullBackupTest {
         BookEntity(serverId = feedId, kind = BookKind.EPISODE, remoteId = guid, title = guid, normTitle = guid, author = "", durationMs = 1_000_000),
     )
 
+    /** Eine Folge mit ihrer Datei, wie der Abgleich sie anlegt. */
+    private suspend fun EarLoftDatabase.addEpisodeWithTrack(feedId: String, guid: String, addedAt: Long, state: TrackDownload = TrackDownload.NONE): Long {
+        val id = bookDao().upsertBook(
+            BookEntity(
+                serverId = feedId, kind = BookKind.EPISODE, remoteId = guid, title = guid, normTitle = guid, author = "",
+                durationMs = 1_000_000, addedAt = addedAt,
+            ),
+        )
+        bookDao().insertTracks(listOf(BookTrackEntity(id, 0, "https://example.org/$guid.mp3", 0, 1_000_000, downloadState = state)))
+        return id
+    }
+
     private fun entries(bytes: ByteArray): Set<String> = ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
         generateSequence { zip.nextEntry }.map { it.name }.toSet()
     }
@@ -218,6 +233,42 @@ class FullBackupTest {
         assertEquals(listOf("feed-here"), new.main.podcastDao().feeds().map { it.feedId })
         // Der Fortschritt hängt an der hiesigen Kennung des Abos.
         assertEquals(4_000L, new.main.bookDao().progressOf(listOf(episode)).single().positionMs)
+    }
+
+    @Test
+    fun `a restored subscription downloads only what the old device had, then new episodes again`() = runTest {
+        val old = Device(backgroundScope)
+        old.main.addFeed()
+        old.main.bookDao().upsertProgress(
+            BookProgressEntity(old.main.addEpisodeWithTrack("feed-1", "heard", addedAt = 1), 1_000_000, 1_000_000, finished = true, updatedAt = 10),
+        )
+        old.main.addEpisodeWithTrack("feed-1", "removed", addedAt = 4, state = TrackDownload.REMOVED)
+        old.main.addEpisodeWithTrack("feed-1", "loaded", addedAt = 3, state = TrackDownload.DONE)
+        old.main.addEpisodeWithTrack("feed-1", "never", addedAt = 2)
+        val file = ByteArrayOutputStream().also { old.backup.export(it) }.toByteArray()
+
+        val new = Device(backgroundScope)
+        new.backup.import(ByteArrayInputStream(file))
+        // Der erste Abgleich legt die Folgen in einem Zug an; die Automatik fragt vorher die Sicherung
+        // (`EpisodeDownloads.queueAutomatic`).
+        val ids = new.main.withTransaction {
+            listOf("heard" to 1L, "removed" to 4L, "loaded" to 3L, "never" to 2L)
+                .associate { (guid, addedAt) -> guid to new.main.addEpisodeWithTrack("feed-1", guid, addedAt) }
+        }
+        new.userData.applyWaiting()
+        val dao = new.main.podcastDao()
+        assertEquals(0, dao.queueLatestUnheard("feed-1", 3))
+
+        suspend fun state(guid: String) = dao.trackOf(ids.getValue(guid))!!.downloadState
+        assertTrue(new.main.bookDao().progressOf(listOf(ids.getValue("heard"))).single().finished)
+        assertEquals("loaded on the old device", TrackDownload.QUEUED, state("loaded"))
+        for (guid in listOf("heard", "removed", "never")) assertEquals(guid, TrackDownload.REMOVED, state(guid))
+
+        // Eine danach erschienene Folge lädt die Automatik wieder.
+        val newer = new.main.withTransaction { new.main.addEpisodeWithTrack("feed-1", "newer", addedAt = 5) }
+        new.userData.applyWaiting()
+        assertEquals(1, dao.queueLatestUnheard("feed-1", 3))
+        assertEquals(TrackDownload.QUEUED, dao.trackOf(newer)!!.downloadState)
     }
 
     @Test

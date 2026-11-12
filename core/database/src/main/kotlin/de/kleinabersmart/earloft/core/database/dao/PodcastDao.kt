@@ -251,14 +251,51 @@ abstract class PodcastDao {
     @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState IN ('NONE', 'FAILED', 'REMOVED')")
     abstract suspend fun queueDownload(bookId: Long): Int
 
-    /** Die neuesten ungehörten Folgen eines Podcasts, die noch nie geladen wurden (nicht: entfernte oder fehlgeschlagene). */
+    /**
+     * Die neuesten ungehörten Folgen eines Podcasts, die noch nie geladen wurden (nicht: entfernte oder fehlgeschlagene) –
+     * nur neue: neuer als die neueste zu Ende gehörte. Den Rückstand dahinter lädt nur, wer ihn von Hand anfordert.
+     */
     @Query(
         "UPDATE book_tracks SET downloadState = 'QUEUED' WHERE trackIndex = 0 AND downloadState = 'NONE' AND bookId IN (" +
             "SELECT bookId FROM books WHERE kind = 'EPISODE' AND serverId = :feedId " +
             "AND bookId NOT IN (SELECT bookId FROM book_progress WHERE finished = 1) " +
+            "AND addedAt > (SELECT COALESCE(MAX(h.addedAt), -1) FROM books h JOIN book_progress p ON p.bookId = h.bookId " +
+            "WHERE h.serverId = :feedId AND p.finished = 1) " +
             "ORDER BY addedAt DESC, bookId DESC LIMIT :count)",
     )
     abstract suspend fun queueLatestUnheard(feedId: String, count: Int): Int
+
+    /** Downloads der Folgen samt Schlüssel ihrer Folge (Backup): alles außer „nie geladen“. */
+    @Query(
+        "SELECT b.serverId AS serverId, b.remoteId AS remoteId, t.downloadState AS downloadState FROM book_tracks t " +
+            "JOIN books b ON b.bookId = t.bookId WHERE b.kind = 'EPISODE' AND t.trackIndex = 0 AND t.downloadState != 'NONE'",
+    )
+    abstract suspend fun keyedEpisodeDownloads(): List<KeyedEpisodeDownload>
+
+    /** Aus der Sicherung: Folgen, deren Download dort entfernt wurde oder fehlschlug; die Automatik lässt sie aus. */
+    @Query("UPDATE book_tracks SET downloadState = 'REMOVED' WHERE trackIndex = 0 AND downloadState = 'NONE' AND bookId IN (:bookIds)")
+    abstract suspend fun excludeFromAutomatic(bookIds: List<Long>): Int
+
+    /**
+     * Aus der Sicherung, nach dem ersten Abgleich eines zurückgespielten Abos: Was jetzt da ist und nie geladen wurde, lässt die
+     * Automatik aus. Geladen wird nur, was auf dem alten Gerät geladen war; neue Folgen danach wieder automatisch.
+     */
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'REMOVED' WHERE trackIndex = 0 AND downloadState = 'NONE' AND bookId IN (" +
+            "SELECT bookId FROM books WHERE kind = 'EPISODE' AND serverId = :feedId)",
+    )
+    abstract suspend fun excludeAllFromAutomatic(feedId: String): Int
+
+    /** Folgen des Podcasts samt ihrer Datei (der Abgleich legt beides zusammen an). */
+    @Query(
+        "SELECT COUNT(*) FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND b.serverId = :feedId AND t.trackIndex = 0",
+    )
+    abstract suspend fun episodeCount(feedId: String): Int
+
+    /** Aus der Sicherung: Folgen, die dort geladen waren und hier noch nie. */
+    @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE trackIndex = 0 AND downloadState = 'NONE' AND bookId IN (:bookIds)")
+    abstract suspend fun queueNeverDownloaded(bookIds: List<Long>): Int
 
     @Query(
         "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
@@ -333,3 +370,6 @@ abstract class PodcastDao {
     )
     abstract suspend fun deleteUnseenEpisodes(feedId: String, generation: Long)
 }
+
+/** Download einer Folge mit dem Schlüssel ihrer Folge (Feed, guid). */
+data class KeyedEpisodeDownload(val serverId: String, val remoteId: String, val downloadState: TrackDownload)

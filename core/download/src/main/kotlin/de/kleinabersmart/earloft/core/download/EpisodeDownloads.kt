@@ -10,6 +10,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
+import de.kleinabersmart.earloft.core.data.backup.UserDataBackup
 import de.kleinabersmart.earloft.core.data.podcast.HeardDownload
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
@@ -48,6 +49,7 @@ class EpisodeDownloads @Inject constructor(
     private val podcasts: PodcastRepository,
     private val settings: PodcastSettings,
     private val storage: EpisodeStorage,
+    private val userData: UserDataBackup,
 ) {
     private val started = AtomicBoolean(false)
 
@@ -100,9 +102,13 @@ class EpisodeDownloads @Inject constructor(
     suspend fun removeHeard(feedId: String): Int =
         dao.finishedDownloads(feedId).onEach { remove(it.bookId) }.size
 
-    /** Reiht die neuesten ungehörten Folgen ein, wenn der Podcast automatisch lädt. */
+    /**
+     * Reiht die neuesten ungehörten Folgen ein, wenn der Podcast automatisch lädt. Vorher gilt, was die Sicherung zu den
+     * Folgen weiß (gehört, Download entfernt): Nach einem Gerätewechsel stehen sie erst nach dem Abgleich wieder da.
+     */
     suspend fun queueAutomatic(feedId: String) {
         if (dao.feed(feedId)?.autoDownload != true) return
+        userData.applyWaiting()
         if (dao.queueLatestUnheard(feedId, settings.autoDownloadCount.first()) > 0) enqueueWorker()
     }
 
@@ -125,6 +131,8 @@ class EpisodeDownloads @Inject constructor(
                 dao.feeds().filter { it.autoDownload }.forEach { queueAutomatic(it.feedId) }
             }
         }
+        // Aus der Sicherung wieder eingereihte Downloads.
+        scope.launch { userData.downloadsQueued.collect { enqueueWorker() } }
         // Die Einstellung „Mobilfunk“ gilt für wartende Downloads sofort: den Auftrag mit neuen Bedingungen ersetzen.
         scope.launch {
             settings.useMobileData.distinctUntilChanged().drop(1).collect {

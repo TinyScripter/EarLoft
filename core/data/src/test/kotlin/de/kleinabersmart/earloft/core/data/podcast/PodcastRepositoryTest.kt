@@ -679,7 +679,7 @@ class PodcastRepositoryTest {
     }
 
     @Test
-    fun `the automatic download takes the newest unheard episodes and leaves removed ones alone`() = runTest {
+    fun `the automatic download takes the newest unheard episodes after the last heard one and leaves removed ones alone`() = runTest {
         served = feed(
             "E" to "Fri, 31 Oct 2025 06:00:00 GMT", "D" to "Thu, 30 Oct 2025 06:00:00 GMT", "C" to "Wed, 29 Oct 2025 06:00:00 GMT",
             "B" to "Tue, 28 Oct 2025 06:00:00 GMT", "A" to "Mon, 27 Oct 2025 06:00:00 GMT",
@@ -687,18 +687,32 @@ class PodcastRepositoryTest {
         val feedId = subscribe()
         val (e, d, c, b) = listOf("E", "D", "C", "B").map { idOf(feedId, it) }
         val dao = db.podcastDao()
-        listen(e, positionMs = 600_000, updatedAt = 1, finished = true)
+        listen(b, positionMs = 600_000, updatedAt = 1, finished = true)
         dao.queueDownload(c)
         dao.markDownloadRemoved(c)
 
         dao.queueLatestUnheard(feedId, 3)
 
-        assertEquals("finished", TrackDownload.NONE, stateOf(e))
+        assertEquals(TrackDownload.QUEUED, stateOf(e))
         assertEquals(TrackDownload.QUEUED, stateOf(d))
         assertEquals("removed by the user", TrackDownload.REMOVED, stateOf(c))
-        assertEquals(TrackDownload.QUEUED, stateOf(b))
-        assertEquals("A is the fourth unheard one", TrackDownload.NONE, stateOf(idOf(feedId, "A")))
-        assertEquals("newest queued first", d, dao.nextQueuedDownload()!!.bookId)
+        assertEquals("finished", TrackDownload.NONE, stateOf(b))
+        assertEquals("older than the last heard one", TrackDownload.NONE, stateOf(idOf(feedId, "A")))
+        assertEquals("newest queued first", e, dao.nextQueuedDownload()!!.bookId)
+    }
+
+    @Test
+    fun `the automatic download leaves the backlog alone once the newest episode is heard`() = runTest {
+        served = feed(
+            "C" to "Wed, 29 Oct 2025 06:00:00 GMT", "B" to "Tue, 28 Oct 2025 06:00:00 GMT", "A" to "Mon, 27 Oct 2025 06:00:00 GMT",
+        )
+        val feedId = subscribe()
+        val (c, b, a) = listOf("C", "B", "A").map { idOf(feedId, it) }
+        listen(c, positionMs = 600_000, updatedAt = 1, finished = true)
+
+        assertEquals(0, db.podcastDao().queueLatestUnheard(feedId, 3))
+        assertEquals(TrackDownload.NONE, stateOf(b))
+        assertEquals(TrackDownload.NONE, stateOf(a))
     }
 
     @Test

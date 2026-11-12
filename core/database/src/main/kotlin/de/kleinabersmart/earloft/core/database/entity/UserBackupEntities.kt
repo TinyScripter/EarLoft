@@ -96,6 +96,18 @@ data class UserBookProgressEntity(
 )
 
 /**
+ * Was mit dem Download einer Podcast-Folge war (`book_tracks.downloadState`), über Feed und guid. [wanted]: geladen oder
+ * wartend – kommt auf einem neuen Gerät wieder, solange die Folge nicht gehört ist. Sonst entfernt oder fehlgeschlagen –
+ * die Automatik lädt sie dann auch dort nicht.
+ */
+@Entity(tableName = "episode_downloads", primaryKeys = ["serverId", "remoteId"])
+data class UserEpisodeDownloadEntity(
+    val serverId: String,
+    val remoteId: String,
+    val wanted: Boolean,
+)
+
+/**
  * Ein Song über seine Metadaten statt der `songId` (siehe `KeyedSong`): Album-Künstler, Album, CD, Titelnummer und Titel,
  * normalisiert wie beim Zusammenführen.
  */

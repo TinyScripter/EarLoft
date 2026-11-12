@@ -6,6 +6,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlaylistEntryEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
@@ -53,6 +54,9 @@ abstract class UserDataDao {
 
     @Query("SELECT * FROM wear_selections")
     abstract suspend fun wearSelections(): List<UserWearSelectionEntity>
+
+    @Query("SELECT * FROM episode_downloads")
+    abstract suspend fun episodeDownloads(): List<UserEpisodeDownloadEntity>
 
     @Upsert
     protected abstract suspend fun upsertServers(rows: List<UserServerEntity>)
@@ -124,12 +128,22 @@ abstract class UserDataDao {
     @Delete
     protected abstract suspend fun deleteWearSelections(rows: List<UserWearSelectionEntity>)
 
+    @Upsert
+    protected abstract suspend fun upsertEpisodeDownloads(rows: List<UserEpisodeDownloadEntity>)
+
+    @Delete
+    protected abstract suspend fun deleteEpisodeDownloads(rows: List<UserEpisodeDownloadEntity>)
+
     @Query("DELETE FROM book_progress WHERE serverId IN (:serverIds)")
     protected abstract suspend fun deleteProgressOf(serverIds: List<String>)
 
+    @Query("DELETE FROM episode_downloads WHERE serverId IN (:serverIds)")
+    protected abstract suspend fun deleteEpisodeDownloadsOf(serverIds: List<String>)
+
     /**
      * Schreibt alle Änderungen in einem Zug; [UserDataChanges.isEmpty] spart den Aufruf. Mit einem Abo oder
-     * Audiobookshelf-Server fällt auch sein Fortschritt weg, auch der noch nicht angewendete.
+     * Audiobookshelf-Server fällt auch sein Fortschritt weg, auch der noch nicht angewendete; mit einem Abo auch seine
+     * Downloads.
      */
     @Transaction
     open suspend fun apply(changes: UserDataChanges) {
@@ -156,8 +170,11 @@ abstract class UserDataDao {
             if (playEvents.deletes.isNotEmpty()) deletePlayEvents(playEvents.deletes)
             if (wearSelections.upserts.isNotEmpty()) upsertWearSelections(wearSelections.upserts)
             if (wearSelections.deletes.isNotEmpty()) deleteWearSelections(wearSelections.deletes)
+            if (episodeDownloads.upserts.isNotEmpty()) upsertEpisodeDownloads(episodeDownloads.upserts)
+            if (episodeDownloads.deletes.isNotEmpty()) deleteEpisodeDownloads(episodeDownloads.deletes)
             val removedServers = podcasts.deletes.map { it.feedId } + spokenServers.deletes.map { it.serverId }
             removedServers.chunked(MAX_ARGS).forEach { deleteProgressOf(it) }
+            podcasts.deletes.map { it.feedId }.chunked(MAX_ARGS).forEach { deleteEpisodeDownloadsOf(it) }
         }
     }
 
@@ -185,8 +202,10 @@ data class UserDataChanges(
     val favorites: RowChanges<UserFavoriteEntity> = RowChanges(),
     val playEvents: RowChanges<UserPlayEventEntity> = RowChanges(),
     val wearSelections: RowChanges<UserWearSelectionEntity> = RowChanges(),
+    val episodeDownloads: RowChanges<UserEpisodeDownloadEntity> = RowChanges(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty && spokenServers.isEmpty && podcasts.isEmpty && listeningStats.isEmpty && listeningDays.isEmpty &&
-            progress.isEmpty && playlists.isEmpty && playlistEntries.isEmpty && favorites.isEmpty && playEvents.isEmpty && wearSelections.isEmpty
+            progress.isEmpty && playlists.isEmpty && playlistEntries.isEmpty && favorites.isEmpty && playEvents.isEmpty &&
+            wearSelections.isEmpty && episodeDownloads.isEmpty
 }
