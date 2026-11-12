@@ -31,6 +31,7 @@ import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import de.kleinabersmart.earloft.cast.CastVolumeIndicator
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRefresher
+import de.kleinabersmart.earloft.core.data.setup.SetupState
 import de.kleinabersmart.earloft.core.data.share.IncomingFeed
 import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.earloft.core.data.sync.LibraryRefresher
@@ -40,7 +41,6 @@ import de.kleinabersmart.earloft.core.playback.EXTRA_OPEN_NOW_PLAYING
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.notification.NewContentTarget
 import de.kleinabersmart.earloft.ui.EarLoftApp
-import de.kleinabersmart.earloft.ui.permission.AskForNotificationsOnce
 import de.kleinabersmart.earloft.ui.permission.AudioPermissionGate
 import de.kleinabersmart.earloft.ui.theme.LocalPlayerCoverColors
 import de.kleinabersmart.earloft.ui.theme.ThemeMode
@@ -62,6 +62,8 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var themeSettings: ThemeSettings
 
     @Inject lateinit var librarySettings: LibrarySettings
+
+    @Inject lateinit var setupState: SetupState
 
     @Inject lateinit var playbackConnection: PlaybackConnection
 
@@ -167,10 +169,13 @@ class MainActivity : ComponentActivity() {
             val themeMode by themeSettings.mode.collectAsStateWithLifecycle(initialValue = null)
             val systemColorsSetting by themeSettings.systemColors.collectAsStateWithLifecycle(initialValue = null)
             val useLocalMedia by librarySettings.useLocalMedia.collectAsStateWithLifecycle(initialValue = null)
-            // Bis die Einstellungen gelesen sind (wenige Millisekunden): nichts zeichnen statt kurz falsch.
+            val setupPending by setupState.pending.collectAsStateWithLifecycle(initialValue = null)
+            // Bis die Einstellungen gelesen sind (wenige Millisekunden; beim ersten Start bis die Sicherung zurückgespielt
+            // ist): nichts zeichnen statt kurz falsch.
             val mode = themeMode ?: return@setContent
             val systemColors = systemColorsSetting ?: return@setContent
             val localMedia = useLocalMedia ?: return@setContent
+            val showSetup = setupPending ?: return@setContent
             val alwaysNavigationBar by themeSettings.alwaysShowNavigationBar.collectAsStateWithLifecycle(initialValue = true)
             val playerCoverColors by themeSettings.playerCoverColors.collectAsStateWithLifecycle(initialValue = true)
 
@@ -195,8 +200,6 @@ class MainActivity : ComponentActivity() {
                         onGranted = libraryRefresher::refreshNow,
                         onSkip = { lifecycleScope.launch { librarySettings.setUseLocalMedia(false) } },
                     ) {
-                        // Erst hier: Die Seite davor fragt die Benachrichtigungen schon mit.
-                        AskForNotificationsOnce()
                         CompositionLocalProvider(LocalPlayerCoverColors provides playerCoverColors) {
                             EarLoftApp(
                                 openNowPlaying = openNowPlaying,
@@ -206,6 +209,8 @@ class MainActivity : ComponentActivity() {
                                 newContentTarget = newContentTarget,
                                 onNewContentOpened = { newContentTarget = null },
                                 alwaysShowNavigationBar = alwaysNavigationBar,
+                                showSetup = showSetup,
+                                onSetupFinished = { lifecycleScope.launch { setupState.finish() } },
                             )
                         }
                     }

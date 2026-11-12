@@ -32,7 +32,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.ui.res.painterResource
@@ -85,6 +88,7 @@ import de.kleinabersmart.earloft.navigation.SettingsGeneralRoute
 import de.kleinabersmart.earloft.navigation.SettingsMusicRoute
 import de.kleinabersmart.earloft.navigation.SettingsPodcastsRoute
 import de.kleinabersmart.earloft.navigation.SettingsRoute
+import de.kleinabersmart.earloft.navigation.SetupRoute
 import de.kleinabersmart.earloft.navigation.WatchSettingsRoute
 import de.kleinabersmart.earloft.navigation.TOP_LEVEL_ROUTES
 import de.kleinabersmart.earloft.navigation.TopLevelDestination
@@ -117,6 +121,8 @@ import de.kleinabersmart.earloft.ui.settings.PodcastsSettingsScreen
 import de.kleinabersmart.earloft.ui.settings.ServerFormScreen
 import de.kleinabersmart.earloft.ui.settings.SettingsScreen
 import de.kleinabersmart.earloft.ui.settings.WatchSettingsScreen
+import de.kleinabersmart.earloft.ui.setup.SetupExitDialog
+import de.kleinabersmart.earloft.ui.setup.SetupScreen
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.ui.snackbar.SnackbarViewModel
 import de.kleinabersmart.earloft.ui.spoken.AudiobookshelfFormScreen
@@ -153,6 +159,8 @@ fun EarLoftApp(
     newContentTarget: NewContentTarget? = null,
     onNewContentOpened: () -> Unit = {},
     alwaysShowNavigationBar: Boolean = true,
+    showSetup: Boolean = false,
+    onSetupFinished: () -> Unit = {},
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
     val navigationState = rememberNavigationState(
@@ -186,6 +194,17 @@ fun EarLoftApp(
         }
         onNewContentOpened()
     }
+    // Einrichtungsassistent (Konzept 15): beim ersten Start über Start. „Zurück“ auf seiner ersten Seite fragt, ob er endet.
+    var confirmSetupExit by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(showSetup) {
+        if (showSetup) navigator.showSetup()
+    }
+    val finishSetup: () -> Unit = {
+        confirmSetupExit = false
+        navigator.closeSetup()
+        onSetupFinished()
+    }
+
     // Hier nur ableiten: Jede Änderung am Player (Play/Pause, Titel, Warteschlange, Tempo) setzte sonst Navigation und
     // Scaffold neu zusammen. Den ganzen Zustand liest erst der Mini-Player.
     val playerState = playerViewModel.state.collectAsStateWithLifecycle()
@@ -392,7 +411,11 @@ fun EarLoftApp(
             )
         }
         entry<SettingsGeneralRoute>(metadata = detailPane()) {
-            GeneralSettingsScreen(onBack = navigator::goBack, onOpenDownloads = { navigator.navigate(DownloadsRoute) })
+            GeneralSettingsScreen(
+                onBack = navigator::goBack,
+                onOpenDownloads = { navigator.navigate(DownloadsRoute) },
+                onOpenSetup = navigator::showSetup,
+            )
         }
         entry<SettingsMusicRoute>(metadata = detailPane()) {
             MusicSettingsScreen(
@@ -416,11 +439,21 @@ fun EarLoftApp(
         entry<EditServerRoute>(metadata = detailPane()) { route ->
             ServerFormScreen(sourceId = route.sourceId, onDone = navigator::goBack)
         }
+        entry<SetupRoute> { route ->
+            SetupScreen(
+                page = route.page,
+                onNext = { navigator.navigate(SetupRoute(it)) },
+                onBack = navigator::goBack,
+                onSkip = { confirmSetupExit = true },
+                onFinish = finishSetup,
+            )
+        }
     }
 
     // Navigationsleiste (unten bzw. als Rail links) bleibt auf Wunsch auch im Player sichtbar; der Mini-Player entfällt dort immer.
-    val showMiniPlayer = !navigator.currentRoute.isFullScreenPlayer
-    val showNavigation = alwaysShowNavigationBar || showMiniPlayer
+    // Im Assistenten keins von beiden, auch nicht in den daraus geöffneten Formularen; er endet nur über seine Knöpfe.
+    val showMiniPlayer = !navigator.currentRoute.isFullScreenPlayer && navigator.currentRoute !is SetupRoute
+    val showNavigation = !navigator.inSetup && (alwaysShowNavigationBar || showMiniPlayer)
     val navigationSuiteState = rememberNavigationSuiteScaffoldState()
     LaunchedEffect(showNavigation) {
         if (showNavigation) navigationSuiteState.show() else navigationSuiteState.hide()
@@ -487,7 +520,7 @@ fun EarLoftApp(
                         NavDisplay(
                             entries = navigationState.toDecoratedEntries(entryProvider),
                             sceneStrategies = listOf(sceneStrategy),
-                            onBack = { navigator.goBack() },
+                            onBack = { if (navigator.onFirstSetupPage) confirmSetupExit = true else navigator.goBack() },
                             transitionSpec = { fadeThrough() },
                             popTransitionSpec = { fadeThrough() },
                             predictivePopTransitionSpec = { predictiveBack() },
@@ -500,6 +533,7 @@ fun EarLoftApp(
                 }
             }
         }
+        if (confirmSetupExit) SetupExitDialog(onConfirm = finishSetup, onDismiss = { confirmSetupExit = false })
     }
 }
 

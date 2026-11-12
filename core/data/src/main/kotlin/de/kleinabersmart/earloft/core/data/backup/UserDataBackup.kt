@@ -19,6 +19,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -69,6 +70,9 @@ class UserDataBackup @Inject constructor(
 ) {
     private val started = AtomicBoolean(false)
 
+    /** Fertig, sobald das Zurückspielen beim Start gelaufen ist, auch wenn es fehlschlug. */
+    private val restoreFinished = CompletableDeferred<Unit>()
+
     /** Spiegeln und Anwenden lesen und schreiben dieselben Zeilen. */
     private val mutex = Mutex()
 
@@ -90,6 +94,8 @@ class UserDataBackup @Inject constructor(
                 // nicht zurückgespielte Sicherung nicht vom leeren Stand überschrieben wird.
                 Log.e(TAG, "Nutzerdaten konnten nicht zurückgespielt werden", e)
                 return@launch
+            } finally {
+                restoreFinished.complete(Unit)
             }
             val saved = readUser()
             val pending = mutex.withLock { applySaved(saved, Pending.of(saved)) }
@@ -113,6 +119,12 @@ class UserDataBackup @Inject constructor(
                 }
         }
     }
+
+    /**
+     * Wartet, bis gesicherte Server und Abos wieder in der Hauptdatenbank stehen (nur beim ersten Start einer Installation
+     * dauert das merklich). Der Einrichtungsassistent entscheidet erst danach, ob es schon Inhalt gibt.
+     */
+    suspend fun awaitRestore() = restoreFinished.await()
 
     private suspend fun restoreOnce() {
         val marker = File(context.noBackupFilesDir, RESTORED_MARKER)

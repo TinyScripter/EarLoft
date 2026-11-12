@@ -776,4 +776,27 @@
     <string name="settings_area_music_summary">Navidrome, Jellyfin, Emby, music on this device</string>
     <string name="settings_area_podcasts_summary">RSS feeds, podcasts on this device</string>
     <string name="settings_area_books_summary">Audiobookshelf, books on this device</string>
+
+    <!-- Einrichtungsassistent (Konzept 15) -->
+    <string name="setup_step">Step %1$d of %2$d</string>
+    <string name="setup_skip">Skip</string>
+    <string name="setup_next">Next</string>
+    <string name="setup_start">Let’s go</string>
+    <string name="setup_finish">Open the app</string>
+    <string name="setup_welcome_title">Welcome to EarLoft</string>
+    <string name="setup_welcome_text">EarLoft plays your own collection: music from your Navidrome, Subsonic, Jellyfin or Emby server, podcasts from any feed and audiobooks from Audiobookshelf, plus the files on this device. Everything can be downloaded and also plays on your Wear OS watch and in Android Auto.</string>
+    <string name="setup_welcome_hint">The next steps set up where it all comes from. You can skip any step and change everything later in the settings.</string>
+    <string name="setup_notifications_title">Notifications</string>
+    <string name="setup_notifications_text">EarLoft lets you know about new music, episodes and books and shows the progress of downloads. The notification for what is playing appears even without this permission.</string>
+    <string name="setup_notifications_allow">Allow notifications</string>
+    <string name="setup_notifications_granted">Notifications are allowed</string>
+    <string name="setup_done_title">All set</string>
+    <string name="setup_done_text">Everything you set up here can be changed in the settings. You can also open this setup again there.</string>
+    <string name="setup_exit_title">End setup?</string>
+    <string name="setup_exit_text">Everything you have set up so far is kept. You can open the setup again any time under Settings → General.</string>
+    <string name="setup_exit_confirm">End</string>
+    <string name="setup_exit_continue">Continue setup</string>
+    <string name="settings_section_setup">Setup</string>
+    <string name="settings_setup_again">Show setup again</string>
+    <string name="settings_setup_again_summary">Step by step through the main settings</string>
 </resources>

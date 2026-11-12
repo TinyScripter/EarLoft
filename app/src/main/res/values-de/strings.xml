@@ -769,4 +769,27 @@
     <string name="settings_area_music_summary">Navidrome, Jellyfin, Emby, Musik auf dem Gerät</string>
     <string name="settings_area_podcasts_summary">RSS-Feeds, Podcasts auf dem Gerät</string>
     <string name="settings_area_books_summary">Audiobookshelf, Bücher auf dem Gerät</string>
+
+    <!-- Einrichtungsassistent (Konzept 15) -->
+    <string name="setup_step">Schritt %1$d von %2$d</string>
+    <string name="setup_skip">Überspringen</string>
+    <string name="setup_next">Weiter</string>
+    <string name="setup_start">Los geht’s</string>
+    <string name="setup_finish">Zur App</string>
+    <string name="setup_welcome_title">Willkommen bei EarLoft</string>
+    <string name="setup_welcome_text">EarLoft spielt deine eigene Sammlung: Musik von deinem Navidrome-, Subsonic-, Jellyfin- oder Emby-Server, Podcasts aus beliebigen Feeds und Hörbücher von Audiobookshelf, dazu die Dateien auf diesem Gerät. Alles lässt sich herunterladen und läuft auch auf der Wear-OS-Uhr und in Android Auto.</string>
+    <string name="setup_welcome_hint">In den nächsten Schritten richtest du ein, woher alles kommt. Jeder Schritt lässt sich überspringen, und alles geht später auch in den Einstellungen.</string>
+    <string name="setup_notifications_title">Benachrichtigungen</string>
+    <string name="setup_notifications_text">EarLoft meldet neue Musik, Folgen und Bücher und zeigt den Fortschritt von Downloads. Die Benachrichtigung zur laufenden Wiedergabe erscheint auch ohne diese Berechtigung.</string>
+    <string name="setup_notifications_allow">Benachrichtigungen erlauben</string>
+    <string name="setup_notifications_granted">Benachrichtigungen sind erlaubt</string>
+    <string name="setup_done_title">Alles bereit</string>
+    <string name="setup_done_text">Alles, was du hier eingestellt hast, findest du in den Einstellungen. Dort lässt sich die Einrichtung auch erneut aufrufen.</string>
+    <string name="setup_exit_title">Einrichtung beenden?</string>
+    <string name="setup_exit_text">Was du bisher eingestellt hast, bleibt erhalten. Die Einrichtung findest du jederzeit unter Einstellungen → Allgemein.</string>
+    <string name="setup_exit_confirm">Beenden</string>
+    <string name="setup_exit_continue">Weiter einrichten</string>
+    <string name="settings_section_setup">Einrichtung</string>
+    <string name="settings_setup_again">Einrichtung erneut zeigen</string>
+    <string name="settings_setup_again_summary">Schritt für Schritt durch die wichtigsten Einstellungen</string>
 </resources>

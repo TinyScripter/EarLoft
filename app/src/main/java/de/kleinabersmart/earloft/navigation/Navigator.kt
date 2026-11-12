@@ -8,6 +8,29 @@ class Navigator(private val state: NavigationState) {
     /** Das oberste Ziel des aktuellen Tabs. */
     val currentRoute: NavKey get() = currentStack().last()
 
+    /** Der Einrichtungsassistent liegt im aktuellen Tab (auch unter einem daraus geöffneten Formular). */
+    val inSetup: Boolean get() = currentStack().any { it is SetupRoute }
+
+    /** Die erste Seite des Assistenten ist oben; „Zurück“ beendet dort den Assistenten statt eine Seite zurückzugehen. */
+    val onFirstSetupPage: Boolean
+        get() {
+            val stack = currentStack()
+            return stack.last() is SetupRoute && stack.getOrNull(stack.size - 2) !is SetupRoute
+        }
+
+    /** Öffnet den Assistenten auf seiner ersten Seite im aktuellen Tab, außer er liegt dort schon. */
+    fun showSetup() {
+        if (!inSetup) currentStack().add(SetupRoute(SetupPage.entries.first()))
+    }
+
+    /** Schließt den Assistenten samt allem, was darüber geöffnet wurde; zurück bleibt die Seite darunter. */
+    fun closeSetup() {
+        val stack = currentStack()
+        val index = stack.indexOfFirst { it is SetupRoute }
+        if (index < 0) return
+        while (stack.size > index) stack.removeLastOrNull()
+    }
+
     fun navigate(route: NavKey) {
         if (route in state.backStacks.keys) {
             // Ein Tipp auf einen Tab zeigt immer dessen Startseite, auch wenn dort zuvor tiefer navigiert wurde.

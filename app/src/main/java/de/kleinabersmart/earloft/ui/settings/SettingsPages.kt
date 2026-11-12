@@ -77,6 +77,7 @@ private fun RefreshRow(title: String, onClick: () -> Unit) {
 fun GeneralSettingsScreen(
     onBack: () -> Unit,
     onOpenDownloads: () -> Unit,
+    onOpenSetup: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -182,6 +183,17 @@ fun GeneralSettingsScreen(
 
         group("refresh", R.string.settings_section_refresh) {
             row("refresh-all") { RefreshRow(stringResource(R.string.settings_refresh_all), viewModel::refreshAll) }
+        }
+
+        group("setup", R.string.settings_section_setup) {
+            row("setup-again") {
+                ClickRow(
+                    title = stringResource(R.string.settings_setup_again),
+                    value = stringResource(R.string.settings_setup_again_summary),
+                    icon = DesignR.drawable.ic_restart,
+                    onClick = onOpenSetup,
+                )
+            }
         }
     }
 

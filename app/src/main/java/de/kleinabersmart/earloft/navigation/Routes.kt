@@ -165,6 +165,16 @@ data object AboutRoute : NavKey
 @Serializable
 data object LicensesRoute : NavKey
 
+/** Seiten des Einrichtungsassistenten (Konzept 15) in ihrer Reihenfolge. */
+enum class SetupPage { WELCOME, NOTIFICATIONS, DONE }
+
+/**
+ * Eine Seite des Einrichtungsassistenten. Jede Seite liegt als eigener Eintrag im Stack: „Zurück“ und die Zurück-Geste
+ * führen so zur vorigen Seite, und Formulare (Server, Abo) öffnen sich darüber und kehren hierher zurück.
+ */
+@Serializable
+data class SetupRoute(val page: SetupPage) : NavKey
+
 /** Bildschirme, auf denen Bottom-Bar und Mini-Player ausgeblendet werden. */
 val NavKey.isFullScreenPlayer: Boolean
     get() = this == NowPlayingRoute || (this is QueueRoute && overPlayer)

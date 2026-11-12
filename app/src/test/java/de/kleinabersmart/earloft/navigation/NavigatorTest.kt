@@ -197,4 +197,40 @@ class NavigatorTest {
     fun `the same album opened twice gets distinct routes`() {
         assertNotEquals(AlbumRoute(albumId = 5), AlbumRoute(albumId = 5))
     }
+
+    @Test
+    fun `setup opens once on its first page`() {
+        navigator.showSetup()
+        navigator.showSetup()
+
+        assertEquals(listOf(HomeRoute, SetupRoute(SetupPage.WELCOME)), state.backStacks.getValue(HomeRoute).toList())
+        assertTrue(navigator.inSetup)
+        assertTrue(navigator.onFirstSetupPage)
+    }
+
+    @Test
+    fun `setup pages and forms above them still count as setup`() {
+        navigator.showSetup()
+        navigator.navigate(SetupRoute(SetupPage.NOTIFICATIONS))
+        assertFalse(navigator.onFirstSetupPage)
+
+        navigator.navigate(AddServerRoute)
+
+        assertTrue(navigator.inSetup)
+        assertFalse(navigator.onFirstSetupPage)
+    }
+
+    @Test
+    fun `closing setup removes it with everything above and keeps what was below`() {
+        navigator.navigate(SettingsRoute)
+        navigator.navigate(SettingsGeneralRoute)
+        navigator.showSetup()
+        navigator.navigate(SetupRoute(SetupPage.NOTIFICATIONS))
+        navigator.navigate(AddServerRoute)
+
+        navigator.closeSetup()
+
+        assertEquals(listOf(SettingsRoute, SettingsGeneralRoute), state.backStacks.getValue(SettingsRoute).toList())
+        assertFalse(navigator.inSetup)
+    }
 }

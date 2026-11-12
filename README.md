@@ -167,7 +167,7 @@ location, microphone, camera, contacts, phone or Bluetooth access.
 
 **Notifications** (`POST_NOTIFICATIONS`, Android 13 and newer)
 
-- *Asked:* once at the first start (only the system dialog).
+- *Asked:* in the setup at the first start, when you tap **Allow notifications**.
 - *If you don't allow it:* no notifications about new music, episodes and books, and no progress notifications for
   downloads and transfers to the watch (the downloads and transfers still run). The playback controls in the
   notification shade and on the lock screen keep working, because Android exempts media playback from this
@@ -210,9 +210,10 @@ application ID (`de.kleinabersmart.earloft`), so install both for the watch feat
 
 ## Getting started
 
-1. Open the app and allow notifications when asked. Access to your audio files is only asked for when you switch on
-   music, podcasts or books on this device, access to your local network (from Android 17) when you add a server. See
-   [Permissions](#permissions) for what each one is needed for.
+1. Open the app. At the first start a short setup explains what EarLoft does and lets you allow notifications. You can
+   skip it at any time and open it again under **Settings → General → Show setup again**. Access to your audio files is
+   only asked for when you switch on music, podcasts or books on this device, access to your local network (from
+   Android 17) when you add a server. See [Permissions](#permissions) for what each one is needed for.
 2. **Music:** switch on **Settings → Music → Use music on this device** for the music on your phone. For a server:
    **Settings → Music → Add server**, choose the server type (Navidrome / Subsonic, Jellyfin or Emby), then enter the
    address (for example `https://music.example.com`) and your credentials. The first sync can take a while for large
