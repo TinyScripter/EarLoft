@@ -210,6 +210,43 @@ class AbsOpenIdTest {
     }
 
     @Test
+    fun `the watch gets an access token that is still valid, never the refresh token`() = runTest {
+        val id = signIn()
+        servers.server(id)
+        registry.register(registry[id]!!.copy(token = jwt("access-1", System.currentTimeMillis() / 1000 + 60)))
+
+        val forWatch = servers.apiKey(id)
+
+        assertEquals(jwt("access-2"), forWatch)
+        assertFalse(forWatch == secrets.values[AbsSecrets.refresh(id)])
+    }
+
+    @Test
+    fun `the server decides whether the token for the watch is still valid`() = runTest {
+        val id = signIn()
+        // Die Uhr des Handys geht nach: Laut JWT gilt der Token noch, der Server lehnt ihn ab.
+        validAccess.clear()
+
+        assertEquals(jwt("access-2"), servers.apiKey(id))
+        assertEquals(1, refreshCalls.get())
+    }
+
+    @Test
+    fun `the watch lists servers whose access token expires soon`() = runTest {
+        val id = signIn()
+        servers.server(id)
+        assertTrue(servers.withExpiringToken(5 * 60).isEmpty())
+
+        // Auf der Uhr: nur der Access-Token vom Handy, kein Refresh-Token.
+        secrets.values.remove(AbsSecrets.refresh(id))
+        registry.register(registry[id]!!.copy(token = jwt("access-1", System.currentTimeMillis() / 1000 + 60)))
+        assertEquals(listOf(id), servers.withExpiringToken(5 * 60))
+
+        registry.register(registry[id]!!.copy(token = "api-key-without-expiry"))
+        assertTrue(servers.withExpiringToken(5 * 60).isEmpty())
+    }
+
+    @Test
     fun `the watch stamp follows the sign-in, not the hourly access token`() = runTest {
         val id = signIn()
         val before = servers.mirrored.first().single().credentialsStamp

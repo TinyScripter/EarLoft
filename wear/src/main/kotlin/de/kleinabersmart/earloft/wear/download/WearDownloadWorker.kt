@@ -40,7 +40,9 @@ import de.kleinabersmart.earloft.core.wearsync.WearQuality
 import de.kleinabersmart.earloft.wear.R
 import de.kleinabersmart.earloft.wear.sync.CredentialsRequester
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -164,6 +166,7 @@ class WearDownloadWorker(
                     DownloadOutcome.Cancelled -> Unit
                 }
             }
+            if (bookDao.nextQueuedBookTrack() != null) renewExpiringBookKeys()
             while (true) {
                 val track = bookDao.nextQueuedBookTrack() ?: break
                 val key = bookFailureKey(track.bookId)
@@ -210,6 +213,22 @@ class WearDownloadWorker(
         }
         cacheCovers()
         return finish()
+    }
+
+    /**
+     * Bei Anmeldung per OpenID gilt der Access-Token vom Handy höchstens eine Stunde (Konzept 12.11): Läuft er bald ab, vorher
+     * einen frischen anfragen und kurz auf die Antwort warten, statt einen Fehlversuch mit 401 zu verbrauchen. Antwortet das
+     * Handy nicht, geht es mit dem alten weiter; eine Ablehnung fragt dann wie bisher erneut.
+     */
+    private suspend fun renewExpiringBookKeys() {
+        val audiobookshelf = entryPoint.audiobookshelf()
+        val expiring = audiobookshelf.withExpiringToken(KEY_MARGIN_SECONDS)
+        if (expiring.isEmpty()) return
+        Log.i(TAG, "Schlüssel für ${expiring.size} Audiobookshelf-Server läuft ab, frischen beim Handy anfragen")
+        entryPoint.credentials().request(expiring)
+        withTimeoutOrNull(KEY_WAIT_MS) {
+            while (audiobookshelf.withExpiringToken(KEY_MARGIN_SECONDS).any { it in expiring }) delay(KEY_POLL_MS)
+        }
     }
 
     /** Kein WLAN zählt nicht als Fehlversuch des Servers: Sonst käme die ganze Auswahl über Bluetooth. */
@@ -493,6 +512,11 @@ class WearDownloadWorker(
 
         /** Bei exponentiellem Backoff ab 30 s rund eine Viertelstunde. */
         const val MAX_WIFI_ATTEMPTS = 5
+
+        /** Ein Access-Token, der in weniger als 5 Minuten abläuft, wird vor dem Lauf ersetzt (Konzept 12.11). */
+        const val KEY_MARGIN_SECONDS = 5 * 60L
+        const val KEY_WAIT_MS = 15_000L
+        const val KEY_POLL_MS = 500L
     }
 }
 

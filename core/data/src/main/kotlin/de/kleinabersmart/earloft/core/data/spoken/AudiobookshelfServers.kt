@@ -266,9 +266,33 @@ class AudiobookshelfServers @Inject constructor(
 
     // --- Uhr (Wear-Konzept 16.2): Server ohne Schlüssel gespiegelt, der Schlüssel einzeln auf Anfrage ---
 
-    /** Handy: der Schlüssel für die anfragende Uhr; `null`, wenn [serverId] kein Audiobookshelf-Server ist. */
-    suspend fun apiKey(serverId: String): String? =
-        if (bookDao.server(serverId) != null) secretStore.get(tokenKey(serverId)) else null
+    /**
+     * Handy: der Schlüssel für die anfragende Uhr; `null`, wenn [serverId] kein Audiobookshelf-Server ist. Bei OpenID ein
+     * Access-Token, der noch mindestens eine halbe Stunde gilt; den Refresh-Token bekommt die Uhr nie, sonst sperrten sich beide
+     * mit der Rotation gegenseitig aus (Konzept 12.11).
+     */
+    suspend fun apiKey(serverId: String): String? {
+        val entity = bookDao.server(serverId) ?: return null
+        val token = freshToken(serverId) ?: return secretStore.get(tokenKey(serverId))
+        if (!entity.openId) return token
+        // Geht die Uhr des Handys nach, hielte es einen abgelaufenen Token für gültig: Der Server entscheidet (bei 401 erneuert
+        // der AbsTokenAuthenticator, die Registry hat danach den neuen).
+        try {
+            registry[serverId]?.let { api.me(it) }
+        } catch (e: IOException) {
+            Log.w(TAG, "Token für die Uhr nicht geprüft", e)
+        }
+        return registry[serverId]?.token ?: token
+    }
+
+    /**
+     * Uhr: eingeschaltete Server, deren Access-Token in weniger als [withinSeconds] abläuft (nur bei OpenID; API-Keys laufen
+     * nicht ab). Die Uhr fragt dafür vor einem Download-Lauf beim Handy einen frischen an.
+     */
+    suspend fun withExpiringToken(withinSeconds: Long): List<String> {
+        val deadline = System.currentTimeMillis() / 1000 + withinSeconds
+        return all().filter { server -> AbsAuthApi.expiresAt(server.token)?.let { it < deadline } == true }.map { it.serverId }
+    }
 
     /**
      * Uhr: übernimmt die Server des Handys. Fehlt einer dort, verschwindet er samt seinen Büchern und dem Schlüssel; die
