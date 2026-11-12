@@ -105,12 +105,14 @@ internal object SubsonicTrackMapper {
         )
 
     /**
-     * Bevorzugt synchronisierte Lyrics. `synced` entscheidet, nicht das Vorhandensein von `start`;
-     * `offset` wird ignoriert (Vorzeichen-Konvention uneinheitlich, in der Praxis meist 0).
+     * Bevorzugt synchronisierte Lyrics. `synced` entscheidet, nicht das Vorhandensein von `start`. `offset` (ms) gilt wie in
+     * der OpenSubsonic-Spezifikation und bei LRC: positiv = Zeilen erscheinen früher.
      */
     fun lyrics(structured: List<StructuredLyricsDto>): Lyrics {
         structured.firstOrNull { it.synced && it.line.any { line -> line.start != null } }?.let { entry ->
-            val lines = entry.line.mapNotNull { line -> line.start?.let { LyricLine(it, line.value) } }.sortedBy { it.startMs }
+            val lines = entry.line
+                .mapNotNull { line -> line.start?.let { LyricLine((it - entry.offset).coerceAtLeast(0), line.value) } }
+                .sortedBy { it.startMs }
             if (lines.any { it.text.isNotBlank() }) return Lyrics.Synced(lines)
         }
         structured.firstOrNull { !it.synced }?.let { entry ->

@@ -126,6 +126,20 @@ class SubsonicTrackMapperTest {
     }
 
     @Test
+    fun `offset moves synced lines earlier or later`() {
+        val lines = listOf(LyricLineDto(1_000, "eins"), LyricLineDto(5_000, "zwei"))
+
+        assertEquals(
+            Lyrics.Synced(listOf(LyricLine(0, "eins"), LyricLine(3_500, "zwei"))),
+            SubsonicTrackMapper.lyrics(listOf(StructuredLyricsDto(synced = true, offset = 1_500, line = lines))),
+        )
+        assertEquals(
+            Lyrics.Synced(listOf(LyricLine(1_250, "eins"), LyricLine(5_250, "zwei"))),
+            SubsonicTrackMapper.lyrics(listOf(StructuredLyricsDto(synced = true, offset = -250, line = lines))),
+        )
+    }
+
+    @Test
     fun `plain lyrics are joined and empty ones are none`() {
         val plain = StructuredLyricsDto(synced = false, line = listOf(LyricLineDto(value = "a"), LyricLineDto(value = "b")))
 

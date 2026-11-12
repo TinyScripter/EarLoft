@@ -2,17 +2,20 @@ package de.kleinabersmart.earloft.core.model
 
 /**
  * Wandelt eingebettete Songtexte in [Lyrics]. Enthält der Text `[mm:ss.xx]`-Zeitstempel (LRC), wird er
- * synchronisiert; mehrere Stempel je Zeile ergeben mehrere Zeilen. Metazeilen wie `[ar:…]` entfallen.
+ * synchronisiert; mehrere Stempel je Zeile ergeben mehrere Zeilen. Metazeilen wie `[ar:…]` entfallen; `[offset:±ms]`
+ * verschiebt alle Zeilen (positiv = früher, wie in der OpenSubsonic-Spezifikation).
  */
 object LrcParser {
 
     private val TIMESTAMP = Regex("""\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?]""")
     private val META = Regex("""^\[[A-Za-z]+:.*]$""")
+    private val OFFSET = Regex("""^\[offset:\s*([+-]?\d+)\s*]$""", RegexOption.IGNORE_CASE)
 
     fun parse(raw: String): Lyrics {
         val text = raw.replace("\r\n", "\n").replace('\r', '\n').trim()
         if (text.isEmpty()) return Lyrics.None
 
+        val offsetMs = text.lines().firstNotNullOfOrNull { OFFSET.find(it.trim())?.groupValues?.get(1)?.toLongOrNull() } ?: 0L
         val lines = mutableListOf<LyricLine>()
         for (line in text.lines()) {
             val stamps = TIMESTAMP.findAll(line).toList()
@@ -26,7 +29,8 @@ object LrcParser {
                     2 -> fraction.toLong() * 10
                     else -> fraction.toLong()
                 }
-                lines += LyricLine(minutes.toLong() * 60_000 + seconds.toLong() * 1_000 + fractionMs, content)
+                val startMs = minutes.toLong() * 60_000 + seconds.toLong() * 1_000 + fractionMs
+                lines += LyricLine((startMs - offsetMs).coerceAtLeast(0), content)
             }
         }
         if (lines.isNotEmpty()) return Lyrics.Synced(lines.sortedBy { it.startMs })

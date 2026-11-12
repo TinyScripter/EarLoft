@@ -24,10 +24,11 @@ interface LyricsDao {
     )
     suspend fun getLocalSources(songId: Long): List<SongSourceEntity>
 
+    /** Nur eingeschaltete Server: Ein ausgeschalteter wird nicht gefragt, wie er auch nicht abgeglichen wird. */
     @Query(
         """
         SELECT ss.* FROM song_sources ss JOIN sources src ON src.sourceId = ss.sourceId
-        WHERE ss.songId = :songId AND src.type NOT IN $NOT_SERVER_TYPES
+        WHERE ss.songId = :songId AND src.type NOT IN $NOT_SERVER_TYPES AND src.enabled = 1
         ORDER BY src.priority DESC
         """,
     )

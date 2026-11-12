@@ -84,6 +84,10 @@ class LibraryDaoTest {
         assertEquals(listOf(NAVIDROME), sourceDao.getServers().map { it.sourceId })
         assertEquals(listOf("$NAVIDROME:a"), db.syncDao().getServerSources(songId).map { it.uid })
         assertEquals(listOf("$NAVIDROME:a"), db.lyricsDao().getServerSources(songId).map { it.uid })
+
+        // Ein ausgeschalteter Server wird nicht nach Songtexten gefragt.
+        sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
+        assertTrue(db.lyricsDao().getServerSources(songId).isEmpty())
     }
 
     @Test

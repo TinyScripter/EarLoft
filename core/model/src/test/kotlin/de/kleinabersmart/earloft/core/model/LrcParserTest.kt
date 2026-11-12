@@ -25,6 +25,15 @@ class LrcParserTest {
     }
 
     @Test
+    fun `offset tag shifts all lines`() {
+        assertEquals(
+            Lyrics.Synced(listOf(LyricLine(0, "eins"), LyricLine(1_500, "zwei"))),
+            LrcParser.parse("[offset:+500]\n[00:00.20]eins\n[00:02.00]zwei"),
+        )
+        assertEquals(Lyrics.Synced(listOf(LyricLine(2_300, "zwei"))), LrcParser.parse("[offset: -300]\n[00:02.00]zwei"))
+    }
+
+    @Test
     fun `text without timestamps is plain`() {
         assertEquals(Lyrics.Plain("Zeile 1\n\nZeile 2"), LrcParser.parse("Zeile 1\r\n\r\nZeile 2\n"))
     }
