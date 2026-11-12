@@ -10,8 +10,9 @@
 **EarLoft** is an audio player for your *own* collection: **music**, **podcasts** and **books**. It plays the
 files on your phone together with your self-hosted music server ([Navidrome](https://www.navidrome.org),
 [Jellyfin](https://jellyfin.org) or [Emby](https://emby.media)) and your
-[Audiobookshelf](https://www.audiobookshelf.org) server in **one app** – on your phone and on your Wear OS watch.
-Podcasts come straight from their public RSS feeds. No streaming subscription, no account with a third party.
+[Audiobookshelf](https://www.audiobookshelf.org) server in **one app** – on your phone, on your Wear OS watch and in
+Android Auto. Podcasts come straight from their public RSS feeds. No streaming subscription, no account with a third
+party.
 
 Why do you need yet another media player? Well, you don't. I built this app primarily for myself, because this is the way
 I like to listen to music, podcasts and audiobooks. There are a lot of good apps that deliver a fantastic experience in
@@ -26,14 +27,16 @@ library.
 
 ### Everywhere
 
-- **Offline listening.** Download music, podcasts and books; everything you browse comes from a local database, so the
-  app stays usable without a connection.
+- **Offline listening.** Download music, podcasts and books; everything you browse comes from a local database, and
+  covers and pictures are kept on the device as well, so the app stays usable without a connection.
 - **Search** across all three areas or only the selected one, ignoring accents ("Bjork" finds "Björk").
-- **Material 3 design** in the colors of the logo or, if you like, of your wallpaper (Material You); the player and
-  album pages take their colors from the cover. Light, dark or following the system, phone and tablet layouts, English
-  and German.
+- **Material 3 design** in the colors of the logo or, if you like, of your wallpaper (Material You); album pages take
+  their colors from the cover, and the player and the widget can follow the cover or the app colors (**Settings →
+  General**). Light, dark or following the system, phone and tablet layouts, English and German.
 - **Home screen widget** (4×1) with cover and playback controls, and **Chromecast** (see
   [Known limitations](#known-limitations)).
+- **Notifications about new content:** new albums, episodes and books, each area with its own notification (and
+  notification channel). Tapping it opens the album, podcast or book directly.
 - **Share** songs, albums, artists, podcasts and books as links to open sources (MusicBrainz, the podcast's
   website and feed, Open Library), never to your own servers. Feed links shared from other apps open as a podcast
   preview.
@@ -48,7 +51,7 @@ library.
 
 ### Podcasts
 
-- **Find podcasts** in Apple Podcasts, Podcast Index, fyyd and ARD Sounds, or add any RSS or Atom feed directly.
+- **Find podcasts** in Apple Podcasts and ARD Sounds (Podcast Index will follow), or add any RSS or Atom feed directly.
   The directories are off until you switch them on, because your search terms are sent to them. Feeds refresh
   automatically in the background.
 - **Try before you subscribe:** listen to and download podcasts without subscribing. Subscriptions you no longer
@@ -60,12 +63,14 @@ library.
 - **Import and export** your subscriptions as OPML, or subscriptions, progress and listening time as a database file.
 - **Statistics:** listening time per podcast and per month.
 - **Database export and import:** compatible with the great AntennaPod, so you can always switch back to the app you
-  prefer.
+  prefer. ARD Sounds and archived subscriptions come along.
 
 ### Books
 
 - **From your Audiobookshelf server and from your phone.** Books on your phone (folder **Audiobooks**, m4b with
   chapters or folders of MP3 files) show up next to the ones from your server.
+- **Sign in with an API key or with OpenID** (for example through your single sign-on); the access token is renewed
+  automatically, also for the watch.
 - **Progress syncs both ways** with your Audiobookshelf server, also after listening offline.
 - **Made for long listening:** speed per book, adjustable jumps (default −10 s / +30 s, also for podcasts), chapters,
   remaining time, sleep timer. If you stopped within the first 30 s of a chapter, playback resumes at its beginning.
@@ -80,7 +85,8 @@ library.
 - **Jellyfin and Emby (music).** Add a [Jellyfin](https://jellyfin.org) or [Emby](https://emby.media) server with
   your username and password. Only the music libraries are used, and the app keeps the sign-in token, not the password
   (tested with Jellyfin 12.4 and Emby 4.10).
-- **Audiobookshelf (books).** Add your [Audiobookshelf](https://www.audiobookshelf.org) server with an API key.
+- **Audiobookshelf (books).** Add your [Audiobookshelf](https://www.audiobookshelf.org) server with an API key or sign
+  in with OpenID, if your server offers it.
 - **Podcast feeds.** Any public RSS or Atom feed.
 - **Your phone.** Music from the device, books from the **Audiobooks** folder and podcasts from the **Podcasts**
   folder (each can be switched off in the settings).
@@ -116,11 +122,16 @@ Covers embedded in your files or provided by your server are always used first.
   loaded as they are.
 - **Storage & downloads** on the watch shows what is loaded and frees space: single entries, one area or everything.
 
-### Android Auto (in development)
+### Android Auto
 
-Android Auto support is **work in progress** and has not been tested in a car or on the Desktop Head Unit yet.
-It covers music only and is implemented as a regular media app with four tabs (Recently played, Library, Playlists,
-Favorites), search, voice commands ("Play …") and a favorite button. Expect rough edges, and please report what you find.
+Android Auto support is included and works fine with my car. So far this is the only real car I could test it with.
+
+- **Music, podcasts and books**, each area as its own tab next to **Recent**, which shows the latest of every area.
+  Areas you switched off in the app are left out.
+- Albums, podcasts and books as a grid with covers; episodes and books show their progress and whether they are
+  downloaded.
+- **Search** across all areas you use, and a favorite button for songs.
+- Changes on the phone (new songs, a new queue) show up in the car right away.
 
 ## Privacy
 
@@ -128,10 +139,63 @@ Favorites), search, voice commands ("Play …") and a favorite button. Expect ro
 - The app contacts only the servers and podcast feeds you add (and the sites that host their episodes and images). The
   only exceptions are the optional artwork lookups described above and the podcast directories you switch on (your
   search terms are sent to them).
-- Server passwords and API keys are stored encrypted with the Android Keystore. Android backups contain your settings
-  and what no server knows (your servers without their passwords, subscriptions, progress, local playlists and
-  listening statistics), but never the library database, downloads or credentials.
+- Server passwords, API keys and sign-in tokens are stored encrypted with the Android Keystore. The OpenID sign-in
+  runs in your browser; EarLoft only receives the tokens from your Audiobookshelf server. Android backups contain your
+  settings and what no server knows (your servers without their passwords, subscriptions, progress, local playlists
+  and listening statistics), but never the library database, downloads or credentials.
 - There are no ads and no analytics.
+
+## Permissions
+
+EarLoft asks for three permissions and works with whatever you allow. You can refuse each of them and change your
+mind later under **System settings → Apps → EarLoft → Permissions** (or **→ Notifications**). The app does not ask for
+location, microphone, camera, contacts, phone or Bluetooth access.
+
+### On the phone
+
+**Music and audio** (`READ_MEDIA_AUDIO`; on Android 8–12 *Files and media*, `READ_EXTERNAL_STORAGE`)
+
+- *Asked:* at the first start, and again when you switch on **Use music on this device** (**Settings → Music**).
+- *Used for:* reading the music on your phone and the **Audiobooks** and **Podcasts** folders.
+- *If you don't allow it:* EarLoft works with your servers and podcast feeds only. Music, books and podcasts stored on
+  the phone don't show up and can't be played or loaded onto the watch from the phone. **Continue without music on
+  this device** switches **Use music on this device** off; switch off **Use books on this device** and **Use podcasts
+  on this device** as well (**Settings → Books** / **Podcasts**), otherwise refreshing the books reports an error. Once
+  Android stops showing the dialog after a refusal, the app opens its system settings page instead.
+
+**Notifications** (`POST_NOTIFICATIONS`, Android 13 and newer)
+
+- *Asked:* at the first start, together with music and audio.
+- *If you don't allow it:* no notifications about new music, episodes and books, and no progress notifications for
+  downloads and transfers to the watch (the downloads and transfers still run). The playback controls in the
+  notification shade and on the lock screen keep working, because Android exempts media playback from this
+  permission. If only some notifications bother you, switch off single channels instead (*New music*, *New episodes*,
+  *New books*, *Downloads*, *Transfers to the watch*).
+
+**Devices on your local network** (`ACCESS_LOCAL_NETWORK`, Android 17 and newer)
+
+- *Asked:* at the first start, and when you save a server.
+- *Used for:* reaching servers in your home network, for example `http://192.168.x.x`.
+- *If you don't allow it:* connections to addresses in your home network time out, so syncing, streaming and
+  downloading from such servers fail and adding one ends with a connection error. Servers you reach over the internet
+  (public address) and podcast feeds are not affected.
+
+### On the watch
+
+**Devices on your local network** (`ACCESS_LOCAL_NETWORK`, watches with Android 17 / API 37 and newer)
+
+- *Asked:* when the watch app starts.
+- *If you don't allow it:* the watch can't download directly from servers in your home network. After a few failed
+  attempts it asks the phone instead, which can only send what it stores itself (files on the phone and downloads);
+  everything else stays "failed". Podcasts and servers reached over the internet still load directly. The watch does
+  not ask for any other permission.
+
+### Granted without asking
+
+Android grants these at installation; they can't be refused and are listed for completeness: internet and network
+state (servers, feeds, "Wi-Fi only" downloads; the watch also requests Wi-Fi for downloads), foreground services for
+playback and downloads, keeping the device awake during playback and downloads, and restarting scheduled background
+work (feed refresh, sync, downloads) after a reboot.
 
 ## Installation
 
@@ -144,31 +208,38 @@ application ID (`de.kleinabersmart.earloft`), so install both for the watch feat
 
 ## Getting started
 
-1. Open the app and allow access to your audio files (and notifications) when asked, or skip it if you only use
-   servers and feeds.
+1. Open the app and allow access to your audio files, notifications and (from Android 17) devices on your local
+   network when asked, or skip it if you only use servers and feeds. See [Permissions](#permissions) for what each one
+   is needed for.
 2. **Music:** **Settings → Music → Add server**, choose the server type (Navidrome / Subsonic, Jellyfin or Emby), then
    enter the address (for example `https://music.example.com`) and your credentials. The first sync can take a while
    for large libraries.
 3. **Podcasts:** switch to **Podcasts** on Home or Library and tap **Add podcast**, then search a directory or paste
    the feed address. Or copy podcast files into the **Podcasts** folder of your phone.
-4. **Books:** **Settings → Books → Add server**, then enter your Audiobookshelf address and an API key (created in
-   Audiobookshelf under *Settings → API Keys*). Or just copy books into the **Audiobooks** folder of your phone.
+4. **Books:** **Settings → Books → Add server**, then enter your Audiobookshelf address and either tap **Sign in with
+   OpenID** (shown when your server offers it) or enter an API key (created in Audiobookshelf under *Settings → API
+   Keys*). If your default browser can't hand the sign-in back to the app, EarLoft tells you which address to add in
+   Audiobookshelf under *Settings → Authentication → Allowed Mobile Redirect URIs*. Or just copy books into the
+   **Audiobooks** folder of your phone.
 5. Play something. On an album, playlist, book or episode you can download it (download arrow) or load it onto your
    watch (watch icon). Downloads are listed under **Settings → General → Downloads**; the watch is managed under
    **Settings → Watch** (shown once a watch with EarLoft is paired).
 
 ## Known limitations
 
-- Android Auto is in development (see above), and so far covers music only.
 - Chromecast plays from your servers and podcast feeds, not files stored on the phone. The Cast device must reach the
   server address itself. If a song is on several servers and the Cast device cannot reach the first one, the app
   switches to the next one after about 20 seconds. Long queues are sent in parts. Casting books depends on the server
-  accepting a token in the address and has not been tested widely.
+  accepting a token in the address and has not been tested widely (with an OpenID sign-in not at all).
 - Podcasts: no "download all episodes" for a podcast, and local podcast files have no description unless their tags
   contain one.
 - Local books and podcasts are picked up when the app is opened or refreshed, not while it is running.
 - Lyrics from `.lrc` files next to your music and a folder view are not supported, because Android does not let apps
   read arbitrary folders without a folder permission. Embedded lyrics and server lyrics work.
+
+## Designed and tested by me, coded by Claude
+The whole App has been coded with Claude Code. All final tests were made by me on my Pixel 10 Pro, Pixel Watch 3 and
+Galaxy Tab S8.
 
 ---
 
@@ -178,15 +249,15 @@ application ID (`de.kleinabersmart.earloft`), so install both for the watch feat
 
 | Area | Technology |
 |---|---|
-| Language / build | Kotlin 2.4, Gradle 9.8 (wrapper), Android Gradle Plugin 9.6 (alpha), version catalog, convention plugins in `build-logic` |
+| Language / build | Kotlin 2.4, Gradle 9.8 (wrapper), Android Gradle Plugin 9.6 (alpha, R8 pinned to an earlier alpha), version catalog, convention plugins in `build-logic` |
 | Phone UI | Jetpack Compose (BOM 2026.09), Material 3, Navigation 3, MaterialKolor |
 | Wear UI | Compose for Wear OS Material 3 |
 | Playback | Media3 1.11: ExoPlayer, `MediaLibraryService`, `OkHttpDataSource`, `SimpleCache`, Cast |
 | Database | Room with FTS4 search and auto-migrations |
 | Network / images | OkHttp 5, kotlinx.serialization, Coil 3; Subsonic, Jellyfin/Emby, Audiobookshelf and RSS/Atom (own XML parser) |
 | DI | Hilt |
-| Background work | WorkManager (sync queue, downloads) |
-| Secrets | Android Keystore (AES-GCM) + DataStore |
+| Background work | WorkManager (sync queue, downloads, offline images) |
+| Secrets / sign-in | Android Keystore (AES-GCM) + DataStore; Auth Tab (AndroidX Browser) with PKCE for the Audiobookshelf OpenID sign-in |
 | Widget | Jetpack Glance |
 | Phone ↔ watch | Wearable Data Layer (`DataClient`, `MessageClient`, `ChannelClient`) |
 
@@ -201,26 +272,30 @@ SDK levels: `minSdk` 26 (phone) and 30 (watch), `compileSdk` / `targetSdk` 37, J
   between local file, download and stream when playback starts, so queues survive downloads finishing or servers
   going offline.
 - **One `OkHttpClient`.** Interceptors add the server authentication (Subsonic, Jellyfin/Emby, Audiobookshelf), so
-  stream and cover URLs stay stable and cacheable and contain no secrets.
+  stream and cover URLs stay stable and cacheable and contain no secrets. An expired Audiobookshelf access token is
+  renewed once, even when several requests fail at the same time.
 - **Offline changes** (favorites, playlists, scrobbles) go through a sync queue that coalesces actions and retries
   with backoff.
+- **Images are kept offline.** After each library change a worker loads missing covers, podcast and author pictures
+  over Wi-Fi into app storage (outside the cache) and removes the ones no longer needed.
 - **Books and podcast episodes share one model.** Both are `books` rows (`kind = BOOK` or `EPISODE`) with files, chapters
   and a progress entry; a position in the whole book is converted to a file and offset when playback starts. The same
   player service, download workers and "continue listening" logic serve both.
-- **Browse tree for Android Auto and the system media controls** comes from one `MediaLibraryService`. The watch app
-  has its own player and database and talks to the phone over the Wearable Data Layer.
+- **Browse tree for Android Auto and the system media controls** comes from one `MediaLibraryService`, split by area
+  (music, podcasts, books). The watch app has its own player and database and talks to the phone over the Wearable
+  Data Layer.
 
 ## Project structure
 
 ```text
-:app                  Phone UI, navigation, widget, Cast, DI wiring
+:app                  Phone UI, navigation, widget, Cast, notifications, DI wiring
 :wear                 Wear OS app (standalone downloads and playback, remote control of the phone)
 :core:model           Plain Kotlin data classes
 :core:common          Dispatchers, normalization, shared helpers
 :core:database        Room entities, DAOs, FTS, migrations
-:core:network         OkHttp client, Subsonic / Jellyfin / Emby / Audiobookshelf APIs, podcast feed parser
+:core:network         OkHttp client, Subsonic / Jellyfin / Emby / Audiobookshelf APIs (incl. OpenID), podcast feed parser
 :core:datasource      Local (MediaStore: music, Audiobooks, Podcasts), Subsonic and Jellyfin/Emby data sources
-:core:data            Repositories (music, books, podcasts), library syncer, merge resolver, sync queue
+:core:data            Repositories (music, books, podcasts), library syncer, merge resolver, sync queue, search, offline images
 :core:download        Download workers (songs, books, episodes), resumable transfers, storage
 :core:playback        Media library service, ReplayGain, source resolution, book/episode playback, Auto browse tree
 :core:designsystem    Theme and shared phone components
@@ -234,7 +309,8 @@ build-logic/          Convention plugins
 
 - A recent **Android Studio** that supports the Android Gradle Plugin version in
   [`gradle/libs.versions.toml`](gradle/libs.versions.toml). The project currently uses an AGP 9 alpha, so you may need
-  a Canary build of Android Studio.
+  a Canary build of Android Studio. R8 is pinned to an earlier version in the root `build.gradle.kts`, because newer
+  R8 alphas produce release builds that crash at startup; check a release build before raising it.
 - **JDK 17 or newer** (the build targets Java 17; the Gradle wrapper downloads Gradle itself).
 - **Android SDK Platform 37** and current build tools (Android Studio offers to install them).
 - For the watch: a Wear OS device or emulator (API 30+). For the phone: Android 8.0+ (API 26+).
@@ -255,6 +331,10 @@ Install on a connected device or emulator:
 ./gradlew :app:installDebug
 ./gradlew :wear:installDebug
 ```
+
+Phone and watch app share the application ID, so with both a phone and a watch connected, choose the device with
+`ANDROID_SERIAL` (for example `ANDROID_SERIAL=emulator-5554 ./gradlew :app:installDebug`); otherwise Gradle installs
+the phone app on the watch too.
 
 If Gradle cannot find the SDK, create `local.properties` in the project root with `sdk.dir=/path/to/Android/Sdk`
 (Android Studio does this for you).
