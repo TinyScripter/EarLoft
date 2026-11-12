@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowSizeClass
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.model.SpokenMode
@@ -192,9 +194,10 @@ private fun SetupScaffold(
     modifier: Modifier = Modifier,
     content: LazyListScope.() -> Unit,
 ) = Surface(modifier.fillMaxSize()) {
+    val lowHeight = isLowHeight()
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
         Row(
-            Modifier.readableWidth().padding(start = 24.dp, end = 8.dp).height(56.dp),
+            Modifier.readableWidth().padding(start = 24.dp, end = 8.dp).height(if (lowHeight) 48.dp else 56.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -211,11 +214,11 @@ private fun SetupScaffold(
         )
         LazyColumn(
             Modifier.weight(1f).readableWidth(),
-            contentPadding = PaddingValues(vertical = 24.dp),
+            contentPadding = PaddingValues(vertical = if (lowHeight) 12.dp else 24.dp),
             content = content,
         )
         Row(
-            Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            Modifier.readableWidth().padding(horizontal = 16.dp, vertical = if (lowHeight) 4.dp else 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (onBack != null) TextButton(onClick = onBack) { Text(stringResource(R.string.action_back)) }
@@ -225,24 +228,31 @@ private fun SetupScaffold(
     }
 }
 
-/** Überschrift einer Seite: Bild (oder Logo), Titel und ein kurzer Text, mittig. */
+/** Wenig Höhe (Handy quer): Kopf, Bild und Abstände kleiner, damit von der Seite selbst genug zu sehen ist. */
+@Composable
+private fun isLowHeight(): Boolean =
+    !currentWindowAdaptiveInfoV2().windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
+
+/** Überschrift einer Seite: Bild (oder Logo), Titel und ein kurzer Text, mittig. Bei wenig Höhe ohne Symbol. */
 internal fun LazyListScope.pageHeader(title: Int, text: Int, icon: Int? = null, logo: Boolean = false) {
     item(key = "header") {
+        val lowHeight = isLowHeight()
         Column(
             Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (logo) {
-                AppLogo(Modifier.height(72.dp))
-            } else if (icon != null) {
+                AppLogo(Modifier.height(if (lowHeight) 48.dp else 72.dp))
+                Spacer(Modifier.height(if (lowHeight) 12.dp else 24.dp))
+            } else if (icon != null && !lowHeight) {
                 Icon(
                     painterResource(icon),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(48.dp),
                 )
+                Spacer(Modifier.height(24.dp))
             }
-            Spacer(Modifier.height(24.dp))
             Text(
                 stringResource(title),
                 style = MaterialTheme.typography.headlineSmall,
@@ -260,7 +270,7 @@ internal fun LazyListScope.pageHeader(title: Int, text: Int, icon: Int? = null, 
     }
 }
 
-/** Ein Hinweis unter der Überschrift, kleiner und links. */
+/** Ein Hinweis unter der Überschrift oder einer Gruppe, kleiner. */
 internal fun LazyListScope.pageHint(key: String, text: Int) {
     item(key = key) {
         Text(

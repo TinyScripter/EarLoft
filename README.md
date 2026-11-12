@@ -212,11 +212,10 @@ application ID (`de.kleinabersmart.earloft`), so install both for the watch feat
 
 1. Open the app. At the first start a short setup guides you through the sections you want (music, podcasts, books),
    their sources (servers, subscriptions, files on this device, images from the internet), notifications, the watch and
-   the appearance. You can
-   skip it at any time and open it again under **Settings → General → Show setup again**. The steps below do the same
-   by hand. Access to your audio files is
-   only asked for when you switch on music, podcasts or books on this device, access to your local network (from
-   Android 17) when you add a server. See [Permissions](#permissions) for what each one is needed for.
+   the appearance. You can skip it at any time and open it again under **Settings → General → Show setup again**. The
+   steps below do the same by hand. Access to your audio files is only asked for when you switch on music, podcasts or
+   books on this device, access to your local network (from Android 17) when you add a server. See
+   [Permissions](#permissions) for what each one is needed for.
 2. **Music:** switch on **Settings → Music → Use music on this device** for the music on your phone. For a server:
    **Settings → Music → Add server**, choose the server type (Navidrome / Subsonic, Jellyfin or Emby), then enter the
    address (for example `https://music.example.com`) and your credentials. The first sync can take a while for large
