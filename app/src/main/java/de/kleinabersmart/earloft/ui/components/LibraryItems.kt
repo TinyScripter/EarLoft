@@ -52,6 +52,7 @@ import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.Artist
+import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.OfflineMark
 import de.kleinabersmart.earloft.core.model.Song
 import de.kleinabersmart.earloft.core.model.SongOfflineState
@@ -236,6 +237,31 @@ fun ArtistListItem(
         supportingContent = { Text(pluralStringResource(R.plurals.album_count, artist.albumCount, artist.albumCount)) },
         leadingContent = {
             ArtistAvatar(artistId = artist.id, modifier = Modifier.size(48.dp), iconSize = 24.dp)
+        },
+        modifier = modifier.clickable(onClick = onClick),
+    )
+}
+
+/** Genre-Zeile: Name, darunter Zahl der Alben und Songs. */
+@Composable
+fun GenreListItem(
+    genre: Genre,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val albums = pluralStringResource(R.plurals.album_count, genre.albumCount, genre.albumCount)
+    val songs = pluralStringResource(R.plurals.song_count, genre.songCount, genre.songCount)
+    ListItem(
+        headlineContent = { Text(genre.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = { Text("$albums · $songs", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        leadingContent = {
+            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                Icon(
+                    painterResource(DesignR.drawable.ic_music_note),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         },
         modifier = modifier.clickable(onClick = onClick),
     )

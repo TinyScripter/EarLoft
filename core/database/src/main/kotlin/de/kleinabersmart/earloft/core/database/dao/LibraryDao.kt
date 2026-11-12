@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.model.AlbumLookupRow
 import de.kleinabersmart.earloft.core.database.model.AlbumRow
 import de.kleinabersmart.earloft.core.database.model.ArtistRow
+import de.kleinabersmart.earloft.core.database.model.GenreRow
 import de.kleinabersmart.earloft.core.database.model.PlayableSourceRow
 import de.kleinabersmart.earloft.core.database.model.ReplayGainRow
 import de.kleinabersmart.earloft.core.database.model.SongRow
@@ -42,6 +43,17 @@ private const val SELECT_ARTIST_ROWS = """
     SELECT ar.artistId, ar.name, COUNT(DISTINCT aa.albumId) AS albumCount
     FROM artists ar JOIN album_artists aa ON aa.artistId = ar.artistId
         AND EXISTS (SELECT 1 FROM songs s WHERE s.albumId = aa.albumId AND $SONG_VISIBLE)
+"""
+
+/**
+ * Genres der sichtbaren Songs; Schreibweisen, die sich nur in Groß-/Kleinschreibung unterscheiden, sind eins. Ein Song hat
+ * genau ein Genre (das erste, das die Quelle nennt).
+ */
+private const val SELECT_GENRE_ROWS = """
+    SELECT MIN(s.genre) AS name, COUNT(DISTINCT s.albumId) AS albumCount, COUNT(*) AS songCount
+    FROM songs s
+    WHERE s.genre IS NOT NULL AND TRIM(s.genre) != '' AND $SONG_VISIBLE
+    GROUP BY s.genre COLLATE NOCASE
 """
 
 /** Lesender Zugriff auf die Bibliothek für UI und Wiedergabe. */
@@ -102,6 +114,33 @@ abstract class LibraryDao {
         """,
     )
     abstract fun observeAlbumRowsOfArtist(artistId: Long): Flow<List<AlbumRow>>
+
+    @Query("$SELECT_GENRE_ROWS ORDER BY name COLLATE NOCASE")
+    abstract fun observeGenreRows(): Flow<List<GenreRow>>
+
+    @Query("$SELECT_GENRE_ROWS ORDER BY name COLLATE NOCASE")
+    abstract suspend fun getGenreRows(): List<GenreRow>
+
+    /** Alben mit mindestens einem Song des Genres; `songCount` zählt alle sichtbaren Songs des Albums. */
+    @Query(
+        """
+        $SELECT_ALBUM_ROWS
+        WHERE EXISTS (SELECT 1 FROM songs gs WHERE gs.albumId = a.albumId AND gs.genre = :genre COLLATE NOCASE)
+        GROUP BY a.albumId
+        ORDER BY a.sortTitle COLLATE NOCASE
+        """,
+    )
+    abstract fun observeAlbumRowsOfGenre(genre: String): Flow<List<AlbumRow>>
+
+    /** Die Songs des Genres, Album für Album in Albumreihenfolge. */
+    @Query(
+        """
+        $SELECT_SONG_ROWS
+        WHERE s.genre = :genre COLLATE NOCASE
+        ORDER BY a.sortTitle COLLATE NOCASE, a.albumId, s.discNumber, s.trackNumber, s.title
+        """,
+    )
+    abstract suspend fun getSongRowsOfGenre(genre: String): List<SongRow>
 
     /** Welche Künstler zu welchem Album gehören (Albumkünstler); die Uhr leitet daraus ihre Künstler ab. */
     @Query("SELECT * FROM album_artists")

@@ -53,6 +53,7 @@ import de.kleinabersmart.earloft.ui.spoken.FeedCard
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.ui.components.AlbumListItem
 import de.kleinabersmart.earloft.ui.components.ArtistListItem
+import de.kleinabersmart.earloft.ui.components.GenreListItem
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.PlayControlViewModel
 import de.kleinabersmart.earloft.ui.components.SectionHeader
@@ -103,6 +104,7 @@ fun SearchScreen(
     onBack: () -> Unit,
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
+    onGenreClick: (String) -> Unit,
     onBookClick: (Long) -> Unit,
     onFeedClick: (String) -> Unit,
     onFeedSettings: (String) -> Unit,
@@ -187,6 +189,12 @@ fun SearchScreen(
                     item(key = "artists") { SectionHeader(stringResource(R.string.library_artists)) }
                     groupedItems(results.artists, key = { "artist-${it.id}" }) { artist ->
                         ArtistListItem(artist = artist, onClick = { onArtistClick(artist.id) })
+                    }
+                }
+                if (results.genres.isNotEmpty()) {
+                    item(key = "genres") { SectionHeader(stringResource(R.string.library_genres)) }
+                    groupedItems(results.genres, key = { "genre-${it.name.lowercase()}" }) { genre ->
+                        GenreListItem(genre = genre, onClick = { onGenreClick(genre.name) })
                     }
                 }
                 if (results.albums.isNotEmpty()) {

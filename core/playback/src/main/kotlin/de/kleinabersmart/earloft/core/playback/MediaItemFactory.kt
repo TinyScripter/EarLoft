@@ -8,6 +8,7 @@ import androidx.media3.common.MediaMetadata
 import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.AppUris
 import de.kleinabersmart.earloft.core.model.Artist
+import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.Playlist
 import de.kleinabersmart.earloft.core.model.Song
 import de.kleinabersmart.earloft.core.model.SpokenMode
@@ -31,6 +32,7 @@ internal object MediaIds {
 
     const val ALBUMS = "albums"
     const val ARTISTS = "artists"
+    const val GENRES = "genres"
     const val PLAYLISTS = "playlists"
     const val FAVORITES = "favorites"
     const val RECENT = "recent"
@@ -50,6 +52,7 @@ internal object MediaIds {
     private const val SONG_PREFIX = "song:"
     private const val ALBUM_PREFIX = "album:"
     private const val ARTIST_PREFIX = "artist:"
+    private const val GENRE_PREFIX = "genre:"
     private const val PLAYLIST_PREFIX = "playlist:"
     private const val SEARCH_PREFIX = "search:"
     private const val FEED_PREFIX = "feed:"
@@ -60,13 +63,17 @@ internal object MediaIds {
     private const val BOOKS_PREFIX = "books:"
     private const val CONTEXT_SEPARATOR = '/'
 
-    private val MUSIC_FOLDERS = setOf(MUSIC, ALBUMS, ARTISTS, PLAYLISTS, FAVORITES, RECENT, LIBRARY)
-    private val MUSIC_PREFIXES = listOf(SONG_PREFIX, ALBUM_PREFIX, ARTIST_PREFIX, PLAYLIST_PREFIX, SEARCH_PREFIX)
+    private val MUSIC_FOLDERS = setOf(MUSIC, ALBUMS, ARTISTS, GENRES, PLAYLISTS, FAVORITES, RECENT, LIBRARY)
+    private val MUSIC_PREFIXES = listOf(SONG_PREFIX, ALBUM_PREFIX, ARTIST_PREFIX, GENRE_PREFIX, PLAYLIST_PREFIX, SEARCH_PREFIX)
 
     fun song(songId: Long) = "$SONG_PREFIX$songId"
     fun album(albumId: Long) = "$ALBUM_PREFIX$albumId"
     fun artist(artistId: Long) = "$ARTIST_PREFIX$artistId"
     fun playlist(playlistId: Long) = "$PLAYLIST_PREFIX$playlistId"
+
+    /** Ein Genre; der Name kann Schrägstriche enthalten („Rock/Pop“), der Ordner enthält aber nur Alben, keine Songs. */
+    fun genre(name: String) = "$GENRE_PREFIX$name"
+    fun genreName(mediaId: String): String? = mediaId.removePrefix(GENRE_PREFIX).takeIf { mediaId.startsWith(GENRE_PREFIX) }
 
     /** Ein Podcast-Abo; die Kennung des Abos kann selbst Doppelpunkte und Schrägstriche enthalten (Abos vom Gerät). */
     fun feed(feedId: String) = "$FEED_PREFIX$feedId"
@@ -173,6 +180,9 @@ internal fun Album.toBrowsableMediaItem(context: Context): MediaItem =
 
 internal fun Artist.toBrowsableMediaItem(): MediaItem =
     folderMediaItem(MediaIds.artist(id), name, MediaMetadata.MEDIA_TYPE_ARTIST, gridChildren = true)
+
+internal fun Genre.toBrowsableMediaItem(): MediaItem =
+    folderMediaItem(MediaIds.genre(name), name, MediaMetadata.MEDIA_TYPE_GENRE, gridChildren = true)
 
 internal fun Playlist.toBrowsableMediaItem(): MediaItem =
     folderMediaItem(MediaIds.playlist(id), name, MediaMetadata.MEDIA_TYPE_PLAYLIST)

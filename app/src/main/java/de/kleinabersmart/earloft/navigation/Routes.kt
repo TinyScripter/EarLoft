@@ -26,6 +26,14 @@ data class ArtistRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
+/** Ein Genre; [name] ist eine seiner Schreibweisen (Groß-/Kleinschreibung zählt nicht). */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class GenreRoute(
+    val name: String,
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PlaylistRoute(

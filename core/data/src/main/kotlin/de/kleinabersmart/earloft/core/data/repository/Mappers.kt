@@ -2,9 +2,11 @@ package de.kleinabersmart.earloft.core.data.repository
 
 import de.kleinabersmart.earloft.core.database.model.AlbumRow
 import de.kleinabersmart.earloft.core.database.model.ArtistRow
+import de.kleinabersmart.earloft.core.database.model.GenreRow
 import de.kleinabersmart.earloft.core.database.model.SongRow
 import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.Artist
+import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.Song
 
 internal fun SongRow.toSong() = Song(
@@ -32,3 +34,5 @@ internal fun ArtistRow.toArtist() = Artist(
     name = name,
     albumCount = albumCount,
 )
+
+internal fun GenreRow.toGenre() = Genre(name = name, albumCount = albumCount, songCount = songCount)

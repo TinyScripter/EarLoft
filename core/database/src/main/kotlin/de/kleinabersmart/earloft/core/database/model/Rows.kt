@@ -32,6 +32,13 @@ data class ArtistRow(
     val albumCount: Int,
 )
 
+/** Ein Genre (Schreibweisen ohne Unterschied von Groß/Klein zusammengefasst) mit seinen sichtbaren Alben und Songs. */
+data class GenreRow(
+    val name: String,
+    val albumCount: Int,
+    val songCount: Int,
+)
+
 /** Eine Song-Quelle samt Eigenschaften ihrer Quelle – Grundlage der Quellenwahl beim Abspielen. */
 data class PlayableSourceRow(
     val uid: String,

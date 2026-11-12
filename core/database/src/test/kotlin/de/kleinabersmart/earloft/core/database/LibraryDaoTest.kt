@@ -146,6 +146,40 @@ class LibraryDaoTest {
         assertEquals(listOf(second, first), playbackDao.getQueueSongIds())
     }
 
+    @Test
+    fun `genres merge spellings, count visible songs and list their albums`() = runTest {
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
+        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val agaetis = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
+        val hidden = libraryDao.insertAlbum(album("Kveikur", "Sigur Rós"))
+        val songs = listOf(
+            libraryDao.insertSong(song(takk, "Glósóli", track = 2).copy(genre = "Post-Rock")),
+            libraryDao.insertSong(song(takk, "Hoppípolla", track = 3).copy(genre = "post-rock")),
+            libraryDao.insertSong(song(agaetis, "Svefn-g-englar", track = 1).copy(genre = "Post-Rock")),
+            libraryDao.insertSong(song(agaetis, "Starálfur", track = 2).copy(genre = "Ambient")),
+            libraryDao.insertSong(song(agaetis, "Flugufrelsarinn", track = 3).copy(genre = " ")),
+        )
+        songs.forEachIndexed { index, songId -> libraryDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
+        // Nur auf einem ausgeschalteten Server: zählt nicht.
+        val hiddenSong = libraryDao.insertSong(song(hidden, "Brennisteinn", track = 1).copy(genre = "Post-Rock"))
+        libraryDao.insertSongSource(songSource(hiddenSong, NAVIDROME, "k"))
+
+        val genres = libraryDao.observeGenreRows().first()
+        assertEquals(listOf("Ambient", "Post-Rock"), genres.map { it.name })
+        assertEquals(2, genres[1].albumCount)
+        assertEquals(3, genres[1].songCount)
+
+        val albums = libraryDao.observeAlbumRowsOfGenre("POST-ROCK").first()
+        assertEquals(listOf("Takk...", "Ágætis byrjun").sorted(), albums.map { it.title }.sorted())
+        // Die Zahl der Songs gilt dem ganzen Album, nicht nur dem Genre.
+        assertEquals(3, albums.single { it.albumId == agaetis }.songCount)
+        assertEquals(
+            listOf("Glósóli", "Hoppípolla", "Svefn-g-englar").sorted(),
+            libraryDao.getSongRowsOfGenre("post-rock").map { it.title }.sorted(),
+        )
+    }
+
     private fun album(title: String, artist: String) = AlbumEntity(
         title = title,
         sortTitle = title,

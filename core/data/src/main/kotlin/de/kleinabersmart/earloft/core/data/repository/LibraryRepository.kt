@@ -5,6 +5,7 @@ import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.AlbumDetails
 import de.kleinabersmart.earloft.core.model.Artist
 import de.kleinabersmart.earloft.core.model.ArtistDetails
+import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.SearchResults
 import de.kleinabersmart.earloft.core.model.Song
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +24,13 @@ class LibraryRepository @Inject constructor(
     fun artists(): Flow<List<Artist>> = libraryDao.observeArtistRows().map { rows -> rows.map { it.toArtist() } }
 
     fun songs(): Flow<List<Song>> = libraryDao.observeSongRows().map { rows -> rows.map { it.toSong() } }
+
+    fun genres(): Flow<List<Genre>> = libraryDao.observeGenreRows().map { rows -> rows.map { it.toGenre() } }
+
+    fun albumsOfGenre(genre: String): Flow<List<Album>> =
+        libraryDao.observeAlbumRowsOfGenre(genre).map { rows -> rows.map { it.toAlbum() } }
+
+    suspend fun songsOfGenre(genre: String): List<Song> = libraryDao.getSongRowsOfGenre(genre).map { it.toSong() }
 
     fun album(albumId: Long): Flow<AlbumDetails?> =
         combine(libraryDao.observeAlbumRow(albumId), libraryDao.observeSongRowsOfAlbum(albumId)) { album, songs ->
@@ -82,11 +90,26 @@ class LibraryRepository @Inject constructor(
             songs = libraryDao.searchSongRows(match, limit).map { it.toSong() },
             albums = libraryDao.searchAlbumRows(match, limit).map { it.toAlbum() },
             artists = libraryDao.searchArtistRows(match, limit).map { it.toArtist() },
+            genres = searchGenres(query, limit),
         )
+    }
+
+    /**
+     * Genres, deren Name jedes Wort der Eingabe enthält („hip hop“ findet „Hip-Hop“). Es gibt nur wenige Genres; deshalb
+     * ohne Volltextindex.
+     */
+    private suspend fun searchGenres(query: String, limit: Int): List<Genre> {
+        val terms = query.lowercase().split(SEARCH_SEPARATORS).filter { it.isNotEmpty() }
+        if (terms.isEmpty()) return emptyList()
+        return libraryDao.getGenreRows()
+            .filter { row -> row.name.lowercase().let { name -> terms.all { it in name } } }
+            .take(limit)
+            .map { it.toGenre() }
     }
 
     private companion object {
         const val SQLITE_MAX_VARIABLES = 900
+        val SEARCH_SEPARATORS = Regex("[^\\p{L}\\p{N}]+")
         const val REDISCOVER_AFTER_MS = 30L * 24 * 60 * 60 * 1000
     }
 }

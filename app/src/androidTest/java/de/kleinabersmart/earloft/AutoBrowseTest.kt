@@ -119,6 +119,19 @@ class AutoBrowseTest {
         if (sizes.getValue("books:authors") ?: 0 > 0) assertTrue("Autoren da, aber keine Bücher", all!! > 0)
     }
 
+    /** Bibliothek → Genres listet die Genres; jedes Genre ist ein Ordner mit Alben (Logcat `AutoBrowseTest`). */
+    @Test
+    fun genreFolderListsAlbums() {
+        assertEquals(listOf("albums", "artists", "genres"), children("library")!!.map { it.mediaId })
+        val genres = children("genres")
+        assertNotNull("Genres nicht abrufbar", genres)
+        android.util.Log.i("AutoBrowseTest", "genres=${genres!!.map { it.mediaId }}")
+        val first = genres.firstOrNull() ?: return // Keine Musik mit Genre-Angaben.
+        val albums = children(first.mediaId!!)
+        assertTrue("Genre ${first.mediaId} ohne Alben", !albums.isNullOrEmpty())
+        assertTrue(albums!!.all { it.mediaId!!.startsWith("album:") })
+    }
+
     /** „Zuletzt“ liefert, was „Weiterhören“ der Podcasts liefert (so sieht es Android Auto). */
     @Test
     fun homeListsWhatContinueListeningHas() {

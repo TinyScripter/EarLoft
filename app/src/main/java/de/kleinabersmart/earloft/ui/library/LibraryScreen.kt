@@ -8,9 +8,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -45,6 +50,7 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.common.sortKey
 import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.Artist
+import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.Playlist
 import de.kleinabersmart.earloft.core.model.ServerInfo
 import de.kleinabersmart.earloft.core.model.Song
@@ -52,7 +58,10 @@ import de.kleinabersmart.earloft.ui.components.AlbumCard
 import de.kleinabersmart.earloft.ui.components.GridTilePadding
 import de.kleinabersmart.earloft.ui.components.GroupMargin
 import de.kleinabersmart.earloft.ui.components.group
+import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.components.groupedItemsIndexed
+import de.kleinabersmart.earloft.ui.components.EmptyHint
+import de.kleinabersmart.earloft.ui.components.GenreListItem
 import de.kleinabersmart.earloft.ui.components.gridTile
 import de.kleinabersmart.earloft.ui.components.PlayControlViewModel
 import de.kleinabersmart.earloft.ui.components.ArtistAvatar
@@ -75,6 +84,7 @@ private enum class LibraryTab(val label: Int) {
     ALBUMS(R.string.library_albums),
     ARTISTS(R.string.library_artists),
     SONGS(R.string.library_songs),
+    GENRES(R.string.library_genres),
     PLAYLISTS(R.string.library_playlists),
 }
 
@@ -83,6 +93,7 @@ private enum class LibraryTab(val label: Int) {
 fun LibraryScreen(
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
+    onGenreClick: (String) -> Unit,
     onFavoritesClick: () -> Unit,
     onPlaylistClick: (Long) -> Unit,
     onAddServer: () -> Unit,
@@ -92,6 +103,7 @@ fun LibraryScreen(
     val albums by viewModel.albums.collectAsStateWithLifecycle()
     val artists by viewModel.artists.collectAsStateWithLifecycle()
     val songs by viewModel.songs.collectAsStateWithLifecycle()
+    val genres by viewModel.genres.collectAsStateWithLifecycle()
     val favoriteCount by viewModel.favoriteCount.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val servers by viewModel.servers.collectAsStateWithLifecycle()
@@ -109,8 +121,7 @@ fun LibraryScreen(
                 Tab(
                     selected = pagerState.currentPage == index,
                     onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                    text = { Text(stringResource(tab.label)) },
-                )
+                ) { TabLabel(stringResource(tab.label)) }
             }
         }
         HorizontalPager(
@@ -130,6 +141,11 @@ fun LibraryScreen(
                         fastScroll = true,
                     )
                 }
+                LibraryTab.GENRES -> LoadableList(
+                    genres,
+                    // Musik ohne Genre-Angaben: eigener Hinweis; ganz ohne Musik wie die anderen Reiter.
+                    empty = { if (songs.valueOrNull.isNullOrEmpty()) empty() else EmptyHint(stringResource(R.string.genres_empty)) },
+                ) { GenreList(it, onGenreClick) }
                 LibraryTab.PLAYLISTS -> PlaylistList(
                     favoriteCount = favoriteCount,
                     // „Neue Playlist“ und „Favoriten“ stehen immer da; die eigenen Playlists erscheinen, sobald sie geladen sind.
@@ -218,13 +234,44 @@ private fun PlaylistList(
     }
 }
 
+/**
+ * Beschriftung eines der fünf Reiter. Mit weniger Rand als `Tab(text = …)` (16 dp je Seite), damit „Playlists“ auch auf
+ * schmalen Handys in eine Zeile passt; reicht es trotzdem nicht, wird die Schrift kleiner statt umzubrechen.
+ */
+@Composable
+private fun TabLabel(text: String) {
+    Box(Modifier.height(48.dp).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+        Text(
+            text,
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = MaterialTheme.typography.titleSmall.fontSize),
+        )
+    }
+}
+
+@Composable
+private fun GenreList(genres: List<Genre>, onGenreClick: (String) -> Unit) {
+    val state = rememberLazyListState()
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(vertical = 8.dp)) {
+            groupedItems(genres, key = { it.name.lowercase() }) { genre ->
+                GenreListItem(genre = genre, onClick = { onGenreClick(genre.name) })
+            }
+        }
+        LazyListFastScroller(state, labelAt = { index -> letterOf(genres.getOrNull(index)?.name.orEmpty()) })
+    }
+}
+
 @Composable
 fun AlbumGrid(
     albums: List<Album>,
     onAlbumClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    /** Mit Schnellscroller, wenn die Liste nach Titel sortiert ist. */
+    /** Mit Schnellscroller, wenn die Liste nach Titel sortiert ist (nicht zusammen mit [header]). */
     fastScroll: Boolean = false,
+    /** Einträge über den Alben, z. B. Knöpfe; jeweils über die ganze Breite ([fullWidthItem]). */
+    header: (LazyGridScope.() -> Unit)? = null,
 ) {
     val state = rememberLazyGridState()
     val playControl: PlayControlViewModel = hiltViewModel()
@@ -238,6 +285,7 @@ fun AlbumGrid(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
+            header?.invoke(this)
             items(albums, key = { it.id }) { album ->
                 AlbumCard(
                     album = album,
@@ -253,6 +301,11 @@ fun AlbumGrid(
             LazyGridFastScroller(state, labelAt = { index -> letterOf(albums.getOrNull(index)?.title.orEmpty().sortKey()) })
         }
     }
+}
+
+/** Ein Eintrag über die ganze Breite eines Rasters. */
+fun LazyGridScope.fullWidthItem(key: Any, content: @Composable () -> Unit) {
+    item(key = key, span = { GridItemSpan(maxLineSpan) }) { content() }
 }
 
 /** Künstler als Raster, zwei pro Reihe, aufgebaut wie die Autoren der Bücher: Bild, darunter Name und Zahl der Alben. */

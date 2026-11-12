@@ -2,6 +2,7 @@
     <string name="app_library" translatable="false">EarLoft</string>
     <string name="albums">Albums</string>
     <string name="artists">Artists</string>
+    <string name="genres">Genres</string>
     <string name="playlists">Playlists</string>
     <string name="favorites">Favorites</string>
     <string name="recently_played">Recently played</string>

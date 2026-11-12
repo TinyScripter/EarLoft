@@ -24,10 +24,14 @@ internal class MusicBrowse @Inject constructor(
         parentId == MediaIds.LIBRARY -> listOf(
             folderMediaItem(MediaIds.ALBUMS, context.getString(R.string.albums), MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, gridChildren = true),
             folderMediaItem(MediaIds.ARTISTS, context.getString(R.string.artists), MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS),
+            folderMediaItem(MediaIds.GENRES, context.getString(R.string.genres), MediaMetadata.MEDIA_TYPE_FOLDER_GENRES),
         )
         parentId == MediaIds.ALBUMS -> libraryRepository.albums().first().map { it.toBrowsableMediaItem(context) }
         parentId == MediaIds.ARTISTS -> libraryRepository.artists().first().map { it.toBrowsableMediaItem() }
+        parentId == MediaIds.GENRES -> libraryRepository.genres().first().map { it.toBrowsableMediaItem() }
         parentId == MediaIds.PLAYLISTS -> playlistRepository.playlists().first().map { it.toBrowsableMediaItem() }
+        MediaIds.genreName(parentId) != null ->
+            libraryRepository.albumsOfGenre(MediaIds.genreName(parentId)!!).first().map { it.toBrowsableMediaItem(context) }
         MediaIds.artistId(parentId) != null ->
             libraryRepository.artist(MediaIds.artistId(parentId)!!).first()?.albums.orEmpty().map { it.toBrowsableMediaItem(context) }
         else -> songsOf(parentId)?.map { it.toBrowsableSongItem(context, parentId) }

@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.data.repository.PlaylistRepository
 import de.kleinabersmart.earloft.core.data.repository.ServerRepository
 import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.Artist
+import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.Playlist
 import de.kleinabersmart.earloft.core.model.ServerInfo
 import de.kleinabersmart.earloft.core.model.Song
@@ -37,6 +38,7 @@ class LibraryViewModel @Inject constructor(
     val albums: StateFlow<LoadState<List<Album>>> = libraryRepository.albums().stateInViewModel()
     val artists: StateFlow<LoadState<List<Artist>>> = libraryRepository.artists().stateInViewModel()
     val songs: StateFlow<LoadState<List<Song>>> = libraryRepository.songs().stateInViewModel()
+    val genres: StateFlow<LoadState<List<Genre>>> = libraryRepository.genres().stateInViewModel()
     val favoriteCount: StateFlow<Int> = favoritesRepository.favorites().map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), 0)
     val playlists: StateFlow<LoadState<List<Playlist>>> = playlistRepository.playlists().stateInViewModel()

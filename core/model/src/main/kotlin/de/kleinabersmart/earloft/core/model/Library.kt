@@ -26,6 +26,12 @@ data class Artist(
     val albumCount: Int,
 )
 
+data class Genre(
+    val name: String,
+    val albumCount: Int,
+    val songCount: Int,
+)
+
 data class AlbumDetails(
     val album: Album,
     val songs: List<Song>,
@@ -40,8 +46,9 @@ data class SearchResults(
     val songs: List<Song>,
     val albums: List<Album>,
     val artists: List<Artist>,
+    val genres: List<Genre> = emptyList(),
 ) {
-    val isEmpty: Boolean get() = songs.isEmpty() && albums.isEmpty() && artists.isEmpty()
+    val isEmpty: Boolean get() = songs.isEmpty() && albums.isEmpty() && artists.isEmpty() && genres.isEmpty()
 
     companion object {
         val EMPTY = SearchResults(emptyList(), emptyList(), emptyList())

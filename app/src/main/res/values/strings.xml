@@ -36,6 +36,8 @@
     <string name="library_albums">Albums</string>
     <string name="library_artists">Artists</string>
     <string name="library_songs">Songs</string>
+    <string name="library_genres">Genres</string>
+    <string name="genres_empty">No genres yet. Your music has no genre tags.</string>
     <string name="library_empty">No music yet. Set up a music server or use the music on this device (Settings → Music).</string>
     <string name="spoken_no_series">No series yet.</string>
     <string name="spoken_no_authors">No authors yet.</string>
