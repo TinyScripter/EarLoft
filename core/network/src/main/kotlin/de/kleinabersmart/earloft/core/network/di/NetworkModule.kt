@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthInterceptor
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsTokenAuthenticator
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinAuthInterceptor
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinClientInfo
 import de.kleinabersmart.earloft.core.network.subsonic.CoverArtCacheInterceptor
@@ -29,6 +30,7 @@ internal object NetworkModule {
         @ApplicationContext context: Context,
         authInterceptor: SubsonicAuthInterceptor,
         absAuthInterceptor: AbsAuthInterceptor,
+        absTokenAuthenticator: AbsTokenAuthenticator,
         jellyfinAuthInterceptor: JellyfinAuthInterceptor,
         coverArtCacheInterceptor: CoverArtCacheInterceptor,
     ): OkHttpClient =
@@ -38,6 +40,7 @@ internal object NetworkModule {
             .addNetworkInterceptor(absAuthInterceptor)
             .addNetworkInterceptor(jellyfinAuthInterceptor)
             .addNetworkInterceptor(coverArtCacheInterceptor)
+            .authenticator(absTokenAuthenticator)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()

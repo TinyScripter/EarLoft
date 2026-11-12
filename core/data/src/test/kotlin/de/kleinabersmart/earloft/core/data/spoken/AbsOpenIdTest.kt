@@ -1,0 +1,315 @@
+package de.kleinabersmart.earloft.core.data.spoken
+
+import android.content.Context
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import de.kleinabersmart.earloft.core.data.security.SecretStore
+import de.kleinabersmart.earloft.core.data.wear.CredentialsStamps
+import de.kleinabersmart.earloft.core.database.EarLoftDatabase
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthApi
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthInterceptor
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsTokenAuthenticator
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
+import okhttp3.OkHttpClient
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import java.security.MessageDigest
+import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
+
+/** Anmeldung per OpenID und Erneuerung der Tokens (Konzept 12.11) gegen einen nachgebauten Audiobookshelf. */
+@RunWith(RobolectricTestRunner::class)
+class AbsOpenIdTest {
+
+    private val server = MockWebServer()
+    private lateinit var db: EarLoftDatabase
+    private lateinit var servers: AudiobookshelfServers
+    private lateinit var renewal: AbsTokenRenewal
+    private lateinit var api: AbsApi
+    private val registry = AbsServerRegistry()
+    private val secrets = MemorySecrets()
+
+    // Zustand des nachgebauten Servers.
+    private val validAccess = ConcurrentHashMap.newKeySet<String>()
+    private val refreshCalls = AtomicInteger()
+
+    @Volatile
+    private var currentRefresh = "refresh-1"
+
+    @Volatile
+    private var challenge: String? = null
+
+    @Before
+    fun setUp() {
+        server.dispatcher = FakeAudiobookshelf()
+        server.start()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        val client = OkHttpClient.Builder()
+            .addNetworkInterceptor(AbsAuthInterceptor(registry))
+            .authenticator(AbsTokenAuthenticator(registry) { renewal })
+            .build()
+        api = AbsApi(client)
+        val authApi = AbsAuthApi(client)
+        renewal = AbsTokenRenewal(secrets, registry, authApi)
+        servers = AudiobookshelfServers(db.bookDao(), secrets, api, authApi, renewal, registry, CredentialsStamps(secrets))
+    }
+
+    @After
+    fun tearDown() {
+        db.close()
+        server.close()
+    }
+
+    private val baseUrl get() = server.url("/").toString()
+
+    /** Anmelden wie im Formular: Server fragen, „Browser“ (hier direkt die Rückleitung), abschließen. */
+    private suspend fun signIn(serverId: String? = null): String {
+        val started = servers.beginOpenId(baseUrl, AbsAuthApi.DEFAULT_REDIRECT_URI) as BeginOpenIdResult.Started
+        val state = started.login.authorizationUrl.queryParameter("state")
+        val result = servers.connectOpenId(serverId, "Hörbücher", started.login, "audiobookshelf://oauth?code=the-code&state=$state")
+        return (result as AddServerResult.Added).serverId
+    }
+
+    @Test
+    fun `status tells whether OpenID is offered`() = runTest {
+        val options = servers.loginOptions(baseUrl)!!
+        assertTrue(options.openId)
+        assertEquals("Login mit OpenId", options.openIdButtonText)
+    }
+
+    @Test
+    fun `sign-in stores both tokens and marks the server as OpenID`() = runTest {
+        val id = signIn()
+
+        assertEquals(jwt("access-1"), secrets.values[AbsSecrets.token(id)])
+        assertEquals("refresh-1", secrets.values[AbsSecrets.refresh(id)])
+        assertTrue(db.bookDao().server(id)!!.openId)
+        assertTrue(servers.editable(id)!!.openId)
+        assertEquals(jwt("access-1"), registry[id]!!.token)
+    }
+
+    @Test
+    fun `a redirect address the server does not allow is reported`() = runTest {
+        val result = servers.beginOpenId(baseUrl, "earloft://oauth")
+        assertEquals(BeginOpenIdResult.RedirectNotAllowed("earloft://oauth"), result)
+    }
+
+    @Test
+    fun `a redirect with a foreign state is rejected`() = runTest {
+        val started = servers.beginOpenId(baseUrl, AbsAuthApi.DEFAULT_REDIRECT_URI) as BeginOpenIdResult.Started
+        val result = servers.connectOpenId(null, "x", started.login, "audiobookshelf://oauth?code=the-code&state=other")
+        assertEquals(AddServerResult.OpenIdFailed, result)
+        assertTrue(db.bookDao().servers().isEmpty())
+    }
+
+    @Test
+    fun `an expired access token is renewed once for parallel requests`() = runTest {
+        val id = signIn()
+        validAccess.clear() // Der Access-Token ist abgelaufen.
+
+        val me = (1..4).map { async(Dispatchers.IO) { api.me(registry[id]!!) } }.awaitAll()
+
+        assertEquals(4, me.size)
+        assertEquals(1, refreshCalls.get())
+        assertEquals(jwt("access-2"), secrets.values[AbsSecrets.token(id)])
+        assertEquals("refresh-2", secrets.values[AbsSecrets.refresh(id)])
+        assertEquals(jwt("access-2"), registry[id]!!.token)
+    }
+
+    @Test
+    fun `a stale server object is retried with the renewed token`() = runTest {
+        val id = signIn()
+        val stale = registry[id]!!
+        validAccess.clear()
+        api.me(stale) // erneuert
+        api.me(stale) // läuft noch mit dem alten Token: wiederholt ohne neue Erneuerung
+        assertEquals(1, refreshCalls.get())
+    }
+
+    @Test
+    fun `an expired refresh token asks for a new sign-in`() = runTest {
+        val id = signIn()
+        validAccess.clear()
+        currentRefresh = "revoked"
+
+        val failed = runCatching { api.me(registry[id]!!) }
+
+        assertTrue(failed.isFailure)
+        assertNull(secrets.values[AbsSecrets.token(id)])
+        assertNull(secrets.values[AbsSecrets.refresh(id)])
+        assertNull(registry[id])
+        assertEquals(setOf(id), servers.serversWithoutKey.first())
+        assertEquals(listOf(id), servers.withoutKey())
+    }
+
+    @Test
+    fun `a wrong new API key is not replaced by the stored token`() = runTest {
+        val id = signIn()
+        val result = servers.update(id, "Hörbücher", baseUrl, "wrong-key")
+        assertEquals(AddServerResult.AuthFailed, result)
+        assertEquals(0, refreshCalls.get())
+        assertEquals(jwt("access-1"), secrets.values[AbsSecrets.token(id)])
+    }
+
+    @Test
+    fun `saving without a key keeps the OpenID sign-in even when the access token expired`() = runTest {
+        val id = signIn()
+        validAccess.clear()
+
+        val result = servers.update(id, "Neu", baseUrl, "")
+
+        assertEquals(AddServerResult.Added(id), result)
+        val entity = db.bookDao().server(id)!!
+        assertTrue(entity.openId)
+        assertEquals("Neu", entity.name)
+        assertEquals(jwt("access-2"), secrets.values[AbsSecrets.token(id)])
+        assertEquals(jwt("access-2"), registry[id]!!.token)
+    }
+
+    @Test
+    fun `switching to an API key drops the refresh token`() = runTest {
+        val id = signIn()
+        validAccess += "api-key"
+
+        servers.update(id, "Hörbücher", baseUrl, "api-key")
+
+        assertFalse(db.bookDao().server(id)!!.openId)
+        assertEquals("api-key", secrets.values[AbsSecrets.token(id)])
+        assertNull(secrets.values[AbsSecrets.refresh(id)])
+    }
+
+    @Test
+    fun `fresh renews an access token that expires soon`() = runTest {
+        val id = signIn()
+        servers.server(id) // lädt die Registry, sonst ersetzte das der erste Aufruf von freshToken
+        val soon = System.currentTimeMillis() / 1000 + 60
+        registry.register(registry[id]!!.copy(token = jwt("access-1", soon)))
+
+        assertEquals(jwt("access-2"), servers.freshToken(id))
+        assertEquals(jwt("access-2"), servers.freshToken(id))
+        assertEquals(1, refreshCalls.get())
+    }
+
+    @Test
+    fun `the watch stamp follows the sign-in, not the hourly access token`() = runTest {
+        val id = signIn()
+        val before = servers.mirrored.first().single().credentialsStamp
+        validAccess.clear()
+        api.me(registry[id]!!)
+        assertEquals(before, servers.mirrored.first().single().credentialsStamp)
+
+        signIn(id)
+        assertFalse(before == servers.mirrored.first().single().credentialsStamp)
+    }
+
+    @Test
+    fun `token expiry is read from the JWT`() {
+        assertEquals(1_900_000_000L, AbsAuthApi.expiresAt(jwt("x", 1_900_000_000L)))
+        assertNull(AbsAuthApi.expiresAt("not-a-jwt"))
+    }
+
+    private inner class FakeAudiobookshelf : Dispatcher() {
+        private var accessCounter = 1
+
+        override fun dispatch(request: RecordedRequest): MockResponse {
+            val url = request.url
+            val bearer = request.headers["Authorization"]?.removePrefix("Bearer ")
+            return when (url.encodedPath) {
+                "/status" -> json(
+                    """{"app":"audiobookshelf","serverVersion":"2.37.2","authMethods":["openid"],""" +
+                        """"authFormData":{"authOpenIDButtonText":"Login mit OpenId"}}""",
+                )
+                "/auth/openid" -> {
+                    if (url.queryParameter("redirect_uri") != AbsAuthApi.DEFAULT_REDIRECT_URI) {
+                        MockResponse.Builder().code(400).body("Invalid redirect_uri").build()
+                    } else {
+                        challenge = url.queryParameter("code_challenge")
+                        MockResponse.Builder().code(302)
+                            .addHeader("Set-Cookie", "connect.sid=session-1; Path=/; HttpOnly")
+                            .addHeader("Location", "https://idp.example/authorize?state=${url.queryParameter("state")}")
+                            .build()
+                    }
+                }
+                "/auth/openid/callback" -> {
+                    val verifier = url.queryParameter("code_verifier").orEmpty()
+                    val ok = request.headers["Cookie"]?.contains("connect.sid=session-1") == true &&
+                        url.queryParameter("code") == "the-code" && s256(verifier) == challenge
+                    if (!ok) MockResponse.Builder().code(401).body("Unauthorized").build() else synchronized(this) {
+                        currentRefresh = "refresh-1"
+                        tokens(jwt("access-1"), currentRefresh)
+                    }
+                }
+                "/auth/refresh" -> synchronized(this) {
+                    refreshCalls.incrementAndGet()
+                    if (request.headers["x-refresh-token"] != currentRefresh) {
+                        MockResponse.Builder().code(401).body("""{"error":"Invalid refresh token"}""").build()
+                    } else {
+                        accessCounter++
+                        currentRefresh = "refresh-$accessCounter"
+                        tokens(jwt("access-$accessCounter"), currentRefresh)
+                    }
+                }
+                "/ping" -> json("""{"success":true}""")
+                else -> when {
+                    bearer == null || bearer !in validAccess -> MockResponse.Builder().code(401).body("Unauthorized").build()
+                    url.encodedPath == "/api/me" -> json("""{"id":"user-1","mediaProgress":[]}""")
+                    url.encodedPath == "/api/libraries" -> json("""{"libraries":[{"id":"lib","name":"Bücher","mediaType":"book"}]}""")
+                    else -> MockResponse.Builder().code(404).build()
+                }
+            }
+        }
+
+        private fun tokens(access: String, refresh: String): MockResponse {
+            validAccess += access
+            return json("""{"user":{"id":"user-1","accessToken":"$access","refreshToken":"$refresh"}}""")
+        }
+
+        private fun json(body: String) = MockResponse.Builder().addHeader("Content-Type", "application/json").body(body).build()
+    }
+
+    private class MemorySecrets : SecretStore {
+        val values = ConcurrentHashMap<String, String>()
+        override suspend fun get(key: String) = values[key]
+        override suspend fun put(key: String, value: String) {
+            values[key] = value
+        }
+        override suspend fun remove(key: String) {
+            values.remove(key)
+        }
+    }
+
+    private companion object {
+        val encoder: Base64.Encoder = Base64.getUrlEncoder().withoutPadding()
+
+        val inOneHour = System.currentTimeMillis() / 1000 + 3600
+
+        /** Ein JWT, wie Audiobookshelf es ausgibt (Signatur egal). */
+        fun jwt(id: String, exp: Long = inOneHour): String {
+            val header = encoder.encodeToString("""{"alg":"HS256","typ":"JWT"}""".toByteArray())
+            val payload = encoder.encodeToString("""{"userId":"user-1","jti":"$id","exp":$exp}""".toByteArray())
+            return "$header.$payload.sig"
+        }
+
+        fun s256(verifier: String): String =
+            encoder.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)))
+    }
+}

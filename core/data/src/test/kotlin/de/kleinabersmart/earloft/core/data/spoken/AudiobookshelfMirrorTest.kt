@@ -43,7 +43,7 @@ class AudiobookshelfMirrorTest {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), EarLoftDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        servers = AudiobookshelfServers(db.bookDao(), secrets, AbsApi(OkHttpClient()), registry, CredentialsStamps(secrets))
+        servers = testAudiobookshelfServers(db.bookDao(), secrets, AbsApi(OkHttpClient()), registry)
     }
 
     @After

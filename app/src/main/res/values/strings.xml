@@ -486,6 +486,13 @@
     <string name="spoken_abs_error_unreachable">The server could not be reached.</string>
     <string name="spoken_abs_error_auth">The API key was rejected.</string>
     <string name="spoken_abs_error_library">The server has no book library.</string>
+    <string name="spoken_abs_openid">Sign in with OpenID</string>
+    <string name="spoken_abs_openid_keep">Signed in with OpenID. Leave empty to keep the sign-in; an API key replaces it.</string>
+    <string name="spoken_abs_openid_no_auth_tab">Your default browser can’t hand the sign-in back to EarLoft directly. In Audiobookshelf, add %1$s under Settings → Authentication → “Allowed Mobile Redirect URIs”.</string>
+    <string name="spoken_abs_error_openid">Signing in with OpenID failed.</string>
+    <string name="spoken_abs_error_openid_lost">The sign-in was interrupted. Please sign in again.</string>
+    <string name="spoken_abs_error_redirect">Audiobookshelf doesn’t allow the redirect. In Audiobookshelf, add %1$s under Settings → Authentication → “Allowed Mobile Redirect URIs”.</string>
+    <string name="spoken_abs_login_lost">The OpenID sign-in has expired or is missing (e.g. after restoring on another device). Tap the server and sign in again.</string>
     <string name="spoken_abs_sync">Sync now</string>
     <string name="spoken_abs_remove">Remove server</string>
     <string name="spoken_abs_remove_message">Books of “%1$s” are removed from this device. Your progress on the server is kept.</string>
@@ -749,8 +756,8 @@
     <string name="refresh_music_started">Updating music …</string>
     <string name="refresh_music_done">Music updated</string>
     <plurals name="restore_missing_credentials">
-        <item quantity="one">Restored from your old device: one server needs its password or API key again.</item>
-        <item quantity="other">Restored from your old device: %d servers need their password or API key again.</item>
+        <item quantity="one">Restored from your old device: one server needs its password, API key or a new sign-in.</item>
+        <item quantity="other">Restored from your old device: %d servers need their password, API key or a new sign-in.</item>
     </plurals>
     <string name="restore_missing_credentials_action">Enter</string>
     <plurals name="new_content_songs">

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.wear
 
+import de.kleinabersmart.earloft.core.data.spoken.testAudiobookshelfServers
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -60,7 +61,7 @@ class WatchSpokenTest {
             override suspend fun remove(key: String) = Unit
         }
         val dao = db.bookDao()
-        val servers = AudiobookshelfServers(dao, secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
+        val servers = testAudiobookshelfServers(dao, secrets, api)
         val progressSync = BookProgressSync(context, dao, servers, api, PlaybackPolicy())
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)

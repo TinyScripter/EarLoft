@@ -21,6 +21,8 @@ data class SpokenServerEntity(
     val lastFullSyncAt: Long = 0,
     /** Ausgeschaltet: kein Abgleich, Bücher ausgeblendet; Bücher und Downloads bleiben erhalten. */
     @ColumnInfo(defaultValue = "1") val enabled: Boolean = true,
+    /** Angemeldet per OpenID statt API-Key (Konzept 12.11): Tokens erneuern sich, fehlen sie, heißt es „Neu anmelden“. */
+    @ColumnInfo(defaultValue = "0") val openId: Boolean = false,
 )
 
 /** Abonnierter Podcast oder Probeabo (Konzept 12.1, 12.10). Seine Folgen sind `books`-Zeilen mit `serverId = feedId`. */

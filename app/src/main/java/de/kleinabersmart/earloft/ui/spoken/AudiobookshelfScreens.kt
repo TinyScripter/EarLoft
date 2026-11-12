@@ -1,5 +1,10 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.browser.auth.AuthTabIntent
+import androidx.browser.customtabs.CustomTabsClient
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -31,10 +37,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -43,6 +51,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
@@ -51,6 +60,7 @@ import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.LoadFailedHint
 import de.kleinabersmart.earloft.ui.permission.rememberLocalNetworkRequester
 import de.kleinabersmart.earloft.ui.valueOrNull
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthApi
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /** Die Audiobookshelf-Server in den Bücher-Einstellungen: auflisten, ein-/ausschalten, bearbeiten, abgleichen, entfernen, hinzufügen. */
@@ -80,7 +90,7 @@ fun AudiobookshelfSection(
                             Text(stringResource(R.string.server_disabled), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         } else if (server.serverId in withoutKey) {
                             Text(
-                                stringResource(R.string.spoken_abs_key_lost),
+                                stringResource(if (server.openId) R.string.spoken_abs_login_lost else R.string.spoken_abs_key_lost),
                                 color = MaterialTheme.colorScheme.error,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
@@ -131,7 +141,21 @@ fun AudiobookshelfSection(
     }
 }
 
-/** Formular zum Verbinden mit einem Audiobookshelf-Server per API-Schlüssel ([serverId] `null`) oder zum Bearbeiten eines vorhandenen. */
+/** Die eigene Rückleitung für Browser ohne Auth Tab; muss in Audiobookshelf eingetragen sein (Konzept 12.11). */
+private const val OWN_REDIRECT_URI = "earloft://oauth"
+
+/**
+ * Der Browser, der die Anmeldung per OpenID öffnet, wenn er Auth Tab kann (Chrome ab 137): Er gibt die Rückleitung auf
+ * `audiobookshelf://oauth` direkt an EarLoft, ohne Intent-Filter, der der offiziellen App in die Quere käme. `null`: Der
+ * Standardbrowser kann das nicht, es bleibt [OWN_REDIRECT_URI].
+ */
+private fun authTabBrowser(context: Context): String? =
+    CustomTabsClient.getPackageName(context, null)?.takeIf { CustomTabsClient.isAuthTabSupported(context, it) }
+
+/**
+ * Formular zum Verbinden mit einem Audiobookshelf-Server per API-Schlüssel oder OpenID ([serverId] `null`) oder zum Bearbeiten
+ * eines vorhandenen.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudiobookshelfFormScreen(
@@ -141,11 +165,31 @@ fun AudiobookshelfFormScreen(
     viewModel: AudiobookshelfViewModel = hiltViewModel(),
 ) {
     val connectState by viewModel.connect.collectAsStateWithLifecycle()
+    val loginOptions by viewModel.loginOptions.collectAsStateWithLifecycle()
+    val browserUrl by viewModel.browser.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val authTab = remember { authTabBrowser(context) }
+    val authTabLauncher = rememberLauncherForActivityResult(AuthTabIntent.AuthenticateUserResultContract()) { result ->
+        viewModel.onBrowserResult(result.resultUri?.takeIf { result.resultCode == AuthTabIntent.RESULT_OK }?.toString())
+    }
+    LaunchedEffect(browserUrl) {
+        val address = browserUrl?.toUri() ?: return@LaunchedEffect
+        viewModel.browserOpened()
+        if (authTab != null) {
+            AuthTabIntent.Builder().build()
+                .apply { intent.setPackage(authTab) }
+                .launch(authTabLauncher, address, AbsAuthApi.DEFAULT_REDIRECT_URI.substringBefore(':'))
+        } else {
+            // Die Rückleitung kommt über OpenIdRedirectActivity.
+            CustomTabsIntent.Builder().build().launchUrl(context, address)
+        }
+    }
     var name by rememberSaveable { mutableStateOf("") }
     var url by rememberSaveable { mutableStateOf("") }
     var key by viewModel::keyInput
-    // Beim Bearbeiten: leer = gespeicherter Schlüssel bleibt.
+    // Beim Bearbeiten: leer = gespeicherter Schlüssel bzw. die gespeicherte Anmeldung per OpenID bleibt.
     var hasStoredKey by rememberSaveable { mutableStateOf(false) }
+    var usesOpenId by rememberSaveable { mutableStateOf(false) }
     // HTTP nur nach ausdrücklicher Bestätigung (Konzept 10), wie im Formular der Musik-Server.
     var allowHttp by rememberSaveable { mutableStateOf(false) }
     val isHttp = url.trim().startsWith("http://", ignoreCase = true)
@@ -158,11 +202,13 @@ fun AudiobookshelfFormScreen(
             name = server.name
             url = server.baseUrl
             hasStoredKey = server.hasKey
+            usesOpenId = server.openId
             // Ein schon per HTTP eingerichteter Server war bestätigt.
             allowHttp = server.baseUrl.startsWith("http://", ignoreCase = true)
         }
     }
     LaunchedEffect(connectState) { if (connectState == ConnectState.Connected) onDone() }
+    LaunchedEffect(url) { viewModel.onUrlChanged(url) }
 
     Column(modifier.fillMaxSize().imePadding()) {
         TopAppBar(
@@ -194,7 +240,15 @@ fun AudiobookshelfFormScreen(
                 onValueChange = { key = it },
                 label = { Text(stringResource(R.string.spoken_abs_key)) },
                 supportingText = {
-                    Text(stringResource(if (hasStoredKey) R.string.spoken_abs_key_keep else R.string.spoken_abs_key_summary))
+                    Text(
+                        stringResource(
+                            when {
+                                hasStoredKey && usesOpenId -> R.string.spoken_abs_openid_keep
+                                hasStoredKey -> R.string.spoken_abs_key_keep
+                                else -> R.string.spoken_abs_key_summary
+                            },
+                        ),
+                    )
                 },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
@@ -223,7 +277,7 @@ fun AudiobookshelfFormScreen(
             }
             (connectState as? ConnectState.Failed)?.let {
                 Text(
-                    stringResource(it.message),
+                    if (it.arg != null) stringResource(it.message, it.arg) else stringResource(it.message),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 8.dp),
@@ -245,6 +299,26 @@ fun AudiobookshelfFormScreen(
                         },
                     ),
                 )
+            }
+            // Nur, wenn der Server unter dieser Adresse OpenID anbietet (`/status`).
+            loginOptions?.takeIf { it.openId }?.let { options ->
+                OutlinedButton(
+                    onClick = rememberLocalNetworkRequester {
+                        viewModel.startOpenId(serverId, name, url, if (authTab != null) AbsAuthApi.DEFAULT_REDIRECT_URI else OWN_REDIRECT_URI)
+                    },
+                    enabled = (!isHttp || allowHttp) && connectState != ConnectState.Connecting,
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    Text(options.openIdButtonText?.takeIf { it.isNotBlank() } ?: stringResource(R.string.spoken_abs_openid))
+                }
+                if (authTab == null) {
+                    Text(
+                        stringResource(R.string.spoken_abs_openid_no_auth_tab, OWN_REDIRECT_URI),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
             }
         }
     }

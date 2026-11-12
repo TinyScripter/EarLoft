@@ -105,6 +105,8 @@ data class SpokenServer(
     val lastFullSyncAt: Long,
     /** Ausgeschaltet: kein Abgleich, Bücher ausgeblendet, nichts gelöscht. */
     val enabled: Boolean = true,
+    /** Angemeldet per OpenID statt API-Key. */
+    val openId: Boolean = false,
 )
 
 /** Ein Autor aus der Suche: sein Name, ein Buch für das Cover und die Anzahl seiner Bücher. */

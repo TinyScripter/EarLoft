@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.wear
 
+import de.kleinabersmart.earloft.core.data.spoken.testAudiobookshelfServers
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
@@ -79,7 +80,7 @@ class PhoneFileLocatorTest {
             override suspend fun put(key: String, value: String) = Unit
             override suspend fun remove(key: String) = Unit
         }
-        val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
+        val servers = testAudiobookshelfServers(db.bookDao(), secrets, api)
         covers = BookCovers(context, db.bookDao(), db.podcastDao(), servers, api, PodcastFeedApi(client), LocalBookScanner(context))
         locator = PhoneFileLocator(context, db.wearDao(), FixedSources(nd, local), db.bookDao(), db.podcastDao(), covers)
         syncer.syncAdding(db, nd)

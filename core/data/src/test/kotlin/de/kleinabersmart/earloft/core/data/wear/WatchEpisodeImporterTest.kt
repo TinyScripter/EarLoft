@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.wear
 
+import de.kleinabersmart.earloft.core.data.spoken.testAudiobookshelfServers
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -54,7 +55,7 @@ class WatchEpisodeImporterTest {
             override suspend fun remove(key: String) = Unit
         }
         val api = AbsApi(OkHttpClient())
-        val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
+        val servers = testAudiobookshelfServers(db.bookDao(), secrets, api)
         val policy = PlaybackPolicy()
         val stats = StatsRepository(db.statsDao(), db.bookDao(), db.podcastDao())
         importer = WatchEpisodeImporter(

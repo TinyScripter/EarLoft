@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.stats
 
+import de.kleinabersmart.earloft.core.data.spoken.testAudiobookshelfServers
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -64,7 +65,7 @@ class ServerStatsRepositoryTest {
         db.bookDao().upsertBook(
             BookEntity(serverId = "srv", kind = BookKind.BOOK, remoteId = "item-1", title = "Buch Eins", normTitle = "buch eins", author = "A", durationMs = 1),
         )
-        repository = ServerStatsRepository(db.statsDao(), db.bookDao(), AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry(), CredentialsStamps(secrets)), api)
+        repository = ServerStatsRepository(db.statsDao(), db.bookDao(), testAudiobookshelfServers(db.bookDao(), secrets, api), api)
     }
 
     @After

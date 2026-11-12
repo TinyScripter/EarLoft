@@ -40,8 +40,12 @@ class CastMediaCache @Inject constructor(
     @Volatile
     private var serverKeys: Map<String, String>? = null
 
+    /**
+     * Bei Anmeldung per OpenID gilt der Access-Token höchstens eine Stunde und der Empfänger kann ihn nicht erneuern: Er bekommt
+     * einen, der noch mindestens eine halbe Stunde gilt (Konzept 12.11, bekanntes Risiko bei langen Titeln).
+     */
     suspend fun prepareServerKeys() {
-        serverKeys = audiobookshelf.allIncludingDisabled().associate { it.serverId to it.apiKey }
+        serverKeys = audiobookshelf.allIncludingDisabled().associate { it.serverId to (audiobookshelf.freshToken(it.serverId) ?: it.token) }
     }
 
     suspend fun prepare(songIds: Collection<Long>) {

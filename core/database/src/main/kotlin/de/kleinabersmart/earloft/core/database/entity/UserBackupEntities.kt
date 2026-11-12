@@ -27,7 +27,7 @@ data class UserServerEntity(
     val enabled: Boolean,
 )
 
-/** Ein Audiobookshelf-Server (`spoken_servers`). Der API-Key kommt nicht mit. */
+/** Ein Audiobookshelf-Server (`spoken_servers`). API-Key bzw. Tokens kommen nicht mit, nur ob per OpenID angemeldet war. */
 @Entity(tableName = "spoken_servers")
 data class UserSpokenServerEntity(
     @PrimaryKey val serverId: String,
@@ -35,6 +35,7 @@ data class UserSpokenServerEntity(
     val baseUrl: String,
     val libraryId: String?,
     val enabled: Boolean,
+    @ColumnInfo(defaultValue = "0") val openId: Boolean = false,
 )
 
 /**

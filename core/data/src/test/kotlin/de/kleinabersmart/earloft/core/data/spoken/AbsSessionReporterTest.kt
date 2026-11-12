@@ -73,7 +73,7 @@ class AbsSessionReporterTest {
             override suspend fun remove(key: String) = Unit
         }
         db.bookDao().upsertServer(SpokenServerEntity("srv", "Server", "https://abs.example/"))
-        val servers = AudiobookshelfServers(db.bookDao(), secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
+        val servers = testAudiobookshelfServers(db.bookDao(), secrets, api)
         reporter = AbsSessionReporter(context, db.absSessionDao(), db.bookDao(), servers, api, PlaybackPolicy())
         bookId = db.bookDao().upsertBook(
             BookEntity(serverId = "srv", kind = BookKind.BOOK, remoteId = "item-1", title = "Buch", normTitle = "buch", author = "Autor", durationMs = 36_000_000),

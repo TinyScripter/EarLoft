@@ -74,7 +74,7 @@ class BookCoversTest {
         }
         val dao = db.bookDao()
         val api = AbsApi(client)
-        val servers = AudiobookshelfServers(dao, secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
+        val servers = testAudiobookshelfServers(dao, secrets, api)
         covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), LocalBookScanner(context))
         db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast", imageUrl = FEED_IMAGE))
     }

@@ -479,6 +479,13 @@
     <string name="spoken_abs_error_unreachable">Der Server ist nicht erreichbar.</string>
     <string name="spoken_abs_error_auth">Der API-Schlüssel wurde abgelehnt.</string>
     <string name="spoken_abs_error_library">Der Server hat keine Bibliothek mit Büchern.</string>
+    <string name="spoken_abs_openid">Mit OpenID anmelden</string>
+    <string name="spoken_abs_openid_keep">Angemeldet per OpenID. Leer lassen, um die Anmeldung zu behalten; ein API-Schlüssel ersetzt sie.</string>
+    <string name="spoken_abs_openid_no_auth_tab">Dein Standardbrowser kann die Anmeldung nicht direkt an EarLoft zurückgeben. Trage dafür in Audiobookshelf unter Einstellungen → Authentifizierung bei „Allowed Mobile Redirect URIs“ %1$s ein.</string>
+    <string name="spoken_abs_error_openid">Die Anmeldung per OpenID ist fehlgeschlagen.</string>
+    <string name="spoken_abs_error_openid_lost">Die Anmeldung wurde unterbrochen. Bitte melde dich noch einmal an.</string>
+    <string name="spoken_abs_error_redirect">Audiobookshelf lässt die Rückleitung nicht zu. Trage in Audiobookshelf unter Einstellungen → Authentifizierung bei „Allowed Mobile Redirect URIs“ %1$s ein.</string>
+    <string name="spoken_abs_login_lost">Die Anmeldung per OpenID ist abgelaufen oder fehlt (z. B. nach einer Wiederherstellung auf einem anderen Gerät). Tippe auf den Server und melde dich neu an.</string>
     <string name="spoken_abs_sync">Jetzt abgleichen</string>
     <string name="spoken_abs_remove">Server entfernen</string>
     <string name="spoken_abs_remove_message">Die Bücher von „%1$s“ werden von diesem Gerät entfernt. Dein Fortschritt auf dem Server bleibt erhalten.</string>
@@ -742,8 +749,8 @@
     <string name="refresh_music_started">Musik wird aktualisiert …</string>
     <string name="refresh_music_done">Musik aktualisiert</string>
     <plurals name="restore_missing_credentials">
-        <item quantity="one">Vom alten Gerät übernommen: Ein Server braucht sein Passwort bzw. seinen API-Key neu.</item>
-        <item quantity="other">Vom alten Gerät übernommen: %d Server brauchen ihr Passwort bzw. ihren API-Key neu.</item>
+        <item quantity="one">Vom alten Gerät übernommen: Ein Server braucht sein Passwort, seinen API-Key bzw. eine neue Anmeldung.</item>
+        <item quantity="other">Vom alten Gerät übernommen: %d Server brauchen ihr Passwort, ihren API-Key bzw. eine neue Anmeldung.</item>
     </plurals>
     <string name="restore_missing_credentials_action">Eingeben</string>
     <plurals name="new_content_songs">

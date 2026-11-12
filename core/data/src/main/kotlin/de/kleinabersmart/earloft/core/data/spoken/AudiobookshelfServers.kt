@@ -6,12 +6,16 @@ import de.kleinabersmart.earloft.core.data.wear.CredentialsStamps
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsException
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsLoginOptions
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsOpenIdLogin
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
 import de.kleinabersmart.earloft.core.network.acceptsCredentialsOf
 import de.kleinabersmart.earloft.core.model.SpokenServer
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -27,11 +31,22 @@ sealed interface AddServerResult {
     data object InvalidUrl : AddServerResult
     data object Unreachable : AddServerResult
     data object AuthFailed : AddServerResult
+    /** Der Server hat die Anmeldung per OpenID nicht abgeschlossen (abgelehnt, abgelaufen, fremde Rückleitung). */
+    data object OpenIdFailed : AddServerResult
     data object NoBookLibrary : AddServerResult
 }
 
-/** Ein Server zum Bearbeiten; der API-Key selbst verlässt den [SecretStore] nicht. */
-data class EditableAbsServer(val name: String, val baseUrl: String, val hasKey: Boolean)
+/** Beginn einer Anmeldung per OpenID ([AudiobookshelfServers.beginOpenId]). */
+sealed interface BeginOpenIdResult {
+    data class Started(val login: AbsOpenIdLogin) : BeginOpenIdResult
+    data object InvalidUrl : BeginOpenIdResult
+    data object Unreachable : BeginOpenIdResult
+    /** Audiobookshelf lässt [redirectUri] nicht zu: Sie gehört in „Allowed Mobile Redirect URIs“. */
+    data class RedirectNotAllowed(val redirectUri: String) : BeginOpenIdResult
+}
+
+/** Ein Server zum Bearbeiten; API-Key und Tokens verlassen den [SecretStore] nicht. */
+data class EditableAbsServer(val name: String, val baseUrl: String, val hasKey: Boolean, val openId: Boolean = false)
 
 /**
  * Ein Server, wie das Handy ihn der Uhr übergibt (ohne Schlüssel, Wear-Konzept 16.2). [credentialsStamp] ändert sich mit dem
@@ -39,34 +54,42 @@ data class EditableAbsServer(val name: String, val baseUrl: String, val hasKey: 
  */
 data class MirroredAbsServer(val serverId: String, val name: String, val baseUrl: String, val credentialsStamp: String? = null)
 
-/** Eingerichtete Audiobookshelf-Server (Konzept 12.1); der API-Key liegt im [SecretStore]. */
+/**
+ * Eingerichtete Audiobookshelf-Server (Konzept 12.1). Angemeldet per API-Key oder per OpenID (12.11); API-Key bzw. Access- und
+ * Refresh-Token liegen im [SecretStore] ([AbsSecrets]), erneuert von [AbsTokenRenewal].
+ */
 @Singleton
 class AudiobookshelfServers @Inject constructor(
     private val bookDao: BookDao,
     private val secretStore: SecretStore,
     private val api: AbsApi,
+    private val authApi: AbsAuthApi,
+    private val renewal: AbsTokenRenewal,
     private val registry: AbsServerRegistry,
     private val stamps: CredentialsStamps,
 ) {
     val servers: Flow<List<SpokenServer>> = bookDao.observeServers().map { list ->
-        list.map { SpokenServer(it.serverId, it.name, it.baseUrl, it.lastFullSyncAt, it.enabled) }
+        list.map { SpokenServer(it.serverId, it.name, it.baseUrl, it.lastFullSyncAt, it.enabled, it.openId) }
     }
 
     /**
      * Handy: die eingeschalteten Server für die Uhr. Ausgeschaltete fehlen, ihre Bücher sind am Handy ausgeblendet und fallen von
-     * der Uhr. Ein neuer Schlüssel schreibt auch den Server neu ([connect]); damit kommt ein neuer Stempel.
+     * der Uhr. Ein neuer Schlüssel schreibt auch den Server neu ([connect]); damit kommt ein neuer Stempel. Bei OpenID hängt der
+     * Stempel an der Anmeldung, nicht am stündlich neuen Access-Token: Den holt sich die Uhr selbst, wenn er abgelaufen ist.
      */
     val mirrored: Flow<List<MirroredAbsServer>> = bookDao.observeServers().map { list ->
         list.filter { it.enabled }.map {
-            MirroredAbsServer(it.serverId, it.name, it.baseUrl, stamps.absStamp(it.serverId, secretStore.get(tokenKey(it.serverId))))
+            val secret = if (it.openId) secretStore.get(AbsSecrets.login(it.serverId)) else secretStore.get(tokenKey(it.serverId))
+            MirroredAbsServer(it.serverId, it.name, it.baseUrl, stamps.absStamp(it.serverId, secret))
         }
     }
 
     /**
-     * Server, deren API-Key fehlt (z. B. nach einer Wiederherstellung auf einem anderen Gerät); der Nutzer muss ihn beim
-     * Bearbeiten neu eingeben. Neu berechnet, wenn sich die Server ändern – das Speichern eines Keys ändert sie mit.
+     * Server, deren API-Key bzw. Anmeldung fehlt (z. B. nach einer Wiederherstellung auf einem anderen Gerät, oder der
+     * Refresh-Token ist abgelaufen); der Nutzer muss beim Bearbeiten den Key neu eingeben bzw. sich neu anmelden. Neu berechnet,
+     * wenn sich die Server ändern – das Speichern eines Keys ändert sie mit – und wenn eine Anmeldung abläuft.
      */
-    val serversWithoutKey: Flow<Set<String>> = bookDao.observeServers().map { list ->
+    val serversWithoutKey: Flow<Set<String>> = combine(bookDao.observeServers(), renewal.expired) { list, _ ->
         list.filter { secretStore.get(tokenKey(it.serverId)) == null }.mapTo(HashSet()) { it.serverId }
     }
 
@@ -93,7 +116,7 @@ class AudiobookshelfServers @Inject constructor(
     }
 
     suspend fun add(name: String, baseUrlInput: String, apiKey: String): AddServerResult =
-        connect(null, name, baseUrlInput, apiKey)
+        connect(null, name, baseUrlInput, Credentials.ApiKey(apiKey))
 
     /**
      * Ändert Name, Adresse oder API-Key eines Servers, nur wenn die Verbindung mit den neuen Angaben klappt.
@@ -101,11 +124,63 @@ class AudiobookshelfServers @Inject constructor(
      * gespeicherte Key bleibt. Zeigt die Adresse auf eine andere Bibliothek, räumt der nächste Vollabgleich auf.
      */
     suspend fun update(serverId: String, name: String, baseUrlInput: String, apiKey: String): AddServerResult =
-        connect(serverId, name, baseUrlInput, apiKey)
+        connect(serverId, name, baseUrlInput, Credentials.ApiKey(apiKey))
+
+    /** Bietet der Server die Anmeldung per OpenID an? `null`, wenn die Adresse ungültig oder kein Audiobookshelf ist. */
+    suspend fun loginOptions(baseUrlInput: String): AbsLoginOptions? {
+        val baseUrl = AbsServer.normalizeBaseUrl(baseUrlInput) ?: return null
+        return try {
+            authApi.loginOptions(baseUrl)
+        } catch (e: IOException) {
+            Log.d(TAG, "Anmeldearten von $baseUrl nicht lesbar", e)
+            null
+        }
+    }
+
+    /** Erster Schritt der Anmeldung per OpenID (Konzept 12.11); danach meldet sich der Nutzer im Browser an. */
+    suspend fun beginOpenId(baseUrlInput: String, redirectUri: String): BeginOpenIdResult {
+        val baseUrl = AbsServer.normalizeBaseUrl(baseUrlInput) ?: return BeginOpenIdResult.InvalidUrl
+        return try {
+            BeginOpenIdResult.Started(authApi.beginOpenId(baseUrl, redirectUri))
+        } catch (e: AbsException) {
+            Log.w(TAG, "OpenID bei $baseUrl nicht möglich", e)
+            if (e.code == 400) BeginOpenIdResult.RedirectNotAllowed(redirectUri) else BeginOpenIdResult.Unreachable
+        } catch (e: IOException) {
+            Log.w(TAG, "Server $baseUrl nicht erreichbar", e)
+            BeginOpenIdResult.Unreachable
+        }
+    }
+
+    /**
+     * Schließt die Anmeldung per OpenID mit der Rückleitung [redirect] des Browsers ab und richtet den Server ein ([serverId]
+     * `null`) bzw. meldet ihn neu an. Wie bei [update] bleiben `serverId`, Bücher und Fortschritt.
+     */
+    suspend fun connectOpenId(serverId: String?, name: String, login: AbsOpenIdLogin, redirect: String): AddServerResult {
+        val redirectUrl = AbsAuthApi.redirectUrl(redirect) ?: return AddServerResult.OpenIdFailed
+        val tokens = try {
+            authApi.finishOpenId(login, redirectUrl)
+        } catch (e: AbsException) {
+            Log.w(TAG, "OpenID bei ${login.baseUrl} abgelehnt", e)
+            return AddServerResult.OpenIdFailed
+        } catch (e: IOException) {
+            Log.w(TAG, "Server ${login.baseUrl} nicht erreichbar", e)
+            return AddServerResult.Unreachable
+        }
+        return connect(serverId, name, login.baseUrl.toString(), Credentials.OpenId(tokens.accessToken, tokens.refreshToken))
+    }
 
     /** Schaltet den Server ein oder aus; ausgeschaltet bleiben Bücher und Downloads erhalten, sind aber ausgeblendet. */
     suspend fun setEnabled(serverId: String, enabled: Boolean) {
         bookDao.setServerEnabled(serverId, enabled)
+    }
+
+    /**
+     * Der Token für Empfänger, die selbst nicht erneuern können (Cast): bei OpenID noch mindestens [minValiditySeconds]
+     * gültig, wenn nötig vorher erneuert. `null`, wenn der Server nicht eingerichtet ist oder der Token fehlt.
+     */
+    suspend fun freshToken(serverId: String, minValiditySeconds: Long = FRESH_FOR_SECONDS): String? {
+        ensureLoaded()
+        return renewal.fresh(serverId, minValiditySeconds)
     }
 
     /** Eingeschaltete Server ohne gespeicherten API-Key (nach dem Wiederherstellen auf einem neuen Gerät). */
@@ -116,14 +191,26 @@ class AudiobookshelfServers @Inject constructor(
 
     suspend fun editable(serverId: String): EditableAbsServer? {
         val entity = bookDao.server(serverId) ?: return null
-        return EditableAbsServer(entity.name, entity.baseUrl, hasKey = secretStore.get(tokenKey(serverId)) != null)
+        return EditableAbsServer(entity.name, entity.baseUrl, hasKey = secretStore.get(tokenKey(serverId)) != null, openId = entity.openId)
     }
 
-    private suspend fun connect(existingId: String?, name: String, baseUrlInput: String, apiKey: String): AddServerResult {
+    private sealed interface Credentials {
+        /** Leer: Der gespeicherte API-Key bzw. die gespeicherte Anmeldung bleibt. */
+        data class ApiKey(val key: String) : Credentials
+        data class OpenId(val accessToken: String, val refreshToken: String?) : Credentials
+    }
+
+    private suspend fun connect(existingId: String?, name: String, baseUrlInput: String, credentials: Credentials): AddServerResult {
         val baseUrl = AbsServer.normalizeBaseUrl(baseUrlInput) ?: return AddServerResult.InvalidUrl
         val existing = existingId?.let { bookDao.server(it) }
         if (existingId != null && existing == null) return AddServerResult.InvalidUrl
-        val key = apiKey.trim().ifEmpty { existingId?.let { secretStore.get(tokenKey(it)) }.orEmpty() }
+        val keep = credentials is Credentials.ApiKey && credentials.key.isBlank()
+        // Damit ein beim Behalten abgelaufener Access-Token bei der Prüfung erneuert wird (AbsTokenAuthenticator).
+        if (keep) ensureLoaded()
+        val key = when (credentials) {
+            is Credentials.ApiKey -> credentials.key.trim().ifEmpty { existingId?.let { secretStore.get(tokenKey(it)) }.orEmpty() }
+            is Credentials.OpenId -> credentials.accessToken
+        }
         if (key.isEmpty()) return AddServerResult.AuthFailed
         val candidate = AbsServer(existingId ?: UUID.randomUUID().toString(), baseUrl, key)
         val library = try {
@@ -138,24 +225,43 @@ class AudiobookshelfServers @Inject constructor(
             return AddServerResult.Unreachable
         } ?: return AddServerResult.NoBookLibrary
 
-        secretStore.put(tokenKey(candidate.serverId), key)
+        val serverId = candidate.serverId
+        when (credentials) {
+            // Beim Behalten nichts schreiben: Ein Access-Token kann sich während der Prüfung erneuert haben.
+            is Credentials.ApiKey -> if (!keep) {
+                secretStore.put(tokenKey(serverId), key)
+                secretStore.remove(AbsSecrets.refresh(serverId))
+                secretStore.remove(AbsSecrets.login(serverId))
+            }
+            is Credentials.OpenId -> {
+                secretStore.put(tokenKey(serverId), key)
+                credentials.refreshToken?.let { secretStore.put(AbsSecrets.refresh(serverId), it) }
+                    ?: secretStore.remove(AbsSecrets.refresh(serverId))
+                secretStore.put(AbsSecrets.login(serverId), UUID.randomUUID().toString())
+                renewal.forget(serverId)
+            }
+        }
         // Sync-Generation, Zeitpunkt und Schalter bleiben, sonst hielte der Mark-and-Sweep alles für neu.
         bookDao.upsertServer(
-            (existing ?: SpokenServerEntity(candidate.serverId, name, baseUrl.toString())).copy(
+            (existing ?: SpokenServerEntity(serverId, name, baseUrl.toString())).copy(
                 name = name.trim().ifEmpty { baseUrl.host },
                 baseUrl = baseUrl.toString(),
                 libraryId = library.id,
+                openId = if (keep) existing?.openId == true else credentials is Credentials.OpenId,
             ),
         )
-        registry.register(candidate)
-        return AddServerResult.Added(candidate.serverId)
+        registry.register(candidate.copy(token = secretStore.get(tokenKey(serverId)) ?: key))
+        return AddServerResult.Added(serverId)
     }
 
     /** Entfernt den Server samt Büchern, Kapiteln und Fortschritt. Der Fortschritt auf dem Server bleibt. */
     suspend fun remove(serverId: String) {
         bookDao.deleteServer(serverId)
         secretStore.remove(tokenKey(serverId))
+        secretStore.remove(AbsSecrets.refresh(serverId))
+        secretStore.remove(AbsSecrets.login(serverId))
         registry.unregister(serverId)
+        renewal.forget(serverId)
     }
 
     // --- Uhr (Wear-Konzept 16.2): Server ohne Schlüssel gespiegelt, der Schlüssel einzeln auf Anfrage ---
@@ -238,7 +344,8 @@ class AudiobookshelfServers @Inject constructor(
 
     private companion object {
         const val TAG = "AudiobookshelfServers"
+        const val FRESH_FOR_SECONDS = 30 * 60L
 
-        fun tokenKey(serverId: String) = "abs:$serverId:token"
+        fun tokenKey(serverId: String) = AbsSecrets.token(serverId)
     }
 }

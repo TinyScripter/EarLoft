@@ -5,11 +5,14 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ein Audiobookshelf-Server mit normalisierter Basis-URL (endet immer auf `/`) und API-Key. */
+/**
+ * Ein Audiobookshelf-Server mit normalisierter Basis-URL (endet immer auf `/`). [token] ist der API-Key oder bei der Anmeldung
+ * per OpenID der Access-Token (Konzept 12.11), der sich stündlich ändert: maßgeblich ist der in der [AbsServerRegistry].
+ */
 data class AbsServer(
     val serverId: String,
     val baseUrl: HttpUrl,
-    val apiKey: String,
+    val token: String,
 ) {
     override fun toString() = "AbsServer($serverId, $baseUrl)"
 

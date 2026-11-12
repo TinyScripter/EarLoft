@@ -61,7 +61,7 @@ class BookPlaybackSourceTest {
             override suspend fun remove(key: String) = Unit
         }
         val dao = db.bookDao()
-        val servers = AudiobookshelfServers(dao, secrets, api, AbsServerRegistry(), CredentialsStamps(secrets))
+        val servers = testAudiobookshelfServers(dao, secrets, api)
         val progressSync = BookProgressSync(context, dao, servers, api, policy)
         val settings = SpokenSettings(context)
         val scanner = LocalBookScanner(context)

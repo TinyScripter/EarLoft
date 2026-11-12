@@ -14,6 +14,10 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
         </intent>
+        <!-- Anmeldung bei Audiobookshelf per OpenID: Browser mit Custom Tabs bzw. Auth Tab finden (Konzept 12.11). -->
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
     </queries>
 
     <!-- MissingMediaBrowserServiceIntentFilter: Der PlaybackService samt Filter steht im Manifest von core:playback, das
@@ -80,6 +84,29 @@
                 <data android:scheme="pcast" />
                 <data android:scheme="itpc" />
                 <data android:scheme="podcast" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            Rückleitung der Anmeldung per OpenID für Browser ohne Auth Tab (Konzept 12.11). Bewusst nicht
+            `audiobookshelf://`: Das gehört der offiziellen App, mit Auth Tab braucht es keinen Filter.
+        -->
+        <activity
+            android:name=".OpenIdRedirectActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="oauth"
+                    android:scheme="earloft" />
             </intent-filter>
         </activity>
 

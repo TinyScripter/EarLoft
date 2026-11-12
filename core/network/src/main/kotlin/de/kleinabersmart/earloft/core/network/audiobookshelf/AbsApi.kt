@@ -115,7 +115,7 @@ class AbsApi @Inject constructor(
     }
 
     private fun authorized(server: AbsServer, url: HttpUrl, configure: Request.Builder.() -> Request.Builder = { this }): Request =
-        Request.Builder().url(url).header("Authorization", "Bearer ${server.apiKey}").configure().build()
+        Request.Builder().url(url).header("Authorization", "Bearer ${server.token}").configure().build()
 
     private suspend fun execute(request: Request): String = withContext(Dispatchers.IO) {
         client.newCall(request).await().use { response ->

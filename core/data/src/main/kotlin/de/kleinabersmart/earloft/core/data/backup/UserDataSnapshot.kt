@@ -173,7 +173,7 @@ private fun <K, V> rowChanges(old: Map<K, V>, new: Map<K, V>): RowChanges<V> = R
 fun SourceEntity.toUser() =
     UserServerEntity(sourceId, type, name, baseUrl, username, priority, serverCapabilities, enabled)
 
-fun SpokenServerEntity.toUser() = UserSpokenServerEntity(serverId, name, baseUrl, libraryId, enabled)
+fun SpokenServerEntity.toUser() = UserSpokenServerEntity(serverId, name, baseUrl, libraryId, enabled, openId)
 
 fun PodcastFeedEntity.toUser() =
     UserPodcastEntity(feedId, url, title, author, imageUrl, autoDownload, newestFirst, continuous, notifyNew, archived)
@@ -205,6 +205,7 @@ fun UserSpokenServerEntity.toMain() = SpokenServerEntity(
     baseUrl = baseUrl,
     libraryId = libraryId,
     enabled = enabled,
+    openId = openId,
 )
 
 /** `lastRefreshAt = 0`: Beim nächsten Öffnen der App gilt der Podcast als veraltet und holt seine Folgen. */

@@ -84,7 +84,7 @@ import java.io.File
         AbsSessionEntity::class,
         WearBookEntity::class,
     ],
-    version = 21,
+    version = 22,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -107,6 +107,7 @@ import java.io.File
         AutoMigration(from = 18, to = 19, spec = EarLoftDatabase.DropCastBaseUrl::class),
         AutoMigration(from = 19, to = 20, spec = EarLoftDatabase.AddWebLinks::class),
         AutoMigration(from = 20, to = 21),
+        AutoMigration(from = 21, to = 22),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {
