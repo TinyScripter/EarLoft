@@ -106,6 +106,7 @@ data class SettingsUiState(
     val podcastMobileData: Boolean = false,
     val podcastDeleteHeardDays: Int = PodcastSettings.DEFAULT_DELETE_HEARD_DAYS,
     val podcastAutoDownloadCount: Int = PodcastSettings.DEFAULT_AUTO_DOWNLOAD_COUNT,
+    val podcastAutoDownloadNew: Boolean = false,
     val podcastAutoPlayNext: Boolean = true,
     val bookResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val podcastResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
@@ -247,8 +248,8 @@ class SettingsViewModel @Inject constructor(
         combine(podcastSettings.refreshHours, podcastSettings.useMobileData, podcastSettings.deleteHeardAfterDays, ::Triple),
     ) { state, (hours, mobile, deleteHeardDays) ->
         state.copy(podcastRefreshHours = hours, podcastMobileData = mobile, podcastDeleteHeardDays = deleteHeardDays)
-    }.combine(podcastSettings.autoDownloadCount) { state, count ->
-        state.copy(podcastAutoDownloadCount = count)
+    }.combine(combine(podcastSettings.autoDownloadCount, podcastSettings.autoDownloadNew, ::Pair)) { state, (count, autoNew) ->
+        state.copy(podcastAutoDownloadCount = count, podcastAutoDownloadNew = autoNew)
     }.combine(podcastSettings.autoPlayNext) { state, autoPlay ->
         state.copy(podcastAutoPlayNext = autoPlay)
     }.combine(combine(spokenSettings.bookResume, spokenSettings.podcastResume, spokenSettings.restartChapter, ::Triple)) { state, (book, podcast, chapter) ->
@@ -290,6 +291,11 @@ class SettingsViewModel @Inject constructor(
     /** Die Download-Automatik (EpisodeDownloads) holt bei einer größeren Zahl sofort Folgen nach. */
     fun setPodcastAutoDownloadCount(count: Int) {
         viewModelScope.launch { podcastSettings.setAutoDownloadCount(count) }
+    }
+
+    /** Vorgabe nur für künftige Abos; bestehende behalten ihre Einstellung. */
+    fun setPodcastAutoDownloadNew(enabled: Boolean) {
+        viewModelScope.launch { podcastSettings.setAutoDownloadNew(enabled) }
     }
 
     fun setPodcastAutoPlayNext(enabled: Boolean) {

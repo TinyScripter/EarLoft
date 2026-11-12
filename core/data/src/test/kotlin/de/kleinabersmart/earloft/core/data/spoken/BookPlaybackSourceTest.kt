@@ -8,6 +8,7 @@ import androidx.work.Configuration
 import androidx.work.WorkManager
 import de.kleinabersmart.earloft.core.data.podcast.EpisodeQueue
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
+import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.repository.PlaybackPolicy
 import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.data.wear.CredentialsStamps
@@ -72,7 +73,7 @@ class BookPlaybackSourceTest {
             servers,
             api,
             progressSync,
-            PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client)),
+            PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext())),
             EpisodeQueue(context, dao),
             settings,
             policy,

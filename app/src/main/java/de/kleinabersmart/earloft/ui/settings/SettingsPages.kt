@@ -561,6 +561,15 @@ fun PodcastsSettingsScreen(
                     onCheckedChange = viewModel::setPodcastMobileData,
                 )
             }
+            row("podcast-auto-new") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_podcast_auto_new),
+                    summary = stringResource(R.string.settings_podcast_auto_new_summary),
+                    icon = DesignR.drawable.ic_download,
+                    checked = state.podcastAutoDownloadNew,
+                    onCheckedChange = viewModel::setPodcastAutoDownloadNew,
+                )
+            }
             row("podcast-auto-count") {
                 ClickRow(
                     title = stringResource(R.string.settings_podcast_auto_count),

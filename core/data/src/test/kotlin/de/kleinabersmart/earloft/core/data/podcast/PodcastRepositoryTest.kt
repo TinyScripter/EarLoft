@@ -37,6 +37,7 @@ class PodcastRepositoryTest {
 
     private lateinit var db: EarLoftDatabase
     private lateinit var repository: PodcastRepository
+    private val settings = PodcastSettings(ApplicationProvider.getApplicationContext())
 
     /** Was der „Server“ gerade ausliefert; `null` = nicht erreichbar. */
     private var served: String? = feed("A" to "Thu, 30 Oct 2025 06:00:00 GMT", "B" to "Wed, 29 Oct 2025 06:00:00 GMT", "C" to "Tue, 28 Oct 2025 06:00:00 GMT")
@@ -69,11 +70,15 @@ class PodcastRepositoryTest {
                     .build()
             }
             .build()
-        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client))
+        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), settings)
     }
 
     @After
-    fun tearDown() = db.close()
+    fun tearDown() {
+        // Der DataStore lebt über den Test hinaus.
+        kotlinx.coroutines.runBlocking { settings.setAutoDownloadNew(false) }
+        db.close()
+    }
 
     private suspend fun subscribe(): String = (repository.subscribe("https://example.com/feed.xml") as SubscribeResult.Added).feedId
 
@@ -301,6 +306,44 @@ class PodcastRepositoryTest {
         assertEquals(listOf(trialId), repository.feeds.first().map { it.id })
         assertEquals(60_000L, db.bookDao().progress(b)!!.positionMs)
         assertEquals(SubscribeResult.AlreadySubscribed(trialId), repository.openPreview("https://example.com/feed.xml"))
+    }
+
+    @Test
+    fun `new subscriptions take the default for automatic downloads, existing ones keep theirs`() = runTest {
+        val before = subscribe()
+        settings.setAutoDownloadNew(true)
+        val after = (repository.subscribe("https://example.com/other.xml") as SubscribeResult.Added).feedId
+        repository.setAutoDownload(after, false)
+        val trial = (repository.openPreview("https://example.com/trial.xml") as SubscribeResult.Added).feedId
+
+        assertEquals(false, db.podcastDao().feed(trial)!!.autoDownload)
+        repository.subscribeTrial(trial)
+        settings.setAutoDownloadNew(false)
+
+        assertEquals(false, db.podcastDao().feed(before)!!.autoDownload)
+        assertEquals(false, db.podcastDao().feed(after)!!.autoDownload)
+        assertEquals(true, db.podcastDao().feed(trial)!!.autoDownload)
+    }
+
+    @Test
+    fun `opml import gives new and trial feeds the default, an archived one keeps its setting`() = runTest {
+        val archived = subscribe()
+        repository.archive(archived)
+        val trial = (repository.openPreview("https://example.com/trial.xml") as SubscribeResult.Added).feedId
+        settings.setAutoDownloadNew(true)
+
+        repository.importOpml(
+            listOf(
+                OpmlFeed("Archiviert", "https://example.com/feed.xml"),
+                OpmlFeed("Probe", "https://example.com/trial.xml"),
+                OpmlFeed("Neu", "https://example.com/new.xml"),
+            ),
+            replace = false,
+        )
+
+        assertEquals(false, db.podcastDao().feed(archived)!!.autoDownload)
+        assertEquals(true, db.podcastDao().feed(trial)!!.autoDownload)
+        assertEquals(true, db.podcastDao().feedByUrl("https://example.com/new.xml")!!.autoDownload)
     }
 
     @Test

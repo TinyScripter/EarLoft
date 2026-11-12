@@ -68,6 +68,10 @@ abstract class PodcastDao {
     @Query("UPDATE podcast_feeds SET subscribed = :subscribed WHERE feedId = :feedId")
     abstract suspend fun setSubscribed(feedId: String, subscribed: Boolean)
 
+    /** Macht aus einem Probeabo ein Abo mit der Vorgabe [autoDownload] für neue Abos (eine Änderung für die Automatik). */
+    @Query("UPDATE podcast_feeds SET subscribed = 1, autoDownload = :autoDownload WHERE feedId = :feedId")
+    abstract suspend fun subscribeTrial(feedId: String, autoDownload: Boolean)
+
     @Query("SELECT feedId FROM podcast_feeds WHERE subscribed = 0")
     abstract fun observeTrialFeedIds(): Flow<List<String>>
 

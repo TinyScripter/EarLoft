@@ -87,6 +87,7 @@ class PodcastRepository @Inject constructor(
     private val bookDao: BookDao,
     private val api: PodcastFeedApi,
     private val ardSounds: ArdSoundsApi,
+    private val settings: PodcastSettings,
 ) {
     private val mutex = Mutex()
 
@@ -251,7 +252,8 @@ class PodcastRepository @Inject constructor(
     /**
      * Abonniert den Feed unter [input]. Eine `http://`-Adresse wird zuerst still per HTTPS versucht und bei Erfolg so
      * gespeichert; die meisten Hosts liefern beides. Erst wenn das scheitert, wird unverschlüsselt abonniert.
-     * Ein archiviertes Abo derselben Adresse bleibt archiviert und meldet [SubscribeResult.Archived].
+     * Ein archiviertes Abo derselben Adresse bleibt archiviert und meldet [SubscribeResult.Archived]. Ein neues Abo lädt
+     * automatisch, wenn [PodcastSettings.autoDownloadNew] an ist.
      */
     suspend fun subscribe(input: String): SubscribeResult {
         val entered = FeedAddress.of(input) ?: return SubscribeResult.InvalidUrl
@@ -259,7 +261,7 @@ class PodcastRepository @Inject constructor(
             if (feed.archived) return SubscribeResult.Archived(feed.feedId, feed.title)
             if (feed.subscribed) return SubscribeResult.AlreadySubscribed(feed.feedId)
             // Aus der Vorschau: Folgen, Fortschritt, Downloads und Warteschlange bleiben, es wird nur ein Abo daraus.
-            dao.setSubscribed(feed.feedId, true)
+            subscribeTrial(feed.feedId)
             return SubscribeResult.Added(feed.feedId)
         }
         return fetchAndAdd(entered, subscribed = true)
@@ -283,8 +285,8 @@ class PodcastRepository @Inject constructor(
         return fetchAndAdd(entered, subscribed = false, imageUrl)
     }
 
-    /** Macht aus dem Probeabo [feedId] ein Abo. */
-    suspend fun subscribeTrial(feedId: String) = dao.setSubscribed(feedId, true)
+    /** Macht aus dem Probeabo [feedId] ein Abo, mit der Vorgabe für neue Abos zur Download-Automatik. */
+    suspend fun subscribeTrial(feedId: String) = dao.subscribeTrial(feedId, settings.autoDownloadNew.first())
 
     /**
      * Abo-Adresse aus einer Eingabe: ein RSS-/Atom-Feed oder eine Sendung aus ARD Sounds (Abo-Adresse `ardsounds:<Kennung>`
@@ -373,6 +375,7 @@ class PodcastRepository @Inject constructor(
             url = url,
             title = fetched.feed.title.ifBlank { fallbackTitle },
             imageUrl = imageUrl,
+            autoDownload = subscribed && settings.autoDownloadNew.first(),
             subscribed = subscribed,
         )
         mutex.withLock { apply(feed, fetched) }
@@ -442,14 +445,18 @@ class PodcastRepository @Inject constructor(
         }
         val known = dao.feeds().mapTo(HashSet()) { it.url }
         val fresh = wanted.filter { it.url !in known }
+        val autoDownload = settings.autoDownloadNew.first()
         fresh.forEach {
             // Ein Probeabo oder archiviertes Abo derselben Adresse wird (wieder) zum Abo (die Adresse ist eindeutig).
+            // Nur das Probeabo bekommt die Vorgabe für neue Abos; das archivierte behält seine Einstellung.
             val stored = dao.feedByUrl(it.url)
             if (stored != null) {
-                dao.setSubscribed(stored.feedId, true)
+                if (!stored.subscribed) dao.subscribeTrial(stored.feedId, autoDownload)
                 dao.setArchived(stored.feedId, false)
             } else {
-                dao.upsertFeed(PodcastFeedEntity(feedId = UUID.randomUUID().toString(), url = it.url, title = it.title))
+                dao.upsertFeed(
+                    PodcastFeedEntity(feedId = UUID.randomUUID().toString(), url = it.url, title = it.title, autoDownload = autoDownload),
+                )
             }
         }
         OpmlImportResult(added = fresh.size, skipped = feeds.size - fresh.size, removed = removed)

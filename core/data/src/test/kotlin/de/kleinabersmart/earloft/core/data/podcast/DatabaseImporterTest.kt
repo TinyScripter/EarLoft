@@ -42,7 +42,7 @@ class DatabaseImporterTest {
                     .build()
             }
             .build()
-        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client))
+        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()))
         importer = DatabaseImporter(repository, db.podcastDao(), db.bookDao(), db.statsDao())
         feedId = (repository.subscribe(FEED_URL) as SubscribeResult.Added).feedId
     }

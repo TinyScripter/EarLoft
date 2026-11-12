@@ -58,7 +58,7 @@ class PodcastSourceSwitchTest {
                     .build()
             }
             .build()
-        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client))
+        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()))
         val backup = UserDataBackup(
             context = context,
             database = db,

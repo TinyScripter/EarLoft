@@ -692,6 +692,8 @@
     <string name="book_download_waiting_wifi">Waiting for Wi-Fi. You can allow mobile data in Settings → Books.</string>
     <string name="settings_book_mobile">Also use mobile data</string>
     <string name="settings_book_mobile_summary">Off: books are only downloaded on Wi-Fi.</string>
+    <string name="settings_podcast_auto_new">Automatic downloads for new subscriptions</string>
+    <string name="settings_podcast_auto_new_summary">Default for podcasts you subscribe to from now on. Existing subscriptions keep their own setting.</string>
     <string name="settings_podcast_auto_count">Episodes kept ready automatically</string>
     <plurals name="settings_podcast_auto_count_value">
         <item quantity="one">The newest unheard episode</item>

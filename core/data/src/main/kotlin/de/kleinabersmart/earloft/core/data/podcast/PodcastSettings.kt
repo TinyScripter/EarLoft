@@ -54,6 +54,16 @@ class PodcastSettings @Inject constructor(
         context.podcastSettingsDataStore.edit { it[KEY_DELETE_HEARD_DAYS] = days.coerceAtLeast(DELETE_HEARD_NEVER) }
     }
 
+    /**
+     * Vorgabe für neue Abos: Neue Folgen automatisch herunterladen (Standard: aus). Gilt nur beim Abonnieren; die
+     * Einstellung bestehender Abos bleibt, wenn sie sich ändert.
+     */
+    val autoDownloadNew: Flow<Boolean> = context.podcastSettingsDataStore.data.map { it[KEY_AUTO_NEW] ?: false }
+
+    suspend fun setAutoDownloadNew(enabled: Boolean) {
+        context.podcastSettingsDataStore.edit { it[KEY_AUTO_NEW] = enabled }
+    }
+
     /** Wie viele der neuesten ungehörten Folgen die Download-Automatik je Podcast bereithält. */
     val autoDownloadCount: Flow<Int> = context.podcastSettingsDataStore.data.map { it[KEY_AUTO_COUNT] ?: DEFAULT_AUTO_DOWNLOAD_COUNT }
 
@@ -157,6 +167,7 @@ class PodcastSettings @Inject constructor(
         const val DEFAULT_AUTO_DOWNLOAD_COUNT = 3
 
         private val KEY_AUTO_COUNT = intPreferencesKey("auto_download_count")
+        private val KEY_AUTO_NEW = booleanPreferencesKey("auto_download_new")
 
         /** Auswahl in den Einstellungen. */
         val REFRESH_HOUR_CHOICES = listOf(0, 1, 3, 6, 12, 24)
