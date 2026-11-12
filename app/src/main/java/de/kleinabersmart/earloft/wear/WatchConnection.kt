@@ -2,10 +2,12 @@ package de.kleinabersmart.earloft.wear
 
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.wearable.NodeClient
 import de.kleinabersmart.earloft.core.wearsync.WearCapabilities
 import de.kleinabersmart.earloft.core.wearsync.WearPaths
 import de.kleinabersmart.earloft.core.wearsync.capabilityChanges
 import de.kleinabersmart.earloft.core.wearsync.changesAt
+import de.kleinabersmart.earloft.core.wearsync.connectedNodesOrEmpty
 import de.kleinabersmart.earloft.core.wearsync.pairedNodes
 import de.kleinabersmart.earloft.core.wearsync.payloadsAt
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,6 +23,7 @@ import javax.inject.Singleton
 class WatchConnection @Inject constructor(
     private val capabilityClient: CapabilityClient,
     private val dataClient: DataClient,
+    private val nodeClient: NodeClient,
 ) {
     /**
      * Gekoppelt genügt – die Auswahl gilt auch, wenn die Uhr gerade nicht verbunden ist. Erkannt wird die
@@ -38,4 +41,19 @@ class WatchConnection @Inject constructor(
                     dataClient.payloadsAt(WearPaths.WATCH_INFO).isNotEmpty()
             }
             .distinctUntilChanged()
+
+    /**
+     * Für den Einrichtungsassistenten (Konzept 15): EarLoft auf der Uhr, eine verbundene Uhr ohne EarLoft oder keine Uhr.
+     * Ohne Uhr-App zählt nur eine gerade verbundene Uhr; gekoppelte, aber getrennte kennt der Data Layer nicht.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val setup: Flow<WatchSetup> = watchAppInstalled.mapLatest { installed ->
+        when {
+            installed -> WatchSetup.APP_INSTALLED
+            nodeClient.connectedNodesOrEmpty().isNotEmpty() -> WatchSetup.APP_MISSING
+            else -> WatchSetup.NONE
+        }
+    }
 }
+
+enum class WatchSetup { NONE, APP_MISSING, APP_INSTALLED }

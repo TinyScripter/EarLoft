@@ -273,7 +273,7 @@ private val STORAGE_LIMITS_GB = listOf(null, 2, 4, 8, 16, 32)
 private fun storageLimitLabel(gigabytes: Int?): String =
     if (gigabytes == null) stringResource(R.string.watch_storage_auto) else stringResource(R.string.watch_storage_gb, gigabytes)
 
-private val WearQuality.label: Int
+internal val WearQuality.label: Int
     get() = when (this) {
         WearQuality.OPUS_128 -> R.string.watch_quality_opus
         WearQuality.ORIGINAL -> R.string.watch_quality_original

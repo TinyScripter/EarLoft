@@ -53,11 +53,17 @@ import de.kleinabersmart.earloft.ui.settings.SettingsUiState
 import de.kleinabersmart.earloft.ui.settings.SettingsViewModel
 import de.kleinabersmart.earloft.ui.spoken.AudiobookshelfViewModel
 import de.kleinabersmart.earloft.ui.valueOrNull
+import de.kleinabersmart.earloft.wear.WatchSettings
+import de.kleinabersmart.earloft.wear.WatchSetup
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
-/** Die Seiten, die auf diesem Gerät und für die eingeschalteten Bereiche ([areas]) vorkommen, in ihrer Reihenfolge. */
-internal fun visibleSetupPages(areas: List<SpokenMode>): List<SetupPage> = SetupPage.entries.filter { page ->
+/**
+ * Die Seiten, die auf diesem Gerät, für die eingeschalteten Bereiche ([areas]) und mit bzw. ohne Uhr ([watch]) vorkommen,
+ * in ihrer Reihenfolge.
+ */
+internal fun visibleSetupPages(areas: List<SpokenMode>, watch: Boolean): List<SetupPage> = SetupPage.entries.filter { page ->
     when (page) {
+        SetupPage.WATCH -> watch
         SetupPage.MUSIC -> SpokenMode.MUSIC in areas
         SetupPage.PODCASTS -> SpokenMode.PODCASTS in areas
         SetupPage.BOOKS -> SpokenMode.BOOKS in areas
@@ -85,8 +91,11 @@ fun SetupScreen(
     onEditAudiobookshelf: (serverId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
+    watchViewModel: SetupWatchViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val watch by watchViewModel.watch.collectAsStateWithLifecycle()
+    val watchSettings by watchViewModel.settings.collectAsStateWithLifecycle()
     // Nur die Bücher-Seite listet Audiobookshelf-Server; die Seite eines Eintrags wechselt nie.
     val absServers = if (page == SetupPage.BOOKS) {
         val list by hiltViewModel<AudiobookshelfViewModel>().list.collectAsStateWithLifecycle()
@@ -113,7 +122,17 @@ fun SetupScreen(
         setAlbumCovers = viewModel::setAlbumCovers,
         setAuthorImages = viewModel::setAuthorImages,
     )
-    SetupContent(page, state, absServers, actions, onNext, onBack, onSkip, onFinish, modifier)
+    val moreActions = SetupMoreActions(
+        setWatchQuality = watchViewModel::setQuality,
+        setWatchRequireCharging = watchViewModel::setRequireCharging,
+        setThemeMode = viewModel::setThemeMode,
+        setSystemColors = viewModel::setSystemColors,
+        setPlayerCoverColors = viewModel::setPlayerCoverColors,
+        setWidgetCoverColors = viewModel::setWidgetCoverColors,
+    )
+    SetupContent(
+        page, state, absServers, watch, watchSettings, actions, moreActions, onNext, onBack, onSkip, onFinish, modifier,
+    )
 }
 
 @Composable
@@ -121,14 +140,17 @@ private fun SetupContent(
     page: SetupPage,
     state: SettingsUiState,
     absServers: List<SpokenServer>,
+    watch: WatchSetup,
+    watchSettings: WatchSettings,
     actions: SetupActions,
+    moreActions: SetupMoreActions,
     onNext: (SetupPage) -> Unit,
     onBack: () -> Unit,
     onSkip: () -> Unit,
     onFinish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val pages = visibleSetupPages(state.areas)
+    val pages = visibleSetupPages(state.areas, watch = watch != WatchSetup.NONE)
     val index = pages.indexOf(page).coerceAtLeast(0)
     val next = pages.getOrNull(index + 1)
     SetupScaffold(
@@ -151,6 +173,8 @@ private fun SetupContent(
             SetupPage.PODCASTS -> podcastsPage(state, actions)
             SetupPage.BOOKS -> booksPage(state, absServers, actions)
             SetupPage.NOTIFICATIONS -> notificationsPage()
+            SetupPage.WATCH -> watchPage(watch, watchSettings, moreActions)
+            SetupPage.DESIGN -> designPage(state, moreActions)
             SetupPage.DONE -> donePage()
         }
     }
@@ -305,6 +329,10 @@ fun SetupExitDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 private fun SetupWelcomePreview() {
     EarLoftTheme {
         val actions = SetupActions({}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, { _, _ -> }, {}, {}, {})
-        SetupContent(SetupPage.WELCOME, SettingsUiState(), emptyList(), actions, onNext = {}, onBack = {}, onSkip = {}, onFinish = {})
+        val moreActions = SetupMoreActions({}, {}, {}, {}, {}, {})
+        SetupContent(
+            SetupPage.WELCOME, SettingsUiState(), emptyList(), WatchSetup.NONE, WatchSettings(), actions, moreActions,
+            onNext = {}, onBack = {}, onSkip = {}, onFinish = {},
+        )
     }
 }

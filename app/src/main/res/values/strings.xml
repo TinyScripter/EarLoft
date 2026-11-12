@@ -798,6 +798,11 @@
     <string name="setup_notifications_text">EarLoft lets you know about new music, episodes and books and shows the progress of downloads. The notification for what is playing appears even without this permission.</string>
     <string name="setup_notifications_allow">Allow notifications</string>
     <string name="setup_notifications_granted">Notifications are allowed</string>
+    <string name="setup_watch_text">To take something along on the watch, tap the watch symbol on an album, a playlist, your favorites, an episode or a book. The watch downloads it and plays it without the phone.</string>
+    <string name="setup_watch_missing_text">A Wear OS watch is connected. Install EarLoft on it as well to take music, podcasts and books along without your phone.</string>
+    <string name="setup_watch_hint">More under Settings → Watch: storage limit and what is on the watch.</string>
+    <string name="setup_design_text">Choose how EarLoft looks. You see the change right away.</string>
+    <string name="setup_section_colors">Colors</string>
     <string name="setup_done_title">All set</string>
     <string name="setup_done_text">Everything you set up here can be changed in the settings. You can also open this setup again there.</string>
     <string name="setup_exit_title">End setup?</string>

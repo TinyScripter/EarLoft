@@ -791,6 +791,11 @@
     <string name="setup_notifications_text">EarLoft meldet neue Musik, Folgen und Bücher und zeigt den Fortschritt von Downloads. Die Benachrichtigung zur laufenden Wiedergabe erscheint auch ohne diese Berechtigung.</string>
     <string name="setup_notifications_allow">Benachrichtigungen erlauben</string>
     <string name="setup_notifications_granted">Benachrichtigungen sind erlaubt</string>
+    <string name="setup_watch_text">Um etwas auf die Uhr mitzunehmen, tippe bei einem Album, einer Playlist, den Favoriten, einer Folge oder einem Buch auf das Uhr-Symbol. Die Uhr lädt es herunter und spielt es ohne Handy.</string>
+    <string name="setup_watch_missing_text">Eine Wear-OS-Uhr ist verbunden. Installiere EarLoft auch dort, um Musik, Podcasts und Bücher ohne Handy mitzunehmen.</string>
+    <string name="setup_watch_hint">Mehr unter Einstellungen → Uhr: Speichergrenze und was auf der Uhr ist.</string>
+    <string name="setup_design_text">Wähle, wie EarLoft aussieht. Die Änderung siehst du sofort.</string>
+    <string name="setup_section_colors">Farben</string>
     <string name="setup_done_title">Alles bereit</string>
     <string name="setup_done_text">Alles, was du hier eingestellt hast, findest du in den Einstellungen. Dort lässt sich die Einrichtung auch erneut aufrufen.</string>
     <string name="setup_exit_title">Einrichtung beenden?</string>
