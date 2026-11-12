@@ -13,9 +13,9 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val KEY_LOCAL_MEDIA = booleanPreferencesKey("use_local_media")
+internal val KEY_LOCAL_MEDIA = booleanPreferencesKey("use_local_media")
 
-private val Context.librarySettingsDataStore: DataStore<Preferences> by preferencesDataStore(
+internal val Context.librarySettingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "library_settings",
     produceMigrations = { context -> listOf(LocalSourcesDefault(context, listOf(KEY_LOCAL_MEDIA))) },
 )

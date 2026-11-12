@@ -24,7 +24,7 @@ import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.episodeQueueDataStore: DataStore<Preferences> by preferencesDataStore(name = "episode_queue")
+internal val Context.episodeQueueDataStore: DataStore<Preferences> by preferencesDataStore(name = "episode_queue")
 
 /**
  * Die Warteschlange der Podcasts ist die Zeile „Weiterhören“ (Konzept 12.4). Hier steht ihre Reihenfolge, soweit sie

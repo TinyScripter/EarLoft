@@ -23,7 +23,7 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.podcastSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "podcast_settings")
+internal val Context.podcastSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "podcast_settings")
 
 @Singleton
 class PodcastSettings @Inject constructor(

@@ -7,7 +7,13 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
+import de.kleinabersmart.earloft.core.data.backup.BackedUpSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -66,4 +72,13 @@ class ThemeSettings @Inject constructor(
         val KEY_PLAYER_COVER_COLORS = booleanPreferencesKey("player_cover_colors")
         val KEY_WIDGET_COVER_COLORS = booleanPreferencesKey("widget_cover_colors")
     }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+internal object ThemeSettingsBackupModule {
+    /** Gehört in die Komplett-Sicherung (`FullBackup`). */
+    @Provides
+    @IntoSet
+    fun provideBackedUpSettings(@ApplicationContext context: Context) = BackedUpSettings("theme_settings", context.themeSettingsDataStore)
 }

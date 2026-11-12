@@ -73,6 +73,10 @@ class UserDataBackup @Inject constructor(
     /** Fertig, sobald das Zurückspielen beim Start gelaufen ist, auch wenn es fehlschlug. */
     private val restoreFinished = CompletableDeferred<Unit>()
 
+    /** Ob es geklappt hat; sonst steht in `user.db` noch eine Sicherung, die das Spiegeln nicht überschreiben darf. */
+    @Volatile
+    private var restoreSucceeded = false
+
     /** Spiegeln und Anwenden lesen und schreiben dieselben Zeilen. */
     private val mutex = Mutex()
 
@@ -87,6 +91,7 @@ class UserDataBackup @Inject constructor(
         scope.launch {
             try {
                 restoreOnce()
+                restoreSucceeded = true
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -126,15 +131,100 @@ class UserDataBackup @Inject constructor(
      */
     suspend fun awaitRestore() = restoreFinished.await()
 
+    /**
+     * Der Stand für die Komplett-Sicherung (`FullBackup`): `user.db` frisch gespiegelt, samt dem, was noch auf sein Buch,
+     * seinen Song usw. wartet.
+     */
+    suspend fun exportSnapshot(): UserDataSnapshot {
+        restoreFinished.await()
+        return mutex.withLock {
+            if (restoreSucceeded) {
+                mirror()
+                readUser()
+            } else {
+                readMain(null, emptySet()).plusMissing(readUser())
+            }
+        }
+    }
+
+    /**
+     * Spielt die Nutzerdaten einer Komplett-Sicherung ein. Wie beim Gerätewechsel wird nur ergänzt: Vorhandenes bleibt,
+     * Fortschritt und Favoriten gelten, wenn sie neuer sind. Server und Abos, die es hier unter anderer Kennung schon gibt
+     * (gleiche Adresse), werden nicht doppelt angelegt. Was noch kein Buch, keinen Song usw. hat, kommt nach `user.db` und
+     * folgt wie nach einem Gerätewechsel, auch über einen Neustart hinweg.
+     */
+    suspend fun import(saved: UserDataSnapshot): BackupCounts {
+        restoreFinished.await()
+        val (merged, pending, result) = mutex.withLock {
+            val adjusted = withLocalIds(saved)
+            val musicIds = sourceDao.getServers().map { it.sourceId }.toSet()
+            val spokenIds = bookDao.servers().map { it.serverId }.toSet()
+            val result = BackupCounts(
+                musicServers = adjusted.servers.keys.count { it !in musicIds },
+                audiobookServers = adjusted.spokenServers.keys.count { it !in spokenIds },
+                podcasts = adjusted.podcasts.keys.count { podcastDao.feed(it) == null },
+                playlists = music.missingPlaylists(adjusted.playlists.keys),
+            )
+            restore(adjusted)
+            val current = readUser()
+            val merged = current.plusMissing(adjusted)
+            val changes = merged.changesSince(current)
+            if (!changes.isEmpty) userDao.apply(changes)
+            // Der gemerkte Stand stimmt nicht mehr mit `user.db` überein; beim nächsten Spiegeln neu lesen.
+            mirrored = null
+            Triple(merged, applySaved(merged, Pending.of(merged)), result)
+        }
+        if (!pending.isEmpty) scope.launch { applyWhenLibraryChanges(merged, pending) }
+        serversRestored(result.musicServers > 0, result.audiobookServers > 0)
+        Log.i(TAG, "Sicherung eingespielt: $result")
+        return result
+    }
+
+    /**
+     * Nimmt aus [saved] Server und Abos heraus, die es hier unter anderer Kennung gibt, und hängt ihren Fortschritt an die
+     * hiesige Kennung.
+     */
+    private suspend fun withLocalIds(saved: UserDataSnapshot): UserDataSnapshot {
+        val music = sourceDao.getServers()
+        val servers = saved.servers.filterValues { server ->
+            music.none { it.sourceId != server.sourceId && it.type == server.type && sameUrl(it.baseUrl, server.baseUrl) && it.username == server.username }
+        }
+        val spoken = bookDao.servers()
+        val spokenIds = saved.spokenServers.values.associate { server ->
+            val local = spoken.firstOrNull { it.serverId == server.serverId }
+                ?: spoken.firstOrNull { sameUrl(it.baseUrl, server.baseUrl) && it.libraryId == server.libraryId }
+            server.serverId to (local?.serverId ?: server.serverId)
+        }
+        val feedIds = saved.podcasts.values.associate { podcast ->
+            podcast.feedId to ((podcastDao.feed(podcast.feedId) ?: podcastDao.feedByUrl(podcast.url))?.feedId ?: podcast.feedId)
+        }
+        val ids = spokenIds + feedIds
+        return saved.copy(
+            servers = servers,
+            spokenServers = saved.spokenServers.filterKeys { spokenIds[it] == it },
+            podcasts = saved.podcasts.filterKeys { feedIds[it] == it },
+            progress = saved.progress.values
+                .map { it.copy(serverId = ids[it.serverId] ?: it.serverId) }
+                .groupBy { BookKey(it.serverId, it.remoteId) }
+                .mapValues { (_, rows) -> rows.maxBy { it.updatedAt } },
+        )
+    }
+
+    private fun sameUrl(a: String?, b: String?) = a != null && b != null && a.trimEnd('/').equals(b.trimEnd('/'), ignoreCase = true)
+
+    /** Die Liste der Server ohne Passwort entsteht beim Laden; die Einstellungen sollen „Passwort neu eingeben“ zeigen. */
+    private suspend fun serversRestored(music: Boolean, audiobooks: Boolean) {
+        if (music) registry.get().reload()
+        if (music || audiobooks) restoreNotice.serversRestored()
+    }
+
     private suspend fun restoreOnce() {
         val marker = File(context.noBackupFilesDir, RESTORED_MARKER)
         if (withContext(Dispatchers.IO) { marker.exists() }) return
         val saved = readUser()
         if (!saved.isEmpty) {
             restore(saved)
-            // Die Liste der Server ohne Passwort entsteht beim Laden; die Einstellungen sollen „Passwort neu eingeben“ zeigen.
-            if (saved.servers.isNotEmpty()) registry.get().reload()
-            if (saved.servers.isNotEmpty() || saved.spokenServers.isNotEmpty()) restoreNotice.serversRestored()
+            serversRestored(saved.servers.isNotEmpty(), saved.spokenServers.isNotEmpty())
             Log.i(
                 TAG,
                 "Nutzerdaten zurückgespielt: ${saved.servers.size} Musik-Server, ${saved.spokenServers.size} ABS-Server, " +
@@ -311,19 +401,7 @@ class UserDataBackup @Inject constructor(
         )
     }
 
-    private suspend fun readUser() = UserDataSnapshot.ofUser(
-        servers = userDao.servers(),
-        spokenServers = userDao.spokenServers(),
-        podcasts = userDao.podcasts(),
-        listeningStats = userDao.listeningStats(),
-        listeningDays = userDao.listeningDays(),
-        progress = userDao.progress(),
-        playlists = userDao.playlists(),
-        playlistEntries = userDao.playlistEntries(),
-        favorites = userDao.favorites(),
-        playEvents = userDao.playEvents(),
-        wearSelections = userDao.wearSelections(),
-    )
+    private suspend fun readUser() = userDao.snapshot()
 
     private companion object {
         const val TAG = "UserDataBackup"
@@ -339,6 +417,14 @@ class UserDataBackup @Inject constructor(
         )
     }
 }
+
+/** Server, Abos und Playlists einer Komplett-Sicherung; beim Einspielen die neu angelegten. */
+data class BackupCounts(
+    val musicServers: Int = 0,
+    val audiobookServers: Int = 0,
+    val podcasts: Int = 0,
+    val playlists: Int = 0,
+)
 
 /** Gesichertes, dessen Buch, Song, Album oder Playlist es (noch) nicht gibt; Playlists über ihren Schlüssel. */
 internal data class Pending(

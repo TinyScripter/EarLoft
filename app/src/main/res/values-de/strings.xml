@@ -125,7 +125,7 @@
         <item quantity="one">%d Abo</item>
         <item quantity="other">%d Abos</item>
     </plurals>
-    <string name="settings_general_summary">Darstellung, Bereiche, Downloads</string>
+    <string name="settings_general_summary">Darstellung, Bereiche, Downloads, Sicherung</string>
     <string name="settings_music">Musik</string>
     <string name="settings_music_summary_local">%1$s · lokale Musik</string>
     <string name="settings_audiobooks">Bücher</string>
@@ -807,4 +807,22 @@
     <string name="settings_section_setup">Einrichtung</string>
     <string name="settings_setup_again">Einrichtung erneut zeigen</string>
     <string name="settings_setup_again_summary">Schritt für Schritt durch die wichtigsten Einstellungen</string>
+    <string name="settings_section_backup">Sicherung</string>
+    <string name="settings_backup_export">Sicherung erstellen</string>
+    <string name="settings_backup_export_summary">Server, Abos, Playlists, Fortschritt, Statistik und Einstellungen in einer Datei – ohne Passwörter, API-Keys und Anmeldungen</string>
+    <string name="settings_backup_import">Sicherung wiederherstellen</string>
+    <string name="settings_backup_import_summary">Ergänzt, was fehlt; die Einstellungen werden ersetzt</string>
+    <string name="settings_backup_import_title">Sicherung wiederherstellen?</string>
+    <string name="settings_backup_import_message">Fehlende Server, Abos, Playlists, Hörfortschritt und Statistik kommen hinzu; was schon da ist, bleibt. Die Einstellungen werden durch die der Sicherung ersetzt.\n\nPasswörter, API-Keys und Anmeldungen sind nicht in der Sicherung; gib sie danach neu ein.</string>
+    <string name="settings_backup_import_confirm">Wiederherstellen</string>
+    <string name="settings_backup_exported">Sicherung gespeichert: %1$s.</string>
+    <string name="settings_backup_export_failed">Die Sicherung konnte nicht gespeichert werden.</string>
+    <string name="settings_backup_imported">Sicherung wiederhergestellt, Einstellungen übernommen. Hinzugefügt: %1$s.</string>
+    <string name="settings_backup_local_skipped">Quellen auf diesem Gerät bleiben aus, bis du sie in den Einstellungen einschaltest.</string>
+    <string name="settings_backup_import_failed">Die Datei ist keine Sicherung dieser App.</string>
+    <string name="settings_backup_import_newer">Diese Sicherung stammt aus einer neueren Version der App. Aktualisiere die App zuerst.</string>
+    <plurals name="count_playlists">
+        <item quantity="one">%d Playlist</item>
+        <item quantity="other">%d Playlists</item>
+    </plurals>
 </resources>

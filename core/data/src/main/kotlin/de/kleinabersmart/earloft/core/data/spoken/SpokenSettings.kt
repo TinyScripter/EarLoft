@@ -18,10 +18,10 @@ import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val KEY_LOCAL_PODCASTS = booleanPreferencesKey("local_podcasts")
-private val KEY_LOCAL_BOOKS = booleanPreferencesKey("local_books")
+internal val KEY_LOCAL_PODCASTS = booleanPreferencesKey("local_podcasts")
+internal val KEY_LOCAL_BOOKS = booleanPreferencesKey("local_books")
 
-private val Context.spokenSettingsDataStore: DataStore<Preferences> by preferencesDataStore(
+internal val Context.spokenSettingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "spoken_settings",
     produceMigrations = { context -> listOf(LocalSourcesDefault(context, listOf(KEY_LOCAL_BOOKS, KEY_LOCAL_PODCASTS))) },
 )

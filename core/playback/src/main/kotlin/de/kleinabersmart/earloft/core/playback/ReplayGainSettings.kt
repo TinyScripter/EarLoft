@@ -7,7 +7,13 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
+import de.kleinabersmart.earloft.core.data.backup.BackedUpSettings
 import de.kleinabersmart.earloft.core.model.ReplayGainMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -42,4 +48,13 @@ class ReplayGainSettings @Inject constructor(
         private val KEY_MODE = stringPreferencesKey("replay_gain_mode")
         private val KEY_PRE_AMP = floatPreferencesKey("replay_gain_pre_amp_db")
     }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+internal object PlaybackSettingsBackupModule {
+    /** Gehört in die Komplett-Sicherung (`FullBackup`). */
+    @Provides
+    @IntoSet
+    fun provideBackedUpSettings(@ApplicationContext context: Context) = BackedUpSettings("playback_settings", context.playbackSettingsDataStore)
 }

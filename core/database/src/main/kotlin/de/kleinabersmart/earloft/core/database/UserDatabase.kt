@@ -1,8 +1,10 @@
 package de.kleinabersmart.earloft.core.database
 
+import android.content.Context
 import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.DeleteColumn
+import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.AutoMigrationSpec
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
@@ -17,6 +19,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserPodcastEntity
 import de.kleinabersmart.earloft.core.database.entity.UserServerEntity
 import de.kleinabersmart.earloft.core.database.entity.UserSpokenServerEntity
 import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
+import java.io.File
 
 /**
  * Die gesicherten Nutzerdaten (`user.db`, Review K9). Die große [EarLoftDatabase] ist vom Backup ausgeschlossen und
@@ -24,7 +27,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
  * Die Hauptdatenbank bleibt die Arbeitskopie: Änderungen werden hierher gespiegelt und nach einem Neuaufbau zurückgespielt.
  *
  * Versionen: 1 Server, Abos, Statistik; 2 Fortschritt; 3 lokale Playlists, Favoriten, Hörverlauf, Auswahl für die Uhr;
- * 5 archivierte Abos; 6 ohne Cast-Adresse je Server.
+ * 5 archivierte Abos; 6 ohne Cast-Adresse je Server; 7 OpenID je Audiobookshelf-Server.
  */
 @Database(
     entities = [
@@ -40,7 +43,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
         UserPlayEventEntity::class,
         UserWearSelectionEntity::class,
     ],
-    version = 7,
+    version = UserDatabase.VERSION,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -60,5 +63,17 @@ abstract class UserDatabase : RoomDatabase() {
     companion object {
         /** Dateiname; die Backup-Regeln der App schließen nur die Hauptdatenbank aus, diese Datei nicht. */
         const val NAME = "user.db"
+
+        /** Schemaversion; die Komplett-Sicherung lehnt Dateien einer neueren ab. */
+        const val VERSION = 7
+
+        /**
+         * Eine Kopie außerhalb der App-Datenbanken (Komplett-Sicherung, `FullBackup`): ältere Fassungen werden beim Öffnen
+         * migriert. Ohne WAL, damit nach [close] alles in [file] steht.
+         */
+        fun openFile(context: Context, file: File): UserDatabase =
+            Room.databaseBuilder(context, UserDatabase::class.java, file.absolutePath)
+                .setJournalMode(JournalMode.TRUNCATE)
+                .build()
     }
 }

@@ -8,7 +8,13 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
+import de.kleinabersmart.earloft.core.data.backup.BackedUpSettings
 import de.kleinabersmart.earloft.core.wearsync.WearQuality
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -54,4 +60,13 @@ class WatchSettingsRepository @Inject constructor(
         val KEY_STORAGE_LIMIT_GB = intPreferencesKey("storage_limit_gb")
         val KEY_REQUIRE_CHARGING = booleanPreferencesKey("require_charging")
     }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+internal object WatchSettingsBackupModule {
+    /** Gehört in die Komplett-Sicherung (`FullBackup`). */
+    @Provides
+    @IntoSet
+    fun provideBackedUpSettings(@ApplicationContext context: Context) = BackedUpSettings("watch_settings", context.watchSettingsDataStore)
 }

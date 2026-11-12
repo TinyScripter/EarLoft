@@ -7,6 +7,7 @@ import de.kleinabersmart.earloft.core.database.dao.KeyedProgress
 import de.kleinabersmart.earloft.core.database.dao.KeyedSong
 import de.kleinabersmart.earloft.core.database.dao.RowChanges
 import de.kleinabersmart.earloft.core.database.dao.UserDataChanges
+import de.kleinabersmart.earloft.core.database.dao.UserDataDao
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningDayEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
@@ -62,6 +63,27 @@ data class UserDataSnapshot(
         return copy(
             playlistEntries = playlistEntries.filterKeys { it.playlistKey !in unchanged } +
                 saved.playlistEntries.filterKeys { it.playlistKey in unchanged },
+        )
+    }
+
+    /**
+     * Dieser Stand, ergänzt um das, was nur in [other] steht. Vorhandene Zeilen bleiben; Fortschritt und Favoriten kommen
+     * aus [other], wenn sie dort neuer sind. Einträge von Playlists nur zusammen mit ihrer Playlist.
+     */
+    fun plusMissing(other: UserDataSnapshot): UserDataSnapshot {
+        val addedPlaylists = other.playlists.keys - playlists.keys
+        return UserDataSnapshot(
+            servers = other.servers + servers,
+            spokenServers = other.spokenServers + spokenServers,
+            podcasts = other.podcasts + podcasts,
+            listeningStats = other.listeningStats + listeningStats,
+            listeningDays = other.listeningDays + listeningDays,
+            progress = newest(progress, other.progress) { it.updatedAt },
+            playlists = other.playlists + playlists,
+            playlistEntries = playlistEntries + other.playlistEntries.filterKeys { it.playlistKey in addedPlaylists },
+            favorites = newest(favorites, other.favorites) { it.changedAt },
+            playEvents = other.playEvents + playEvents,
+            wearSelections = other.wearSelections + wearSelections,
         )
     }
 
@@ -164,6 +186,25 @@ data class PlayKey(val song: UserSongKey, val playedAt: Long)
 
 /** Der geräteübergreifende Schlüssel des Songs. */
 val KeyedSong.key: UserSongKey get() = UserSongKey(albumArtist, album, disc, track, title)
+
+/** Der Inhalt von `user.db`. */
+suspend fun UserDataDao.snapshot() = UserDataSnapshot.ofUser(
+    servers = servers(),
+    spokenServers = spokenServers(),
+    podcasts = podcasts(),
+    listeningStats = listeningStats(),
+    listeningDays = listeningDays(),
+    progress = progress(),
+    playlists = playlists(),
+    playlistEntries = playlistEntries(),
+    favorites = favorites(),
+    playEvents = playEvents(),
+    wearSelections = wearSelections(),
+)
+
+/** [mine], wo es mindestens so neu ist wie [other], sonst [other]. */
+private fun <K, V> newest(mine: Map<K, V>, other: Map<K, V>, time: (V) -> Long): Map<K, V> =
+    other + mine.filter { (key, value) -> other[key]?.let { time(it) <= time(value) } ?: true }
 
 private fun <K, V> rowChanges(old: Map<K, V>, new: Map<K, V>): RowChanges<V> = RowChanges(
     upserts = new.filter { (key, value) -> old[key] != value }.values.toList(),

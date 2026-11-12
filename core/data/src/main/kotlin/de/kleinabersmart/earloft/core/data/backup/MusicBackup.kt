@@ -87,6 +87,9 @@ class MusicBackup @Inject constructor(
         }
     }
 
+    /** Wie viele der gesicherten Playlists [keys] es hier noch nicht gibt. */
+    suspend fun missingPlaylists(keys: Collection<String>): Int = keys.count { backupDao.playlistByBackupKey(it) == null }
+
     /**
      * Füllt die Playlists, die seit dem Zurückspielen nicht geändert wurden, mit den gesicherten Einträgen, deren Songs es
      * gibt. Liefert die Schlüssel der Playlists, denen noch Songs fehlen.

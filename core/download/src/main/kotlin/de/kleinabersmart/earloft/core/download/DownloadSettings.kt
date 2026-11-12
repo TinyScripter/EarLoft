@@ -7,7 +7,13 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
+import de.kleinabersmart.earloft.core.data.backup.BackedUpSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -50,4 +56,13 @@ class DownloadSettings @Inject constructor(
         val KEY_AUTO_FAVORITES = booleanPreferencesKey("auto_download_favorites")
         val KEY_AUTO_SERVERS = stringSetPreferencesKey("auto_download_servers")
     }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+internal object DownloadSettingsBackupModule {
+    /** Gehört in die Komplett-Sicherung (`FullBackup`). */
+    @Provides
+    @IntoSet
+    fun provideBackedUpSettings(@ApplicationContext context: Context) = BackedUpSettings("download_settings", context.downloadSettingsDataStore)
 }

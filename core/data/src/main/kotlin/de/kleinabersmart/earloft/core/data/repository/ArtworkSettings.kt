@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.artworkSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "artwork_settings")
+internal val Context.artworkSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "artwork_settings")
 
 /**
  * Bilder aus dem Internet. Beide Optionen sind standardmäßig aus, weil dafür Namen von Interpreten und

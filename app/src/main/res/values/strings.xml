@@ -126,7 +126,7 @@
         <item quantity="one">%d subscription</item>
         <item quantity="other">%d subscriptions</item>
     </plurals>
-    <string name="settings_general_summary">Appearance, sections, downloads</string>
+    <string name="settings_general_summary">Appearance, sections, downloads, backup</string>
     <string name="settings_music">Music</string>
     <string name="settings_music_summary_local">%1$s · local music</string>
     <string name="settings_audiobooks">Books</string>
@@ -814,4 +814,22 @@
     <string name="settings_section_setup">Setup</string>
     <string name="settings_setup_again">Show setup again</string>
     <string name="settings_setup_again_summary">Step by step through the main settings</string>
+    <string name="settings_section_backup">Backup</string>
+    <string name="settings_backup_export">Create backup</string>
+    <string name="settings_backup_export_summary">Servers, subscriptions, playlists, progress, statistics and settings in one file – without passwords, API keys or sign-ins</string>
+    <string name="settings_backup_import">Restore backup</string>
+    <string name="settings_backup_import_summary">Adds what is missing; the settings are replaced</string>
+    <string name="settings_backup_import_title">Restore backup?</string>
+    <string name="settings_backup_import_message">Missing servers, subscriptions, playlists, listening progress and statistics are added; what is already here stays. The settings are replaced by those of the backup.\n\nPasswords, API keys and sign-ins are not part of the backup; enter them again afterwards.</string>
+    <string name="settings_backup_import_confirm">Restore</string>
+    <string name="settings_backup_exported">Backup saved: %1$s.</string>
+    <string name="settings_backup_export_failed">Saving the backup failed.</string>
+    <string name="settings_backup_imported">Backup restored, settings applied. Added: %1$s.</string>
+    <string name="settings_backup_local_skipped">Sources on this device stay off until you turn them on in the settings.</string>
+    <string name="settings_backup_import_failed">The file is not a backup of this app.</string>
+    <string name="settings_backup_import_newer">This backup comes from a newer version of the app. Update the app first.</string>
+    <plurals name="count_playlists">
+        <item quantity="one">%d playlist</item>
+        <item quantity="other">%d playlists</item>
+    </plurals>
 </resources>

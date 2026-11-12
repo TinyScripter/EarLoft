@@ -57,6 +57,7 @@ import de.kleinabersmart.earloft.ui.spoken.label
 import de.kleinabersmart.earloft.ui.spoken.opmlImportMessage
 import de.kleinabersmart.earloft.ui.spoken.summary
 import de.kleinabersmart.earloft.ui.theme.ThemeMode
+import java.time.LocalDate
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 // Musik, Podcasts und Bücher gliedern sich gleich: Quellen · Aktualisierung · Bilder · Wiedergabe · Downloads.
@@ -72,7 +73,7 @@ private fun RefreshRow(title: String, onClick: () -> Unit) {
     )
 }
 
-/** Was für alle Bereiche gilt: Darstellung, Suche, Downloads, Abgleich. */
+/** Was für alle Bereiche gilt: Darstellung, Suche, Downloads, Abgleich, Sicherung. */
 @Composable
 fun GeneralSettingsScreen(
     onBack: () -> Unit,
@@ -80,9 +81,21 @@ fun GeneralSettingsScreen(
     onOpenSetup: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
+    backupViewModel: FullBackupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var choosingTheme by rememberSaveable { mutableStateOf(false) }
+    // Vor dem Einspielen fragt ein Dialog nach: Die Einstellungen werden ersetzt.
+    var backupToImport by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val backupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) backupViewModel.export(uri)
+    }
+    val backupImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { backupToImport = it }
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
+    LaunchedEffect(backupViewModel) {
+        backupViewModel.messages.collect { snackbars.show(fullBackupMessage(resources, it), SnackbarDuration.Long) }
+    }
 
     SettingsPage(stringResource(R.string.settings_general), onBack, modifier) {
         group("appearance", R.string.settings_section_appearance) {
@@ -185,6 +198,25 @@ fun GeneralSettingsScreen(
             row("refresh-all") { RefreshRow(stringResource(R.string.settings_refresh_all), viewModel::refreshAll) }
         }
 
+        group("backup", R.string.settings_section_backup) {
+            row("backup-export") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_backup_export)) },
+                    supportingContent = { Text(stringResource(R.string.settings_backup_export_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
+                    modifier = Modifier.clickable { backupExportLauncher.launch("earloft-backup-${LocalDate.now()}.zip") },
+                )
+            }
+            row("backup-import") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_backup_import)) },
+                    supportingContent = { Text(stringResource(R.string.settings_backup_import_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                    modifier = Modifier.clickable { backupImportLauncher.launch(arrayOf("*/*")) },
+                )
+            }
+        }
+
         group("setup", R.string.settings_section_setup) {
             row("setup-again") {
                 ClickRow(
@@ -195,6 +227,25 @@ fun GeneralSettingsScreen(
                 )
             }
         }
+    }
+
+    backupToImport?.let { uri ->
+        AlertDialog(
+            onDismissRequest = { backupToImport = null },
+            title = { Text(stringResource(R.string.settings_backup_import_title)) },
+            text = { Text(stringResource(R.string.settings_backup_import_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        backupViewModel.import(uri)
+                        backupToImport = null
+                    },
+                ) { Text(stringResource(R.string.settings_backup_import_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { backupToImport = null }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
     }
 
     if (choosingTheme) {

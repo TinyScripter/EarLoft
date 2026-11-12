@@ -40,6 +40,9 @@ library.
 - **Share** songs, albums, artists, podcasts and books as links to open sources (MusicBrainz, the podcast's
   website and feed, Open Library), never to your own servers. Feed links shared from other apps open as a podcast
   preview.
+- **Backup to a file** (**Settings → General → Backup**): servers, subscriptions, playlists, progress, statistics and
+  all settings in one file you keep yourself, to move to a new phone or start over. Passwords, API keys and sign-ins
+  are never part of it; you enter them again after restoring. Restoring adds what is missing and replaces the settings.
 
 ### Music
 
@@ -143,7 +146,8 @@ Android Auto support is included and works fine with my car. So far this is the 
 - Server passwords, API keys and sign-in tokens are stored encrypted with the Android Keystore. The OpenID sign-in
   runs in your browser; EarLoft only receives the tokens from your Audiobookshelf server. Android backups contain your
   settings and what no server knows (your servers without their passwords, subscriptions, progress, local playlists
-  and listening statistics), but never the library database, downloads or credentials.
+  and listening statistics), but never the library database, downloads or credentials. The same goes for the backup
+  file you create yourself.
 - There are no ads and no analytics.
 
 ## Permissions

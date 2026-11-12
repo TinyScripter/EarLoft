@@ -72,7 +72,7 @@ internal class WorkManagerSyncScheduler @Inject constructor(
     }
 }
 
-private val Context.syncSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "sync_settings")
+internal val Context.syncSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "sync_settings")
 
 @Singleton
 class SyncSettings @Inject constructor(
