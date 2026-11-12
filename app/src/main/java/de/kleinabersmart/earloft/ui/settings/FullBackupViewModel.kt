@@ -28,11 +28,13 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import javax.inject.Inject
 
-/** Ausgang einer Komplett-Sicherung bzw. ihres Einspielens. */
+/**
+ * Ausgang einer Komplett-Sicherung bzw. eines gescheiterten Einspielens. Das Ergebnis eines gelungenen meldet
+ * `RestoreNoticeEffect` an der Wurzel, zusammen mit den fehlenden Passwörtern.
+ */
 sealed interface FullBackupMessage {
     data class Exported(val counts: BackupCounts) : FullBackupMessage
     data object ExportFailed : FullBackupMessage
-    data class Imported(val result: FullBackupResult) : FullBackupMessage
 
     /** [newerVersion]: Die Sicherung stammt aus einer neueren Version der App; sonst ist es keine (lesbare) Sicherung. */
     data class ImportFailed(val newerVersion: Boolean) : FullBackupMessage
@@ -65,7 +67,7 @@ class FullBackupViewModel @Inject constructor(
     }
 
     fun import(uri: Uri) = run(failed = FullBackupMessage.ImportFailed(newerVersion = false)) {
-        val result = applicationScope.async {
+        applicationScope.async {
             withContext(Dispatchers.IO) {
                 context.contentResolver.openInputStream(uri)?.use { fullBackup.import(it) }
                     ?: throw IOException("Datei nicht lesbar")
@@ -74,11 +76,11 @@ class FullBackupViewModel @Inject constructor(
                 if (it.added.podcasts > 0) podcastRefresher.refreshAll()
             }
         }.await()
-        FullBackupMessage.Imported(result)
+        null
     }
 
     /** Ein Auftrag zur Zeit; ein zweiter Tipp in der Zwischenzeit wird ignoriert. [failed]: Meldung bei Lese- und Schreibfehlern. */
-    private fun run(failed: FullBackupMessage, block: suspend () -> FullBackupMessage) {
+    private fun run(failed: FullBackupMessage, block: suspend () -> FullBackupMessage?) {
         if (running) return
         running = true
         viewModelScope.launch {
@@ -98,7 +100,7 @@ class FullBackupViewModel @Inject constructor(
             } finally {
                 running = false
             }
-            _messages.send(message)
+            message?.let { _messages.send(it) }
         }
     }
 
@@ -111,13 +113,15 @@ class FullBackupViewModel @Inject constructor(
 fun fullBackupMessage(resources: Resources, message: FullBackupMessage): String = when (message) {
     is FullBackupMessage.Exported -> resources.getString(R.string.settings_backup_exported, message.counts.summary(resources))
     FullBackupMessage.ExportFailed -> resources.getString(R.string.settings_backup_export_failed)
-    is FullBackupMessage.Imported -> buildString {
-        append(resources.getString(R.string.settings_backup_imported, message.result.added.summary(resources)))
-        if (message.result.localSourcesSkipped) append(' ').append(resources.getString(R.string.settings_backup_local_skipped))
-    }
     is FullBackupMessage.ImportFailed -> resources.getString(
         if (message.newerVersion) R.string.settings_backup_import_newer else R.string.settings_backup_import_failed,
     )
+}
+
+/** Ergebnis einer eingespielten Komplett-Sicherung, ohne den Hinweis auf fehlende Passwörter. */
+fun backupRestoredMessage(resources: Resources, result: FullBackupResult): String = buildString {
+    append(resources.getString(R.string.settings_backup_imported, result.added.summary(resources)))
+    if (result.localSourcesSkipped) append(' ').append(resources.getString(R.string.settings_backup_local_skipped))
 }
 
 private fun BackupCounts.summary(resources: Resources): String {

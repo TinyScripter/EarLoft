@@ -151,7 +151,8 @@ class UserDataBackup @Inject constructor(
      * Spielt die Nutzerdaten einer Komplett-Sicherung ein. Wie beim Gerätewechsel wird nur ergänzt: Vorhandenes bleibt,
      * Fortschritt und Favoriten gelten, wenn sie neuer sind. Server und Abos, die es hier unter anderer Kennung schon gibt
      * (gleiche Adresse), werden nicht doppelt angelegt. Was noch kein Buch, keinen Song usw. hat, kommt nach `user.db` und
-     * folgt wie nach einem Gerätewechsel, auch über einen Neustart hinweg.
+     * folgt wie nach einem Gerätewechsel, auch über einen Neustart hinweg. Neue Server erscheinen danach mit „Passwort neu
+     * eingeben“.
      */
     suspend fun import(saved: UserDataSnapshot): BackupCounts {
         restoreFinished.await()
@@ -175,7 +176,8 @@ class UserDataBackup @Inject constructor(
             Triple(merged, applySaved(merged, Pending.of(merged)), result)
         }
         if (!pending.isEmpty) scope.launch { applyWhenLibraryChanges(merged, pending) }
-        serversRestored(result.musicServers > 0, result.audiobookServers > 0)
+        // Den Hinweis auf fehlende Passwörter meldet `FullBackup` mit seinem Ergebnis.
+        if (result.musicServers > 0) registry.get().reload()
         Log.i(TAG, "Sicherung eingespielt: $result")
         return result
     }

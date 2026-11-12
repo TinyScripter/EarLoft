@@ -26,14 +26,16 @@ import de.kleinabersmart.earloft.ui.spoken.summary
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Was die Seiten Bereiche und Quellen auslösen: Formulare öffnen (Navigation von außen) und Einstellungen schalten (aus dem
- * `SettingsViewModel`, wie auf den Einstellungsseiten). Die Schalter für Dateien auf dem Gerät fragen vorher die
- * Berechtigung an.
+ * Was die Seiten Begrüßung, Bereiche und Quellen auslösen: Sicherung bzw. Podcast-Datenbank einspielen (Dateiauswahl wie in
+ * den Einstellungen), Formulare öffnen (Navigation von außen) und Einstellungen schalten (aus dem `SettingsViewModel`, wie
+ * auf den Einstellungsseiten). Die Schalter für Dateien auf dem Gerät fragen vorher die Berechtigung an.
  */
 internal class SetupActions(
+    val onRestoreBackup: () -> Unit,
     val onAddMusicServer: () -> Unit,
     val onEditMusicServer: (sourceId: String) -> Unit,
     val onAddPodcast: () -> Unit,
+    val onImportPodcastDatabase: () -> Unit,
     val onAddAudiobookshelf: () -> Unit,
     val onEditAudiobookshelf: (serverId: String) -> Unit,
     val setArea: (SpokenMode, Boolean) -> Unit,
@@ -124,6 +126,15 @@ internal fun LazyListScope.podcastsPage(state: SettingsUiState, actions: SetupAc
             }
         }
         row("add-podcast") { AddRow(stringResource(R.string.podcast_add), actions.onAddPodcast) }
+        // Abos samt Fortschritt aus einer anderen Podcast-App (wie Einstellungen → Podcasts).
+        row("import-database") {
+            ActionRow(
+                stringResource(R.string.settings_db_import),
+                stringResource(R.string.settings_db_import_summary),
+                DesignR.drawable.ic_download,
+                actions.onImportPodcastDatabase,
+            )
+        }
     }
     group("directories", R.string.settings_section_directories) {
         state.podcastDirectories.forEach { directory ->
@@ -196,6 +207,17 @@ private fun SourceRow(title: String, subtitle: String?, icon: Int, onClick: (() 
             Icon(painterResource(DesignR.drawable.ic_check), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         },
         modifier = if (onClick != null) Modifier.clickable(onClickLabel = stringResource(R.string.server_edit), onClick = onClick) else Modifier,
+    )
+}
+
+/** Eine Aktion mit Erklärung, etwa eine Datei einspielen. */
+@Composable
+internal fun ActionRow(title: String, summary: String, icon: Int, onClick: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(summary) },
+        leadingContent = { Icon(painterResource(icon), contentDescription = null) },
+        modifier = Modifier.clickable(onClick = onClick),
     )
 }
 

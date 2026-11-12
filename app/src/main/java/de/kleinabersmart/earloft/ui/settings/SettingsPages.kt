@@ -73,6 +73,36 @@ private fun RefreshRow(title: String, onClick: () -> Unit) {
     )
 }
 
+/** Die Meldungen der Im- und Exporte von [viewModel] als Snackbar (Einstellungen → Podcasts und Einrichtungsassistent). */
+@Composable
+fun TransferMessagesEffect(viewModel: SettingsViewModel) {
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
+    LaunchedEffect(viewModel) {
+        viewModel.transferMessages.collect { message ->
+            val text = when (message) {
+                is TransferMessage.Imported -> opmlImportMessage(resources, message.result)
+                TransferMessage.ImportFailed -> opmlImportMessage(resources, null)
+                TransferMessage.Exported -> resources.getString(R.string.settings_opml_exported)
+                TransferMessage.ExportFailed -> resources.getString(R.string.settings_opml_export_failed)
+                TransferMessage.DatabaseImportStarted -> resources.getString(R.string.settings_db_import_started)
+                is TransferMessage.DatabaseImported -> resources.getString(
+                    R.string.settings_db_import_imported,
+                    resources.getQuantityString(R.plurals.count_podcasts, message.result.feedsAdded, message.result.feedsAdded),
+                    resources.getQuantityString(R.plurals.count_episodes, message.result.progressApplied, message.result.progressApplied),
+                    message.result.progressKept + message.result.progressMissing,
+                    resources.getQuantityString(R.plurals.count_episodes, message.result.statsImported, message.result.statsImported),
+                )
+                is TransferMessage.DatabaseExported -> databaseExportMessage(resources, message.result)
+                TransferMessage.DatabaseExportFailed -> databaseExportMessage(resources, null)
+                TransferMessage.StatsReset -> resources.getString(R.string.settings_stats_reset_done)
+                TransferMessage.DatabaseImportFailed -> resources.getString(R.string.settings_db_import_failed)
+            }
+            snackbars.show(text, SnackbarDuration.Long)
+        }
+    }
+}
+
 /** Was für alle Bereiche gilt: Darstellung, Suche, Downloads, Abgleich, Sicherung. */
 @Composable
 fun GeneralSettingsScreen(
@@ -85,17 +115,11 @@ fun GeneralSettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var choosingTheme by rememberSaveable { mutableStateOf(false) }
-    // Vor dem Einspielen fragt ein Dialog nach: Die Einstellungen werden ersetzt.
-    var backupToImport by rememberSaveable { mutableStateOf<Uri?>(null) }
     val backupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) backupViewModel.export(uri)
     }
-    val backupImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { backupToImport = it }
-    val snackbars = LocalSnackbars.current
-    val resources = LocalResources.current
-    LaunchedEffect(backupViewModel) {
-        backupViewModel.messages.collect { snackbars.show(fullBackupMessage(resources, it), SnackbarDuration.Long) }
-    }
+    val importBackup = rememberFullBackupImport(backupViewModel)
+    FullBackupMessagesEffect(backupViewModel)
 
     SettingsPage(stringResource(R.string.settings_general), onBack, modifier) {
         group("appearance", R.string.settings_section_appearance) {
@@ -212,7 +236,7 @@ fun GeneralSettingsScreen(
                     headlineContent = { Text(stringResource(R.string.settings_backup_import)) },
                     supportingContent = { Text(stringResource(R.string.settings_backup_import_summary)) },
                     leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                    modifier = Modifier.clickable { backupImportLauncher.launch(arrayOf("*/*")) },
+                    modifier = Modifier.clickable(onClick = importBackup),
                 )
             }
         }
@@ -227,25 +251,6 @@ fun GeneralSettingsScreen(
                 )
             }
         }
-    }
-
-    backupToImport?.let { uri ->
-        AlertDialog(
-            onDismissRequest = { backupToImport = null },
-            title = { Text(stringResource(R.string.settings_backup_import_title)) },
-            text = { Text(stringResource(R.string.settings_backup_import_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        backupViewModel.import(uri)
-                        backupToImport = null
-                    },
-                ) { Text(stringResource(R.string.settings_backup_import_confirm)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { backupToImport = null }) { Text(stringResource(R.string.action_cancel)) }
-            },
-        )
     }
 
     if (choosingTheme) {
@@ -472,30 +477,7 @@ fun PodcastsSettingsScreen(
         if (uri != null) viewModel.exportOpml(uri, exportName)
     }
     val snackbars = LocalSnackbars.current
-    val resources = LocalResources.current
-    LaunchedEffect(viewModel) {
-        viewModel.transferMessages.collect { message ->
-            val text = when (message) {
-                is TransferMessage.Imported -> opmlImportMessage(resources, message.result)
-                TransferMessage.ImportFailed -> opmlImportMessage(resources, null)
-                TransferMessage.Exported -> resources.getString(R.string.settings_opml_exported)
-                TransferMessage.ExportFailed -> resources.getString(R.string.settings_opml_export_failed)
-                TransferMessage.DatabaseImportStarted -> resources.getString(R.string.settings_db_import_started)
-                is TransferMessage.DatabaseImported -> resources.getString(
-                    R.string.settings_db_import_imported,
-                    resources.getQuantityString(R.plurals.count_podcasts, message.result.feedsAdded, message.result.feedsAdded),
-                    resources.getQuantityString(R.plurals.count_episodes, message.result.progressApplied, message.result.progressApplied),
-                    message.result.progressKept + message.result.progressMissing,
-                    resources.getQuantityString(R.plurals.count_episodes, message.result.statsImported, message.result.statsImported),
-                )
-                is TransferMessage.DatabaseExported -> databaseExportMessage(resources, message.result)
-                TransferMessage.DatabaseExportFailed -> databaseExportMessage(resources, null)
-                TransferMessage.StatsReset -> resources.getString(R.string.settings_stats_reset_done)
-                TransferMessage.DatabaseImportFailed -> resources.getString(R.string.settings_db_import_failed)
-            }
-            snackbars.show(text, SnackbarDuration.Long)
-        }
-    }
+    TransferMessagesEffect(viewModel)
 
     SettingsPage(stringResource(R.string.settings_podcasts), onBack, modifier) {
         group("sources", R.string.settings_section_sources) {

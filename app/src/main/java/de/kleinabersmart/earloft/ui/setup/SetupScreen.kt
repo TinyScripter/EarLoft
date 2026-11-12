@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.ui.setup
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -47,12 +49,17 @@ import de.kleinabersmart.earloft.core.model.SpokenServer
 import de.kleinabersmart.earloft.navigation.SetupPage
 import de.kleinabersmart.earloft.ui.components.AppLogo
 import de.kleinabersmart.earloft.ui.components.ListGroup
+import de.kleinabersmart.earloft.ui.components.group
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.permission.NotificationPermission
 import de.kleinabersmart.earloft.ui.permission.rememberAudioPermissionRequester
 import de.kleinabersmart.earloft.ui.permission.rememberNotificationPermissionRequester
+import de.kleinabersmart.earloft.ui.settings.FullBackupMessagesEffect
+import de.kleinabersmart.earloft.ui.settings.FullBackupViewModel
 import de.kleinabersmart.earloft.ui.settings.SettingsUiState
 import de.kleinabersmart.earloft.ui.settings.SettingsViewModel
+import de.kleinabersmart.earloft.ui.settings.TransferMessagesEffect
+import de.kleinabersmart.earloft.ui.settings.rememberFullBackupImport
 import de.kleinabersmart.earloft.ui.spoken.AudiobookshelfViewModel
 import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.wear.WatchSettings
@@ -94,6 +101,7 @@ fun SetupScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
     watchViewModel: SetupWatchViewModel = hiltViewModel(),
+    backupViewModel: FullBackupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val watch by watchViewModel.watch.collectAsStateWithLifecycle()
@@ -109,10 +117,19 @@ fun SetupScreen(
     val requestLocalMusic = rememberAudioPermissionRequester { if (it) viewModel.setUseLocalMedia(true) }
     val requestLocalPodcasts = rememberAudioPermissionRequester { if (it) viewModel.setUseLocalPodcasts(true) }
     val requestLocalBooks = rememberAudioPermissionRequester { if (it) viewModel.setUseLocalBooks(true) }
+    // Einspielen wie in den Einstellungen; die Ergebnisse melden Snackbars.
+    val restoreBackup = rememberFullBackupImport(backupViewModel)
+    FullBackupMessagesEffect(backupViewModel)
+    val podcastDatabaseLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importImportData(uri)
+    }
+    TransferMessagesEffect(viewModel)
     val actions = SetupActions(
+        onRestoreBackup = restoreBackup,
         onAddMusicServer = onAddMusicServer,
         onEditMusicServer = onEditMusicServer,
         onAddPodcast = onAddPodcast,
+        onImportPodcastDatabase = { podcastDatabaseLauncher.launch(arrayOf("*/*")) },
         onAddAudiobookshelf = onAddAudiobookshelf,
         onEditAudiobookshelf = onEditAudiobookshelf,
         setArea = viewModel::setAreaEnabled,
@@ -169,7 +186,7 @@ private fun SetupContent(
         modifier = modifier,
     ) {
         when (page) {
-            SetupPage.WELCOME -> welcomePage()
+            SetupPage.WELCOME -> welcomePage(actions)
             SetupPage.AREAS -> areasPage(state, actions)
             SetupPage.MUSIC -> musicPage(state, actions)
             SetupPage.PODCASTS -> podcastsPage(state, actions)
@@ -283,9 +300,20 @@ internal fun LazyListScope.pageHint(key: String, text: Int) {
     }
 }
 
-private fun LazyListScope.welcomePage() {
+private fun LazyListScope.welcomePage(actions: SetupActions) {
     pageHeader(R.string.setup_welcome_title, R.string.setup_welcome_text, logo = true)
     pageHint("hint", R.string.setup_welcome_hint)
+    // Wer schon eine Sicherung hat, spielt sie gleich ein; die folgenden Seiten zeigen dann, was zurückkam.
+    group("backup", R.string.settings_section_backup) {
+        row("restore") {
+            ActionRow(
+                stringResource(R.string.settings_backup_import),
+                stringResource(R.string.setup_backup_summary),
+                DesignR.drawable.ic_download,
+                actions.onRestoreBackup,
+            )
+        }
+    }
 }
 
 private fun LazyListScope.notificationsPage() {
@@ -338,7 +366,7 @@ fun SetupExitDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 @Composable
 private fun SetupWelcomePreview() {
     EarLoftTheme {
-        val actions = SetupActions({}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, { _, _ -> }, {}, {}, {})
+        val actions = SetupActions({}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, { _, _ -> }, {}, {}, {})
         val moreActions = SetupMoreActions({}, {}, {}, {}, {}, {})
         SetupContent(
             SetupPage.WELCOME, SettingsUiState(), emptyList(), WatchSetup.NONE, WatchSettings(), actions, moreActions,

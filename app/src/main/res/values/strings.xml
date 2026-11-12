@@ -760,8 +760,8 @@
     <string name="refresh_music_started">Updating music …</string>
     <string name="refresh_music_done">Music updated</string>
     <plurals name="restore_missing_credentials">
-        <item quantity="one">Restored from your old device: one server needs its password, API key or a new sign-in.</item>
-        <item quantity="other">Restored from your old device: %d servers need their password, API key or a new sign-in.</item>
+        <item quantity="one">One server still needs its password, API key or a new sign-in.</item>
+        <item quantity="other">%d servers still need their password, API key or a new sign-in.</item>
     </plurals>
     <string name="restore_missing_credentials_action">Enter</string>
     <plurals name="new_content_songs">
@@ -832,4 +832,5 @@
         <item quantity="one">%d playlist</item>
         <item quantity="other">%d playlists</item>
     </plurals>
+    <string name="setup_backup_summary">Already have an EarLoft backup? Servers, subscriptions, progress and settings are back right away; you enter passwords again afterwards.</string>
 </resources>

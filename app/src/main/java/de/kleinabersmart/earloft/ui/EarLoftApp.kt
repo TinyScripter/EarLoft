@@ -44,6 +44,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.ui.theme.PlayerColorTheme
 import de.kleinabersmart.earloft.core.playback.PlayerState
+import de.kleinabersmart.earloft.core.data.backup.MissingCredentials
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import de.kleinabersmart.earloft.notification.NewContentTarget
@@ -489,14 +490,15 @@ fun EarLoftApp(
     ) {
         SyncNoticeEffect()
         RefreshEventEffect()
+        // Im Assistenten ohne „Eingeben“: Er listet die Server selbst, und der Wechsel zu den Einstellungen schlösse ihn.
         RestoreNoticeEffect(
-            onEnter = { missing ->
+            onEnter = { missing: MissingCredentials ->
                 navigator.navigate(SettingsRoute)
                 when {
                     missing.audiobookServers == 0 -> navigator.navigate(SettingsMusicRoute)
                     missing.musicServers == 0 -> navigator.navigate(SettingsAudiobooksRoute)
                 }
-            },
+            }.takeUnless { navigator.inSetup },
         )
         BookLaunchEffect()
         // Die Bildschirme kümmern sich selbst um die Statusleiste und – im Vollbild-Player – um die Navigationsleiste.

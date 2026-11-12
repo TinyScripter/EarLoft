@@ -753,8 +753,8 @@
     <string name="refresh_music_started">Musik wird aktualisiert …</string>
     <string name="refresh_music_done">Musik aktualisiert</string>
     <plurals name="restore_missing_credentials">
-        <item quantity="one">Vom alten Gerät übernommen: Ein Server braucht sein Passwort, seinen API-Key bzw. eine neue Anmeldung.</item>
-        <item quantity="other">Vom alten Gerät übernommen: %d Server brauchen ihr Passwort, ihren API-Key bzw. eine neue Anmeldung.</item>
+        <item quantity="one">Ein Server braucht noch sein Passwort, seinen API-Key bzw. eine neue Anmeldung.</item>
+        <item quantity="other">%d Server brauchen noch ihr Passwort, ihren API-Key bzw. eine neue Anmeldung.</item>
     </plurals>
     <string name="restore_missing_credentials_action">Eingeben</string>
     <plurals name="new_content_songs">
@@ -825,4 +825,5 @@
         <item quantity="one">%d Playlist</item>
         <item quantity="other">%d Playlists</item>
     </plurals>
+    <string name="setup_backup_summary">Schon eine Sicherung von EarLoft? Server, Abos, Fortschritt und Einstellungen sind dann gleich da; Passwörter gibst du danach neu ein.</string>
 </resources>

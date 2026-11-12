@@ -90,6 +90,7 @@ class FullBackupTest {
             jellyfinRegistry = JellyfinServerRegistry(),
             librarySettings = LibrarySettings(context),
         )
+        private val notice = RestoreNotice(context, { registry }, { error("nicht gebraucht") })
         val userData = UserDataBackup(
             context = context,
             database = main,
@@ -99,7 +100,7 @@ class FullBackupTest {
             podcastDao = main.podcastDao(),
             statsDao = main.statsDao(),
             music = MusicBackup(main.backupDao(), main.playlistDao(), main.syncDao()),
-            restoreNotice = RestoreNotice(context, { registry }, { error("nicht gebraucht") }),
+            restoreNotice = notice,
             registry = { registry },
             scope = scope,
         ).also { it.start() }
@@ -110,6 +111,7 @@ class FullBackupTest {
                 context,
                 setOf(BackedUpSettings("theme_settings", theme), BackedUpSettings("library_settings", library, setOf(LOCAL_MEDIA.name))),
             ),
+            notice,
         )
 
         private fun store(scope: CoroutineScope, name: String): DataStore<Preferences> =

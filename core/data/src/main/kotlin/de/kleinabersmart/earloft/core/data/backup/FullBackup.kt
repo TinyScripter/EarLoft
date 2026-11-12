@@ -45,6 +45,7 @@ class FullBackup @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val userData: UserDataBackup,
     private val settings: SettingsBackup,
+    private val restoreNotice: RestoreNotice,
 ) {
     /** Schreibt die Sicherung nach [output] (bleibt offen); liefert, was sie enthält. */
     suspend fun export(output: OutputStream): BackupCounts {
@@ -85,7 +86,7 @@ class FullBackup @Inject constructor(
     }
 
     /**
-     * Liest die Sicherung aus [input] und spielt sie ein.
+     * Liest die Sicherung aus [input] und spielt sie ein. Das Ergebnis geht samt fehlender Passwörter auch an [RestoreNotice].
      * @throws FullBackupException wenn es keine Komplett-Sicherung ist oder sie aus einer neueren Version stammt.
      */
     suspend fun import(input: InputStream): FullBackupResult = withWorkDir { dir ->
@@ -110,7 +111,7 @@ class FullBackup @Inject constructor(
         }
         val added = userData.import(snapshot)
         val restored = settingsJson?.let { settings.write(it) } ?: SettingsRestore(0, localSourcesSkipped = false)
-        FullBackupResult(added, restored.stores, restored.localSourcesSkipped)
+        FullBackupResult(added, restored.stores, restored.localSourcesSkipped).also { restoreNotice.backupRestored(it) }
     }
 
     /** Legt `user.db` nach [db] und liefert Manifest und Einstellungen; Unbekanntes wird übergangen. */
