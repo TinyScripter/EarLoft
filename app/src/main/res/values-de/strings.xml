@@ -102,6 +102,7 @@
     <string name="lyrics_none">Kein Songtext vorhanden</string>
     <string name="lyrics_unavailable">Songtext konnte nicht geladen werden.</string>
     <string name="lyrics_retry">Erneut versuchen</string>
+    <string name="lyrics_source_lrclib">Songtext von LRCLIB</string>
     <string name="player_shuffle_on">Zufallswiedergabe an</string>
     <string name="player_shuffle_off">Zufallswiedergabe aus</string>
     <string name="player_repeat_off">Wiederholen aus</string>

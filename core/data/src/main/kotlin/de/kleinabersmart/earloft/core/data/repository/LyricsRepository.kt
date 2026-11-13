@@ -17,6 +17,9 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Ein Songtext und ob er von LRCLIB stammt. */
+data class SongLyrics(val lyrics: Lyrics, val fromLrclib: Boolean = false)
+
 /**
  * Songtexte: zuerst eingebettete Texte lokaler Dateien, dann die Server-Quellen eines Songs (Konzept 6.3), zuletzt, wenn
  * eingeschaltet, LRCLIB – auch für einen Song, zu dem die Server nur einen statischen Text haben. Gefundene Texte bleiben
@@ -31,25 +34,28 @@ class LyricsRepository @Inject constructor(
     private val settings: LyricsSettings,
     private val lrclib: LrclibClient,
 ) {
-    suspend fun lyrics(songId: Long): Lyrics {
+    suspend fun lyrics(songId: Long): Lyrics = songLyrics(songId).lyrics
+
+    /** Wie [lyrics], dazu ob der Text von LRCLIB stammt (die Anzeige nennt dann die Quelle). */
+    suspend fun songLyrics(songId: Long): SongLyrics {
         val cached = lyricsDao.get(songId)
         if (cached != null && (cached.kind != LyricsKind.NONE || System.currentTimeMillis() - cached.fetchedAt < NO_LYRICS_TTL_MS)) {
-            return LyricsCodec.decode(cached.kind, cached.content)
+            return SongLyrics(LyricsCodec.decode(cached.kind, cached.content), fromLrclib = cached.origin == LRCLIB)
         }
 
-        val song = mergeDao.getSong(songId) ?: return Lyrics.None
+        val song = mergeDao.getSong(songId) ?: return SongLyrics(Lyrics.None)
         val embedded = embeddedLyrics(songId)
         if (embedded != Lyrics.None) {
             val (kind, content) = LyricsCodec.encode(embedded)
             lyricsDao.upsert(LyricsEntity(songId, kind, content, EMBEDDED, System.currentTimeMillis()))
-            return embedded
+            return SongLyrics(embedded)
         }
 
         val online = settings.onlineLyrics.first()
         val serverSources = lyricsDao.getServerSources(songId)
         if (serverSources.isEmpty() && !online) {
             lyricsDao.upsert(LyricsEntity(songId, LyricsKind.NONE, "", origin = "", fetchedAt = System.currentTimeMillis()))
-            return Lyrics.None
+            return SongLyrics(Lyrics.None)
         }
 
         var best: Lyrics = Lyrics.None
@@ -91,13 +97,13 @@ class LyricsRepository @Inject constructor(
         }
 
         if (best == Lyrics.None) {
-            if (failed) return Lyrics.Unavailable
+            if (failed) return SongLyrics(Lyrics.Unavailable)
             lyricsDao.upsert(LyricsEntity(songId, LyricsKind.NONE, "", origin = "", fetchedAt = System.currentTimeMillis()))
-            return Lyrics.None
+            return SongLyrics(Lyrics.None)
         }
         val (kind, content) = LyricsCodec.encode(best)
         lyricsDao.upsert(LyricsEntity(songId, kind, content, origin, System.currentTimeMillis()))
-        return best
+        return SongLyrics(best, fromLrclib = origin == LRCLIB)
     }
 
     /**

@@ -38,11 +38,13 @@ import de.kleinabersmart.earloft.core.model.Lyrics
 
 /**
  * Songtext statt Cover. [lyrics] ist `null`, solange geladen wird. Synchronisierte Zeilen
- * folgen der Wiedergabe und springen beim Antippen an ihre Stelle.
+ * folgen der Wiedergabe und springen beim Antippen an ihre Stelle. Stammt der Text von LRCLIB ([fromLrclib]),
+ * steht die Quelle darunter.
  */
 @Composable
 fun LyricsPane(
     lyrics: Lyrics?,
+    fromLrclib: Boolean = false,
     positionMs: () -> Long,
     onSeek: (Long) -> Unit,
     onRetry: () -> Unit,
@@ -52,17 +54,31 @@ fun LyricsPane(
         null -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         Lyrics.None -> Hint(stringResource(R.string.lyrics_none), modifier)
         Lyrics.Unavailable -> Hint(stringResource(R.string.lyrics_unavailable), modifier, retry = onRetry)
-        is Lyrics.Plain -> Text(
-            lyrics.text,
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            modifier = modifier
+        is Lyrics.Plain -> Column(
+            modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(vertical = 8.dp),
-        )
-        is Lyrics.Synced -> SyncedLyrics(lyrics.lines, positionMs, onSeek, modifier)
+        ) {
+            Text(lyrics.text, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            if (fromLrclib) SourceNote()
+        }
+        is Lyrics.Synced -> SyncedLyrics(lyrics.lines, fromLrclib, positionMs, onSeek, modifier)
     }
+}
+
+/** Quelle am Ende eines Textes aus dem Internet. */
+@Composable
+private fun SourceNote() {
+    Text(
+        stringResource(R.string.lyrics_source_lrclib),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+    )
 }
 
 @Composable
@@ -78,7 +94,7 @@ private fun Hint(text: String, modifier: Modifier, retry: (() -> Unit)? = null) 
 }
 
 @Composable
-private fun SyncedLyrics(lines: List<LyricLine>, positionMs: () -> Long, onSeek: (Long) -> Unit, modifier: Modifier) {
+private fun SyncedLyrics(lines: List<LyricLine>, fromLrclib: Boolean, positionMs: () -> Long, onSeek: (Long) -> Unit, modifier: Modifier) {
     // Nur wenn die aktive Zeile wechselt, wird neu zusammengesetzt, nicht bei jedem Positions-Tick.
     val currentPositionMs by rememberUpdatedState(positionMs)
     val active by remember(lines) { derivedStateOf { lines.indexOfLast { it.startMs <= currentPositionMs() } } }
@@ -108,6 +124,7 @@ private fun SyncedLyrics(lines: List<LyricLine>, positionMs: () -> Long, onSeek:
                         .padding(vertical = 6.dp, horizontal = 8.dp),
                 )
             }
+            if (fromLrclib) item(key = "source") { SourceNote() }
         }
     }
 }
@@ -118,6 +135,7 @@ private fun SyncedLyricsPreview() {
     EarLoftTheme {
         LyricsPane(
             lyrics = Lyrics.Synced(listOf(LyricLine(0, "Mondlicht fällt aufs Dach"), LyricLine(5_000, "Nachtfalter tanzen leis"), LyricLine(10_000, "Die Stadt hält still"))),
+            fromLrclib = true,
             positionMs = { 6_000 },
             onSeek = {},
             onRetry = {},

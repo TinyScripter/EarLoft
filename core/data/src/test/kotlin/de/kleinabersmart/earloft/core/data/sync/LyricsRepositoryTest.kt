@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.data.repository.LrclibClient
 import de.kleinabersmart.earloft.core.data.repository.LyricsRepository
 import de.kleinabersmart.earloft.core.data.repository.LyricsSettings
+import de.kleinabersmart.earloft.core.data.repository.SongLyrics
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.LyricsEntity
 import de.kleinabersmart.earloft.core.datasource.RawArtist
@@ -144,8 +145,9 @@ class LyricsRepositoryTest {
         val id = songId("b")
 
         val expected = Lyrics.Synced(listOf(LyricLine(1_000, "Online"), LyricLine(4_500, "Zwei")))
-        assertEquals(expected, lyrics.lyrics(id))
-        assertEquals(expected, lyrics.lyrics(id))
+        assertEquals(SongLyrics(expected, fromLrclib = true), lyrics.songLyrics(id))
+        // Auch aus dem Speicher mit Quelle.
+        assertEquals(SongLyrics(expected, fromLrclib = true), lyrics.songLyrics(id))
 
         val request = lrclibRequests.single().url
         assertEquals("Titel b", request.queryParameter("track_name"))
@@ -175,7 +177,7 @@ class LyricsRepositoryTest {
         assertEquals(Lyrics.Synced(listOf(LyricLine(1_000, "Online"))), lyrics.lyrics(songId("a")))
 
         lrclibResponses["/api/get"] = entry(plain = "Online statisch")
-        assertEquals(Lyrics.Plain("Auch vom Server"), lyrics.lyrics(songId("b")))
+        assertEquals(SongLyrics(Lyrics.Plain("Auch vom Server")), lyrics.songLyrics(songId("b")))
         assertEquals("nd", db.lyricsDao().get(songId("b"))!!.origin)
     }
 

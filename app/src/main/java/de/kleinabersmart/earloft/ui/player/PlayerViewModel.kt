@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.data.repository.AlbumColorRepository
 import de.kleinabersmart.earloft.core.data.repository.FavoritesRepository
 import de.kleinabersmart.earloft.core.data.repository.LyricsRepository
+import de.kleinabersmart.earloft.core.data.repository.SongLyrics
 import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.playback.PlayerState
@@ -56,16 +57,16 @@ class PlayerViewModel @Inject constructor(
     val lyricsVisible: StateFlow<Boolean> = _lyricsVisible.asStateFlow()
     private val lyricsRetry = MutableStateFlow(0)
 
-    /** Songtext des aktuellen Titels; `null` während des Ladens. Geladen wird erst, wenn er angezeigt wird. */
+    /** Songtext des aktuellen Titels samt Herkunft; `null` während des Ladens. Geladen wird erst, wenn er angezeigt wird. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val lyrics: StateFlow<Lyrics?> = combine(_lyricsVisible, state.map { it.current?.songId }.distinctUntilChanged(), lyricsRetry) { visible, songId, _ ->
+    val lyrics: StateFlow<SongLyrics?> = combine(_lyricsVisible, state.map { it.current?.songId }.distinctUntilChanged(), lyricsRetry) { visible, songId, _ ->
         songId.takeIf { visible }
     }
         .flatMapLatest { songId ->
-            if (songId == null) flowOf<Lyrics?>(null) else flow<Lyrics?> {
+            if (songId == null) flowOf<SongLyrics?>(null) else flow<SongLyrics?> {
                 emit(null)
-                emit(lyricsRepository.lyrics(songId))
-            }.catch { emit(Lyrics.Unavailable) }
+                emit(lyricsRepository.songLyrics(songId))
+            }.catch { emit(SongLyrics(Lyrics.Unavailable)) }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

@@ -53,7 +53,7 @@ import de.kleinabersmart.earloft.cast.CastButton
 import de.kleinabersmart.earloft.cast.rememberCastDeviceName
 import de.kleinabersmart.earloft.ui.theme.PlayerColorTheme
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
-import de.kleinabersmart.earloft.core.model.Lyrics
+import de.kleinabersmart.earloft.core.data.repository.SongLyrics
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.QueueEntry
 import de.kleinabersmart.earloft.ui.components.AlbumArt
@@ -126,7 +126,7 @@ private fun NowPlayingContent(
     isFavorite: Boolean,
     positionMs: () -> Long,
     lyricsVisible: Boolean,
-    lyrics: Lyrics?,
+    lyrics: SongLyrics?,
     onToggleLyrics: () -> Unit,
     onRetryLyrics: () -> Unit,
     onClose: () -> Unit,
@@ -238,7 +238,7 @@ private fun NowPlayingContent(
                                 shape = MaterialTheme.shapes.extraLarge,
                                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                             ) {
-                                LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
+                                LyricsPane(lyrics = lyrics?.lyrics, fromLrclib = lyrics?.fromLrclib == true, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
                             }
                         } else {
                             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -286,7 +286,7 @@ private fun NowPlayingContent(
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
                     ) {
                         if (lyricsVisible) {
-                            LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
+                            LyricsPane(lyrics = lyrics?.lyrics, fromLrclib = lyrics?.fromLrclib == true, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
                         } else {
                             queuePane(Modifier.fillMaxSize().padding(vertical = 8.dp))
                         }
@@ -307,7 +307,7 @@ private fun NowPlayingContent(
                     Column(Modifier.weight(1f, fill = lyricsVisible).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         if (lyricsVisible) {
                             Box(Modifier.weight(1f).fillMaxWidth()) {
-                                LyricsPane(lyrics = lyrics, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
+                                LyricsPane(lyrics = lyrics?.lyrics, fromLrclib = lyrics?.fromLrclib == true, positionMs = positionMs, onSeek = onSeek, onRetry = onRetryLyrics)
                             }
                         } else {
                             // Quadrat im Restplatz, mit etwas Luft zur Kopfzeile und zur Knopfreihe.

@@ -103,6 +103,7 @@
     <string name="lyrics_none">No lyrics available</string>
     <string name="lyrics_unavailable">Lyrics could not be loaded.</string>
     <string name="lyrics_retry">Try again</string>
+    <string name="lyrics_source_lrclib">Lyrics from LRCLIB</string>
     <string name="player_shuffle_on">Shuffle on</string>
     <string name="player_shuffle_off">Shuffle off</string>
     <string name="player_repeat_off">Repeat off</string>
