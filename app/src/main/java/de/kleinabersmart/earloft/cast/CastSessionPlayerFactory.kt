@@ -57,6 +57,9 @@ import javax.inject.Singleton
  * die Warteschlange noch einmal von dort hinaus ([watchRemoteLoad]); sonst endet die Sitzung und die ursprüngliche
  * Warteschlange kommt pausiert aufs Handy zurück. Ein Empfänger ohne Warteschlange lehnte sonst auch alles Weitere ab
  * („Invalid Request“), und ein danach gestartetes Buch ginge ins Leere.
+ *
+ * Lief beim letzten Ende des Prozesses eine Sitzung, hängt sich der Player beim Start wieder an ([CastRejoin]) und übernimmt
+ * den Stand des Empfängers. Was nur in der [reserve] lag, ist dann verloren.
  */
 @OptIn(UnstableApi::class)
 @Singleton
@@ -66,6 +69,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
     @param:ApplicationScope private val scope: CoroutineScope,
     private val snackbars: Snackbars,
     private val spokenItems: SpokenItemRebuilder,
+    private val rejoin: CastRejoin,
 ) : SessionPlayerFactory {
 
     private var sessionListener: SessionManagerListener<CastSession>? = null
@@ -92,6 +96,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         watchRemoteLoad(player)
         keepQueueFilled(player)
         rememberRemoteState(player)
+        scope.launch(Dispatchers.Main) { rejoin.select() }
         return DeferredRemotePlayPlayer(player) { state -> watchQueue(state) }
     }
 
@@ -196,13 +201,39 @@ internal class CastSessionPlayerFactory @Inject constructor(
         val cast = Cast.getSingletonInstance(appContext)
         sessionListener?.let(cast::removeSessionManagerListener)
         val listener = object : SessionManagerListener<CastSession> {
-            override fun onSessionStarting(session: CastSession) = prepareQueue()
+            override fun onSessionStarting(session: CastSession) {
+                handOver.resuming = rejoin.isRejoining
+                handOver.rejected = false
+                prepareQueue()
+            }
+
             override fun onSessionResuming(session: CastSession, sessionId: String) = prepareQueue()
-            override fun onSessionStarted(session: CastSession, sessionId: String) = Unit
-            override fun onSessionStartFailed(session: CastSession, error: Int) = Unit
-            override fun onSessionEnding(session: CastSession) = Unit
-            override fun onSessionEnded(session: CastSession, error: Int) = Unit
-            override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) = Unit
+
+            override fun onSessionStarted(session: CastSession, sessionId: String) {
+                if (rejoin.isRejoining && !rejoin.isOurs(sessionId)) {
+                    // Nicht mehr die Sitzung von vorher: Lief beim Empfänger nichts, hat das Auswählen die App dort
+                    // gestartet, und sie wird wieder beendet; sonst gehört sie einer anderen App und läuft weiter.
+                    val launched = session.applicationConnectionResult?.wasLaunched == true
+                    Log.i(TAG, "Sitzung $sessionId ist nicht die von vorher (neu gestartet: $launched), löse mich wieder")
+                    handOver.rejected = true
+                    cast.endCurrentSession(launched)
+                    return
+                }
+                rejoin.remember(session, sessionId)
+            }
+
+            override fun onSessionStartFailed(session: CastSession, error: Int) {
+                rejoin.failed()
+                handOver.resuming = false
+            }
+
+            override fun onSessionEnding(session: CastSession) = rejoin.forget()
+            override fun onSessionEnded(session: CastSession, error: Int) = rejoin.forget()
+            override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) {
+                val sessionId = session.sessionId ?: return
+                rejoin.remember(session, sessionId)
+            }
+
             override fun onSessionResumeFailed(session: CastSession, error: Int) = Unit
             override fun onSessionSuspended(session: CastSession, reason: Int) = Unit
 
@@ -355,10 +386,14 @@ private fun castableState(
 /**
  * [state]: was zuletzt an den Empfänger ging (nur wenn nicht leer). [rescue]: nach einem gescheiterten
  * Laden – beim Zurückwechseln aufs Handy wird daraus die Warteschlange wiederhergestellt. [lastRemote]: der letzte
- * Stand des Empfängers mit Warteschlange, falls eine andere App ihn übernimmt.
+ * Stand des Empfängers mit Warteschlange, falls eine andere App ihn übernimmt. [resuming]: Die App hängt sich nach einem
+ * Neustart wieder an ([CastRejoin]) – der Empfänger behält dann seinen Stand. [rejected]: Dabei kam eine andere Sitzung
+ * heraus, das Handy behält seinen Stand.
  */
 @OptIn(UnstableApi::class)
 private class HandOver {
+    @Volatile var resuming = false
+    @Volatile var rejected = false
     @Volatile var state: PlayerTransferState? = null
     @Volatile var rescue: PlayerTransferState? = null
     @Volatile var lastRemote: PlayerTransferState? = null
@@ -397,6 +432,12 @@ private class CastTransferCallback(
 ) : CastPlayer.TransferCallback {
 
     override fun transferState(sourcePlayer: Player, targetPlayer: Player) {
+        if (targetPlayer !is RemoteCastPlayer && handOver.rejected) {
+            // Der lokale Player wurde beim Wechsel nur angehalten und hat seine Warteschlange noch.
+            handOver.rejected = false
+            handOver.resuming = false
+            return
+        }
         if (targetPlayer !is RemoteCastPlayer) {
             val rescue = handOver.rescue
             val lastRemote = handOver.lastRemote
@@ -424,6 +465,13 @@ private class CastTransferCallback(
         handOver.rescue = null
         handOver.lastRemote = null
         reserve.clear()
+        // Wieder angehängt: Der Empfänger spielt weiter, was er hat. Die Warteschlange des Handys (nach dem Neustart leer
+        // oder ein älterer Stand) würde sie sonst ersetzen oder anhalten.
+        if (handOver.resuming || handOver.rejected) {
+            handOver.resuming = false
+            handOver.state = null
+            return
+        }
         handOver.state = state.takeIf { it.mediaItems.isNotEmpty() }
         cache.prepareBlocking(state.mediaItems.mapNotNull { it.songId })
         castableState(state, cache, reserve, onSkipped).setToPlayer(targetPlayer)
