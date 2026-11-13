@@ -25,8 +25,10 @@ import de.kleinabersmart.earloft.core.database.entity.AbsSessionEntity
 import de.kleinabersmart.earloft.core.database.entity.AlbumArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.AlbumEntity
 import de.kleinabersmart.earloft.core.database.entity.AlbumFtsEntity
+import de.kleinabersmart.earloft.core.database.entity.AlbumSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.ArtistEntity
 import de.kleinabersmart.earloft.core.database.entity.ArtistFtsEntity
+import de.kleinabersmart.earloft.core.database.entity.ArtistSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
@@ -83,8 +85,10 @@ import java.io.File
         ServerStatsCacheEntity::class,
         AbsSessionEntity::class,
         WearBookEntity::class,
+        AlbumSourceEntity::class,
+        ArtistSourceEntity::class,
     ],
-    version = 22,
+    version = 23,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -108,6 +112,7 @@ import java.io.File
         AutoMigration(from = 19, to = 20, spec = EarLoftDatabase.AddWebLinks::class),
         AutoMigration(from = 20, to = 21),
         AutoMigration(from = 21, to = 22),
+        AutoMigration(from = 22, to = 23),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {

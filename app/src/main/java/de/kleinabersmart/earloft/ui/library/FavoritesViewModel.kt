@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.data.repository.FavoritesRepository
+import de.kleinabersmart.earloft.core.model.Album
+import de.kleinabersmart.earloft.core.model.Artist
 import de.kleinabersmart.earloft.core.model.Song
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.LoadState
@@ -23,6 +25,14 @@ class FavoritesViewModel @Inject constructor(
 ) : ViewModel(), SongActions {
 
     val songs: StateFlow<LoadState<List<Song>>> = favoritesRepository.favorites()
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
+
+    val albums: StateFlow<LoadState<List<Album>>> = favoritesRepository.favoriteAlbums()
+        .asLoadState()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
+
+    val artists: StateFlow<LoadState<List<Artist>>> = favoritesRepository.favoriteArtists()
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 

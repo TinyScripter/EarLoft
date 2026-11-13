@@ -26,6 +26,7 @@ import de.kleinabersmart.earloft.ui.components.SongActions
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
@@ -38,6 +39,9 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
+/** Wo der Chip „Favoriten“ steht; jeder Reiter merkt ihn sich für sich. */
+enum class FavoritesChip { ALBUMS, GENRES, ARTISTS }
+
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
@@ -66,6 +70,14 @@ class LibraryViewModel @Inject constructor(
     private val chosenDecades = MutableStateFlow(emptySet<Int>())
     private val chosenGenres = MutableStateFlow(emptySet<String>())
 
+    val favoriteAlbumIds: StateFlow<Set<Long>> = favoritesRepository.favoriteAlbumIds().stateInViewModel(emptySet())
+    val favoriteArtistIds: StateFlow<Set<Long>> = favoritesRepository.favoriteArtistIds().stateInViewModel(emptySet())
+
+    private val chosenFavorites = MutableStateFlow(emptySet<FavoritesChip>())
+
+    /** Reiter, in denen der Chip „Favoriten“ an ist; er schränkt zusätzlich zu den übrigen Chips ein. */
+    val favoritesOnly: StateFlow<Set<FavoritesChip>> = chosenFavorites.asStateFlow()
+
     val selectedDecades: StateFlow<Set<Int>> = combine(chosenDecades, decades) { chosen, all ->
         chosen.intersect(all.mapTo(HashSet()) { it.startYear })
     }.stateInViewModel(emptySet())
@@ -76,15 +88,39 @@ class LibraryViewModel @Inject constructor(
     }.stateInViewModel(emptySet())
 
     /** Die Alben (in ihrer Sortierung) aus den gewählten Jahrzehnten. */
-    val albumsOfDecades: StateFlow<LoadState<List<Album>>> = combine(albums, selectedDecades) { state, chosen ->
-        state.filterAlbums(chosen.isNotEmpty()) { album -> album.year?.takeIf { it >= 1000 }?.let { it / 10 * 10 in chosen } == true }
-    }.stateInViewModel(LoadState.Loading)
+    val albumsOfDecades: StateFlow<LoadState<List<Album>>> =
+        combine(albums, selectedDecades, favoritesOnly, favoriteAlbumIds) { state, chosen, favoritesOnly, favorites ->
+            state.filterAlbums(chosen.isNotEmpty()) { album -> album.year?.takeIf { it >= 1000 }?.let { it / 10 * 10 in chosen } == true }
+                .filterAlbums(FavoritesChip.ALBUMS in favoritesOnly) { it.id in favorites }
+        }.stateInViewModel(LoadState.Loading)
 
     /** Die Alben (in ihrer Sortierung) mit mindestens einem Song aus den gewählten Genres. */
     val albumsOfGenres: StateFlow<LoadState<List<Album>>> =
-        combine(albums, selectedGenres, libraryRepository.albumGenreKeys()) { state, chosen, genresOf ->
+        combine(albums, selectedGenres, libraryRepository.albumGenreKeys(), favoritesOnly, favoriteAlbumIds) {
+                state, chosen, genresOf, favoritesOnly, favorites ->
             state.filterAlbums(chosen.isNotEmpty()) { album -> genresOf[album.id]?.any { it in chosen } == true }
+                .filterAlbums(FavoritesChip.GENRES in favoritesOnly) { it.id in favorites }
         }.stateInViewModel(LoadState.Loading)
+
+    /** Die Künstler (in ihrer Sortierung), mit dem Chip „Favoriten“ nur die favorisierten. */
+    val artistsShown: StateFlow<LoadState<List<Artist>>> =
+        combine(artists, favoritesOnly, favoriteArtistIds) { state, favoritesOnly, favorites ->
+            if (FavoritesChip.ARTISTS in favoritesOnly && state is LoadState.Ready) {
+                LoadState.Ready(state.value.filter { it.id in favorites })
+            } else {
+                state
+            }
+        }.stateInViewModel(LoadState.Loading)
+
+    fun toggleFavoritesOnly(chip: FavoritesChip) = chosenFavorites.update { if (chip in it) it - chip else it + chip }
+
+    /** Alle Songs der gezeigten [artists], Künstler für Künstler (jeder Song einmal) oder gemischt. */
+    fun playArtists(artists: List<Artist>, shuffle: Boolean) {
+        viewModelScope.launch {
+            val songs = artists.flatMap { libraryRepository.songsOfArtist(it.id) }.distinctBy { it.id }
+            if (songs.isNotEmpty()) playbackConnection.play(songs, shuffle = shuffle)
+        }
+    }
 
     /** Alle Songs der gezeigten (gefilterten) [albums], Album für Album in ihrer Reihenfolge oder gemischt. */
     fun playAlbums(albums: List<Album>, shuffle: Boolean) {
@@ -97,6 +133,7 @@ class LibraryViewModel @Inject constructor(
     fun toggleDecade(startYear: Int) = chosenDecades.update { if (startYear in it) it - startYear else it + startYear }
 
     fun toggleGenre(genre: Genre) = chosenGenres.update { if (genre.key in it) it - genre.key else it + genre.key }
+
     val favoriteCount: StateFlow<Int> = favoritesRepository.favorites().map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), 0)
     val playlists: StateFlow<LoadState<List<Playlist>>> = playlistRepository.playlists().stateInViewModel()

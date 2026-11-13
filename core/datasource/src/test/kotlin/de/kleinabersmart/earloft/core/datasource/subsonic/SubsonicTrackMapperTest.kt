@@ -80,6 +80,27 @@ class SubsonicTrackMapperTest {
     }
 
     @Test
+    fun `album and artist ids are kept for favorites`() {
+        val openSubsonic = song.copy(
+            artists = listOf(ArtistRefDto(id = "ar1", name = "Nachtfalter")),
+            albumArtists = listOf(ArtistRefDto(id = "ar1", name = "Nachtfalter")),
+        )
+        val track = SubsonicTrackMapper.map(openSubsonic, album, names)
+        assertEquals("al1", track.albumRemoteId)
+        assertEquals(listOf("ar1"), track.artists.map { it.remoteId })
+        assertEquals(listOf("ar1"), track.albumArtists.map { it.remoteId })
+
+        // Klassisches Subsonic: nur artistId am Song und am Album.
+        val classic = SubsonicTrackMapper.map(
+            song.copy(artists = emptyList(), albumArtists = emptyList(), displayAlbumArtist = null, artistId = "ar2"),
+            album.copy(artistId = "ar3"),
+            names,
+        )
+        assertEquals(listOf("ar2"), classic.artists.map { it.remoteId })
+        assertEquals(listOf("ar3"), classic.albumArtists.map { it.remoteId })
+    }
+
+    @Test
     fun `missing tags fall back to placeholders`() {
         val track = SubsonicTrackMapper.map(SongDto(id = "x"), null, names)
 

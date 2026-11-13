@@ -24,6 +24,7 @@ import kotlin.math.abs
 class MergeResolver @Inject constructor(
     private val mergeDao: MergeDao,
     private val syncDao: SyncDao,
+    private val collections: CollectionSourceResolver,
 ) {
 
     /**
@@ -38,7 +39,10 @@ class MergeResolver @Inject constructor(
             val songId = resolveSong(resolveAlbum(track), track)
             mergeDao.insertSongSource(track.toSongSource(uid, songId, sourceId, generation))
             mergeDao.setAlbumCoverIfMissing(mergeDao.getSong(songId)!!.albumId, uid)
-            if (syncsFavorites) mergeFavorite(songId, uid, track.starredAt, previousStarredAt = null, isNewSource = true)
+            if (syncsFavorites) {
+                mergeFavorite(songId, uid, track.starredAt, previousStarredAt = null, isNewSource = true)
+                collections.record(sourceId, track, songId, generation)
+            }
             return songId
         }
 
@@ -48,6 +52,7 @@ class MergeResolver @Inject constructor(
                 syncDao.setStarredAt(uid, track.starredAt)
                 mergeFavorite(existing.songId, uid, track.starredAt, existing.starredAt, isNewSource = false)
             }
+            if (syncsFavorites) collections.record(sourceId, track, existing.songId, generation)
             return existing.songId
         }
 
@@ -68,7 +73,10 @@ class MergeResolver @Inject constructor(
         // (z. B. Album-Cover) zählen nicht – angezeigt wird ohnehin, was in der Datenbank steht.
         if (existing.sizeBytes != track.sizeBytes || existing.mimeType != track.mimeType) mergeDao.requeueDownload(uid)
         mergeDao.setAlbumCoverIfMissing(albumId, uid)
-        if (syncsFavorites) mergeFavorite(songId, uid, track.starredAt, existing.starredAt, isNewSource = false)
+        if (syncsFavorites) {
+            mergeFavorite(songId, uid, track.starredAt, existing.starredAt, isNewSource = false)
+            collections.record(sourceId, track, songId, generation)
+        }
         return songId
     }
 
@@ -228,8 +236,8 @@ class MergeResolver @Inject constructor(
 
     private companion object {
         const val DURATION_TOLERANCE_MS = 3_000
-
-        /** Fällt auf den Rohtext zurück, falls ein Name nur aus Satzzeichen besteht (z. B. „!!!“). */
-        fun String.mergeKey(): String = normalizeForMerge().ifEmpty { trim().lowercase() }
     }
 }
+
+/** Fällt auf den Rohtext zurück, falls ein Name nur aus Satzzeichen besteht (z. B. „!!!“). */
+internal fun String.mergeKey(): String = normalizeForMerge().ifEmpty { trim().lowercase() }

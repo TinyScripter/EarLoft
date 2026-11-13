@@ -26,7 +26,7 @@ internal object SubsonicTrackMapper {
             ?: song.artist.orBlankNull()
             ?: song.artists.joinToString(" & ") { it.name }.orBlankNull()
             ?: names.unknownArtist
-        val artists = song.artists.toRawArtists().ifEmpty { listOf(RawArtist(artistDisplay)) }
+        val artists = song.artists.toRawArtists().ifEmpty { listOf(RawArtist(artistDisplay, remoteId = song.artistId.orBlankNull())) }
 
         val declaredAlbumArtist = song.displayAlbumArtist.orBlankNull()
             ?: album?.displayArtist.orBlankNull()
@@ -39,7 +39,9 @@ internal object SubsonicTrackMapper {
         }
         val albumArtists = when {
             isCompilation -> listOf(RawArtist(names.variousArtists))
-            else -> song.albumArtists.toRawArtists().ifEmpty { listOf(RawArtist(albumArtistDisplay)) }
+            else -> song.albumArtists.toRawArtists().ifEmpty {
+                listOf(RawArtist(albumArtistDisplay, remoteId = album?.artistId.orBlankNull()?.takeIf { declaredAlbumArtist != null }))
+            }
         }
 
         val rg = song.replayGain
@@ -51,6 +53,7 @@ internal object SubsonicTrackMapper {
             albumTitle = song.album.orBlankNull() ?: album?.name.orBlankNull() ?: names.unknownAlbum,
             albumArtistDisplay = albumArtistDisplay,
             albumArtists = albumArtists,
+            albumRemoteId = song.albumId.orBlankNull() ?: album?.id,
             isCompilation = isCompilation,
             discNumber = song.discNumber?.takeIf { it > 0 } ?: 1,
             trackNumber = song.track?.takeIf { it > 0 } ?: 0,
@@ -92,7 +95,8 @@ internal object SubsonicTrackMapper {
     }
 
     private fun List<ArtistRefDto>.toRawArtists(): List<RawArtist> =
-        filter { it.name.isNotBlank() }.map { RawArtist(name = it.name, mbid = it.musicBrainzId.orBlankNull()) }
+        filter { it.name.isNotBlank() }
+            .map { RawArtist(name = it.name, mbid = it.musicBrainzId.orBlankNull(), remoteId = it.id.orBlankNull()) }
 
     private fun String?.orBlankNull(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 

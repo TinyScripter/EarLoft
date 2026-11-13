@@ -103,17 +103,17 @@ class JellyfinApi @Inject constructor(
             .addQueryParameter("sortOrder", "Descending")
             .build())
 
-    /** IDs aller favorisierten Songs (über alle Bibliotheken). */
-    suspend fun favoriteSongIds(server: JellyfinServer): List<String> {
+    /** Alle favorisierten Songs (`Audio`), Alben (`MusicAlbum`) und Künstler (`MusicArtist`), über alle Bibliotheken. */
+    suspend fun favoriteMusicItems(server: JellyfinServer): List<JfItem> {
         val url = server.endpoint("Items")
             .addQueryParameter("userId", server.userId)
-            .addQueryParameter("includeItemTypes", "Audio")
+            .addQueryParameter("includeItemTypes", "Audio,MusicAlbum,MusicArtist")
             .addQueryParameter("recursive", "true")
             .addQueryParameter("filters", "IsFavorite")
             .addQueryParameter("enableImages", "false")
             .addQueryParameter("enableUserData", "false")
             .build()
-        return get<JfItemsPage>(server, url).items.map { it.id }
+        return get<JfItemsPage>(server, url).items
     }
 
     /** IDs von bis zu [limit] Songs, die der Server zu [itemId] mischt (Instant Mix; Jellyfin und Emby). */

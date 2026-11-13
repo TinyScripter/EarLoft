@@ -13,7 +13,9 @@ import de.kleinabersmart.earloft.core.datasource.RemoteLyrics
 import de.kleinabersmart.earloft.core.datasource.RemotePlaylist
 import de.kleinabersmart.earloft.core.datasource.RemotePlaylistInfo
 import de.kleinabersmart.earloft.core.datasource.RemoteQuickSync
+import de.kleinabersmart.earloft.core.datasource.RemoteStarred
 import de.kleinabersmart.earloft.core.datasource.SourceBatch
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.network.subsonic.SubsonicException
@@ -34,6 +36,8 @@ internal class FakeServer(
     /** Für den Zwischenabgleich: neue Alben und Favoriten (`remoteId` → Zeitpunkt). */
     var newTracks: List<RawTrack> = emptyList()
     var starred: Map<String, Long> = emptyMap()
+    var starredAlbums: Map<String, Long> = emptyMap()
+    var starredArtists: Map<String, Long> = emptyMap()
     var lastSince = -1L
     private var clock = 1_000L
     private var nextId = 1
@@ -48,9 +52,9 @@ internal class FakeServer(
     override suspend fun resolvePlayback(remoteId: String) = PlaybackLocation.LocalFile(Uri.EMPTY)
     override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = null
 
-    override suspend fun setFavorite(remoteId: String, favorite: Boolean) {
+    override suspend fun setFavorite(remoteId: String, favorite: Boolean, kind: FavoriteKind) {
         failure?.let { throw it }
-        calls += "favorite $remoteId $favorite"
+        calls += if (kind == FavoriteKind.SONG) "favorite $remoteId $favorite" else "favorite ${kind.name.lowercase()} $remoteId $favorite"
     }
 
     override suspend fun scrobble(remoteId: String, playedAt: Long) {
@@ -87,9 +91,9 @@ internal class FakeServer(
         return newTracks
     }
 
-    override suspend fun starredSongs(): Map<String, Long> {
+    override suspend fun starred(): RemoteStarred {
         failure?.let { throw it }
-        return starred
+        return RemoteStarred(starred, starredAlbums, starredArtists)
     }
 
     override suspend fun lyrics(remoteId: String, artist: String, title: String): Lyrics {
@@ -147,10 +151,11 @@ internal fun EarLoftDatabase.librarySyncer(
     sourceDao = sourceDao(),
     mergeDao = mergeDao(),
     libraryDao = libraryDao(),
-    mergeResolver = MergeResolver(mergeDao(), syncDao()),
+    mergeResolver = MergeResolver(mergeDao(), syncDao(), CollectionSourceResolver(mergeDao(), syncDao())),
     changeListeners = emptySet(),
     syncQueue = SyncQueueStarter(syncDao(), scheduler),
     playlistSyncer = playlistSyncer(notices),
+    syncDao = syncDao(),
 )
 
 /**

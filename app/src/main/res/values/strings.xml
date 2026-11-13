@@ -62,6 +62,10 @@
     <string name="item_missing">No longer in the library.</string>
     <string name="load_failed">Could not be loaded. Please try again later.</string>
     <string name="disc_number">Disc %1$d</string>
+    <plurals name="artist_count">
+        <item quantity="one">%1$d artist</item>
+        <item quantity="other">%1$d artists</item>
+    </plurals>
     <plurals name="album_count">
         <item quantity="one">%1$d album</item>
         <item quantity="other">%1$d albums</item>
@@ -316,6 +320,9 @@
     <string name="music_stats_top_genres">Top genres</string>
     <string name="favorites_title">Favorites</string>
     <string name="favorites_empty">No favorites yet. Tap the heart in the player or use the song menu.</string>
+    <string name="favorites_albums_empty">No favorite albums yet. Tap the heart on an album or use the album menu.</string>
+    <string name="favorites_artists_empty">No favorite artists yet. Tap the heart on an artist or use the artist menu.</string>
+    <string name="library_filter_empty">Nothing matches this selection.</string>
     <string name="settings_scrobble">Report plays to the server</string>
     <string name="settings_scrobble_summary">Tracks you listen to are counted by the server (and possibly Last.fm or ListenBrainz).</string>
 

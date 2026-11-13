@@ -36,6 +36,8 @@ data class ArtistEntity(
     val sortName: String,
     val normName: String,
     val mbid: String? = null,
+    @ColumnInfo(defaultValue = "0") val isFavorite: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val favoriteChangedAt: Long = 0,
 )
 
 @Entity(
@@ -57,6 +59,8 @@ data class AlbumEntity(
     val coverSourceUid: String? = null,
     /** Einmalig aus dem Cover berechnete Seed-Farbe (ARGB). */
     val seedColor: Int? = null,
+    @ColumnInfo(defaultValue = "0") val isFavorite: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val favoriteChangedAt: Long = 0,
 )
 
 /** Logischer Song, wie ihn der Nutzer sieht – unabhängig davon, wie viele Quellen ihn liefern. */
@@ -177,4 +181,64 @@ data class AlbumArtistCrossRef(
     val albumId: Long,
     val artistId: Long,
     val position: Int,
+)
+
+/**
+ * Ein Album, wie es ein Server unter eigener ID führt (für Favoriten, Konzept 6.4). Mehrere Server-Alben können zu einem
+ * Album zusammengeführt sein. Gefüllt aus den Songs jedes Abgleichs; ältere Generationen löscht der Vollabgleich.
+ */
+@Entity(
+    tableName = "album_sources",
+    primaryKeys = ["sourceId", "remoteId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = AlbumEntity::class,
+            parentColumns = ["albumId"],
+            childColumns = ["albumId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = SourceEntity::class,
+            parentColumns = ["sourceId"],
+            childColumns = ["sourceId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("albumId")],
+)
+data class AlbumSourceEntity(
+    val sourceId: String,
+    val remoteId: String,
+    val albumId: Long,
+    val seenInGeneration: Long,
+    /** Wie [SongSourceEntity.starredAt]. */
+    val starredAt: Long? = null,
+)
+
+/** Wie [AlbumSourceEntity] für Künstler. */
+@Entity(
+    tableName = "artist_sources",
+    primaryKeys = ["sourceId", "remoteId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = ArtistEntity::class,
+            parentColumns = ["artistId"],
+            childColumns = ["artistId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = SourceEntity::class,
+            parentColumns = ["sourceId"],
+            childColumns = ["sourceId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("artistId")],
+)
+data class ArtistSourceEntity(
+    val sourceId: String,
+    val remoteId: String,
+    val artistId: Long,
+    val seenInGeneration: Long,
+    val starredAt: Long? = null,
 )

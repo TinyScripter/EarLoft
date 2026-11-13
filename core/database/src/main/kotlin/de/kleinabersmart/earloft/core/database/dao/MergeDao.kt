@@ -7,7 +7,9 @@ import androidx.room.Query
 import androidx.room.Update
 import de.kleinabersmart.earloft.core.database.entity.AlbumArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.AlbumEntity
+import de.kleinabersmart.earloft.core.database.entity.AlbumSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.ArtistEntity
+import de.kleinabersmart.earloft.core.database.entity.ArtistSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SongArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
@@ -110,4 +112,40 @@ interface MergeDao {
     /** Mark-and-Sweep: Quellen, die beim letzten Vollabgleich nicht mehr gesehen wurden. */
     @Query("DELETE FROM song_sources WHERE sourceId = :sourceId AND seenInGeneration < :generation")
     suspend fun deleteStaleSongSources(sourceId: String, generation: Long): Int
+
+    // --- Album- und Künstler-Quellen ---
+
+    @Query("SELECT * FROM album_sources WHERE sourceId = :sourceId AND remoteId = :remoteId")
+    suspend fun getAlbumSource(sourceId: String, remoteId: String): AlbumSourceEntity?
+
+    @Insert
+    suspend fun insertAlbumSource(albumSource: AlbumSourceEntity)
+
+    @Update
+    suspend fun updateAlbumSource(albumSource: AlbumSourceEntity)
+
+    @Query("DELETE FROM album_sources WHERE sourceId = :sourceId AND seenInGeneration < :generation")
+    suspend fun deleteStaleAlbumSources(sourceId: String, generation: Long)
+
+    @Query("SELECT * FROM artist_sources WHERE sourceId = :sourceId AND remoteId = :remoteId")
+    suspend fun getArtistSource(sourceId: String, remoteId: String): ArtistSourceEntity?
+
+    @Insert
+    suspend fun insertArtistSource(artistSource: ArtistSourceEntity)
+
+    @Update
+    suspend fun updateArtistSource(artistSource: ArtistSourceEntity)
+
+    @Query("DELETE FROM artist_sources WHERE sourceId = :sourceId AND seenInGeneration < :generation")
+    suspend fun deleteStaleArtistSources(sourceId: String, generation: Long)
+
+    /** Künstler des Songs und seines Albums. */
+    @Query(
+        """
+        SELECT * FROM artists
+        WHERE artistId IN (SELECT artistId FROM song_artists WHERE songId = :songId)
+           OR artistId IN (SELECT aa.artistId FROM album_artists aa JOIN songs s ON s.albumId = aa.albumId WHERE s.songId = :songId)
+        """,
+    )
+    suspend fun getArtistsOfSong(songId: Long): List<ArtistEntity>
 }

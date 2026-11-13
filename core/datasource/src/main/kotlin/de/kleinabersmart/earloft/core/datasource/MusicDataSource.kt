@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.core.datasource
 
 import android.graphics.Bitmap
 import android.net.Uri
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
@@ -37,7 +38,8 @@ interface MusicDataSource {
  * Ausnahmen gemeldet: `IOException` = später erneut versuchen.
  */
 interface RemoteLibraryActions {
-    suspend fun setFavorite(remoteId: String, favorite: Boolean)
+    /** [remoteId] ist je nach [kind] die ID eines Songs, Albums oder Künstlers. */
+    suspend fun setFavorite(remoteId: String, favorite: Boolean, kind: FavoriteKind = FavoriteKind.SONG)
 
     /** [playedAt] = Beginn des Hörens in ms seit Epoche. */
     suspend fun scrobble(remoteId: String, playedAt: Long)
@@ -74,9 +76,16 @@ interface RemoteQuickSync {
     /** Songs der Alben, die nach [since] (ms seit Epoche) auf den Server kamen. */
     suspend fun tracksAddedSince(since: Long): List<RawTrack>
 
-    /** Alle favorisierten Songs: `remoteId` → Zeitpunkt des Sterns (ms; 0 = unbekannt). */
-    suspend fun starredSongs(): Map<String, Long>
+    /** Alles Favorisierte des Kontos. */
+    suspend fun starred(): RemoteStarred
 }
+
+/** Je Art `remoteId` → Zeitpunkt des Sterns (ms; 0 = unbekannt). */
+data class RemoteStarred(
+    val songs: Map<String, Long>,
+    val albums: Map<String, Long> = emptyMap(),
+    val artists: Map<String, Long> = emptyMap(),
+)
 
 /** Quellen, die Songtexte liefern. Fehler wie bei [RemoteLibraryActions]; `IOException` = später erneut versuchen. */
 interface RemoteLyrics {
@@ -138,6 +147,8 @@ sealed interface PlaybackLocation {
 data class RawArtist(
     val name: String,
     val mbid: String? = null,
+    /** ID des Künstlers auf dem Server (für Favoriten); lokale Quellen kennen keine. */
+    val remoteId: String? = null,
 )
 
 /** Track, wie ihn eine Quelle liefert – noch nicht dedupliziert. */
@@ -149,6 +160,8 @@ data class RawTrack(
     val albumTitle: String,
     val albumArtistDisplay: String,
     val albumArtists: List<RawArtist>,
+    /** ID des Albums auf dem Server (für Favoriten); lokale Quellen kennen keine. */
+    val albumRemoteId: String? = null,
     val isCompilation: Boolean = false,
     val discNumber: Int = 1,
     val trackNumber: Int = 0,

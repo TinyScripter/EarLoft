@@ -14,12 +14,14 @@ import de.kleinabersmart.earloft.core.datasource.RemotePlaybackReporting
 import de.kleinabersmart.earloft.core.datasource.RemotePlaylist
 import de.kleinabersmart.earloft.core.datasource.RemotePlaylistInfo
 import de.kleinabersmart.earloft.core.datasource.RemoteQuickSync
+import de.kleinabersmart.earloft.core.datasource.RemoteStarred
 import de.kleinabersmart.earloft.core.datasource.RemoteSimilarSongs
 import de.kleinabersmart.earloft.core.datasource.RemoteTranscoding
 import de.kleinabersmart.earloft.core.datasource.SourceBatch
 import de.kleinabersmart.earloft.core.datasource.decodeSampled
 import de.kleinabersmart.earloft.core.datasource.jellyfin.JellyfinTrackMapper.toEpochMillis
 import de.kleinabersmart.earloft.core.datasource.local.FallbackNames
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.LrcParser
 import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.model.SourceType
@@ -117,8 +119,15 @@ class JellyfinDataSource internal constructor(
         return tracks
     }
 
-    /** Jellyfin merkt sich nicht, seit wann ein Song Favorit ist. */
-    override suspend fun starredSongs(): Map<String, Long> = api.favoriteSongIds(server).associateWith { 0L }
+    /** Jellyfin merkt sich nicht, seit wann etwas Favorit ist. */
+    override suspend fun starred(): RemoteStarred {
+        val byType = api.favoriteMusicItems(server).groupBy({ it.type }, { it.id to 0L })
+        return RemoteStarred(
+            songs = byType["Audio"].orEmpty().toMap(),
+            albums = byType["MusicAlbum"].orEmpty().toMap(),
+            artists = byType["MusicArtist"].orEmpty().toMap(),
+        )
+    }
 
     /** Unbekanntes (z. B. aus anderen Bibliotheken) verwirft der Mix ohnehin. */
     override suspend fun similarSongs(remoteId: String, count: Int): List<String> =
@@ -151,7 +160,9 @@ class JellyfinDataSource internal constructor(
         return withContext(Dispatchers.Default) { decodeSampled(bytes, sizePx) }
     }
 
-    override suspend fun setFavorite(remoteId: String, favorite: Boolean) = api.setFavorite(server, remoteId, favorite)
+    /** Songs, Alben und Künstler sind Einträge desselben Aufrufs. */
+    override suspend fun setFavorite(remoteId: String, favorite: Boolean, kind: FavoriteKind) =
+        api.setFavorite(server, remoteId, favorite)
 
     /**
      * Nachgereicht: „gehört“ mit Zeitpunkt. Scrobble-Plugins des Servers sehen das nur, wenn sie auf geänderte

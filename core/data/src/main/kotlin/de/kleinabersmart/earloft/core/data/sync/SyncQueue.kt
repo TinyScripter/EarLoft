@@ -23,12 +23,15 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import de.kleinabersmart.earloft.core.data.repository.collectionStarState
+import de.kleinabersmart.earloft.core.data.repository.setCollectionStarredAt
 import de.kleinabersmart.earloft.core.data.source.MusicDataSources
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.PlaylistDao
 import de.kleinabersmart.earloft.core.database.dao.SyncDao
 import de.kleinabersmart.earloft.core.database.entity.SyncActionEntity
 import de.kleinabersmart.earloft.core.datasource.RemoteLibraryActions
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.SyncActionType
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.ServerApiException
@@ -143,6 +146,8 @@ class SyncQueueProcessor @Inject constructor(
                 remote.setFavorite(songSource.remoteId, favorite)
                 syncDao.setStarredAt(songSource.uid, if (favorite) System.currentTimeMillis() else null)
             }
+            SyncActionType.SET_ALBUM_FAVORITE -> setCollectionFavorite(FavoriteKind.ALBUM, action, remote)
+            SyncActionType.SET_ARTIST_FAVORITE -> setCollectionFavorite(FavoriteKind.ARTIST, action, remote)
             SyncActionType.SCROBBLE -> {
                 val songSource = syncDao.getSongSource(action.targetKey) ?: return
                 remote.scrobble(songSource.remoteId, action.payloadJson!!.toLong())
@@ -151,6 +156,15 @@ class SyncQueueProcessor @Inject constructor(
             // Die lokale Playlist ist schon gelöscht, die Remote-ID steht deshalb im Payload.
             SyncActionType.DELETE_PLAYLIST -> remote.deletePlaylist(action.payloadJson!!)
         }
+    }
+
+    /** Wie bei Songs; `targetKey` ist die `remoteId` des Albums bzw. Künstlers auf diesem Server. */
+    private suspend fun setCollectionFavorite(kind: FavoriteKind, action: SyncActionEntity, remote: RemoteLibraryActions) {
+        // Inzwischen nicht mehr auf dem Server (Abgleich) – nichts mehr zu tun.
+        syncDao.collectionStarState(kind, action.sourceId, action.targetKey) ?: return
+        val favorite = action.payloadJson.toBoolean()
+        remote.setFavorite(action.targetKey, favorite, kind)
+        syncDao.setCollectionStarredAt(kind, action.sourceId, action.targetKey, if (favorite) System.currentTimeMillis() else null)
     }
 
     /**
@@ -184,7 +198,8 @@ class SyncQueueProcessor @Inject constructor(
 
     /** Scrobbles und Löschen einer Playlist, die es dort nicht gibt, sind für den Nutzer keine Meldung wert. */
     private fun noticeKind(type: SyncActionType): SyncNotice.ChangeDropped.Kind? = when (type) {
-        SyncActionType.SET_FAVORITE -> SyncNotice.ChangeDropped.Kind.FAVORITE
+        SyncActionType.SET_FAVORITE, SyncActionType.SET_ALBUM_FAVORITE, SyncActionType.SET_ARTIST_FAVORITE ->
+            SyncNotice.ChangeDropped.Kind.FAVORITE
         SyncActionType.UPSERT_PLAYLIST -> SyncNotice.ChangeDropped.Kind.PLAYLIST
         SyncActionType.SCROBBLE, SyncActionType.DELETE_PLAYLIST -> null
     }

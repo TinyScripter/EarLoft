@@ -6,6 +6,10 @@ import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.LibraryDao
 import de.kleinabersmart.earloft.core.database.dao.MergeDao
 import de.kleinabersmart.earloft.core.database.dao.SourceDao
+import de.kleinabersmart.earloft.core.database.dao.SyncDao
+import de.kleinabersmart.earloft.core.data.repository.mergeCollectionStars
+import de.kleinabersmart.earloft.core.datasource.RemoteStarred
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.datasource.MusicDataSource
 import de.kleinabersmart.earloft.core.datasource.RemoteLibraryActions
@@ -34,6 +38,7 @@ class LibrarySyncer @Inject constructor(
     private val changeListeners: Set<@JvmSuppressWildcards LibraryChangeListener>,
     private val syncQueue: SyncQueueStarter,
     private val playlistSyncer: PlaylistSyncer,
+    private val syncDao: SyncDao,
 ) {
     private val mutex = Mutex()
     private val runningSyncs = MutableStateFlow(0)
@@ -78,10 +83,11 @@ class LibrarySyncer @Inject constructor(
                 // Mit Reserve für abweichende Uhren; Merge erkennt bereits Bekanntes.
                 val since = maxOf(entity.lastFullSyncAt, lastQuickSyncAt[source.sourceId] ?: 0L) - CLOCK_SLACK_MS
                 val added = source.tracksAddedSince(since)
-                val starred = source.starredSongs()
+                val starred = source.starred()
                 database.withTransaction {
                     added.forEach { mergeResolver.merge(source.sourceId, it, entity.syncGeneration, syncsFavorites = true) }
-                    mergeResolver.mergeStarred(source.sourceId, starred)
+                    mergeResolver.mergeStarred(source.sourceId, starred.songs)
+                    applyCollectionStars(source.sourceId, starred)
                 }
                 if (source is RemoteLibraryActions) playlistSyncer.sync(source.sourceId, source)
                 syncQueue.startIfPending()
@@ -123,11 +129,15 @@ class LibrarySyncer @Inject constructor(
             // Erst nach vollständigem Scan aufräumen – ein abgebrochener Scan darf nichts löschen.
             val removed = database.withTransaction {
                 val removed = mergeDao.deleteStaleSongSources(source.sourceId, generation)
+                mergeDao.deleteStaleAlbumSources(source.sourceId, generation)
+                mergeDao.deleteStaleArtistSources(source.sourceId, generation)
                 libraryDao.cleanupOrphans()
                 sourceDao.setSyncGeneration(source.sourceId, generation, System.currentTimeMillis())
                 removed
             }
             if (removed > 0) changeListeners.forEach { it.onSongSourcesRemoved() }
+            // Die Sterne der Songs kamen mit den Songs; die der Alben und Künstler stehen nur in der Liste des Servers.
+            if (source is RemoteQuickSync) syncCollectionStars(source)
             // Playlists erst jetzt: Ihre Einträge verweisen auf die gerade abgeglichenen Songs.
             if (source is RemoteLibraryActions) playlistSyncer.sync(source.sourceId, source)
             // Der Abgleich kann Favoriten für neue Server-Quellen eingereiht haben.
@@ -136,6 +146,24 @@ class LibrarySyncer @Inject constructor(
         } finally {
             runningSyncs.update { it - 1 }
         }
+    }
+
+    /** Optional wie der Zwischenabgleich: Scheitert es, holt das der nächste nach. */
+    private suspend fun syncCollectionStars(source: RemoteQuickSync) {
+        val starred = try {
+            source.starred()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Favoriten von Alben/Künstlern nicht geladen", e)
+            return
+        }
+        database.withTransaction { applyCollectionStars((source as MusicDataSource).sourceId, starred) }
+    }
+
+    private suspend fun applyCollectionStars(sourceId: String, starred: RemoteStarred) {
+        syncDao.mergeCollectionStars(FavoriteKind.ALBUM, sourceId, starred.albums)
+        syncDao.mergeCollectionStars(FavoriteKind.ARTIST, sourceId, starred.artists)
     }
 
     /**

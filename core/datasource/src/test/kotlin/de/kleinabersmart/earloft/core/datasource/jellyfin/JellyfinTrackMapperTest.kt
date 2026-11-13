@@ -66,8 +66,9 @@ class JellyfinTrackMapperTest {
 
         assertEquals("s1", track.remoteId)
         assertEquals("Queen", track.artistDisplay)
-        assertEquals(listOf(RawArtist("Queen", "0383dadf-2a4e-4d10-a46a-e9e041da8eb3")), track.artists)
-        assertEquals(listOf(RawArtist("Queen", "0383dadf-2a4e-4d10-a46a-e9e041da8eb3")), track.albumArtists)
+        assertEquals(listOf(RawArtist("Queen", "0383dadf-2a4e-4d10-a46a-e9e041da8eb3", remoteId = "ar1")), track.artists)
+        assertEquals(listOf(RawArtist("Queen", "0383dadf-2a4e-4d10-a46a-e9e041da8eb3", remoteId = "ar1")), track.albumArtists)
+        assertEquals("al1", track.albumRemoteId)
         assertEquals(25_207L, track.durationMs)
         assertEquals("8b70a6a6-b086-47cd-837a-0211c70ba818", track.mbidTrack)
         assertEquals("dbb05339-b2c7-46e7-9f1a-9e67bc97d0d1", track.mbidAlbum)

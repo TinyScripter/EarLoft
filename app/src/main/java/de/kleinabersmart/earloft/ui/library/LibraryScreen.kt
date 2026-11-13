@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.remember
@@ -110,11 +111,16 @@ fun LibraryScreen(
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
+    val albums by viewModel.albums.collectAsStateWithLifecycle()
     val albumsOfDecades by viewModel.albumsOfDecades.collectAsStateWithLifecycle()
     val albumsOfGenres by viewModel.albumsOfGenres.collectAsStateWithLifecycle()
     val selectedDecades by viewModel.selectedDecades.collectAsStateWithLifecycle()
     val selectedGenres by viewModel.selectedGenres.collectAsStateWithLifecycle()
     val artists by viewModel.artists.collectAsStateWithLifecycle()
+    val artistsShown by viewModel.artistsShown.collectAsStateWithLifecycle()
+    val favoriteAlbumIds by viewModel.favoriteAlbumIds.collectAsStateWithLifecycle()
+    val favoriteArtistIds by viewModel.favoriteArtistIds.collectAsStateWithLifecycle()
+    val favoritesOnly by viewModel.favoritesOnly.collectAsStateWithLifecycle()
     val songs by viewModel.songs.collectAsStateWithLifecycle()
     val genres by viewModel.genres.collectAsStateWithLifecycle()
     val decades by viewModel.decades.collectAsStateWithLifecycle()
@@ -122,6 +128,11 @@ fun LibraryScreen(
     val artistSort by viewModel.artistSort.collectAsStateWithLifecycle()
     val songSort by viewModel.songSort.collectAsStateWithLifecycle()
     val favoriteCount by viewModel.favoriteCount.collectAsStateWithLifecycle()
+    // Der Chip „Favoriten“ steht vorn, sobald es etwas zu zeigen gibt, und bleibt, solange er an ist.
+    val favoritesChip: (FavoritesChip, Set<Long>) -> FavoritesChipState? = { chip, ids ->
+        val on = chip in favoritesOnly
+        if (ids.isEmpty() && !on) null else FavoritesChipState(on) { viewModel.toggleFavoritesOnly(chip) }
+    }
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val servers by viewModel.servers.collectAsStateWithLifecycle()
     // Tabs und Seiten teilen sich den Pager-Zustand: Antippen und Wischen führen zum selben Ergebnis.
@@ -158,28 +169,54 @@ fun LibraryScreen(
             key = { it },
         ) { page ->
             when (LibraryTab.entries[page]) {
-                LibraryTab.ALBUMS -> LoadableList(albumsOfDecades, empty) {
+                // Leer heißt: gar keine Alben. Lässt die Auswahl nichts übrig, bleiben die Chips stehen, damit man sie lösen kann.
+                // Die Kopfzeile ist immer da (notfalls leer): Käme sie erst mit dem ersten Favoriten hinzu, hielte das Raster
+                // die erste Kachel fest und schöbe die Chips oben aus dem Bild.
+                LibraryTab.ALBUMS -> LoadableList(albums, empty) { all ->
+                    val shown = albumsOfDecades.valueOrNull ?: all
+                    val favorites = favoritesChip(FavoritesChip.ALBUMS, favoriteAlbumIds)
                     AlbumGrid(
-                        albums = it,
+                        albums = shown,
                         onAlbumClick = onAlbumClick,
                         scrollLabel = albumSort.scrollLabel(),
-                        header = if (decades.isEmpty()) null else {
-                            {
+                        header = {
+                            if (decades.isNotEmpty() || favorites != null) {
                                 FilterHeader(
                                     chips = {
-                                        ToggleChips(decades, { decade -> decade.startYear in selectedDecades }, { decade -> decadeLabel(decade.startYear) }) {
-                                            viewModel.toggleDecade(it.startYear)
-                                        }
+                                        ToggleChips(
+                                            decades,
+                                            { decade -> decade.startYear in selectedDecades },
+                                            { decade -> decadeLabel(decade.startYear) },
+                                            onToggle = { viewModel.toggleDecade(it.startYear) },
+                                            favorites = favorites,
+                                        )
                                     },
-                                    filtered = selectedDecades.isNotEmpty(),
-                                    onPlay = { shuffle -> viewModel.playAlbums(it, shuffle) },
+                                    filtered = selectedDecades.isNotEmpty() || FavoritesChip.ALBUMS in favoritesOnly,
+                                    nothingShown = shown.isEmpty(),
+                                    onPlay = { shuffle -> viewModel.playAlbums(shown, shuffle) },
                                 )
                             }
                         },
                     )
                 }
-                LibraryTab.ARTISTS -> LoadableList(artists, empty) {
-                    ArtistGrid(it, onArtistClick, byName = artistSort == ArtistSort.NAME)
+                LibraryTab.ARTISTS -> LoadableList(artists, empty) { all ->
+                    val shown = artistsShown.valueOrNull ?: all
+                    val favorites = favoritesChip(FavoritesChip.ARTISTS, favoriteArtistIds)
+                    ArtistGrid(
+                        artists = shown,
+                        onArtistClick = onArtistClick,
+                        byName = artistSort == ArtistSort.NAME,
+                        header = {
+                            favorites?.let {
+                                FilterHeader(
+                                    chips = { ToggleChips(emptyList<Unit>(), { false }, { "" }, onToggle = {}, favorites = it) },
+                                    filtered = it.selected,
+                                    nothingShown = shown.isEmpty(),
+                                    onPlay = { shuffle -> viewModel.playArtists(shown, shuffle) },
+                                )
+                            }
+                        },
+                    )
                 }
                 LibraryTab.SONGS -> LoadableList(songs, empty) {
                     SongList(
@@ -195,16 +232,26 @@ fun LibraryScreen(
                     // Musik ohne Genre-Angaben: eigener Hinweis; ganz ohne Musik wie die anderen Reiter.
                     empty = { if (songs.valueOrNull.isNullOrEmpty()) empty() else EmptyHint(stringResource(R.string.genres_empty)) },
                 ) { genreList ->
-                    LoadableList(albumsOfGenres, empty) {
+                    LoadableList(albums, empty) { all ->
+                        val shown = albumsOfGenres.valueOrNull ?: all
                         AlbumGrid(
-                            albums = it,
+                            albums = shown,
                             onAlbumClick = onAlbumClick,
                             scrollLabel = albumSort.scrollLabel(),
                             header = {
                                 FilterHeader(
-                                    chips = { ToggleChips(genreList, { genre -> genre.key in selectedGenres }, { genre -> genre.name }, viewModel::toggleGenre) },
-                                    filtered = selectedGenres.isNotEmpty(),
-                                    onPlay = { shuffle -> viewModel.playAlbums(it, shuffle) },
+                                    chips = {
+                                        ToggleChips(
+                                            genreList,
+                                            { genre -> genre.key in selectedGenres },
+                                            { genre -> genre.name },
+                                            onToggle = viewModel::toggleGenre,
+                                            favorites = favoritesChip(FavoritesChip.GENRES, favoriteAlbumIds),
+                                        )
+                                    },
+                                    filtered = selectedGenres.isNotEmpty() || FavoritesChip.GENRES in favoritesOnly,
+                                    nothingShown = shown.isEmpty(),
+                                    onPlay = { shuffle -> viewModel.playAlbums(shown, shuffle) },
                                 )
                             },
                         )
@@ -212,6 +259,8 @@ fun LibraryScreen(
                 }
                 LibraryTab.PLAYLISTS -> PlaylistList(
                     favoriteCount = favoriteCount,
+                    favoriteAlbumCount = favoriteAlbumIds.size,
+                    favoriteArtistCount = favoriteArtistIds.size,
                     // „Neue Playlist“ und „Favoriten“ stehen immer da; die eigenen Playlists erscheinen, sobald sie geladen sind.
                     playlists = playlists.valueOrNull.orEmpty(),
                     servers = servers,
@@ -228,6 +277,8 @@ fun LibraryScreen(
 @Composable
 private fun PlaylistList(
     favoriteCount: Int,
+    favoriteAlbumCount: Int,
+    favoriteArtistCount: Int,
     playlists: List<Playlist>,
     servers: List<ServerInfo>?,
     onFavoritesClick: () -> Unit,
@@ -266,7 +317,15 @@ private fun PlaylistList(
                 row("favorites") {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.favorites_title)) },
-                        supportingContent = { Text(pluralStringResource(R.plurals.song_count, favoriteCount, favoriteCount)) },
+                        supportingContent = {
+                            // Songs immer, Alben und Künstler nur, wenn es welche gibt.
+                            val parts = listOfNotNull(
+                                pluralStringResource(R.plurals.song_count, favoriteCount, favoriteCount),
+                                favoriteAlbumCount.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.album_count, it, it) },
+                                favoriteArtistCount.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.artist_count, it, it) },
+                            )
+                            Text(parts.joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        },
                         leadingContent = {
                             Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                                 Icon(
@@ -315,29 +374,63 @@ private fun TabLabel(text: String) {
     }
 }
 
+/** Der Chip „Favoriten“ vor den übrigen Chips einer Reihe. */
+private class FavoritesChipState(val selected: Boolean, val onToggle: () -> Unit)
+
 /**
- * Eine Reihe von Chips zum An- und Abschalten (mehrere zugleich), z. B. Jahrzehnte oder Genres über den Alben. Passt sie nicht
- * in die Breite, lässt sie sich seitlich wischen.
+ * Eine Reihe von Chips zum An- und Abschalten (mehrere zugleich), z. B. Jahrzehnte oder Genres über den Alben; mit [favorites]
+ * vorn der Chip „Favoriten“. Passt sie nicht in die Breite, lässt sie sich seitlich wischen.
  */
 @Composable
-private fun <T> ToggleChips(items: List<T>, selected: (T) -> Boolean, label: @Composable (T) -> String, onToggle: (T) -> Unit) {
+private fun <T> ToggleChips(
+    items: List<T>,
+    selected: (T) -> Boolean,
+    label: @Composable (T) -> String,
+    onToggle: (T) -> Unit,
+    favorites: FavoritesChipState? = null,
+) {
     val chipScroll = rememberScrollState()
     Row(
         Modifier.keepHorizontalScroll(chipScroll).horizontalScroll(chipScroll).padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        favorites?.let { chip ->
+            FilterChip(
+                selected = chip.selected,
+                onClick = chip.onToggle,
+                label = { Text(stringResource(R.string.favorites_title)) },
+                leadingIcon = {
+                    Icon(
+                        painterResource(if (chip.selected) DesignR.drawable.ic_favorite else DesignR.drawable.ic_favorite_border),
+                        contentDescription = null,
+                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                    )
+                },
+            )
+        }
         items.forEach { item ->
             FilterChip(selected = selected(item), onClick = { onToggle(item) }, label = { Text(label(item)) })
         }
     }
 }
 
-/** Chip-Reihe über den Alben; ist etwas ausgewählt ([filtered]), darunter „Abspielen“ und „Zufällig“ für die gezeigten Alben. */
+/**
+ * Chip-Reihe über Alben bzw. Künstlern; ist etwas ausgewählt ([filtered]), darunter „Abspielen“ und „Zufällig“ für die gezeigten
+ * Einträge, oder ein Hinweis, wenn die Auswahl nichts übrig lässt ([nothingShown]).
+ */
 @Composable
-private fun FilterHeader(chips: @Composable () -> Unit, filtered: Boolean, onPlay: (shuffle: Boolean) -> Unit) {
+private fun FilterHeader(chips: @Composable () -> Unit, filtered: Boolean, nothingShown: Boolean, onPlay: (shuffle: Boolean) -> Unit) {
     Column {
         chips()
-        if (filtered) PlayShuffleRow(onPlay = { onPlay(false) }, onShuffle = { onPlay(true) }, modifier = Modifier.padding(top = 4.dp))
+        when {
+            nothingShown -> Text(
+                stringResource(R.string.library_filter_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 16.dp),
+            )
+            filtered -> PlayShuffleRow(onPlay = { onPlay(false) }, onShuffle = { onPlay(true) }, modifier = Modifier.padding(top = 4.dp))
+        }
     }
 }
 
@@ -443,11 +536,13 @@ fun LazyGridScope.fullWidthItem(key: Any, content: @Composable () -> Unit) {
 
 /** Künstler als Raster, zwei pro Reihe, aufgebaut wie die Autoren der Bücher: Bild, darunter Name und Zahl der Alben. */
 @Composable
-private fun ArtistGrid(
+internal fun ArtistGrid(
     artists: List<Artist>,
     onArtistClick: (Long) -> Unit,
     /** Nach Name sortiert: mit Schnellscroller. */
     byName: Boolean,
+    /** Eine Zeile über den Künstlern (z. B. Chips), über die ganze Breite. */
+    header: (@Composable () -> Unit)? = null,
 ) {
     val state = rememberLazyGridState()
     Box(Modifier.fillMaxSize()) {
@@ -459,6 +554,7 @@ private fun ArtistGrid(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
+            if (header != null) fullWidthItem("header", header)
             items(artists, key = { it.id }) { artist ->
                 var menu by remember { mutableStateOf(false) }
                 Column(
@@ -490,7 +586,10 @@ private fun ArtistGrid(
             }
         }
         if (byName) {
-            LazyGridFastScroller(state, labelAt = { index -> letterOf(artists.getOrNull(index)?.name.orEmpty().sortKey()) })
+            val offset = if (header != null) 1 else 0
+            LazyGridFastScroller(state, labelAt = { index ->
+                letterOf(artists.getOrNull((index - offset).coerceAtLeast(0))?.name.orEmpty().sortKey())
+            })
         }
     }
 }

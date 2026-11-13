@@ -33,11 +33,13 @@ import de.kleinabersmart.earloft.ui.components.WatchMenuItem
 import de.kleinabersmart.earloft.ui.components.WatchTarget
 import de.kleinabersmart.earloft.ui.playlists.AddToPlaylistDialog
 import kotlinx.coroutines.launch
+import de.kleinabersmart.earloft.ui.components.CollectionFavoriteMenuItem
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
  * Kontextmenü eines Albums (Langklick), aufgebaut wie das der Folgen: oben der Titel, darunter Als Nächstes spielen,
- * Zur Warteschlange, Mix starten, Zur Playlist, Teilen, Herunterladen, Auf Uhr laden bzw. Von Uhr entfernen, Download entfernen. Erst einbinden, wenn es offen ist; [onDismiss]
+ * Zur Warteschlange, Mix starten, Zu Favoriten, Zur Playlist, Teilen, Herunterladen, Auf Uhr laden bzw. Von Uhr entfernen, Download entfernen. Erst einbinden, wenn es offen ist; [onDismiss]
  * schließt es (auch nach den Dialogen für Playlist und Entfernen).
  */
 @Composable
@@ -77,6 +79,7 @@ fun AlbumMenu(
             },
         )
         MixMenuItem(MixSeed.Album(album.id), onDismiss)
+        CollectionFavoriteMenuItem(FavoriteKind.ALBUM, album.id, onDismiss)
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_add_to_playlist)) },
             leadingIcon = { Icon(painterResource(DesignR.drawable.ic_queue_music), contentDescription = null) },

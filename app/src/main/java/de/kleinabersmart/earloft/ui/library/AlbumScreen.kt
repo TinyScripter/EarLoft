@@ -78,6 +78,8 @@ import de.kleinabersmart.earloft.ui.components.WatchStatusText
 import de.kleinabersmart.earloft.ui.components.WatchToggleButton
 import de.kleinabersmart.earloft.ui.components.formatDuration
 import de.kleinabersmart.earloft.ui.playlists.AddToPlaylistDialog
+import de.kleinabersmart.earloft.ui.components.CollectionFavoriteButton
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 @Composable
@@ -125,10 +127,11 @@ private fun AlbumContent(
             navigationIcon = { BackButton(onBack) },
             actions = {
                 if (state is LoadState.Ready) {
-                    WatchToggleButton(WearSelectionKind.ALBUM, state.value.album.id)
+                    CollectionFavoriteButton(FavoriteKind.ALBUM, state.value.album.id)
                     MixButton(MixSeed.Album(state.value.album.id))
                     AddAlbumToPlaylistButton(state.value.songs.map { it.id })
                     ShareButton(ShareTarget.Album(state.value.album.id))
+                    WatchToggleButton(WearSelectionKind.ALBUM, state.value.album.id)
                 }
             },
         )

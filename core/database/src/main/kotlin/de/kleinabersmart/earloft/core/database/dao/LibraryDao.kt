@@ -428,6 +428,24 @@ abstract class LibraryDao {
     @Query("SELECT isFavorite FROM songs WHERE songId = :songId")
     abstract fun observeIsFavorite(songId: Long): Flow<Boolean?>
 
+    @Query("$SELECT_ALBUM_ROWS WHERE a.isFavorite GROUP BY a.albumId ORDER BY a.favoriteChangedAt DESC")
+    abstract fun observeFavoriteAlbumRows(): Flow<List<AlbumRow>>
+
+    @Query("$SELECT_ARTIST_ROWS WHERE ar.isFavorite GROUP BY ar.artistId ORDER BY ar.favoriteChangedAt DESC")
+    abstract fun observeFavoriteArtistRows(): Flow<List<ArtistRow>>
+
+    @Query("SELECT albumId FROM albums WHERE isFavorite")
+    abstract fun observeFavoriteAlbumIds(): Flow<List<Long>>
+
+    @Query("SELECT artistId FROM artists WHERE isFavorite")
+    abstract fun observeFavoriteArtistIds(): Flow<List<Long>>
+
+    @Query("SELECT isFavorite FROM albums WHERE albumId = :albumId")
+    abstract fun observeIsAlbumFavorite(albumId: Long): Flow<Boolean?>
+
+    @Query("SELECT isFavorite FROM artists WHERE artistId = :artistId")
+    abstract fun observeIsArtistFavorite(artistId: Long): Flow<Boolean?>
+
     /** Reihenfolge entspricht nicht [songIds]; max. ~900 IDs pro Aufruf (SQLite-Variablenlimit). */
     @Query("$SELECT_SONG_ROWS WHERE s.songId IN (:songIds)")
     abstract suspend fun getSongRows(songIds: List<Long>): List<SongRow>

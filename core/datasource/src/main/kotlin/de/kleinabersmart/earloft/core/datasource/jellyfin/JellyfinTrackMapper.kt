@@ -46,6 +46,7 @@ internal object JellyfinTrackMapper {
             albumTitle = item.album.orBlankNull() ?: names.unknownAlbum,
             albumArtistDisplay = albumArtistDisplay,
             albumArtists = albumArtists,
+            albumRemoteId = item.albumId,
             isCompilation = isCompilation,
             discNumber = item.parentIndexNumber?.takeIf { it > 0 } ?: 1,
             trackNumber = item.indexNumber?.takeIf { it > 0 } ?: 0,
@@ -144,7 +145,9 @@ internal object JellyfinTrackMapper {
     /** Die MBID der Quelle gilt nur, wenn es genau einen Künstler gibt – sonst wäre unklar, zu wem sie gehört. */
     private fun List<JfNameId>.toRawArtists(singleMbid: String?): List<RawArtist> {
         val named = filter { it.name.isNotBlank() }
-        return named.map { RawArtist(name = it.name.trim(), mbid = singleMbid.orBlankNull().takeIf { named.size == 1 }) }
+        return named.map {
+            RawArtist(name = it.name.trim(), mbid = singleMbid.orBlankNull().takeIf { named.size == 1 }, remoteId = it.id.orBlankNull())
+        }
     }
 
     private fun hash(text: String): Long =

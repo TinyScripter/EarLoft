@@ -1,11 +1,13 @@
 package de.kleinabersmart.earloft.core.network.subsonic
 
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.await
 import de.kleinabersmart.earloft.core.network.subsonic.dto.AlbumDto
 import de.kleinabersmart.earloft.core.network.subsonic.dto.OpenSubsonicExtensionDto
 import de.kleinabersmart.earloft.core.network.subsonic.dto.PlaylistDto
 import de.kleinabersmart.earloft.core.network.subsonic.dto.SongDto
+import de.kleinabersmart.earloft.core.network.subsonic.dto.Starred2Dto
 import de.kleinabersmart.earloft.core.network.subsonic.dto.StructuredLyricsDto
 import de.kleinabersmart.earloft.core.network.subsonic.dto.SubsonicEnvelope
 import de.kleinabersmart.earloft.core.network.subsonic.dto.SubsonicResponse
@@ -58,8 +60,9 @@ class SubsonicApi @Inject constructor(
             ?: throw NotSubsonicException("getAlbum ohne album")
 
     /** Alle favorisierten Songs des Kontos. */
-    suspend fun starredSongs(server: SubsonicServer): List<SongDto> =
-        get(server, "getStarred2").starred2?.song.orEmpty()
+    /** Favorisierte Songs, Alben und Künstler. */
+    suspend fun starred(server: SubsonicServer): Starred2Dto =
+        get(server, "getStarred2").starred2 ?: Starred2Dto()
 
     /**
      * Bis zu [count] Songs, die zu Song, Album oder Künstler [id] passen (`getSimilarSongs`). Navidrome braucht dafür einen
@@ -76,13 +79,20 @@ class SubsonicApi @Inject constructor(
             emptyList()
         }
 
-    suspend fun star(server: SubsonicServer, songId: String) {
-        get(server, "star") { addQueryParameter("id", songId) }
+    suspend fun star(server: SubsonicServer, id: String, kind: FavoriteKind = FavoriteKind.SONG) {
+        get(server, "star") { addQueryParameter(kind.starParameter, id) }
     }
 
-    suspend fun unstar(server: SubsonicServer, songId: String) {
-        get(server, "unstar") { addQueryParameter("id", songId) }
+    suspend fun unstar(server: SubsonicServer, id: String, kind: FavoriteKind = FavoriteKind.SONG) {
+        get(server, "unstar") { addQueryParameter(kind.starParameter, id) }
     }
+
+    private val FavoriteKind.starParameter: String
+        get() = when (this) {
+            FavoriteKind.SONG -> "id"
+            FavoriteKind.ALBUM -> "albumId"
+            FavoriteKind.ARTIST -> "artistId"
+        }
 
     /** Meldet eine Wiedergabe; [playedAt] ist der Beginn des Hörens (ms seit Epoche). */
     suspend fun scrobble(server: SubsonicServer, songId: String, playedAt: Long) {

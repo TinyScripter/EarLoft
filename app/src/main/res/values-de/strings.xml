@@ -61,6 +61,10 @@
     <string name="item_missing">Nicht mehr in der Bibliothek.</string>
     <string name="load_failed">Konnte nicht geladen werden. Bitte später erneut versuchen.</string>
     <string name="disc_number">CD %1$d</string>
+    <plurals name="artist_count">
+        <item quantity="one">%1$d Künstler</item>
+        <item quantity="other">%1$d Künstler</item>
+    </plurals>
     <plurals name="album_count">
         <item quantity="one">%1$d Album</item>
         <item quantity="other">%1$d Alben</item>
@@ -309,6 +313,9 @@
     <string name="music_stats_top_genres">Meistgehörte Genres</string>
     <string name="favorites_title">Favoriten</string>
     <string name="favorites_empty">Noch keine Favoriten. Tippe im Player auf das Herz oder nutze das Song-Menü.</string>
+    <string name="favorites_albums_empty">Noch keine Lieblingsalben. Tippe auf einem Album auf das Herz oder nutze das Album-Menü.</string>
+    <string name="favorites_artists_empty">Noch keine Lieblingskünstler. Tippe bei einem Künstler auf das Herz oder nutze das Künstler-Menü.</string>
+    <string name="library_filter_empty">Nichts passt zu dieser Auswahl.</string>
     <string name="settings_scrobble">Wiedergaben an den Server melden</string>
     <string name="settings_scrobble_summary">Gehörte Titel zählen beim Server (und ggf. bei Last.fm oder ListenBrainz) mit.</string>
 

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.network.subsonic
 
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -194,10 +195,22 @@ class SubsonicApiTest {
         mockServer.enqueue(json("starred2_song"))
         mockServer.enqueue(json("starred2"))
 
-        val starred = api.starredSongs(server).single()
+        val starred = api.starred(server).song.single()
         assertEquals("Dritter Song", starred.title)
         assertEquals("2026-10-27T20:27:35.10825678+01:00", starred.starred)
-        assertEquals(emptyList<Any>(), api.starredSongs(server))
+        assertEquals(emptyList<Any>(), api.starred(server).song)
+    }
+
+    @Test
+    fun `starred albums and artists carry id and star time`() = runTest {
+        mockServer.enqueue(json("starred2_collections"))
+
+        val starred = api.starred(server)
+
+        assertEquals("3ELfiCU2mKdlowo65K2oBs", starred.album.single().id)
+        assertEquals("2026-11-13T09:13:32.319225102+01:00", starred.album.single().starred)
+        assertEquals("65p93SVfjW3DDeVC0U2vz3", starred.artist.single().id)
+        assertEquals("2026-11-13T09:13:32.320134196+01:00", starred.artist.single().starred)
     }
 
     @Test
@@ -226,6 +239,22 @@ class SubsonicApiTest {
         assertEquals("/navidrome/rest/scrobble", scrobble.encodedPath)
         assertEquals("1793000000000", scrobble.queryParameter("time"))
         assertEquals("true", scrobble.queryParameter("submission"))
+    }
+
+    @Test
+    fun `album and artist stars use their own parameter`() = runTest {
+        mockServer.enqueue(json("ping"))
+        mockServer.enqueue(json("ping"))
+
+        api.star(server, "al1", FavoriteKind.ALBUM)
+        api.unstar(server, "ar1", FavoriteKind.ARTIST)
+
+        val star = mockServer.takeRequest().url
+        assertEquals("al1", star.queryParameter("albumId"))
+        assertEquals(null, star.queryParameter("id"))
+        val unstar = mockServer.takeRequest().url
+        assertEquals("/navidrome/rest/unstar", unstar.encodedPath)
+        assertEquals("ar1", unstar.queryParameter("artistId"))
     }
 
     @Test

@@ -6,6 +6,9 @@ import de.kleinabersmart.earloft.core.data.sync.replaceAction
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.LibraryDao
 import de.kleinabersmart.earloft.core.database.dao.SyncDao
+import de.kleinabersmart.earloft.core.model.Album
+import de.kleinabersmart.earloft.core.model.Artist
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.Song
 import de.kleinabersmart.earloft.core.model.SyncActionType
 import kotlinx.coroutines.flow.Flow
@@ -56,5 +59,34 @@ class FavoritesRepository @Inject constructor(
 
     suspend fun toggleFavorite(songId: Long) {
         setFavorite(songId, syncDao.isSongFavorite(songId) != true)
+    }
+
+    /** Favorisierte Alben, das zuletzt favorisierte zuerst. */
+    fun favoriteAlbums(): Flow<List<Album>> = libraryDao.observeFavoriteAlbumRows().map { rows -> rows.map { it.toAlbum() } }
+
+    fun favoriteArtists(): Flow<List<Artist>> = libraryDao.observeFavoriteArtistRows().map { rows -> rows.map { it.toArtist() } }
+
+    fun favoriteAlbumIds(): Flow<Set<Long>> = libraryDao.observeFavoriteAlbumIds().map { it.toSet() }.distinctUntilChanged()
+
+    fun favoriteArtistIds(): Flow<Set<Long>> = libraryDao.observeFavoriteArtistIds().map { it.toSet() }.distinctUntilChanged()
+
+    fun isAlbumFavorite(albumId: Long): Flow<Boolean> =
+        libraryDao.observeIsAlbumFavorite(albumId).map { it == true }.distinctUntilChanged()
+
+    fun isArtistFavorite(artistId: Long): Flow<Boolean> =
+        libraryDao.observeIsArtistFavorite(artistId).map { it == true }.distinctUntilChanged()
+
+    /** Wie [setFavorite] für Alben ([FavoriteKind.ALBUM]) und Künstler ([FavoriteKind.ARTIST]); die Songs bleiben, wie sie sind. */
+    suspend fun setCollectionFavorite(kind: FavoriteKind, id: Long, favorite: Boolean) {
+        require(kind != FavoriteKind.SONG)
+        val pending = database.withTransaction {
+            syncDao.setCollectionFavorite(kind, id, favorite, System.currentTimeMillis())
+            syncDao.pushCollectionFavoriteToServers(kind, id, favorite)
+        }
+        if (pending) scheduler.enqueue()
+    }
+
+    suspend fun toggleCollectionFavorite(kind: FavoriteKind, id: Long) {
+        setCollectionFavorite(kind, id, syncDao.isCollectionFavorite(kind, id) != true)
     }
 }

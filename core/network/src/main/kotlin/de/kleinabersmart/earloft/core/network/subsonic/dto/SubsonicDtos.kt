@@ -58,6 +58,16 @@ data class AlbumList2Dto(
 @Serializable
 data class Starred2Dto(
     val song: List<SongDto> = emptyList(),
+    val album: List<AlbumDto> = emptyList(),
+    val artist: List<StarredArtistDto> = emptyList(),
+)
+
+@Serializable
+data class StarredArtistDto(
+    val id: String,
+    val name: String? = null,
+    /** ISO-8601. */
+    val starred: String? = null,
 )
 
 @Serializable
@@ -86,6 +96,8 @@ data class SongDto(
     val title: String? = null,
     val album: String? = null,
     val artist: String? = null,
+    /** Klassisches Subsonic: der (erste) Künstler; OpenSubsonic nennt alle in [artists]. */
+    val artistId: String? = null,
     val albumId: String? = null,
     val track: Int? = null,
     val discNumber: Int? = null,
@@ -118,7 +130,10 @@ data class AlbumDto(
     val id: String,
     val name: String? = null,
     val artist: String? = null,
+    val artistId: String? = null,
     val coverArt: String? = null,
+    /** ISO-8601, gesetzt wenn favorisiert. */
+    val starred: String? = null,
     val songCount: Int? = null,
     val year: Int? = null,
     val created: String? = null,

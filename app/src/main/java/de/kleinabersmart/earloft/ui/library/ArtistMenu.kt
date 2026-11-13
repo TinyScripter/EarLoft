@@ -36,11 +36,13 @@ import de.kleinabersmart.earloft.ui.components.ShareMenuItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import de.kleinabersmart.earloft.ui.components.CollectionFavoriteMenuItem
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
  * Kontextmenü eines Künstlers (Langklick auf Kachel oder Zeile, ⋮ auf der Künstlerseite), aufgebaut wie das der Alben: oben der
- * Name, darunter Als Nächstes spielen, Zur Warteschlange (alle seine Songs), Mix starten, Teilen, Herunterladen bzw. Download entfernen
+ * Name, darunter Als Nächstes spielen, Zur Warteschlange (alle seine Songs), Mix starten, Zu Favoriten, Teilen, Herunterladen bzw. Download entfernen
  * (seine Alben). Erst einbinden, wenn es offen ist.
  */
 @Composable
@@ -79,6 +81,7 @@ fun ArtistMenu(
             },
         )
         MixMenuItem(MixSeed.Artist(artistId), onDismiss)
+        CollectionFavoriteMenuItem(FavoriteKind.ARTIST, artistId, onDismiss)
         ShareMenuItem(ShareTarget.Artist(artistId), onDismiss)
         // Wie bei den Alben: rein lokale Künstler brauchen keinen Download; teilweise geladen bietet beides.
         if (offline.downloadableCount > 0 && !offline.isFullyOffline && offline.pendingCount == 0) {

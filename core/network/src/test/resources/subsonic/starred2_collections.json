@@ -1,0 +1,31 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.64.2 (10114574)",
+    "openSubsonic": true,
+    "starred2": {
+      "artist": [
+        {
+          "id": "65p93SVfjW3DDeVC0U2vz3",
+          "name": "Die Ärzte",
+          "albumCount": 6,
+          "starred": "2026-11-13T09:13:32.320134196+01:00"
+        }
+      ],
+      "album": [
+        {
+          "id": "3ELfiCU2mKdlowo65K2oBs",
+          "name": "Ab 18",
+          "artist": "Die Ärzte",
+          "artistId": "65p93SVfjW3DDeVC0U2vz3",
+          "coverArt": "al-3ELfiCU2mKdlowo65K2oBs_679e9a37e0e0a542",
+          "songCount": 7,
+          "year": 2002,
+          "starred": "2026-11-13T09:13:32.319225102+01:00"
+        }
+      ]
+    }
+  }
+}

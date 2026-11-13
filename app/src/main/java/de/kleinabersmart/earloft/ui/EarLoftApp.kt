@@ -154,6 +154,8 @@ import de.kleinabersmart.earloft.ui.spoken.bookFraction
 import de.kleinabersmart.earloft.ui.spoken.rememberBookDownloads
 import de.kleinabersmart.earloft.ui.spoken.rememberFeedDownloads
 import kotlinx.coroutines.launch
+import de.kleinabersmart.earloft.ui.components.LocalCollectionFavorites
+import de.kleinabersmart.earloft.ui.components.rememberCollectionFavorites
 
 @Composable
 fun EarLoftApp(
@@ -358,7 +360,9 @@ fun EarLoftApp(
         entry<EditAudiobookshelfRoute>(metadata = detailPane()) { route ->
             AudiobookshelfFormScreen(serverId = route.serverId, onDone = navigator::goBack)
         }
-        entry<FavoritesRoute>(metadata = detailPane()) { FavoritesScreen(onBack = navigator::goBack) }
+        entry<FavoritesRoute>(metadata = detailPane()) {
+            FavoritesScreen(onBack = navigator::goBack, onAlbumClick = openAlbum, onArtistClick = openArtist)
+        }
         entry<PlaylistRoute>(metadata = detailPane()) { route ->
             PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack)
         }
@@ -496,6 +500,7 @@ fun EarLoftApp(
         LocalWatchController provides rememberWatchController(),
         LocalShareController provides rememberShareController(),
         LocalMixController provides rememberMixController(),
+        LocalCollectionFavorites provides rememberCollectionFavorites(),
         LocalBookDownloads provides rememberBookDownloads(),
         LocalFeedDownloads provides rememberFeedDownloads(),
     ) {

@@ -13,12 +13,14 @@ import de.kleinabersmart.earloft.core.datasource.RawTrack
 import de.kleinabersmart.earloft.core.datasource.RemotePlaylist
 import de.kleinabersmart.earloft.core.datasource.RemotePlaylistInfo
 import de.kleinabersmart.earloft.core.datasource.RemoteQuickSync
+import de.kleinabersmart.earloft.core.datasource.RemoteStarred
 import de.kleinabersmart.earloft.core.datasource.RemoteSimilarSongs
 import de.kleinabersmart.earloft.core.datasource.RemoteTranscoding
 import de.kleinabersmart.earloft.core.datasource.SourceBatch
 import de.kleinabersmart.earloft.core.datasource.decodeSampled
 import de.kleinabersmart.earloft.core.datasource.local.FallbackNames
 import de.kleinabersmart.earloft.core.datasource.subsonic.SubsonicTrackMapper.toEpochMillis
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.network.subsonic.SubsonicApi
@@ -93,8 +95,16 @@ class SubsonicDataSource internal constructor(
         return tracks
     }
 
-    override suspend fun starredSongs(): Map<String, Long> =
-        api.starredSongs(server).associate { it.id to (it.starred?.toEpochMillis() ?: 0L) }
+    override suspend fun starred(): RemoteStarred {
+        val starred = api.starred(server)
+        return RemoteStarred(
+            songs = starred.song.associate { it.id to it.starred.starredMillis() },
+            albums = starred.album.associate { it.id to it.starred.starredMillis() },
+            artists = starred.artist.associate { it.id to it.starred.starredMillis() },
+        )
+    }
+
+    private fun String?.starredMillis(): Long = this?.toEpochMillis() ?: 0L
 
     override suspend fun similarSongs(remoteId: String, count: Int): List<String> =
         api.similarSongs(server, remoteId, count).filter(SubsonicTrackMapper::isMusic).map { it.id }
@@ -128,8 +138,8 @@ class SubsonicDataSource internal constructor(
         return withContext(Dispatchers.Default) { decodeSampled(bytes, sizePx) }
     }
 
-    override suspend fun setFavorite(remoteId: String, favorite: Boolean) {
-        if (favorite) api.star(server, remoteId) else api.unstar(server, remoteId)
+    override suspend fun setFavorite(remoteId: String, favorite: Boolean, kind: FavoriteKind) {
+        if (favorite) api.star(server, remoteId, kind) else api.unstar(server, remoteId, kind)
     }
 
     override suspend fun scrobble(remoteId: String, playedAt: Long) = api.scrobble(server, remoteId, playedAt)

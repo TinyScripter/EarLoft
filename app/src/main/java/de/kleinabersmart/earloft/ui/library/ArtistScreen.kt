@@ -39,6 +39,8 @@ import de.kleinabersmart.earloft.ui.components.PlayControlViewModel
 import de.kleinabersmart.earloft.ui.components.SectionHeader
 import de.kleinabersmart.earloft.ui.components.ShareButton
 import de.kleinabersmart.earloft.ui.components.SongListItem
+import de.kleinabersmart.earloft.ui.components.CollectionFavoriteButton
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,6 +66,7 @@ fun ArtistScreen(
             navigationIcon = { BackButton(onBack) },
             actions = {
                 (state as? LoadState.Ready)?.let { ready ->
+                    CollectionFavoriteButton(FavoriteKind.ARTIST, artistId)
                     ShareButton(ShareTarget.Artist(artistId))
                     var menu by rememberSaveable { mutableStateOf(false) }
                     Box {

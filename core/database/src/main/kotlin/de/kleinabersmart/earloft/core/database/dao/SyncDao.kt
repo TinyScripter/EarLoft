@@ -10,6 +10,9 @@ import de.kleinabersmart.earloft.core.model.SyncActionType
 /** Stern einer Song-Quelle, wie der Server ihn zuletzt gemeldet bzw. die App gesendet hat. */
 data class SourceStarState(val uid: String, val remoteId: String, val songId: Long, val starredAt: Long?)
 
+/** Stern eines Server-Albums bzw. -Künstlers; [id] ist die `albumId` bzw. `artistId`. */
+data class CollectionStarState(val sourceId: String, val remoteId: String, val id: Long, val starredAt: Long?)
+
 /** Offline-Änderungen für Server (Konzept 6.4) und der Favoriten-Zustand je Quelle. */
 @Dao
 interface SyncDao {
@@ -72,4 +75,76 @@ interface SyncDao {
         """,
     )
     suspend fun hasPendingFavorite(songId: Long): Boolean
+
+    // --- Favoriten von Alben und Künstlern ---
+
+    @Query("UPDATE albums SET isFavorite = :favorite, favoriteChangedAt = :changedAt WHERE albumId = :albumId")
+    suspend fun setAlbumFavorite(albumId: Long, favorite: Boolean, changedAt: Long)
+
+    @Query("SELECT isFavorite FROM albums WHERE albumId = :albumId")
+    suspend fun isAlbumFavorite(albumId: Long): Boolean?
+
+    @Query(
+        """
+        SELECT als.sourceId, als.remoteId, als.albumId AS id, als.starredAt FROM album_sources als
+        JOIN sources src ON src.sourceId = als.sourceId
+        WHERE als.albumId = :albumId AND src.type NOT IN $NOT_SERVER_TYPES
+        """,
+    )
+    suspend fun getAlbumServerSources(albumId: Long): List<CollectionStarState>
+
+    @Query("SELECT sourceId, remoteId, albumId AS id, starredAt FROM album_sources WHERE sourceId = :sourceId")
+    suspend fun getAlbumStarStates(sourceId: String): List<CollectionStarState>
+
+    @Query("SELECT sourceId, remoteId, albumId AS id, starredAt FROM album_sources WHERE sourceId = :sourceId AND remoteId = :remoteId")
+    suspend fun getAlbumStarState(sourceId: String, remoteId: String): CollectionStarState?
+
+    @Query("UPDATE album_sources SET starredAt = :starredAt WHERE sourceId = :sourceId AND remoteId = :remoteId")
+    suspend fun setAlbumStarredAt(sourceId: String, remoteId: String, starredAt: Long?)
+
+    @Query(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM sync_actions sa
+            JOIN album_sources als ON als.sourceId = sa.sourceId AND als.remoteId = sa.targetKey
+            WHERE sa.actionType = 'SET_ALBUM_FAVORITE' AND als.albumId = :albumId
+        )
+        """,
+    )
+    suspend fun hasPendingAlbumFavorite(albumId: Long): Boolean
+
+    @Query("UPDATE artists SET isFavorite = :favorite, favoriteChangedAt = :changedAt WHERE artistId = :artistId")
+    suspend fun setArtistFavorite(artistId: Long, favorite: Boolean, changedAt: Long)
+
+    @Query("SELECT isFavorite FROM artists WHERE artistId = :artistId")
+    suspend fun isArtistFavorite(artistId: Long): Boolean?
+
+    @Query(
+        """
+        SELECT ars.sourceId, ars.remoteId, ars.artistId AS id, ars.starredAt FROM artist_sources ars
+        JOIN sources src ON src.sourceId = ars.sourceId
+        WHERE ars.artistId = :artistId AND src.type NOT IN $NOT_SERVER_TYPES
+        """,
+    )
+    suspend fun getArtistServerSources(artistId: Long): List<CollectionStarState>
+
+    @Query("SELECT sourceId, remoteId, artistId AS id, starredAt FROM artist_sources WHERE sourceId = :sourceId")
+    suspend fun getArtistStarStates(sourceId: String): List<CollectionStarState>
+
+    @Query("SELECT sourceId, remoteId, artistId AS id, starredAt FROM artist_sources WHERE sourceId = :sourceId AND remoteId = :remoteId")
+    suspend fun getArtistStarState(sourceId: String, remoteId: String): CollectionStarState?
+
+    @Query("UPDATE artist_sources SET starredAt = :starredAt WHERE sourceId = :sourceId AND remoteId = :remoteId")
+    suspend fun setArtistStarredAt(sourceId: String, remoteId: String, starredAt: Long?)
+
+    @Query(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM sync_actions sa
+            JOIN artist_sources ars ON ars.sourceId = sa.sourceId AND ars.remoteId = sa.targetKey
+            WHERE sa.actionType = 'SET_ARTIST_FAVORITE' AND ars.artistId = :artistId
+        )
+        """,
+    )
+    suspend fun hasPendingArtistFavorite(artistId: Long): Boolean
 }
