@@ -14,6 +14,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
@@ -72,6 +74,7 @@ internal fun SettingsPage(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    listState: LazyListState = rememberLazyListState(),
     content: LazyListScope.() -> Unit,
 ) {
     Column(modifier.fillMaxSize().readableWidth()) {
@@ -79,7 +82,7 @@ internal fun SettingsPage(
             title = { Text(title) },
             navigationIcon = { BackButton(onBack) },
         )
-        LazyColumn(Modifier.navigationBarsPadding(), contentPadding = PaddingValues(bottom = 16.dp), content = content)
+        LazyColumn(Modifier.navigationBarsPadding(), state = listState, contentPadding = PaddingValues(bottom = 16.dp), content = content)
     }
 }
 

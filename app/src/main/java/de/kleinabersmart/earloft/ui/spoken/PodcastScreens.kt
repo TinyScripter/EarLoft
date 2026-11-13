@@ -119,6 +119,8 @@ import de.kleinabersmart.earloft.ui.components.coverOutlineColor
 import de.kleinabersmart.earloft.ui.components.gridTile
 import de.kleinabersmart.earloft.ui.components.ShelfInset
 import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
+import de.kleinabersmart.earloft.ui.components.readableWidth
+import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.settings.SwitchRow
@@ -453,8 +455,10 @@ fun PodcastScreen(
         viewModel.messages.collect { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
     }
     val current = feed.valueOrNull
+    var switchingSource by rememberSaveable { mutableStateOf(false) }
 
-    Column(modifier.fillMaxSize()) {
+    // Breit (Tablet, von Start aus ohne Liste daneben): nicht über die ganze Breite, sonst stehen Knöpfe weit vom Titel.
+    Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         TopAppBar(
             title = {},
             navigationIcon = { BackButton(onBack) },
@@ -525,6 +529,21 @@ fun PodcastScreen(
                         }
                     }
                 }
+                // Scheitert der Abgleich seit mehreren Versuchen (Konzept 12.10), steht es hier mit dem Weg zu einer anderen Quelle.
+                if (current.hasProblem) {
+                    item(key = "problem") {
+                        TrialNotice(
+                            text = feedProblemText(current),
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                            error = true,
+                            action = if (current.subscribed) {
+                                { FilledTonalButton(onClick = { switchingSource = true }) { Text(stringResource(R.string.podcast_source_switch)) } }
+                            } else {
+                                null
+                            },
+                        )
+                    }
+                }
                 item(key = "episodes-header") { SectionHeader(stringResource(R.string.podcast_episodes)) }
                 if (episodes == LoadState.Failed) {
                     item(key = "failed") { LoadFailedHint() }
@@ -556,6 +575,18 @@ fun PodcastScreen(
                 }
             }
         }
+    }
+
+    if (switchingSource && current != null) {
+        val doneText = stringResource(R.string.podcast_source_switch_done)
+        SourceSwitchDialog(
+            feed = current,
+            onDismiss = { switchingSource = false },
+            onSwitched = {
+                switchingSource = false
+                snackbars.show(doneText)
+            },
+        )
     }
 }
 
@@ -660,7 +691,7 @@ fun PodcastSearchScreen(
     val hits = result?.hits.orEmpty()
     val settled = result?.query == trimmed
 
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         Row(Modifier.statusBarsPadding().padding(end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             BackButton(onBack)
             OutlinedTextField(
@@ -730,7 +761,7 @@ fun PodcastInfoScreen(
     val copiedText = stringResource(R.string.podcast_url_copied)
     val scope = rememberCoroutineScope()
 
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
             title = { Text(stringResource(R.string.podcast_info), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
@@ -816,9 +847,23 @@ fun PodcastSettingsScreen(
     var switchingSource by rememberSaveable { mutableStateOf(false) }
     val current = feed.valueOrNull
 
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
-            title = { Text(stringResource(R.string.podcast_settings), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            // Darunter der Name des Podcasts: Die Seite kommt auch aus dem Langklick-Menü, ohne seine Seite davor.
+            title = {
+                Column {
+                    Text(stringResource(R.string.podcast_settings), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    current?.let {
+                        Text(
+                            it.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            },
             navigationIcon = { BackButton(onBack) },
         )
         if (current == null) {

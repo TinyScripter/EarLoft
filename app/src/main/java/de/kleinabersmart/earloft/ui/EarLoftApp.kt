@@ -453,7 +453,7 @@ fun EarLoftApp(
                 onEditServer = { navigator.navigate(EditServerRoute(it)) },
             )
         }
-        entry<SettingsPodcastsRoute>(metadata = detailPane()) { PodcastsSettingsScreen(onBack = navigator::goBack) }
+        entry<SettingsPodcastsRoute>(metadata = detailPane()) { PodcastsSettingsScreen(onBack = navigator::goBack, onOpenFeed = openPodcast) }
         entry<SettingsAudiobooksRoute>(metadata = detailPane()) {
             AudiobookSettingsScreen(
                 onBack = navigator::goBack,

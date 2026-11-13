@@ -23,6 +23,8 @@ data class ParsedFeed(
     val episodes: List<ParsedEpisode>,
     /** Webseite des Podcasts (`<link>`), zum Teilen (Konzept 13). */
     val websiteUrl: String? = null,
+    /** Neue Adresse, die der Feed selbst ankündigt (`<itunes:new-feed-url>`), nur http(s). */
+    val newFeedUrl: String? = null,
 )
 
 data class ParsedEpisode(
@@ -99,6 +101,7 @@ object PodcastFeedParser {
                 ?: channel.child("image", NS_NONE)?.text("url")?.takeIf { it.isNotBlank() },
             episodes = episodes,
             websiteUrl = webPage(channel.text("link", NS_NONE)),
+            newFeedUrl = webAddress(channel.text("new-feed-url", NS_ITUNES)),
         )
     }
 
@@ -129,6 +132,7 @@ object PodcastFeedParser {
                 ?: feed.text("logo").ifEmpty { feed.text("icon") }.takeIf { it.isNotBlank() },
             episodes = episodes,
             websiteUrl = feed.alternateLink(),
+            newFeedUrl = webAddress(feed.text("new-feed-url", NS_ITUNES)),
         )
     }
 

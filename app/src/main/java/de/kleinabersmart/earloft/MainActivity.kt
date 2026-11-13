@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.core.app.NotificationManagerCompat
 import dagger.hilt.android.AndroidEntryPoint
 import de.kleinabersmart.earloft.cast.CastVolumeIndicator
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRefresher
@@ -39,7 +40,10 @@ import de.kleinabersmart.earloft.core.data.sync.LibrarySettings
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
 import de.kleinabersmart.earloft.core.playback.EXTRA_OPEN_NOW_PLAYING
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import de.kleinabersmart.earloft.notification.AppNewContentNotifier
 import de.kleinabersmart.earloft.notification.NewContentTarget
+import de.kleinabersmart.earloft.notification.NewEpisodeActionReceiver
+import de.kleinabersmart.earloft.ui.spoken.BookLauncher
 import de.kleinabersmart.earloft.ui.EarLoftApp
 import de.kleinabersmart.earloft.ui.permission.AudioPermissionGate
 import de.kleinabersmart.earloft.ui.theme.LocalPlayerCoverColors
@@ -66,6 +70,8 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var setupState: SetupState
 
     @Inject lateinit var playbackConnection: PlaybackConnection
+
+    @Inject lateinit var bookLauncher: BookLauncher
 
     /** Der Tipp auf die Benachrichtigung der laufenden Musik soll immer die Wiedergabe-Ansicht zeigen. */
     private var openNowPlaying by mutableStateOf(false)
@@ -101,8 +107,23 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         if (intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)) openNowPlaying = true
         playFromSearch(intent)
+        playNewEpisode(intent)
         openSharedFeed(intent)
         openNewContent(NewContentTarget.from(intent))
+    }
+
+    /**
+     * „Abspielen“ in der Benachrichtigung über eine neue Folge: abspielen und die Wiedergabe-Ansicht zeigen. Über die App,
+     * damit die Rückfrage zu mobilen Daten erscheinen kann; danach verschwindet die Benachrichtigung.
+     */
+    private fun playNewEpisode(intent: Intent) {
+        if (intent.action != AppNewContentNotifier.ACTION_PLAY_EPISODE) return
+        val bookId = intent.getLongExtra(NewEpisodeActionReceiver.EXTRA_BOOK_ID, -1).takeIf { it >= 0 } ?: return
+        NotificationManagerCompat.from(this).cancel(AppNewContentNotifier.notificationId(SpokenMode.PODCASTS))
+        lifecycleScope.launch {
+            spokenSettings.setMode(SpokenMode.PODCASTS)
+            if (bookLauncher.playAndAwait(bookId)) openNowPlaying = true
+        }
     }
 
     /**
@@ -158,6 +179,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             openNowPlaying = intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)
             playFromSearch(intent)
+            playNewEpisode(intent)
             openSharedFeed(intent)
             openNewContent(NewContentTarget.from(intent))
         } else {

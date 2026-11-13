@@ -100,9 +100,15 @@ class ListGroupScope @PublishedApi internal constructor() {
  * Zeilen (`if`, Schleifen) sind erlaubt; ohne Zeilen entfällt auch die Überschrift.
  */
 fun LazyListScope.group(key: Any, @StringRes title: Int? = null, build: ListGroupScope.() -> Unit) {
+    val text: (@Composable () -> String)? = title?.let { id -> { stringResource(id) } }
+    group(key, text, build)
+}
+
+/** Wie [group], mit einer Überschrift, die erst beim Zeichnen entsteht (etwa mit einer Anzahl). */
+fun LazyListScope.group(key: Any, title: (@Composable () -> String)?, build: ListGroupScope.() -> Unit) {
     val rows = ListGroupScope().apply(build).rows
     if (rows.isEmpty()) return
-    if (title != null) item(key = key) { SectionHeader(stringResource(title)) }
+    if (title != null) item(key = key) { SectionHeader(title()) }
     rows.forEachIndexed { index, (rowKey, content) ->
         item(key = rowKey) { GroupedItem(index, rows.size) { content() } }
     }

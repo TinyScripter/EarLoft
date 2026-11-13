@@ -15,10 +15,11 @@ import androidx.compose.ui.unit.dp
 val TwoColumnMinWidth: Dp = 840.dp
 
 /**
- * Begrenzt Einstellungen und Formulare auf breiten Fenstern auf eine lesbare Breite und zentriert sie,
+ * Begrenzt Einstellungen und Formulare auf breiten Fenstern auf eine lesbare Breite ([max]) und zentriert sie,
  * damit Schalter nicht weit weg von ihrem Text stehen. Auf dem Handy und in einer Detailspalte ohne Wirkung.
  */
-fun Modifier.readableWidth(): Modifier = fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = 720.dp)
+fun Modifier.readableWidth(max: Dp = 720.dp): Modifier =
+    fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = max)
 
 /**
  * Gibt [content] das größte Quadrat, das in den freien Platz passt (höchstens [maxSide]), und zentriert es. Ein Cover mit

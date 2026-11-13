@@ -36,13 +36,17 @@ class AppNewContentNotifier @Inject constructor(
     private val bookCovers: BookCovers,
 ) : NewContentNotifier {
 
-    /** Was in der Benachrichtigung steht; [cover] nur bei genau einem Album, Podcast oder Buch. */
+    /**
+     * Was in der Benachrichtigung steht; [cover] nur bei genau einem Album, Podcast oder Buch, [actions] nur bei genau
+     * einer neuen Folge.
+     */
     private class Message(
         val title: String,
         val text: String,
         val details: List<String>,
         val target: NewContentTarget,
         val cover: (suspend () -> Bitmap?)? = null,
+        val actions: List<NotificationCompat.Action> = emptyList(),
     )
 
     // areNotificationsEnabled() deckt auch die fehlende POST_NOTIFICATIONS-Berechtigung ab.
@@ -81,8 +85,9 @@ class AppNewContentNotifier @Inject constructor(
             .setAutoCancel(true)
             .setSilent(true)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .apply { message.actions.forEach(::addAction) }
             .build()
-        manager.notify(NOTIFICATION_ID_BASE + mode.ordinal, notification)
+        manager.notify(notificationId(mode), notification)
     }
 
     private fun music(content: NewContent.Music): Message {
@@ -107,24 +112,76 @@ class AppNewContentNotifier @Inject constructor(
     }
 
     private fun podcasts(content: NewContent.Podcasts): Message {
+        // Umgezogene Abos (Konzept 12.10 „Feed-Umzug“) stehen als eigene Zeile unter den neuen Folgen.
+        val movedLine = content.moved.takeIf { it.isNotEmpty() }
+            ?.let { context.getString(R.string.new_content_feeds_moved, it.joinToString(", ")) }
+        if (content.episodes.isEmpty()) {
+            val count = content.moved.size
+            return Message(
+                title = context.resources.getQuantityString(R.plurals.new_content_feeds_moved_title, count, count),
+                text = movedLine.orEmpty(),
+                details = emptyList(),
+                target = NewContentTarget(SpokenMode.PODCASTS),
+            )
+        }
         val episodes = content.episodes.sumOf { it.count }
         val episodesText = context.resources.getQuantityString(R.plurals.new_content_episodes, episodes, episodes)
         // Ein einzelner Podcast nennt sich beim Namen und führt auf seine Seite; das Bild ist das der (neuesten) Folge.
+        // Bei genau einer neuen Folge gibt es sie gleich zum Abspielen, als Nächstes und (ohne Automatik) zum Laden.
         content.episodes.singleOrNull()?.let { feed ->
             return Message(
                 title = feed.feedTitle,
                 text = episodesText,
-                details = emptyList(),
+                details = listOfNotNull(movedLine),
                 target = NewContentTarget(SpokenMode.PODCASTS, feedId = feed.feedId),
                 cover = feed.episodeIds.firstOrNull()?.let { episodeId -> { bookCovers.cover(episodeId) } },
+                actions = feed.episodeIds.singleOrNull()?.let { episodeActions(it, download = !feed.autoDownload) }.orEmpty(),
             )
         }
         val feeds = content.episodes.size
         return Message(
             title = context.getString(R.string.new_content_episodes_title),
             text = episodesText + " " + context.resources.getQuantityString(R.plurals.new_content_in_podcasts, feeds, feeds),
-            details = names(content.episodes.map { "${it.feedTitle} (${it.count})" }),
+            details = names(content.episodes.map { "${it.feedTitle} (${it.count})" }) + listOfNotNull(movedLine),
             target = NewContentTarget(SpokenMode.PODCASTS),
+        )
+    }
+
+    /**
+     * „Abspielen“ öffnet die App (dort kann die Rückfrage zu mobilen Daten kommen) und den Player; „Als Nächstes“ und
+     * „Laden“ laufen im Hintergrund ([NewEpisodeActionReceiver]).
+     */
+    private fun episodeActions(bookId: Long, download: Boolean): List<NotificationCompat.Action> {
+        val play = Intent(context, MainActivity::class.java)
+            .setAction(ACTION_PLAY_EPISODE)
+            .putExtra(NewEpisodeActionReceiver.EXTRA_BOOK_ID, bookId)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        fun broadcast(action: String, requestCode: Int) = PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            Intent(context, NewEpisodeActionReceiver::class.java).setAction(action).putExtra(NewEpisodeActionReceiver.EXTRA_BOOK_ID, bookId),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        return listOfNotNull(
+            NotificationCompat.Action(
+                R.drawable.ic_stat_earloft,
+                context.getString(R.string.new_content_play),
+                PendingIntent.getActivity(context, REQUEST_CODE_PLAY, play, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
+            ),
+            NotificationCompat.Action(
+                R.drawable.ic_stat_earloft,
+                context.getString(R.string.new_content_play_next),
+                broadcast(NewEpisodeActionReceiver.ACTION_PLAY_NEXT, REQUEST_CODE_PLAY_NEXT),
+            ),
+            if (download) {
+                NotificationCompat.Action(
+                    R.drawable.ic_stat_earloft,
+                    context.getString(R.string.new_content_download),
+                    broadcast(NewEpisodeActionReceiver.ACTION_DOWNLOAD, REQUEST_CODE_DOWNLOAD),
+                )
+            } else {
+                null
+            },
         )
     }
 
@@ -195,13 +252,21 @@ class AppNewContentNotifier @Inject constructor(
         SpokenMode.BOOKS -> R.string.new_content_books_title
     }
 
-    private companion object {
-        const val TAG = "NewContentNotifier"
-        const val LEGACY_CHANNEL_ID = "new_content"
-        const val NOTIFICATION_ID_BASE = 0x4e43
-        const val REQUEST_CODE_BASE = 0x4e43
-        const val COVER_SIZE_PX = 256
-        const val COVER_TIMEOUT_MS = 15_000L
-        const val MAX_NAMES = 5
+    companion object {
+        /** „Abspielen“ aus der Benachrichtigung über eine neue Folge; die `bookId` steht in [NewEpisodeActionReceiver.EXTRA_BOOK_ID]. */
+        const val ACTION_PLAY_EPISODE = "de.kleinabersmart.earloft.NEW_EPISODE_PLAY"
+
+        fun notificationId(mode: SpokenMode): Int = NOTIFICATION_ID_BASE + mode.ordinal
+
+        private const val TAG = "NewContentNotifier"
+        private const val LEGACY_CHANNEL_ID = "new_content"
+        private const val NOTIFICATION_ID_BASE = 0x4e43
+        private const val REQUEST_CODE_BASE = 0x4e43
+        private const val REQUEST_CODE_PLAY = 0x4e50
+        private const val REQUEST_CODE_PLAY_NEXT = 0x4e51
+        private const val REQUEST_CODE_DOWNLOAD = 0x4e52
+        private const val COVER_SIZE_PX = 256
+        private const val COVER_TIMEOUT_MS = 15_000L
+        private const val MAX_NAMES = 5
     }
 }

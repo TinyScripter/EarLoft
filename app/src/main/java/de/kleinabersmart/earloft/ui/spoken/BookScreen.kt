@@ -372,12 +372,15 @@ private fun episodeTransferText(fraction: Float?): String =
         stringResource(R.string.episode_download_progress, (fraction * 100).toInt())
     }
 
-/** Beschreibung und Kapitelliste; ein Tipp auf ein Kapitel spielt ab dessen Anfang. */
+/**
+ * Beschreibung und Kapitelliste; ein Tipp auf ein Kapitel spielt ab dessen Anfang, bei Folgen ebenso ein Tipp auf eine
+ * Zeitmarke in den Shownotes.
+ */
 private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter>, onChapter: (Long) -> Unit) {
     if (book.description.isNotBlank()) {
         item(key = "description") {
             Text(
-                rememberDescription(book.description),
+                rememberDescription(book.description, book.durationMs, onChapter.takeIf { book.kind == BookKind.EPISODE }),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
             )

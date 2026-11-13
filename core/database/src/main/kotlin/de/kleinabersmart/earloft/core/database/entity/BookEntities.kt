@@ -8,6 +8,7 @@ import androidx.room.PrimaryKey
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.ChapterSource
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
 
@@ -74,6 +75,13 @@ data class PodcastFeedEntity(
     @ColumnInfo(defaultValue = "0") val keepEpisodes: Int = 0,
     /** Wie viele neue Folgen die Automatik bereithält (v32); `null` = die Vorgabe aus den Einstellungen. */
     val autoDownloadCount: Int? = null,
+    /**
+     * Fehlerstatus des Abgleichs (v33): fehlgeschlagene Abrufe in Folge, Grund des letzten, Beginn der Serie (0 = klappt).
+     * Ein erfolgreicher Abgleich setzt alles zurück; nicht im Backup.
+     */
+    @ColumnInfo(defaultValue = "0") val failedRefreshes: Int = 0,
+    val lastError: FeedError? = null,
+    @ColumnInfo(defaultValue = "0") val failingSince: Long = 0,
 )
 
 @Entity(

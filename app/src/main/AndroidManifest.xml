@@ -132,6 +132,11 @@
              Handy und Bluetooth, keine Cast-Geräte, und kann nicht zwischen Handy und Empfänger wechseln. -->
         <receiver android:name="androidx.mediarouter.media.MediaTransferReceiver" />
 
+        <!-- Aktionen der Benachrichtigung über eine neue Folge („Als Nächstes“, „Laden“). -->
+        <receiver
+            android:name=".notification.NewEpisodeActionReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".widget.NowPlayingWidgetReceiver"
             android:exported="true"

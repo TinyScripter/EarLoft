@@ -648,6 +648,15 @@
     <string name="podcast_directory_failed">Keine Antwort von %1$s.</string>
     <string name="podcast_directory_subscribed">Abonniert</string>
     <string name="podcast_source_title">Abonnieren über</string>
+    <!-- Fehlerstatus eines Abos (Konzept 12.10): seit wann der Abgleich scheitert, und warum -->
+    <string name="podcast_refresh_failing">Abgleich fehlgeschlagen seit %1$s: %2$s</string>
+    <string name="feed_error_gone">Feed nicht mehr vorhanden (404)</string>
+    <string name="feed_error_denied">Zugriff verweigert</string>
+    <string name="feed_error_server">Serverfehler</string>
+    <string name="feed_error_not_a_feed">unter der Adresse liegt kein Podcast-Feed</string>
+    <string name="feed_error_tls">sichere Verbindung abgelehnt (Zertifikat)</string>
+    <string name="feed_error_unreachable">Server nicht erreichbar</string>
+    <string name="settings_section_feed_problems">Abos mit Problemen (%1$d)</string>
     <string name="podcast_source_switch">Quelle wechseln</string>
     <string name="podcast_source_switch_summary">Gleiche Sendung von woanders beziehen, etwa ARD Sounds statt RSS-Feed; Fortschritt, Downloads und Statistik bleiben</string>
     <string name="podcast_source_switch_warning">Exportiere vorher zur Sicherheit die Datenbank. Der Wechsel schreibt Folgen, Hörfortschritt und Statistik dieses Abos um und lässt sich nicht rückgängig machen.</string>
@@ -921,6 +930,16 @@
         <item quantity="one">%1$d neues Buch</item>
         <item quantity="other">%1$d neue Bücher</item>
     </plurals>
+    <!-- Feed-Umzug (Konzept 12.10): Abos, die an eine neue Adresse umgezogen sind -->
+    <plurals name="new_content_feeds_moved_title">
+        <item quantity="one">Podcast an neue Adresse umgezogen</item>
+        <item quantity="other">%1$d Podcasts an neue Adressen umgezogen</item>
+    </plurals>
+    <string name="new_content_feeds_moved">Neue Adresse übernommen: %1$s</string>
+    <!-- Aktionen der Benachrichtigung bei genau einer neuen Folge -->
+    <string name="new_content_play">Abspielen</string>
+    <string name="new_content_play_next">Als Nächstes</string>
+    <string name="new_content_download">Laden</string>
     <string name="refresh_podcasts_started">Podcasts werden aktualisiert …</string>
     <string name="refresh_books_started">Bücher werden aktualisiert …</string>
     <string name="refresh_no_new_episodes">Keine neuen Folgen</string>

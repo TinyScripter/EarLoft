@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.DEFAULT_RSS_BRIDGE
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +62,7 @@ import de.kleinabersmart.earloft.core.network.podcast.directory.PodcastDirectory
 import de.kleinabersmart.earloft.ui.spoken.AudiobookshelfSection
 import de.kleinabersmart.earloft.ui.spoken.OpmlImportDialog
 import de.kleinabersmart.earloft.ui.spoken.PodcastArt
+import de.kleinabersmart.earloft.ui.spoken.feedProblemText
 import de.kleinabersmart.earloft.ui.spoken.countryName
 import de.kleinabersmart.earloft.ui.spoken.label
 import de.kleinabersmart.earloft.ui.spoken.opmlImportMessage
@@ -580,10 +582,14 @@ fun MusicSettingsScreen(
     }
 }
 
-/** Podcasts haben keine Server (die Feeds liegen in der Bibliothek); Quelle ist nur der Ordner auf dem Gerät. */
+/**
+ * Podcasts haben keine Server (die Feeds liegen in der Bibliothek); Quelle ist nur der Ordner auf dem Gerät. Abos, deren
+ * Abgleich scheitert, stehen ganz oben; ein Tipp öffnet ihre Seite ([onOpenFeed]).
+ */
 @Composable
 fun PodcastsSettingsScreen(
     onBack: () -> Unit,
+    onOpenFeed: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -616,7 +622,30 @@ fun PodcastsSettingsScreen(
     val snackbars = LocalSnackbars.current
     TransferMessagesEffect(viewModel)
 
-    SettingsPage(stringResource(R.string.settings_podcasts), onBack, modifier) {
+    // Die Abos mit Problemen kommen erst mit der Datenbank; die Liste hielte sonst die bis dahin erste Zeile fest, und
+    // sie stünden über dem sichtbaren Anfang.
+    val listState = rememberLazyListState()
+    val hasProblems = state.problemPodcasts.isNotEmpty()
+    LaunchedEffect(hasProblems) {
+        if (hasProblems && listState.firstVisibleItemScrollOffset == 0) listState.scrollToItem(0)
+    }
+    SettingsPage(stringResource(R.string.settings_podcasts), onBack, modifier, listState) {
+        if (state.problemPodcasts.isNotEmpty()) {
+            val count = state.problemPodcasts.size
+            group("feed-problems", { stringResource(R.string.settings_section_feed_problems, count) }) {
+                state.problemPodcasts.forEach { feed ->
+                    row("problem-${feed.id}") {
+                        ListItem(
+                            headlineContent = { Text(feed.title) },
+                            supportingContent = { Text(feedProblemText(feed), color = MaterialTheme.colorScheme.error) },
+                            leadingContent = { PodcastArt(feed.imageUrl, Modifier.size(40.dp)) },
+                            modifier = Modifier.clickable { onOpenFeed(feed.id) },
+                        )
+                    }
+                }
+            }
+        }
+
         group("sources", R.string.settings_section_sources) {
             row("local-podcasts") {
                 SwitchRow(

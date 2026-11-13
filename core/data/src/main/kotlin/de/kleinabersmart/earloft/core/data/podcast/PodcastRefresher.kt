@@ -163,7 +163,7 @@ class PodcastRefreshWorker(
         if (SpokenMode.PODCASTS !in entryPoint.spokenSettings().areas.first()) return Result.success()
         val summary = entryPoint.repository().refreshAll()
         // Podcasts, für die der Nutzer keine Hinweise will, fehlen hier.
-        val content = NewContent.Podcasts(summary.newEpisodes.filter { it.notify })
+        val content = NewContent.Podcasts(summary.newEpisodes.filter { it.notify }, summary.moved)
         if (!content.isEmpty) entryPoint.notifier().show(content)
         // Nur wiederholen, wenn gar nichts ging (Netz weg). Ein einzelner toter Feed lüde sonst alle paar Minuten alle
         // Abos neu; er kommt mit dem nächsten regulären Lauf wieder dran.

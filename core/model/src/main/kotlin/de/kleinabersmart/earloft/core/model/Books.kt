@@ -206,9 +206,40 @@ data class PodcastFeed(
     val keepEpisodes: Int = 0,
     /** Wie viele neue Folgen die Automatik bereithält; `null` = Vorgabe aus den Einstellungen. */
     val autoDownloadCount: Int? = null,
+    /** Fehlgeschlagene Abgleiche in Folge, der Grund des letzten und seit wann es scheitert (0 = klappt). */
+    val failedRefreshes: Int = 0,
+    val refreshError: FeedError? = null,
+    val failingSince: Long = 0,
 ) {
     /** Aus dem Ordner „Podcasts“: keine Feed-Adresse, kein Abgleich, kein Download, kein Abo zu beenden. */
     val isLocal: Boolean get() = id.startsWith(LOCAL_PODCAST_PREFIX)
+
+    /** Scheitert der Abgleich seit [FEED_PROBLEM_AFTER] Versuchen, zeigt die App es an (Konzept 12.10). */
+    val hasProblem: Boolean get() = failedRefreshes >= FEED_PROBLEM_AFTER
+}
+
+/** Ab so vielen fehlgeschlagenen Abgleichen in Folge gilt ein Abo als kaputt; ein einzelner Ausfall ist normal. */
+const val FEED_PROBLEM_AFTER = 3
+
+/** Warum der Abgleich eines Feeds scheiterte. */
+enum class FeedError {
+    /** 404/410: Den Feed gibt es unter der Adresse nicht mehr. */
+    GONE,
+
+    /** 401/403: Der Server verlangt eine Anmeldung oder verweigert den Abruf. */
+    DENIED,
+
+    /** Andere HTTP-Fehler (meist 5xx). */
+    SERVER,
+
+    /** Die Antwort ist kein RSS- oder Atom-Feed. */
+    NOT_A_FEED,
+
+    /** Zertifikat oder TLS-Verbindung abgelehnt. */
+    TLS,
+
+    /** Server nicht erreichbar (Name unbekannt, Zeitüberschreitung, Verbindung abgelehnt). */
+    UNREACHABLE,
 }
 
 /** Stelle in einer Datei des Buchs. */

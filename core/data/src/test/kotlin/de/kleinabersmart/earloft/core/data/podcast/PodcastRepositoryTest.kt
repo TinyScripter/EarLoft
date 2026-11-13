@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.ChapterSource
+import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
@@ -50,6 +51,9 @@ class PodcastRepositoryTest {
     /** Was die GraphQL-Schnittstelle von ARD Sounds gerade ausliefert; `null` = nicht erreichbar. */
     private var ardServed: String? = show("Fall 2", "Fall 1")
 
+    /** HTTP-Status des Feeds. */
+    private var servedCode = 200
+
     /** `false`: Der Host spricht kein HTTPS. */
     private var httpsAvailable = true
 
@@ -68,12 +72,12 @@ class PodcastRepositoryTest {
                 val ard = chain.request().url.host == "api.ardaudiothek.de"
                 val body = (if (ard) ardServed else served) ?: throw IOException("offline")
                 Response.Builder()
-                    .request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                    .request(chain.request()).protocol(Protocol.HTTP_1_1).code(if (ard) 200 else servedCode).message("OK")
                     .body(body.toResponseBody("application/rss+xml".toMediaType()))
                     .build()
             }
             .build()
-        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), settings, AudioFileChapters(ApplicationProvider.getApplicationContext()))
+        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), settings, AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") })
     }
 
     @After
@@ -103,6 +107,40 @@ class PodcastRepositoryTest {
         assertEquals("https://example.com/A.mp3", track.remoteFileId)
         assertEquals(600_000, track.durationMs)
         assertTrue(db.bookDao().book(episodes.first().id)!!.detailsLoaded)
+    }
+
+    @Test
+    fun `failed refreshes are counted with their reason until one succeeds`() = runTest {
+        val feedId = subscribe()
+        servedCode = 404
+
+        repeat(3) { assertEquals(null, repository.refresh(feedId)) }
+
+        val failing = repository.feed(feedId).first()!!
+        assertEquals(3 to FeedError.GONE, failing.failedRefreshes to failing.refreshError)
+        assertTrue(failing.hasProblem && failing.failingSince > 0)
+        servedCode = 200
+        assertNotNull(repository.refresh(feedId))
+        val fine = db.podcastDao().feed(feedId)!!
+        assertEquals(Triple(0, null, 0L), Triple(fine.failedRefreshes, fine.lastError, fine.failingSince))
+    }
+
+    @Test
+    fun `when no feed is reachable it is the network, a dead feed still counts`() = runTest {
+        val feedId = subscribe()
+        served = null
+        repository.refreshAll()
+        assertEquals(0, db.podcastDao().feed(feedId)!!.failedRefreshes)
+
+        served = feed("A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        servedCode = 410
+        val summary = repository.refreshAll()
+        assertTrue(summary.allFailed)
+        assertEquals(1 to FeedError.GONE, db.podcastDao().feed(feedId)!!.let { it.failedRefreshes to it.lastError })
+        servedCode = 200
+        served = "<html><body>Parkplatz</body></html>"
+        repository.refresh(feedId)
+        assertEquals(2 to FeedError.NOT_A_FEED, db.podcastDao().feed(feedId)!!.let { it.failedRefreshes to it.lastError })
     }
 
     @Test

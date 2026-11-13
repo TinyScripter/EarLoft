@@ -6,8 +6,17 @@ import kotlinx.coroutines.flow.asSharedFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Neue Folgen eines Podcasts ([episodeIds] sind `books`-Ids); [notify] sagt, ob der Nutzer dafür benachrichtigt werden will. */
-data class NewEpisodes(val feedId: String, val feedTitle: String, val episodeIds: List<Long>, val notify: Boolean = true) {
+/**
+ * Neue Folgen eines Podcasts ([episodeIds] sind `books`-Ids); [notify] sagt, ob der Nutzer dafür benachrichtigt werden will,
+ * [autoDownload], ob die Automatik sie ohnehin lädt.
+ */
+data class NewEpisodes(
+    val feedId: String,
+    val feedTitle: String,
+    val episodeIds: List<Long>,
+    val notify: Boolean = true,
+    val autoDownload: Boolean = false,
+) {
     val count: Int get() = episodeIds.size
 }
 
@@ -25,8 +34,9 @@ sealed interface NewContent {
         override val isEmpty: Boolean get() = albums.isEmpty()
     }
 
-    data class Podcasts(val episodes: List<NewEpisodes>) : NewContent {
-        override val isEmpty: Boolean get() = episodes.isEmpty()
+    /** [moved]: Titel der Abos, die an eine neue Adresse umgezogen sind (Konzept 12.10 „Feed-Umzug“). */
+    data class Podcasts(val episodes: List<NewEpisodes>, val moved: List<String> = emptyList()) : NewContent {
+        override val isEmpty: Boolean get() = episodes.isEmpty() && moved.isEmpty()
     }
 
     data class Books(val books: List<NewBook>) : NewContent {

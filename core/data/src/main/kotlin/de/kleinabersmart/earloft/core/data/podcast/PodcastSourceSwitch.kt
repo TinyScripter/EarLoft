@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.network.podcast.FeedFetch
 import de.kleinabersmart.earloft.core.network.podcast.ParsedEpisode
 import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
+import java.util.Collections
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -140,6 +141,38 @@ class PodcastSourceSwitch @Inject constructor(
         return true
     }
 
+    /** Umzüge, die nicht gingen (Ziel kein Feed, schon abonniert …); sie werden bis zum Neustart nicht erneut versucht. */
+    private val refusedMoves = Collections.synchronizedSet(HashSet<Pair<String, String>>())
+
+    /**
+     * Feed-Umzug ohne Rückfrage (Konzept 12.10): Kündigt der Feed eine neue Adresse an (`itunes:new-feed-url`) oder leitet
+     * er dauerhaft weiter, zieht das Abo dorthin um wie bei „Quelle wechseln“. Nur, wenn dort ein Feed liegt, der kein
+     * anderes Abo ist, nicht zurück auf die alte Adresse verweist und nicht unverschlüsselt ist, wo es vorher HTTPS war.
+     * `true`, wenn das Abo umgezogen ist.
+     */
+    suspend fun follow(feedId: String, newUrl: String): Boolean {
+        val oldUrl = podcastDao.feed(feedId)?.url ?: return false
+        if (oldUrl == newUrl || !refusedMoves.add(feedId to newUrl)) return false
+        val ready = when (val check = check(feedId, newUrl)) {
+            is SourceCheck.Ready -> check
+            else -> {
+                Log.i(TAG, "Kein Umzug nach ${hostOf(newUrl)}: $check")
+                return false
+            }
+        }
+        val target = ready.plan.newUrl
+        val fetched = ready.plan.fetched
+        val downgrade = oldUrl.startsWith("https://", ignoreCase = true) && !target.startsWith("https://", ignoreCase = true)
+        if (downgrade || fetched.feed.newFeedUrl == oldUrl || fetched.movedTo == oldUrl) {
+            Log.i(TAG, "Kein Umzug nach ${hostOf(target)}: unverschlüsselt oder zurück auf die alte Adresse")
+            return false
+        }
+        if (!switch(ready)) return false
+        refusedMoves.remove(feedId to newUrl)
+        Log.i(TAG, "Feed umgezogen: ${hostOf(oldUrl)} → ${hostOf(target)}")
+        return true
+    }
+
     private companion object {
         const val TAG = "PodcastSourceSwitch"
         const val MAX_ARGS = 500
@@ -181,6 +214,9 @@ internal fun matchEpisodes(known: List<KnownEpisode>, fresh: List<ParsedEpisode>
 
 /** Adresse einer Audiodatei ohne Schema, Query und Groß-/Kleinschreibung des Hosts; Feeds hängen oft Zähl-Parameter an. */
 private fun audioKey(url: String): String = normalizeFeedUrl(url)?.let { it.host + it.encodedPath } ?: url.trim()
+
+/** Für das Log nur der Host: Private Feeds tragen ihr Zugangstoken in Pfad oder Query. */
+private fun hostOf(url: String): String = normalizeFeedUrl(url)?.host ?: url.substringBefore(':')
 
 /** Folgen erscheinen in RSS-Feed und ARD Sounds nicht immer zur selben Stunde. */
 private const val MAX_DATE_DIFF_MS = 2 * 24 * 60 * 60 * 1000L

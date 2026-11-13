@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.network.podcast
 
+import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -11,16 +12,27 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Antwort des Feeds auf einen bedingten Abruf. */
+/**
+ * Antwort des Feeds auf einen bedingten Abruf. [movedTo]: Der Feed liegt dauerhaft unter einer anderen Adresse (nur
+ * 301/308 auf dem ganzen Weg, kein Wechsel von HTTPS zu HTTP; Konzept 12.10 „Feed-Umzug“).
+ */
 sealed interface FeedFetch {
-    /** Seit dem letzten Abruf unverändert (HTTP 304). */
-    data object NotModified : FeedFetch
+    val movedTo: String?
 
-    data class Fetched(val feed: ParsedFeed, val etag: String?, val lastModified: String?) : FeedFetch
+    /** Seit dem letzten Abruf unverändert (HTTP 304). */
+    data class NotModified(override val movedTo: String? = null) : FeedFetch
+
+    data class Fetched(
+        val feed: ParsedFeed,
+        val etag: String?,
+        val lastModified: String?,
+        override val movedTo: String? = null,
+    ) : FeedFetch
 }
 
 /** Ein Kapitel aus der Podcasting-2.0-Kapitelliste oder Podlove; Bild und Webseite nur als absolute http(s)-Adresse. */
@@ -46,11 +58,12 @@ class PodcastFeedApi @Inject constructor(
             }
             .build()
         client.newCall(request).await().use { response ->
-            if (response.code == 304) return@use FeedFetch.NotModified
-            if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+            val movedTo = permanentTarget(url, response)?.toString()
+            if (response.code == 304) return@use FeedFetch.NotModified(movedTo)
+            if (!response.isSuccessful) throw HttpStatusException(response.code)
             // Ein zu großer Feed wird abgeschnitten gelesen und vom Parser als unvollständig abgelehnt.
             val feed = PodcastFeedParser.parse(response.peekBody(MAX_FEED_BYTES).byteStream())
-            FeedFetch.Fetched(feed, response.header("ETag"), response.header("Last-Modified"))
+            FeedFetch.Fetched(feed, response.header("ETag"), response.header("Last-Modified"), movedTo)
         }
     }
 
@@ -86,6 +99,20 @@ class PodcastFeedApi @Inject constructor(
         const val MAX_CHAPTERS_BYTES = 1L * 1024 * 1024
         const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
     }
+}
+
+/**
+ * Ziel der Weiterleitungen vor [response], soweit sie von [requested] aus alle dauerhaft waren (301/308); eine
+ * vorübergehende (302/307) beendet die Kette. `null`, wenn es keins gibt oder es von HTTPS zu HTTP führte.
+ */
+internal fun permanentTarget(requested: HttpUrl, response: Response): HttpUrl? {
+    val chain = generateSequence(response) { it.priorResponse }.toList().asReversed()
+    var target: HttpUrl? = null
+    for (i in 0 until chain.size - 1) {
+        if (chain[i].code != 301 && chain[i].code != 308) break
+        target = chain[i + 1].request.url
+    }
+    return target?.takeIf { it != requested && (it.isHttps || !requested.isHttps) }
 }
 
 /** Manche Verzeichnisse (z. B. podcastindex.org) lehnen den Standard-User-Agent von OkHttp mit 403 ab. */

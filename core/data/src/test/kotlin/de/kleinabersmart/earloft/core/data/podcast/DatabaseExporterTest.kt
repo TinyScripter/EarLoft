@@ -45,7 +45,7 @@ class DatabaseExporterTest {
                     .build()
             }
             .build()
-        val repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()))
+        val repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") })
         importer = DatabaseImporter(repository, db.podcastDao(), db.bookDao(), db.statsDao())
         exporter = DatabaseExporter(db.podcastDao(), db.bookDao(), db.statsDao())
         repository.subscribe(FEED_URL)

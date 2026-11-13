@@ -10,6 +10,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import kotlinx.coroutines.flow.Flow
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
 
@@ -128,6 +129,13 @@ abstract class PodcastDao {
 
     @Query("UPDATE podcast_feeds SET keepEpisodes = :keep WHERE feedId = :feedId")
     abstract suspend fun setKeepEpisodes(feedId: String, keep: Int)
+
+    /** Ein weiterer fehlgeschlagener Abgleich; die Serie beginnt mit dem ersten ([now]). */
+    @Query(
+        "UPDATE podcast_feeds SET failedRefreshes = failedRefreshes + 1, lastError = :error, " +
+            "failingSince = CASE WHEN failingSince = 0 THEN :now ELSE failingSince END WHERE feedId = :feedId",
+    )
+    abstract suspend fun recordRefreshFailure(feedId: String, error: FeedError, now: Long)
 
     /** Podcast einer Folge. */
     @Query("SELECT serverId FROM books WHERE bookId = :bookId AND kind = 'EPISODE'")

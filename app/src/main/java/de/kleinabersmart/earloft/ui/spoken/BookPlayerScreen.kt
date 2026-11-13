@@ -255,6 +255,8 @@ private fun BookPlayerContent(
         }
     }
     val description = bookWithProgress?.book?.description.orEmpty()
+    // Zeitmarken in den Shownotes springen in der laufenden Folge.
+    val onTimestamp: ((Long) -> Unit)? = if (episode) viewModel::seekToBook else null
     val sleepActive = sleepRemaining != null
     val castDeviceName = rememberCastDeviceName(state.isRemote)
 
@@ -491,7 +493,7 @@ private fun BookPlayerContent(
                                     contentPadding = PaddingValues(vertical = 8.dp),
                                     transparent = true,
                                 )
-                            else -> DescriptionPane(description, Modifier.fillMaxSize())
+                            else -> DescriptionPane(description, Modifier.fillMaxSize(), duration, onTimestamp)
                         }
                     }
                 }
@@ -520,7 +522,7 @@ private fun BookPlayerContent(
 
     if (showInfo) {
         ModalBottomSheet(onDismissRequest = { showInfo = false }) {
-            DescriptionPane(description, Modifier.fillMaxWidth().navigationBarsPadding())
+            DescriptionPane(description, Modifier.fillMaxWidth().navigationBarsPadding(), duration, onTimestamp)
         }
     }
 
@@ -935,12 +937,17 @@ private fun PlayerShareButton(bookId: Long, positionMs: () -> Long) {
     }
 }
 
-/** Beschreibung des Buchs bzw. die Shownotes der Folge. */
+/** Beschreibung des Buchs bzw. die Shownotes der Folge; mit [onTimestamp] sind Zeitmarken antippbar. */
 @Composable
-private fun DescriptionPane(description: String, modifier: Modifier = Modifier) {
+private fun DescriptionPane(
+    description: String,
+    modifier: Modifier = Modifier,
+    durationMs: Long = 0,
+    onTimestamp: ((Long) -> Unit)? = null,
+) {
     Column(modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
         Text(stringResource(R.string.spoken_description), style = MaterialTheme.typography.titleSmall)
-        val formatted = rememberDescription(description)
+        val formatted = rememberDescription(description, durationMs, onTimestamp)
         Text(
             if (description.isBlank()) AnnotatedString(stringResource(R.string.spoken_no_description)) else formatted,
             style = MaterialTheme.typography.bodyMedium,

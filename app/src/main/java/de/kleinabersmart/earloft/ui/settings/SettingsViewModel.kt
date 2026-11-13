@@ -96,6 +96,8 @@ data class SettingsUiState(
     val podcastFeedCount: Int = 0,
     /** Archivierte Abos, nach Titel; unter Einstellungen → Podcasts reaktivierbar. */
     val archivedPodcasts: List<PodcastFeed> = emptyList(),
+    /** Abos, deren Abgleich seit mehreren Versuchen scheitert (Konzept 12.10). */
+    val problemPodcasts: List<PodcastFeed> = emptyList(),
     val syncIntervalDays: Int = LibrarySettings.DEFAULT_SYNC_DAYS,
     val mobileStreamQuality: MobileStreamQuality = MobileStreamQuality.ORIGINAL,
     val isSyncing: Boolean = false,
@@ -263,7 +265,7 @@ class SettingsViewModel @Inject constructor(
     }.combine(audiobookServers.servers) { state, list ->
         state.copy(audiobookServerCount = list.size)
     }.combine(combine(podcastRepository.feeds, podcastRepository.archivedFeeds, ::Pair)) { state, (feeds, archived) ->
-        state.copy(podcastFeedCount = feeds.size, archivedPodcasts = archived)
+        state.copy(podcastFeedCount = feeds.size, archivedPodcasts = archived, problemPodcasts = feeds.filter { it.hasProblem })
     }.combine(combine(librarySettings.syncIntervalDays, librarySettings.mobileStreamQuality, ::Pair)) { state, (days, quality) ->
         state.copy(syncIntervalDays = days, mobileStreamQuality = quality)
     }.combine(combine(downloadSettings.autoDownloadNewestAlbums, downloadSettings.autoDownloadMostPlayedAlbums, ::Pair)) { state, (newest, mostPlayed) ->

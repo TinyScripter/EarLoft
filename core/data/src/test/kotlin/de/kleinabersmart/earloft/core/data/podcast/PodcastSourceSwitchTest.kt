@@ -46,6 +46,9 @@ class PodcastSourceSwitchTest {
     private lateinit var switch: PodcastSourceSwitch
     private val renamed = mutableListOf<Map<String, String>>()
 
+    /** Eigene Antworten je Adresse; sonst liefert jeder Host [RSS]. */
+    private val bodies = mutableMapOf<String, String>()
+
     @Before
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
@@ -55,11 +58,11 @@ class PodcastSourceSwitchTest {
                 val ard = chain.request().url.host == "api.ardaudiothek.de"
                 Response.Builder()
                     .request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
-                    .body((if (ard) SHOW else RSS).toResponseBody("application/rss+xml".toMediaType()))
+                    .body((if (ard) SHOW else bodies[chain.request().url.toString()] ?: RSS).toResponseBody("application/rss+xml".toMediaType()))
                     .build()
             }
             .build()
-        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()))
+        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { switch })
         val backup = UserDataBackup(
             context = context,
             database = db,
@@ -143,6 +146,41 @@ class PodcastSourceSwitchTest {
     }
 
     @Test
+    fun `a feed announcing a new address moves there with its statistics`() = runTest {
+        val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
+        val b = idOf(feedId, "Folge B")
+        db.statsDao().addListening(
+            ListeningStatEntity(source = "app", kind = BookKind.EPISODE, groupKey = OLD_URL, groupTitle = "Talk", itemKey = "guid-B",
+                itemTitle = "Folge B", listenedMs = 60_000, lastListenedAt = 100),
+            day = 20_000,
+        )
+        bodies[OLD_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$NEW_FEED_URL")
+
+        assertEquals(true, repository.refreshAll().moved == listOf("Talk ohne Gast"))
+
+        assertEquals(NEW_URL, db.podcastDao().feed(feedId)!!.url)
+        assertEquals(b, idOf(feedId, "Folge B"))
+        assertEquals(NEW_URL to "guid-B", db.statsDao().all().single().let { it.groupKey to it.itemKey })
+        assertEquals(emptyList<Map<String, String>>(), renamed)
+    }
+
+    @Test
+    fun `a move is refused when the new address points back or is subscribed`() = runTest {
+        val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
+        bodies[OLD_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$NEW_FEED_URL")
+        bodies[NEW_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$OLD_FEED_URL")
+
+        repository.refresh(feedId)
+        assertEquals(OLD_URL, db.podcastDao().feed(feedId)!!.url)
+
+        val taken = "https://taken.example/feed.xml"
+        val other = (repository.subscribe("https://other.example/feed.xml") as SubscribeResult.Added).feedId
+        db.openHelper.writableDatabase.execSQL("UPDATE podcast_feeds SET url = '$taken' WHERE feedId = '$other'")
+        assertEquals(false, switch.follow(feedId, taken))
+        assertEquals(OLD_URL, db.podcastDao().feed(feedId)!!.url)
+    }
+
+    @Test
     fun `the same source or one already subscribed is refused`() = runTest {
         val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
         assertEquals(SourceCheck.SameSource, switch.check(feedId, OLD_URL))
@@ -215,6 +253,9 @@ class PodcastSourceSwitchTest {
 
     private companion object {
         const val OLD_URL = "https://bridge.example/feed.xml"
+        const val NEW_URL = "https://new.example/feed.xml"
+        const val NEW_FEED_URL = "<itunes:new-feed-url xmlns:itunes=\"http://www.itunes.com/dtds/podcast-1.0.dtd\">$NEW_URL</itunes:new-feed-url>"
+        const val OLD_FEED_URL = "<itunes:new-feed-url xmlns:itunes=\"http://www.itunes.com/dtds/podcast-1.0.dtd\">$OLD_URL</itunes:new-feed-url>"
 
         val RSS = """
             <rss version="2.0"><channel><title>Talk ohne Gast</title>

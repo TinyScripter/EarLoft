@@ -20,6 +20,8 @@ import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -525,23 +527,98 @@ private val TAG = Regex("<[^>]*>")
 // Bilder zeigt die Beschreibung nicht; `fromHtml` machte aus ihnen ein Platzhalterzeichen (U+FFFC, „OBJ“).
 private val IMAGE = Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE)
 
+// Nackte Adressen im Text; Satzzeichen am Ende gehören nicht dazu (siehe [urlEnd]).
+private val BARE_URL = Regex("""(?<![\w/.@])(?:https?://|www\.)[^\s<>"]+""", RegexOption.IGNORE_CASE)
+// „1:02:03“, „12:34“, „75:10“; keine Uhrzeit („17:00 Uhr“), kein Teil einer längeren Zahlenfolge.
+private val TIMESTAMP = Regex("""(?<![\d:.,/])(?:(\d{1,2}):)?(\d{1,3}):([0-5]\d)(?![\d:]|\s*Uhr\b)""")
+
 /**
  * Beschreibung eines Buchs oder einer Folge. Enthält sie HTML (Absätze, Fett/Kursiv, Links, Zeichencodes), wird es
- * umgesetzt; reiner Text bleibt unverändert, damit seine Zeilenumbrüche erhalten bleiben.
+ * umgesetzt; reiner Text bleibt unverändert, damit seine Zeilenumbrüche erhalten bleiben. Nackte Adressen werden
+ * antippbar; mit [onTimestamp] auch Zeitmarken („12:34“), die in die Folge passen ([durationMs], 0 = unbekannt).
  */
 @Composable
-fun rememberDescription(raw: String): AnnotatedString {
+fun rememberDescription(raw: String, durationMs: Long = 0, onTimestamp: ((Long) -> Unit)? = null): AnnotatedString {
     val linkColor = MaterialTheme.colorScheme.primary
-    return remember(raw, linkColor) {
-        formatDescription(raw, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)))
+    val jump by rememberUpdatedState(onTimestamp)
+    val timestamps = onTimestamp != null
+    return remember(raw, linkColor, durationMs, timestamps) {
+        formatDescription(
+            raw,
+            TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)),
+            durationMs,
+            if (timestamps) { ms -> jump?.invoke(ms) } else null,
+        )
     }
 }
 
 /** Umsetzung zu [rememberDescription]. */
-internal fun formatDescription(raw: String, links: TextLinkStyles? = null): AnnotatedString {
+internal fun formatDescription(
+    raw: String,
+    links: TextLinkStyles? = null,
+    durationMs: Long = 0,
+    onTimestamp: ((Long) -> Unit)? = null,
+): AnnotatedString {
     val text = raw.trim()
-    if (!MARKUP.containsMatchIn(text)) return AnnotatedString(text)
-    return AnnotatedString.fromHtml(text.replace(IMAGE, ""), linkStyles = links).trimmed()
+    val base = if (!MARKUP.containsMatchIn(text)) {
+        AnnotatedString(text)
+    } else {
+        AnnotatedString.fromHtml(text.replace(IMAGE, ""), linkStyles = links).trimmed()
+    }
+    return withTextLinks(base, links, durationMs, onTimestamp)
+}
+
+/** Verlinkt nackte Adressen und (mit [onTimestamp]) Zeitmarken, die noch kein Link sind. */
+private fun withTextLinks(
+    base: AnnotatedString,
+    links: TextLinkStyles?,
+    durationMs: Long,
+    onTimestamp: ((Long) -> Unit)?,
+): AnnotatedString {
+    val text = base.text
+    val taken = base.getLinkAnnotations(0, text.length).mapTo(mutableListOf()) { it.start until it.end }
+    fun free(range: IntRange) = taken.none { it.first <= range.last && range.first <= it.last }
+    val urls = BARE_URL.findAll(text).mapNotNull { match ->
+        val range = match.range.first until urlEnd(text, match.range)
+        range.takeIf { !it.isEmpty() && free(it) }?.also { taken += it }
+    }.toList()
+    val stamps = if (onTimestamp == null) emptyList() else TIMESTAMP.findAll(text).mapNotNull { match ->
+        val ms = timestampMs(match) ?: return@mapNotNull null
+        if (durationMs > 0 && ms > durationMs) return@mapNotNull null
+        match.range.takeIf(::free)?.let { it to ms }
+    }.toList()
+    if (urls.isEmpty() && stamps.isEmpty()) return base
+    return buildAnnotatedString {
+        append(base)
+        for (range in urls) {
+            val url = text.substring(range.first, range.last + 1)
+            val target = if (url.startsWith("www.", ignoreCase = true)) "https://$url" else url
+            addLink(LinkAnnotation.Url(target, links), range.first, range.last + 1)
+        }
+        for ((range, ms) in stamps) {
+            addLink(LinkAnnotation.Clickable("t:$ms", links) { onTimestamp?.invoke(ms) }, range.first, range.last + 1)
+        }
+    }
+}
+
+/** Ende einer nackten Adresse ohne Satzzeichen dahinter; eine Klammer zu bleibt nur, wenn die Adresse eine öffnet. */
+private fun urlEnd(text: String, range: IntRange): Int {
+    var end = range.last + 1
+    while (end > range.first) {
+        val last = text[end - 1]
+        val unbalanced = last == ')' && text.substring(range.first, end).count { it == '(' } < text.substring(range.first, end).count { it == ')' }
+        if (last in ".,;:!?'\"»“”" || unbalanced) end-- else break
+    }
+    return end
+}
+
+/** Position einer Zeitmarke in ms; mit Stunden höchstens 59 Minuten. */
+private fun timestampMs(match: MatchResult): Long? {
+    val hours = match.groupValues[1].toLongOrNull()
+    val minutes = match.groupValues[2].toLong()
+    val seconds = match.groupValues[3].toLong()
+    if (hours != null && minutes > 59) return null
+    return (((hours ?: 0) * 60 + minutes) * 60 + seconds) * 1000
 }
 
 /** Beschreibung ohne Tags für die Suche; die Zeichencodes bleiben stehen (billiger als eine Umsetzung je Tastendruck). */

@@ -20,12 +20,14 @@ import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.ChapterSource
 import de.kleinabersmart.earloft.core.model.EffectOverrides
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.FeedStats
 import de.kleinabersmart.earloft.core.model.keepNewest
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.podcast.FeedFetch
 import de.kleinabersmart.earloft.core.network.podcast.Opml
 import de.kleinabersmart.earloft.core.network.podcast.ParsedChapter
@@ -56,6 +58,7 @@ import okhttp3.HttpUrl
 import java.io.File
 import java.io.IOException
 import java.util.UUID
+import javax.net.ssl.SSLException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -76,9 +79,17 @@ data class OpmlImportResult(val added: Int, val skipped: Int, val removed: Int)
 /** Ergebnis eines Feed-Abgleichs: `null` bei Fehler, sonst die Folgen, die neu im Feed stehen. */
 data class RefreshResult(val newEpisodeIds: List<Long>)
 
-/** Ergebnis von [PodcastRepository.refreshAll]: `ok`, wenn kein Feed fehlgeschlagen ist, und die Abos mit neuen Folgen. */
-/** [allFailed]: Kein Feed war erreichbar – eher das Netz als einzelne tote Feeds. */
-data class PodcastRefreshSummary(val ok: Boolean, val newEpisodes: List<NewEpisodes>, val allFailed: Boolean = false) {
+/**
+ * Ergebnis von [PodcastRepository.refreshAll]: `ok`, wenn kein Feed fehlgeschlagen ist, und die Abos mit neuen Folgen.
+ * [allFailed]: Kein Feed war erreichbar – eher das Netz als einzelne tote Feeds. [moved]: Titel der Abos, die an eine neue
+ * Adresse umgezogen sind.
+ */
+data class PodcastRefreshSummary(
+    val ok: Boolean,
+    val newEpisodes: List<NewEpisodes>,
+    val allFailed: Boolean = false,
+    val moved: List<String> = emptyList(),
+) {
     val newCount: Int get() = newEpisodes.sumOf { it.count }
 }
 
@@ -98,6 +109,8 @@ class PodcastRepository @Inject constructor(
     private val ardSounds: ArdSoundsApi,
     private val settings: PodcastSettings,
     private val fileChapters: AudioFileChapters,
+    // Lazy: Der Wechsel der Quelle braucht seinerseits dieses Repository.
+    private val sourceSwitch: dagger.Lazy<PodcastSourceSwitch>,
 ) {
     private val mutex = Mutex()
 
@@ -540,41 +553,76 @@ class PodcastRepository @Inject constructor(
      * (sonst meldete jedes frische Abo seine ganze Folgenliste).
      */
     suspend fun refreshAll(): PodcastRefreshSummary {
-        var failed = 0
+        val failures = mutableMapOf<String, FeedError>()
         val news = mutableListOf<NewEpisodes>()
+        val moved = mutableListOf<String>()
         val feeds = dao.feeds().filter { !it.isLocal }
         feeds.forEach { feed ->
-            val result = refresh(feed.feedId)
-            if (result == null) {
-                failed++
-            } else if (feed.lastRefreshAt > 0 && result.newEpisodeIds.isNotEmpty()) {
-                news += NewEpisodes(feed.feedId, feed.title, result.newEpisodeIds, feed.notifyNew)
+            when (val outcome = mutex.withLock { refreshLocked(feed.feedId) }) {
+                is RefreshOutcome.Failed -> failures[feed.feedId] = outcome.error
+                is RefreshOutcome.Done -> {
+                    val ids = outcome.result.newEpisodeIds
+                    if (feed.lastRefreshAt > 0 && ids.isNotEmpty()) {
+                        news += NewEpisodes(feed.feedId, feed.title, ids, feed.notifyNew, feed.autoDownload)
+                    }
+                    if (follow(feed.feedId, outcome.movedTo)) moved += feed.title
+                }
             }
         }
-        return PodcastRefreshSummary(ok = failed == 0, newEpisodes = news, allFailed = failed > 0 && failed == feeds.size)
+        val allFailed = failures.isNotEmpty() && failures.size == feeds.size
+        // Ist kein Feed erreichbar, liegt es am Netz, nicht an den Abos: Das zählt nicht als ihr Fehlschlag.
+        val now = System.currentTimeMillis()
+        failures.filterValues { !allFailed || it != FeedError.UNREACHABLE }
+            .forEach { (feedId, error) -> dao.recordRefreshFailure(feedId, error, now) }
+        return PodcastRefreshSummary(ok = failures.isEmpty(), newEpisodes = news, allFailed = allFailed, moved = moved)
     }
 
-    /** Gleicht einen Feed ab. `null`, wenn er nicht erreichbar oder unlesbar ist (die alten Folgen bleiben). */
-    suspend fun refresh(feedId: String): RefreshResult? = mutex.withLock {
-        val feed = dao.feed(feedId) ?: return@withLock RefreshResult(emptyList())
+    /**
+     * Gleicht einen Feed ab. `null`, wenn er nicht erreichbar oder unlesbar ist (die alten Folgen bleiben, der Fehlschlag
+     * zählt für den Fehlerstatus des Abos). Kündigt der Feed eine neue Adresse an, zieht das Abo danach dorthin um.
+     */
+    suspend fun refresh(feedId: String): RefreshResult? =
+        when (val outcome = mutex.withLock { refreshLocked(feedId) }) {
+            is RefreshOutcome.Failed -> {
+                dao.recordRefreshFailure(feedId, outcome.error, System.currentTimeMillis())
+                null
+            }
+            is RefreshOutcome.Done -> outcome.result.also { follow(feedId, outcome.movedTo) }
+        }
+
+    /** Ergebnis eines Abrufs: übernommen (mit angekündigter neuer Adresse) oder gescheitert. */
+    private sealed interface RefreshOutcome {
+        data class Done(val result: RefreshResult, val movedTo: String? = null) : RefreshOutcome
+        data class Failed(val error: FeedError) : RefreshOutcome
+    }
+
+    private suspend fun refreshLocked(feedId: String): RefreshOutcome {
+        val feed = dao.feed(feedId) ?: return RefreshOutcome.Done(RefreshResult(emptyList()))
         // Podcasts vom Gerät haben keinen Feed; ihre Folgen gleicht [LocalPodcasts] ab.
-        if (feed.isLocal) return@withLock RefreshResult(emptyList())
+        if (feed.isLocal) return RefreshOutcome.Done(RefreshResult(emptyList()))
         val fetched = try {
             fetch(feed)
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
             Log.w(TAG, "Abgleich von ${feed.title} fehlgeschlagen", e)
-            return@withLock null
+            return RefreshOutcome.Failed(feedError(e))
         }
-        when (fetched) {
-            FeedFetch.NotModified -> {
-                dao.upsertFeed(feed.copy(lastRefreshAt = System.currentTimeMillis()))
+        val result = when (fetched) {
+            is FeedFetch.NotModified -> {
+                dao.upsertFeed(feed.copy(lastRefreshAt = System.currentTimeMillis()).refreshSucceeded())
                 RefreshResult(emptyList())
             }
             is FeedFetch.Fetched -> apply(feed, fetched)
-        }.also { _refreshed.tryEmit(feedId) }
+        }
+        _refreshed.tryEmit(feedId)
+        val movedTo = fetched.movedTo ?: (fetched as? FeedFetch.Fetched)?.feed?.newFeedUrl
+        return RefreshOutcome.Done(result, movedTo?.takeIf { it != feed.url })
     }
+
+    /** Zieht das Abo an die neue Adresse [movedTo] um (Konzept 12.10 „Feed-Umzug“); `true`, wenn es umgezogen ist. */
+    private suspend fun follow(feedId: String, movedTo: String?): Boolean =
+        movedTo != null && sourceSwitch.get().follow(feedId, movedTo)
 
     /** Sendungen aus ARD Sounds kommen über GraphQL, ohne bedingten Abruf; ein Fehler dort trifft nur sie. */
     private suspend fun fetch(feed: PodcastFeedEntity): FeedFetch {
@@ -629,7 +677,7 @@ class PodcastRepository @Inject constructor(
                 lastModified = fetched.lastModified,
                 lastRefreshAt = now,
                 syncGeneration = generation,
-            ),
+            ).refreshSucceeded(),
         )
         RefreshResult(newIds)
     }
@@ -771,7 +819,23 @@ private fun PodcastFeedEntity.toModel() = PodcastFeed(
     queueMode = queueMode,
     keepEpisodes = keepEpisodes,
     autoDownloadCount = autoDownloadCount,
+    failedRefreshes = failedRefreshes,
+    refreshError = lastError,
+    failingSince = failingSince,
 )
+
+/** Ein gelungener Abgleich beendet die Serie der Fehlschläge. */
+private fun PodcastFeedEntity.refreshSucceeded() = copy(failedRefreshes = 0, lastError = null, failingSince = 0)
+
+/** Grund eines gescheiterten Abrufs für den Fehlerstatus des Abos. */
+internal fun feedError(e: IOException): FeedError = when {
+    e is PodcastFeedException -> FeedError.NOT_A_FEED
+    e is HttpStatusException && (e.status == 404 || e.status == 410) -> FeedError.GONE
+    e is HttpStatusException && (e.status == 401 || e.status == 403) -> FeedError.DENIED
+    e is HttpStatusException -> FeedError.SERVER
+    e is SSLException -> FeedError.TLS
+    else -> FeedError.UNREACHABLE
+}
 
 /** Nie angefangen und nicht als gehört markiert. */
 private val BookProgressEntity?.isUntouched: Boolean get() = this == null || (!finished && positionMs <= 0)
