@@ -75,6 +75,45 @@ class PodcastFeedParserTest {
     }
 
     @Test
+    fun `podlove simple chapters are read in order and unreadable starts are skipped`() {
+        val feed = parse(
+            """
+            <rss version="2.0" xmlns:psc="http://podlove.org/simple-chapters">
+              <channel>
+                <title>Lage</title>
+                <item>
+                  <title>LdN 1</title>
+                  <enclosure url="https://example.com/1.m4a" type="audio/mp4"/>
+                  <psc:chapters version="1.2">
+                    <psc:chapter start="00:12:03.500" title=" Ukraine "/>
+                    <psc:chapter start="00:00:00.000" title="Intro" href="https://example.com"/>
+                    <psc:chapter start="npt:1:02:03" title="Feedback"/>
+                    <psc:chapter start="bald" title="Kaputt"/>
+                    <psc:chapter start="75"/>
+                  </psc:chapters>
+                </item>
+                <item>
+                  <title>Ohne</title>
+                  <enclosure url="https://example.com/2.m4a"/>
+                </item>
+              </channel>
+            </rss>
+            """,
+        )
+
+        assertEquals(
+            listOf(
+                ParsedChapter(0, "Intro"),
+                ParsedChapter(75_000, ""),
+                ParsedChapter(723_500, "Ukraine"),
+                ParsedChapter(3_723_000, "Feedback"),
+            ),
+            feed.episodes[0].chapters,
+        )
+        assertEquals(emptyList<ParsedChapter>(), feed.episodes[1].chapters)
+    }
+
+    @Test
     fun `own entity declarations are refused, a plain doctype is fine`() {
         val laughs = """
             <?xml version="1.0"?>

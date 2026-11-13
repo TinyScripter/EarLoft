@@ -9,6 +9,13 @@ enum class BookKind { BOOK, EPISODE }
  */
 enum class TrackDownload { NONE, QUEUED, RUNNING, DONE, FAILED, REMOVED }
 
+/**
+ * Woher die Kapitel einer Folge stammen, in aufsteigendem Rang (Konzept 12.5 „Kapitelquellen“): aus der geladenen Datei
+ * (ID3 `CHAP`, MP4), aus dem Feed (Podlove Simple Chapters) oder aus der Kapitelliste des Feeds (`podcast:chapters`, JSON).
+ * Eine Quelle ersetzt nur Kapitel gleichen oder niedrigeren Rangs.
+ */
+enum class ChapterSource { FILE, FEED, JSON }
+
 /** `serverId` der Bücher aus dem Ordner „Audiobooks“ auf diesem Gerät (Konzept 12.1); es gibt dazu keinen Server. */
 const val LOCAL_BOOK_SERVER_ID = "local"
 

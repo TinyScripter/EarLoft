@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.data.wear
 
 import de.kleinabersmart.earloft.core.data.spoken.testAudiobookshelfServers
+import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -67,7 +68,7 @@ class WatchSpokenTest {
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
         val syncer = BookSyncer(dao, servers, api, progressSync, LocalBooks(dao, scanner, SpokenSettings(context), covers))
-        val podcasts = PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()))
+        val podcasts = PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()))
         spoken = WatchSpoken(db, db.wearDao(), db.podcastDao(), dao, podcasts, syncer, progressSync)
         db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast", imageUrl = "https://example.org/bild.jpg"))
         dao.upsertServer(SpokenServerEntity("abs", "Hörbücher", "https://abs.example.org"))

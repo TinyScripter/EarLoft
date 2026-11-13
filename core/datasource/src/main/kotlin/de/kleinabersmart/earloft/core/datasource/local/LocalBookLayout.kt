@@ -115,12 +115,18 @@ internal object LocalBookLayout {
         return title.replace('_', ' ').trim()
     }
 
+    /** 1: ID3-Kapitel einzelner MP3, Untertitel und Jahr aus den Tags (Etappe 4). */
+    private const val READ_VERSION = 1
+
     fun bookAuthor(book: LocalBookFiles): String =
         commonValue(book.files.map { it.albumArtist }) ?: commonValue(book.files.map { it.artist }).orEmpty()
 
-    /** Ändert sich, sobald eine Datei hinzukommt, wegfällt oder sich ändert. */
+    /**
+     * Ändert sich, sobald eine Datei hinzukommt, wegfällt oder sich ändert – und mit [READ_VERSION], wenn das Einlesen
+     * mehr liefert als vorher (dann wird jedes Buch einmal neu gelesen).
+     */
     fun fingerprint(book: LocalBookFiles): Long {
-        var hash = 1125899906842597L
+        var hash = 1125899906842597L + READ_VERSION
         for (file in book.files) {
             hash = 31 * hash + "${file.id}|${file.sizeBytes}|${file.dateModifiedSec}".hashCode()
         }

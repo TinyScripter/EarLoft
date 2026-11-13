@@ -14,8 +14,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.FileInputStream
 import java.io.IOException
-import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -31,6 +29,9 @@ data class LocalBookDetails(
     val durationMs: Long,
     val tracks: List<LocalBookTrack>,
     val chapters: List<LocalBookChapter>,
+    /** Untertitel und Erscheinungsjahr aus den Tags der ersten Datei. */
+    val subtitle: String? = null,
+    val year: Int? = null,
 )
 
 /**
@@ -104,15 +105,9 @@ class LocalBookScanner @Inject constructor(
 
     private suspend fun readEpisode(file: AudioFileRow): LocalEpisodeDetails {
         val uri = contentUri(file.id)
-        val tags = tagReader.readEpisode(uri) ?: EpisodeTags()
+        val tags = tagReader.readSpoken(uri) ?: SpokenTags()
         // Eingebettete Kapitel (ID3 CHAP, sonst MP4) haben die genauen Grenzen; die Spanne reicht bis ans Dateiende.
-        val chapters = tags.chapters.ifEmpty {
-            val marks = if (isMp4(file)) readMarks(uri) else emptyList()
-            marks.mapIndexed { index, mark ->
-                val end = marks.getOrNull(index + 1)?.startMs ?: file.durationMs
-                LocalBookChapter(mark.title.ifBlank { "${index + 1}" }, mark.startMs, end.coerceAtLeast(mark.startMs))
-            }
-        }
+        val chapters = tags.chapters.ifEmpty { (if (isMp4(file)) readMarks(uri) else emptyList()).toChapters(file.durationMs) }
         return LocalEpisodeDetails(
             title = file.title?.trim()?.takeIf { it.isNotEmpty() } ?: file.fileName.substringBeforeLast('.'),
             description = tags.description.orEmpty(),
@@ -128,14 +123,17 @@ class LocalBookScanner @Inject constructor(
         withRetriever(Uri.parse(trackUri)) { it.embeddedPicture }
     }
 
-    private fun read(book: LocalBookFiles): LocalBookDetails {
+    private suspend fun read(book: LocalBookFiles): LocalBookDetails {
         var start = 0L
         val tracks = mutableListOf<LocalBookTrack>()
         val chapters = mutableListOf<LocalBookChapter>()
+        // Untertitel und Jahr stehen in jeder Datei gleich; ID3-Kapitel zählen nur bei einer einzelnen Datei.
+        val tags = tagReader.readSpoken(contentUri(book.files.first().id))
+        val multiFile = book.files.size > 1
         for (file in book.files) {
             val uri = contentUri(file.id)
             tracks += LocalBookTrack(uri.toString(), start, file.durationMs, file.mimeType)
-            chapters += chaptersOf(file, uri, start, book.files.size > 1)
+            chapters += chaptersOf(file, uri, start, multiFile, tags?.chapters.orEmpty())
             start += file.durationMs
         }
         val narrator = withRetriever(contentUri(book.files.first().id)) { it.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER) }
@@ -146,27 +144,30 @@ class LocalBookScanner @Inject constructor(
             durationMs = start,
             tracks = tracks,
             chapters = chapters,
+            subtitle = tags?.subtitle,
+            year = tags?.year,
         )
     }
 
     /**
-     * Kapitel einer Datei als Position im Buch. Eingebettete Kapitel (m4b) haben Vorrang; sonst ist bei einem Buch aus
-     * mehreren Dateien jede Datei ein Kapitel, und eine einzelne Datei ohne Kapitel hat keine.
+     * Kapitel einer Datei als Position im Buch. Eingebettete Kapitel (m4b) haben Vorrang; eine einzelne MP3 nimmt ihre
+     * ID3-Kapitel ([id3]); sonst ist bei einem Buch aus mehreren Dateien jede Datei ein Kapitel, und eine einzelne Datei
+     * ohne Kapitel hat keine.
      */
-    private fun chaptersOf(file: AudioFileRow, uri: Uri, offsetMs: Long, multiFile: Boolean): List<LocalBookChapter> {
+    private fun chaptersOf(
+        file: AudioFileRow,
+        uri: Uri,
+        offsetMs: Long,
+        multiFile: Boolean,
+        id3: List<LocalBookChapter>,
+    ): List<LocalBookChapter> {
         val marks = if (isMp4(file)) readMarks(uri) else emptyList()
-        if (marks.isEmpty()) {
-            if (!multiFile) return emptyList()
-            return listOf(LocalBookChapter(LocalBookLayout.chapterTitle(file.title, file.fileName), offsetMs, offsetMs + file.durationMs))
-        }
-        return marks.mapIndexed { index, mark ->
-            val end = marks.getOrNull(index + 1)?.startMs ?: file.durationMs
-            LocalBookChapter(mark.title.ifBlank { "${index + 1}" }, offsetMs + mark.startMs, offsetMs + end.coerceAtLeast(mark.startMs))
-        }
+        if (marks.isNotEmpty()) return marks.toChapters(file.durationMs, offsetMs)
+        if (!multiFile) return id3
+        return listOf(LocalBookChapter(LocalBookLayout.chapterTitle(file.title, file.fileName), offsetMs, offsetMs + file.durationMs))
     }
 
-    private fun isMp4(file: AudioFileRow): Boolean =
-        file.mimeType?.contains("mp4", ignoreCase = true) == true || file.fileName.substringAfterLast('.').lowercase() in MP4_EXTENSIONS
+    private fun isMp4(file: AudioFileRow): Boolean = isMp4(file.mimeType, file.fileName)
 
     private fun readMarks(uri: Uri): List<Mp4ChapterMark> = try {
         context.contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
@@ -246,23 +247,7 @@ class LocalBookScanner @Inject constructor(
     private fun Cursor.long(column: String): Long? =
         getColumnIndex(column).takeIf { it >= 0 && !isNull(it) }?.let(::getLong)
 
-    private class ChannelSource(private val channel: FileChannel) : RandomAccessSource {
-        override val length: Long get() = channel.size()
-
-        override fun read(position: Long, length: Int): ByteArray {
-            val buffer = ByteBuffer.allocate(length)
-            var at = position
-            while (buffer.hasRemaining()) {
-                val read = channel.read(buffer, at)
-                if (read < 0) break
-                at += read
-            }
-            return buffer.array().copyOf(buffer.position())
-        }
-    }
-
     private companion object {
         const val TAG = "LocalBookScanner"
-        val MP4_EXTENSIONS = setOf("m4b", "m4a", "mp4")
     }
 }

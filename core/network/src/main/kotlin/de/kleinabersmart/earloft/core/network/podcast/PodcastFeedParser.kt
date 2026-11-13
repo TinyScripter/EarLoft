@@ -41,6 +41,8 @@ data class ParsedEpisode(
     val chaptersUrl: String?,
     /** Webseite der Folge (`<link>`, sonst die `guid`, wenn sie ein Permalink ist), zum Teilen (Konzept 13). */
     val webUrl: String? = null,
+    /** Kapitel direkt im Feed (Podlove Simple Chapters), nach Beginn geordnet; leer, wenn der Feed keine nennt. */
+    val chapters: List<ParsedChapter> = emptyList(),
 )
 
 /**
@@ -51,6 +53,7 @@ object PodcastFeedParser {
     private const val NS_ITUNES = "http://www.itunes.com/dtds/podcast-1.0.dtd"
     private const val NS_CONTENT = "http://purl.org/rss/1.0/modules/content/"
     private const val NS_ATOM = "http://www.w3.org/2005/Atom"
+    private const val NS_PSC = "http://podlove.org/simple-chapters"
     private const val NS_NONE = ""
 
     fun parse(input: InputStream): ParsedFeed {
@@ -85,6 +88,7 @@ object PodcastFeedParser {
                 chaptersUrl = item.podcastChild("chapters")?.attr("url")?.takeIf { it.isNotBlank() },
                 webUrl = webPage(item.text("link", NS_NONE))
                     ?: guid?.takeIf { it.attr("isPermaLink")?.trim() != "false" }?.let { webPage(it.text.toString()) },
+                chapters = item.simpleChapters(),
             )
         }
         return ParsedFeed(
@@ -114,6 +118,7 @@ object PodcastFeedParser {
                 imageUrl = entry.child("image", NS_ITUNES)?.attr("href")?.takeIf { it.isNotBlank() },
                 chaptersUrl = entry.podcastChild("chapters")?.attr("url")?.takeIf { it.isNotBlank() },
                 webUrl = entry.alternateLink(),
+                chapters = entry.simpleChapters(),
             )
         }
         return ParsedFeed(
@@ -138,13 +143,28 @@ object PodcastFeedParser {
     private fun webPage(raw: String?): String? =
         raw?.trim()?.takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
 
+    /**
+     * Podlove Simple Chapters (`<psc:chapters><psc:chapter start="00:01:02.500" title="…"/>`), wie sie viele mit Podlove
+     * Publisher erzeugte Feeds im Eintrag führen. Kapitel ohne lesbaren Beginn fallen weg.
+     */
+    private fun Node.simpleChapters(): List<ParsedChapter> =
+        child("chapters", NS_PSC)?.children("chapter", NS_PSC).orEmpty()
+            .mapNotNull { chapter ->
+                val start = parseClock(chapter.attr("start").orEmpty().trim().removePrefix("npt:")) ?: return@mapNotNull null
+                ParsedChapter(start, chapter.attr("title")?.trim().orEmpty())
+            }
+            .sortedBy { it.startMs }
+
     /** „1:02:03“, „12:34“, „754“ oder „754.5“ (Sekunden); alles andere zählt als unbekannt (0). */
-    internal fun parseDuration(raw: String): Long {
+    internal fun parseDuration(raw: String): Long = parseClock(raw) ?: 0
+
+    /** Wie [parseDuration], aber `null` statt 0 für alles, was keine Zeitangabe ist. */
+    private fun parseClock(raw: String): Long? {
         val parts = raw.trim().split(':')
-        if (raw.isBlank() || parts.size > 3) return 0
-        val numbers = parts.map { it.trim().toDoubleOrNull() ?: return 0 }
+        if (raw.isBlank() || parts.size > 3) return null
+        val numbers = parts.map { it.trim().toDoubleOrNull() ?: return null }
         val seconds = numbers.fold(0.0) { total, part -> total * 60 + part }
-        return if (seconds >= 0) (seconds * 1000).roundToLong() else 0
+        return if (seconds >= 0) (seconds * 1000).roundToLong() else null
     }
 
     private fun parseRfc1123(raw: String): Long =

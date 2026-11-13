@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.data.podcast
 
 import androidx.room.Room
+import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
@@ -44,7 +45,7 @@ class DatabaseExporterTest {
                     .build()
             }
             .build()
-        val repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()))
+        val repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()))
         importer = DatabaseImporter(repository, db.podcastDao(), db.bookDao(), db.statsDao())
         exporter = DatabaseExporter(db.podcastDao(), db.bookDao(), db.statsDao())
         repository.subscribe(FEED_URL)

@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.model.BookCoverRow
 import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.ChapterSource
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import kotlinx.coroutines.flow.Flow
 
@@ -211,6 +212,20 @@ abstract class BookDao {
 
     @Query("UPDATE books SET detailsLoaded = 1 WHERE bookId = :bookId")
     abstract suspend fun markDetailsLoaded(bookId: Long)
+
+    @Query("SELECT chapterSource FROM books WHERE bookId = :bookId")
+    abstract suspend fun chapterSource(bookId: Long): ChapterSource?
+
+    @Query("UPDATE books SET chapterSource = :source WHERE bookId = :bookId")
+    abstract suspend fun setChapterSource(bookId: Long, source: ChapterSource?)
+
+    /** Ersetzt die Kapitel einer Folge und merkt sich ihre Quelle; leere [chapters] heißen: Die Quelle hat keine. */
+    @Transaction
+    open suspend fun replaceChapters(bookId: Long, chapters: List<BookChapterEntity>, source: ChapterSource) {
+        deleteChapters(bookId)
+        insertChapters(chapters)
+        setChapterSource(bookId, source)
+    }
 
     /**
      * Ersetzt Dateien und Kapitel. Der Download-Stand einer Datei bleibt, wenn sie gleich geblieben ist (gleiche

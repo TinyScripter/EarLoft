@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.data.podcast
 
 import android.content.Context
+import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import dagger.Lazy
@@ -58,7 +59,7 @@ class PodcastSourceSwitchTest {
                     .build()
             }
             .build()
-        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()))
+        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()))
         val backup = UserDataBackup(
             context = context,
             database = db,

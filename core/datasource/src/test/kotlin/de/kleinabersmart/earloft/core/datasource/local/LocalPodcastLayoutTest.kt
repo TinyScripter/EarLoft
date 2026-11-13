@@ -3,7 +3,9 @@ package de.kleinabersmart.earloft.core.datasource.local
 import androidx.media3.common.Metadata
 import androidx.media3.extractor.metadata.id3.ChapterFrame
 import androidx.media3.extractor.metadata.id3.Id3Frame
+import androidx.media3.extractor.metadata.id3.InternalFrame
 import androidx.media3.extractor.metadata.id3.TextInformationFrame
+import androidx.media3.extractor.metadata.vorbis.VorbisComment
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -53,13 +55,13 @@ class LocalPodcastLayoutTest {
             if (title == null) emptyArray<Id3Frame>() else arrayOf<Id3Frame>(TextInformationFrame("TIT2", null, listOf(title))),
         )
 
-        val tags = EpisodeTags.from(
+        val tags = SpokenTags.from(
             listOf(
                 Metadata(
                     TextInformationFrame("TDRC", null, listOf("2026-10-29")),
                     TextInformationFrame("TXXX", "description", listOf("Eine Folge")),
-                    chapter("c2", 1_843_835, 3_493_981, "Refrain 2"),
-                    chapter("c1", 467_210, 1_255_165, "ch1"),
+                    chapter("c2", 1_843_835, 3_493_981, "Interview"),
+                    chapter("c1", 467_210, 1_255_165, "Intro"),
                     chapter("c3", 1_255_165, 1_255_335, "Schnittmarke"),
                     chapter("c4", 4_000_000, 4_100_000, null),
                 ),
@@ -68,17 +70,62 @@ class LocalPodcastLayoutTest {
 
         assertEquals("2026-10-29", tags.date)
         assertEquals("Eine Folge", tags.description)
-        assertEquals(listOf("ch1", "Refrain 2", "c4"), tags.chapters.map { it.title })
+        assertEquals(listOf("Intro", "Interview", "c4"), tags.chapters.map { it.title })
         assertEquals(467_210L, tags.chapters.first().startMs)
     }
 
     @Test
+    fun `production marks are no chapters, nested or mostly without a name`() {
+        fun chapter(id: String, start: Int, end: Int, title: String) =
+            ChapterFrame(id, start, end, 0, 0, arrayOf<Id3Frame>(TextInformationFrame("TIT2", null, listOf(title))))
+        // Wie in den Dateien der ARD (am Emulator): ein langes Kapitel, dann verschachtelte Marken.
+        val nested = SpokenTags.from(
+            listOf(
+                Metadata(
+                    chapter("a", 0, 2_123_676, "General Podcast V2"),
+                    chapter("b", 2_123_676, 2_184_786, "Abspann"),
+                    chapter("c", 2_123_676, 2_134_140, "Teil"),
+                ),
+            ),
+        )
+        val unnamed = SpokenTags.from(
+            listOf(
+                Metadata(
+                    chapter("a", 212_214, 615_516, "Refrain 3"),
+                    chapter("b", 615_516, 872_830, "ch1"),
+                    chapter("c", 872_830, 1_137_639, "ch2"),
+                ),
+            ),
+        )
+
+        assertEquals(emptyList<LocalBookChapter>(), nested.chapters)
+        assertEquals(emptyList<LocalBookChapter>(), unnamed.chapters)
+    }
+
+    @Test
     fun `ID3v2_3 year and day-month are joined`() {
-        val both = EpisodeTags.from(listOf(Metadata(TextInformationFrame("TYER", null, listOf("2026")), TextInformationFrame("TDAT", null, listOf("2110")))))
-        val yearOnly = EpisodeTags.from(listOf(Metadata(TextInformationFrame("TYER", null, listOf("2026")))))
+        val both = SpokenTags.from(listOf(Metadata(TextInformationFrame("TYER", null, listOf("2026")), TextInformationFrame("TDAT", null, listOf("2110")))))
+        val yearOnly = SpokenTags.from(listOf(Metadata(TextInformationFrame("TYER", null, listOf("2026")))))
 
         assertEquals("2026-10-21", both.date)
         assertEquals("2026", yearOnly.date)
+        assertEquals(2026, both.year)
+    }
+
+    @Test
+    fun `subtitle and year come from ID3, Vorbis or the free MP4 fields`() {
+        val id3 = SpokenTags.from(listOf(Metadata(TextInformationFrame("TIT3", null, listOf(" Ein Roman ")), TextInformationFrame("TDRC", null, listOf("2019-05-01")))))
+        val vorbis = SpokenTags.from(listOf(Metadata(VorbisComment("subtitle", "Teil 2"), VorbisComment("DATE", "2021"))))
+        val mp4 = SpokenTags.from(listOf(Metadata(InternalFrame("com.apple.iTunes", "SUBTITLE", "Kriminalroman"))))
+        val none = SpokenTags.from(listOf(Metadata(TextInformationFrame("TDRC", null, listOf("20190")))))
+
+        assertEquals("Ein Roman", id3.subtitle)
+        assertEquals(2019, id3.year)
+        assertEquals("Teil 2", vorbis.subtitle)
+        assertEquals(2021, vorbis.year)
+        assertEquals("Kriminalroman", mp4.subtitle)
+        assertNull(mp4.year)
+        assertNull(none.year)
     }
 
     private fun row(id: Long, path: String, album: String? = null, artist: String? = null) =

@@ -6,6 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.ChapterSource
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
@@ -108,6 +109,11 @@ data class BookEntity(
     val publishedYear: String? = null,
     val publisher: String? = null,
     val language: String? = null,
+    /**
+     * Woher die Kapitel einer Folge stammen (v29); `null` = noch keine bzw. bei Büchern die des Servers oder der Datei, die
+     * mit den Dateien kommen. Bestimmt, welche Quelle sie ersetzen darf.
+     */
+    val chapterSource: ChapterSource? = null,
 )
 
 @Entity(

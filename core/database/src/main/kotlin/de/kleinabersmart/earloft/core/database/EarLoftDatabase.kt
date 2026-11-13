@@ -88,7 +88,7 @@ import java.io.File
         AlbumSourceEntity::class,
         ArtistSourceEntity::class,
     ],
-    version = 28,
+    version = 29,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -118,6 +118,7 @@ import java.io.File
         AutoMigration(from = 25, to = 26),
         AutoMigration(from = 26, to = 27),
         AutoMigration(from = 27, to = 28),
+        AutoMigration(from = 28, to = 29),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {

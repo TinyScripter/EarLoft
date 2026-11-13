@@ -1,12 +1,14 @@
 package de.kleinabersmart.earloft.core.data.podcast
 
 import androidx.room.Room
+import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.ChapterSource
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
@@ -71,7 +73,7 @@ class PodcastRepositoryTest {
                     .build()
             }
             .build()
-        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), settings)
+        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), settings, AudioFileChapters(ApplicationProvider.getApplicationContext()))
     }
 
     @After
@@ -350,6 +352,52 @@ class PodcastRepositoryTest {
 
         assertEquals(listOf(b, a, c), continueListening.episodes.first().map { it.book.id })
         assertEquals(listOf(b, a), queue.order.first())
+    }
+
+    @Test
+    fun `chapters from the feed are stored and give way to the chapter list but not the other way round`() = runTest {
+        val rss = """<rss version="2.0" xmlns:psc="http://podlove.org/simple-chapters" xmlns:podcast="https://podcastindex.org/namespace/1.0">
+            <channel><title>Lage</title><item><title>LdN</title><guid>ldn</guid>
+            <enclosure url="https://example.com/ldn.m4a" type="audio/mp4"/><itunes:duration xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">10:00</itunes:duration>
+            <podcast:chapters url="https://example.com/ldn.json" type="application/json+chapters"/>
+            <psc:chapters><psc:chapter start="0" title="Intro"/><psc:chapter start="00:01:00" title="Thema"/></psc:chapters>
+            </item></channel></rss>"""
+        served = rss
+        val feedId = subscribe()
+        val id = idOf(feedId, "LdN")
+        suspend fun chapters() = db.bookDao().chapters(id).map { Triple(it.title, it.startMs, it.endMs) }
+
+        assertEquals(listOf(Triple("Intro", 0L, 60_000L), Triple("Thema", 60_000L, 600_000L)), chapters())
+        assertEquals(ChapterSource.FEED, db.bookDao().chapterSource(id))
+
+        // Die Kapitelliste (JSON) geht vor.
+        served = """{"version":"1.2.0","chapters":[{"startTime":0,"title":"Begrüßung"},{"startTime":30.5,"title":"Ukraine"}]}"""
+        repository.ensureChapters(id)
+        assertEquals(listOf(Triple("Begrüßung", 0L, 30_500L), Triple("Ukraine", 30_500L, 600_000L)), chapters())
+        assertEquals(ChapterSource.JSON, db.bookDao().chapterSource(id))
+
+        // Der nächste Abgleich bringt wieder die Feed-Kapitel; sie ersetzen die Liste nicht.
+        served = rss
+        repository.refresh(feedId)
+        assertEquals("Ukraine", chapters().last().first)
+        assertEquals(ChapterSource.JSON, db.bookDao().chapterSource(id))
+
+        // Ohne Verbindung bleibt alles, und ohne geladene Datei gibt es nichts aus der Datei.
+        served = null
+        repository.ensureChapters(id)
+        repository.chaptersFromFile(id)
+        assertEquals(2, chapters().size)
+    }
+
+    @Test
+    fun `an episode without any chapter source is left alone when it is not downloaded`() = runTest {
+        val feedId = subscribe()
+        val id = idOf(feedId, "A")
+
+        repository.ensureChapters(id)
+
+        assertEquals(emptyList<Any>(), db.bookDao().chapters(id))
+        assertEquals(null, db.bookDao().chapterSource(id))
     }
 
     @Test

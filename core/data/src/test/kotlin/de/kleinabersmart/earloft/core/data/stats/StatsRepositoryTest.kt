@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.data.stats
 
 import androidx.room.Room
+import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
@@ -55,7 +56,7 @@ class StatsRepositoryTest {
                     .build()
             }
             .build()
-        feedId = (PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext())).subscribe(FEED_URL) as SubscribeResult.Added).feedId
+        feedId = (PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext())).subscribe(FEED_URL) as SubscribeResult.Added).feedId
         stats = StatsRepository(db.statsDao(), db.bookDao(), db.podcastDao())
     }
 

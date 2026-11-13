@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.data.spoken
 
 import android.content.Context
+import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
 import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -74,7 +75,7 @@ class BookPlaybackSourceTest {
             servers,
             api,
             progressSync,
-            PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext())),
+            PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext())),
             EpisodeQueue(context, dao),
             settings,
             policy,

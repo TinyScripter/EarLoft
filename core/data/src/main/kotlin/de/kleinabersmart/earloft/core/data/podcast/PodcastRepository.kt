@@ -14,8 +14,10 @@ import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.data.refresh.NewEpisodes
 import de.kleinabersmart.earloft.core.data.spoken.toModel
+import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookWithProgress
+import de.kleinabersmart.earloft.core.model.ChapterSource
 import de.kleinabersmart.earloft.core.model.EffectOverrides
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
@@ -26,6 +28,7 @@ import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.network.podcast.FeedFetch
 import de.kleinabersmart.earloft.core.network.podcast.Opml
+import de.kleinabersmart.earloft.core.network.podcast.ParsedChapter
 import de.kleinabersmart.earloft.core.network.podcast.OpmlFeed
 import de.kleinabersmart.earloft.core.network.podcast.ParsedEpisode
 import de.kleinabersmart.earloft.core.network.podcast.ParsedFeed
@@ -50,6 +53,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.HttpUrl
+import java.io.File
 import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
@@ -93,6 +97,7 @@ class PodcastRepository @Inject constructor(
     private val api: PodcastFeedApi,
     private val ardSounds: ArdSoundsApi,
     private val settings: PodcastSettings,
+    private val fileChapters: AudioFileChapters,
 ) {
     private val mutex = Mutex()
 
@@ -607,6 +612,7 @@ class PodcastRepository @Inject constructor(
             // Der Download-Stand gehört nicht zum Feed und darf keinen Schreibvorgang auslösen.
             val stored = bookDao.tracks(id).map { it.copy(downloadState = TrackDownload.NONE, filePath = null, fileSize = 0) }
             if (stored != listOf(track)) dao.setTrack(track)
+            if (episode.chapters.isNotEmpty()) storeChapters(id, episode.chapters, ChapterSource.FEED, track.durationMs, existing?.chapterSource)
         }
         dao.deleteUnseenEpisodes(feed.feedId, generation)
         dao.upsertFeed(
@@ -625,27 +631,66 @@ class PodcastRepository @Inject constructor(
         RefreshResult(newIds)
     }
 
-    /** Lädt die Kapitelliste der Folge, falls der Feed eine anbietet und sie noch fehlt. Fehler sind unkritisch. */
+    /**
+     * Vor dem Abspielen (Konzept 12.5 „Kapitelquellen“): lädt die Kapitelliste (JSON) der Folge, falls der Feed eine anbietet
+     * und sie noch nicht geladen ist – sie geht Kapiteln aus dem Feed und aus der Datei vor. Hat die Folge danach gar keine
+     * Quelle, kommen sie aus der geladenen Datei ([chaptersFromFile]). Fehler sind unkritisch.
+     */
     suspend fun ensureChapters(bookId: Long) {
         val book = bookDao.book(bookId) ?: return
-        val url = book.chaptersUrl ?: return
-        if (book.kind != BookKind.EPISODE || bookDao.chapters(bookId).isNotEmpty()) return
-        val chapters = try {
-            api.chapters(url)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: IOException) {
-            Log.w(TAG, "Kapitel von ${book.title} nicht abrufbar", e)
-            return
+        if (book.kind != BookKind.EPISODE) return
+        val url = book.chaptersUrl
+        if (url != null && book.chapterSource != ChapterSource.JSON) {
+            val chapters = try {
+                api.chapters(url)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                Log.w(TAG, "Kapitel von ${book.title} nicht abrufbar", e)
+                emptyList()
+            }
+            if (chapters.isNotEmpty()) {
+                storeChapters(bookId, chapters, ChapterSource.JSON, book.durationMs, book.chapterSource)
+                return
+            }
         }
-        if (chapters.isEmpty()) return
-        val lastStart = chapters.last().startMs
-        val end = book.durationMs.takeIf { it > lastStart } ?: (lastStart + 1)
-        bookDao.insertChapters(
-            chapters.mapIndexed { index, chapter ->
-                BookChapterEntity(bookId, index, chapter.title, chapter.startMs, chapters.getOrNull(index + 1)?.startMs ?: end)
-            },
+        if (book.chapterSource == null) chaptersFromFile(bookId)
+    }
+
+    /**
+     * Kapitel aus der geladenen Datei der Folge (ID3 `CHAP`, MP4), wenn sie noch keine aus einer anderen Quelle hat; nach dem
+     * Download und vor dem Abspielen. Auch eine Datei ohne Kapitel wird vermerkt, damit sie nicht jedes Mal gelesen wird.
+     */
+    suspend fun chaptersFromFile(bookId: Long) {
+        val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.EPISODE && it.chapterSource == null } ?: return
+        // Kapitel ohne vermerkte Quelle stammen aus der Zeit vor Schema v29 (JSON); sie bleiben.
+        if (bookDao.chapters(bookId).isNotEmpty()) return
+        val track = bookDao.tracks(bookId).firstOrNull { it.downloadState == TrackDownload.DONE } ?: return
+        val file = track.filePath?.let(::File)?.takeIf { it.isFile } ?: return
+        val chapters = fileChapters.read(file, track.mimeType, book.durationMs)
+        // Inzwischen kann eine höhere Quelle geschrieben haben (Abgleich, JSON); dann bleibt deren Liste.
+        if (bookDao.chapterSource(bookId) != null) return
+        bookDao.replaceChapters(
+            bookId,
+            chapters.mapIndexed { index, chapter -> BookChapterEntity(bookId, index, chapter.title, chapter.startMs, chapter.endMs) },
+            ChapterSource.FILE,
         )
+    }
+
+    /**
+     * Schreibt Kapitel aus [source], sofern die bisherigen ([current]) keinen höheren Rang haben; gleiche Kapitel werden nicht
+     * neu geschrieben (der Feed bringt sie bei jedem Abgleich wieder). Jedes Kapitel endet am Beginn des nächsten, das letzte
+     * am Ende der Folge.
+     */
+    private suspend fun storeChapters(bookId: Long, chapters: List<ParsedChapter>, source: ChapterSource, durationMs: Long, current: ChapterSource?) {
+        if (current != null && current > source) return
+        val lastStart = chapters.last().startMs
+        val end = durationMs.takeIf { it > lastStart } ?: (lastStart + 1)
+        val entities = chapters.mapIndexed { index, chapter ->
+            BookChapterEntity(bookId, index, chapter.title.ifBlank { "${index + 1}" }, chapter.startMs, chapters.getOrNull(index + 1)?.startMs ?: end)
+        }
+        if (current == source && bookDao.chapters(bookId) == entities) return
+        bookDao.replaceChapters(bookId, entities, source)
     }
 
     private fun ParsedEpisode.toEntity(
@@ -672,6 +717,7 @@ class PodcastRepository @Inject constructor(
         coverUrl = imageUrl ?: feedImage,
         chaptersUrl = chaptersUrl,
         webUrl = webUrl,
+        chapterSource = existing?.chapterSource,
     )
 
     private fun String.toHttpUrlOrThrow() = normalizeFeedUrl(this) ?: throw IOException("Ungültige Feed-Adresse: $this")

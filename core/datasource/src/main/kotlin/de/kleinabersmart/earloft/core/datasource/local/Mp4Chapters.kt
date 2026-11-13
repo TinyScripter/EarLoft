@@ -1,5 +1,8 @@
 package de.kleinabersmart.earloft.core.datasource.local
 
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
+
 /** Lesezugriff auf eine Datei an beliebiger Stelle; ein m4b ist zu groß, um ihn ganz zu laden. */
 internal interface RandomAccessSource {
     val length: Long
@@ -10,6 +13,33 @@ internal interface RandomAccessSource {
 
 /** Ein Kapitel einer MP4-Datei: Beginn in der Datei und Titel. Das Ende ergibt sich aus dem nächsten Beginn. */
 internal data class Mp4ChapterMark(val startMs: Long, val title: String)
+
+/** Kapitel aus [marks] einer Datei von [durationMs], verschoben um [offsetMs] (Beginn der Datei im Buch). */
+internal fun List<Mp4ChapterMark>.toChapters(durationMs: Long, offsetMs: Long = 0): List<LocalBookChapter> =
+    mapIndexed { index, mark ->
+        val end = getOrNull(index + 1)?.startMs ?: durationMs
+        LocalBookChapter(mark.title.ifBlank { "${index + 1}" }, offsetMs + mark.startMs, offsetMs + end.coerceAtLeast(mark.startMs))
+    }
+
+/** m4b, m4a und mp4 nach Typ oder Endung. */
+internal fun isMp4(mimeType: String?, fileName: String): Boolean =
+    mimeType?.contains("mp4", ignoreCase = true) == true || fileName.substringAfterLast('.').lowercase() in setOf("m4b", "m4a", "mp4")
+
+/** [RandomAccessSource] über einen [FileChannel]. */
+internal class ChannelSource(private val channel: FileChannel) : RandomAccessSource {
+    override val length: Long get() = channel.size()
+
+    override fun read(position: Long, length: Int): ByteArray {
+        val buffer = ByteBuffer.allocate(length)
+        var at = position
+        while (buffer.hasRemaining()) {
+            val read = channel.read(buffer, at)
+            if (read < 0) break
+            at += read
+        }
+        return buffer.array().copyOf(buffer.position())
+    }
+}
 
 /**
  * Liest die Kapitel eines m4b/m4a aus den MP4-Atomen (Konzept 12.1, Spike „m4b-Kapitel“). Zwei Verfahren sind

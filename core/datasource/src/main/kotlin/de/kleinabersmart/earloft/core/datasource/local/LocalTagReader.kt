@@ -19,8 +19,8 @@ internal class LocalTagReader(private val context: Context) {
     /** `null`, wenn die Datei nicht lesbar ist. */
     suspend fun read(uri: Uri): EmbeddedTags? = metadata(uri, EmbeddedTags::from)
 
-    /** Datum, Beschreibung und Kapitel einer Podcast-Folge; `null`, wenn die Datei nicht lesbar ist. */
-    suspend fun readEpisode(uri: Uri): EpisodeTags? = metadata(uri, EpisodeTags::from)
+    /** Datum, Beschreibung, Untertitel und Kapitel einer Folge oder eines Buchs; `null`, wenn die Datei nicht lesbar ist. */
+    suspend fun readSpoken(uri: Uri): SpokenTags? = metadata(uri, SpokenTags::from)
 
     private suspend fun <T> metadata(uri: Uri, parse: (List<Metadata>) -> T): T? = try {
         withTimeout(TIMEOUT_MS) {

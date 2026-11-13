@@ -15,6 +15,7 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 
 /**
@@ -31,6 +32,7 @@ class EpisodeDownloadWorker(
     private val downloader = entryPoint.episodeDownloader()
     private val storage = entryPoint.episodeStorage()
     private val progress = entryPoint.episodeProgress()
+    private val podcasts = entryPoint.podcastRepository()
 
     override suspend fun doWork(): Result {
         dao.requeueRunningDownloads()
@@ -60,7 +62,9 @@ class EpisodeDownloadWorker(
                     dao.markDownloadFailed(next.bookId)
                 }
                 is DownloadOutcome.Failed -> Log.w(TAG, "Folge ${next.bookId} fehlgeschlagen: ${outcome.reason}")
-                DownloadOutcome.Done, DownloadOutcome.Cancelled -> Unit
+                // Nennt der Feed keine Kapitel, stehen sie vielleicht in der Datei (Konzept 12.5 „Kapitelquellen“).
+                DownloadOutcome.Done -> podcasts.chaptersFromFile(next.bookId)
+                DownloadOutcome.Cancelled -> Unit
             }
         }
         return finish()
@@ -130,6 +134,7 @@ class EpisodeDownloadWorker(
         fun episodeDownloader(): EpisodeDownloader
         fun episodeStorage(): EpisodeStorage
         fun episodeProgress(): EpisodeDownloadProgress
+        fun podcastRepository(): PodcastRepository
     }
 
     private companion object {

@@ -81,6 +81,8 @@ class LocalBooks @Inject constructor(
                 remoteUpdatedAt = book.fingerprint,
                 addedAt = book.addedAtMs,
                 seenInGeneration = generation,
+                subtitle = details.subtitle,
+                publishedYear = details.year?.toString(),
             ),
         )
         val tracks = details.tracks.mapIndexed { index, track ->
