@@ -23,8 +23,12 @@ sealed interface FeedFetch {
     data class Fetched(val feed: ParsedFeed, val etag: String?, val lastModified: String?) : FeedFetch
 }
 
-/** Ein Kapitel aus der Podcasting-2.0-Kapitelliste. */
-data class ParsedChapter(val startMs: Long, val title: String)
+/** Ein Kapitel aus der Podcasting-2.0-Kapitelliste oder Podlove; Bild und Webseite nur als absolute http(s)-Adresse. */
+data class ParsedChapter(val startMs: Long, val title: String, val imageUrl: String? = null, val url: String? = null)
+
+/** Nur absolute http(s)-Adressen gelten als Webseite oder Bild. */
+internal fun webAddress(raw: String?): String? =
+    raw?.trim()?.takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
 
 /** Abruf von Feeds, Kapitellisten und Bildern. Feeds und Kapitel kommen nie aus dem HTTP-Cache. */
 @Singleton
@@ -104,15 +108,25 @@ fun normalizeFeedUrl(input: String): HttpUrl? {
 private data class ChaptersFile(val chapters: List<ChapterDto> = emptyList())
 
 @Serializable
-private data class ChapterDto(val startTime: Double = 0.0, val title: String = "")
+private data class ChapterDto(
+    val startTime: Double = 0.0,
+    val title: String = "",
+    val img: String? = null,
+    val url: String? = null,
+    val toc: Boolean = true,
+)
 
-/** Podcasting-2.0-Kapitel (`{"chapters":[{"startTime":0,"title":"…"}]}`), nach Beginn sortiert. */
+/**
+ * Podcasting-2.0-Kapitel (`{"chapters":[{"startTime":0,"title":"…","img":"…","url":"…"}]}`), nach Beginn sortiert.
+ * „Stille“ Kapitel (`"toc": false`, etwa ein Bild zu einer Spende mitten im Kapitel) gehören nicht ins Inhaltsverzeichnis
+ * und zerschnitten sonst das Kapitel, in dem sie liegen; sie fallen weg.
+ */
 fun parseChapters(json: String): List<ParsedChapter> =
     try {
         CHAPTER_JSON.decodeFromString<ChaptersFile>(json).chapters
-            .filter { it.startTime >= 0 }
+            .filter { it.startTime >= 0 && it.toc }
             .sortedBy { it.startTime }
-            .map { ParsedChapter((it.startTime * 1000).toLong(), it.title.trim()) }
+            .map { ParsedChapter((it.startTime * 1000).toLong(), it.title.trim(), webAddress(it.img), webAddress(it.url)) }
     } catch (e: SerializationException) {
         throw IOException("Unlesbare Kapitelliste", e)
     }

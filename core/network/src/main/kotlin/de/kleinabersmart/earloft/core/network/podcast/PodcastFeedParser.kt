@@ -139,19 +139,17 @@ object PodcastFeedParser {
         return webPage(link?.attr("href"))
     }
 
-    /** Nur absolute http(s)-Adressen gelten als Webseite. */
-    private fun webPage(raw: String?): String? =
-        raw?.trim()?.takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
+    private fun webPage(raw: String?): String? = webAddress(raw)
 
     /**
-     * Podlove Simple Chapters (`<psc:chapters><psc:chapter start="00:01:02.500" title="…"/>`), wie sie viele mit Podlove
-     * Publisher erzeugte Feeds im Eintrag führen. Kapitel ohne lesbaren Beginn fallen weg.
+     * Podlove Simple Chapters (`<psc:chapters><psc:chapter start="00:01:02.500" title="…" href="…" image="…"/>`), wie sie
+     * viele mit Podlove Publisher erzeugte Feeds im Eintrag führen. Kapitel ohne lesbaren Beginn fallen weg.
      */
     private fun Node.simpleChapters(): List<ParsedChapter> =
         child("chapters", NS_PSC)?.children("chapter", NS_PSC).orEmpty()
             .mapNotNull { chapter ->
                 val start = parseClock(chapter.attr("start").orEmpty().trim().removePrefix("npt:")) ?: return@mapNotNull null
-                ParsedChapter(start, chapter.attr("title")?.trim().orEmpty())
+                ParsedChapter(start, chapter.attr("title")?.trim().orEmpty(), webAddress(chapter.attr("image")), webAddress(chapter.attr("href")))
             }
             .sortedBy { it.startMs }
 

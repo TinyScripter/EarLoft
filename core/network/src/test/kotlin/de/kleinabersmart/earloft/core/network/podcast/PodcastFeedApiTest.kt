@@ -29,11 +29,21 @@ class PodcastFeedApiTest {
         val chapters = parseChapters(
             """{"version":"1.2.0","chapters":[
                 {"startTime":61.5,"title":" Zwei "},
-                {"startTime":0,"title":"Eins","img":"x.png"},
+                {"startTime":0,"title":"Eins","img":"https://example.com/1.jpg","url":"https://example.com/eins"},
+                {"startTime":30,"title":"Relativ","img":"x.png","url":"/seite"},
+                {"startTime":40,"endTime":45,"title":"Spende","img":"https://example.com/spende.png","toc":false},
                 {"startTime":-3,"title":"kaputt"}
             ]}""",
         )
-        assertEquals(listOf(ParsedChapter(0, "Eins"), ParsedChapter(61_500, "Zwei")), chapters)
+        assertEquals(
+            listOf(
+                ParsedChapter(0, "Eins", "https://example.com/1.jpg", "https://example.com/eins"),
+                // Relative Adressen taugen ohne Basis nicht; das stille Kapitel (toc: false) fehlt.
+                ParsedChapter(30_000, "Relativ"),
+                ParsedChapter(61_500, "Zwei"),
+            ),
+            chapters,
+        )
     }
 
     @Test

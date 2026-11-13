@@ -85,7 +85,7 @@ class PodcastFeedParserTest {
                   <title>LdN 1</title>
                   <enclosure url="https://example.com/1.m4a" type="audio/mp4"/>
                   <psc:chapters version="1.2">
-                    <psc:chapter start="00:12:03.500" title=" Ukraine "/>
+                    <psc:chapter start="00:12:03.500" title=" Ukraine " image="https://example.com/ukraine.jpg"/>
                     <psc:chapter start="00:00:00.000" title="Intro" href="https://example.com"/>
                     <psc:chapter start="npt:1:02:03" title="Feedback"/>
                     <psc:chapter start="bald" title="Kaputt"/>
@@ -103,9 +103,9 @@ class PodcastFeedParserTest {
 
         assertEquals(
             listOf(
-                ParsedChapter(0, "Intro"),
+                ParsedChapter(0, "Intro", url = "https://example.com"),
                 ParsedChapter(75_000, ""),
-                ParsedChapter(723_500, "Ukraine"),
+                ParsedChapter(723_500, "Ukraine", imageUrl = "https://example.com/ukraine.jpg"),
                 ParsedChapter(3_723_000, "Feedback"),
             ),
             feed.episodes[0].chapters,

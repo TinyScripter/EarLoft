@@ -88,7 +88,7 @@ import java.io.File
         AlbumSourceEntity::class,
         ArtistSourceEntity::class,
     ],
-    version = 29,
+    version = 30,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -119,6 +119,7 @@ import java.io.File
         AutoMigration(from = 26, to = 27),
         AutoMigration(from = 27, to = 28),
         AutoMigration(from = 28, to = 29),
+        AutoMigration(from = 29, to = 30, spec = EarLoftDatabase.ReloadChapterLists::class),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {
@@ -167,6 +168,18 @@ abstract class EarLoftDatabase : RoomDatabase() {
     class InheritSpeed : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
             db.execSQL("UPDATE book_progress SET speed = NULL WHERE speed = 1.0")
+        }
+    }
+
+    /**
+     * v29 → v30: Kapitel bekommen Bild und Webseite. Gespeicherte Kapitellisten (JSON) hatten beides verworfen; ohne
+     * vermerkte Quelle lädt `ensureChapters` sie beim nächsten Abspielen neu. Podlove-Kapitel kommen mit dem nächsten
+     * vollständigen Abgleich, deshalb ohne Validatoren.
+     */
+    class ReloadChapterLists : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            db.execSQL("UPDATE books SET chapterSource = NULL WHERE chapterSource = 'JSON'")
+            db.execSQL("UPDATE podcast_feeds SET etag = NULL, lastModified = NULL")
         }
     }
 

@@ -104,6 +104,9 @@ data class BookChapter(
     /** Beginn und Ende als Position im ganzen Buch. */
     val startMs: Long,
     val endMs: Long,
+    /** Bild und Webseite des Kapitels (Kapitelliste oder Podlove einer Folge). */
+    val imageUrl: String? = null,
+    val url: String? = null,
 ) {
     val durationMs: Long get() = endMs - startMs
 }

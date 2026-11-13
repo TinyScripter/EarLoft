@@ -159,6 +159,43 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `v29 to v30 keeps chapters and reloads chapter lists and feeds`() {
+        helper.createDatabase(DB_NAME, 29).use { db ->
+            db.execSQL(
+                "INSERT INTO podcast_feeds (feedId, url, title, author, description, etag, lastModified, lastRefreshAt, syncGeneration, autoDownload) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'Lage', '', '', '\"abc\"', 'Sat, 01 Nov 2026 10:00:00 GMT', 5, 2, 0)",
+            )
+            for ((id, source) in listOf(7 to "'JSON'", 8 to "'FEED'", 9 to "NULL")) {
+                db.execSQL(
+                    "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
+                        "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration, chapterSource) " +
+                        "VALUES ($id, 'f', 'EPISODE', 'guid-$id', 'Folge', 'folge', '', '', '', '', 60000, 0, 1, 1, 2, $source)",
+                )
+                db.execSQL("INSERT INTO book_chapters (bookId, chapterIndex, title, startMs, endMs) VALUES ($id, 0, 'Intro', 0, 60000)")
+            }
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 30, true).use { db ->
+            db.query("SELECT bookId, chapterSource FROM books ORDER BY bookId").use { cursor ->
+                val sources = buildList { while (cursor.moveToNext()) add(cursor.getLong(0) to cursor.getString(1)) }
+                // Die Kapitelliste wird beim nächsten Abspielen neu geladen, jetzt mit Bild und Webseite.
+                assertEquals(listOf(7L to null, 8L to "FEED", 9L to null), sources)
+            }
+            db.query("SELECT COUNT(*), COUNT(imageUrl), COUNT(url) FROM book_chapters").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(3, cursor.getInt(0))
+                assertEquals(0, cursor.getInt(1))
+                assertEquals(0, cursor.getInt(2))
+            }
+            db.query("SELECT etag, lastModified FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertTrue(cursor.isNull(0))
+                assertTrue(cursor.isNull(1))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

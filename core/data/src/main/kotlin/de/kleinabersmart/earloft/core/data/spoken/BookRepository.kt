@@ -184,7 +184,7 @@ internal fun BookEntity.toModel() = Book(
     language = language,
 )
 
-internal fun BookChapterEntity.toModel() = BookChapter(chapterIndex, title, startMs, endMs)
+internal fun BookChapterEntity.toModel() = BookChapter(chapterIndex, title, startMs, endMs, imageUrl, url)
 
 internal fun BookTrackEntity.toModel() = BookTrack(
     trackIndex,

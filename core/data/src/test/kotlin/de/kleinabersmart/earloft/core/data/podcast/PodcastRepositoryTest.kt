@@ -371,10 +371,14 @@ class PodcastRepositoryTest {
         assertEquals(ChapterSource.FEED, db.bookDao().chapterSource(id))
 
         // Die Kapitelliste (JSON) geht vor.
-        served = """{"version":"1.2.0","chapters":[{"startTime":0,"title":"Begrüßung"},{"startTime":30.5,"title":"Ukraine"}]}"""
+        served = """{"version":"1.2.0","chapters":[{"startTime":0,"title":"Begrüßung"},
+            {"startTime":30.5,"title":"Ukraine","img":"https://example.com/karte.jpg","url":"https://example.com/quelle"}]}"""
         repository.ensureChapters(id)
         assertEquals(listOf(Triple("Begrüßung", 0L, 30_500L), Triple("Ukraine", 30_500L, 600_000L)), chapters())
         assertEquals(ChapterSource.JSON, db.bookDao().chapterSource(id))
+        // Bild und Webseite kommen mit.
+        val ukraine = db.bookDao().chapters(id).last()
+        assertEquals("https://example.com/karte.jpg" to "https://example.com/quelle", ukraine.imageUrl to ukraine.url)
 
         // Der nächste Abgleich bringt wieder die Feed-Kapitel; sie ersetzen die Liste nicht.
         served = rss

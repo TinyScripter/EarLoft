@@ -663,7 +663,7 @@ class PodcastRepository @Inject constructor(
      */
     suspend fun chaptersFromFile(bookId: Long) {
         val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.EPISODE && it.chapterSource == null } ?: return
-        // Kapitel ohne vermerkte Quelle stammen aus der Zeit vor Schema v29 (JSON); sie bleiben.
+        // Kapitel ohne vermerkte Quelle stammen aus einer Kapitelliste (vor Schema v29, oder v30 zum Neuladen); sie bleiben.
         if (bookDao.chapters(bookId).isNotEmpty()) return
         val track = bookDao.tracks(bookId).firstOrNull { it.downloadState == TrackDownload.DONE } ?: return
         val file = track.filePath?.let(::File)?.takeIf { it.isFile } ?: return
@@ -687,7 +687,15 @@ class PodcastRepository @Inject constructor(
         val lastStart = chapters.last().startMs
         val end = durationMs.takeIf { it > lastStart } ?: (lastStart + 1)
         val entities = chapters.mapIndexed { index, chapter ->
-            BookChapterEntity(bookId, index, chapter.title.ifBlank { "${index + 1}" }, chapter.startMs, chapters.getOrNull(index + 1)?.startMs ?: end)
+            BookChapterEntity(
+                bookId,
+                index,
+                chapter.title.ifBlank { "${index + 1}" },
+                chapter.startMs,
+                chapters.getOrNull(index + 1)?.startMs ?: end,
+                imageUrl = chapter.imageUrl,
+                url = chapter.url,
+            )
         }
         if (current == source && bookDao.chapters(bookId) == entities) return
         bookDao.replaceChapters(bookId, entities, source)

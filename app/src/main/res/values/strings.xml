@@ -542,6 +542,7 @@
     <string name="spoken_play_again">Play again</string>
     <string name="spoken_chapters">Chapters</string>
     <string name="spoken_chapter_n">Chapter %1$d</string>
+    <string name="spoken_chapter_link">Open chapter link</string>
     <string name="spoken_percent_listened">%1$d %% listened</string>
     <string name="spoken_finished">Finished</string>
     <string name="spoken_previous_chapter">Previous chapter</string>

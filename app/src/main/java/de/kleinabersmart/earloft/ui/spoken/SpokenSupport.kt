@@ -409,12 +409,16 @@ fun searchLabel(mode: SpokenMode): Int = when (mode) {
     SpokenMode.BOOKS -> R.string.search_in_books
 }
 
-/** Quadratisches Buchcover; solange keines geladen ist (oder keines existiert), bleibt das Buch-Symbol sichtbar. */
+/**
+ * Quadratisches Buchcover; solange keines geladen ist (oder keines existiert), bleibt das Buch-Symbol sichtbar. Ein
+ * [chapterImage] (Bild des laufenden Kapitels einer Folge) liegt darüber, bis es geladen ist, bleibt das Cover zu sehen.
+ */
 @Composable
 fun BookArt(
     bookId: Long,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(8.dp),
+    chapterImage: String? = null,
 ) {
     Box(
         modifier = modifier
@@ -436,6 +440,14 @@ fun BookArt(
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
+        if (chapterImage != null) {
+            AsyncImage(
+                model = chapterImage,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 

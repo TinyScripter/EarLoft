@@ -149,6 +149,9 @@ data class BookChapterEntity(
     val title: String,
     val startMs: Long,
     val endMs: Long,
+    /** Bild und Webseite des Kapitels (Schema v30), nur bei Folgen aus Kapitelliste oder Podlove. */
+    val imageUrl: String? = null,
+    val url: String? = null,
 )
 
 /** Fortschritt je Buch (Konzept 12.3). `updatedAt` entscheidet bei Konflikten, `dirty` heißt: noch nicht gemeldet. */

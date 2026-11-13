@@ -354,6 +354,19 @@ private fun BookPlayerContent(
             }
         }
         val coverShape = MaterialTheme.shapes.extraLarge
+        // Folgen: Das Bild des laufenden Kapitels liegt über dem Cover; hat das Kapitel eine Webseite, öffnet ein Tipp sie.
+        val currentChapter = tl?.chapters?.firstOrNull { it.index == chapterIndex }
+        val openLink = rememberOpenLink()
+        val chapterLinkLabel = stringResource(R.string.spoken_chapter_link)
+        val art: @Composable (Modifier) -> Unit = { artModifier ->
+            val link = currentChapter?.url
+            BookArt(
+                entry.bookId,
+                if (link != null) artModifier.clickable(onClickLabel = chapterLinkLabel) { openLink(link) } else artModifier,
+                coverShape,
+                chapterImage = currentChapter?.imageUrl,
+            )
+        }
 
         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             PlayerTopBar(
@@ -375,7 +388,7 @@ private fun BookPlayerContent(
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                     Column(Modifier.weight(1f).fillMaxHeight().padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            BookArt(entry.bookId, Modifier.fillMaxHeight(), coverShape)
+                            art(Modifier.fillMaxHeight())
                         }
                         actionRow()
                         sleepLine()
@@ -427,7 +440,7 @@ private fun BookPlayerContent(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         // Ohne fillMaxWidth, damit das Cover bei wenig Höhe schrumpft statt die Knöpfe zu überdecken.
-                        BookArt(entry.bookId, Modifier.weight(1f, fill = false).widthIn(max = 480.dp), coverShape)
+                        art(Modifier.weight(1f, fill = false).widthIn(max = 480.dp))
                         actionRow()
                         sleepLine()
                         Spacer(Modifier.height(8.dp))
@@ -464,7 +477,7 @@ private fun BookPlayerContent(
                             Modifier.weight(1f, fill = false).fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
                             maxSide = 420.dp,
                         ) { fit ->
-                            BookArt(entry.bookId, fit, coverShape)
+                            art(fit)
                         }
                         actionRow()
                         sleepLine()
@@ -827,11 +840,15 @@ private fun ChapterList(
 ) {
     // Die Liste öffnet beim laufenden Kapitel.
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = timeline.chapters.indexOfFirst { it.index == currentIndex }.coerceAtLeast(0))
+    val withImages = timeline.chapters.any { it.imageUrl != null }
     LazyColumn(modifier, state = listState) {
         itemsIndexed(timeline.chapters, key = { _, chapter -> chapter.index }) { _, chapter ->
             ListItem(
                 headlineContent = { Text(chapterTitle(chapter), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                trailingContent = { Text(formatClock(chapter.startMs), style = MaterialTheme.typography.bodySmall) },
+                leadingContent = if (withImages) ({ ChapterImage(chapter.imageUrl) }) else null,
+                trailingContent = {
+                    ChapterTrailing(chapter.url) { Text(formatClock(chapter.startMs), style = MaterialTheme.typography.bodySmall) }
+                },
                 colors = ListItemDefaults.colors(
                     containerColor = if (chapter.index == currentIndex) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
                 ),

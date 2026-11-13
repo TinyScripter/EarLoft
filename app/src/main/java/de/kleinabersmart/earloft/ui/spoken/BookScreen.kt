@@ -72,6 +72,13 @@ import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.ui.formatBytes
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
+import coil3.compose.AsyncImage
 
 /** Buchseite: Beschreibung, Fortschritt, Abspielen und Kapitelliste (Konzept 12.5). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -367,10 +374,14 @@ private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter
                 modifier = Modifier.padding(start = GroupMargin + 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
             )
         }
+        val withImages = chapters.any { it.imageUrl != null }
         groupedItems(chapters, key = { it.index }) { chapter ->
             ListItem(
                 headlineContent = { Text(chapterTitle(chapter)) },
-                trailingContent = { Text(formatDuration(chapter.durationMs), style = MaterialTheme.typography.bodySmall) },
+                leadingContent = if (withImages) ({ ChapterImage(chapter.imageUrl) }) else null,
+                trailingContent = {
+                    ChapterTrailing(chapter.url) { Text(formatDuration(chapter.durationMs), style = MaterialTheme.typography.bodySmall) }
+                },
                 modifier = Modifier.clickable { onChapter(chapter.startMs) },
             )
         }
@@ -434,3 +445,36 @@ internal fun languageName(language: String): String {
 @Composable
 internal fun chapterTitle(chapter: BookChapter): String =
     chapter.title.ifBlank { stringResource(R.string.spoken_chapter_n, chapter.index + 1) }
+
+/** Kapitelbild vor dem Titel in Kapitellisten; ohne Bild bleibt der Platz leer, damit die Titel bündig stehen. */
+@Composable
+internal fun ChapterImage(url: String?) {
+    Box(Modifier.size(40.dp).clip(RoundedCornerShape(4.dp))) {
+        if (url != null) AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+    }
+}
+
+/** Rechts in Kapitellisten: [time], davor die Webseite des Kapitels, falls es eine hat. */
+@Composable
+internal fun ChapterTrailing(url: String?, time: @Composable () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (url != null) ChapterLinkButton(url)
+        time()
+    }
+}
+
+/** Öffnet die Webseite eines Kapitels im Browser. */
+@Composable
+internal fun ChapterLinkButton(url: String) {
+    val openLink = rememberOpenLink()
+    IconButton(onClick = { openLink(url) }) {
+        Icon(painterResource(DesignR.drawable.ic_open_in_new), contentDescription = stringResource(R.string.spoken_chapter_link))
+    }
+}
+
+/** Öffnet eine Webseite; ohne Browser passiert nichts. */
+@Composable
+internal fun rememberOpenLink(): (String) -> Unit {
+    val uriHandler = LocalUriHandler.current
+    return remember(uriHandler) { { url -> runCatching { uriHandler.openUri(url) } } }
+}

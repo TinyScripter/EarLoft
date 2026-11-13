@@ -535,6 +535,7 @@
     <string name="spoken_play_again">Noch einmal hören</string>
     <string name="spoken_chapters">Kapitel</string>
     <string name="spoken_chapter_n">Kapitel %1$d</string>
+    <string name="spoken_chapter_link">Link zum Kapitel öffnen</string>
     <string name="spoken_percent_listened">%1$d %% gehört</string>
     <string name="spoken_finished">Beendet</string>
     <string name="spoken_previous_chapter">Voriges Kapitel</string>
