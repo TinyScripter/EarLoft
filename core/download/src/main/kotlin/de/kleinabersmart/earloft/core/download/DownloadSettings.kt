@@ -41,6 +41,17 @@ class DownloadSettings @Inject constructor(
         context.downloadSettingsDataStore.edit { it[KEY_AUTO_FAVORITES] = enabled }
     }
 
+    /**
+     * Mit [autoDownloadFavorites] auch alles von favorisierten Künstlern laden (Standard: aus – ein Künstler kann sehr groß
+     * sein). Favorisierte Alben lädt die Automatik immer ganz.
+     */
+    val autoDownloadFavoriteArtists: Flow<Boolean> =
+        context.downloadSettingsDataStore.data.map { it[KEY_AUTO_FAVORITE_ARTISTS] ?: false }
+
+    suspend fun setAutoDownloadFavoriteArtists(enabled: Boolean) {
+        context.downloadSettingsDataStore.edit { it[KEY_AUTO_FAVORITE_ARTISTS] = enabled }
+    }
+
     /** Server (`sourceId`), von denen alles automatisch heruntergeladen wird (Standard: keiner). */
     val autoDownloadServers: Flow<Set<String>> =
         context.downloadSettingsDataStore.data.map { it[KEY_AUTO_SERVERS].orEmpty() }
@@ -78,6 +89,7 @@ class DownloadSettings @Inject constructor(
 
         private val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only")
         private val KEY_AUTO_FAVORITES = booleanPreferencesKey("auto_download_favorites")
+        private val KEY_AUTO_FAVORITE_ARTISTS = booleanPreferencesKey("auto_download_favorite_artists")
         private val KEY_AUTO_SERVERS = stringSetPreferencesKey("auto_download_servers")
         private val KEY_AUTO_NEWEST_ALBUMS = intPreferencesKey("auto_download_newest_albums")
         private val KEY_AUTO_MOST_PLAYED_ALBUMS = intPreferencesKey("auto_download_most_played_albums")

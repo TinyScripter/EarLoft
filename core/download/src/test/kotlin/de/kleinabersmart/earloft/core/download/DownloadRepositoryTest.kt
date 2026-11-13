@@ -2,6 +2,8 @@ package de.kleinabersmart.earloft.core.download
 
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.data.repository.CoverFiles
+import de.kleinabersmart.earloft.core.database.entity.AlbumArtistCrossRef
+import de.kleinabersmart.earloft.core.database.entity.ArtistEntity
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
@@ -206,6 +208,42 @@ class DownloadRepositoryTest {
 
         library.db.syncDao().setSongFavorite(liked, false, 2)
         repository.reconcileFavoriteDownloads(enabled = true)
+        assertTrue(library.db.downloadDao().getAll().isEmpty())
+    }
+
+    @Test
+    fun `a favorite album is downloaded whole and dropped when unstarred, its favorite songs stay`() = runTest {
+        val albumId = library.album("Takk")
+        val liked = library.song(albumId, "A", "home" to "a")
+        library.song(albumId, "B", "home" to "b")
+        library.song(library.album("Other"), "C", "home" to "c")
+        library.db.syncDao().setAlbumFavorite(albumId, true, 1)
+
+        repository.reconcileFavoriteDownloads(enabled = true)
+        assertEquals(setOf("home:a", "home:b"), library.db.downloadDao().getAll().map { it.sourceUid }.toSet())
+
+        library.db.syncDao().setSongFavorite(liked, true, 2)
+        library.db.syncDao().setAlbumFavorite(albumId, false, 3)
+        repository.reconcileFavoriteDownloads(enabled = true)
+        assertEquals(listOf("home:a"), library.db.downloadDao().getAll().map { it.sourceUid })
+    }
+
+    @Test
+    fun `favorite artists are downloaded only when switched on`() = runTest {
+        val albumId = library.album("Takk")
+        library.song(albumId, "A", "home" to "a")
+        val artistId = library.db.libraryDao().insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigur ros"))
+        library.db.libraryDao().insertAlbumArtist(AlbumArtistCrossRef(albumId, artistId, 0))
+        library.db.syncDao().setArtistFavorite(artistId, true, 1)
+
+        repository.reconcileFavoriteDownloads(enabled = true, withArtists = false)
+        assertTrue(library.db.downloadDao().getAll().isEmpty())
+
+        repository.reconcileFavoriteDownloads(enabled = true, withArtists = true)
+        assertEquals(listOf("home:a"), library.db.downloadDao().getAll().map { it.sourceUid })
+
+        // Wieder aus: Was nur wegen des Künstlers geladen war, fällt weg.
+        repository.reconcileFavoriteDownloads(enabled = true, withArtists = false)
         assertTrue(library.db.downloadDao().getAll().isEmpty())
     }
 

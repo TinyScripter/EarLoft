@@ -104,22 +104,23 @@ class DownloadRepository @Inject constructor(
     suspend fun removePlaylist(playlistId: Long) = removeSongs(playlistDao.getSongIds(playlistId))
 
     /**
-     * Gleicht die automatischen Downloads mit den Favoriten ab ([enabled] = Einstellung): Favoriten werden geladen,
-     * Downloads entsternter Songs entfernt. Ist die Automatik aus, behalten ihre Downloads (nun als manuell).
-     * Wer einen automatisch geladenen Song danach selbst entfernt, bekommt ihn bei eingeschalteter Automatik
-     * beim nächsten Abgleich wieder.
+     * Gleicht die automatischen Downloads mit den Favoriten ab ([enabled] = Einstellung): Favoriten und die Songs
+     * favorisierter Alben – mit [withArtists] auch die favorisierter Künstler – werden geladen, was keiner mehr will,
+     * entfernt. Ist die Automatik aus, behalten ihre Downloads (nun als manuell). Wer einen automatisch geladenen Song
+     * danach selbst entfernt, bekommt ihn bei eingeschalteter Automatik beim nächsten Abgleich wieder.
      */
-    suspend fun reconcileFavoriteDownloads(enabled: Boolean) {
+    suspend fun reconcileFavoriteDownloads(enabled: Boolean, withArtists: Boolean = false) {
         if (!enabled) {
             downloadDao.repinAll(PINNED_FAVORITES, PINNED_MANUAL)
             return
         }
-        remove(downloadDao.getPinnedByWithoutFavorite(PINNED_FAVORITES))
+        remove(downloadDao.getPinnedByWithoutFavorite(PINNED_FAVORITES, withArtists))
         // Fehlgeschlagene nicht bei jeder Änderung neu versuchen: Sonst bremst ein kaputter Song jeden Abgleich.
-        enqueue(downloadDao.getFavoriteSongIds(), PINNED_FAVORITES, retryFailed = false)
+        enqueue(downloadDao.getFavoriteSongIds(withArtists), PINNED_FAVORITES, retryFailed = false)
     }
 
-    fun favoriteSongIds(): Flow<List<Long>> = downloadDao.observeFavoriteSongIds()
+    /** Was die Favoriten-Automatik laden will (siehe [reconcileFavoriteDownloads]). */
+    fun favoriteSongIds(withArtists: Boolean): Flow<List<Long>> = downloadDao.observeFavoriteSongIds(withArtists)
 
     /**
      * Gleicht die Server ab, von denen alles geladen werden soll ([sourceIds] = Einstellung): Ihre Songs
@@ -153,14 +154,15 @@ class DownloadRepository @Inject constructor(
     /**
      * Gleicht die automatisch geladenen neuesten und meistgehörten Alben ab ([albumIds] aus [autoAlbumIds]): Ihre Songs
      * werden eingereiht, Downloads herausgefallener Alben entfernt – Favoriten gehen dabei an die Favoriten-Automatik über,
-     * wenn sie eingeschaltet ist ([keepFavorites]). Sind beide aus (`null`), behalten ihre Downloads (nun als manuell).
+     * wenn sie eingeschaltet ist ([keepFavorites], mit [favoriteArtists] wie dort). Sind beide aus (`null`), behalten ihre
+     * Downloads (nun als manuell).
      */
-    suspend fun reconcileAlbumDownloads(albumIds: List<Long>?, keepFavorites: Boolean) {
+    suspend fun reconcileAlbumDownloads(albumIds: List<Long>?, keepFavorites: Boolean, favoriteArtists: Boolean = false) {
         if (albumIds == null) {
             downloadDao.repinAll(PINNED_AUTO_ALBUMS, PINNED_MANUAL)
             return
         }
-        if (keepFavorites) downloadDao.repinFavoritesOutsideAlbums(PINNED_AUTO_ALBUMS, PINNED_FAVORITES, albumIds)
+        if (keepFavorites) downloadDao.repinFavoritesOutsideAlbums(PINNED_AUTO_ALBUMS, PINNED_FAVORITES, albumIds, favoriteArtists)
         remove(downloadDao.getPinnedByOutsideAlbums(PINNED_AUTO_ALBUMS, albumIds))
         // Wie bei den Favoriten: Fehlgeschlagene nicht bei jedem Abgleich neu versuchen.
         enqueue(albumIds.flatMap { libraryDao.getSongIdsOfAlbum(it) }, PINNED_AUTO_ALBUMS, retryFailed = false)

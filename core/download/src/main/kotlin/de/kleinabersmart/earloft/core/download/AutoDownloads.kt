@@ -23,7 +23,7 @@ import javax.inject.Singleton
 
 /**
  * Hält die automatischen Downloads aktuell:
- * - **Favoriten:** beim Start und bei jeder Änderung der Favoriten oder der Einstellung.
+ * - **Favoriten** (Songs, Alben, auf Wunsch Künstler): beim Start und bei jeder Änderung der Favoriten oder der Einstellungen.
  * - **Ganze Server:** beim Start, bei Änderung der Einstellung und nach jedem Abgleich (neue Songs).
  * - **Neueste und meistgehörte Alben:** beim Start, bei Änderung der Einstellungen, nach jedem Abgleich (auch die Songs eines
  *   neuen Albums, die erst nach seinem ersten Auftauchen ankamen) und sobald sich die Auswahl der Alben ändert.
@@ -40,9 +40,12 @@ class AutoDownloads @Inject constructor(
     fun start(scope: CoroutineScope) {
         if (!started.compareAndSet(false, true)) return
         scope.launch {
-            // Room meldet jede Änderung an `songs` (jeder Abgleichsschritt); abgleichen nur, wenn sich die Favoriten ändern.
-            combine(settings.autoDownloadFavorites, repository.favoriteSongIds().distinctUntilChanged()) { enabled, _ -> enabled }
-                .collectLatest { repository.reconcileFavoriteDownloads(it) }
+            // Room meldet jede Änderung an `songs` (jeder Abgleichsschritt); abgleichen nur, wenn sich die gewollten Songs ändern.
+            combine(settings.autoDownloadFavorites, settings.autoDownloadFavoriteArtists) { enabled, artists -> enabled to artists }
+                .flatMapLatest { (enabled, artists) ->
+                    repository.favoriteSongIds(artists).distinctUntilChanged().map { enabled to artists }
+                }
+                .collectLatest { (enabled, artists) -> repository.reconcileFavoriteDownloads(enabled, artists) }
         }
         scope.launch {
             combine(settings.autoDownloadServers, syncsFinished.onStart { emit(Unit) }) { sourceIds, _ -> sourceIds }
@@ -53,18 +56,23 @@ class AutoDownloads @Inject constructor(
                 settings.autoDownloadNewestAlbums,
                 settings.autoDownloadMostPlayedAlbums,
                 settings.autoDownloadFavorites,
+                settings.autoDownloadFavoriteArtists,
                 syncsFinished.onStart { emit(Unit) },
-            ) { newest, mostPlayed, keepFavorites, _ -> Triple(newest, mostPlayed, keepFavorites) }
-                .flatMapLatest { (newest, mostPlayed, keepFavorites) ->
-                    repository.autoAlbumIds(newest, mostPlayed).distinctUntilChanged().map { it to keepFavorites }
+            ) { newest, mostPlayed, keepFavorites, favoriteArtists, _ -> AlbumRule(newest, mostPlayed, keepFavorites, favoriteArtists) }
+                .flatMapLatest { rule ->
+                    repository.autoAlbumIds(rule.newest, rule.mostPlayed).distinctUntilChanged().map { it to rule }
                 }
-                .collectLatest { (albumIds, keepFavorites) -> repository.reconcileAlbumDownloads(albumIds, keepFavorites) }
+                .collectLatest { (albumIds, rule) ->
+                    repository.reconcileAlbumDownloads(albumIds, rule.keepFavorites, rule.favoriteArtists)
+                }
         }
     }
 
     override suspend fun onSyncFinished() {
         syncsFinished.tryEmit(Unit)
     }
+
+    private data class AlbumRule(val newest: Int, val mostPlayed: Int, val keepFavorites: Boolean, val favoriteArtists: Boolean)
 }
 
 @Module

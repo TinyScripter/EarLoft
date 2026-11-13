@@ -18,6 +18,22 @@ import kotlinx.coroutines.flow.Flow
  * Downloads werden immer über `song_sources` mit Songs verknüpft, nicht über die gespeicherte
  * `songId`: Ein Abgleich kann eine Quelle einem anderen Song zuordnen.
  */
+/**
+ * Der Song (Alias `s`) ist für die Favoriten-Automatik gewollt: selbst Favorit, aus einem favorisierten Album oder – mit
+ * `:withArtists` – von einem favorisierten Künstler (seine Alben ganz und die Songs, die er auf anderen Alben singt bzw.
+ * spielt, wie auf der Künstlerseite).
+ */
+private const val FAVORITE_WANTED = """(
+    s.isFavorite = 1
+    OR EXISTS (SELECT 1 FROM albums fal WHERE fal.albumId = s.albumId AND fal.isFavorite = 1)
+    OR (:withArtists AND (
+        EXISTS (SELECT 1 FROM album_artists faa JOIN artists far ON far.artistId = faa.artistId
+                WHERE faa.albumId = s.albumId AND far.isFavorite = 1)
+        OR EXISTS (SELECT 1 FROM song_artists fsa JOIN artists fsr ON fsr.artistId = fsa.artistId
+                   WHERE fsa.songId = s.songId AND fsr.isFavorite = 1)
+    ))
+)"""
+
 @Dao
 interface DownloadDao {
 
@@ -151,22 +167,23 @@ interface DownloadDao {
 
     // --- Favoriten-Downloads (Smart-Downloads) ---
 
-    @Query("SELECT songId FROM songs WHERE isFavorite = 1")
-    suspend fun getFavoriteSongIds(): List<Long>
+    /** Songs, die die Favoriten-Automatik laden soll (siehe [FAVORITE_WANTED]). */
+    @Query("SELECT s.songId FROM songs s WHERE $FAVORITE_WANTED")
+    suspend fun getFavoriteSongIds(withArtists: Boolean): List<Long>
 
-    @Query("SELECT songId FROM songs WHERE isFavorite = 1")
-    fun observeFavoriteSongIds(): Flow<List<Long>>
+    @Query("SELECT s.songId FROM songs s WHERE $FAVORITE_WANTED")
+    fun observeFavoriteSongIds(withArtists: Boolean): Flow<List<Long>>
 
-    /** Automatisch (wegen eines Favoriten) geladene Downloads, deren Song kein Favorit mehr ist. */
+    /** Automatisch (wegen eines Favoriten) geladene Downloads, deren Song die Automatik nicht mehr will. */
     @Query(
         """
         SELECT d.* FROM downloads d
         JOIN song_sources ss ON ss.uid = d.sourceUid
         JOIN songs s ON s.songId = ss.songId
-        WHERE d.pinnedBy = :pinnedBy AND s.isFavorite = 0
+        WHERE d.pinnedBy = :pinnedBy AND NOT $FAVORITE_WANTED
         """,
     )
-    suspend fun getPinnedByWithoutFavorite(pinnedBy: String): List<DownloadEntity>
+    suspend fun getPinnedByWithoutFavorite(pinnedBy: String, withArtists: Boolean): List<DownloadEntity>
 
     /** Ein Download, den der Nutzer nun selbst angefordert hat, gehört nicht mehr der Automatik. */
     @Query(
@@ -231,17 +248,17 @@ interface DownloadDao {
     )
     suspend fun getPinnedByOutsideAlbums(pinnedBy: String, albumIds: List<Long>): List<DownloadEntity>
 
-    /** Wie [getPinnedByOutsideAlbums], aber nur Favoriten; sie gehen an [to] über. */
+    /** Wie [getPinnedByOutsideAlbums], aber nur, was die Favoriten-Automatik will; das geht an [to] über. */
     @Query(
         """
         UPDATE downloads SET pinnedBy = :to
         WHERE pinnedBy = :from AND sourceUid IN (
             SELECT ss.uid FROM song_sources ss JOIN songs s ON s.songId = ss.songId
-            WHERE s.isFavorite = 1 AND s.albumId NOT IN (:albumIds)
+            WHERE $FAVORITE_WANTED AND s.albumId NOT IN (:albumIds)
         )
         """,
     )
-    suspend fun repinFavoritesOutsideAlbums(from: String, to: String, albumIds: List<Long>)
+    suspend fun repinFavoritesOutsideAlbums(from: String, to: String, albumIds: List<Long>, withArtists: Boolean)
 
     // --- Wiedergabe ---
 

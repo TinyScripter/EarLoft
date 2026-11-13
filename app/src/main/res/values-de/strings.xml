@@ -362,7 +362,9 @@
     <string name="settings_wifi_only">Nur über WLAN herunterladen</string>
     <string name="settings_wifi_only_summary">Über mobile Daten wird nichts heruntergeladen.</string>
     <string name="settings_auto_download_favorites">Favoriten automatisch herunterladen</string>
-    <string name="settings_auto_download_favorites_summary">Neue Favoriten werden geladen, entfernte Favoriten wieder gelöscht. Gilt für Server, von denen nicht ohnehin alles geladen wird.</string>
+    <string name="settings_auto_download_favorites_summary">Neue Favoriten werden geladen, entfernte Favoriten wieder gelöscht. Favorisierte Alben werden ganz geladen. Gilt für Server, von denen nicht ohnehin alles geladen wird.</string>
+    <string name="settings_auto_download_favorite_artists">Favorisierte Künstler mitladen</string>
+    <string name="settings_auto_download_favorite_artists_summary">Lädt auch alles von deinen Lieblingskünstlern. Das kann viel Speicher belegen.</string>
     <string name="settings_auto_download_newest_albums">Neueste Alben automatisch herunterladen</string>
     <string name="settings_auto_download_newest_albums_summary">Die zuletzt hinzugefügten Alben deiner Server. Alben, die herausfallen, werden wieder gelöscht.</string>
     <string name="settings_auto_download_most_played_albums">Meistgehörte Alben automatisch herunterladen</string>

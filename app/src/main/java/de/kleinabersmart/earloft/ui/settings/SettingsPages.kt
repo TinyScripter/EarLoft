@@ -448,6 +448,17 @@ fun MusicSettingsScreen(
                     onCheckedChange = viewModel::setAutoDownloadFavorites,
                 )
             }
+            // Gehört zur Favoriten-Automatik und wirkt nur mit ihr.
+            row("auto-favorite-artists") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_auto_download_favorite_artists),
+                    summary = stringResource(R.string.settings_auto_download_favorite_artists_summary),
+                    icon = DesignR.drawable.ic_person,
+                    checked = state.autoDownloadFavoriteArtists,
+                    onCheckedChange = viewModel::setAutoDownloadFavoriteArtists,
+                    enabled = state.autoDownloadFavorites,
+                )
+            }
             row("auto-newest-albums") {
                 ClickRow(
                     title = stringResource(R.string.settings_auto_download_newest_albums),
