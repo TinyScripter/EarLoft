@@ -76,7 +76,7 @@ class EarLoftApplication : Application(), SingletonImageLoader.Factory {
         podcastRefresher.start()
         autoDownloads.start(applicationScope)
         episodeDownloads.start(applicationScope, queuePersistence.lastBookIds)
-        bookDownloads.start(applicationScope)
+        bookDownloads.start(applicationScope, queuePersistence.lastBookIds)
         trialPodcastCleaner.start(applicationScope)
         offlineImages.start()
         applicationScope.launch { podcastSettings.rememberAppleCountry() }

@@ -128,6 +128,10 @@ data class SettingsUiState(
     val bookEffects: SpokenEffects = SpokenEffects.DEFAULT,
     val podcastEffects: SpokenEffects = SpokenEffects.DEFAULT,
     val bookMobileData: Boolean = false,
+    /** Buch-Automatik und Aufräumen (Konzept 12.8). */
+    val bookAutoStarted: Boolean = false,
+    val bookAutoNextInSeries: Boolean = false,
+    val bookDeleteFinishedDays: Int = PodcastSettings.DELETE_HEARD_NEVER,
     /** Verzeichnisse, die dieser Build kennt, und die eingeschalteten (Konzept 12.10). */
     val podcastDirectories: List<PodcastDirectory> = emptyList(),
     val enabledPodcastDirectories: Set<PodcastDirectory> = emptySet(),
@@ -278,6 +282,10 @@ class SettingsViewModel @Inject constructor(
         state.copy(bookSeek = book, podcastSeek = podcast)
     }.combine(combine(spokenSettings.bookMobileData, spokenSettings.shakeToExtend, ::Pair)) { state, (mobile, shake) ->
         state.copy(bookMobileData = mobile, shakeToExtend = shake)
+    }.combine(
+        combine(spokenSettings.bookAutoStarted, spokenSettings.bookAutoNextInSeries, spokenSettings.bookDeleteFinishedDays, ::Triple),
+    ) { state, (autoStarted, autoNext, deleteDays) ->
+        state.copy(bookAutoStarted = autoStarted, bookAutoNextInSeries = autoNext, bookDeleteFinishedDays = deleteDays)
     }.combine(combine(spokenSettings.bookEffects, spokenSettings.podcastEffects, ::Pair)) { state, (book, podcast) ->
         state.copy(bookEffects = book, podcastEffects = podcast)
     }.combine(spokenSettings.areas) { state, areas ->
@@ -343,6 +351,18 @@ class SettingsViewModel @Inject constructor(
     /** Wartende Buch-Downloads bekommen die neue Netzbedingung sofort (BookDownloads). */
     fun setBookMobileData(enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setBookMobileData(enabled) }
+    }
+
+    fun setBookAutoStarted(enabled: Boolean) {
+        viewModelScope.launch { spokenSettings.setBookAutoStarted(enabled) }
+    }
+
+    fun setBookAutoNextInSeries(enabled: Boolean) {
+        viewModelScope.launch { spokenSettings.setBookAutoNextInSeries(enabled) }
+    }
+
+    fun setBookDeleteFinishedDays(days: Int) {
+        viewModelScope.launch { spokenSettings.setBookDeleteFinishedDays(days) }
     }
 
     fun setRestartChapter(enabled: Boolean) {

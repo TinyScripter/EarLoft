@@ -856,6 +856,11 @@
     <string name="book_download_waiting_wifi">Wartet auf WLAN. Mobilfunk kannst du unter Einstellungen → Bücher erlauben.</string>
     <string name="settings_book_mobile">Auch über Mobilfunk laden</string>
     <string name="settings_book_mobile_summary">Aus: Bücher werden nur im WLAN heruntergeladen.</string>
+    <string name="settings_book_auto_started">Angefangene Bücher automatisch laden</string>
+    <string name="settings_book_auto_started_summary">Die ersten zwei Bücher aus „Weiterhören“, nur im WLAN.</string>
+    <string name="settings_book_auto_next">Nächsten Band einer Serie laden</string>
+    <string name="settings_book_auto_next_summary">Ist ein Buch zu 80 % gehört, den nächsten Band seiner Serie, nur im WLAN.</string>
+    <string name="settings_book_delete_finished">Downloads beendeter Bücher löschen</string>
     <string name="settings_podcast_auto_new">Neue Abos laden automatisch</string>
     <string name="settings_podcast_auto_new_summary">Vorgabe für Podcasts, die du ab jetzt abonnierst. Bestehende Abos behalten ihre eigene Einstellung.</string>
     <string name="settings_podcast_auto_count">Automatisch bereitgehaltene Folgen</string>

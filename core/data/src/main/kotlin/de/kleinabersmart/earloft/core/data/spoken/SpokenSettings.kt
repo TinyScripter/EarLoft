@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.sync.LocalSourcesDefault
 import de.kleinabersmart.earloft.core.model.BookFilter
 import de.kleinabersmart.earloft.core.model.BookSort
@@ -188,6 +189,31 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_BOOK_MOBILE] = enabled }
     }
 
+    /** Die ersten Bücher aus „Weiterhören“ automatisch laden, nur im WLAN ([automaticBookDownloads]; Standard: aus). */
+    val bookAutoStarted: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_BOOK_AUTO_STARTED] ?: false }
+
+    suspend fun setBookAutoStarted(enabled: Boolean) {
+        context.spokenSettingsDataStore.edit { it[KEY_BOOK_AUTO_STARTED] = enabled }
+    }
+
+    /** Den nächsten Band einer Serie automatisch laden, nur im WLAN ([automaticBookDownloads]; Standard: aus). */
+    val bookAutoNextInSeries: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_BOOK_AUTO_NEXT] ?: false }
+
+    suspend fun setBookAutoNextInSeries(enabled: Boolean) {
+        context.spokenSettingsDataStore.edit { it[KEY_BOOK_AUTO_NEXT] = enabled }
+    }
+
+    /**
+     * Nach wie vielen Tagen der Download eines beendeten Buchs gelöscht wird: wie bei Folgen 0 = sofort, eine Anzahl Tage
+     * oder [PodcastSettings.DELETE_HEARD_NEVER] (Standard); die Auswahl wie dort ([PodcastSettings.DELETE_HEARD_CHOICES]).
+     */
+    val bookDeleteFinishedDays: Flow<Int> =
+        context.spokenSettingsDataStore.data.map { it[KEY_BOOK_DELETE_FINISHED] ?: PodcastSettings.DELETE_HEARD_NEVER }
+
+    suspend fun setBookDeleteFinishedDays(days: Int) {
+        context.spokenSettingsDataStore.edit { it[KEY_BOOK_DELETE_FINISHED] = days.coerceAtLeast(PodcastSettings.DELETE_HEARD_NEVER) }
+    }
+
     /** Reihenfolge und Filter des Reiters „Alle“ der Bücher (Standard: nach Titel, alle). */
     val bookSort: Flow<BookSort> = context.spokenSettingsDataStore.data.map { prefs ->
         BookSort.entries.firstOrNull { it.name == prefs[KEY_BOOK_SORT] } ?: BookSort.TITLE
@@ -209,6 +235,9 @@ class SpokenSettings @Inject constructor(
         val KEY_BOOK_SORT = stringPreferencesKey("book_sort")
         val KEY_BOOK_FILTER = stringPreferencesKey("book_filter")
         val KEY_BOOK_MOBILE = booleanPreferencesKey("book_mobile_data")
+        val KEY_BOOK_AUTO_STARTED = booleanPreferencesKey("book_auto_started")
+        val KEY_BOOK_AUTO_NEXT = booleanPreferencesKey("book_auto_next_in_series")
+        val KEY_BOOK_DELETE_FINISHED = intPreferencesKey("book_delete_finished_days")
         val KEY_BOOK_REWIND_AFTER = intPreferencesKey("book_rewind_after_s")
         val KEY_BOOK_REWIND = intPreferencesKey("book_rewind_s")
         val KEY_PODCAST_REWIND_AFTER = intPreferencesKey("podcast_rewind_after_s")

@@ -360,6 +360,24 @@ abstract class BookDao {
     @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND downloadState IN ('NONE', 'FAILED', 'REMOVED')")
     abstract suspend fun queueBookDownload(bookId: Long): Int
 
+    /**
+     * Automatik (Weiterhören, nächster Band): nur nie geladene Dateien, und nicht, wenn der Nutzer den Download des Buchs
+     * entfernt hat oder eine Datei gescheitert ist – das holt nur „Download“ von Hand zurück.
+     */
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND downloadState = 'NONE' " +
+            "AND NOT EXISTS (SELECT 1 FROM book_tracks r WHERE r.bookId = :bookId AND r.downloadState IN ('REMOVED', 'FAILED'))",
+    )
+    abstract suspend fun queueBookDownloadAutomatic(bookId: Long): Int
+
+    /** Dateien beendeter Bücher (eine Zeile je Datei) mit dem Zeitpunkt, zu dem das Buch beendet wurde. */
+    @Query(
+        "SELECT t.bookId AS bookId, p.updatedAt AS finishedAt, t.filePath AS filePath FROM book_tracks t " +
+            "JOIN books b ON b.bookId = t.bookId JOIN book_progress p ON p.bookId = t.bookId " +
+            "WHERE b.kind = 'BOOK' AND t.downloadState = 'DONE' AND p.finished = 1",
+    )
+    abstract fun observeFinishedBookDownloads(): Flow<List<FinishedDownloadRow>>
+
     @Query(
         "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
             "WHERE b.kind = 'BOOK' AND t.downloadState = 'QUEUED' ORDER BY t.bookId, t.trackIndex LIMIT 1",

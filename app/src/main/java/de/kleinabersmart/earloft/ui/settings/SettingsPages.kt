@@ -986,6 +986,7 @@ fun AudiobookSettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var confirmingBookStatsReset by rememberSaveable { mutableStateOf(false) }
+    var choosingBookDelete by rememberSaveable { mutableStateOf(false) }
     // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalBooks(true)
@@ -1069,6 +1070,32 @@ fun AudiobookSettingsScreen(
                     onCheckedChange = viewModel::setBookMobileData,
                 )
             }
+            row("book-auto-started") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_book_auto_started),
+                    summary = stringResource(R.string.settings_book_auto_started_summary),
+                    icon = DesignR.drawable.ic_download,
+                    checked = state.bookAutoStarted,
+                    onCheckedChange = viewModel::setBookAutoStarted,
+                )
+            }
+            row("book-auto-next") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_book_auto_next),
+                    summary = stringResource(R.string.settings_book_auto_next_summary),
+                    icon = DesignR.drawable.ic_download,
+                    checked = state.bookAutoNextInSeries,
+                    onCheckedChange = viewModel::setBookAutoNextInSeries,
+                )
+            }
+            row("book-delete-finished") {
+                ClickRow(
+                    title = stringResource(R.string.settings_book_delete_finished),
+                    value = podcastDeleteHeardLabel(state.bookDeleteFinishedDays),
+                    icon = DesignR.drawable.ic_delete,
+                    onClick = { choosingBookDelete = true },
+                )
+            }
         }
 
         group("stats", R.string.settings_section_stats) {
@@ -1081,6 +1108,20 @@ fun AudiobookSettingsScreen(
                 )
             }
         }
+    }
+
+    if (choosingBookDelete) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_book_delete_finished),
+            options = PodcastSettings.DELETE_HEARD_CHOICES,
+            selected = state.bookDeleteFinishedDays,
+            label = { podcastDeleteHeardLabel(it) },
+            onSelect = {
+                viewModel.setBookDeleteFinishedDays(it)
+                choosingBookDelete = false
+            },
+            onDismiss = { choosingBookDelete = false },
+        )
     }
 
     if (confirmingBookStatsReset) {

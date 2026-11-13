@@ -27,6 +27,8 @@ class HeardCleanupWorker(
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, CleanupEntryPoint::class.java)
         val removed = entryPoint.episodeDownloads().removeExpiredHeard()
         if (removed > 0) Log.i(TAG, "$removed gehörte Folgen gelöscht")
+        val finishedBooks = entryPoint.bookDownloads().removeExpiredFinished()
+        if (finishedBooks > 0) Log.i(TAG, "$finishedBooks beendete Bücher gelöscht")
         val orphans = entryPoint.episodeDownloads().deleteOrphans() + entryPoint.bookDownloads().deleteOrphans()
         if (orphans > 0) Log.i(TAG, "$orphans verwaiste Dateien von Folgen und Büchern gelöscht")
         return Result.success()
