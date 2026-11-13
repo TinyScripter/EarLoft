@@ -5,6 +5,7 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
 
@@ -140,6 +141,18 @@ data class UserPlaylistEntryEntity(
 @Entity(tableName = "favorites", primaryKeys = ["song_albumArtist", "song_album", "song_disc", "song_track", "song_title"])
 data class UserFavoriteEntity(
     @Embedded(prefix = "song_") val song: UserSongKey,
+    val changedAt: Long,
+)
+
+/**
+ * Favorit eines Albums oder Künstlers ohne Server-Quelle; die anderen hält der Server. Alben über [artist] =
+ * Album-Künstler und [title], Künstler über [artist] = Name (und leeren [title]), normalisiert wie beim Zusammenführen.
+ */
+@Entity(tableName = "collection_favorites", primaryKeys = ["kind", "artist", "title"])
+data class UserCollectionFavoriteEntity(
+    val kind: FavoriteKind,
+    val artist: String,
+    val title: String,
     val changedAt: Long,
 )
 

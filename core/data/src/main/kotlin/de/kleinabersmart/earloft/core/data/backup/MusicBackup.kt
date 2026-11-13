@@ -1,7 +1,11 @@
 package de.kleinabersmart.earloft.core.data.backup
 
+import de.kleinabersmart.earloft.core.data.repository.pushCollectionFavoriteToServers
 import de.kleinabersmart.earloft.core.data.repository.pushFavoriteToServers
+import de.kleinabersmart.earloft.core.data.repository.setCollectionFavorite
 import de.kleinabersmart.earloft.core.database.dao.BackupDao
+import de.kleinabersmart.earloft.core.database.dao.CollectionFavoriteState
+import de.kleinabersmart.earloft.core.database.dao.KeyedCollectionFavorite
 import de.kleinabersmart.earloft.core.database.dao.KeyedFavorite
 import de.kleinabersmart.earloft.core.database.dao.KeyedPlayEvent
 import de.kleinabersmart.earloft.core.database.dao.KeyedPlaylistEntry
@@ -10,18 +14,21 @@ import de.kleinabersmart.earloft.core.database.dao.SyncDao
 import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntryEntity
+import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.UserSongKey
 import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
 import de.kleinabersmart.earloft.core.database.entity.WearSelectionEntity
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
 import java.util.UUID
 import javax.inject.Inject
 
 /**
- * Die Musik-Nutzerdaten der Sicherung (Review K9, Etappe 3): lokale Playlists, Favoriten von Songs ohne Server, Hörverlauf
+ * Die Musik-Nutzerdaten der Sicherung (Review K9, Etappe 3): lokale Playlists, Favoriten von Songs, Alben und Künstlern ohne
+ * Server, Hörverlauf
  * und die Auswahl für die Uhr. Alles hängt an Songs und Alben, die es auf einem neuen Gerät erst nach Scan bzw. Abgleich
  * wieder gibt; sie werden über ihre Metadaten gefunden ([UserSongKey]). Aufrufe laufen in der Transaktion von
  * [UserDataBackup].
@@ -40,6 +47,7 @@ class MusicBackup @Inject constructor(
             favorites = backupDao.localFavorites(),
             playEvents = backupDao.playEvents(),
             wearSelections = wearSelections(),
+            collectionFavorites = backupDao.localCollectionFavorites(),
         )
     }
 
@@ -123,6 +131,24 @@ class MusicBackup @Inject constructor(
         return saved.filter { it.song !in resolved }
     }
 
+    /** Das Album bzw. der Künstler, den es hier gibt; sonst wartet der Favorit in der Sicherung. */
+    suspend fun collectionState(favorite: UserCollectionFavoriteEntity): CollectionFavoriteState? = when (favorite.kind) {
+        FavoriteKind.ALBUM -> backupDao.albumFavoriteState(favorite.artist, favorite.title)
+        FavoriteKind.ARTIST -> backupDao.artistFavoriteState(favorite.artist)
+        FavoriteKind.SONG -> null
+    }
+
+    /** Wie [applyFavorites] für Alben und Künstler; liefert die, deren Album bzw. Künstler (noch) fehlt. */
+    suspend fun applyCollectionFavorites(saved: Collection<UserCollectionFavoriteEntity>): List<UserCollectionFavoriteEntity> =
+        saved.filter { favorite ->
+            val state = collectionState(favorite) ?: return@filter true
+            if (!state.isFavorite && state.favoriteChangedAt < favorite.changedAt) {
+                syncDao.setCollectionFavorite(favorite.kind, state.id, true, favorite.changedAt)
+                syncDao.pushCollectionFavoriteToServers(favorite.kind, state.id, favorite = true)
+            }
+            false
+        }
+
     /** Ergänzt fehlende Einträge des Hörverlaufs; liefert die, deren Song (noch) fehlt. */
     suspend fun applyPlayEvents(saved: Collection<UserPlayEventEntity>): List<UserPlayEventEntity> {
         val resolved = resolve(saved.map { it.song }.toSet())
@@ -174,4 +200,5 @@ data class MusicData(
     val favorites: List<KeyedFavorite>,
     val playEvents: List<KeyedPlayEvent>,
     val wearSelections: List<UserWearSelectionEntity>,
+    val collectionFavorites: List<KeyedCollectionFavorite>,
 )

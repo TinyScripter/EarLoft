@@ -9,6 +9,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.AutoMigrationSpec
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserListeningDayEntity
@@ -28,7 +29,8 @@ import java.io.File
  * Die Hauptdatenbank bleibt die Arbeitskopie: Änderungen werden hierher gespiegelt und nach einem Neuaufbau zurückgespielt.
  *
  * Versionen: 1 Server, Abos, Statistik; 2 Fortschritt; 3 lokale Playlists, Favoriten, Hörverlauf, Auswahl für die Uhr;
- * 5 archivierte Abos; 6 ohne Cast-Adresse je Server; 7 OpenID je Audiobookshelf-Server; 8 Downloads der Folgen.
+ * 5 archivierte Abos; 6 ohne Cast-Adresse je Server; 7 OpenID je Audiobookshelf-Server; 8 Downloads der Folgen; 9 Favoriten
+ * von Alben und Künstlern.
  */
 @Database(
     entities = [
@@ -44,6 +46,7 @@ import java.io.File
         UserPlayEventEntity::class,
         UserWearSelectionEntity::class,
         UserEpisodeDownloadEntity::class,
+        UserCollectionFavoriteEntity::class,
     ],
     version = UserDatabase.VERSION,
     exportSchema = true,
@@ -55,6 +58,7 @@ import java.io.File
         AutoMigration(from = 5, to = 6, spec = UserDatabase.DropCastBaseUrl::class),
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 8, to = 9),
     ],
 )
 abstract class UserDatabase : RoomDatabase() {
@@ -68,7 +72,7 @@ abstract class UserDatabase : RoomDatabase() {
         const val NAME = "user.db"
 
         /** Schemaversion; die Komplett-Sicherung lehnt Dateien einer neueren ab. */
-        const val VERSION = 8
+        const val VERSION = 9
 
         /**
          * Eine Kopie außerhalb der App-Datenbanken (Komplett-Sicherung, `FullBackup`): ältere Fassungen werden beim Öffnen

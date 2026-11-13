@@ -8,6 +8,7 @@ import androidx.room.Query
 import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.WearSelectionEntity
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 
 /** Spalten eines Songs samt seinem Schlüssel aus den Metadaten (siehe [KeyedSong]). */
 private const val KEYED_SONG =
@@ -37,6 +38,26 @@ abstract class BackupDao {
             "WHERE ss.songId = s.songId AND src.type NOT IN $NOT_SERVER_TYPES)",
     )
     abstract suspend fun localFavorites(): List<KeyedFavorite>
+
+    // --- Favoriten von Alben und Künstlern ---
+
+    /** Wie [localFavorites] für Alben und Künstler ohne Server-Quelle; Schlüssel siehe `UserCollectionFavoriteEntity`. */
+    @Query(
+        "SELECT 'ALBUM' AS kind, a.normAlbumArtist AS artist, a.normTitle AS title, a.favoriteChangedAt AS changedAt " +
+            "FROM albums a WHERE a.isFavorite = 1 AND NOT EXISTS (SELECT 1 FROM album_sources als " +
+            "JOIN sources src ON src.sourceId = als.sourceId WHERE als.albumId = a.albumId AND src.type NOT IN $NOT_SERVER_TYPES) " +
+            "UNION ALL " +
+            "SELECT 'ARTIST' AS kind, ar.normName AS artist, '' AS title, ar.favoriteChangedAt AS changedAt " +
+            "FROM artists ar WHERE ar.isFavorite = 1 AND NOT EXISTS (SELECT 1 FROM artist_sources ars " +
+            "JOIN sources src ON src.sourceId = ars.sourceId WHERE ars.artistId = ar.artistId AND src.type NOT IN $NOT_SERVER_TYPES)",
+    )
+    abstract suspend fun localCollectionFavorites(): List<KeyedCollectionFavorite>
+
+    @Query("SELECT albumId AS id, isFavorite, favoriteChangedAt FROM albums WHERE normAlbumArtist = :albumArtist AND normTitle = :album ORDER BY albumId LIMIT 1")
+    abstract suspend fun albumFavoriteState(albumArtist: String, album: String): CollectionFavoriteState?
+
+    @Query("SELECT artistId AS id, isFavorite, favoriteChangedAt FROM artists WHERE normName = :name ORDER BY artistId LIMIT 1")
+    abstract suspend fun artistFavoriteState(name: String): CollectionFavoriteState?
 
     // --- Hörverlauf ---
 
@@ -109,6 +130,11 @@ data class KeyedSong(
 data class FavoriteState(val songId: Long, val isFavorite: Boolean, val favoriteChangedAt: Long)
 
 data class KeyedFavorite(@Embedded val song: KeyedSong, val changedAt: Long)
+
+data class KeyedCollectionFavorite(val kind: FavoriteKind, val artist: String, val title: String, val changedAt: Long)
+
+/** [id] ist die `albumId` bzw. `artistId`. */
+data class CollectionFavoriteState(val id: Long, val isFavorite: Boolean, val favoriteChangedAt: Long)
 
 data class KeyedPlayEvent(@Embedded val song: KeyedSong, val playedAt: Long, val listenedMs: Long)
 

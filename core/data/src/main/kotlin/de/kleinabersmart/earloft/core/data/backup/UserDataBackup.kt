@@ -16,6 +16,7 @@ import de.kleinabersmart.earloft.core.database.dao.StatsDao
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
+import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
@@ -390,12 +391,14 @@ class UserDataBackup @Inject constructor(
                 restoredFeeds = restoredFeeds,
                 playlists = music.applyPlaylists(saved, pending.playlists),
                 favorites = music.applyFavorites(pending.favorites),
+                collectionFavorites = music.applyCollectionFavorites(pending.collectionFavorites),
                 playEvents = music.applyPlayEvents(pending.playEvents),
                 wearSelections = music.applyWearSelections(pending.wearSelections),
             )
         }
         val found = listOf(
             "Favoriten" to pending.favorites.size - rest.favorites.size,
+            "Alben/Künstler" to pending.collectionFavorites.size - rest.collectionFavorites.size,
             "Hörverlauf" to pending.playEvents.size - rest.playEvents.size,
             "Uhr" to pending.wearSelections.size - rest.wearSelections.size,
         ).filter { it.second > 0 }
@@ -403,8 +406,8 @@ class UserDataBackup @Inject constructor(
             Log.i(
                 TAG,
                 "Musik zurückgespielt: ${found.joinToString { "${it.first} ${it.second}" }}; noch ohne Song: " +
-                    "${rest.playlists.size} Playlists, ${rest.favorites.size} Favoriten, ${rest.playEvents.size} Hörverlauf, " +
-                    "${rest.wearSelections.size} Uhr",
+                    "${rest.playlists.size} Playlists, ${rest.favorites.size} Favoriten, " +
+                    "${rest.collectionFavorites.size} Alben/Künstler, ${rest.playEvents.size} Hörverlauf, ${rest.wearSelections.size} Uhr",
             )
         }
         return rest
@@ -463,6 +466,9 @@ class UserDataBackup @Inject constructor(
                 progress = changes.progress.copy(deletes = progressDeletes),
                 episodeDownloads = changes.episodeDownloads.copy(deletes = downloadDeletes),
                 favorites = changes.favorites.copy(deletes = changes.favorites.deletes.filter { it.song in songs }),
+                collectionFavorites = changes.collectionFavorites.copy(
+                    deletes = changes.collectionFavorites.deletes.filter { music.collectionState(it) != null },
+                ),
                 playEvents = changes.playEvents.copy(deletes = changes.playEvents.deletes.filter { it.song in songs }),
                 wearSelections = changes.wearSelections.copy(deletes = changes.wearSelections.deletes.filter { music.wearTarget(it) != null }),
             )
@@ -497,6 +503,7 @@ class UserDataBackup @Inject constructor(
             playEvents = musicData?.playEvents.orEmpty(),
             wearSelections = musicData?.wearSelections.orEmpty(),
             episodeDownloads = if (downloads) podcastDao.keyedEpisodeDownloads() else emptyList(),
+            collectionFavorites = musicData?.collectionFavorites.orEmpty(),
         )
         if (base == null) return fresh
         return UserDataSnapshot(
@@ -512,6 +519,7 @@ class UserDataBackup @Inject constructor(
             playEvents = if (musicData != null) fresh.playEvents else base.playEvents,
             wearSelections = if (musicData != null) fresh.wearSelections else base.wearSelections,
             episodeDownloads = if (downloads) fresh.episodeDownloads else base.episodeDownloads,
+            collectionFavorites = if (musicData != null) fresh.collectionFavorites else base.collectionFavorites,
         )
     }
 
@@ -522,12 +530,12 @@ class UserDataBackup @Inject constructor(
         const val RESTORED_MARKER = "user_data_restored"
         const val MIRROR_INTERVAL_MS = 60_000L
         const val FULL_READ_INTERVAL_MS = 30 * 60_000L
-        val MUSIC_TABLES = arrayOf("songs", "playlists", "playlist_entries", "play_events", "wear_selections")
+        val MUSIC_TABLES = arrayOf("songs", "albums", "artists", "playlists", "playlist_entries", "play_events", "wear_selections")
         const val APPLY_INTERVAL_MS = 5_000L
         const val MAX_ARGS = 500
         val MIRRORED_TABLES = arrayOf(
             "sources", "spoken_servers", "podcast_feeds", "listening_stats", "listening_days", "book_progress",
-            "songs", "playlists", "playlist_entries", "play_events", "wear_selections", "book_tracks",
+            "songs", "albums", "artists", "playlists", "playlist_entries", "play_events", "wear_selections", "book_tracks",
         )
     }
 }
@@ -545,6 +553,7 @@ internal data class Pending(
     val progress: List<UserBookProgressEntity> = emptyList(),
     val playlists: List<String> = emptyList(),
     val favorites: List<UserFavoriteEntity> = emptyList(),
+    val collectionFavorites: List<UserCollectionFavoriteEntity> = emptyList(),
     val playEvents: List<UserPlayEventEntity> = emptyList(),
     val wearSelections: List<UserWearSelectionEntity> = emptyList(),
     val episodeDownloads: List<UserEpisodeDownloadEntity> = emptyList(),
@@ -552,7 +561,7 @@ internal data class Pending(
     val restoredFeeds: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean
-        get() = progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() && playEvents.isEmpty() &&
+        get() = progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() && collectionFavorites.isEmpty() && playEvents.isEmpty() &&
             wearSelections.isEmpty() && episodeDownloads.isEmpty() && restoredFeeds.isEmpty()
 
     companion object {
@@ -560,6 +569,7 @@ internal data class Pending(
             progress = saved.progress.values.toList(),
             playlists = saved.playlists.keys.toList(),
             favorites = saved.favorites.values.toList(),
+            collectionFavorites = saved.collectionFavorites.values.toList(),
             playEvents = saved.playEvents.values.toList(),
             wearSelections = saved.wearSelections.values.toList(),
             episodeDownloads = saved.episodeDownloads.values.toList(),

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.backup
 
+import de.kleinabersmart.earloft.core.database.dao.KeyedCollectionFavorite
 import de.kleinabersmart.earloft.core.database.dao.KeyedEpisodeDownload
 import de.kleinabersmart.earloft.core.database.dao.KeyedFavorite
 import de.kleinabersmart.earloft.core.database.dao.KeyedPlayEvent
@@ -17,6 +18,7 @@ import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserListeningDayEntity
@@ -29,6 +31,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserServerEntity
 import de.kleinabersmart.earloft.core.database.entity.UserSongKey
 import de.kleinabersmart.earloft.core.database.entity.UserSpokenServerEntity
 import de.kleinabersmart.earloft.core.database.entity.UserWearSelectionEntity
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.model.TrackDownload
 
@@ -46,11 +49,12 @@ data class UserDataSnapshot(
     val playEvents: Map<PlayKey, UserPlayEventEntity> = emptyMap(),
     val wearSelections: Map<String, UserWearSelectionEntity> = emptyMap(),
     val episodeDownloads: Map<BookKey, UserEpisodeDownloadEntity> = emptyMap(),
+    val collectionFavorites: Map<CollectionKey, UserCollectionFavoriteEntity> = emptyMap(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty() && spokenServers.isEmpty() && podcasts.isEmpty() && listeningStats.isEmpty() &&
             listeningDays.isEmpty() && progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() &&
-            playEvents.isEmpty() && wearSelections.isEmpty() && episodeDownloads.isEmpty()
+            playEvents.isEmpty() && wearSelections.isEmpty() && episodeDownloads.isEmpty() && collectionFavorites.isEmpty()
 
     /** Einträge der gesicherten Playlists, in ihrer Reihenfolge. */
     fun entriesOf(playlistKey: String): List<UserSongKey> =
@@ -89,6 +93,7 @@ data class UserDataSnapshot(
             playEvents = other.playEvents + playEvents,
             wearSelections = other.wearSelections + wearSelections,
             episodeDownloads = other.episodeDownloads + episodeDownloads,
+            collectionFavorites = newest(collectionFavorites, other.collectionFavorites) { it.changedAt },
         )
     }
 
@@ -106,6 +111,7 @@ data class UserDataSnapshot(
         playEvents = rowChanges(previous.playEvents, playEvents),
         wearSelections = rowChanges(previous.wearSelections, wearSelections),
         episodeDownloads = rowChanges(previous.episodeDownloads, episodeDownloads),
+        collectionFavorites = rowChanges(previous.collectionFavorites, collectionFavorites),
     )
 
     companion object {
@@ -123,6 +129,7 @@ data class UserDataSnapshot(
             playEvents: List<UserPlayEventEntity> = emptyList(),
             wearSelections: List<UserWearSelectionEntity> = emptyList(),
             episodeDownloads: List<UserEpisodeDownloadEntity> = emptyList(),
+            collectionFavorites: List<UserCollectionFavoriteEntity> = emptyList(),
         ) = UserDataSnapshot(
             servers = servers.associateBy { it.sourceId },
             spokenServers = spokenServers.associateBy { it.serverId },
@@ -136,12 +143,13 @@ data class UserDataSnapshot(
             playEvents = playEvents.associateBy { PlayKey(it.song, it.playedAt) },
             wearSelections = wearSelections.associateBy { it.key },
             episodeDownloads = episodeDownloads.associateBy { BookKey(it.serverId, it.remoteId) },
+            collectionFavorites = collectionFavorites.associateBy { it.key },
         )
 
         /**
          * Was aus der Hauptdatenbank gesichert wird: Musik-Server, ABS-Server, abonnierte Podcasts, die Statistik und der
          * Fortschritt (bei Audiobookshelf nur der noch nicht gemeldete), lokale Playlists (mit `backupKey`), Favoriten von
-         * Songs ohne Server, der Hörverlauf, die Auswahl für die Uhr (schon mit Schlüsseln, siehe `UserDataBackup`) und die
+         * Songs, Alben und Künstlern ohne Server, der Hörverlauf, die Auswahl für die Uhr (schon mit Schlüsseln, siehe `UserDataBackup`) und die
          * Downloads der Folgen gesicherter Abos.
          */
         fun ofMain(
@@ -157,6 +165,7 @@ data class UserDataSnapshot(
             playEvents: List<KeyedPlayEvent> = emptyList(),
             wearSelections: List<UserWearSelectionEntity> = emptyList(),
             episodeDownloads: List<KeyedEpisodeDownload> = emptyList(),
+            collectionFavorites: List<KeyedCollectionFavorite> = emptyList(),
         ) = ofUser(
             servers = sources.filter { it.type.isServer }.map { it.toUser() },
             spokenServers = spokenServers.map { it.toUser() },
@@ -182,6 +191,7 @@ data class UserDataSnapshot(
             favorites = favorites.map { UserFavoriteEntity(it.song.key, it.changedAt) },
             playEvents = playEvents.map { UserPlayEventEntity(it.song.key, it.playedAt, it.listenedMs) },
             wearSelections = wearSelections,
+            collectionFavorites = collectionFavorites.map { UserCollectionFavoriteEntity(it.kind, it.artist, it.title, it.changedAt) },
         )
     }
 }
@@ -196,6 +206,11 @@ data class BookKey(val serverId: String, val remoteId: String)
 data class EntryKey(val playlistKey: String, val position: Int)
 
 data class PlayKey(val song: UserSongKey, val playedAt: Long)
+
+/** Ein Album (Album-Künstler, Titel) oder ein Künstler (Name, leerer Titel), normalisiert. */
+data class CollectionKey(val kind: FavoriteKind, val artist: String, val title: String)
+
+val UserCollectionFavoriteEntity.key: CollectionKey get() = CollectionKey(kind, artist, title)
 
 /** Der geräteübergreifende Schlüssel des Songs. */
 val KeyedSong.key: UserSongKey get() = UserSongKey(albumArtist, album, disc, track, title)
@@ -214,6 +229,7 @@ suspend fun UserDataDao.snapshot() = UserDataSnapshot.ofUser(
     playEvents = playEvents(),
     wearSelections = wearSelections(),
     episodeDownloads = episodeDownloads(),
+    collectionFavorites = collectionFavorites(),
 )
 
 /** [mine], wo es mindestens so neu ist wie [other], sonst [other]. */

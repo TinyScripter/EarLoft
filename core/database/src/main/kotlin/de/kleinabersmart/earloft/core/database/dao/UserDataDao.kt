@@ -6,6 +6,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlaylistEntryEntity
@@ -48,6 +49,9 @@ abstract class UserDataDao {
 
     @Query("SELECT * FROM favorites")
     abstract suspend fun favorites(): List<UserFavoriteEntity>
+
+    @Query("SELECT * FROM collection_favorites")
+    abstract suspend fun collectionFavorites(): List<UserCollectionFavoriteEntity>
 
     @Query("SELECT * FROM play_events")
     abstract suspend fun playEvents(): List<UserPlayEventEntity>
@@ -117,6 +121,12 @@ abstract class UserDataDao {
     protected abstract suspend fun deleteFavorites(rows: List<UserFavoriteEntity>)
 
     @Upsert
+    protected abstract suspend fun upsertCollectionFavorites(rows: List<UserCollectionFavoriteEntity>)
+
+    @Delete
+    protected abstract suspend fun deleteCollectionFavorites(rows: List<UserCollectionFavoriteEntity>)
+
+    @Upsert
     protected abstract suspend fun upsertPlayEvents(rows: List<UserPlayEventEntity>)
 
     @Delete
@@ -166,6 +176,8 @@ abstract class UserDataDao {
             if (playlistEntries.deletes.isNotEmpty()) deletePlaylistEntries(playlistEntries.deletes)
             if (favorites.upserts.isNotEmpty()) upsertFavorites(favorites.upserts)
             if (favorites.deletes.isNotEmpty()) deleteFavorites(favorites.deletes)
+            if (collectionFavorites.upserts.isNotEmpty()) upsertCollectionFavorites(collectionFavorites.upserts)
+            if (collectionFavorites.deletes.isNotEmpty()) deleteCollectionFavorites(collectionFavorites.deletes)
             if (playEvents.upserts.isNotEmpty()) upsertPlayEvents(playEvents.upserts)
             if (playEvents.deletes.isNotEmpty()) deletePlayEvents(playEvents.deletes)
             if (wearSelections.upserts.isNotEmpty()) upsertWearSelections(wearSelections.upserts)
@@ -200,12 +212,14 @@ data class UserDataChanges(
     val playlists: RowChanges<UserPlaylistEntity> = RowChanges(),
     val playlistEntries: RowChanges<UserPlaylistEntryEntity> = RowChanges(),
     val favorites: RowChanges<UserFavoriteEntity> = RowChanges(),
+    val collectionFavorites: RowChanges<UserCollectionFavoriteEntity> = RowChanges(),
     val playEvents: RowChanges<UserPlayEventEntity> = RowChanges(),
     val wearSelections: RowChanges<UserWearSelectionEntity> = RowChanges(),
     val episodeDownloads: RowChanges<UserEpisodeDownloadEntity> = RowChanges(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty && spokenServers.isEmpty && podcasts.isEmpty && listeningStats.isEmpty && listeningDays.isEmpty &&
-            progress.isEmpty && playlists.isEmpty && playlistEntries.isEmpty && favorites.isEmpty && playEvents.isEmpty &&
+            progress.isEmpty && playlists.isEmpty && playlistEntries.isEmpty && favorites.isEmpty && collectionFavorites.isEmpty &&
+            playEvents.isEmpty &&
             wearSelections.isEmpty && episodeDownloads.isEmpty
 }

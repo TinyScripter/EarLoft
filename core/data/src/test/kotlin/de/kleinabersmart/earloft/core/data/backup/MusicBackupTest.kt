@@ -8,6 +8,8 @@ import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.UserDatabase
 import de.kleinabersmart.earloft.core.database.entity.AlbumEntity
+import de.kleinabersmart.earloft.core.database.entity.AlbumSourceEntity
+import de.kleinabersmart.earloft.core.database.entity.ArtistEntity
 import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntryEntity
@@ -15,6 +17,7 @@ import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.database.entity.WearSelectionEntity
+import de.kleinabersmart.earloft.core.model.FavoriteKind
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
 import kotlinx.coroutines.test.TestScope
@@ -166,6 +169,51 @@ class MusicBackupTest {
             backup.applySaved(saved, Pending.of(saved))
             assertEquals(listOf(1_000L), newDevice.backupDao().playedAt(a))
             assertEquals(3, newDevice.playlistDao().getSongIds(playlist.playlistId).size)
+        } finally {
+            newDevice.close()
+        }
+    }
+
+    @Test
+    fun `album and artist favorites without server are saved and come back on a new device`() = runTest {
+        sources(main)
+        val local = album(main, "element of crime", "damals hinterm mond")
+        song(main, local, 1, "damals hinterm mond")
+        val fromServer = album(main, "element of crime", "lieblingsfarben und tiere")
+        song(main, fromServer, 1, "lieblingsfarben und tiere", sourceId = "nav")
+        main.mergeDao().insertAlbumSource(AlbumSourceEntity("nav", "al1", fromServer, seenInGeneration = 0))
+        val artist = main.mergeDao().insertArtist(ArtistEntity(name = "Element of Crime", sortName = "", normName = "element of crime"))
+        main.syncDao().setAlbumFavorite(local, true, 300)
+        main.syncDao().setAlbumFavorite(fromServer, true, 301)
+        main.syncDao().setArtistFavorite(artist, true, 302)
+        backupFor(main).mirror()
+
+        // Das Album vom Server hält der Server.
+        val saved = user.userDataDao().snapshot()
+        assertEquals(
+            setOf(CollectionKey(FavoriteKind.ALBUM, "element of crime", "damals hinterm mond"), CollectionKey(FavoriteKind.ARTIST, "element of crime", "")),
+            saved.collectionFavorites.keys,
+        )
+
+        val newDevice = newDatabase()
+        try {
+            val backup = backupFor(newDevice)
+            backup.restore(saved)
+            val waiting = backup.applySaved(saved, Pending.of(saved))
+            assertEquals(2, waiting.collectionFavorites.size)
+            // Der Spiegel löscht nicht, was noch auf sein Album bzw. seinen Künstler wartet.
+            backup.mirror()
+            assertEquals(2, user.userDataDao().collectionFavorites().size)
+
+            sources(newDevice)
+            val album = album(newDevice, "element of crime", "damals hinterm mond")
+            song(newDevice, album, 1, "damals hinterm mond")
+            val newArtist = newDevice.mergeDao().insertArtist(ArtistEntity(name = "Element of Crime", sortName = "", normName = "element of crime"))
+            val rest = backup.applySaved(saved, waiting)
+
+            assertTrue(rest.collectionFavorites.isEmpty())
+            assertEquals(true, newDevice.syncDao().isAlbumFavorite(album))
+            assertEquals(true, newDevice.syncDao().isArtistFavorite(newArtist))
         } finally {
             newDevice.close()
         }
