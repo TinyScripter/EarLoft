@@ -16,6 +16,8 @@ import de.kleinabersmart.earloft.core.model.BookProgress
 import de.kleinabersmart.earloft.core.model.BookTimeline
 import de.kleinabersmart.earloft.core.model.BookTrack
 import de.kleinabersmart.earloft.core.model.BookWithProgress
+import de.kleinabersmart.earloft.core.model.bookAuthors
+import de.kleinabersmart.earloft.core.model.parsePeople
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -125,16 +127,16 @@ class BookRepository @Inject constructor(
         return dao.search(kind, pattern, limit).map { BookWithProgress(it.toModel(), dao.progress(it.bookId)?.toModel()) }
     }
 
-    /** Sucht Autoren von Büchern nach dem Namen. */
+    /** Sucht Autoren von Büchern nach dem Namen; mehrere Autoren eines Buchs zählen einzeln, Übersetzer u. Ä. nicht. */
     suspend fun searchAuthors(query: String, limit: Int = 20): List<AuthorHit> {
         val pattern = likePattern(query) ?: return emptyList()
-        return dao.searchAuthors(pattern, limit)
+        return peopleHits(dao.searchAuthorRows(pattern).map { it.bookId to it.names }, query, limit, ::bookAuthors)
     }
 
-    /** Sucht Sprecher von Büchern nach dem Namen. */
+    /** Sucht Sprecher von Büchern nach dem Namen; mehrere Sprecher eines Buchs zählen einzeln. */
     suspend fun searchNarrators(query: String, limit: Int = 20): List<AuthorHit> {
         val pattern = likePattern(query) ?: return emptyList()
-        return dao.searchNarrators(pattern, limit)
+        return peopleHits(dao.searchNarratorRows(pattern).map { it.bookId to it.names }, query, limit, ::parsePeople)
     }
 
     /** Sucht Serien nach dem Namen. */

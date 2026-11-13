@@ -5,7 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
-import de.kleinabersmart.earloft.core.model.AuthorHit
+import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
@@ -214,11 +214,11 @@ class PodcastRepositoryTest {
         assertEquals(emptyList<String>(), dao.search(BookKind.EPISODE, "%dune%", 10).map { it.title })
         // Sprecher zählen mit, unabhängig von Groß- und Kleinschreibung.
         assertEquals(listOf("Harry Potter", "Sophies Welt"), dao.search(BookKind.BOOK, "%rufus beck%", 10).map { it.title })
-        assertEquals(listOf(AuthorHit("Frank Herbert", first, 2)), dao.searchAuthors("%herbert%", 10))
-        assertEquals(emptyList<AuthorHit>(), dao.searchAuthors("%podcast%", 10))
+        assertEquals(listOf(first, first + 1), dao.searchAuthorRows("%herbert%").map { it.bookId }.sorted())
+        assertEquals(emptyList<BookPeopleRow>(), dao.searchAuthorRows("%podcast%"))
         // Sprecher als eigene Treffergruppe, ohne Autoren und ohne Folgen.
-        assertEquals(listOf(AuthorHit("Rufus Beck", potter, 2)), dao.searchNarrators("%beck%", 10))
-        assertEquals(emptyList<AuthorHit>(), dao.searchNarrators("%herbert%", 10))
+        assertEquals(listOf(BookPeopleRow(potter, "Rufus Beck"), BookPeopleRow(potter + 1, "Rufus Beck")), dao.searchNarratorRows("%beck%").sortedBy { it.bookId })
+        assertEquals(emptyList<BookPeopleRow>(), dao.searchNarratorRows("%herbert%"))
     }
 
     @Test

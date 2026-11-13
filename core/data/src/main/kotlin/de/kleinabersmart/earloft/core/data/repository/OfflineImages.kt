@@ -30,6 +30,7 @@ import de.kleinabersmart.earloft.core.database.dao.LibraryDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.SpokenMode
+import de.kleinabersmart.earloft.core.model.bookAuthors
 import de.kleinabersmart.earloft.core.model.isLocalSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
@@ -109,7 +110,7 @@ class OfflineImages @Inject constructor(
                 .filterNot { isLocalSource(it.serverId) }
                 .forEach { row -> unreachable.attempt(row.serverId) { bookCovers.ensureOwnCached(row.bookId) } }
             // Autorenbilder kommen vom selben Server; antwortet er nicht, warteten sonst alle Autoren einzeln darauf.
-            if (unreachable.none()) bookDao.listedAuthors().forEach { authorImages.image(it) }
+            if (unreachable.none()) bookDao.listedAuthors().flatMap(::bookAuthors).distinct().forEach { authorImages.image(it) }
         }
         if (SpokenMode.MUSIC in areas) {
             val unreachable = Unreachable()

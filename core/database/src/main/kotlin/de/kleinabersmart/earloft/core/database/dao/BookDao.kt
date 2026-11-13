@@ -13,7 +13,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.model.BookCoverRow
-import de.kleinabersmart.earloft.core.model.AuthorHit
+import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import kotlinx.coroutines.flow.Flow
@@ -90,7 +90,7 @@ abstract class BookDao {
     @Query("SELECT bookId, serverId, kind, coverUrl FROM books WHERE kind = :kind AND $BOOK_LISTED ORDER BY addedAt DESC")
     abstract suspend fun listedCoverRows(kind: BookKind): List<BookCoverRow>
 
-    /** Autoren wie in der Bibliothek (`authorGroups`): je Buch der ganze Eintrag. */
+    /** Autoreneinträge der Bücher in den Listen, je Buch der ganze Eintrag; die Namen trennt `bookAuthors`. */
     @Query("SELECT DISTINCT TRIM(author) FROM books WHERE kind = 'BOOK' AND TRIM(author) != '' AND $BOOK_LISTED")
     abstract suspend fun listedAuthors(): List<String>
 
@@ -112,21 +112,16 @@ abstract class BookDao {
     @Query("SELECT * FROM books WHERE kind = 'BOOK' AND series LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE ORDER BY normTitle")
     abstract suspend fun searchSeriesRows(pattern: String): List<BookEntity>
 
-    /** Autoren von Büchern, deren Name zu [pattern] passt, mit dem kleinsten Buch (für das Cover) und der Anzahl. */
-    @Query(
-        "SELECT author AS name, MIN(bookId) AS firstBookId, COUNT(*) AS bookCount FROM books " +
-            "WHERE kind = 'BOOK' AND author != '' AND author LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE " +
-            "GROUP BY author ORDER BY author LIMIT :limit",
-    )
-    abstract suspend fun searchAuthors(pattern: String, limit: Int): List<AuthorHit>
+    /**
+     * Bücher, in deren Autoreneintrag [pattern] vorkommt, mit dem ganzen Eintrag; welcher der Namen passt, entscheidet
+     * der Aufrufer (ein Buch kann mehrere Autoren haben).
+     */
+    @Query("SELECT bookId, author AS names FROM books WHERE kind = 'BOOK' AND author LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE")
+    abstract suspend fun searchAuthorRows(pattern: String): List<BookPeopleRow>
 
-    /** Sprecher von Büchern wie [searchAuthors]. */
-    @Query(
-        "SELECT narrator AS name, MIN(bookId) AS firstBookId, COUNT(*) AS bookCount FROM books " +
-            "WHERE kind = 'BOOK' AND narrator != '' AND narrator LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE " +
-            "GROUP BY narrator ORDER BY narrator LIMIT :limit",
-    )
-    abstract suspend fun searchNarrators(pattern: String, limit: Int): List<AuthorHit>
+    /** Sprecher wie [searchAuthorRows]. */
+    @Query("SELECT bookId, narrator AS names FROM books WHERE kind = 'BOOK' AND narrator LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE")
+    abstract suspend fun searchNarratorRows(pattern: String): List<BookPeopleRow>
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     abstract suspend fun insertBook(book: BookEntity): Long

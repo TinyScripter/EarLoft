@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.share
 
+import de.kleinabersmart.earloft.core.model.hasContributorRole
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
@@ -68,10 +69,9 @@ object ShareLinks {
     internal fun mainAuthor(authors: String): String? =
         authors.split(',', '&', ';')
             .map { it.trim() }
-            .firstOrNull { name -> name.isNotEmpty() && ROLES.none { name.contains(it, ignoreCase = true) } }
+            .firstOrNull { name -> name.isNotEmpty() && !hasContributorRole(name) }
 
     private val TRAILING_NOTE = Regex("""\s*[(\[][^()\[\]]*[)\]]$""")
-    private val ROLES = listOf("translator", "übersetz", "narrator", "sprecher", "editor", "herausgeber", "illustrator", "foreword", "vorwort")
 
     /** Eine Webseite zum Teilen: absolute http(s)-Adresse, die nicht zu einer Plattform gehört ([isPlatform]). */
     fun publicPage(url: String?): String? {

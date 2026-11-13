@@ -60,6 +60,32 @@ fun parseSeries(raw: String): List<SeriesRef> =
 private val SERIES_PART = Regex("""^(.*?)\s+#(\d+(?:\.\d+)?)$""")
 private val SERIES_SEPARATOR = Regex("""(?<=#[\d.]{1,10}),\s*""")
 
+/**
+ * Die einzelnen Namen eines Autoren- bzw. Sprechereintrags: Audiobookshelf verbindet mehrere mit „, “ (`authorName`,
+ * `narratorName`), Tags lokaler Dateien auch mit „;“. „A & B“ bleibt beisammen (oft ein Duo). Leere und doppelte
+ * Namen entfallen, die Reihenfolge bleibt.
+ */
+fun parsePeople(raw: String): List<String> =
+    raw.split(',', ';').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+
+/**
+ * Ob [name] eine Rolle nennt („Günther Frauenlob - Übersetzer“, „Ruggero Leò - translator“): Audiobookshelf führt
+ * Übersetzer, Herausgeber u. Ä. als Autoren mit der Rolle im Namen.
+ */
+fun hasContributorRole(name: String): Boolean = CONTRIBUTOR_ROLES.any { name.contains(it, ignoreCase = true) }
+
+/**
+ * Die Autoren, unter denen ein Buch in Bibliothek, Suche und Android Auto steht: die Namen aus [author] ohne Rolle
+ * ([hasContributorRole]); nennt das Buch nur Mitwirkende mit Rolle (Herausgeber einer Sammlung), diese.
+ */
+fun bookAuthors(author: String): List<String> {
+    val all = parsePeople(author)
+    return all.filterNot(::hasContributorRole).ifEmpty { all }
+}
+
+private val CONTRIBUTOR_ROLES =
+    listOf("translator", "übersetz", "narrator", "sprecher", "editor", "herausgeber", "illustrator", "foreword", "vorwort")
+
 data class BookChapter(
     val index: Int,
     val title: String,

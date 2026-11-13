@@ -49,6 +49,10 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.Book
 import de.kleinabersmart.earloft.core.model.SeriesRef
 import de.kleinabersmart.earloft.core.model.parseSeries
+import de.kleinabersmart.earloft.core.model.bookAuthors
+import de.kleinabersmart.earloft.core.model.parsePeople
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.text.TextStyle
 import de.kleinabersmart.earloft.navigation.BookGroupKind
 import androidx.compose.ui.text.style.TextAlign
 import java.text.NumberFormat
@@ -205,18 +209,22 @@ private fun BookHeader(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(top = 12.dp),
         )
-        // Bei Büchern führen Autor, Serie und Sprecher zu deren Seite (Bibliothek → Autoren bzw. Serien); Folgen nennen den Podcast.
+        // Bei Büchern führen Autoren, Serie und Sprecher einzeln zu deren Seite (Bibliothek → Autoren bzw. Serien);
+        // Folgen nennen den Podcast.
         val isBook = book.kind == BookKind.BOOK
-        Text(
-            book.author,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = if (isBook && book.author.isNotBlank()) {
-                Modifier.clickable(onClickLabel = stringResource(R.string.book_open_author)) { onOpenGroup(BookGroupKind.AUTHOR, book.author.trim()) }
-            } else {
-                Modifier
-            },
-        )
+        if (isBook) {
+            // Autoren zuerst, Übersetzer u. Ä. danach und ohne eigene Seite.
+            val authors = bookAuthors(book.author)
+            PeopleLine(
+                names = authors + parsePeople(book.author).filterNot { it in authors },
+                opens = { it in authors },
+                clickLabel = stringResource(R.string.book_open_author),
+                style = MaterialTheme.typography.bodyLarge,
+                onClick = { onOpenGroup(BookGroupKind.AUTHOR, it) },
+            )
+        } else {
+            Text(book.author, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         if (isBook) {
             parseSeries(book.series).forEach { series ->
                 Text(
@@ -231,17 +239,12 @@ private fun BookHeader(
             }
         }
         if (book.narrator.isNotBlank()) {
-            Text(
-                book.narrator,
+            PeopleLine(
+                names = parsePeople(book.narrator),
+                opens = { isBook },
+                clickLabel = stringResource(R.string.book_open_narrator),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = if (isBook) {
-                    Modifier.clickable(onClickLabel = stringResource(R.string.book_open_narrator)) {
-                        onOpenGroup(BookGroupKind.NARRATOR, book.narrator.trim())
-                    }
-                } else {
-                    Modifier
-                },
+                onClick = { onOpenGroup(BookGroupKind.NARRATOR, it) },
             )
         }
         // Folgen: Erscheinen mit Uhrzeit (Nachrichten kommen mehrmals am Tag unter gleichem Titel). Podcast-Feeds nennen
@@ -356,6 +359,30 @@ private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter
                 headlineContent = { Text(chapterTitle(chapter)) },
                 trailingContent = { Text(formatDuration(chapter.durationMs), style = MaterialTheme.typography.bodySmall) },
                 modifier = Modifier.clickable { onChapter(chapter.startMs) },
+            )
+        }
+    }
+}
+
+/**
+ * Autoren bzw. Sprecher als Zeile „A, B, C“, die bei Bedarf umbricht; ein Name, für den [opens] gilt, führt per Tipp zu
+ * seiner Seite ([onClick]).
+ */
+@Composable
+private fun PeopleLine(
+    names: List<String>,
+    opens: (String) -> Boolean,
+    clickLabel: String,
+    style: TextStyle,
+    onClick: (String) -> Unit,
+) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+        names.forEachIndexed { index, name ->
+            Text(
+                if (index < names.lastIndex) "$name," else name,
+                style = style,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = if (opens(name)) Modifier.clickable(onClickLabel = clickLabel) { onClick(name) } else Modifier,
             )
         }
     }

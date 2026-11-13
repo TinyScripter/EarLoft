@@ -70,6 +70,12 @@ data class BookCoverRow(
     val coverUrl: String?,
 )
 
+/** Der ganze Autoren- bzw. Sprechereintrag eines Buchs; die einzelnen Namen trennt der Aufrufer (`parsePeople`). */
+data class BookPeopleRow(
+    val bookId: Long,
+    val names: String,
+)
+
 /** ReplayGain-Werte einer Song-Quelle. */
 data class ReplayGainRow(
     val rgTrackGainDb: Float?,
