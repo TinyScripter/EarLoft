@@ -36,7 +36,7 @@ class BookRepository @Inject constructor(
     fun books(): Flow<List<BookWithProgress>> =
         combine(dao.observeBooks(), dao.observeAllProgress()) { books, progress ->
             val byBook = progress.associateBy { it.bookId }
-            books.filter { it.kind == BookKind.BOOK }.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
+            books.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
         }
 
     /**
@@ -45,7 +45,7 @@ class BookRepository @Inject constructor(
      */
     fun continueListening(limit: Int = 12, startOrder: Flow<List<Long>> = flowOf(emptyList())): Flow<List<BookWithProgress>> =
         combine(dao.observeBooks(), dao.observeAllProgress(), startOrder) { books, progress, order ->
-            val byId = books.filter { it.kind == BookKind.BOOK }.associateBy { it.bookId }
+            val byId = books.associateBy { it.bookId }
             // Der Player schreibt den Stand des vorigen Buchs erst beim Wechsel (mit neuerem Zeitstempel); darum
             // gilt zuerst die Startreihenfolge und erst dahinter der Zeitpunkt der letzten Änderung.
             val rank = order.withIndex().associate { it.value to it.index }

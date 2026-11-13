@@ -66,7 +66,8 @@ abstract class BookDao {
 
     // --- Bücher ---
 
-    @Query("SELECT * FROM books WHERE $BOOK_LISTED ORDER BY normTitle")
+    /** Nur Bücher: Folgen stehen in derselben Tabelle, mit ihren Shownotes wären das schnell Dutzende MB je Beobachter. */
+    @Query("SELECT * FROM books WHERE kind = 'BOOK' AND $BOOK_LISTED ORDER BY normTitle")
     abstract fun observeBooks(): Flow<List<BookEntity>>
 
     @Query("SELECT * FROM books WHERE bookId = :bookId AND $BOOK_VISIBLE")
