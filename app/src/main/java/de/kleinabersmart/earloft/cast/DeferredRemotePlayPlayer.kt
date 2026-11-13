@@ -17,6 +17,11 @@ import androidx.media3.common.util.UnstableApi
  * trifft den Empfänger mitten im Laden und verpufft (am Gerät gesehen: neue Warteschlange da, aber pausiert).
  * Deshalb wird „Abspielen“ zurückgehalten, bis der Empfänger nach dem Laden bereit ist. Lokal ändert sich nichts.
  *
+ * Ebenso beim Verbinden: Die Übergabe lädt die Warteschlange des Handys am Empfänger, ohne über diesen Player zu gehen.
+ * Ein „Abspielen“ während dieses Ladens lehnte der Empfänger ab („Invalid Request“, noch keine Mediensitzung), meldete
+ * danach keine Warteschlange mehr, und nach 20 s (Ladeüberwachung der Factory) kam alles aufs Handy zurück (am
+ * Gerät gesehen, 2026-11-13). Bücher von Audiobookshelf brauchen dort 10–12 s, daher die lange Frist [LOAD_TIMEOUT_MS].
+ *
  * Jede neue Warteschlange, die beim Casten hinausgeht, meldet [onRemoteQueue] (als Stand fürs Handy, falls der
  * Empfänger sie nicht laden kann).
  */
@@ -45,6 +50,8 @@ internal class DeferredRemotePlayPlayer(
             override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
                 playAfterLoad = false
                 finishLoad()
+                // Beim Verbinden: Läuft der Empfänger schon (Wiederanhängen), ist er bereit, sonst lädt die Übergabe.
+                if (playbackState != Player.STATE_READY) startLoad()
             }
         })
     }
@@ -123,6 +130,6 @@ internal class DeferredRemotePlayPlayer(
     }
 
     private companion object {
-        const val LOAD_TIMEOUT_MS = 5_000L
+        const val LOAD_TIMEOUT_MS = 20_000L
     }
 }
