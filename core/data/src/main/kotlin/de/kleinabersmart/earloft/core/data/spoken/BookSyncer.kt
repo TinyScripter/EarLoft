@@ -146,12 +146,18 @@ class BookSyncer @Inject constructor(
             series = metadata.seriesName.orEmpty(),
             description = metadata.description.orEmpty(),
             isbn = metadata.isbn?.trim()?.ifEmpty { null },
+            subtitle = metadata.subtitle.orNullIfBlank(),
+            publishedYear = metadata.publishedYear.orNullIfBlank(),
+            publisher = metadata.publisher.orNullIfBlank(),
+            language = metadata.language.orNullIfBlank(),
             durationMs = (media.duration * 1000).roundToLong(),
             remoteUpdatedAt = updatedAt,
             addedAt = addedAt,
             seenInGeneration = generation,
         )
     }
+
+    private fun String?.orNullIfBlank(): String? = this?.trim()?.ifEmpty { null }
 
     private companion object {
         const val TAG = "BookSyncer"

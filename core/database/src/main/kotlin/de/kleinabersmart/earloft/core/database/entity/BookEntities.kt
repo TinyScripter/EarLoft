@@ -103,6 +103,11 @@ data class BookEntity(
     val webUrl: String? = null,
     /** ISBN eines Buchs aus Audiobookshelf, zum Teilen über Open Library (Konzept 13). */
     val isbn: String? = null,
+    /** Untertitel, Erscheinungsjahr (Text, wie der Server es führt), Verlag und Sprache eines Buchs (Schema v28). */
+    val subtitle: String? = null,
+    val publishedYear: String? = null,
+    val publisher: String? = null,
+    val language: String? = null,
 )
 
 @Entity(

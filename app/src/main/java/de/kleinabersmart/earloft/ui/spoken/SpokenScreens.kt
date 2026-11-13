@@ -18,6 +18,21 @@ import androidx.compose.material3.Tab
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FilterChip
+import de.kleinabersmart.earloft.core.model.BookFilter
+import de.kleinabersmart.earloft.core.model.BookSort
+import de.kleinabersmart.earloft.core.model.bookAuthors
+import de.kleinabersmart.earloft.core.model.parseSeries
+import de.kleinabersmart.earloft.ui.components.HeaderAction
+import de.kleinabersmart.earloft.ui.components.SortButton
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import de.kleinabersmart.earloft.core.common.sortKey
 import de.kleinabersmart.earloft.core.data.spoken.BookGroup
 import de.kleinabersmart.earloft.core.data.spoken.authorGroups
@@ -166,8 +181,18 @@ fun SpokenLibraryScreen(
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
     val signInNeeded by viewModel.signInNeeded.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
+    val shownBooks by viewModel.shownBooks.collectAsStateWithLifecycle()
+    val bookSort by viewModel.bookSort.collectAsStateWithLifecycle()
+    val bookFilter by viewModel.bookFilter.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { BookTab.entries.size }
     val scope = rememberCoroutineScope()
+
+    // Wie in der Musik-Bibliothek steht die Sortierung des Reiters „Alle“ im Kopf der App links von der Lupe.
+    HeaderAction {
+        if (BookTab.entries[pagerState.targetPage] == BookTab.ALL && !booksState.valueOrNull.isNullOrEmpty()) {
+            SortButton(bookSort, BookSort.entries, { stringResource(it.label) }, viewModel::setBookSort)
+        }
+    }
 
     Column(modifier.fillMaxSize()) {
         when {
@@ -190,7 +215,32 @@ fun SpokenLibraryScreen(
                 }
                 HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth(), key = { it }) { page ->
                     when (BookTab.entries[page]) {
-                        BookTab.ALL -> BookGrid(all, onBookClick, playingId, viewModel::playOrPause, fastScroll = true)
+                        BookTab.ALL -> {
+                            val shown = shownBooks ?: all
+                            BookGrid(
+                                shown,
+                                onBookClick,
+                                playingId,
+                                viewModel::playOrPause,
+                                scrollLabel = bookSort.scrollLabel(),
+                                // Die Chips bleiben stehen, auch wenn der Filter nichts übrig lässt, damit man ihn lösen kann.
+                                header = {
+                                    Column {
+                                        BookFilterChips(bookFilter, viewModel::setBookFilter)
+                                        if (shown.isEmpty()) {
+                                            Text(
+                                                stringResource(R.string.library_filter_empty),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 16.dp),
+                                            )
+                                        }
+                                    }
+                                },
+                                // Andere Reihenfolge oder anderer Filter: wieder von oben.
+                                resetKey = bookSort to bookFilter,
+                            )
+                        }
                         BookTab.SERIES -> BookGroupList(series) { onGroupClick(BookGroupKind.SERIES, it) }
                         BookTab.AUTHORS -> AuthorGrid(authors) { onGroupClick(BookGroupKind.AUTHOR, it) }
                         BookTab.STATS -> BookStatsScreen(onBookClick)
@@ -201,16 +251,29 @@ fun SpokenLibraryScreen(
     }
 }
 
-/** Bücher als Raster; mit Schnellscroller, wenn die Liste nach Titel sortiert ist. */
+/**
+ * Bücher als Raster; mit [scrollLabel] samt Schnellscroller (z. B. Anfangsbuchstabe), mit [header] einer Zeile darüber über die
+ * ganze Breite, mit [volumes] dem Band je Buch oben links (Serienseite). Ändert sich [resetKey], beginnt das Raster oben.
+ */
 @Composable
 private fun BookGrid(
     books: List<BookWithProgress>,
     onBookClick: (Long) -> Unit,
     playingId: Long?,
     onPlay: (Long) -> Unit,
-    fastScroll: Boolean = false,
+    scrollLabel: ((BookWithProgress) -> String)? = null,
+    header: (@Composable () -> Unit)? = null,
+    volumes: Map<Long, String> = emptyMap(),
+    resetKey: Any? = null,
 ) {
     val state = rememberLazyGridState()
+    var shownKey by rememberSaveable { mutableStateOf(resetKey?.toString()) }
+    LaunchedEffect(resetKey) {
+        if (resetKey?.toString() != shownKey) {
+            shownKey = resetKey?.toString()
+            state.scrollToItem(0)
+        }
+    }
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(150.dp),
@@ -220,22 +283,66 @@ private fun BookGrid(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
+            if (header != null) item(key = "header", span = { GridItemSpan(maxLineSpan) }) { header() }
             items(books, key = { it.book.id }) { item ->
                 BookCard(
                     item,
                     onClick = { onBookClick(item.book.id) },
-                    modifier = Modifier.gridTile(MaterialTheme.colorScheme.surfaceContainer),
+                    modifier = Modifier.gridTile(MaterialTheme.colorScheme.surfaceContainer).animateItem(),
                     onPlay = { onPlay(item.book.id) },
                     playing = item.book.id == playingId,
                     contentPadding = GridTilePadding,
+                    volume = volumes[item.book.id],
                 )
             }
         }
-        if (fastScroll) {
-            LazyGridFastScroller(state, labelAt = { index -> letterOf(books.getOrNull(index)?.book?.title.orEmpty().sortKey()) })
+        if (scrollLabel != null) {
+            val offset = if (header != null) 1 else 0
+            LazyGridFastScroller(state, labelAt = { index -> books.getOrNull((index - offset).coerceAtLeast(0))?.let(scrollLabel).orEmpty() })
         }
     }
 }
+
+/** Marke für den Schnellscroller je Reihenfolge; ohne sinnvolle Marke (Datum, Dauer) keiner. */
+private fun BookSort.scrollLabel(): ((BookWithProgress) -> String)? = when (this) {
+    BookSort.TITLE -> { item -> letterOf(item.book.title.sortKey()) }
+    BookSort.AUTHOR -> { item -> letterOf(bookAuthors(item.book.author).firstOrNull().orEmpty().sortKey()) }
+    BookSort.YEAR -> { item -> item.book.publishedYear?.take(4) ?: "#" }
+    BookSort.RECENTLY_ADDED, BookSort.RECENTLY_PLAYED, BookSort.DURATION -> null
+}
+
+private val BookSort.label: Int
+    get() = when (this) {
+        BookSort.TITLE -> R.string.sort_title
+        BookSort.AUTHOR -> R.string.sort_author
+        BookSort.RECENTLY_ADDED -> R.string.sort_recently_added
+        BookSort.RECENTLY_PLAYED -> R.string.sort_recently_played
+        BookSort.DURATION -> R.string.sort_duration
+        BookSort.YEAR -> R.string.sort_year
+    }
+
+/** Filter des Reiters „Alle“: genau einer ist gewählt; lässt sich seitlich wischen, wenn die Breite nicht reicht. */
+@Composable
+private fun BookFilterChips(selected: BookFilter, onSelect: (BookFilter) -> Unit) {
+    val scroll = rememberScrollState()
+    Row(
+        Modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        BookFilter.entries.forEach { filter ->
+            FilterChip(selected = filter == selected, onClick = { onSelect(filter) }, label = { Text(stringResource(filter.label)) })
+        }
+    }
+}
+
+private val BookFilter.label: Int
+    get() = when (this) {
+        BookFilter.ALL -> R.string.episode_filter_all
+        BookFilter.NOT_STARTED -> R.string.book_filter_not_started
+        BookFilter.STARTED -> R.string.episode_filter_started
+        BookFilter.FINISHED -> R.string.spoken_finished
+        BookFilter.DOWNLOADED -> R.string.episode_filter_downloaded
+    }
 
 /**
  * Autoren als Raster, zwei pro Reihe: Autorenbild (von Audiobookshelf, sonst aus dem Internet, wenn die Option an ist), darunter
@@ -345,7 +452,17 @@ fun BookGroupScreen(
             is LoadState.Ready -> if (group == null) {
                 EmptyHint(stringResource(R.string.item_missing))
             } else {
-                BookGrid(group.books, onBookClick, playingId, viewModel::playOrPause)
+                // Auf Serienseiten steht der Band auf dem Cover.
+                val volumes = remember(group, kind) {
+                    if (kind != BookGroupKind.SERIES) {
+                        emptyMap()
+                    } else {
+                        group.books.mapNotNull { item ->
+                            parseSeries(item.book.series).firstOrNull { it.name == name }?.sequence?.let { item.book.id to volumeNumber(it) }
+                        }.toMap()
+                    }
+                }
+                BookGrid(group.books, onBookClick, playingId, viewModel::playOrPause, volumes = volumes)
             }
         }
     }
@@ -445,7 +562,7 @@ private const val ROW_SLIDE_MS = 350
 
 /**
  * Cover mit Fortschrittsbalken, darunter Titel und Autor; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts
- * auf dem Cover, unten links die Download-Markierung ([BookDownloadBadge]).
+ * auf dem Cover, unten links die Download-Markierung ([BookDownloadBadge]), oben links der Band ([volume], auf Serienseiten).
  */
 @Composable
 fun BookCard(
@@ -457,6 +574,7 @@ fun BookCard(
     contentPadding: Dp = 0.dp,
     /** Uhrzeit beim Datum der Folge ([episodesSharingDay]). */
     withTime: Boolean = false,
+    volume: String? = null,
 ) {
     // Kontextmenü per Langklick, bei Folgen und Büchern.
     var menu by remember { mutableStateOf(false) }
@@ -466,6 +584,9 @@ fun BookCard(
         Box {
             BookArt(item.book.id, Modifier.fillMaxWidth())
             BookDownloadBadge(item.book.id, Modifier.align(Alignment.BottomStart).padding(6.dp))
+            if (volume != null) {
+                CoverPill(volume, stringResource(R.string.book_volume, volume), Modifier.align(Alignment.TopStart).padding(6.dp))
+            }
             if (onPlay != null) {
                 PlayPauseButton(
                     playing,
@@ -513,3 +634,16 @@ fun BookCard(
 }
 
 private val PROGRESS_HEIGHT = 4.dp
+
+/** Kleines Schild mit einer Zahl auf einem Cover (Band einer Serie, neue Folgen eines Abos); [description] für TalkBack. */
+@Composable
+internal fun CoverPill(text: String, description: String, modifier: Modifier = Modifier) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.tertiary,
+        contentColor = MaterialTheme.colorScheme.onTertiary,
+        modifier = modifier.clearAndSetSemantics { contentDescription = description },
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+    }
+}

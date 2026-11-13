@@ -4,6 +4,8 @@ import de.kleinabersmart.earloft.core.common.normalizeForMerge
 import de.kleinabersmart.earloft.core.common.sortKey
 import de.kleinabersmart.earloft.core.model.AuthorHit
 import de.kleinabersmart.earloft.core.model.Book
+import de.kleinabersmart.earloft.core.model.BookFilter
+import de.kleinabersmart.earloft.core.model.BookSort
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.bookAuthors
 import de.kleinabersmart.earloft.core.model.parsePeople
@@ -39,6 +41,32 @@ internal fun peopleHits(rows: List<Pair<Long, String>>, query: String, limit: In
         .map { (name, bookIds) -> AuthorHit(name, bookIds.min(), bookIds.distinct().size) }
         .sortedBy { it.name.sortKey() }
         .take(limit)
+}
+
+/**
+ * Die Bücher (nach Titel) nach [filter] und in der Reihenfolge [sort]; [downloaded]: fertig geladene. „Zuletzt gehört“ nimmt
+ * die letzte Änderung des Fortschritts, nie gestartete stehen hinten; ohne Jahr bzw. Dauer ebenso.
+ */
+fun List<BookWithProgress>.sortedAndFiltered(sort: BookSort, filter: BookFilter, downloaded: Set<Long>): List<BookWithProgress> {
+    val shown = when (filter) {
+        BookFilter.ALL -> this
+        BookFilter.NOT_STARTED -> filter { it.progress.let { p -> p == null || (!p.finished && p.positionMs <= 0) } }
+        BookFilter.STARTED -> filter { it.progress.let { p -> p != null && !p.finished && p.positionMs > 0 } }
+        BookFilter.FINISHED -> filter { it.progress?.finished == true }
+        BookFilter.DOWNLOADED -> filter { it.book.isLocal || it.book.id in downloaded }
+    }
+    return when (sort) {
+        BookSort.TITLE -> shown
+        BookSort.AUTHOR -> shown.sortedWith(
+            compareBy<BookWithProgress> { bookAuthors(it.book.author).firstOrNull()?.sortKey() ?: "￿" }
+                .thenBy { parseSeries(it.book.series).firstOrNull()?.name?.sortKey() ?: "￿" }
+                .thenBy { parseSeries(it.book.series).firstOrNull()?.sequence ?: Double.MAX_VALUE },
+        )
+        BookSort.RECENTLY_ADDED -> shown.sortedByDescending { it.book.addedAt }
+        BookSort.RECENTLY_PLAYED -> shown.sortedByDescending { it.progress?.updatedAt ?: Long.MIN_VALUE }
+        BookSort.DURATION -> shown.sortedByDescending { it.book.durationMs }
+        BookSort.YEAR -> shown.sortedByDescending { it.book.publishedYear?.take(4)?.toIntOrNull() ?: Int.MIN_VALUE }
+    }
 }
 
 /** Nach Serie (ohne Bandnummer, ein Buch kann in mehreren stehen); Bücher darin nach Band, dann Titel. */

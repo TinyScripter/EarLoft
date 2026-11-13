@@ -63,6 +63,10 @@ data class AbsMetadataDto(
     val description: String? = null,
     /** Zum Teilen über Open Library (Konzept 13); die ASIN bleibt bewusst weg. */
     val isbn: String? = null,
+    /** Für die Buchseite; das Jahr kommt als Text („2014“). */
+    val publishedYear: String? = null,
+    val publisher: String? = null,
+    val language: String? = null,
 )
 
 @Serializable

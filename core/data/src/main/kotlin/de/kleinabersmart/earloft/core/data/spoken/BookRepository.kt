@@ -178,6 +178,10 @@ internal fun BookEntity.toModel() = Book(
     durationMs = durationMs,
     remoteId = remoteId,
     addedAt = addedAt,
+    subtitle = subtitle,
+    publishedYear = publishedYear,
+    publisher = publisher,
+    language = language,
 )
 
 internal fun BookChapterEntity.toModel() = BookChapter(chapterIndex, title, startMs, endMs)

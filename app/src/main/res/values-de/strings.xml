@@ -717,6 +717,11 @@
     <string name="episode_mark_played_play_next">Als abgespielt markieren und nächste spielen</string>
     <string name="episode_reset_position">Wiedergabeposition zurücksetzen</string>
     <string name="episode_play_next">Als Nächstes spielen</string>
+    <string name="book_volume">Band %1$s</string>
+    <string name="book_filter_not_started">Nicht begonnen</string>
+    <string name="book_remaining">noch %1$s</string>
+    <string name="sort_author">Autor</string>
+    <string name="sort_duration">Dauer</string>
     <string name="episode_filter_all">Alle</string>
     <string name="episode_filter_unheard">Ungehört</string>
     <string name="episode_filter_started">Angefangen</string>

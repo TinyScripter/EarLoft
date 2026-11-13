@@ -39,11 +39,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Surface
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
 import de.kleinabersmart.earloft.core.model.FeedSort
 import de.kleinabersmart.earloft.ui.components.HeaderAction
@@ -618,19 +615,11 @@ private val EpisodeFilter.label: Int
 @Composable
 private fun NewEpisodesBadge(count: Int, modifier: Modifier = Modifier) {
     if (count <= 0) return
-    val description = pluralStringResource(R.plurals.feed_new, count, count)
-    Surface(
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.tertiary,
-        contentColor = MaterialTheme.colorScheme.onTertiary,
-        modifier = modifier.clearAndSetSemantics { contentDescription = description },
-    ) {
-        Text(
-            if (count > MAX_BADGE_COUNT) "$MAX_BADGE_COUNT+" else count.toString(),
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-        )
-    }
+    CoverPill(
+        if (count > MAX_BADGE_COUNT) "$MAX_BADGE_COUNT+" else count.toString(),
+        pluralStringResource(R.plurals.feed_new, count, count),
+        modifier,
+    )
 }
 
 private const val MAX_BADGE_COUNT = 99

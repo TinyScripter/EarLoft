@@ -37,6 +37,11 @@ data class Book(
     /** Eintrag auf dem Server (bei Audiobookshelf die Item-ID); `null` bei lokalen Büchern. */
     val remoteId: String,
     val addedAt: Long = 0,
+    /** Angaben von Audiobookshelf für die Buchseite; das Jahr als Text, wie der Server es führt (meist „2014“). */
+    val subtitle: String? = null,
+    val publishedYear: String? = null,
+    val publisher: String? = null,
+    val language: String? = null,
 ) {
     /** Liegt auf diesem Gerät: kein Server, kein Download, kein Cast. */
     val isLocal: Boolean get() = isLocalSource(serverId)

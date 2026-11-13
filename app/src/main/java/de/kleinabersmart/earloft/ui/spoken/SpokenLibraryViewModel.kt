@@ -7,6 +7,11 @@ import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.data.podcast.EpisodeQueue
 import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
+import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
+import de.kleinabersmart.earloft.core.data.spoken.sortedAndFiltered
+import de.kleinabersmart.earloft.core.model.BookFilter
+import de.kleinabersmart.earloft.core.model.BookSort
+import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.SpokenServer
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
@@ -18,6 +23,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -28,6 +34,7 @@ class SpokenLibraryViewModel @Inject constructor(
     private val playback: PlaybackConnection,
     queue: EpisodeQueue,
     private val refresher: SpokenRefresher,
+    private val settings: SpokenSettings,
 ) : ViewModel() {
 
     /** Das Buch, das gerade läuft (nicht: pausiert). */
@@ -54,6 +61,30 @@ class SpokenLibraryViewModel @Inject constructor(
     val allBooks: StateFlow<LoadState<List<BookWithProgress>>> = books.books()
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
+
+    val bookSort: StateFlow<BookSort> = settings.bookSort
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookSort.TITLE)
+
+    val bookFilter: StateFlow<BookFilter> = settings.bookFilter
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookFilter.ALL)
+
+    /** Reiter „Alle“: nach Filter und Reihenfolge; `null`, solange noch geladen wird. */
+    val shownBooks: StateFlow<List<BookWithProgress>?> = combine(
+        books.books(),
+        settings.bookSort,
+        settings.bookFilter,
+        books.downloads().map { map -> map.filterValues { it.state == TrackDownload.DONE }.keys },
+    ) { all, sort, filter, downloaded -> all.sortedAndFiltered(sort, filter, downloaded) }
+        .catch { emit(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setBookSort(sort: BookSort) {
+        viewModelScope.launch { settings.setBookSort(sort) }
+    }
+
+    fun setBookFilter(filter: BookFilter) {
+        viewModelScope.launch { settings.setBookFilter(filter) }
+    }
 
     /** `null`, solange noch geladen wird. */
     val hasServer: StateFlow<Boolean?> = servers.servers.map<_, Boolean?> { it.isNotEmpty() }

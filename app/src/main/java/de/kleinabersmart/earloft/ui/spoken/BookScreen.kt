@@ -56,6 +56,7 @@ import androidx.compose.ui.text.TextStyle
 import de.kleinabersmart.earloft.navigation.BookGroupKind
 import androidx.compose.ui.text.style.TextAlign
 import java.text.NumberFormat
+import java.util.Locale
 import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.model.BookProgress
 import de.kleinabersmart.earloft.ui.components.GroupMargin
@@ -210,6 +211,10 @@ private fun BookHeader(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(top = 12.dp),
         )
+        // Viele Untertitel nennen nur Serie und Band („Carl Mørck 10“), die darunter ohnehin stehen, oder stecken schon im Titel.
+        book.subtitle?.takeUnless { isSeriesOnly(it, book.series) || book.title.contains(it, ignoreCase = true) }?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        }
         // Bei Büchern führen Autoren, Serie und Sprecher einzeln zu deren Seite (Bibliothek → Autoren bzw. Serien);
         // Folgen nennen den Podcast.
         val isBook = book.kind == BookKind.BOOK
@@ -250,11 +255,18 @@ private fun BookHeader(
         }
         // Folgen: Erscheinen mit Uhrzeit (Nachrichten kommen mehrmals am Tag unter gleichem Titel). Podcast-Feeds nennen
         // nicht immer eine Dauer.
+        // Bücher: Jahr, Verlag, Sprache und Dauer; bei angefangenen die Restzeit (Inhaltszeit, ohne Tempo).
+        val remaining = progress?.takeIf { isBook && !it.finished && it.positionMs > 0 && book.durationMs > 0 }
+            ?.let { stringResource(R.string.book_remaining, formatDuration((book.durationMs - it.positionMs).coerceAtLeast(0))) }
         val facts = listOfNotNull(
             book.addedAt.takeIf { book.kind == BookKind.EPISODE && it > 0 }?.let { formatEpisodeDay(it, withTime = true) },
+            book.publishedYear.takeIf { isBook },
+            book.publisher.takeIf { isBook },
+            book.language?.takeIf { isBook }?.let(::languageName),
             book.durationMs.takeIf { it > 0 }?.let(::formatDuration),
+            remaining,
         )
-        if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
+        if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
         if (progress != null && progress.positionMs > 0) {
             LinearProgressIndicator(
                 progress = { if (progress.finished) 1f else progress.fraction },
@@ -389,12 +401,34 @@ private fun PeopleLine(
     }
 }
 
-/** „Die Tribute von Panem · Band 2“; ohne Band nur der Name, „2.5“ bleibt „2,5“ bzw. „2.5“. */
+/** „Die Tribute von Panem · Band 2“; ohne Band nur der Name. */
 @Composable
 private fun seriesLabel(series: SeriesRef): String {
     val sequence = series.sequence ?: return series.name
-    val number = if (sequence % 1.0 == 0.0) sequence.toLong().toString() else NumberFormat.getInstance().format(sequence)
-    return stringResource(R.string.book_series_volume, series.name, number)
+    return stringResource(R.string.book_series_volume, series.name, volumeNumber(sequence))
+}
+
+/** Ob der Untertitel nur eine der Serien samt Band nennt („Carl Mørck 10“, „Carl Mørck, Band 10“). */
+internal fun isSeriesOnly(subtitle: String, series: String): Boolean {
+    fun plain(text: String) = text.lowercase().filter { it.isLetterOrDigit() }.replace("band", "").replace("book", "")
+    val wanted = plain(subtitle)
+    return parseSeries(series).any { plain("${it.name}${it.sequence?.let(::volumeNumber).orEmpty()}") == wanted }
+}
+
+/** Band ohne „.0“; „2.5“ bleibt „2,5“ bzw. „2.5“ je nach Sprache. */
+internal fun volumeNumber(sequence: Double): String =
+    if (sequence % 1.0 == 0.0) sequence.toLong().toString() else NumberFormat.getInstance().format(sequence)
+
+/**
+ * Die Sprache eines Buchs in der Sprache der App: Audiobookshelf führt sie meist englisch („German“) oder als Code („de“);
+ * Unbekanntes bleibt, wie es ist.
+ */
+internal fun languageName(language: String): String {
+    val trimmed = language.trim()
+    val locale = Locale.getAvailableLocales().firstOrNull {
+        it.getDisplayLanguage(Locale.ENGLISH).equals(trimmed, ignoreCase = true) || it.language.equals(trimmed, ignoreCase = true)
+    } ?: return trimmed
+    return locale.getDisplayLanguage(Locale.getDefault()).replaceFirstChar { it.titlecase(Locale.getDefault()) }
 }
 
 @Composable

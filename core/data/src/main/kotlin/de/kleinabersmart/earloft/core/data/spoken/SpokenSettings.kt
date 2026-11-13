@@ -12,6 +12,8 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.sync.LocalSourcesDefault
+import de.kleinabersmart.earloft.core.model.BookFilter
+import de.kleinabersmart.earloft.core.model.BookSort
 import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import kotlinx.coroutines.flow.Flow
@@ -186,7 +188,26 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_BOOK_MOBILE] = enabled }
     }
 
+    /** Reihenfolge und Filter des Reiters „Alle“ der Bücher (Standard: nach Titel, alle). */
+    val bookSort: Flow<BookSort> = context.spokenSettingsDataStore.data.map { prefs ->
+        BookSort.entries.firstOrNull { it.name == prefs[KEY_BOOK_SORT] } ?: BookSort.TITLE
+    }
+
+    suspend fun setBookSort(sort: BookSort) {
+        context.spokenSettingsDataStore.edit { it[KEY_BOOK_SORT] = sort.name }
+    }
+
+    val bookFilter: Flow<BookFilter> = context.spokenSettingsDataStore.data.map { prefs ->
+        BookFilter.entries.firstOrNull { it.name == prefs[KEY_BOOK_FILTER] } ?: BookFilter.ALL
+    }
+
+    suspend fun setBookFilter(filter: BookFilter) {
+        context.spokenSettingsDataStore.edit { it[KEY_BOOK_FILTER] = filter.name }
+    }
+
     private companion object {
+        val KEY_BOOK_SORT = stringPreferencesKey("book_sort")
+        val KEY_BOOK_FILTER = stringPreferencesKey("book_filter")
         val KEY_BOOK_MOBILE = booleanPreferencesKey("book_mobile_data")
         val KEY_BOOK_REWIND_AFTER = intPreferencesKey("book_rewind_after_s")
         val KEY_BOOK_REWIND = intPreferencesKey("book_rewind_s")
