@@ -380,6 +380,7 @@ fun EarLoftApp(
                 onFeedClick = openPodcast,
                 onFeedSettings = openPodcastSettings,
                 onAuthorClick = { navigator.navigate(BookGroupRoute(BookGroupKind.AUTHOR, it)) },
+                onNarratorClick = { navigator.navigate(BookGroupRoute(BookGroupKind.NARRATOR, it)) },
                 onSeriesClick = { navigator.navigate(BookGroupRoute(BookGroupKind.SERIES, it)) },
             )
         }

@@ -131,6 +131,12 @@ class BookRepository @Inject constructor(
         return dao.searchAuthors(pattern, limit)
     }
 
+    /** Sucht Sprecher von Büchern nach dem Namen. */
+    suspend fun searchNarrators(query: String, limit: Int = 20): List<AuthorHit> {
+        val pattern = likePattern(query) ?: return emptyList()
+        return dao.searchNarrators(pattern, limit)
+    }
+
     /** Sucht Serien nach dem Namen. */
     suspend fun searchSeries(query: String, limit: Int = 20): List<SeriesHit> {
         val pattern = likePattern(query) ?: return emptyList()

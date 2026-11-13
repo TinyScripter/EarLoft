@@ -109,6 +109,7 @@ fun SearchScreen(
     onFeedClick: (String) -> Unit,
     onFeedSettings: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
+    onNarratorClick: (String) -> Unit,
     onSeriesClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
@@ -253,6 +254,17 @@ fun SearchScreen(
                             supportingContent = { Text(pluralStringResource(R.plurals.book_count, author.bookCount, author.bookCount)) },
                             leadingContent = { BookArt(author.firstBookId, Modifier.size(48.dp), MaterialTheme.shapes.small) },
                             modifier = Modifier.clickable { onAuthorClick(author.name) },
+                        )
+                    }
+                }
+                if (state.narrators.isNotEmpty()) {
+                    item(key = "narrators") { SectionHeader(stringResource(R.string.spoken_search_narrators)) }
+                    groupedItems(state.narrators, key = { "narrator-${it.name}" }) { narrator ->
+                        ListItem(
+                            headlineContent = { Text(narrator.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = { Text(pluralStringResource(R.plurals.book_count, narrator.bookCount, narrator.bookCount)) },
+                            leadingContent = { BookArt(narrator.firstBookId, Modifier.size(48.dp), MaterialTheme.shapes.small) },
+                            modifier = Modifier.clickable { onNarratorClick(narrator.name) },
                         )
                     }
                 }

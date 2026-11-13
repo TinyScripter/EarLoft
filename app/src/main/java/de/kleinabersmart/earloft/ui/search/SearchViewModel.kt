@@ -38,11 +38,13 @@ data class SearchUiState(
     val episodes: List<BookWithProgress> = emptyList(),
     val series: List<SeriesHit> = emptyList(),
     val authors: List<AuthorHit> = emptyList(),
+    val narrators: List<AuthorHit> = emptyList(),
     val books: List<BookWithProgress> = emptyList(),
     val scope: SearchScope = SearchScope.ALL,
 ) {
     val isEmpty: Boolean
-        get() = results.isEmpty && feeds.isEmpty() && episodes.isEmpty() && series.isEmpty() && authors.isEmpty() && books.isEmpty()
+        get() = results.isEmpty && feeds.isEmpty() && episodes.isEmpty() && series.isEmpty() && authors.isEmpty() &&
+            narrators.isEmpty() && books.isEmpty()
 }
 
 /** Worüber gesucht wird; folgt der Einstellung „gemeinsam durchsuchen“ und sonst dem Modus. */
@@ -103,6 +105,7 @@ class SearchViewModel @Inject constructor(
                 episodes = hits.episodes,
                 series = hits.series,
                 authors = hits.authors,
+                narrators = hits.narrators,
                 books = hits.books,
                 scope = scope,
             )

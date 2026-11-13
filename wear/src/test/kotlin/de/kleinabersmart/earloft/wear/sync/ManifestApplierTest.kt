@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.wear.sync
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import de.kleinabersmart.earloft.core.data.sync.CollectionSourceResolver
 import de.kleinabersmart.earloft.core.data.sync.LibrarySyncer
 import de.kleinabersmart.earloft.core.data.sync.MergeResolver
 import de.kleinabersmart.earloft.core.data.sync.PlaylistSyncer
@@ -73,10 +74,11 @@ class ManifestApplierTest {
             sourceDao = sourceDao,
             mergeDao = db.mergeDao(),
             libraryDao = db.libraryDao(),
-            mergeResolver = MergeResolver(db.mergeDao(), db.syncDao()),
+            mergeResolver = MergeResolver(db.mergeDao(), db.syncDao(), CollectionSourceResolver(db.mergeDao(), db.syncDao())),
             changeListeners = emptySet(),
             syncQueue = SyncQueueStarter(db.syncDao(), NoScheduler),
             playlistSyncer = PlaylistSyncer(db, db.playlistDao(), db.syncDao(), SyncNotices()),
+            syncDao = db.syncDao(),
         )
         applier = ManifestApplier(db, sourceDao, db.wearDao(), db.playlistDao(), syncer)
     }

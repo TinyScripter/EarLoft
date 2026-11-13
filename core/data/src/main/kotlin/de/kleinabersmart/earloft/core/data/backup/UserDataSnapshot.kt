@@ -255,7 +255,7 @@ fun ListeningStatEntity.toUser() =
 fun ListeningDayEntity.toUser() = UserListeningDayEntity(day, kind, groupKey, listenedMs)
 
 fun KeyedProgress.toUser() = with(progress) {
-    UserBookProgressEntity(serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty)
+    UserBookProgressEntity(serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty, hidden)
 }
 
 /** Zurück in die Hauptdatenbank; der Abgleichsstand beginnt von vorn. */
@@ -321,4 +321,5 @@ fun UserBookProgressEntity.toMain(bookId: Long) = BookProgressEntity(
     speed = speed,
     updatedAt = updatedAt,
     dirty = dirty,
+    hidden = hidden,
 )

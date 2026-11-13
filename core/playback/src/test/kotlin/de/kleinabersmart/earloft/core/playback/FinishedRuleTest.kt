@@ -30,11 +30,29 @@ class FinishedRuleTest {
     }
 
     @Test
-    fun `a playing episode and books keep the 5 s rule`() {
+    fun `playing episodes and books keep the 5 s rule`() {
         assertFalse(isFinishedAt(hour - 60_000, hour, isEpisode = true, stopped = false))
         assertTrue(isFinishedAt(hour - 5_000, hour, isEpisode = true, stopped = false))
-        assertFalse(isFinishedAt(hour - 60_000, hour, isEpisode = false, stopped = true))
-        assertTrue(isFinishedAt(hour - 5_000, hour, isEpisode = false, stopped = true))
+        assertFalse(isFinishedAt(hour - 30_000, hour, isEpisode = false, stopped = false))
+        assertTrue(isFinishedAt(hour - 5_000, hour, isEpisode = false, stopped = false))
+    }
+
+    @Test
+    fun `a stopped book counts as finished from 99 percent`() {
+        // 1 % von zehn Stunden = 6 min.
+        val tenHours = 10 * hour
+        assertTrue(isFinishedAt(tenHours - 360_000, tenHours, isEpisode = false, stopped = true))
+        assertFalse(isFinishedAt(tenHours - 361_000, tenHours, isEpisode = false, stopped = true))
+    }
+
+    @Test
+    fun `a stopped book with chapters must be in its last chapter`() {
+        val tenHours = 10 * hour
+        // Schlusskapitel von 2 min: 4 min vor dem Ende steckt man noch im vorletzten.
+        assertFalse(isFinishedAt(tenHours - 240_000, tenHours, isEpisode = false, stopped = true, lastChapterStartMs = tenHours - 120_000))
+        assertTrue(isFinishedAt(tenHours - 100_000, tenHours, isEpisode = false, stopped = true, lastChapterStartMs = tenHours - 120_000))
+        // Langes Schlusskapitel: es zählen die 99 %.
+        assertTrue(isFinishedAt(tenHours - 300_000, tenHours, isEpisode = false, stopped = true, lastChapterStartMs = tenHours - hour))
     }
 
     @Test

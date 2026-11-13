@@ -356,7 +356,8 @@ internal class BookPlaybackListener(
         val current = player.currentMediaItem?.bookId == bookId
         // Angehalten: nicht mehr im Player oder nicht mehr gewollt; Puffern zählt nicht.
         val stopped = !current || !player.playWhenReady
-        val finished = isFinishedAt(position, timeline.durationMs, isEpisode, stopped) ||
+        val lastChapterStart = timeline.chapters.lastOrNull()?.startMs ?: 0L
+        val finished = isFinishedAt(position, timeline.durationMs, isEpisode, stopped, lastChapterStart) ||
             (player.playbackState == Player.STATE_ENDED && current)
         persistScope.launch { progressSync.record(bookId, position, timeline.durationMs, finished, force) }
     }

@@ -135,7 +135,8 @@ fun PodcastHomeScreen(
     val recent by viewModel.recent.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
-    val rowState = rememberContinueRowState(episodes.map { it.book.id })
+    val rowState = rememberFrontRowState(episodes.map { it.book.id })
+    val recentRowState = rememberFrontRowState(recent.map { it.book.id })
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
         if (episodes.isNotEmpty()) {
             item(key = "continue") {
@@ -171,7 +172,7 @@ fun PodcastHomeScreen(
         if (recent.isNotEmpty()) {
             item(key = "recent") {
                 Shelf(stringResource(R.string.spoken_recent)) {
-                    BookRow(recent, onEpisodeClick, playingId = playingId, onPlay = viewModel::playOrPause)
+                    BookRow(recent, onEpisodeClick, state = recentRowState, playingId = playingId, onPlay = viewModel::playOrPause)
                 }
             }
         }

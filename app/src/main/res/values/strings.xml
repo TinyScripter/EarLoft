@@ -587,6 +587,7 @@
     <string name="spoken_search_episodes">Podcast episodes</string>
     <string name="spoken_search_feeds">Podcasts</string>
     <string name="spoken_search_authors">Authors</string>
+    <string name="spoken_search_narrators">Narrators</string>
     <string name="spoken_search_series">Series</string>
 
     <!-- Podcasts -->
@@ -700,6 +701,7 @@
     <string name="book_series_volume">%1$s · Book %2$s</string>
     <string name="book_open_series">Open series</string>
     <string name="book_open_author">Open author</string>
+    <string name="book_open_narrator">Open narrator</string>
     <string name="episode_delete_download">Delete download</string>
     <string name="podcast_info">Info</string>
     <string name="podcast_settings">Settings</string>

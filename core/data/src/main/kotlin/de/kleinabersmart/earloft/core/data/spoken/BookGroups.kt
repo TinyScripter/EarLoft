@@ -14,6 +14,13 @@ fun List<BookWithProgress>.authorGroups(): List<BookGroup> =
         .map { (name, books) -> BookGroup(name, books.sortedBy { it.book.title.sortKey() }) }
         .sortedBy { it.name.sortKey() }
 
+/** Nach Sprecher wie [authorGroups]. */
+fun List<BookWithProgress>.narratorGroups(): List<BookGroup> =
+    filter { it.book.narrator.isNotBlank() }
+        .groupBy { it.book.narrator.trim() }
+        .map { (name, books) -> BookGroup(name, books.sortedBy { it.book.title.sortKey() }) }
+        .sortedBy { it.name.sortKey() }
+
 /** Nach Serie (ohne Bandnummer, ein Buch kann in mehreren stehen); Bücher darin nach Band, dann Titel. */
 fun List<BookWithProgress>.seriesGroups(): List<BookGroup> =
     flatMap { item -> parseSeries(item.book.series).map { Triple(it.name, it.sequence, item) } }

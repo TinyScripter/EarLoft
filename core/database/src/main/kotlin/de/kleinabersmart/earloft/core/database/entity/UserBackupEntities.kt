@@ -94,6 +94,8 @@ data class UserBookProgressEntity(
     val speed: Float,
     val updatedAt: Long,
     val dirty: Boolean,
+    /** Aus „Weiterhören“ genommen (seit Version 10). */
+    @ColumnInfo(defaultValue = "0") val hidden: Boolean = false,
 )
 
 /**

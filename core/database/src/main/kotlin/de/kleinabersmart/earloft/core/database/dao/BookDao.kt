@@ -120,6 +120,14 @@ abstract class BookDao {
     )
     abstract suspend fun searchAuthors(pattern: String, limit: Int): List<AuthorHit>
 
+    /** Sprecher von Büchern wie [searchAuthors]. */
+    @Query(
+        "SELECT narrator AS name, MIN(bookId) AS firstBookId, COUNT(*) AS bookCount FROM books " +
+            "WHERE kind = 'BOOK' AND narrator != '' AND narrator LIKE :pattern ESCAPE '\\' AND $BOOK_VISIBLE " +
+            "GROUP BY narrator ORDER BY narrator LIMIT :limit",
+    )
+    abstract suspend fun searchNarrators(pattern: String, limit: Int): List<AuthorHit>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     abstract suspend fun insertBook(book: BookEntity): Long
 

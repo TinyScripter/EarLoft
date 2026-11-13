@@ -22,10 +22,12 @@ data class AreaSearchResults(
     val episodes: List<BookWithProgress> = emptyList(),
     val books: List<BookWithProgress> = emptyList(),
     val authors: List<AuthorHit> = emptyList(),
+    val narrators: List<AuthorHit> = emptyList(),
     val series: List<SeriesHit> = emptyList(),
 ) {
     val isEmpty: Boolean
-        get() = music.isEmpty && feeds.isEmpty() && episodes.isEmpty() && books.isEmpty() && authors.isEmpty() && series.isEmpty()
+        get() = music.isEmpty && feeds.isEmpty() && episodes.isEmpty() && books.isEmpty() && authors.isEmpty() &&
+            narrators.isEmpty() && series.isEmpty()
 
     companion object {
         val EMPTY = AreaSearchResults()
@@ -57,6 +59,7 @@ class LibrarySearch @Inject constructor(
             episodes = if (podcasts) bookRepository.search(trimmed, BookKind.EPISODE) else emptyList(),
             books = if (books) bookRepository.search(trimmed, BookKind.BOOK) else emptyList(),
             authors = if (books) bookRepository.searchAuthors(trimmed) else emptyList(),
+            narrators = if (books) bookRepository.searchNarrators(trimmed) else emptyList(),
             series = if (books) bookRepository.searchSeries(trimmed) else emptyList(),
         )
     }

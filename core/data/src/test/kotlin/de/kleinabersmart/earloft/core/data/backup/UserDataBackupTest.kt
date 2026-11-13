@@ -289,6 +289,24 @@ class UserDataBackupTest {
     }
 
     @Test
+    fun `a book taken out of continue listening stays out on a new device`() = runTest {
+        fillMain()
+        val local = book(main, LOCAL_BOOK_SERVER_ID, "Autor/Buch", BookKind.BOOK)
+        main.bookDao().upsertProgress(progress(local, 200, updatedAt = 20).copy(hidden = true))
+        backupFor(main).mirror()
+        assertTrue(user.userDataDao().progress().single().hidden)
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val again = book(newDevice, LOCAL_BOOK_SERVER_ID, "Autor/Buch", BookKind.BOOK)
+            assertTrue(backupFor(newDevice).applyProgress(user.userDataDao().progress()).isEmpty())
+            assertTrue(newDevice.bookDao().progress(again)!!.hidden)
+        } finally {
+            newDevice.close()
+        }
+    }
+
+    @Test
     fun `ending a subscription drops its saved progress, also the not yet applied`() = runTest {
         fillMain()
         val backup = backupFor(main)

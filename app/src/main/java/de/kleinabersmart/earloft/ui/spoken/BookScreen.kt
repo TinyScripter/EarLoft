@@ -205,7 +205,7 @@ private fun BookHeader(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(top = 12.dp),
         )
-        // Bei Büchern führen Autor und Serie zu deren Seite (Bibliothek → Autoren bzw. Serien); Folgen nennen den Podcast.
+        // Bei Büchern führen Autor, Serie und Sprecher zu deren Seite (Bibliothek → Autoren bzw. Serien); Folgen nennen den Podcast.
         val isBook = book.kind == BookKind.BOOK
         Text(
             book.author,
@@ -231,7 +231,18 @@ private fun BookHeader(
             }
         }
         if (book.narrator.isNotBlank()) {
-            Text(book.narrator, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                book.narrator,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = if (isBook) {
+                    Modifier.clickable(onClickLabel = stringResource(R.string.book_open_narrator)) {
+                        onOpenGroup(BookGroupKind.NARRATOR, book.narrator.trim())
+                    }
+                } else {
+                    Modifier
+                },
+            )
         }
         // Folgen: Erscheinen mit Uhrzeit (Nachrichten kommen mehrmals am Tag unter gleichem Titel). Podcast-Feeds nennen
         // nicht immer eine Dauer.

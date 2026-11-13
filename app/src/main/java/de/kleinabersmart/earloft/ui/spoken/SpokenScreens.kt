@@ -21,6 +21,7 @@ import androidx.compose.ui.res.pluralStringResource
 import de.kleinabersmart.earloft.core.common.sortKey
 import de.kleinabersmart.earloft.core.data.spoken.BookGroup
 import de.kleinabersmart.earloft.core.data.spoken.authorGroups
+import de.kleinabersmart.earloft.core.data.spoken.narratorGroups
 import de.kleinabersmart.earloft.core.data.spoken.seriesGroups
 import de.kleinabersmart.earloft.navigation.BookGroupKind
 import de.kleinabersmart.earloft.ui.components.LazyGridFastScroller
@@ -70,6 +71,8 @@ import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import de.kleinabersmart.earloft.core.model.AppUris
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.components.EmptyAreaHint
 import de.kleinabersmart.earloft.ui.components.EmptyHint
@@ -86,8 +89,11 @@ import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.components.ShelfInset
 import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
 
-fun List<BookWithProgress>.groups(kind: BookGroupKind): List<BookGroup> =
-    if (kind == BookGroupKind.SERIES) seriesGroups() else authorGroups()
+fun List<BookWithProgress>.groups(kind: BookGroupKind): List<BookGroup> = when (kind) {
+    BookGroupKind.SERIES -> seriesGroups()
+    BookGroupKind.AUTHOR -> authorGroups()
+    BookGroupKind.NARRATOR -> narratorGroups()
+}
 
 /** Start im Modus „Bücher“: weiterhören und neu hinzugekommene Bücher. */
 @Composable
@@ -105,7 +111,8 @@ fun SpokenHomeScreen(
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val continueListening = continueState.valueOrNull.orEmpty()
     val recent = recentState.valueOrNull.orEmpty()
-    val rowState = rememberContinueRowState(continueListening.map { it.book.id })
+    val rowState = rememberFrontRowState(continueListening.map { it.book.id })
+    val recentRowState = rememberFrontRowState(recent.map { it.book.id })
 
     Column(modifier.fillMaxSize()) {
         when {
@@ -121,7 +128,7 @@ fun SpokenHomeScreen(
                 if (recent.isNotEmpty()) {
                     item(key = "recent") {
                         Shelf(stringResource(R.string.spoken_recent)) {
-                            BookRow(recent, onBookClick, playingId = playingId, onPlay = viewModel::playOrPause)
+                            BookRow(recent, onBookClick, state = recentRowState, playingId = playingId, onPlay = viewModel::playOrPause)
                         }
                     }
                 }
@@ -311,7 +318,7 @@ private fun BookGroupList(groups: List<BookGroup>, onClick: (String) -> Unit) {
     }
 }
 
-/** Alle Bücher einer Serie oder eines Autors. */
+/** Alle Bücher einer Serie, eines Autors oder eines Sprechers. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookGroupScreen(
@@ -396,22 +403,30 @@ internal fun BookRow(
 }
 
 /**
- * Zustand der Zeile „Weiterhören“ ([ids] in ihrer Reihenfolge): Kommt ein Eintrag von weiter hinten nach vorn, zeigt die
- * Zeile wieder ihren Anfang. Fällt nur der vorderste weg (zu Ende gehört, aus der Warteschlange genommen), rückt der
- * Rest gleitend nach ([rowItemAnimation]); ein Sprung an den Anfang schnitte diese Animation ab.
+ * Zustand einer Zeile, deren Neues vorn steht („Weiterhören“, „Zuletzt hinzugefügt“; [ids] in ihrer Reihenfolge): Kommt
+ * ein Eintrag neu oder von weiter hinten nach vorn, zeigt die Zeile wieder ihren Anfang – eine Lazy-Zeile hielte sonst
+ * den bisher ersten Eintrag fest, und der neue läge links außerhalb. Fällt nur der vorderste weg (zu Ende gehört,
+ * angefangen, aus der Warteschlange genommen), rückt der Rest gleitend nach ([rowItemAnimation]); ein Sprung an den
+ * Anfang schnitte diese Animation ab. Die vorderen Einträge überstehen das Verlassen des Bildschirms: Zurück von einer
+ * Buchseite bleibt die Zeile, wo sie war, solange vorn nichts Neues steht.
  */
 @Composable
-fun rememberContinueRowState(ids: List<Long>): LazyListState {
+fun rememberFrontRowState(ids: List<Long>): LazyListState {
     val state = rememberLazyListState()
-    val previous = remember { arrayOf(emptyList<Long>()) }
-    val before = previous[0]
+    val previous = rememberSaveable(saver = FrontIdsSaver) { FrontIds(emptyList()) }
+    val before = previous.ids
     val first = ids.firstOrNull()
     LaunchedEffect(first) {
-        if (before.getOrNull(1) != first) state.scrollToItem(0)
+        if (first != before.firstOrNull() && first != before.getOrNull(1)) state.scrollToItem(0)
     }
-    SideEffect { previous[0] = ids }
+    SideEffect { previous.ids = ids.take(2) }
     return state
 }
+
+/** Die ersten beiden Einträge einer Zeile beim letzten Zeichnen (für [rememberFrontRowState]). */
+private class FrontIds(var ids: List<Long>)
+
+private val FrontIdsSaver = Saver<FrontIds, LongArray>(save = { it.ids.toLongArray() }, restore = { FrontIds(it.toList()) })
 
 /**
  * Kachel einer horizontalen Zeile: Ein entfernter Eintrag löst sich schnell auf, die Kacheln rechts davon gleiten
