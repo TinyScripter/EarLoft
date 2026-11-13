@@ -20,9 +20,12 @@ sealed interface ShareTarget {
     data class Artist(val artistId: Long) : ShareTarget
     data class Feed(val feedId: String) : ShareTarget
 
-    /** Buch oder Folge. */
-    data class Book(val bookId: Long) : ShareTarget
+    /** Buch oder Folge; mit [at] ab dieser Stelle. */
+    data class Book(val bookId: Long, val at: SharePosition? = null) : ShareTarget
 }
+
+/** Stelle in einem Buch oder einer Folge; [label] („ab 12:34“) kommt so in den Text. */
+data class SharePosition(val positionMs: Long, val label: String)
 
 /**
  * Baut Titel und Link fürs Teilen allein aus der Datenbank; `null`, wenn es den Eintrag nicht mehr gibt oder er sich
@@ -54,20 +57,28 @@ class ShareRepository @Inject constructor(
             when (book.kind) {
                 BookKind.BOOK -> content(
                     titleWithArtist(book.title, ShareLinks.mainAuthor(book.author) ?: book.author),
+                    target.at?.label,
                     ShareLinks.openLibrary(book.isbn, book.title, book.author),
                 )
-                BookKind.EPISODE -> episode(book)
+                BookKind.EPISODE -> episode(book, target.at)
             }
         }
     }
 
-    private suspend fun episode(book: BookEntity): ShareContent? {
+    /**
+     * Mit [at] steht die Stelle im Text; zeigt der Link direkt auf die Audiodatei, trägt er sie auch als Zeitmarke
+     * (`#t=754`, Media Fragments – Browser springen dorthin). Ob Webseiten der Sender eine Zeitmarke kennen, ist offen.
+     */
+    private suspend fun episode(book: BookEntity, at: SharePosition?): ShareContent? {
         val feed = podcastDao.feed(book.serverId)?.takeIf(::isShareable) ?: return null
         val ownHosts = ownHosts()
         val audio = bookDao.tracks(book.bookId).firstOrNull()?.remoteFileId?.takeUnless { ShareLinks.isPrivateSource(it, ownHosts) }
-        val page = ShareLinks.publicPage(book.webUrl) ?: audio?.let(ShareLinks::sourceUrl)
+        val website = ShareLinks.publicPage(book.webUrl)
+        val page = website ?: audio?.let(ShareLinks::sourceUrl)?.let { url ->
+            if (at == null) url else "${url.substringBefore('#')}#t=${at.positionMs / 1000}"
+        }
         val links = feedLinks(feed, website = null, ownHosts)
-        return content(book.title, feed.title, page, *links)
+        return content(book.title, feed.title, at?.label, page, *links)
     }
 
     /**

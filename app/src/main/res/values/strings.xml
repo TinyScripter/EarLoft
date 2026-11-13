@@ -553,6 +553,8 @@
     <string name="spoken_bookmark_delete">Delete</string>
     <string name="spoken_bookmark_deleted">Bookmark deleted</string>
     <string name="spoken_bookmark_undo">Undo</string>
+    <string name="spoken_share_from">Share from %1$s</string>
+    <string name="spoken_share_position">from %1$s</string>
     <string name="spoken_percent_listened">%1$d %% listened</string>
     <string name="spoken_finished">Finished</string>
     <string name="spoken_previous_chapter">Previous chapter</string>

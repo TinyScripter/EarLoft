@@ -104,4 +104,20 @@ class ShareRepositoryTest {
             repository.content(ShareTarget.Book(withoutPage))?.text,
         )
     }
+
+    @Test
+    fun `sharing from a position names it and marks the audio link`() = runTest {
+        feed("a", "https://example.com/feed.xml")
+        val withPage = episode("a", "Eins", "https://example.com/1", "https://cdn.example.com/1.mp3")
+        val withoutPage = episode("a", "Zwei", "https://open.spotify.com/episode/2", "https://cdn.example.com/2.mp3")
+        val at = SharePosition(754_321, "ab 12:34")
+        assertEquals(
+            "Eins\nPodcast a\nab 12:34\nhttps://example.com/1\nRSS: https://example.com/feed.xml",
+            repository.content(ShareTarget.Book(withPage, at))?.text,
+        )
+        assertEquals(
+            "Zwei\nPodcast a\nab 12:34\nhttps://cdn.example.com/2.mp3#t=754\nRSS: https://example.com/feed.xml",
+            repository.content(ShareTarget.Book(withoutPage, at))?.text,
+        )
+    }
 }

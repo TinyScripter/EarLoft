@@ -87,7 +87,11 @@ import de.kleinabersmart.earloft.core.model.EffectLayers
 import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.ui.components.FitSquare
-import de.kleinabersmart.earloft.ui.components.ShareButton
+import de.kleinabersmart.earloft.ui.components.LocalShareController
+import de.kleinabersmart.earloft.core.data.share.SharePosition
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.mutableLongStateOf
 import de.kleinabersmart.earloft.ui.components.WatchTarget
 import de.kleinabersmart.earloft.ui.components.WatchToggleButton
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
@@ -392,7 +396,9 @@ private fun BookPlayerContent(
             ) {
                 bookWithProgress?.book?.let { book ->
                     // Wie im Menü: Folgen vom Gerät haben keine öffentliche Adresse.
-                    if (book.kind == BookKind.BOOK || !book.isLocal) ShareButton(ShareTarget.Book(book.id))
+                    if (book.kind == BookKind.BOOK || !book.isLocal) {
+                        PlayerShareButton(book.id) { dragging.value?.toLong() ?: viewModel.bookPositionMs() }
+                    }
                     // Wie auf der Buch-/Folgenseite rechts neben Teilen; ohne Uhr unsichtbar.
                     WatchToggleButton(WatchTarget.Spoken(book.id))
                 }
@@ -891,6 +897,39 @@ private fun ChapterList(
                     containerColor = if (chapter.index == currentIndex) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
                 ),
                 modifier = Modifier.clickable { onChapter(chapter.startMs) },
+            )
+        }
+    }
+}
+
+/** Teilen im Player: das Buch bzw. die Folge, oder ab der Stelle, die gerade läuft (Konzept 13). */
+@Composable
+private fun PlayerShareButton(bookId: Long, positionMs: () -> Long) {
+    val controller = LocalShareController.current ?: return
+    var open by remember { mutableStateOf(false) }
+    var at by remember { mutableLongStateOf(0L) }
+    Box {
+        IconButton(onClick = {
+            at = positionMs()
+            open = true
+        }) {
+            Icon(painterResource(DesignR.drawable.ic_share), contentDescription = stringResource(R.string.action_share))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.action_share)) },
+                onClick = {
+                    controller.share(ShareTarget.Book(bookId))
+                    open = false
+                },
+            )
+            val label = stringResource(R.string.spoken_share_position, formatClock(at))
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.spoken_share_from, formatClock(at))) },
+                onClick = {
+                    controller.share(ShareTarget.Book(bookId, SharePosition(at, label)))
+                    open = false
+                },
             )
         }
     }
