@@ -370,6 +370,18 @@ fun MusicSettingsScreen(
             }
         }
 
+        group("refresh", R.string.settings_section_refresh) {
+            row("sync-interval") {
+                ClickRow(
+                    title = stringResource(R.string.settings_music_sync_interval),
+                    value = syncIntervalLabel(state.syncIntervalDays),
+                    icon = DesignR.drawable.ic_sync,
+                    onClick = { choosingSyncInterval = true },
+                )
+            }
+            row("refresh-music") { RefreshRow(stringResource(R.string.settings_refresh_music), viewModel::refreshMusic) }
+        }
+
         group("playback", R.string.settings_playback) {
             row("replay-gain") {
                 ClickRow(
@@ -454,19 +466,8 @@ fun MusicSettingsScreen(
             }
         }
 
-        group("refresh", R.string.settings_section_refresh) {
-            row("sync-interval") {
-                ClickRow(
-                    title = stringResource(R.string.settings_music_sync_interval),
-                    value = syncIntervalLabel(state.syncIntervalDays),
-                    icon = DesignR.drawable.ic_sync,
-                    onClick = { choosingSyncInterval = true },
-                )
-            }
-            row("refresh-music") { RefreshRow(stringResource(R.string.settings_refresh_music), viewModel::refreshMusic) }
-        }
-
-        group("images", R.string.settings_section_images) {
+        // Was Namen an Dienste im Internet schickt: Bilder und Songtexte.
+        group("online", R.string.settings_section_online) {
             row("artist-images") {
                 SwitchRow(
                     title = stringResource(R.string.settings_artist_images),
@@ -485,9 +486,6 @@ fun MusicSettingsScreen(
                     onCheckedChange = viewModel::setAlbumCovers,
                 )
             }
-        }
-
-        group("lyrics", R.string.settings_section_lyrics) {
             row("online-lyrics") {
                 SwitchRow(
                     title = stringResource(R.string.settings_online_lyrics),
@@ -619,6 +617,57 @@ fun PodcastsSettingsScreen(
     TransferMessagesEffect(viewModel)
 
     SettingsPage(stringResource(R.string.settings_podcasts), onBack, modifier) {
+        group("sources", R.string.settings_section_sources) {
+            row("local-podcasts") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_local_podcasts),
+                    summary = stringResource(R.string.settings_local_podcasts_summary),
+                    icon = DesignR.drawable.ic_playlist_play,
+                    checked = state.useLocalPodcasts,
+                    onCheckedChange = { enabled ->
+                        if (enabled) requestAudioPermission() else viewModel.setUseLocalPodcasts(false)
+                    },
+                )
+            }
+        }
+
+        group("refresh", R.string.settings_section_refresh) {
+            row("podcast-refresh") {
+                ClickRow(
+                    title = stringResource(R.string.settings_podcast_refresh),
+                    value = podcastRefreshLabel(state.podcastRefreshHours),
+                    icon = DesignR.drawable.ic_sync,
+                    onClick = { choosingRefresh = true },
+                )
+            }
+            row("refresh-podcasts") { RefreshRow(stringResource(R.string.settings_refresh_podcasts), viewModel::refreshPodcasts) }
+        }
+
+        group("directories", R.string.settings_section_directories) {
+            state.podcastDirectories.forEach { directory ->
+                row("directory-${directory.name}") {
+                    SwitchRow(
+                        title = stringResource(directory.label),
+                        summary = stringResource(directory.summary),
+                        icon = R.drawable.ic_nav_search,
+                        checked = directory in state.enabledPodcastDirectories,
+                        onCheckedChange = { viewModel.setPodcastDirectory(directory, it) },
+                    )
+                }
+                // Das Land gehört zu Apple und steht deshalb direkt unter seinem Schalter.
+                if (directory == PodcastDirectory.APPLE && directory in state.enabledPodcastDirectories) {
+                    row("apple-country") {
+                        ClickRow(
+                            title = stringResource(R.string.settings_directory_apple_country),
+                            value = countryName(state.appleCountry),
+                            icon = R.drawable.ic_nav_search,
+                            onClick = { choosingCountry = true },
+                        )
+                    }
+                }
+            }
+        }
+
         group("playback", R.string.settings_playback) {
             row("podcast-auto-play-next") {
                 SwitchRow(
@@ -693,57 +742,6 @@ fun PodcastsSettingsScreen(
                     icon = DesignR.drawable.ic_delete,
                     onClick = { choosingDeleteHeard = true },
                 )
-            }
-        }
-
-        group("refresh", R.string.settings_section_refresh) {
-            row("podcast-refresh") {
-                ClickRow(
-                    title = stringResource(R.string.settings_podcast_refresh),
-                    value = podcastRefreshLabel(state.podcastRefreshHours),
-                    icon = DesignR.drawable.ic_sync,
-                    onClick = { choosingRefresh = true },
-                )
-            }
-            row("refresh-podcasts") { RefreshRow(stringResource(R.string.settings_refresh_podcasts), viewModel::refreshPodcasts) }
-        }
-
-        group("sources", R.string.settings_section_sources) {
-            row("local-podcasts") {
-                SwitchRow(
-                    title = stringResource(R.string.settings_local_podcasts),
-                    summary = stringResource(R.string.settings_local_podcasts_summary),
-                    icon = DesignR.drawable.ic_playlist_play,
-                    checked = state.useLocalPodcasts,
-                    onCheckedChange = { enabled ->
-                        if (enabled) requestAudioPermission() else viewModel.setUseLocalPodcasts(false)
-                    },
-                )
-            }
-        }
-
-        group("directories", R.string.settings_section_directories) {
-            state.podcastDirectories.forEach { directory ->
-                row("directory-${directory.name}") {
-                    SwitchRow(
-                        title = stringResource(directory.label),
-                        summary = stringResource(directory.summary),
-                        icon = R.drawable.ic_nav_search,
-                        checked = directory in state.enabledPodcastDirectories,
-                        onCheckedChange = { viewModel.setPodcastDirectory(directory, it) },
-                    )
-                }
-                // Das Land gehört zu Apple und steht deshalb direkt unter seinem Schalter.
-                if (directory == PodcastDirectory.APPLE && directory in state.enabledPodcastDirectories) {
-                    row("apple-country") {
-                        ClickRow(
-                            title = stringResource(R.string.settings_directory_apple_country),
-                            value = countryName(state.appleCountry),
-                            icon = R.drawable.ic_nav_search,
-                            onClick = { choosingCountry = true },
-                        )
-                    }
-                }
             }
         }
 
@@ -985,7 +983,7 @@ private fun RssBridgeDialog(current: String, onSave: (String) -> Unit, onDismiss
     )
 }
 
-/** Bücher: Quellen (Gerät, Server), Abgleich, Autorenbilder, Wiedergabe, Downloads (Mobilfunk) und Statistik. */
+/** Bücher: Quellen (Gerät, Server), Abgleich, Wiedergabe, Downloads, Online-Dienste (Autorenbilder) und Statistik. */
 @Composable
 fun AudiobookSettingsScreen(
     onBack: () -> Unit,
@@ -1016,6 +1014,10 @@ fun AudiobookSettingsScreen(
                 )
             }
             row("audiobookshelf") { AudiobookshelfSection(onAdd = onAddServer, onEdit = onEditServer) }
+        }
+
+        group("refresh", R.string.settings_section_refresh) {
+            row("refresh-audiobooks") { RefreshRow(stringResource(R.string.settings_refresh_audiobooks), viewModel::refreshAudiobooks) }
         }
 
         group("playback", R.string.settings_playback) {
@@ -1092,11 +1094,7 @@ fun AudiobookSettingsScreen(
             }
         }
 
-        group("refresh", R.string.settings_section_refresh) {
-            row("refresh-audiobooks") { RefreshRow(stringResource(R.string.settings_refresh_audiobooks), viewModel::refreshAudiobooks) }
-        }
-
-        group("images", R.string.settings_section_images) {
+        group("online", R.string.settings_section_online) {
             row("author-images") {
                 SwitchRow(
                     title = stringResource(R.string.settings_author_images),

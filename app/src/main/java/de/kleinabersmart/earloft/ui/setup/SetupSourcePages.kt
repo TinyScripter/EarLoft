@@ -92,7 +92,7 @@ internal fun LazyListScope.musicPage(state: SettingsUiState, actions: SetupActio
             )
         }
     }
-    group("images", R.string.settings_section_images) {
+    group("online", R.string.settings_section_online) {
         row("artist-images") {
             SwitchRow(
                 title = stringResource(R.string.settings_artist_images),
@@ -111,8 +111,6 @@ internal fun LazyListScope.musicPage(state: SettingsUiState, actions: SetupActio
                 onCheckedChange = actions.setAlbumCovers,
             )
         }
-    }
-    group("lyrics", R.string.settings_section_lyrics) {
         row("online-lyrics") {
             SwitchRow(
                 title = stringResource(R.string.settings_online_lyrics),
@@ -195,7 +193,7 @@ internal fun LazyListScope.booksPage(state: SettingsUiState, servers: List<Spoke
             )
         }
     }
-    group("images", R.string.settings_section_images) {
+    group("online", R.string.settings_section_online) {
         row("author-images") {
             SwitchRow(
                 title = stringResource(R.string.settings_author_images),

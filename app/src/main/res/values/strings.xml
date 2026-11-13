@@ -169,8 +169,7 @@
     <string name="settings_section_directories">Directories</string>
     <string name="settings_directory_apple_country">Country for Apple Podcasts</string>
     <string name="settings_section_refresh">Updating</string>
-    <string name="settings_section_images">Images</string>
-    <string name="settings_section_lyrics">Lyrics</string>
+    <string name="settings_section_online">Online services</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_refresh_music">Sync music now</string>
     <string name="settings_refresh_audiobooks">Sync books now</string>
