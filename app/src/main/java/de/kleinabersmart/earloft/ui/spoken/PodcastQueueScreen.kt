@@ -8,7 +8,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -35,7 +34,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,8 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -57,7 +53,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
@@ -68,7 +63,10 @@ import de.kleinabersmart.earloft.ui.components.LoadFailedHint
 import de.kleinabersmart.earloft.ui.components.LoadingIndicator
 import de.kleinabersmart.earloft.ui.components.MarkGap
 import de.kleinabersmart.earloft.ui.components.OfflineMarkIcon
+import de.kleinabersmart.earloft.ui.components.rememberReorderState
 import de.kleinabersmart.earloft.ui.components.reorderActions
+import de.kleinabersmart.earloft.ui.components.reorderHandle
+import de.kleinabersmart.earloft.ui.components.reorderableItem
 import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
@@ -164,11 +162,10 @@ fun PodcastQueueList(
 
     // Die lokale Kopie wird beim Ziehen sofort umsortiert und erst am Ende des Ziehens gespeichert.
     val rows = remember { mutableStateListOf<BookWithProgress>() }
-    var draggedId by remember { mutableStateOf<Long?>(null) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val reorder = rememberReorderState(listState)
     LaunchedEffect(episodes) {
         val loaded = episodes.valueOrNull
-        if (draggedId != null || loaded == null) return@LaunchedEffect
+        if (reorder.draggedKey != null || loaded == null) return@LaunchedEffect
         rows.clear()
         rows.addAll(loaded)
     }
@@ -186,14 +183,13 @@ fun PodcastQueueList(
     LazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier) {
         items(rows, key = { it.book.id }) { item ->
             val id = item.book.id
-            val isDragged = id == draggedId
             QueueRow(
                 item,
                 current = id == currentId,
                 withTime = id in sameDay,
                 inheritedSpeed = feedSpeeds[item.book.serverId] ?: 1f,
                 // Gezogen braucht die Zeile einen Hintergrund, sonst scheinen die anderen durch.
-                transparent = transparent && !isDragged,
+                transparent = transparent && !reorder.isLifted(id),
                 onClick = { onEpisodeClick(id) },
                 onRemove = { viewModel.remove(id) },
                 dragHandle = {
@@ -203,51 +199,18 @@ fun PodcastQueueList(
                         modifier = Modifier
                             .size(40.dp)
                             .padding(8.dp)
-                            .pointerInput(id) {
-                                var startIndex = -1
+                            .reorderHandle(
+                                reorder,
+                                id,
+                                index = { rows.indexOfFirst { it.book.id == id } },
+                                onMove = { from, to -> rows.add(to, rows.removeAt(from)) },
                                 // Nur speichern, wenn sich der Platz geändert hat; sonst würde schon ein Antippen die Zeile festlegen.
-                                fun finish() {
-                                    draggedId = null
-                                    dragOffset = 0f
-                                    if (rows.indexOfFirst { it.book.id == id } != startIndex) {
-                                        viewModel.reorder(rows.map { it.book.id }, id)
-                                    }
-                                }
-                                detectDragGestures(
-                                    onDragStart = {
-                                        draggedId = id
-                                        dragOffset = 0f
-                                        startIndex = rows.indexOfFirst { it.book.id == id }
-                                    },
-                                    onDragEnd = ::finish,
-                                    onDragCancel = ::finish,
-                                ) { change, drag ->
-                                    change.consume()
-                                    dragOffset += drag.y
-                                    val from = rows.indexOfFirst { it.book.id == id }
-                                    val height = listState.layoutInfo.visibleItemsInfo
-                                        .firstOrNull { it.key == id }?.size?.toFloat() ?: return@detectDragGestures
-                                    val to = when {
-                                        dragOffset > height / 2 -> from + 1
-                                        dragOffset < -height / 2 -> from - 1
-                                        else -> from
-                                    }
-                                    if (to != from && to in rows.indices) {
-                                        // Wechselt die erste Zeile, hielte die Liste sonst die bisher oberste fest und scrollte
-                                        // die gezogene nach oben aus dem Bild.
-                                        if (from == 0 || to == 0) {
-                                            listState.requestScrollToItem(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
-                                        }
-                                        rows.add(to, rows.removeAt(from))
-                                        dragOffset -= (to - from) * height
-                                    }
-                                }
-                            },
+                                onDragEnd = { moved -> if (moved) viewModel.reorder(rows.map { it.book.id }, id) },
+                            ),
                     )
                 },
                 modifier = Modifier
-                    .zIndex(if (isDragged) 1f else 0f)
-                    .graphicsLayer { translationY = if (isDragged) dragOffset else 0f }
+                    .reorderableItem(this, reorder, id)
                     .reorderActions(rows.indexOf(item), rows.size) { from, to ->
                         rows.add(to, rows.removeAt(from))
                         viewModel.reorder(rows.map { it.book.id }, id)

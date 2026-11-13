@@ -1,7 +1,6 @@
 package de.kleinabersmart.earloft.ui.player
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,7 +22,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -31,9 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,7 +42,10 @@ import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.QueueEntry
 import de.kleinabersmart.earloft.ui.components.AlbumArt
 import de.kleinabersmart.earloft.ui.components.EmptyHint
+import de.kleinabersmart.earloft.ui.components.rememberReorderState
 import de.kleinabersmart.earloft.ui.components.reorderActions
+import de.kleinabersmart.earloft.ui.components.reorderHandle
+import de.kleinabersmart.earloft.ui.components.reorderableItem
 import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.playlists.AddToPlaylistDialog
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
@@ -125,13 +123,14 @@ fun QueueList(
         var nextRowId by remember { mutableIntStateOf(0) }
         val rows = remember { mutableStateListOf<QueueRow>() }
         var currentIndex by remember { mutableIntStateOf(state.currentIndex) }
-        var draggedId by remember { mutableStateOf<Int?>(null) }
-        var dragOffset by remember { mutableFloatStateOf(0f) }
+        val reorder = rememberReorderState(listState)
         LaunchedEffect(state.queue, state.currentIndex) {
-            if (draggedId != null) return@LaunchedEffect
+            if (reorder.draggedKey != null) return@LaunchedEffect
+            currentIndex = state.currentIndex
+            // Schon umsortiert (Ziehen, „Nach oben/unten“): Kennungen behalten, sonst gleitet nichts an seinen Platz.
+            if (rows.map { it.entry } == state.queue) return@LaunchedEffect
             rows.clear()
             state.queue.forEach { rows.add(QueueRow(nextRowId++, it)) }
-            currentIndex = state.currentIndex
         }
         val moveRow = { from: Int, to: Int ->
             rows.add(to, rows.removeAt(from))
@@ -149,7 +148,6 @@ fun QueueList(
                 val index = rows.indexOf(row)
                 val entry = row.entry
                 val isCurrent = index == currentIndex
-                val isDragged = row.id == draggedId
                 ListItem(
                     headlineContent = { Text(entry.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     supportingContent = { Text(entry.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -161,31 +159,7 @@ fun QueueList(
                                 modifier = Modifier
                                     .size(40.dp)
                                     .padding(8.dp)
-                                    .pointerInput(row.id) {
-                                        detectDragGestures(
-                                            onDragStart = {
-                                                draggedId = row.id
-                                                dragOffset = 0f
-                                            },
-                                            onDragEnd = { draggedId = null; dragOffset = 0f },
-                                            onDragCancel = { draggedId = null; dragOffset = 0f },
-                                        ) { change, drag ->
-                                            change.consume()
-                                            dragOffset += drag.y
-                                            val from = rows.indexOfFirst { it.id == row.id }
-                                            val height = listState.layoutInfo.visibleItemsInfo
-                                                .firstOrNull { it.key == row.id }?.size?.toFloat() ?: return@detectDragGestures
-                                            val to = when {
-                                                dragOffset > height / 2 -> from + 1
-                                                dragOffset < -height / 2 -> from - 1
-                                                else -> from
-                                            }
-                                            if (to != from && to in rows.indices) {
-                                                moveRow(from, to)
-                                                dragOffset -= (to - from) * height
-                                            }
-                                        }
-                                    },
+                                    .reorderHandle(reorder, row.id, index = { rows.indexOfFirst { it.id == row.id } }, onMove = moveRow),
                             )
                             AlbumArt(
                                 albumId = entry.albumId,
@@ -211,8 +185,7 @@ fun QueueList(
                         ListItemDefaults.colors()
                     },
                     modifier = Modifier
-                        .zIndex(if (isDragged) 1f else 0f)
-                        .graphicsLayer { translationY = if (isDragged) dragOffset else 0f }
+                        .reorderableItem(this, reorder, row.id)
                         .clickable { onItemClick(rows.indexOf(row)) }
                         .reorderActions(index, rows.size, moveRow),
                 )
