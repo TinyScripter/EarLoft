@@ -132,13 +132,15 @@ internal class CastSessionPlayerFactory @Inject constructor(
     /**
      * Übernimmt eine andere App den Empfänger, ist seine Warteschlange leer, und beim Wechsel zurück aufs Handy käme nichts
      * an. Deshalb merkt sich [HandOver.lastRemote] den Stand des Empfängers bei jedem Ereignis und alle [SNAPSHOT_MS], solange
-     * er etwas hat; die Position ist dann höchstens so alt.
+     * er etwas hat; die Position ist dann höchstens so alt. Zugleich erfährt [CastRejoin], bis wann er noch spielt.
      */
     private fun rememberRemoteState(player: Player) {
         val handler = Handler(player.applicationLooper)
         fun isRemote() = player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
         fun snapshot() {
-            if (isRemote() && player.mediaItemCount > 0) handOver.lastRemote = PlayerTransferState.fromPlayer(player)
+            if (!isRemote() || player.mediaItemCount == 0) return
+            handOver.lastRemote = PlayerTransferState.fromPlayer(player)
+            rejoin.keepUntil(playingUntil(player))
         }
         val tick = object : Runnable {
             override fun run() {
@@ -202,7 +204,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         sessionListener?.let(cast::removeSessionManagerListener)
         val listener = object : SessionManagerListener<CastSession> {
             override fun onSessionStarting(session: CastSession) {
-                handOver.resuming = rejoin.isRejoining
+                handOver.resuming = rejoin.isRejoining(session)
                 handOver.rejected = false
                 prepareQueue()
             }
@@ -210,7 +212,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
             override fun onSessionResuming(session: CastSession, sessionId: String) = prepareQueue()
 
             override fun onSessionStarted(session: CastSession, sessionId: String) {
-                if (rejoin.isRejoining && !rejoin.isOurs(sessionId)) {
+                if (handOver.resuming && !rejoin.isOurs(sessionId)) {
                     // Nicht mehr die Sitzung von vorher: Lief beim Empfänger nichts, hat das Auswählen die App dort
                     // gestartet, und sie wird wieder beendet; sonst gehört sie einer anderen App und läuft weiter.
                     val launched = session.applicationConnectionResult?.wasLaunched == true
@@ -228,7 +230,10 @@ internal class CastSessionPlayerFactory @Inject constructor(
             }
 
             override fun onSessionEnding(session: CastSession) = rejoin.forget()
-            override fun onSessionEnded(session: CastSession, error: Int) = rejoin.forget()
+            override fun onSessionEnded(session: CastSession, error: Int) {
+                rejoin.failed()
+                rejoin.forget()
+            }
             override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) {
                 val sessionId = session.sessionId ?: return
                 rejoin.remember(session, sessionId)
@@ -381,6 +386,24 @@ private fun castableState(
         .setCurrentMediaItemIndex(window.startIndex)
         .apply { if (window.items[window.startIndex] != current) setCurrentPosition(0) }
         .build()
+}
+
+/**
+ * Bis wann (Wanduhr) [player] mit seiner Warteschlange voraussichtlich spielt: Rest des aktuellen und alle folgenden Titel
+ * beim aktuellen Tempo; mit Wiederholung einen Tag. `null`, wenn er nicht spielt oder die Dauer unbekannt ist.
+ */
+private fun playingUntil(player: Player): Long? {
+    if (!player.isPlaying || player.duration == C.TIME_UNSET) return null
+    val now = System.currentTimeMillis()
+    if (player.repeatMode != Player.REPEAT_MODE_OFF) return now + 24 * 60 * 60_000L
+    val timeline = player.currentTimeline
+    val window = Timeline.Window()
+    var remainingMs = (player.duration - player.currentPosition).coerceAtLeast(0)
+    for (index in player.currentMediaItemIndex + 1 until timeline.windowCount) {
+        val durationMs = timeline.getWindow(index, window).durationMs
+        if (durationMs != C.TIME_UNSET) remainingMs += durationMs
+    }
+    return now + (remainingMs / player.playbackParameters.speed).toLong()
 }
 
 /**

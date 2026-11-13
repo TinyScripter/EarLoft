@@ -58,12 +58,16 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import java.util.Optional
 import javax.inject.Inject
@@ -420,11 +424,12 @@ class PlaybackService : MediaLibraryService() {
      * Lädt die letzte Warteschlange pausiert, damit die App nach einem Neustart dort weitermacht.
      * Hat inzwischen jemand anderes etwas geladen (z. B. per [LibrarySessionCallback.onPlaybackResumption]),
      * bleibt es dabei. Ebenso, wenn die App sich beim Start wieder an eine laufende Cast-Sitzung gehängt hat: Der
-     * Empfänger meldet seine Warteschlange erst kurz danach, und die gespeicherte ersetzte sie sonst.
+     * Empfänger meldet seine Warteschlange erst kurz danach, und die gespeicherte ersetzte sie sonst. War es nicht mehr
+     * dieselbe Sitzung, löst sich die App wieder; dann kommt die gespeicherte doch noch aufs Handy.
      */
     private fun restoreQueue(player: Player) {
         restoreJob = mainScope.launch {
-            fun taken() = player.mediaItemCount > 0 || player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+            suspend fun taken() = !awaitLocal(player, REJOIN_WAIT_MS) || player.mediaItemCount > 0
             // Lief zuletzt ein Buch oder eine Folge, wird diese (pausiert) geladen statt der Musik-Warteschlange.
             val lastBookId = queuePersistence.lastBookId()
             if (lastBookId != null) {
@@ -633,6 +638,24 @@ class PlaybackService : MediaLibraryService() {
 }
 
 private const val SHAKE_VIBRATION_MS = 40L
+
+/** So lange kann das Wiederanhängen an eine Cast-Sitzung nach dem Start dauern (Suche und Verbinden). */
+private const val REJOIN_WAIT_MS = 45_000L
+
+/** Main-Thread. Wartet höchstens [timeoutMs], bis [player] wieder auf dem Gerät spielt; `false`, wenn er gecastet bleibt. */
+private suspend fun awaitLocal(player: Player, timeoutMs: Long): Boolean = withTimeoutOrNull(timeoutMs) {
+    callbackFlow {
+        val listener = object : Player.Listener {
+            override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
+                trySend(deviceInfo.playbackType)
+            }
+        }
+        player.addListener(listener)
+        send(player.deviceInfo.playbackType)
+        awaitClose { player.removeListener(listener) }
+    }.first { it != DeviceInfo.PLAYBACK_TYPE_REMOTE }
+    true
+} ?: false
 
 /** Ordner im Browse-Tree, deren Inhalt von der letzten Wiedergabe abhängt. */
 private val CONTENT_FOLDERS = listOf(

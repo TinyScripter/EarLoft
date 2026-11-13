@@ -17,16 +17,19 @@ import javax.inject.Singleton
  * kann das nicht: Mit der Ausgabeauswahl des Systems beendet Play-Dienste die Sitzung beim Tod des Prozesses, der Empfänger
  * spielt aber weiter (am Gerät gesehen, 2026-11-13).
  *
- * Dazu merkt sich [remember] Gerät und Sitzung, solange gecastet wird; ein reguläres Ende ([forget]) löscht sie. Beim Start
- * des Players wählt [select] das Gerät wieder aus, sobald es im Netz auftaucht (höchstens [DISCOVERY_MS]). Das Auswählen hängt
- * sich an die laufende App des Empfängers oder startet sie neu; [CastSessionPlayerFactory] prüft danach mit [isOurs], ob es
- * noch die gemerkte Sitzung ist, und löst sich sonst wieder (eine selbst gestartete wird dabei beendet).
+ * Dazu merkt sich [remember] Gerät und Sitzung, solange gecastet wird, und [keepUntil], bis wann der Empfänger mit seiner
+ * Warteschlange voraussichtlich noch spielt; ein reguläres Ende ([forget]) löscht beides. Beim Start des Players wählt
+ * [select] das Gerät wieder aus, sobald es im Netz auftaucht (höchstens [DISCOVERY_MS]) – aber nur bis zu diesem Zeitpunkt:
+ * Das Auswählen startet unsere App auf dem Empfänger und verdrängt dort eine andere, die inzwischen läuft.
+ * [CastSessionPlayerFactory] prüft danach mit [isOurs], ob es noch die gemerkte Sitzung ist, und löst sich sonst wieder (eine
+ * selbst gestartete wird dabei beendet).
  */
 @Singleton
 internal class CastRejoin @Inject constructor(@param:ApplicationContext private val context: Context) {
 
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private var attempted = false
+    private var writtenUntil = 0L
 
     /** Die beim letzten Ende des Prozesses offene Sitzung, solange [select] sie sucht oder die App sich gerade anhängt. */
     var pending: Saved? = null
@@ -34,7 +37,21 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
 
     fun remember(session: CastSession, sessionId: String) {
         val deviceId = session.castDevice?.deviceId ?: return
-        prefs.edit { putString(KEY_DEVICE, deviceId).putString(KEY_SESSION, sessionId) }
+        writtenUntil = System.currentTimeMillis() + IDLE_GRACE_MS
+        prefs.edit { putString(KEY_DEVICE, deviceId).putString(KEY_SESSION, sessionId).putLong(KEY_UNTIL, writtenUntil) }
+    }
+
+    /**
+     * Main-Thread. Der Empfänger spielt voraussichtlich bis [playingUntilMs] (Wanduhr; `null`: pausiert oder ohne
+     * Warteschlange). Danach lohnt das Anhängen noch [IDLE_GRACE_MS], dann beendet er sich von selbst.
+     */
+    fun keepUntil(playingUntilMs: Long?) {
+        if (!prefs.contains(KEY_SESSION)) return
+        val until = (playingUntilMs ?: System.currentTimeMillis()) + IDLE_GRACE_MS
+        // Höchstens etwa einmal je Minute schreiben; der Wert verschiebt sich beim Abspielen kaum.
+        if (kotlin.math.abs(until - writtenUntil) < WRITE_STEP_MS) return
+        writtenUntil = until
+        prefs.edit { putLong(KEY_UNTIL, until) }
     }
 
     fun forget() = prefs.edit { clear() }
@@ -46,8 +63,16 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         return saved.sessionId == sessionId
     }
 
-    /** Main-Thread. Ob die App sich gerade wieder anhängt (zwischen [select] und dem Ergebnis). */
-    val isRejoining: Boolean get() = pending != null
+    /**
+     * Main-Thread. Ob die gerade startende [session] das Anhängen ist (zwischen [select] und dem Ergebnis). Wählt jemand
+     * inzwischen selbst ein anderes Gerät, ist der Versuch vorbei.
+     */
+    fun isRejoining(session: CastSession): Boolean {
+        val saved = pending ?: return false
+        if (session.castDevice?.deviceId == saved.deviceId) return true
+        pending = null
+        return false
+    }
 
     /** Main-Thread. Einmal je Prozess: sucht das gemerkte Gerät und wählt es aus. */
     suspend fun select() {
@@ -55,38 +80,55 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         attempted = true
         val deviceId = prefs.getString(KEY_DEVICE, null) ?: return
         val sessionId = prefs.getString(KEY_SESSION, null) ?: return
+        if (System.currentTimeMillis() > prefs.getLong(KEY_UNTIL, 0)) {
+            Log.i(TAG, "Letzte Sitzung ist vermutlich vorbei, hänge mich nicht wieder an")
+            forget()
+            return
+        }
         val castContext = awaitCastContext() ?: return
-        if (castContext.sessionManager.currentCastSession != null) return
         val selector = castContext.mergedSelector ?: return
         val router = MediaRouter.getInstance(context)
-        var selected = false
+        // Läuft schon eine Sitzung oder hat jemand selbst ein Gerät gewählt, bleibt es dabei.
+        fun busy() = castContext.sessionManager.currentCastSession != null || router.selectedRoute.matchesSelector(selector)
+        var saved: Saved? = null
         val callback = object : MediaRouter.Callback() {
             override fun onRouteAdded(router: MediaRouter, route: MediaRouter.RouteInfo) = check(router, route)
             override fun onRouteChanged(router: MediaRouter, route: MediaRouter.RouteInfo) = check(router, route)
 
             fun check(router: MediaRouter, route: MediaRouter.RouteInfo) {
-                if (selected) return
-                if (CastDevice.getFromBundle(route.extras)?.deviceId != deviceId || !route.matchesSelector(selector)) return
+                if (saved != null || busy()) return
+                if (CastDevice.getFromBundle(route.extras)?.deviceId != deviceId) return
+                if (!route.isEnabled || !route.matchesSelector(selector)) return
                 Log.i(TAG, "Hänge mich wieder an ${route.name}")
                 router.removeCallback(this)
                 forget()
-                selected = true
-                pending = Saved(deviceId, sessionId)
+                saved = Saved(deviceId, sessionId).also { pending = it }
                 router.selectRoute(route)
             }
         }
+        if (busy()) return
         router.routes.firstOrNull { CastDevice.getFromBundle(it.extras)?.deviceId == deviceId }?.let { callback.check(router, it) }
-        if (selected) return
-        router.addCallback(selector, callback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY)
-        delay(DISCOVERY_MS)
-        router.removeCallback(callback)
-        if (!selected) {
-            Log.i(TAG, "Gerät der letzten Sitzung nicht gefunden")
-            forget()
+        if (saved == null) {
+            router.addCallback(selector, callback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY)
+            try {
+                delay(DISCOVERY_MS)
+            } finally {
+                router.removeCallback(callback)
+            }
         }
+        val selected = saved
+        if (selected == null) {
+            if (!busy()) Log.i(TAG, "Gerät der letzten Sitzung nicht gefunden")
+            forget()
+            return
+        }
+        // Kommt auf das Auswählen keine Sitzung zustande (Route abgelehnt, ohne Rückmeldung), endet der Versuch hier;
+        // sonst hielte er jede spätere, selbst gewählte Sitzung für das Anhängen.
+        delay(JOIN_MS)
+        if (pending === selected) pending = null
     }
 
-    /** Main-Thread. Der Versuch ist gescheitert (Verbinden misslungen). */
+    /** Main-Thread. Der Versuch ist gescheitert (Verbinden misslungen) oder die Sitzung ist zu Ende. */
     fun failed() {
         pending = null
     }
@@ -105,7 +147,13 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         const val PREFS = "cast_rejoin"
         const val KEY_DEVICE = "device"
         const val KEY_SESSION = "session"
+        const val KEY_UNTIL = "until"
         const val DISCOVERY_MS = 15_000L
+        const val JOIN_MS = 30_000L
+
+        /** Etwa so lange bleibt ein Empfänger ohne Wiedergabe in der App, bevor er sich beendet. */
+        const val IDLE_GRACE_MS = 10 * 60_000L
+        const val WRITE_STEP_MS = 60_000L
         const val CONTEXT_TRIES = 20
         const val CONTEXT_POLL_MS = 250L
         const val TAG = "CastRejoin"
