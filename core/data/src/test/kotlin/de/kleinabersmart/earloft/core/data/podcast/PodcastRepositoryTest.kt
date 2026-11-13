@@ -313,6 +313,46 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `moving an episode fixes only it and what stands before it`() = runTest {
+        val feedId = subscribe()
+        val (a, b, c) = listOf("A", "B", "C").map { idOf(feedId, it) }
+        listen(b, positionMs = 60_000, updatedAt = 200)
+        listen(c, positionMs = 30_000, updatedAt = 100)
+        val queue = EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())
+        val continueListening = ContinueListening(queue, repository, PodcastSettings(ApplicationProvider.getApplicationContext()))
+        continueListening.playNext(a)
+        assertEquals(listOf(b, a, c), continueListening.episodes.first().map { it.book.id })
+        assertEquals(listOf(b, a), queue.order.first())
+
+        // A nach vorn: B war schon festgelegt und bleibt es, C steht weiter von selbst da.
+        continueListening.reorder(listOf(a, b, c), movedId = a)
+        assertEquals(listOf(a, b, c), continueListening.episodes.first().map { it.book.id })
+        assertEquals(listOf(a, b), queue.order.first())
+
+        // C zwischen A und B: Davor steht nur A, B bleibt festgelegt.
+        continueListening.reorder(listOf(a, c, b), movedId = c)
+        assertEquals(listOf(a, c, b), continueListening.episodes.first().map { it.book.id })
+        assertEquals(listOf(a, c, b), queue.order.first())
+    }
+
+    @Test
+    fun `moving an episode down leaves the automatic ones behind it alone`() = runTest {
+        val feedId = subscribe()
+        val (a, b, c) = listOf("A", "B", "C").map { idOf(feedId, it) }
+        listen(a, positionMs = 10_000, updatedAt = 300)
+        listen(b, positionMs = 60_000, updatedAt = 200)
+        listen(c, positionMs = 30_000, updatedAt = 100)
+        val queue = EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())
+        val continueListening = ContinueListening(queue, repository, PodcastSettings(ApplicationProvider.getApplicationContext()))
+        assertEquals(listOf(a, b, c), continueListening.episodes.first().map { it.book.id })
+
+        continueListening.reorder(listOf(b, a, c), movedId = a)
+
+        assertEquals(listOf(b, a, c), continueListening.episodes.first().map { it.book.id })
+        assertEquals(listOf(b, a), queue.order.first())
+    }
+
+    @Test
     fun `queueing a finished episode marks it unheard and it shows in the queue`() = runTest {
         val feedId = subscribe()
         val c = idOf(feedId, "C")

@@ -97,6 +97,24 @@ class EpisodeQueue @Inject constructor(
         update { old -> ordered + (old - ordered.toSet()) }
     }
 
+    /**
+     * Die Zeile wurde umsortiert: [bookIds] ist ihre neue Reihenfolge, [movedId] die bewegte Folge. Festgelegt wird nur, was
+     * deren neuen Platz hält: sie und alles vor ihr, denn von selbst stehende Folgen kommen immer hinter die festgelegten.
+     * Dahinter bleiben festgelegte Folgen festgelegt und alle anderen stehen weiter von selbst dort („In Weiterhören“ und
+     * „Folgen behalten“ gelten für sie weiter).
+     */
+    suspend fun move(bookIds: List<Long>, movedId: Long) {
+        val keys = keysOf(bookIds)
+        val line = bookIds.distinct().mapNotNull { keys[it] }
+        val moved = keys[movedId] ?: return
+        val cut = line.indexOf(moved) + 1
+        update { old ->
+            val wasFixed = old.toSet()
+            val fixed = line.take(cut) + line.drop(cut).filter { it in wasFixed }
+            fixed + (old - fixed.toSet())
+        }
+    }
+
     /** Nimmt die Folge aus der Zeile, egal ob sie festgelegt oder von selbst dort steht. */
     suspend fun remove(bookId: Long) {
         val key = keysOf(listOf(bookId))[bookId] ?: return

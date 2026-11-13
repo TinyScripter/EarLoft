@@ -204,21 +204,23 @@ fun PodcastQueueList(
                             .size(40.dp)
                             .padding(8.dp)
                             .pointerInput(id) {
+                                var startIndex = -1
+                                // Nur speichern, wenn sich der Platz geändert hat; sonst würde schon ein Antippen die Zeile festlegen.
+                                fun finish() {
+                                    draggedId = null
+                                    dragOffset = 0f
+                                    if (rows.indexOfFirst { it.book.id == id } != startIndex) {
+                                        viewModel.reorder(rows.map { it.book.id }, id)
+                                    }
+                                }
                                 detectDragGestures(
                                     onDragStart = {
                                         draggedId = id
                                         dragOffset = 0f
+                                        startIndex = rows.indexOfFirst { it.book.id == id }
                                     },
-                                    onDragEnd = {
-                                        draggedId = null
-                                        dragOffset = 0f
-                                        viewModel.reorder(rows.map { it.book.id })
-                                    },
-                                    onDragCancel = {
-                                        draggedId = null
-                                        dragOffset = 0f
-                                        viewModel.reorder(rows.map { it.book.id })
-                                    },
+                                    onDragEnd = ::finish,
+                                    onDragCancel = ::finish,
                                 ) { change, drag ->
                                     change.consume()
                                     dragOffset += drag.y
@@ -231,6 +233,11 @@ fun PodcastQueueList(
                                         else -> from
                                     }
                                     if (to != from && to in rows.indices) {
+                                        // Wechselt die erste Zeile, hielte die Liste sonst die bisher oberste fest und scrollte
+                                        // die gezogene nach oben aus dem Bild.
+                                        if (from == 0 || to == 0) {
+                                            listState.requestScrollToItem(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
+                                        }
                                         rows.add(to, rows.removeAt(from))
                                         dragOffset -= (to - from) * height
                                     }
@@ -243,7 +250,7 @@ fun PodcastQueueList(
                     .graphicsLayer { translationY = if (isDragged) dragOffset else 0f }
                     .reorderActions(rows.indexOf(item), rows.size) { from, to ->
                         rows.add(to, rows.removeAt(from))
-                        viewModel.reorder(rows.map { it.book.id })
+                        viewModel.reorder(rows.map { it.book.id }, id)
                     },
             )
         }

@@ -84,8 +84,8 @@ class PodcastQueueViewModel @Inject constructor(
         viewModelScope.launch { continueListening.remove(bookId) }
     }
 
-    fun reorder(bookIds: List<Long>) {
-        viewModelScope.launch { continueListening.reorder(bookIds) }
+    fun reorder(bookIds: List<Long>, movedId: Long) {
+        viewModelScope.launch { continueListening.reorder(bookIds, movedId) }
     }
 }
 

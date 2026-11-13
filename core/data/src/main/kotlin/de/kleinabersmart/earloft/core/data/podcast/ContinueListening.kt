@@ -59,8 +59,8 @@ class ContinueListening @Inject constructor(
         queue.append(bookId)
     }
 
-    /** Die Warteschlange wurde umsortiert: [bookIds] ist die neue Reihenfolge der ganzen Zeile. */
-    suspend fun reorder(bookIds: List<Long>) = queue.setOrder(bookIds)
+    /** Die Warteschlange wurde umsortiert: [bookIds] ist die neue Reihenfolge der ganzen Zeile, [movedId] die bewegte Folge. */
+    suspend fun reorder(bookIds: List<Long>, movedId: Long) = queue.move(bookIds, movedId)
 
     /** „Aus Warteschlange entfernen“. */
     suspend fun remove(bookId: Long) = queue.remove(bookId)
