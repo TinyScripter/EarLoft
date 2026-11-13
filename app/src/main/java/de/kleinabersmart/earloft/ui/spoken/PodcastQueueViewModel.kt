@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
+import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
+import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.LoadState
@@ -27,7 +29,14 @@ import javax.inject.Inject
 class PodcastQueueViewModel @Inject constructor(
     private val continueListening: ContinueListening,
     playback: PlaybackConnection,
+    podcasts: PodcastRepository,
+    spokenSettings: SpokenSettings,
 ) : ViewModel() {
+
+    /** Tempo je Abo (sonst die Vorgabe der Podcasts) für die Restzeit von Folgen ohne eigenes Tempo. */
+    val feedSpeeds: StateFlow<Map<String, Float>> = combine(podcasts.feeds, spokenSettings.podcastEffects) { feeds, area ->
+        feeds.associate { it.id to (it.effects.speed ?: area.speed) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     val episodes: StateFlow<LoadState<List<BookWithProgress>>> = continueListening.episodes
         .asLoadState()

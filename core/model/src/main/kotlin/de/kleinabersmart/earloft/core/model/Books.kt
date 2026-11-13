@@ -112,13 +112,17 @@ data class BookProgress(
     val positionMs: Long,
     val durationMs: Long,
     val finished: Boolean,
-    val speed: Float = 1f,
+    /** Eigenes Tempo des Buchs bzw. der Folge; `null` = das des Abos bzw. Bereichs (siehe [EffectLayers]). */
+    val speed: Float? = null,
     /** Zeitpunkt der letzten Änderung (Unix-ms) – die neuere Seite gewinnt (Konzept 12.3). */
     val updatedAt: Long,
     /** Noch nicht an den Server gemeldet. */
     val dirty: Boolean = false,
     /** Aus „Weiterhören“ genommen, ohne den Stand zu verlieren (Audiobookshelf: `hideFromContinueListening`). */
     val hidden: Boolean = false,
+    /** Eigene Effekte; `null` = die des Abos bzw. Bereichs. */
+    val skipSilence: Boolean? = null,
+    val volumeBoostDb: Int? = null,
 ) {
     val fraction: Float get() = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
 }
@@ -163,6 +167,11 @@ data class PodcastFeed(
     val subscribed: Boolean = true,
     /** Archiviert: nirgends gelistet, nicht abgeglichen; Folgen, Fortschritt und Statistik bleiben bis zum Reaktivieren. */
     val archived: Boolean = false,
+    /** Tempo und Effekte für die Folgen (Konzept 12.4); `null` = Vorgabe des Bereichs. */
+    val effects: EffectOverrides = EffectOverrides(),
+    /** Sekunden, die am Anfang bzw. Ende jeder Folge übersprungen werden (0 = aus). */
+    val skipIntroS: Int = 0,
+    val skipOutroS: Int = 0,
 ) {
     /** Aus dem Ordner „Podcasts“: keine Feed-Adresse, kein Abgleich, kein Download, kein Abo zu beenden. */
     val isLocal: Boolean get() = id.startsWith(LOCAL_PODCAST_PREFIX)

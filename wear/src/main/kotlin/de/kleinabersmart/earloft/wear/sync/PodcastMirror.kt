@@ -63,6 +63,11 @@ class PodcastMirror @Inject constructor(
                     continuous = dto.continuous,
                     // Die Uhr fragt Feeds nie selbst ab und lädt nichts von sich aus.
                     autoDownload = false,
+                    speed = dto.speed,
+                    skipSilence = dto.skipSilence,
+                    volumeBoostDb = dto.volumeBoostDb,
+                    skipIntroS = dto.skipIntroS,
+                    skipOutroS = dto.skipOutroS,
                 ),
             )
         }
@@ -112,7 +117,13 @@ class PodcastMirror @Inject constructor(
         val remote = progress ?: return
         val local = bookDao.progress(bookId)
         if (local == null || remote.updatedAt > local.updatedAt) {
-            bookDao.upsertProgress(BookProgressEntity(bookId, remote.positionMs, remote.durationMs, remote.finished, remote.speed, remote.updatedAt))
+            bookDao.upsertProgress(
+                BookProgressEntity(
+                    bookId, remote.positionMs, remote.durationMs, remote.finished, remote.speed, remote.updatedAt,
+                    skipSilence = remote.skipSilence,
+                    volumeBoostDb = remote.volumeBoostDb,
+                ),
+            )
             // Kommt vom Handy: nicht als Neuigkeit zurückmelden.
             reported.markProgress(serverId, remoteId, remote.updatedAt)
         }

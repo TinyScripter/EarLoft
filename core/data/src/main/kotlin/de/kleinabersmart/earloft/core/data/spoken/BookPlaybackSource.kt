@@ -49,6 +49,7 @@ class BookPlaybackSource @Inject constructor(
     private val queue: EpisodeQueue,
     private val settings: SpokenSettings,
     private val policy: PlaybackPolicy,
+    private val effects: SpokenEffectsRepository,
 ) {
     /**
      * Zum Abspielen: gleicht den Fortschritt mit dem Server ab (ohne Verbindung gilt der lokale Stand), wendet die Regel
@@ -87,7 +88,13 @@ class BookPlaybackSource @Inject constructor(
             if (server == null) track.remoteFileId else api.fileUrl(server, book.remoteId, track.remoteFileId).toString()
         }
         val progress = pulled.progress
-        val startPositionMs = if (forPlayback) {
+        val playing = effects.effectsNow(bookId)
+        // Intro überspringen (je Abo): nur bei einer Folge, die bei 0 beginnt – nicht nach dem Zurückspulen an den Anfang.
+        val fresh = (progress?.takeUnless { it.finished }?.positionMs ?: 0L) == 0L
+        val introMs = playing.skipIntroMs.takeIf { episode && fresh && it > 0 && it < timeline.durationMs - playing.skipOutroMs }
+        val startPositionMs = if (introMs != null) {
+            introMs
+        } else if (forPlayback) {
             resumePosition(
                 progress = progress,
                 nowMs = System.currentTimeMillis(),
@@ -99,10 +106,10 @@ class BookPlaybackSource @Inject constructor(
             // Wie resumePosition ohne Regel: Ein beendetes Stück beginnt von vorn.
             progress?.takeUnless { it.finished }?.positionMs ?: 0L
         }
-        val speed = progress?.speed ?: 1f
+        val speed = playing.speed
         // Nach dem Abgleich: Das Buch steht ab jetzt ganz vorn in „Weiterhören“ (Folgen haben ihre eigene Zeile).
         if (forPlayback && !episode) {
-            repository.touchProgress(bookId, startPositionMs, timeline.durationMs, speed)
+            repository.touchProgress(bookId, startPositionMs, timeline.durationMs)
             queue.moveToFront(bookId)
         }
         return PreparedBook(

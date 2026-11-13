@@ -12,20 +12,24 @@ import de.kleinabersmart.earloft.core.data.spoken.AbsSessionReporter
 import de.kleinabersmart.earloft.core.data.spoken.BookProgressSync
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.data.spoken.ResumeRule
+import de.kleinabersmart.earloft.core.data.spoken.SpokenEffectsRepository
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.data.spoken.resumePosition
 import de.kleinabersmart.earloft.core.data.stats.StatsRepository
 import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.model.BookProgress
 import de.kleinabersmart.earloft.core.model.BookTimeline
+import de.kleinabersmart.earloft.core.model.SpokenEffects
+import de.kleinabersmart.earloft.core.model.sameSpeed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Alles, was nur für Hörbücher gilt (Konzept 12.3/12.4): Fortschritt festhalten und melden, Geschwindigkeit je Buch
- * setzen und merken. Läuft im Service auf dem Player-Thread; [scope] ist der Main-Scope, [persistScope] der App-Scope
+ * Alles, was nur für Hörbücher gilt (Konzept 12.3/12.4): Fortschritt festhalten und melden, Tempo und Effekte nach der
+ * Rangfolge Buch bzw. Folge > Abo > Bereich setzen ([SpokenEffectsRepository]; gespeichert wird dort, wo der Nutzer sie
+ * ändert), Outro überspringen. Läuft im Service auf dem Player-Thread; [scope] ist der Main-Scope, [persistScope] der App-Scope
  * für das Schreiben – es muss das Ende des Service überleben (der Main-Scope endet in `onDestroy` gleich nach [finish]).
  */
 @OptIn(UnstableApi::class)
@@ -42,6 +46,9 @@ internal class BookPlaybackListener(
     private val onEpisodeEnded: (Long) -> Unit,
     /** Das laufende Kapitel hat gewechselt; `null` bei Musik, ohne Kapitel und solange die Zeitachse lädt. */
     private val onChapterChanged: (BookChapter?) -> Unit = {},
+    private val effects: SpokenEffectsRepository,
+    /** Stille kürzen und Lautstärke anheben am lokalen Player; bei Musik `(false, 0)`. */
+    private val applyAudio: (skipSilence: Boolean, volumeBoostDb: Int) -> Unit = { _, _ -> },
 ) : Player.Listener {
 
     private var timelineBookId: Long? = null
@@ -51,6 +58,11 @@ internal class BookPlaybackListener(
     /** Zuletzt gemeldetes Kapitel (mit Buch) und der Wecker für den nächsten Kapitelwechsel. */
     private var reportedChapter: Pair<Long, BookChapter>? = null
     private var chapterJob: Job? = null
+
+    /** Was für das geladene Buch bzw. die Folge gilt ([timelineBookId]), der Beobachter dazu und der Wecker fürs Outro. */
+    private var currentEffects: SpokenEffects? = null
+    private var effectsJob: Job? = null
+    private var outroJob: Job? = null
 
     // Gehörte Zeit des laufenden Buchs bzw. der laufenden Folge (Statistik); [meterBookId] gehört die gemessene Zeit.
     private val meter = ListeningMeter()
@@ -101,18 +113,23 @@ internal class BookPlaybackListener(
                 handingOver = true
                 return
             }
-            // Musik läuft immer mit normaler Geschwindigkeit.
+            // Musik läuft immer mit normaler Geschwindigkeit und ohne Effekte.
             if (player.playbackParameters.speed != 1f) player.setPlaybackSpeed(1f)
-            updateChapter()
+            effectsJob?.cancel()
+            currentEffects = null
+            applyAudio(false, 0)
+            updateTimers()
             return
         }
         // Innerhalb eines Buchs (nächste Datei) bleibt alles; bei einem anderen Buch gilt dessen Geschwindigkeit.
         if (timelineBookId == bookId) {
-            if (handedOver) scope.launch { applySavedSpeed(bookId) }
-            updateChapter()
+            // Der Cast-Empfänger lädt die Warteschlange mit normaler Geschwindigkeit.
+            if (handedOver) currentEffects?.speed?.takeUnless { sameSpeed(it, player.playbackParameters.speed) }?.let(player::setPlaybackSpeed)
+            updateTimers()
             return
         }
         timelineBookId = bookId
+        followEffects(bookId)
         // Ein frisch geladenes Buch hat seine Startposition schon aus dem gespeicherten Stand bekommen – außer es wurde
         // pausiert wiederhergestellt; dann zählt die Pause seit dem gespeicherten Stand.
         val restored = pendingRestore?.takeIf { it.first == bookId }
@@ -120,21 +137,37 @@ internal class BookPlaybackListener(
         pausedBookId = restored?.first
         pausedAt = restored?.second ?: 0L
         timeline = null
-        updateChapter()
+        updateTimers()
         scope.launch {
             timeline = books.timeline(bookId)
-            updateChapter()
+            updateTimers()
             if (rewindWhenLoaded == bookId) {
                 rewindWhenLoaded = null
                 player.currentMediaItem?.takeIf { it.bookId == bookId }?.let { rewindAfterPause(it, bookId) }
             }
-            applySavedSpeed(bookId)
         }
     }
 
-    private suspend fun applySavedSpeed(bookId: Long) {
-        books.progressNow(bookId)?.speed?.let { speed ->
-            if (speed != player.playbackParameters.speed && player.currentMediaItem?.bookId == bookId) player.setPlaybackSpeed(speed)
+    /**
+     * Tempo und Effekte von [bookId] anwenden und ihnen folgen (Tempo-Dialog, Abo, Einstellungen). Nach der ersten
+     * Anwendung nur, was sich geändert hat: Ein Tempo, das gerade anders steht (etwa vom Laden), bleibt sonst bei jeder
+     * Änderung an einem Effekt nicht stehen.
+     */
+    private fun followEffects(bookId: Long) {
+        effectsJob?.cancel()
+        currentEffects = null
+        effectsJob = scope.launch {
+            var previous: SpokenEffects? = null
+            effects.effects(bookId).collect { next ->
+                if (player.currentMediaItem?.bookId != bookId) return@collect
+                currentEffects = next
+                if (previous?.speed?.let { sameSpeed(it, next.speed) } != true && !sameSpeed(player.playbackParameters.speed, next.speed)) {
+                    player.setPlaybackSpeed(next.speed)
+                }
+                applyAudio(next.skipSilence, next.volumeBoostDb)
+                previous = next
+                updateOutro()
+            }
         }
     }
 
@@ -203,13 +236,14 @@ internal class BookPlaybackListener(
 
     /**
      * Für den Sleep-Timer „bis zum Ende“: bei Büchern mit Kapiteln jedes Kapitelende, bei Folgen und Büchern ohne Kapitel
-     * nur das Ende (eine Folge läuft bis zu ihrem Ende, auch mit Kapiteln).
+     * nur das Ende (eine Folge läuft bis zu ihrem Ende, auch mit Kapiteln; mit Outro bis zu dessen Anfang).
      */
     fun sleepSpot(): SpokenSpot? {
         val (item, timeline, position) = current() ?: return null
         val duration = timeline.durationMs.takeIf { it > 0 } ?: player.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: return null
         val chapterEnds = if (item.isEpisode) emptyList() else timeline.chapters.map { it.endMs.coerceAtMost(duration) }.filter { it > 0 }
-        val ends = (chapterEnds + duration).distinct().sorted()
+        val end = outroStart(item, timeline)?.takeIf { it > position } ?: duration
+        val ends = (chapterEnds + end).distinct().sorted()
         return SpokenSpot(item.bookId ?: return null, position, player.playbackParameters.speed, ends)
     }
 
@@ -232,6 +266,43 @@ internal class BookPlaybackListener(
             progressSync.record(bookId, length, length, finished = true, force = true)
         }
         return true
+    }
+
+    /** Kapitel melden, Wecker für Kapitelwechsel und Outro neu stellen (nach jedem Sprung, Tempo- oder Zustandswechsel). */
+    private fun updateTimers() {
+        updateChapter()
+        updateOutro()
+    }
+
+    /** Wo das Outro der Folge beginnt (je Abo); `null` ohne Outro und bei Büchern. */
+    private fun outroStart(item: MediaItem, timeline: BookTimeline): Long? {
+        if (!item.isEpisode || currentEffects == null || timelineBookId != item.bookId) return null
+        val outro = currentEffects?.skipOutroMs?.takeIf { it > 0 } ?: return null
+        return (timeline.durationMs - outro).takeIf { timeline.durationMs > 0 && it > 0 }
+    }
+
+    /**
+     * Outro überspringen: Erreicht die Wiedergabe den Anfang des Outros, springt sie ans Ende der Folge; die gilt damit als
+     * gehört, und es geht weiter wie am Ende (nächste Folge bzw. Pause). Wer selbst ins Outro spult, hört es.
+     */
+    private fun updateOutro() {
+        outroJob?.cancel()
+        if (!player.isPlaying) return
+        val (item, timeline, position) = current() ?: return
+        val start = outroStart(item, timeline)?.takeIf { it > position } ?: return
+        val waitMs = ((start - position) / player.playbackParameters.speed.coerceAtLeast(MIN_SPEED)).toLong()
+        outroJob = scope.launch {
+            delay(waitMs)
+            val (nowItem, _, nowPosition) = current() ?: return@launch
+            if (nowItem.bookId != item.bookId || !player.isPlaying) return@launch
+            // Stille gekürzt oder Puffern: Es fehlt noch ein Stück, also noch einmal warten.
+            if (nowPosition < start - OUTRO_EARLY_MS) {
+                updateOutro()
+                return@launch
+            }
+            val end = player.duration.takeIf { it != C.TIME_UNSET && it > 0 }
+            if (end != null) player.seekTo(player.currentMediaItemIndex, end) else seekInBook(timeline, timeline.durationMs)
+        }
     }
 
     /** Meldet das laufende Kapitel und stellt den Wecker auf den nächsten Wechsel (nur während der Wiedergabe). */
@@ -277,10 +348,8 @@ internal class BookPlaybackListener(
 
     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
         meter.setSpeed(playbackParameters.speed)
-        updateChapter()
+        updateTimers()
         if (player.isPlaying) sampleRemoteEnd()
-        val bookId = player.currentMediaItem?.bookId ?: return
-        persistScope.launch { books.setSpeed(bookId, playbackParameters.speed) }
     }
 
     override fun onPositionDiscontinuity(
@@ -294,7 +363,7 @@ internal class BookPlaybackListener(
         if (reason != Player.DISCONTINUITY_REASON_REMOVE) {
             if (player.isPlaying) sampleRemoteEnd() else remoteEnd.reset()
         }
-        updateChapter()
+        updateTimers()
         // Ein anderes Buch (oder Musik) beginnt: den Stand des bisherigen festhalten.
         val oldItem = oldPosition.mediaItem ?: return
         val oldBookId = oldItem.bookId ?: return
@@ -306,7 +375,7 @@ internal class BookPlaybackListener(
         syncMeter()
         // Vor dem Festhalten: Nach dem Ende auf dem Empfänger stünde sonst Position 0 der entladenen Folge im Stand.
         if (!isPlaying) checkRemoteEnd()
-        updateChapter()
+        updateTimers()
         val item = player.currentMediaItem
         val bookId = item?.bookId
         loop?.cancel()
@@ -384,7 +453,7 @@ internal class BookPlaybackListener(
         scope.launch {
             if (books.learnEpisodeDuration(bookId, duration) && timelineBookId == bookId) {
                 timeline = books.timeline(bookId)
-                updateChapter()
+                updateTimers()
             }
         }
     }
@@ -393,6 +462,8 @@ internal class BookPlaybackListener(
     fun finish() {
         loop?.cancel()
         chapterJob?.cancel()
+        outroJob?.cancel()
+        effectsJob?.cancel()
         recordCurrent(force = true)
         flushListening(force = true)
         meter.stop()
@@ -455,6 +526,9 @@ internal class BookPlaybackListener(
 
         /** Erst kurz nach dem Kapitelanfang nachsehen, damit die Position sicher schon im neuen Kapitel liegt. */
         const val CHAPTER_SLACK_MS = 200L
+
+        /** So knapp vor dem Outro gilt es schon als erreicht (der Wecker kommt nie auf die Millisekunde). */
+        const val OUTRO_EARLY_MS = 300L
         const val MIN_SPEED = 0.1f
     }
 }

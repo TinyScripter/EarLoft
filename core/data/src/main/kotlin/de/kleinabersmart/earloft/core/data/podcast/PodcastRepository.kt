@@ -16,6 +16,7 @@ import de.kleinabersmart.earloft.core.data.refresh.NewEpisodes
 import de.kleinabersmart.earloft.core.data.spoken.toModel
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookWithProgress
+import de.kleinabersmart.earloft.core.model.EffectOverrides
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.TrackDownload
@@ -241,8 +242,10 @@ class PodcastRepository @Inject constructor(
             positionMs = if (played) duration else 0,
             durationMs = duration,
             finished = played,
-            speed = old?.speed ?: 1f,
+            speed = old?.speed,
             updatedAt = now,
+            skipSilence = old?.skipSilence,
+            volumeBoostDb = old?.volumeBoostDb,
         )
     }
 
@@ -663,6 +666,9 @@ private fun PodcastFeedEntity.toModel() = PodcastFeed(
     notifyNew = notifyNew,
     subscribed = subscribed,
     archived = archived,
+    effects = EffectOverrides(speed, skipSilence, volumeBoostDb),
+    skipIntroS = skipIntroS,
+    skipOutroS = skipOutroS,
 )
 
 /**

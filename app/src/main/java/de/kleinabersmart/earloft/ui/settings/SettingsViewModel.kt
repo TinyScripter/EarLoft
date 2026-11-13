@@ -43,6 +43,7 @@ import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.MobileStreamQuality
 import de.kleinabersmart.earloft.core.model.ReplayGainMode
 import de.kleinabersmart.earloft.core.model.ServerInfo
+import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.playback.ReplayGainSettings
 import de.kleinabersmart.earloft.ui.orOnError
@@ -123,6 +124,9 @@ data class SettingsUiState(
     val shakeToExtend: Boolean = true,
     val bookSeek: SeekSteps = SeekSteps.DEFAULT,
     val podcastSeek: SeekSteps = SeekSteps.DEFAULT,
+    /** Vorgaben für Tempo, Stille kürzen und Lautstärke anheben (Konzept 12.4). */
+    val bookEffects: SpokenEffects = SpokenEffects.DEFAULT,
+    val podcastEffects: SpokenEffects = SpokenEffects.DEFAULT,
     val bookMobileData: Boolean = false,
     /** Verzeichnisse, die dieser Build kennt, und die eingeschalteten (Konzept 12.10). */
     val podcastDirectories: List<PodcastDirectory> = emptyList(),
@@ -274,6 +278,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(bookSeek = book, podcastSeek = podcast)
     }.combine(combine(spokenSettings.bookMobileData, spokenSettings.shakeToExtend, ::Pair)) { state, (mobile, shake) ->
         state.copy(bookMobileData = mobile, shakeToExtend = shake)
+    }.combine(combine(spokenSettings.bookEffects, spokenSettings.podcastEffects, ::Pair)) { state, (book, podcast) ->
+        state.copy(bookEffects = book, podcastEffects = podcast)
     }.combine(spokenSettings.areas) { state, areas ->
         state.copy(areas = areas)
     }.combine(combine(podcastSettings.directories, podcastSettings.appleCountry, ::Pair)) { state, (directories, country) ->
@@ -345,6 +351,16 @@ class SettingsViewModel @Inject constructor(
 
     fun setShakeToExtend(enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setShakeToExtend(enabled) }
+    }
+
+    /** Vorgabe für Tempo und Effekte der Bücher; Bücher mit eigenen Werten behalten sie. */
+    fun setBookEffects(effects: SpokenEffects) {
+        viewModelScope.launch { spokenSettings.setBookEffects(effects) }
+    }
+
+    /** Vorgabe für Tempo und Effekte der Podcasts; Abos und Folgen mit eigenen Werten behalten sie. */
+    fun setPodcastEffects(effects: SpokenEffects) {
+        viewModelScope.launch { spokenSettings.setPodcastEffects(effects) }
     }
 
     fun setPodcastMobileData(enabled: Boolean) {

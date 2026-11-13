@@ -30,6 +30,13 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -75,6 +82,8 @@ import de.kleinabersmart.earloft.core.model.Book
 import de.kleinabersmart.earloft.core.model.BookKind
 import androidx.compose.ui.text.TextStyle
 import de.kleinabersmart.earloft.core.model.BookTimeline
+import de.kleinabersmart.earloft.core.model.EffectLayers
+import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.ui.components.FitSquare
 import de.kleinabersmart.earloft.ui.components.ShareButton
@@ -128,6 +137,7 @@ private fun BookPlayerContent(
     val sleepToEnd by viewModel.sleepTimerToEnd.collectAsStateWithLifecycle()
     val episode by viewModel.isEpisode.collectAsStateWithLifecycle()
     val hasNextEpisode by viewModel.hasNextEpisode.collectAsStateWithLifecycle()
+    val effectLayers by viewModel.effectLayers.collectAsStateWithLifecycle()
     val bookWithProgress by viewModel.book.collectAsStateWithLifecycle()
     val entry = state.spoken
     val seek = entry?.seek ?: SeekSteps.DEFAULT
@@ -247,14 +257,24 @@ private fun BookPlayerContent(
         val actionRow: @Composable () -> Unit = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                 CastButton(active = state.isRemote)
+                // Mit Stille kürzen oder Lautstärke anheben steht ein kleines Symbol neben dem Tempo (beim Casten nicht).
+                val audioEffects = !state.isRemote && effectLayers?.effects?.hasAudioEffects == true
+                val effectsLabel = stringResource(R.string.playback_effects_active)
                 TextButton(
                     onClick = { showSpeed = true },
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = if (speed == 1f) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                        contentColor = if (speed == 1f && !audioEffects) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
                     ),
-                    modifier = Modifier.semantics { contentDescription = speedLabel },
+                    modifier = Modifier.semantics { contentDescription = if (audioEffects) "$speedLabel, $effectsLabel" else speedLabel },
                 ) {
                     Text(stringResource(R.string.spoken_speed_value, formatSpeed(speed)))
+                    if (audioEffects) {
+                        Icon(
+                            painterResource(DesignR.drawable.ic_auto_awesome),
+                            contentDescription = null,
+                            modifier = Modifier.padding(start = 4.dp).size(16.dp),
+                        )
+                    }
                 }
                 ToggleIconButton(
                     icon = DesignR.drawable.ic_bedtime,
@@ -461,7 +481,19 @@ private fun BookPlayerContent(
         }
     }
 
-    if (showSpeed) SpeedDialog(speed, onSpeed = viewModel::setSpeed, onDismiss = { showSpeed = false })
+    if (showSpeed) {
+        SpeedDialog(
+            speed = speed,
+            layers = effectLayers,
+            episode = episode,
+            remote = state.isRemote,
+            onSpeed = viewModel::setSpeed,
+            onSkipSilence = viewModel::setSkipSilence,
+            onVolumeBoost = viewModel::setVolumeBoost,
+            onRememberAsDefault = viewModel::rememberEffectsAsDefault,
+            onDismiss = { showSpeed = false },
+        )
+    }
     if (showSleep) {
         SleepTimerSheet(
             onStart = viewModel::startSleepTimer,
@@ -644,37 +676,126 @@ private fun SeekButton(icon: Int, seconds: Int, description: String, onClick: ()
     }
 }
 
+/**
+ * Tempo und Effekte des Buchs bzw. der Folge (Konzept 12.4). Alles gilt zuerst nur hier; „Für alle Bücher“ bzw. „Für
+ * diesen Podcast“ macht es zur Vorgabe. Beim Casten gibt es nur das Tempo.
+ */
 @Composable
-private fun SpeedDialog(speed: Float, onSpeed: (Float) -> Unit, onDismiss: () -> Unit) {
+private fun SpeedDialog(
+    speed: Float,
+    layers: EffectLayers?,
+    episode: Boolean,
+    remote: Boolean,
+    onSpeed: (Float) -> Unit,
+    onSkipSilence: (Boolean) -> Unit,
+    onVolumeBoost: (Int) -> Unit,
+    onRememberAsDefault: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // Während des Ziehens zählt der Regler; der Player zieht über die Datenbank nach.
+    var dragged by remember { mutableStateOf<Float?>(null) }
+    val shown = dragged ?: speed
+    val effects = layers?.effects
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.spoken_speed)) },
+        title = { Text(stringResource(R.string.settings_playback)) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    stringResource(R.string.spoken_speed_value, formatSpeed(speed)),
+                    stringResource(R.string.spoken_speed_value, formatSpeed(shown)),
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.align(Alignment.CenterHorizontally),
                 )
                 Slider(
-                    value = speed,
-                    onValueChange = { onSpeed(snapSpeed(it)) },
+                    value = shown,
+                    onValueChange = {
+                        dragged = snapSpeed(it)
+                        onSpeed(snapSpeed(it))
+                    },
+                    onValueChangeFinished = { dragged = null },
                     valueRange = MIN_SPEED..MAX_SPEED,
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(1f, 1.25f, 1.5f, 2f).forEach { preset ->
                         FilterChip(
-                            selected = snapSpeed(speed) == preset,
+                            selected = snapSpeed(shown) == preset,
                             onClick = { onSpeed(preset) },
                             label = { Text(stringResource(R.string.spoken_speed_value, formatSpeed(preset))) },
                         )
                     }
                 }
+                if (effects != null) {
+                    HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.playback_skip_silence)) },
+                        supportingContent = {
+                            Text(stringResource(if (remote) R.string.playback_effects_cast else R.string.playback_skip_silence_summary))
+                        },
+                        trailingContent = { Switch(checked = effects.skipSilence, onCheckedChange = null, enabled = !remote) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.toggleable(
+                            value = effects.skipSilence,
+                            enabled = !remote,
+                            role = Role.Switch,
+                            onValueChange = onSkipSilence,
+                        ),
+                    )
+                    Text(
+                        stringResource(R.string.playback_volume_boost),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
+                    )
+                    val boostLabel = stringResource(R.string.playback_volume_boost)
+                    val choices = SpokenEffects.VOLUME_BOOST_CHOICES
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().semantics { contentDescription = boostLabel }) {
+                        choices.forEachIndexed { index, db ->
+                            SegmentedButton(
+                                selected = effects.volumeBoostDb == db,
+                                onClick = { onVolumeBoost(db) },
+                                shape = SegmentedButtonDefaults.itemShape(index, choices.size),
+                                enabled = !remote,
+                                icon = {},
+                                label = { Text(volumeBoostLabel(db), maxLines = 1) },
+                            )
+                        }
+                    }
+                    // Eigene Werte: Hinweis und der Weg, sie zur Vorgabe zu machen.
+                    if (!layers.own.isEmpty) {
+                        Text(
+                            stringResource(if (episode) R.string.playback_own_episode else R.string.playback_own_book),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
+                    }
+                }
             }
+        },
+        dismissButton = if (layers != null && !layers.own.isEmpty) {
+            {
+                TextButton(onClick = onRememberAsDefault) {
+                    Text(
+                        stringResource(
+                            when {
+                                !episode -> R.string.playback_remember_books
+                                layers.feed != null -> R.string.playback_remember_podcast
+                                else -> R.string.playback_remember_podcasts
+                            },
+                        ),
+                    )
+                }
+            }
+        } else {
+            null
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.spoken_close)) } },
     )
 }
+
+/** „Aus“ bzw. „+6 dB“. */
+@Composable
+internal fun volumeBoostLabel(db: Int): String =
+    if (db <= 0) stringResource(R.string.playback_volume_boost_off) else stringResource(R.string.playback_volume_boost_value, db)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

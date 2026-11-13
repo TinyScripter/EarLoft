@@ -49,7 +49,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.SourceType
+import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.model.SpokenMode
+import de.kleinabersmart.earloft.ui.spoken.volumeBoostLabel
 import de.kleinabersmart.earloft.core.data.spoken.ResumeRule
 import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
@@ -429,6 +431,63 @@ internal fun SeekRows(steps: SeekSteps, keyPrefix: String, onChange: (SeekSteps)
                 choosingForward = false
             },
             onDismiss = { choosingForward = false },
+        )
+    }
+}
+
+/** „1,25×“ – wie im Player, ohne überflüssige Nullen. */
+@Composable
+internal fun speedLabel(speed: Float): String =
+    stringResource(R.string.spoken_speed_value, "%.2f".format(speed).trimEnd('0').trimEnd(',', '.'))
+
+/** Die Vorgaben eines Bereichs für Tempo, Stille kürzen und Lautstärke anheben (Konzept 12.4). */
+@Composable
+internal fun EffectRows(effects: SpokenEffects, keyPrefix: String, onChange: (SpokenEffects) -> Unit) {
+    var choosingSpeed by rememberSaveable(keyPrefix) { mutableStateOf(false) }
+    var choosingBoost by rememberSaveable(keyPrefix) { mutableStateOf(false) }
+    ClickRow(
+        title = stringResource(R.string.playback_default_speed),
+        value = speedLabel(effects.speed),
+        icon = DesignR.drawable.ic_speed,
+        onClick = { choosingSpeed = true },
+    )
+    SwitchRow(
+        title = stringResource(R.string.playback_skip_silence),
+        summary = stringResource(R.string.playback_skip_silence_summary),
+        icon = DesignR.drawable.ic_content_cut,
+        checked = effects.skipSilence,
+        onCheckedChange = { onChange(effects.copy(skipSilence = it)) },
+    )
+    ClickRow(
+        title = stringResource(R.string.playback_volume_boost),
+        value = volumeBoostLabel(effects.volumeBoostDb),
+        icon = DesignR.drawable.ic_volume_up,
+        onClick = { choosingBoost = true },
+    )
+    if (choosingSpeed) {
+        ChoiceDialog(
+            title = stringResource(R.string.playback_default_speed),
+            options = (SpokenEffects.SPEED_CHOICES + effects.speed).distinct().sorted(),
+            selected = effects.speed,
+            label = { speedLabel(it) },
+            onSelect = {
+                onChange(effects.copy(speed = it))
+                choosingSpeed = false
+            },
+            onDismiss = { choosingSpeed = false },
+        )
+    }
+    if (choosingBoost) {
+        ChoiceDialog(
+            title = stringResource(R.string.playback_volume_boost),
+            options = SpokenEffects.VOLUME_BOOST_CHOICES,
+            selected = effects.volumeBoostDb,
+            label = { volumeBoostLabel(it) },
+            onSelect = {
+                onChange(effects.copy(volumeBoostDb = it))
+                choosingBoost = false
+            },
+            onDismiss = { choosingBoost = false },
         )
     }
 }

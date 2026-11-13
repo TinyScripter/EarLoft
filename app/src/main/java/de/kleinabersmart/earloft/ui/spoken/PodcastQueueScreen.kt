@@ -104,6 +104,7 @@ fun PodcastQueueList(
 ) {
     val episodes by viewModel.episodes.collectAsStateWithLifecycle()
     val currentId by viewModel.currentBookId.collectAsStateWithLifecycle()
+    val feedSpeeds by viewModel.feedSpeeds.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
 
     // Die lokale Kopie wird beim Ziehen sofort umsortiert und erst am Ende des Ziehens gespeichert.
@@ -135,6 +136,7 @@ fun PodcastQueueList(
                 item,
                 current = id == currentId,
                 withTime = id in sameDay,
+                inheritedSpeed = feedSpeeds[item.book.serverId] ?: 1f,
                 // Gezogen braucht die Zeile einen Hintergrund, sonst scheinen die anderen durch.
                 transparent = transparent && !isDragged,
                 onClick = { onEpisodeClick(id) },
@@ -206,6 +208,7 @@ fun PodcastQueueSearchScreen(
 ) {
     val result by viewModel.searchHits.collectAsStateWithLifecycle()
     val currentId by viewModel.currentBookId.collectAsStateWithLifecycle()
+    val feedSpeeds by viewModel.feedSpeeds.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -253,6 +256,7 @@ fun PodcastQueueSearchScreen(
                         item,
                         current = item.book.id == currentId,
                         withTime = item.book.id in sameDay,
+                        inheritedSpeed = feedSpeeds[item.book.serverId] ?: 1f,
                         transparent = false,
                         onClick = { onEpisodeClick(item.book.id) },
                         onRemove = { viewModel.remove(item.book.id) },
@@ -273,6 +277,8 @@ private fun QueueRow(
     item: BookWithProgress,
     current: Boolean,
     withTime: Boolean,
+    /** Tempo des Abos bzw. der Vorgabe, wenn die Folge kein eigenes hat. */
+    inheritedSpeed: Float,
     transparent: Boolean,
     onClick: () -> Unit,
     onRemove: () -> Unit,
@@ -303,7 +309,7 @@ private fun QueueRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant) { EpisodeProgress(item) }
+            CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant) { EpisodeProgress(item, inheritedSpeed) }
         }
         IconButton(onClick = onRemove) {
             Icon(
@@ -333,12 +339,12 @@ private fun EpisodeFacts(item: BookWithProgress, withTime: Boolean) {
 
 /** Letzte Zeile: gehörte Zeit, kleiner Balken, Restzeit wie im Player (beim eingestellten Tempo). Ohne Dauer nichts. */
 @Composable
-private fun EpisodeProgress(item: BookWithProgress) {
+private fun EpisodeProgress(item: BookWithProgress, inheritedSpeed: Float) {
     val progress = item.progress
     val durationMs = progress?.durationMs?.takeIf { it > 0 } ?: item.book.durationMs
     if (durationMs <= 0) return
     val positionMs = progress?.positionMs?.coerceIn(0, durationMs) ?: 0
-    val speed = progress?.speed?.takeIf { it > 0f } ?: 1f
+    val speed = (progress?.speed ?: inheritedSpeed).takeIf { it > 0f } ?: 1f
     val remainingMs = ((durationMs - positionMs) / speed).toLong()
     val style = smallLineStyle()
     // Gleich breite Zeiten, damit die Balken untereinander gleich lang sind.

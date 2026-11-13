@@ -24,6 +24,11 @@ object WearPodcastManifestBuilder {
                 imageUrl = it.imageUrl,
                 newestFirst = it.newestFirst,
                 continuous = it.continuous,
+                speed = it.effects.speed,
+                skipSilence = it.effects.skipSilence,
+                volumeBoostDb = it.effects.volumeBoostDb,
+                skipIntroS = it.skipIntroS,
+                skipOutroS = it.skipOutroS,
             )
         },
         episodes = content.episodes.map { episode ->
@@ -63,7 +68,7 @@ object WearPodcastManifestBuilder {
             books = manifest.books.map { it.copy(progress = null) },
         )
 
-    private fun BookProgress.toDto() = WearEpisodeProgressDto(positionMs, durationMs, finished, speed, updatedAt)
+    private fun BookProgress.toDto() = WearEpisodeProgressDto(positionMs, durationMs, finished, speed, updatedAt, skipSilence, volumeBoostDb)
 
     private fun List<BookChapter>.toDto() = map { WearChapterDto(it.title, it.startMs, it.endMs) }
 }

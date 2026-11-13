@@ -6,6 +6,7 @@ import dagger.hilt.android.HiltAndroidApp
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.repository.PlaybackPolicy
 import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
+import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.playback.ReplayGainSettings
 import de.kleinabersmart.earloft.wear.download.WatchState
@@ -58,6 +59,16 @@ class WearApplication : Application() {
             }.distinctUntilChanged().collect { (book, podcast) ->
                 spokenSettings.setBookSeek(book)
                 spokenSettings.setPodcastSeek(podcast)
+            }
+        }
+        // Vorgaben für Tempo und Effekte wie am Handy (Konzept 12.4); Abos und Folgen bringen ihre eigenen mit.
+        applicationScope.launch {
+            watchState.settings.map {
+                SpokenEffects(it.bookSpeed, it.bookSkipSilence, it.bookVolumeBoostDb) to
+                    SpokenEffects(it.podcastSpeed, it.podcastSkipSilence, it.podcastVolumeBoostDb)
+            }.distinctUntilChanged().collect { (book, podcast) ->
+                spokenSettings.setBookEffects(book)
+                spokenSettings.setPodcastEffects(podcast)
             }
         }
         applicationScope.launch { watchInfoPublisher.publish() }

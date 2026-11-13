@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.database.entity.WearBookEntity
 import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookProgress
+import de.kleinabersmart.earloft.core.model.EffectOverrides
 import de.kleinabersmart.earloft.core.model.isLocalSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -34,6 +35,10 @@ data class WatchFeedContent(
     val imageUrl: String?,
     val newestFirst: Boolean,
     val continuous: Boolean,
+    /** Tempo und Effekte des Abos (Konzept 12.4); `null` = Vorgabe des Bereichs. */
+    val effects: EffectOverrides = EffectOverrides(),
+    val skipIntroS: Int = 0,
+    val skipOutroS: Int = 0,
 )
 
 /** Eine Folge für die Uhr mit allem, was sie zum Laden und Abspielen braucht. */
@@ -155,7 +160,10 @@ class WatchSpoken @Inject constructor(
         }
         WatchSpokenContent(
             feeds = feeds.values.map {
-                WatchFeedContent(it.feedId, it.url, it.title, it.author, it.imageUrl?.takeIf { url -> url.startsWith("http") }, it.newestFirst, it.continuous)
+                WatchFeedContent(
+                    it.feedId, it.url, it.title, it.author, it.imageUrl?.takeIf { url -> url.startsWith("http") }, it.newestFirst, it.continuous,
+                    EffectOverrides(it.speed, it.skipSilence, it.volumeBoostDb), it.skipIntroS, it.skipOutroS,
+                )
             },
             episodes = episodes,
             books = books,

@@ -1,0 +1,140 @@
+package de.kleinabersmart.earloft.ui.spoken
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import de.kleinabersmart.earloft.R
+import de.kleinabersmart.earloft.core.model.EffectOverrides
+import de.kleinabersmart.earloft.core.model.PodcastFeed
+import de.kleinabersmart.earloft.core.model.SpokenEffects
+import de.kleinabersmart.earloft.ui.settings.ChoiceDialog
+import de.kleinabersmart.earloft.ui.settings.ClickRow
+import de.kleinabersmart.earloft.ui.settings.resumeSecondsLabel
+import de.kleinabersmart.earloft.ui.settings.speedLabel
+import de.kleinabersmart.earloft.core.designsystem.R as DesignR
+
+/** Welche Auswahl der Abo-Einstellungen gerade offen ist. */
+private enum class FeedChoice { SPEED, SILENCE, BOOST, INTRO, OUTRO }
+
+/**
+ * Abschnitt „Wiedergabe“ der Abo-Einstellungen (Konzept 12.4): Tempo, Stille kürzen und Lautstärke anheben – jeweils mit
+ * „Standard (…)“ = Vorgabe des Bereichs –, dazu Intro und Outro überspringen (nur je Abo).
+ */
+@Composable
+internal fun FeedPlaybackRows(
+    feed: PodcastFeed,
+    area: SpokenEffects,
+    onEffects: ((EffectOverrides) -> EffectOverrides) -> Unit,
+    onSkipIntroOutro: (introS: Int, outroS: Int) -> Unit,
+) {
+    var choosing by rememberSaveable { mutableStateOf<FeedChoice?>(null) }
+    val effects = feed.effects
+    val silenceLabel: @Composable (Boolean) -> String = {
+        stringResource(if (it) R.string.playback_on else R.string.playback_off)
+    }
+
+    Column {
+        ClickRow(
+            title = stringResource(R.string.playback_default_speed),
+            value = withDefault(effects.speed, area.speed) { speedLabel(it) },
+            icon = DesignR.drawable.ic_speed,
+            onClick = { choosing = FeedChoice.SPEED },
+        )
+        ClickRow(
+            title = stringResource(R.string.playback_skip_silence),
+            value = withDefault(effects.skipSilence, area.skipSilence, silenceLabel),
+            icon = DesignR.drawable.ic_content_cut,
+            onClick = { choosing = FeedChoice.SILENCE },
+        )
+        ClickRow(
+            title = stringResource(R.string.playback_volume_boost),
+            value = withDefault(effects.volumeBoostDb, area.volumeBoostDb) { volumeBoostLabel(it) },
+            icon = DesignR.drawable.ic_volume_up,
+            onClick = { choosing = FeedChoice.BOOST },
+        )
+        ClickRow(
+            title = stringResource(R.string.podcast_skip_intro),
+            value = resumeSecondsLabel(feed.skipIntroS),
+            icon = DesignR.drawable.ic_first_page,
+            onClick = { choosing = FeedChoice.INTRO },
+        )
+        ClickRow(
+            title = stringResource(R.string.podcast_skip_outro),
+            value = resumeSecondsLabel(feed.skipOutroS),
+            icon = DesignR.drawable.ic_last_page,
+            onClick = { choosing = FeedChoice.OUTRO },
+        )
+    }
+
+    val close = { choosing = null }
+    when (choosing) {
+        FeedChoice.SPEED -> ChoiceDialog(
+            title = stringResource(R.string.playback_default_speed),
+            options = listOf<Float?>(null) + (SpokenEffects.SPEED_CHOICES + listOfNotNull(effects.speed)).distinct().sorted(),
+            selected = effects.speed,
+            label = { withDefault(it, area.speed) { speed -> speedLabel(speed) } },
+            onSelect = {
+                onEffects { current -> current.copy(speed = it) }
+                close()
+            },
+            onDismiss = close,
+        )
+        FeedChoice.SILENCE -> ChoiceDialog(
+            title = stringResource(R.string.playback_skip_silence),
+            options = listOf(null, true, false),
+            selected = effects.skipSilence,
+            label = { withDefault(it, area.skipSilence, silenceLabel) },
+            onSelect = {
+                onEffects { current -> current.copy(skipSilence = it) }
+                close()
+            },
+            onDismiss = close,
+            description = stringResource(R.string.playback_skip_silence_summary),
+        )
+        FeedChoice.BOOST -> ChoiceDialog(
+            title = stringResource(R.string.playback_volume_boost),
+            options = listOf<Int?>(null) + SpokenEffects.VOLUME_BOOST_CHOICES,
+            selected = effects.volumeBoostDb,
+            label = { withDefault(it, area.volumeBoostDb) { db -> volumeBoostLabel(db) } },
+            onSelect = {
+                onEffects { current -> current.copy(volumeBoostDb = it) }
+                close()
+            },
+            onDismiss = close,
+        )
+        FeedChoice.INTRO -> ChoiceDialog(
+            title = stringResource(R.string.podcast_skip_intro),
+            options = (SpokenEffects.SKIP_CHOICES_S + feed.skipIntroS).distinct().sorted(),
+            selected = feed.skipIntroS,
+            label = { resumeSecondsLabel(it) },
+            onSelect = {
+                onSkipIntroOutro(it, feed.skipOutroS)
+                close()
+            },
+            onDismiss = close,
+            description = stringResource(R.string.podcast_skip_intro_description),
+        )
+        FeedChoice.OUTRO -> ChoiceDialog(
+            title = stringResource(R.string.podcast_skip_outro),
+            options = (SpokenEffects.SKIP_CHOICES_S + feed.skipOutroS).distinct().sorted(),
+            selected = feed.skipOutroS,
+            label = { resumeSecondsLabel(it) },
+            onSelect = {
+                onSkipIntroOutro(feed.skipIntroS, it)
+                close()
+            },
+            onDismiss = close,
+            description = stringResource(R.string.podcast_skip_outro_description),
+        )
+        null -> Unit
+    }
+}
+
+/** Der Wert des Abos, ohne eigenen „Standard (Wert des Bereichs)“. */
+@Composable
+private fun <T : Any> withDefault(value: T?, area: T, label: @Composable (T) -> String): String =
+    if (value != null) label(value) else stringResource(R.string.playback_default_value, label(area))

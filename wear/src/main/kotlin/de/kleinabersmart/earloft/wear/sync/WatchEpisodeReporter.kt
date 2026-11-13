@@ -75,7 +75,7 @@ class WatchEpisodeReporter @Inject constructor(
             packetId = UUID.randomUUID().toString(),
             progress = progress.map {
                 val p = it.progress
-                WearEpisodeStateDto(it.serverId, it.remoteId, WearEpisodeProgressDto(p.positionMs, p.durationMs, p.finished, p.speed, p.updatedAt))
+                WearEpisodeStateDto(it.serverId, it.remoteId, WearEpisodeProgressDto(p.positionMs, p.durationMs, p.finished, p.speed, p.updatedAt, p.skipSilence, p.volumeBoostDb))
             },
             listening = listening.map { it.second },
         )

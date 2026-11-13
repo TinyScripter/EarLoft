@@ -65,7 +65,6 @@ class BookProgressSync @Inject constructor(
         // Abo beendet bzw. Buch gelöscht, während es noch im Player liegt: kein Fortschritt mehr (Fremdschlüssel).
         if (dao.book(bookId) == null) return
         val previous = dao.progress(bookId)
-        val speed = previous?.speed ?: 1f
         if (previous?.finished == true && !finished && positionMs > 0) reopened.add(bookId)
         dao.upsertProgress(
             BookProgressEntity(
@@ -73,10 +72,12 @@ class BookProgressSync @Inject constructor(
                 positionMs = positionMs.coerceAtLeast(0),
                 durationMs = durationMs,
                 finished = finished,
-                speed = speed,
+                speed = previous?.speed,
                 updatedAt = System.currentTimeMillis(),
                 dirty = true,
                 hidden = hidden,
+                skipSilence = previous?.skipSilence,
+                volumeBoostDb = previous?.volumeBoostDb,
             ),
         )
         val sinceLastPush = System.currentTimeMillis() - (lastPush[bookId] ?: 0)
@@ -161,11 +162,13 @@ class BookProgressSync @Inject constructor(
                 positionMs = remoteModel.positionMs,
                 durationMs = remoteModel.durationMs.takeIf { it > 0 } ?: book.durationMs,
                 finished = remoteModel.finished,
-                // Die Geschwindigkeit kennt Audiobookshelf nicht: sie bleibt lokal.
-                speed = local?.speed ?: 1f,
+                // Tempo und Effekte kennt Audiobookshelf nicht: sie bleiben lokal.
+                speed = local?.speed,
                 updatedAt = remoteModel.updatedAt,
                 dirty = false,
                 hidden = remote.hideFromContinueListening,
+                skipSilence = local?.skipSilence,
+                volumeBoostDb = local?.volumeBoostDb,
             ),
         )
         return true

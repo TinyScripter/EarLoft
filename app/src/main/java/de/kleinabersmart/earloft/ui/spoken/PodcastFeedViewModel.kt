@@ -18,7 +18,11 @@ import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.download.DownloadStart
 import de.kleinabersmart.earloft.core.download.EpisodeDownloadProgress
 import de.kleinabersmart.earloft.core.download.EpisodeDownloads
+import de.kleinabersmart.earloft.core.model.EffectOverrides
 import de.kleinabersmart.earloft.core.model.PodcastFeed
+import de.kleinabersmart.earloft.core.model.SpokenEffects
+import de.kleinabersmart.earloft.core.data.spoken.SpokenEffectsRepository
+import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.asLoadState
@@ -53,6 +57,8 @@ class PodcastFeedViewModel @AssistedInject constructor(
     private val refresher: PodcastRefresher,
     private val continueListening: ContinueListening,
     private val trialPages: TrialPodcastPages,
+    private val effects: SpokenEffectsRepository,
+    spokenSettings: SpokenSettings,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -152,6 +158,19 @@ class PodcastFeedViewModel @AssistedInject constructor(
 
     fun setNotifyNew(enabled: Boolean) {
         viewModelScope.launch { podcasts.setNotifyNew(feedId, enabled) }
+    }
+
+    /** Vorgabe des Bereichs, für „Standard (…)“ in den Abo-Einstellungen. */
+    val areaEffects: StateFlow<SpokenEffects> = spokenSettings.podcastEffects
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SpokenEffects.DEFAULT)
+
+    /** Tempo und Effekte des Abos; `null` = Vorgabe des Bereichs. Folgen mit eigenen Werten behalten sie. */
+    fun setEffects(change: (EffectOverrides) -> EffectOverrides) {
+        viewModelScope.launch { effects.setFeedEffects(feedId, change) }
+    }
+
+    fun setSkipIntroOutro(introS: Int, outroS: Int) {
+        viewModelScope.launch { effects.setSkipIntroOutro(feedId, introS, outroS) }
     }
 
     /** Löscht erst die Downloads (sonst blieben die Dateien liegen), dann das Abo; im App-Scope wie [archive]. */

@@ -121,7 +121,7 @@ class ContinueListeningShelvesTest {
         assertEquals(emptyList<String>(), recentTitles())
         assertEquals(600_000L, dao.progress(id)?.positionMs)
 
-        books.touchProgress(id, 600_000, HOUR_MS, 1f)
+        books.touchProgress(id, 600_000, HOUR_MS)
         assertEquals(listOf("Pausiert"), continueTitles())
     }
 

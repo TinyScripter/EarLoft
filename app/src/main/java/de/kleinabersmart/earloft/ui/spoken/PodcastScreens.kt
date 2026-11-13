@@ -705,6 +705,7 @@ fun PodcastSettingsScreen(
 ) {
     val feed by viewModel.feed.collectAsStateWithLifecycle()
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
+    val areaEffects by viewModel.areaEffects.collectAsStateWithLifecycle()
     var confirmUnsubscribe by rememberSaveable { mutableStateOf(false) }
     var switchingSource by rememberSaveable { mutableStateOf(false) }
     val current = feed.valueOrNull
@@ -719,6 +720,11 @@ fun PodcastSettingsScreen(
             return@Column
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+            group("podcast-playback", R.string.settings_playback) {
+                row("effects") {
+                    FeedPlaybackRows(current, areaEffects, viewModel::setEffects, viewModel::setSkipIntroOutro)
+                }
+            }
             group("podcast-settings") {
                 row("continuous") {
                     SwitchRow(

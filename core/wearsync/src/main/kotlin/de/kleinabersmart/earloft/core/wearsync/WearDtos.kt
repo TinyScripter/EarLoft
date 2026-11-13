@@ -160,13 +160,26 @@ data class WearSettingsDto(
     val bookSeekForwardSeconds: Int = 30,
     val podcastSeekBackSeconds: Int = 10,
     val podcastSeekForwardSeconds: Int = 30,
+    /** Vorgaben für Tempo und Effekte je Bereich wie am Handy (Konzept 12.4). */
+    val bookSpeed: Float = 1f,
+    val bookSkipSilence: Boolean = false,
+    val bookVolumeBoostDb: Int = 0,
+    val podcastSpeed: Float = 1f,
+    val podcastSkipSilence: Boolean = false,
+    val podcastVolumeBoostDb: Int = 0,
 ) {
-    /** Dieselben Einstellungen ohne die Sprungweiten: Nur Änderungen daran betreffen die Downloads der Uhr. */
+    /** Dieselben Einstellungen ohne die der Wiedergabe (Sprungweiten, Tempo, Effekte): Nur der Rest betrifft die Downloads. */
     fun withoutSeek(): WearSettingsDto = copy(
         bookSeekBackSeconds = 0,
         bookSeekForwardSeconds = 0,
         podcastSeekBackSeconds = 0,
         podcastSeekForwardSeconds = 0,
+        bookSpeed = 0f,
+        bookSkipSilence = false,
+        bookVolumeBoostDb = 0,
+        podcastSpeed = 0f,
+        podcastSkipSilence = false,
+        podcastVolumeBoostDb = 0,
     )
 
     companion object {
@@ -231,6 +244,12 @@ data class WearPodcastFeedDto(
     val imageUrl: String? = null,
     val newestFirst: Boolean = false,
     val continuous: Boolean = true,
+    /** Tempo und Effekte des Abos wie am Handy (Konzept 12.4); `null` = Vorgabe des Bereichs ([WearSettingsDto]). */
+    val speed: Float? = null,
+    val skipSilence: Boolean? = null,
+    val volumeBoostDb: Int? = null,
+    val skipIntroS: Int = 0,
+    val skipOutroS: Int = 0,
 )
 
 @Serializable
@@ -257,9 +276,13 @@ data class WearEpisodeProgressDto(
     val positionMs: Long,
     val durationMs: Long,
     val finished: Boolean = false,
-    val speed: Float = 1f,
+    /** Eigenes Tempo; `null` = das des Abos bzw. Bereichs (fehlt dann im JSON, ältere Gegenstellen lesen 1,0). */
+    val speed: Float? = null,
     /** Zeitpunkt der letzten Änderung; die neuere Seite gewinnt. */
     val updatedAt: Long,
+    /** Eigene Effekte; `null` = die des Abos bzw. Bereichs. */
+    val skipSilence: Boolean? = null,
+    val volumeBoostDb: Int? = null,
 )
 
 /** Was auf der Uhr gehört wurde (Uhr → Handy); das Handy löscht das DataItem nach dem Import. */

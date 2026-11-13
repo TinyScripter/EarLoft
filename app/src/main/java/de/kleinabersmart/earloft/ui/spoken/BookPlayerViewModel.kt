@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
+import de.kleinabersmart.earloft.core.data.spoken.SpokenEffectsRepository
+import de.kleinabersmart.earloft.core.model.EffectLayers
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookTimeline
 import de.kleinabersmart.earloft.core.model.BookWithProgress
@@ -34,6 +36,7 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     bookCovers: BookCovers,
     private val continueListening: ContinueListening,
     private val launcher: BookLauncher,
+    private val effects: SpokenEffectsRepository,
 ) : ViewModel() {
 
     val state: StateFlow<PlayerState> = playback.state
@@ -55,6 +58,11 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     /** Zeitachse des laufenden Buchs; `null`, bis Dateien und Kapitel geladen sind. */
     val timeline: StateFlow<BookTimeline?> = bookId
         .mapLatest { id -> id?.let { books.timeline(it) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Tempo und Effekte des laufenden Buchs bzw. der Folge mit ihren Ebenen (eigene, Abo, Bereich). */
+    val effectLayers: StateFlow<EffectLayers?> = bookId
+        .flatMapLatest { id -> if (id == null) flowOf(null) else effects.layers(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Grundfarbe des Covers für das Farbschema; `null`, solange sie fehlt. */
@@ -144,7 +152,18 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     fun togglePlayPause() = playback.togglePlayPause()
     fun skipBack() = playback.skipBack()
     fun skipForward() = playback.skipForward()
-    fun setSpeed(speed: Float) = playback.setSpeed(speed)
+    /** Tempo und Effekte gelten für das Buch bzw. die Folge; der Player folgt ihnen über die Datenbank. */
+    fun setSpeed(speed: Float) = withBook { effects.setSpeed(it, speed) }
+    fun setSkipSilence(enabled: Boolean) = withBook { effects.setSkipSilence(it, enabled) }
+    fun setVolumeBoost(db: Int) = withBook { effects.setVolumeBoost(it, db) }
+
+    /** „Als Standard“ bzw. „Für diesen Podcast“. */
+    fun rememberEffectsAsDefault() = withBook { effects.rememberAsDefault(it) }
+
+    private fun withBook(action: suspend (Long) -> Unit) {
+        val id = state.value.spoken?.bookId ?: return
+        viewModelScope.launch { action(id) }
+    }
     fun startSleepTimer(minutes: Int) = playback.startSleepTimer(minutes)
     fun startSleepTimerToEnd() = playback.startSleepTimerToEnd()
     fun cancelSleepTimer() = playback.cancelSleepTimer()

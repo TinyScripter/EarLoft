@@ -57,6 +57,13 @@ data class PodcastFeedEntity(
     @ColumnInfo(defaultValue = "0") val archived: Boolean = false,
     /** Webseite des Podcasts aus dem Feed, zum Teilen (Konzept 13). */
     val websiteUrl: String? = null,
+    /** Tempo und Effekte für die Folgen (Schema v25); `null` = die Vorgabe des Bereichs, eine Folge kann eigene haben. */
+    val speed: Float? = null,
+    val skipSilence: Boolean? = null,
+    val volumeBoostDb: Int? = null,
+    /** Sekunden, die am Anfang (nur beim Start bei 0) bzw. am Ende jeder Folge übersprungen werden. */
+    @ColumnInfo(defaultValue = "0") val skipIntroS: Int = 0,
+    @ColumnInfo(defaultValue = "0") val skipOutroS: Int = 0,
 )
 
 @Entity(
@@ -138,7 +145,8 @@ data class BookProgressEntity(
     val positionMs: Long,
     val durationMs: Long,
     val finished: Boolean = false,
-    val speed: Float = 1f,
+    /** Eigenes Tempo; `null` = das des Abos bzw. Bereichs (Konzept 12.4, seit Schema v25 nullbar). */
+    val speed: Float? = null,
     val updatedAt: Long,
     val dirty: Boolean = false,
     /**
@@ -146,4 +154,7 @@ data class BookProgressEntity(
      * Stand bleibt; sobald das Buch wieder läuft, fällt der Merker (Schema v24).
      */
     @ColumnInfo(defaultValue = "0") val hidden: Boolean = false,
+    /** Eigene Wiedergabe-Effekte (Schema v25); `null` = die des Abos bzw. Bereichs. */
+    val skipSilence: Boolean? = null,
+    val volumeBoostDb: Int? = null,
 )

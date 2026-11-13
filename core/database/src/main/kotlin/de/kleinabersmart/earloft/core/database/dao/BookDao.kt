@@ -260,8 +260,9 @@ abstract class BookDao {
     @Query("UPDATE book_progress SET dirty = 0 WHERE bookId = :bookId AND updatedAt = :updatedAt")
     abstract suspend fun markClean(bookId: Long, updatedAt: Long)
 
-    @Query("UPDATE book_progress SET speed = :speed WHERE bookId = :bookId")
-    abstract suspend fun setSpeed(bookId: Long, speed: Float)
+    /** Eigenes Tempo und eigene Effekte; `null` = die des Abos bzw. Bereichs. */
+    @Query("UPDATE book_progress SET speed = :speed, skipSilence = :skipSilence, volumeBoostDb = :volumeBoostDb WHERE bookId = :bookId")
+    abstract suspend fun setEffects(bookId: Long, speed: Float?, skipSilence: Boolean?, volumeBoostDb: Int?)
 
     @Query("SELECT * FROM book_progress WHERE bookId IN (:bookIds)")
     abstract suspend fun progressOf(bookIds: List<Long>): List<BookProgressEntity>

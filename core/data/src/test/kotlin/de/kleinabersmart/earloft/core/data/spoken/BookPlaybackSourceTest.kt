@@ -16,6 +16,7 @@ import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
+import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.datasource.local.LocalBookScanner
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
@@ -77,6 +78,7 @@ class BookPlaybackSourceTest {
             EpisodeQueue(context, dao),
             settings,
             policy,
+            SpokenEffectsRepository(dao, db.podcastDao(), settings),
         )
         bookId = dao.upsertBook(
             BookEntity(
@@ -149,6 +151,20 @@ class BookPlaybackSourceTest {
         db.bookDao().markBookTrackDone(bookId, 0, file.absolutePath, file.length())
 
         assertEquals(listOf(Uri.fromFile(file).toString()), source.prepare(bookId)!!.trackUrls)
+    }
+
+    @Test
+    fun `eine Folge ueberspringt das Intro ihres Abos nur beim Start bei 0`() = runTest {
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "feed", url = "https://example.org/feed", title = "Podcast", skipIntroS = 45))
+        val episode = db.bookDao().upsertBook(
+            BookEntity(serverId = "feed", kind = BookKind.EPISODE, remoteId = "guid", title = "Folge", normTitle = "folge", author = "", durationMs = HOUR_MS),
+        )
+        db.podcastDao().setTrack(BookTrackEntity(episode, trackIndex = 0, remoteFileId = "https://example.org/folge.mp3", startMs = 0, durationMs = HOUR_MS))
+
+        assertEquals(45_000L, source.prepare(episode)!!.startPositionMs)
+
+        db.bookDao().upsertProgress(BookProgressEntity(episode, positionMs = 5_000, durationMs = HOUR_MS, updatedAt = System.currentTimeMillis()))
+        assertEquals(5_000L, source.prepare(episode)!!.startPositionMs)
     }
 
     private companion object {

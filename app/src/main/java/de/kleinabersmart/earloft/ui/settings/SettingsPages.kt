@@ -713,6 +713,11 @@ fun PodcastsSettingsScreen(
                     onCheckedChange = viewModel::setPodcastAutoPlayNext,
                 )
             }
+            row("podcast-effects") {
+                Column {
+                    EffectRows(state.podcastEffects, "podcast", viewModel::setPodcastEffects)
+                }
+            }
             row("podcast-seek") {
                 Column {
                     SeekRows(state.podcastSeek, "podcast", viewModel::setPodcastSeek)
@@ -1019,6 +1024,11 @@ fun AudiobookSettingsScreen(
         }
 
         group("playback", R.string.settings_playback) {
+            row("book-effects") {
+                Column {
+                    EffectRows(state.bookEffects, "book", viewModel::setBookEffects)
+                }
+            }
             row("book-seek") {
                 Column {
                     SeekRows(state.bookSeek, "book", viewModel::setBookSeek)

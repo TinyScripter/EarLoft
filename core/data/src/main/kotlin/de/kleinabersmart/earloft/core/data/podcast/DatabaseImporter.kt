@@ -111,8 +111,10 @@ class DatabaseImporter @Inject constructor(
                 positionMs = position,
                 durationMs = duration,
                 finished = episode.played,
-                speed = existing?.speed ?: 1f,
+                speed = existing?.speed,
                 updatedAt = episode.lastPlayedAt,
+                skipSilence = existing?.skipSilence,
+                volumeBoostDb = existing?.volumeBoostDb,
             ),
         )
         return true

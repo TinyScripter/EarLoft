@@ -6,6 +6,7 @@ import com.google.android.gms.wearable.DataClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
+import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.data.wear.MirroredServer
 import de.kleinabersmart.earloft.core.data.wear.WatchSpoken
@@ -13,6 +14,7 @@ import de.kleinabersmart.earloft.core.data.wear.WearContent
 import de.kleinabersmart.earloft.core.data.wear.WearSelectionRepository
 import de.kleinabersmart.earloft.core.data.wear.WearServerMirror
 import de.kleinabersmart.earloft.core.model.SourceType
+import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.playback.ReplayGainSettings
 import de.kleinabersmart.earloft.core.wearsync.WearCodec
 import de.kleinabersmart.earloft.core.wearsync.WearPaths
@@ -92,8 +94,8 @@ class WearPublisher @Inject constructor(
                 replayGainSettings.mode,
                 replayGainSettings.preAmpDb,
                 spokenSettings.areas,
-                combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair),
-            ) { watch, mode, preAmp, areas, (bookSeek, podcastSeek) ->
+                combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, spokenSettings.bookEffects, spokenSettings.podcastEffects, ::SpokenPlayback),
+            ) { watch, mode, preAmp, areas, (bookSeek, podcastSeek, bookEffects, podcastEffects) ->
                 WearSettingsDto(
                     quality = watch.quality,
                     storageLimitBytes = watch.storageLimitGb?.let { it * BYTES_PER_GB },
@@ -105,6 +107,12 @@ class WearPublisher @Inject constructor(
                     bookSeekForwardSeconds = bookSeek.forwardSeconds,
                     podcastSeekBackSeconds = podcastSeek.backSeconds,
                     podcastSeekForwardSeconds = podcastSeek.forwardSeconds,
+                    bookSpeed = bookEffects.speed,
+                    bookSkipSilence = bookEffects.skipSilence,
+                    bookVolumeBoostDb = bookEffects.volumeBoostDb,
+                    podcastSpeed = podcastEffects.speed,
+                    podcastSkipSilence = podcastEffects.skipSilence,
+                    podcastVolumeBoostDb = podcastEffects.volumeBoostDb,
                 )
             }
                 .distinctUntilChanged()
@@ -136,6 +144,14 @@ class WearPublisher @Inject constructor(
             Log.d(TAG, "Für die Uhr: ${manifest.episodes.size} Folgen, ${manifest.books.size} Bücher")
         }
     }
+
+    /** Sprungweiten und Vorgaben für Tempo und Effekte je Bereich, wie sie die Uhr übernimmt. */
+    private data class SpokenPlayback(
+        val bookSeek: SeekSteps,
+        val podcastSeek: SeekSteps,
+        val bookEffects: SpokenEffects,
+        val podcastEffects: SpokenEffects,
+    )
 
     private companion object {
         const val TAG = "WearPublisher"

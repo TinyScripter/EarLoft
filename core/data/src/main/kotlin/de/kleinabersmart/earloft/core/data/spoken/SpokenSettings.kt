@@ -5,12 +5,14 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.sync.LocalSourcesDefault
+import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -131,6 +133,35 @@ class SpokenSettings @Inject constructor(
         }
     }
 
+    /**
+     * Vorgabe für Tempo, Stille kürzen und Lautstärke anheben bei Büchern (Konzept 12.4, Standard 1,0 ohne Effekte); ein
+     * Buch mit eigenen Werten behält sie.
+     */
+    val bookEffects: Flow<SpokenEffects> = context.spokenSettingsDataStore.data.map {
+        SpokenEffects(it[KEY_BOOK_SPEED] ?: 1f, it[KEY_BOOK_SKIP_SILENCE] ?: false, it[KEY_BOOK_BOOST] ?: 0)
+    }
+
+    suspend fun setBookEffects(effects: SpokenEffects) {
+        context.spokenSettingsDataStore.edit {
+            it[KEY_BOOK_SPEED] = effects.speed
+            it[KEY_BOOK_SKIP_SILENCE] = effects.skipSilence
+            it[KEY_BOOK_BOOST] = effects.volumeBoostDb
+        }
+    }
+
+    /** Wie [bookEffects] für Podcast-Folgen; ein Abo kann eigene Werte haben, eine Folge ebenso. */
+    val podcastEffects: Flow<SpokenEffects> = context.spokenSettingsDataStore.data.map {
+        SpokenEffects(it[KEY_PODCAST_SPEED] ?: 1f, it[KEY_PODCAST_SKIP_SILENCE] ?: false, it[KEY_PODCAST_BOOST] ?: 0)
+    }
+
+    suspend fun setPodcastEffects(effects: SpokenEffects) {
+        context.spokenSettingsDataStore.edit {
+            it[KEY_PODCAST_SPEED] = effects.speed
+            it[KEY_PODCAST_SKIP_SILENCE] = effects.skipSilence
+            it[KEY_PODCAST_BOOST] = effects.volumeBoostDb
+        }
+    }
+
     /** Ein Buch, das kurz nach einem Kapitelanfang beendet wurde, beginnt das Kapitel von vorn (Standard: aus). */
     val restartChapter: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_CHAPTER_RESTART] ?: false }
 
@@ -167,6 +198,12 @@ class SpokenSettings @Inject constructor(
         val KEY_PODCAST_SEEK_FORWARD = intPreferencesKey("podcast_seek_forward_s")
         val KEY_CHAPTER_RESTART = booleanPreferencesKey("book_chapter_restart")
         val KEY_SLEEP_SHAKE = booleanPreferencesKey("sleep_shake")
+        val KEY_BOOK_SPEED = floatPreferencesKey("book_speed")
+        val KEY_BOOK_SKIP_SILENCE = booleanPreferencesKey("book_skip_silence")
+        val KEY_BOOK_BOOST = intPreferencesKey("book_volume_boost_db")
+        val KEY_PODCAST_SPEED = floatPreferencesKey("podcast_speed")
+        val KEY_PODCAST_SKIP_SILENCE = booleanPreferencesKey("podcast_skip_silence")
+        val KEY_PODCAST_BOOST = intPreferencesKey("podcast_volume_boost_db")
         val KEY_MODE = stringPreferencesKey("mode")
         // Gespeichert sind die ausgeschalteten, damit ein neuer Bereich von selbst eingeschaltet ist.
         val KEY_HIDDEN_AREAS = stringSetPreferencesKey("hidden_areas")

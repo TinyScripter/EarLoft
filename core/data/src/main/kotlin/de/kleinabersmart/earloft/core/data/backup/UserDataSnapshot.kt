@@ -246,8 +246,10 @@ fun SourceEntity.toUser() =
 
 fun SpokenServerEntity.toUser() = UserSpokenServerEntity(serverId, name, baseUrl, libraryId, enabled, openId)
 
-fun PodcastFeedEntity.toUser() =
-    UserPodcastEntity(feedId, url, title, author, imageUrl, autoDownload, newestFirst, continuous, notifyNew, archived)
+fun PodcastFeedEntity.toUser() = UserPodcastEntity(
+    feedId, url, title, author, imageUrl, autoDownload, newestFirst, continuous, notifyNew, archived,
+    speed, skipSilence, volumeBoostDb, skipIntroS, skipOutroS,
+)
 
 fun ListeningStatEntity.toUser() =
     UserListeningStatEntity(source, groupKey, itemKey, kind, groupTitle, itemTitle, listenedMs, lastListenedAt)
@@ -255,7 +257,7 @@ fun ListeningStatEntity.toUser() =
 fun ListeningDayEntity.toUser() = UserListeningDayEntity(day, kind, groupKey, listenedMs)
 
 fun KeyedProgress.toUser() = with(progress) {
-    UserBookProgressEntity(serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty, hidden)
+    UserBookProgressEntity(serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty, hidden, skipSilence, volumeBoostDb)
 }
 
 /** Zurück in die Hauptdatenbank; der Abgleichsstand beginnt von vorn. */
@@ -291,6 +293,11 @@ fun UserPodcastEntity.toMain() = PodcastFeedEntity(
     continuous = continuous,
     notifyNew = notifyNew,
     archived = archived,
+    speed = speed,
+    skipSilence = skipSilence,
+    volumeBoostDb = volumeBoostDb,
+    skipIntroS = skipIntroS,
+    skipOutroS = skipOutroS,
 )
 
 fun UserListeningStatEntity.toMain() = ListeningStatEntity(
@@ -322,4 +329,6 @@ fun UserBookProgressEntity.toMain(bookId: Long) = BookProgressEntity(
     updatedAt = updatedAt,
     dirty = dirty,
     hidden = hidden,
+    skipSilence = skipSilence,
+    volumeBoostDb = volumeBoostDb,
 )

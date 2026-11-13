@@ -7,6 +7,7 @@ import androidx.room.DeleteColumn
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.AutoMigrationSpec
+import androidx.sqlite.db.SupportSQLiteDatabase
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
@@ -30,7 +31,7 @@ import java.io.File
  *
  * Versionen: 1 Server, Abos, Statistik; 2 Fortschritt; 3 lokale Playlists, Favoriten, Hörverlauf, Auswahl für die Uhr;
  * 5 archivierte Abos; 6 ohne Cast-Adresse je Server; 7 OpenID je Audiobookshelf-Server; 8 Downloads der Folgen; 9 Favoriten
- * von Alben und Künstlern; 10 „aus Weiterhören genommen“ am Fortschritt.
+ * von Alben und Künstlern; 10 „aus Weiterhören genommen“ am Fortschritt; 11 Tempo und Effekte je Abo und Buch, Tempo nullbar.
  */
 @Database(
     entities = [
@@ -60,6 +61,7 @@ import java.io.File
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
+        AutoMigration(from = 10, to = 11, spec = UserDatabase.InheritSpeed::class),
     ],
 )
 abstract class UserDatabase : RoomDatabase() {
@@ -68,12 +70,19 @@ abstract class UserDatabase : RoomDatabase() {
     @DeleteColumn(tableName = "servers", columnName = "castBaseUrl")
     class DropCastBaseUrl : AutoMigrationSpec
 
+    /** Wie [EarLoftDatabase.InheritSpeed]: 1,0 folgt jetzt der Vorgabe von Abo bzw. Bereich. */
+    class InheritSpeed : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            db.execSQL("UPDATE book_progress SET speed = NULL WHERE speed = 1.0")
+        }
+    }
+
     companion object {
         /** Dateiname; die Backup-Regeln der App schließen nur die Hauptdatenbank aus, diese Datei nicht. */
         const val NAME = "user.db"
 
         /** Schemaversion; die Komplett-Sicherung lehnt Dateien einer neueren ab. */
-        const val VERSION = 10
+        const val VERSION = 11
 
         /**
          * Eine Kopie außerhalb der App-Datenbanken (Komplett-Sicherung, `FullBackup`): ältere Fassungen werden beim Öffnen

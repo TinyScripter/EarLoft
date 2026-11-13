@@ -67,14 +67,14 @@ class BookRepository @Inject constructor(
         }
 
     /**
-     * Das Buch wird gestartet: Es steht sofort ganz vorn in „Weiterhören“. Position und Geschwindigkeit bleiben, wie sie
+     * Das Buch wird gestartet: Es steht sofort ganz vorn in „Weiterhören“. Position, Tempo und Effekte bleiben, wie sie
      * nach dem Abgleich mit dem Server sind; der Zeitpunkt wird auf jetzt gesetzt.
      */
-    suspend fun touchProgress(bookId: Long, startPositionMs: Long, durationMs: Long, speed: Float) {
+    suspend fun touchProgress(bookId: Long, startPositionMs: Long, durationMs: Long) {
         val old = dao.progress(bookId)
         dao.upsertProgress(
             old?.copy(positionMs = startPositionMs, finished = false, updatedAt = System.currentTimeMillis(), hidden = false)
-                ?: BookProgressEntity(bookId, startPositionMs, durationMs, finished = false, speed = speed, updatedAt = System.currentTimeMillis()),
+                ?: BookProgressEntity(bookId, startPositionMs, durationMs, finished = false, updatedAt = System.currentTimeMillis()),
         )
     }
 
@@ -162,15 +162,6 @@ class BookRepository @Inject constructor(
         return true
     }
 
-    /** Merkt die Geschwindigkeit des Buchs, auch wenn es noch keinen Fortschritt hat (der Server gewinnt dann sofort). */
-    suspend fun setSpeed(bookId: Long, speed: Float) {
-        if (dao.progress(bookId) != null) {
-            dao.setSpeed(bookId, speed)
-        } else {
-            val duration = dao.book(bookId)?.durationMs ?: return
-            dao.upsertProgress(BookProgressEntity(bookId, positionMs = 0, durationMs = duration, speed = speed, updatedAt = 0))
-        }
-    }
 }
 
 private const val DURATION_TOLERANCE_MS = 2_000L
@@ -200,4 +191,4 @@ internal fun BookTrackEntity.toModel() = BookTrack(
     localPath = filePath.takeIf { downloadState == TrackDownload.DONE },
 )
 
-internal fun BookProgressEntity.toModel() = BookProgress(positionMs, durationMs, finished, speed, updatedAt, dirty, hidden)
+internal fun BookProgressEntity.toModel() = BookProgress(positionMs, durationMs, finished, speed, updatedAt, dirty, hidden, skipSilence, volumeBoostDb)

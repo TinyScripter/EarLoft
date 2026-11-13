@@ -111,6 +111,13 @@ abstract class PodcastDao {
     @Query("UPDATE podcast_feeds SET continuous = :continuous WHERE feedId = :feedId")
     abstract suspend fun setContinuous(feedId: String, continuous: Boolean)
 
+    /** Tempo und Effekte für die Folgen des Abos; `null` = Vorgabe des Bereichs. */
+    @Query("UPDATE podcast_feeds SET speed = :speed, skipSilence = :skipSilence, volumeBoostDb = :volumeBoostDb WHERE feedId = :feedId")
+    abstract suspend fun setEffects(feedId: String, speed: Float?, skipSilence: Boolean?, volumeBoostDb: Int?)
+
+    @Query("UPDATE podcast_feeds SET skipIntroS = :introS, skipOutroS = :outroS WHERE feedId = :feedId")
+    abstract suspend fun setSkipIntroOutro(feedId: String, introS: Int, outroS: Int)
+
     /** Ids der Folgen eines Podcasts, älteste zuerst (bei gleichem Datum in der Reihenfolge des Auftauchens). */
     @Query("SELECT bookId FROM books WHERE kind = 'EPISODE' AND serverId = :feedId ORDER BY addedAt, bookId")
     abstract suspend fun episodeIdsOldestFirst(feedId: String): List<Long>

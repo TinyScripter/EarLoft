@@ -6,6 +6,7 @@ import dagger.hilt.android.testing.HiltTestApplication
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
+import de.kleinabersmart.earloft.core.data.spoken.SpokenEffectsRepository
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
@@ -49,9 +50,10 @@ class BookPlayerViewModelTest {
     @Inject lateinit var covers: BookCovers
     @Inject lateinit var continueListening: ContinueListening
     @Inject lateinit var launcher: BookLauncher
+    @Inject lateinit var effects: SpokenEffectsRepository
 
     // Hilt erlaubt kein Injizieren von @HiltViewModel; die Abhängigkeiten kommen aber alle aus dem echten Graphen.
-    private val viewModel by lazy { BookPlayerViewModel(playback, books, covers, continueListening, launcher) }
+    private val viewModel by lazy { BookPlayerViewModel(playback, books, covers, continueListening, launcher, effects) }
 
     private var bookId = 0L
 

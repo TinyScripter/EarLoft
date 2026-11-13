@@ -47,6 +47,7 @@ import de.kleinabersmart.earloft.core.data.spoken.AbsSessionReporter
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
 import de.kleinabersmart.earloft.core.data.spoken.BookPlaybackSource
 import de.kleinabersmart.earloft.core.data.spoken.BookProgressSync
+import de.kleinabersmart.earloft.core.data.spoken.SpokenEffectsRepository
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.data.stats.StatsRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
@@ -96,6 +97,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var bookRepository: BookRepository
     @Inject lateinit var bookProgressSync: BookProgressSync
     @Inject lateinit var spokenSettings: SpokenSettings
+    @Inject lateinit var spokenEffects: SpokenEffectsRepository
     @Inject lateinit var statsRepository: StatsRepository
     @Inject lateinit var absSessionReporter: AbsSessionReporter
     @Inject lateinit var bookPlaybackSource: BookPlaybackSource
@@ -118,6 +120,7 @@ class PlaybackService : MediaLibraryService() {
     private lateinit var bookListener: BookPlaybackListener
     private var sessionPlayer: SpokenAwarePlayer? = null
     private var shakeDetector: ShakeDetector? = null
+    private var audioEffects: SpokenAudioEffects? = null
 
     /** Name des laufenden Kapitels für Benachrichtigung und Widget; `null` ohne Kapitel. */
     private var chapterTitle: String? = null
@@ -165,6 +168,7 @@ class PlaybackService : MediaLibraryService() {
             .build()
         localPlayer.addListener(SourceErrorRecovery(localPlayer))
         audioEffectSession.attach(this, localPlayer)
+        val audioEffects = SpokenAudioEffects(localPlayer).also { this.audioEffects = it }
         // Uhr: keine Streams, also nichts vorzuladen.
         if (playbackPolicy.allowStreaming) {
             streamPreloader = StreamPreloader(
@@ -200,6 +204,9 @@ class PlaybackService : MediaLibraryService() {
                 sessionPlayer?.chapterTitle = chapterTitle
                 if (!player.awaitsRemoteQueue) notifyObservers(nowPlayingOf(player))
             },
+            effects = spokenEffects,
+            // Ein Cast-Empfänger spielt ohne Effekte; der lokale Player behält sie, bis wieder lokal gespielt wird.
+            applyAudio = audioEffects::apply,
         )
         player.addListener(bookListener)
         servicePlayer.attach(player) { bookId, playNext -> markFinished(player, bookId, playNext) }
@@ -457,6 +464,7 @@ class PlaybackService : MediaLibraryService() {
         audioEffectSession.close(this)
         streamPreloader?.release()
         shakeDetector?.stop()
+        audioEffects?.release()
         sleepTimer.detach()
         servicePlayer.detach()
         session?.let { session ->

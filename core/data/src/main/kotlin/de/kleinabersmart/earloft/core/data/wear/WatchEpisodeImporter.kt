@@ -26,8 +26,11 @@ data class WatchEpisodeProgress(
     val positionMs: Long,
     val durationMs: Long,
     val finished: Boolean,
-    val speed: Float,
+    /** Eigenes Tempo und eigene Effekte; `null` = die des Abos bzw. Bereichs. */
+    val speed: Float?,
     val updatedAt: Long,
+    val skipSilence: Boolean? = null,
+    val volumeBoostDb: Int? = null,
 )
 
 /** Auf der Uhr gehörte Inhaltszeit einer Folge bzw. eines Buchs seit der letzten Meldung, gehört bis [at]. */
@@ -70,6 +73,8 @@ class WatchEpisodeImporter @Inject constructor(
                     updatedAt = item.updatedAt,
                     // Folgen und Bücher vom Gerät haben keinen Server, der den Stand bekommen müsste.
                     dirty = synced,
+                    skipSilence = item.skipSilence,
+                    volumeBoostDb = item.volumeBoostDb,
                 ),
             )
             if (synced) toServer += book.bookId

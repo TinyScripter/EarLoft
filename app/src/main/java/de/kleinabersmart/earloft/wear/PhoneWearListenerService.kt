@@ -171,7 +171,7 @@ class PhoneWearListenerService : WearableListenerService() {
             packetId = report.packetId,
             progress = report.progress.map {
                 val p = it.progress
-                WatchEpisodeProgress(it.feedId, it.guid, p.positionMs, p.durationMs, p.finished, p.speed, p.updatedAt)
+                WatchEpisodeProgress(it.feedId, it.guid, p.positionMs, p.durationMs, p.finished, p.speed, p.updatedAt, p.skipSilence, p.volumeBoostDb)
             },
             listening = report.listening.map { WatchEpisodeListening(it.feedId, it.guid, it.listenedMs, it.at) },
         )

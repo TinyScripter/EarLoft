@@ -88,7 +88,7 @@ import java.io.File
         AlbumSourceEntity::class,
         ArtistSourceEntity::class,
     ],
-    version = 24,
+    version = 25,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -114,6 +114,7 @@ import java.io.File
         AutoMigration(from = 21, to = 22),
         AutoMigration(from = 22, to = 23),
         AutoMigration(from = 23, to = 24),
+        AutoMigration(from = 24, to = 25, spec = EarLoftDatabase.InheritSpeed::class),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {
@@ -152,6 +153,16 @@ abstract class EarLoftDatabase : RoomDatabase() {
     class AddWebLinks : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
             db.execSQL("UPDATE podcast_feeds SET etag = NULL, lastModified = NULL")
+        }
+    }
+
+    /**
+     * v24 → v25: Tempo und Effekte je Abo und Bereich (Konzept 12.4). Das Tempo eines Buchs ist nur noch gesetzt, wenn es
+     * ein eigenes ist; 1,0 war bisher der Standard für alle und folgt jetzt der Vorgabe.
+     */
+    class InheritSpeed : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            db.execSQL("UPDATE book_progress SET speed = NULL WHERE speed = 1.0")
         }
     }
 

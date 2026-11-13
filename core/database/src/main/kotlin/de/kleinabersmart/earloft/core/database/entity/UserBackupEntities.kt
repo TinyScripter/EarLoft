@@ -55,6 +55,12 @@ data class UserPodcastEntity(
     val continuous: Boolean,
     val notifyNew: Boolean,
     @ColumnInfo(defaultValue = "0") val archived: Boolean = false,
+    /** Tempo und Effekte des Abos (seit Version 11), `null` = Vorgabe des Bereichs. */
+    val speed: Float? = null,
+    val skipSilence: Boolean? = null,
+    val volumeBoostDb: Int? = null,
+    @ColumnInfo(defaultValue = "0") val skipIntroS: Int = 0,
+    @ColumnInfo(defaultValue = "0") val skipOutroS: Int = 0,
 )
 
 /** Gehörte Zeit je Eintrag (`listening_stats`), über den natürlichen Schlüssel statt der laufenden `statId`. */
@@ -91,11 +97,15 @@ data class UserBookProgressEntity(
     val positionMs: Long,
     val durationMs: Long,
     val finished: Boolean,
-    val speed: Float,
+    /** Eigenes Tempo; `null` = das des Abos bzw. Bereichs (nullbar seit Version 11). */
+    val speed: Float?,
     val updatedAt: Long,
     val dirty: Boolean,
     /** Aus „Weiterhören“ genommen (seit Version 10). */
     @ColumnInfo(defaultValue = "0") val hidden: Boolean = false,
+    /** Eigene Effekte (seit Version 11). */
+    val skipSilence: Boolean? = null,
+    val volumeBoostDb: Int? = null,
 )
 
 /**
