@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +43,8 @@ import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.QueueEntry
 import de.kleinabersmart.earloft.ui.components.AlbumArt
 import de.kleinabersmart.earloft.ui.components.EmptyHint
+import de.kleinabersmart.earloft.ui.components.QueueMoreMenu
+import de.kleinabersmart.earloft.ui.components.QueueTitle
 import de.kleinabersmart.earloft.ui.components.rememberReorderState
 import de.kleinabersmart.earloft.ui.components.reorderActions
 import de.kleinabersmart.earloft.ui.components.reorderHandle
@@ -63,6 +66,7 @@ fun QueueScreen(
         onItemClick = viewModel::skipToQueueItem,
         onRemove = viewModel::removeQueueItem,
         onMove = viewModel::moveQueueItem,
+        onClear = viewModel::clearQueue,
         modifier = modifier,
     )
 }
@@ -75,20 +79,31 @@ private fun QueueContent(
     onItemClick: (Int) -> Unit,
     onRemove: (Int) -> Unit,
     onMove: (from: Int, to: Int) -> Unit,
+    onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var saving by remember { mutableStateOf(false) }
     if (saving) AddToPlaylistDialog(songIds = state.queue.map { it.songId }, onDismiss = { saving = false })
     Column(modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(stringResource(R.string.player_queue)) },
+            title = { QueueTitle(summary = null) },
             navigationIcon = { BackButton(onBack) },
             actions = {
-                // Neue oder bestehende Playlist; dieselbe Auswahl wie „Zur Playlist“ bei Songs und Alben.
-                if (state.queue.isNotEmpty()) {
-                    IconButton(onClick = { saving = true }) {
-                        Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = stringResource(R.string.queue_save_as_playlist))
-                    }
+                QueueMoreMenu(
+                    clearMessage = stringResource(R.string.music_queue_clear_message),
+                    // Der laufende Titel bleibt; zu leeren gibt es erst etwas, wenn noch mehr dasteht.
+                    canClear = state.queue.size > 1,
+                    onClear = onClear,
+                ) { close ->
+                    // Neue oder bestehende Playlist; dieselbe Auswahl wie „Zur Playlist“ bei Songs und Alben.
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.queue_save_as_playlist)) },
+                        enabled = state.queue.isNotEmpty(),
+                        onClick = {
+                            close()
+                            saving = true
+                        },
+                    )
                 }
             },
         )
@@ -209,6 +224,7 @@ private fun QueueContentPreview() {
             onItemClick = {},
             onRemove = {},
             onMove = { _, _ -> },
+            onClear = {},
         )
     }
 }

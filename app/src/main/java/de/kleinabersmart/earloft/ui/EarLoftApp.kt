@@ -53,6 +53,7 @@ import de.kleinabersmart.earloft.ui.snackbar.SnackbarMessage
 import de.kleinabersmart.earloft.navigation.AddAudiobookshelfRoute
 import de.kleinabersmart.earloft.navigation.BookRoute
 import de.kleinabersmart.earloft.navigation.PodcastInfoRoute
+import de.kleinabersmart.earloft.navigation.BookQueueRoute
 import de.kleinabersmart.earloft.navigation.PodcastQueueRoute
 import de.kleinabersmart.earloft.navigation.PodcastQueueSearchRoute
 import de.kleinabersmart.earloft.navigation.PodcastRoute
@@ -137,6 +138,7 @@ import de.kleinabersmart.earloft.ui.spoken.BookPlayerViewModel
 import de.kleinabersmart.earloft.ui.spoken.BookScreen
 import de.kleinabersmart.earloft.ui.spoken.PodcastHomeScreen
 import de.kleinabersmart.earloft.ui.spoken.PodcastInfoScreen
+import de.kleinabersmart.earloft.ui.spoken.BookQueueScreen
 import de.kleinabersmart.earloft.ui.spoken.PodcastQueueScreen
 import de.kleinabersmart.earloft.ui.spoken.PodcastQueueSearchScreen
 import de.kleinabersmart.earloft.ui.spoken.PodcastSearchScreen
@@ -265,7 +267,14 @@ fun EarLoftApp(
                         onOpenQueue = { navigator.navigate(PodcastQueueRoute) },
                         onAddPodcast = openAddPodcast,
                     ) },
-                books = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf, onEditServer = editAudiobookshelf) },
+                books = {
+                    SpokenHomeScreen(
+                        onBookClick = openBook,
+                        onOpenQueue = { navigator.navigate(BookQueueRoute) },
+                        onSetup = setupAudiobookshelf,
+                        onEditServer = editAudiobookshelf,
+                    )
+                },
                 onModeChange = closeDetail,
                 onSearch = openSearch,
                 onOpenAreaSettings = openAreaSettings,
@@ -419,6 +428,7 @@ fun EarLoftApp(
             )
         }
         entry<PodcastQueueSearchRoute> { PodcastQueueSearchScreen(onBack = navigator::goBack, onEpisodeClick = openBook) }
+        entry<BookQueueRoute> { BookQueueScreen(onBack = navigator::goBack, onBookClick = openBook) }
         entry<SettingsRoute>(metadata = listPane()) {
             SettingsScreen(
                 onOpenGeneral = { navigator.navigate(SettingsGeneralRoute) },

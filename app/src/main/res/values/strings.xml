@@ -777,9 +777,16 @@
         <item quantity="one">%1$d episode · %2$s left</item>
         <item quantity="other">%1$d episodes · %2$s left</item>
     </plurals>
-    <string name="podcast_queue_clear">Clear queue</string>
-    <string name="podcast_queue_clear_title">Clear the queue?</string>
+    <string name="queue_clear">Clear queue</string>
+    <string name="queue_clear_title">Clear the queue?</string>
     <string name="podcast_queue_clear_message">All episodes leave Continue listening; the one that is loaded stays. Positions are kept, and new episodes appear again as usual. Heard episodes leave the queue by themselves.</string>
+    <string name="music_queue_clear_message">All songs leave the queue except the one that is playing.</string>
+    <string name="book_queue_clear_message">All books leave Continue listening (on Audiobookshelf on all devices too); the one that is loaded stays. Positions are kept, and a book comes back as soon as it plays again.</string>
+    <string name="book_queue_empty">No book is started.</string>
+    <plurals name="book_queue_summary">
+        <item quantity="one">%1$d book · %2$s left</item>
+        <item quantity="other">%1$d books · %2$s left</item>
+    </plurals>
     <string name="book_hide_from_continue">Remove from Continue listening</string>
     <string name="book_series_volume">%1$s · Book %2$s</string>
     <string name="book_open_series">Open series</string>

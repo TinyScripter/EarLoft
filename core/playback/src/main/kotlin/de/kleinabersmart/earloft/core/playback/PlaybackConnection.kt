@@ -124,6 +124,9 @@ interface PlaybackConnection {
 
     fun moveQueueItem(from: Int, to: Int)
 
+    /** „Warteschlange leeren“: Alles außer dem laufenden Titel verlässt die Warteschlange; die Wiedergabe läuft weiter. */
+    fun clearQueue()
+
     fun toggleShuffle()
 
     fun cycleRepeatMode()

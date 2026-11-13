@@ -283,6 +283,12 @@ class MediaPlaybackConnection @Inject constructor(
 
     override fun moveQueueItem(from: Int, to: Int) = withController { moveMediaItem(from, to) }
 
+    override fun clearQueue() = withController {
+        val current = currentMediaItemIndex
+        if (current + 1 < mediaItemCount) removeMediaItems(current + 1, mediaItemCount)
+        if (current > 0) removeMediaItems(0, current)
+    }
+
     override fun toggleShuffle() = withController { shuffleModeEnabled = !shuffleModeEnabled }
 
     override fun cycleRepeatMode() = withController { repeatMode = nextRepeatMode(repeatMode) }

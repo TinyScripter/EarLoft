@@ -1,11 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.TextButton
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -63,6 +58,8 @@ import de.kleinabersmart.earloft.ui.components.LoadFailedHint
 import de.kleinabersmart.earloft.ui.components.LoadingIndicator
 import de.kleinabersmart.earloft.ui.components.MarkGap
 import de.kleinabersmart.earloft.ui.components.OfflineMarkIcon
+import de.kleinabersmart.earloft.ui.components.QueueMoreMenu
+import de.kleinabersmart.earloft.ui.components.QueueTitle
 import de.kleinabersmart.earloft.ui.components.rememberReorderState
 import de.kleinabersmart.earloft.ui.components.reorderActions
 import de.kleinabersmart.earloft.ui.components.reorderHandle
@@ -82,64 +79,26 @@ fun PodcastQueueScreen(
     viewModel: PodcastQueueViewModel = hiltViewModel(),
 ) {
     val summary by viewModel.summary.collectAsStateWithLifecycle()
-    var menu by remember { mutableStateOf(false) }
-    var confirmClear by rememberSaveable { mutableStateOf(false) }
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = {
-                Column {
-                    Text(stringResource(R.string.player_queue))
-                    summary?.let {
-                        Text(
-                            pluralStringResource(R.plurals.podcast_queue_summary, it.count, it.count, formatDuration(it.remainingMs)),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
+                QueueTitle(
+                    summary?.let { pluralStringResource(R.plurals.podcast_queue_summary, it.count, it.count, formatDuration(it.remainingMs)) },
+                )
             },
             navigationIcon = { BackButton(onBack) },
             actions = {
                 IconButton(onClick = onSearch) {
                     Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_queue_search))
                 }
-                if (summary != null) {
-                    Box {
-                        IconButton(onClick = { menu = true }) {
-                            Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
-                        }
-                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.podcast_queue_clear)) },
-                                onClick = {
-                                    menu = false
-                                    confirmClear = true
-                                },
-                            )
-                        }
-                    }
-                }
+                QueueMoreMenu(
+                    clearMessage = stringResource(R.string.podcast_queue_clear_message),
+                    canClear = summary != null,
+                    onClear = viewModel::clear,
+                )
             },
         )
         PodcastQueueList(onEpisodeClick = onEpisodeClick, modifier = Modifier.navigationBarsPadding(), viewModel = viewModel)
-    }
-    if (confirmClear) {
-        AlertDialog(
-            onDismissRequest = { confirmClear = false },
-            title = { Text(stringResource(R.string.podcast_queue_clear_title)) },
-            text = { Text(stringResource(R.string.podcast_queue_clear_message)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmClear = false
-                    viewModel.clear()
-                }) { Text(stringResource(R.string.podcast_queue_clear)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
-        )
     }
 }
 
@@ -158,28 +117,56 @@ fun PodcastQueueList(
     val episodes by viewModel.episodes.collectAsStateWithLifecycle()
     val currentId by viewModel.currentBookId.collectAsStateWithLifecycle()
     val feedSpeeds by viewModel.feedSpeeds.collectAsStateWithLifecycle()
-    val listState = rememberLazyListState()
+    SpokenQueueList(
+        entries = episodes,
+        currentId = currentId,
+        emptyText = stringResource(R.string.podcast_queue_empty),
+        inheritedSpeed = { feedSpeeds[it.book.serverId] ?: 1f },
+        onClick = onEpisodeClick,
+        onRemove = viewModel::remove,
+        onReorder = viewModel::reorder,
+        modifier = modifier,
+        contentPadding = contentPadding,
+        transparent = transparent,
+    )
+}
 
-    // Die lokale Kopie wird beim Ziehen sofort umsortiert und erst am Ende des Ziehens gespeichert.
+/**
+ * Warteschlange von Folgen oder Büchern (beide „Weiterhören“) mit Ziehgriff, ✕ und Tipp. Die lokale Kopie wird beim
+ * Ziehen sofort umsortiert und erst am Ende des Ziehens über [onReorder] gespeichert (neue Reihenfolge, bewegter Eintrag).
+ */
+@Composable
+internal fun SpokenQueueList(
+    entries: LoadState<List<BookWithProgress>>,
+    currentId: Long?,
+    emptyText: String,
+    /** Tempo, wenn der Eintrag kein eigenes hat (Abo bzw. Vorgabe des Bereichs). */
+    inheritedSpeed: (BookWithProgress) -> Float,
+    onClick: (Long) -> Unit,
+    onRemove: (Long) -> Unit,
+    onReorder: (bookIds: List<Long>, movedId: Long) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
+    transparent: Boolean = false,
+) {
+    val listState = rememberLazyListState()
     val rows = remember { mutableStateListOf<BookWithProgress>() }
     val reorder = rememberReorderState(listState)
-    LaunchedEffect(episodes) {
-        val loaded = episodes.valueOrNull
+    LaunchedEffect(entries) {
+        val loaded = entries.valueOrNull
         if (reorder.draggedKey != null || loaded == null) return@LaunchedEffect
         rows.clear()
         rows.addAll(loaded)
     }
 
-    when (episodes) {
+    when (entries) {
         LoadState.Loading -> LoadingIndicator()
         LoadState.Missing, LoadState.Failed -> LoadFailedHint()
         // Die Kopie zieht erst im nächsten Frame nach; leer ist die Liste erst, wenn auch die Quelle leer ist.
-        is LoadState.Ready -> if (rows.isEmpty() && episodes.valueOrNull.isNullOrEmpty()) {
-            EmptyHint(stringResource(R.string.podcast_queue_empty))
-        }
+        is LoadState.Ready -> if (rows.isEmpty() && entries.valueOrNull.isNullOrEmpty()) EmptyHint(emptyText)
     }
     if (rows.isEmpty()) return
-    val sameDay = episodesSharingDay(rows.map { it.book })
+    val sameDay = episodesSharingDay(rows.filter { it.isEpisode }.map { it.book })
     LazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier) {
         items(rows, key = { it.book.id }) { item ->
             val id = item.book.id
@@ -187,11 +174,11 @@ fun PodcastQueueList(
                 item,
                 current = id == currentId,
                 withTime = id in sameDay,
-                inheritedSpeed = feedSpeeds[item.book.serverId] ?: 1f,
+                inheritedSpeed = inheritedSpeed(item),
                 // Gezogen braucht die Zeile einen Hintergrund, sonst scheinen die anderen durch.
                 transparent = transparent && !reorder.isLifted(id),
-                onClick = { onEpisodeClick(id) },
-                onRemove = { viewModel.remove(id) },
+                onClick = { onClick(id) },
+                onRemove = { onRemove(id) },
                 dragHandle = {
                     Icon(
                         painterResource(DesignR.drawable.ic_drag_handle),
@@ -205,7 +192,7 @@ fun PodcastQueueList(
                                 index = { rows.indexOfFirst { it.book.id == id } },
                                 onMove = { from, to -> rows.add(to, rows.removeAt(from)) },
                                 // Nur speichern, wenn sich der Platz geändert hat; sonst würde schon ein Antippen die Zeile festlegen.
-                                onDragEnd = { moved -> if (moved) viewModel.reorder(rows.map { it.book.id }, id) },
+                                onDragEnd = { moved -> if (moved) onReorder(rows.map { it.book.id }, id) },
                             ),
                     )
                 },
@@ -213,7 +200,7 @@ fun PodcastQueueList(
                     .reorderableItem(this, reorder, id)
                     .reorderActions(rows.indexOf(item), rows.size) { from, to ->
                         rows.add(to, rows.removeAt(from))
-                        viewModel.reorder(rows.map { it.book.id }, id)
+                        onReorder(rows.map { it.book.id }, id)
                     },
             )
         }
@@ -293,9 +280,9 @@ fun PodcastQueueSearchScreen(
 }
 
 /**
- * Eine Folge der Warteschlange: Datum und Download, Titel, Fortschritt; links Ziehgriff (falls [dragHandle]) und Bild.
- * Eigene Zeile statt `ListItem`: Dessen Abstände für drei Zeilen sind zu großzügig, hier sollen möglichst viele Folgen
- * auf einen Blick passen. Farben wie beim `ListItem`.
+ * Eine Folge (Datum) oder ein Buch (Autor) der Warteschlange mit Download, Titel, Fortschritt; links Ziehgriff (falls
+ * [dragHandle]) und Bild. Eigene Zeile statt `ListItem`: Dessen Abstände für drei Zeilen sind zu großzügig, hier sollen
+ * möglichst viele Einträge auf einen Blick passen. Farben wie beim `ListItem`.
  */
 @Composable
 private fun QueueRow(
@@ -326,7 +313,9 @@ private fun QueueRow(
         dragHandle?.invoke()
         BookArt(item.book.id, Modifier.padding(start = 4.dp).size(48.dp), MaterialTheme.shapes.small)
         Column(Modifier.weight(1f).padding(start = 16.dp, end = 4.dp)) {
-            CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant) { EpisodeFacts(item, withTime) }
+            CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant) {
+                if (item.isEpisode) EpisodeFacts(item, withTime) else BookFacts(item)
+            }
             Text(
                 item.book.title,
                 style = MaterialTheme.typography.bodyLarge,
@@ -357,6 +346,18 @@ private fun EpisodeFacts(item: BookWithProgress, withTime: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (book.addedAt > 0) {
             Text(formatEpisodeDay(book.addedAt, withTime), style = smallLineStyle(), maxLines = 1)
+        }
+        OfflineMarkIcon(mark, Modifier.padding(start = MarkGap).size(14.dp))
+    }
+}
+
+/** Erste Zeile bei Büchern: Autor, dahinter der Download-Stand wie bei den Folgen. */
+@Composable
+private fun BookFacts(item: BookWithProgress) {
+    val mark = LocalBookDownloads.current[item.book.id]?.offlineMark
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (item.book.author.isNotEmpty()) {
+            Text(item.book.author, style = smallLineStyle(), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
         }
         OfflineMarkIcon(mark, Modifier.padding(start = MarkGap).size(14.dp))
     }

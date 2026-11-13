@@ -770,9 +770,16 @@
         <item quantity="one">%1$d Folge · noch %2$s</item>
         <item quantity="other">%1$d Folgen · noch %2$s</item>
     </plurals>
-    <string name="podcast_queue_clear">Warteschlange leeren</string>
-    <string name="podcast_queue_clear_title">Warteschlange leeren?</string>
+    <string name="queue_clear">Warteschlange leeren</string>
+    <string name="queue_clear_title">Warteschlange leeren?</string>
     <string name="podcast_queue_clear_message">Alle Folgen verlassen Weiterhören, nur die geladene bleibt. Die Stellen bleiben erhalten, neue Folgen erscheinen weiter wie gewohnt. Gehörte Folgen verlassen die Warteschlange von selbst.</string>
+    <string name="music_queue_clear_message">Alle Songs verlassen die Warteschlange, nur der laufende bleibt.</string>
+    <string name="book_queue_clear_message">Alle Bücher verlassen Weiterhören (bei Audiobookshelf auch auf allen Geräten), nur das geladene bleibt. Die Stellen bleiben erhalten; ein Buch kommt wieder, sobald es läuft.</string>
+    <string name="book_queue_empty">Kein Buch ist angefangen.</string>
+    <plurals name="book_queue_summary">
+        <item quantity="one">%1$d Buch · noch %2$s</item>
+        <item quantity="other">%1$d Bücher · noch %2$s</item>
+    </plurals>
     <string name="book_hide_from_continue">Aus „Weiterhören“ entfernen</string>
     <string name="book_series_volume">%1$s · Band %2$s</string>
     <string name="book_open_series">Serie öffnen</string>

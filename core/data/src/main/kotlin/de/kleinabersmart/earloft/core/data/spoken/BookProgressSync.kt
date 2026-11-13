@@ -96,6 +96,18 @@ class BookProgressSync @Inject constructor(
         push(bookId)
     }
 
+    /**
+     * Wie [hideFromContinueListening] für mehrere Bücher („Warteschlange leeren“): erst alle hier heraus, gemeldet wird
+     * im Hintergrund ([BookProgressWorker]), damit nichts verloren geht, wenn die Seite vorher geschlossen wird.
+     */
+    suspend fun hideFromContinueListening(bookIds: Collection<Long>) {
+        val now = System.currentTimeMillis()
+        val shown = bookIds.mapNotNull { dao.progress(it) }.filter { !it.hidden }
+        if (shown.isEmpty()) return
+        shown.forEach { dao.upsertProgress(it.copy(hidden = true, updatedAt = now, dirty = true)) }
+        BookProgressWorker.schedule(context)
+    }
+
     /** `true`, wenn nichts mehr aussteht. */
     suspend fun push(bookId: Long): Boolean {
         val progress = dao.progress(bookId) ?: return true

@@ -65,6 +65,7 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
     override fun skipToQueueItem(index: Int) = record(Command.Simple("skipToQueueItem $index"))
     override fun removeQueueItem(index: Int) = record(Command.Simple("removeQueueItem $index"))
     override fun moveQueueItem(from: Int, to: Int) = record(Command.Simple("moveQueueItem $from $to"))
+    override fun clearQueue() = record(Command.Simple("clearQueue"))
     override fun toggleShuffle() = record(Command.Simple("toggleShuffle"))
     override fun cycleRepeatMode() = record(Command.Simple("cycleRepeatMode"))
     override fun changeRemoteVolume(up: Boolean) = record(Command.Simple("changeRemoteVolume $up"))
