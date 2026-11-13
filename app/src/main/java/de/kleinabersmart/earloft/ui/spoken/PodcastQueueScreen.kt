@@ -65,8 +65,6 @@ import de.kleinabersmart.earloft.ui.components.OfflineMarkIcon
 import de.kleinabersmart.earloft.ui.components.reorderActions
 import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.ui.library.BackButton
-import java.text.DateFormat
-import java.util.Date
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /** Die Warteschlange der Podcasts („Weiterhören“) bearbeiten: wie bei der Musik mit Ziehgriff und ✕, dazu die Suche. */
@@ -128,6 +126,7 @@ fun PodcastQueueList(
         }
     }
     if (rows.isEmpty()) return
+    val sameDay = episodesSharingDay(rows.map { it.book })
     LazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier) {
         items(rows, key = { it.book.id }) { item ->
             val id = item.book.id
@@ -135,6 +134,7 @@ fun PodcastQueueList(
             QueueRow(
                 item,
                 current = id == currentId,
+                withTime = id in sameDay,
                 // Gezogen braucht die Zeile einen Hintergrund, sonst scheinen die anderen durch.
                 transparent = transparent && !isDragged,
                 onClick = { onEpisodeClick(id) },
@@ -247,10 +247,12 @@ fun PodcastQueueSearchScreen(
             trimmed.isEmpty() -> Unit
             hits.isEmpty() -> if (settled) EmptyHint(stringResource(R.string.search_no_results, trimmed))
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+                val sameDay = episodesSharingDay(hits.map { it.book })
                 items(hits, key = { it.book.id }) { item ->
                     QueueRow(
                         item,
                         current = item.book.id == currentId,
+                        withTime = item.book.id in sameDay,
                         transparent = false,
                         onClick = { onEpisodeClick(item.book.id) },
                         onRemove = { viewModel.remove(item.book.id) },
@@ -270,6 +272,7 @@ fun PodcastQueueSearchScreen(
 private fun QueueRow(
     item: BookWithProgress,
     current: Boolean,
+    withTime: Boolean,
     transparent: Boolean,
     onClick: () -> Unit,
     onRemove: () -> Unit,
@@ -292,7 +295,7 @@ private fun QueueRow(
         dragHandle?.invoke()
         BookArt(item.book.id, Modifier.padding(start = 4.dp).size(48.dp), MaterialTheme.shapes.small)
         Column(Modifier.weight(1f).padding(start = 16.dp, end = 4.dp)) {
-            CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant) { EpisodeFacts(item) }
+            CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant) { EpisodeFacts(item, withTime) }
             Text(
                 item.book.title,
                 style = MaterialTheme.typography.bodyLarge,
@@ -317,12 +320,12 @@ private fun smallLineStyle() = MaterialTheme.typography.labelSmall.copy(lineHeig
 
 /** Erste Zeile: Datum der Folge, dahinter der Download-Stand wie in den Listen (geladen: Haken, sonst nichts). */
 @Composable
-private fun EpisodeFacts(item: BookWithProgress) {
+private fun EpisodeFacts(item: BookWithProgress, withTime: Boolean) {
     val book = item.book
     val mark = LocalBookDownloads.current[book.id]?.state?.offlineMark
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (book.addedAt > 0) {
-            Text(DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(book.addedAt)), style = smallLineStyle(), maxLines = 1)
+            Text(formatEpisodeDay(book.addedAt, withTime), style = smallLineStyle(), maxLines = 1)
         }
         OfflineMarkIcon(mark, Modifier.padding(start = MarkGap).size(14.dp))
     }

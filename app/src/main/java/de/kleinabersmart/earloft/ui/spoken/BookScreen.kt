@@ -47,6 +47,11 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.Book
+import de.kleinabersmart.earloft.core.model.SeriesRef
+import de.kleinabersmart.earloft.core.model.parseSeries
+import de.kleinabersmart.earloft.navigation.BookGroupKind
+import androidx.compose.ui.text.style.TextAlign
+import java.text.NumberFormat
 import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.model.BookProgress
 import de.kleinabersmart.earloft.ui.components.GroupMargin
@@ -71,6 +76,7 @@ fun BookScreen(
     onBack: () -> Unit,
     onOpenPlayer: () -> Unit,
     onOpenFeed: (String) -> Unit,
+    onOpenGroup: (BookGroupKind, String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BookViewModel = hiltViewModel<BookViewModel, BookViewModel.Factory> { it.create(bookId) },
 ) {
@@ -132,6 +138,7 @@ fun BookScreen(
                 onCancelDownload = viewModel::removeDownload,
                 // Eine Folge ist klein und wird wie in der Folgenliste ohne Rückfrage gelöscht.
                 onDeleteDownload = { if (book.kind == BookKind.EPISODE) viewModel.removeDownload() else confirmDelete = true },
+                onOpenGroup = onOpenGroup,
                 trialNotice = trialFeedId?.let { feedId ->
                     @Composable {
                         TrialNotice(
@@ -181,6 +188,7 @@ private fun BookHeader(
     onDownload: () -> Unit,
     onCancelDownload: () -> Unit,
     onDeleteDownload: () -> Unit,
+    onOpenGroup: (BookGroupKind, String) -> Unit,
     trialNotice: (@Composable () -> Unit)? = null,
 ) {
     Column(
@@ -197,12 +205,41 @@ private fun BookHeader(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(top = 12.dp),
         )
-        Text(book.author, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Bei Büchern führen Autor und Serie zu deren Seite (Bibliothek → Autoren bzw. Serien); Folgen nennen den Podcast.
+        val isBook = book.kind == BookKind.BOOK
+        Text(
+            book.author,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = if (isBook && book.author.isNotBlank()) {
+                Modifier.clickable(onClickLabel = stringResource(R.string.book_open_author)) { onOpenGroup(BookGroupKind.AUTHOR, book.author.trim()) }
+            } else {
+                Modifier
+            },
+        )
+        if (isBook) {
+            parseSeries(book.series).forEach { series ->
+                Text(
+                    seriesLabel(series),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.clickable(onClickLabel = stringResource(R.string.book_open_series)) {
+                        onOpenGroup(BookGroupKind.SERIES, series.name)
+                    },
+                )
+            }
+        }
         if (book.narrator.isNotBlank()) {
             Text(book.narrator, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        // Podcast-Feeds nennen nicht immer eine Dauer.
-        if (book.durationMs > 0) Text(formatDuration(book.durationMs), style = MaterialTheme.typography.bodyMedium)
+        // Folgen: Erscheinen mit Uhrzeit (Nachrichten kommen mehrmals am Tag unter gleichem Titel). Podcast-Feeds nennen
+        // nicht immer eine Dauer.
+        val facts = listOfNotNull(
+            book.addedAt.takeIf { book.kind == BookKind.EPISODE && it > 0 }?.let { formatEpisodeDay(it, withTime = true) },
+            book.durationMs.takeIf { it > 0 }?.let(::formatDuration),
+        )
+        if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
         if (progress != null && progress.positionMs > 0) {
             LinearProgressIndicator(
                 progress = { if (progress.finished) 1f else progress.fraction },
@@ -311,6 +348,14 @@ private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter
             )
         }
     }
+}
+
+/** „Die Tribute von Panem · Band 2“; ohne Band nur der Name, „2.5“ bleibt „2,5“ bzw. „2.5“. */
+@Composable
+private fun seriesLabel(series: SeriesRef): String {
+    val sequence = series.sequence ?: return series.name
+    val number = if (sequence % 1.0 == 0.0) sequence.toLong().toString() else NumberFormat.getInstance().format(sequence)
+    return stringResource(R.string.book_series_volume, series.name, number)
 }
 
 @Composable

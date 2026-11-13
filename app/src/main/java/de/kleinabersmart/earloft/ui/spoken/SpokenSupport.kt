@@ -3,7 +3,11 @@ package de.kleinabersmart.earloft.ui.spoken
 import java.util.Locale
 import java.util.Date
 import java.util.Calendar
+import java.util.TimeZone
+import java.text.DateFormat
 import java.text.SimpleDateFormat
+import de.kleinabersmart.earloft.core.model.Book
+import de.kleinabersmart.earloft.core.model.BookKind
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.remember
@@ -512,3 +516,59 @@ fun formatEpisodeDate(ms: Long, now: Long = System.currentTimeMillis(), locale: 
     val pattern = if (yearOf(ms) == yearOf(now)) "MMM d" else "MMM d, yyyy"
     return SimpleDateFormat(pattern, locale).format(Date(ms))
 }
+
+/** Wie [formatEpisodeDate], mit [withTime] dahinter die Uhrzeit („Nov. 12 · 17:00“). */
+fun formatEpisodeDate(ms: Long, withTime: Boolean): String {
+    val date = formatEpisodeDate(ms)
+    return if (withTime) "$date · ${formatEpisodeTime(ms)}" else date
+}
+
+/** Datum der Folge in Listen („12.11.2026“), mit [withTime] auch die Uhrzeit. */
+fun formatEpisodeDay(ms: Long, withTime: Boolean): String =
+    if (withTime) {
+        DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(ms))
+    } else {
+        DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(ms))
+    }
+
+private fun formatEpisodeTime(ms: Long): String = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(ms))
+
+/**
+ * Folgen, die am selben Kalendertag erschienen sind wie eine andere Folge desselben Podcasts in [books] (Nachrichten
+ * mehrmals am Tag): Bei ihnen steht die Uhrzeit beim Datum, sonst wären sie nicht zu unterscheiden. Bücher und Folgen
+ * ohne Datum zählen nicht.
+ */
+fun episodesSharingDay(books: List<Book>, zone: TimeZone = TimeZone.getDefault()): Set<Long> {
+    val calendar = Calendar.getInstance(zone)
+    fun dayOf(ms: Long): Int {
+        calendar.timeInMillis = ms
+        return calendar.get(Calendar.YEAR) * 1000 + calendar.get(Calendar.DAY_OF_YEAR)
+    }
+    return books.filter { it.kind == BookKind.EPISODE && it.addedAt > 0 }
+        .groupBy { it.serverId to dayOf(it.addedAt) }
+        .values.filter { it.size > 1 }
+        .flatMapTo(mutableSetOf()) { group -> group.map { it.id } }
+}
+
+/**
+ * Folgen, deren Titel eine andere Folge desselben Podcasts in [books] auch trägt („tagesschau in 100 Sekunden“): Bei
+ * ihnen steht die erste Zeile der Shownotes unter dem Titel.
+ */
+fun episodesSharingTitle(books: List<Book>): Set<Long> =
+    books.filter { it.kind == BookKind.EPISODE }
+        .groupBy { it.serverId to it.title.trim().lowercase() }
+        .values.filter { it.size > 1 }
+        .flatMapTo(mutableSetOf()) { group -> group.map { it.id } }
+
+/**
+ * Die erste Zeile der Shownotes als reiner Text, die nicht nur den [title] wiederholt (ARD Sounds: Shownotes = Titel);
+ * leer, wenn es keine gibt.
+ */
+fun firstDescriptionLine(raw: String, title: String): String {
+    if (raw.isBlank()) return ""
+    val text = if ('<' in raw || '&' in raw) AnnotatedString.fromHtml(raw).text else raw
+    return firstLineOtherThan(text, title)
+}
+
+internal fun firstLineOtherThan(text: String, title: String): String =
+    text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() && !it.equals(title.trim(), ignoreCase = true) }.orEmpty()

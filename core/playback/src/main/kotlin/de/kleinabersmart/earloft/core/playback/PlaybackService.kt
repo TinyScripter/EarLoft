@@ -4,6 +4,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.ViewConfiguration
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -14,6 +17,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.SimpleCache
@@ -197,11 +201,23 @@ class PlaybackService : MediaLibraryService() {
 
         // Bei Büchern und Folgen gelten eigene, einstellbare Sprungweiten, siehe SpokenAwarePlayer.
         val sessionPlayer = SpokenAwarePlayer(player)
+        // Kopfhörer: Doppelklick bzw. „Weiter“ ins nächste Kapitel, ohne weiteres Kapitel bei Folgen in die nächste.
+        val mediaButtons = SpokenMediaButtons(
+            handler = Handler(Looper.getMainLooper()),
+            doubleTapTimeoutMs = ViewConfiguration.getDoubleTapTimeout().toLong(),
+            isSpoken = { player.currentMediaItem?.isSpoken == true },
+            playPause = { Util.handlePlayPauseButtonAction(player) },
+            next = {
+                if (!bookListener.skipChapter(forward = true)) player.currentMediaItem?.takeIf { it.isEpisode }?.bookId?.let { skipToNextEpisode(player, it) }
+            },
+            previous = { if (!bookListener.skipChapter(forward = false)) player.seekToPrevious() },
+        )
         session = MediaLibrarySession.Builder(
             this,
             sessionPlayer,
             LibrarySessionCallback(
                 this, libraryRepository, favoritesRepository, queuePersistence, bookPlaybackSource, browseTree, continueListening, factory, mainScope,
+                mediaButtons = mediaButtons,
             ) {
                 restoreJob?.join()
             },
@@ -263,6 +279,24 @@ class PlaybackService : MediaLibraryService() {
                 else -> false
             }
             if (stillWaiting) player.playBook(prepared)
+        }
+    }
+
+    /**
+     * Kopfhörertaste ohne weiteres Kapitel: die nächste Folge der Warteschlange wie „Nächste Folge“ im Player
+     * (unabhängig vom automatischen Weiterspielen); sie spielt, wenn die bisherige lief.
+     */
+    private fun skipToNextEpisode(player: Player, currentId: Long) {
+        val autoPlay = player.playWhenReady
+        mainScope.launch {
+            val prepared = withContext(Dispatchers.IO) {
+                continueListening.next(currentId)?.let { next ->
+                    continueListening.started(next)
+                    bookPlaybackSource.prepare(next)
+                }
+            } ?: return@launch
+            // Inzwischen etwas anderes gestartet: dabei bleiben.
+            if (player.currentMediaItem?.bookId == currentId) player.playBook(prepared, autoPlay = autoPlay)
         }
     }
 

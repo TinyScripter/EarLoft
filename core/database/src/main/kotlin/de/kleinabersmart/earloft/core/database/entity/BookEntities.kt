@@ -141,4 +141,9 @@ data class BookProgressEntity(
     val speed: Float = 1f,
     val updatedAt: Long,
     val dirty: Boolean = false,
+    /**
+     * Aus „Weiterhören“ genommen (Langklick, oder zurückgesetzt), bei Audiobookshelf `hideFromContinueListening`. Der
+     * Stand bleibt; sobald das Buch wieder läuft, fällt der Merker (Schema v24).
+     */
+    @ColumnInfo(defaultValue = "0") val hidden: Boolean = false,
 )

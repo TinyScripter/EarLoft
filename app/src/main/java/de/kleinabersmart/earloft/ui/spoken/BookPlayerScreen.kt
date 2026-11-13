@@ -71,7 +71,9 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.cast.CastButton
 import de.kleinabersmart.earloft.cast.rememberCastDeviceName
 import de.kleinabersmart.earloft.ui.theme.PlayerColorTheme
+import de.kleinabersmart.earloft.core.model.Book
 import de.kleinabersmart.earloft.core.model.BookKind
+import androidx.compose.ui.text.TextStyle
 import de.kleinabersmart.earloft.core.model.BookTimeline
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.ui.components.FitSquare
@@ -304,6 +306,7 @@ private fun BookPlayerContent(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            EpisodeDateLine(bookWithProgress?.book, MaterialTheme.typography.bodyMedium)
             if (castDeviceName != null) {
                 Text(
                     stringResource(R.string.cast_playing_on, castDeviceName),
@@ -373,6 +376,7 @@ private fun BookPlayerContent(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
+                        EpisodeDateLine(bookWithProgress?.book, MaterialTheme.typography.bodySmall)
                         if (castDeviceName != null) {
                             Text(
                                 stringResource(R.string.cast_playing_on, castDeviceName),
@@ -763,6 +767,18 @@ fun SpokenMiniPlayer(
             }
         }
     }
+}
+
+/** Unter dem Podcast-Namen: wann die Folge erschien, mit Uhrzeit. Bücher und Folgen ohne Datum: nichts. */
+@Composable
+private fun EpisodeDateLine(book: Book?, style: TextStyle) {
+    val publishedAt = book?.takeIf { it.kind == BookKind.EPISODE }?.addedAt?.takeIf { it > 0 } ?: return
+    Text(
+        formatEpisodeDay(publishedAt, withTime = true),
+        style = style,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+    )
 }
 
 private const val MIN_SPEED = 0.5f

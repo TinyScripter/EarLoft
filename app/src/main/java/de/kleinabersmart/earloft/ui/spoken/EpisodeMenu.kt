@@ -58,6 +58,15 @@ fun EpisodeMenu(
                 onDismiss()
             },
         )
+        // Bücher in „Weiterhören“: herausnehmen, ohne den Stand zu verlieren (Folgen: „Aus Warteschlange entfernen“).
+        val progress = item.progress
+        if (!item.isEpisode && progress != null && !progress.finished && !progress.hidden) DropdownMenuItem(
+            text = { Text(stringResource(R.string.book_hide_from_continue)) },
+            onClick = {
+                viewModel.hideFromContinueListening(item)
+                onDismiss()
+            },
+        )
         DropdownMenuItem(
             text = { Text(stringResource(if (played) R.string.episode_mark_unplayed else R.string.episode_mark_played)) },
             onClick = {

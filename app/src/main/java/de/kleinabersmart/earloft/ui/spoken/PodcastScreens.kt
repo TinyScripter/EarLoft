@@ -115,8 +115,6 @@ import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.settings.SwitchRow
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import kotlinx.coroutines.launch
-import java.text.DateFormat
-import java.util.Date
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
@@ -155,6 +153,7 @@ fun PodcastHomeScreen(
                         contentPadding = PaddingValues(horizontal = ShelfInset),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        val sameDay = episodesSharingDay(episodes.map { it.book })
                         items(episodes, key = { it.book.id }) { item ->
                             BookCard(
                                 item,
@@ -162,6 +161,7 @@ fun PodcastHomeScreen(
                                 modifier = Modifier.width(140.dp).rowItemAnimation(this),
                                 onPlay = { viewModel.playOrPause(item.book.id) },
                                 playing = item.book.id == playingId,
+                                withTime = item.book.id in sameDay,
                             )
                         }
                     }
@@ -342,6 +342,7 @@ private fun UnheardList(
                         contentPadding = PaddingValues(horizontal = ShelfInset),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        val sameDay = episodesSharingDay(episodes.map { it.book })
                         items(episodes, key = { it.book.id }) { item ->
                             BookCard(
                                 item,
@@ -349,6 +350,7 @@ private fun UnheardList(
                                 modifier = Modifier.width(140.dp),
                                 onPlay = { onPlay(item.book.id) },
                                 playing = item.book.id == playingId,
+                                withTime = item.book.id in sameDay,
                             )
                         }
                     }
@@ -492,9 +494,14 @@ fun PodcastScreen(
                 } else if (episodes is LoadState.Ready && list.isEmpty()) {
                     item(key = "empty") { EmptyHint(stringResource(R.string.podcast_no_episodes)) }
                 }
+                // Mehrere Folgen am selben Tag bzw. mit gleichem Titel: Uhrzeit bzw. erste Zeile der Shownotes dazu.
+                val sameDay = episodesSharingDay(list.map { it.book })
+                val sameTitle = episodesSharingTitle(list.map { it.book })
                 groupedItems(list, key = { it.book.id }) { item ->
                     EpisodeRow(
                         item,
+                        withTime = item.book.id in sameDay,
+                        withNotes = item.book.id in sameTitle,
                         download = downloadStates[item.book.id] ?: TrackDownload.NONE,
                         downloadFraction = downloadProgress[item.book.id],
                         playing = item.book.id == playingId,
@@ -579,9 +586,13 @@ fun PodcastSearchScreen(
             trimmed.isEmpty() -> Unit
             hits.isEmpty() -> if (settled) EmptyHint(stringResource(R.string.search_no_results, trimmed))
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+                val sameDay = episodesSharingDay(hits.map { it.book })
+                val sameTitle = episodesSharingTitle(hits.map { it.book })
                 groupedItems(hits, key = { it.book.id }) { item ->
                     EpisodeRow(
                         item,
+                        withTime = item.book.id in sameDay,
+                        withNotes = item.book.id in sameTitle,
                         download = downloadStates[item.book.id] ?: TrackDownload.NONE,
                         downloadFraction = downloadProgress[item.book.id],
                         playing = item.book.id == playingId,
@@ -859,6 +870,8 @@ private fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: (
 @Composable
 private fun EpisodeRow(
     item: BookWithProgress,
+    withTime: Boolean,
+    withNotes: Boolean,
     download: TrackDownload,
     downloadFraction: Float?,
     playing: Boolean,
@@ -876,8 +889,12 @@ private fun EpisodeRow(
             headlineContent = { Text(book.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
             supportingContent = {
                 Column {
+                    if (withNotes) {
+                        val notes = remember(book.description, book.title) { firstDescriptionLine(book.description, book.title) }
+                        if (notes.isNotEmpty()) Text(notes, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                     val facts = listOfNotNull(
-                        book.addedAt.takeIf { it > 0 }?.let { DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it)) },
+                        book.addedAt.takeIf { it > 0 }?.let { formatEpisodeDay(it, withTime) },
                         book.durationMs.takeIf { it > 0 }?.let(::formatDuration),
                     ).joinToString(" · ")
                     if (facts.isNotEmpty()) Text(facts)

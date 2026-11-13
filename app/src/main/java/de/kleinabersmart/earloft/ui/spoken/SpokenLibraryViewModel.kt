@@ -6,12 +6,16 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.data.podcast.EpisodeQueue
+import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.earloft.core.model.BookWithProgress
+import de.kleinabersmart.earloft.core.model.SpokenServer
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.asLoadState
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -23,6 +27,7 @@ class SpokenLibraryViewModel @Inject constructor(
     private val launcher: BookLauncher,
     private val playback: PlaybackConnection,
     queue: EpisodeQueue,
+    private val refresher: SpokenRefresher,
 ) : ViewModel() {
 
     /** Das Buch, das gerade läuft (nicht: pausiert). */
@@ -53,4 +58,16 @@ class SpokenLibraryViewModel @Inject constructor(
     /** `null`, solange noch geladen wird. */
     val hasServer: StateFlow<Boolean?> = servers.servers.map<_, Boolean?> { it.isNotEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Ein eingeschalteter Server ohne gültige Anmeldung bzw. ohne API-Key (abgelaufen, nach einer Wiederherstellung): Ist
+     * die Bibliothek leer, sagt sie das statt „noch keine Bücher“.
+     */
+    val signInNeeded: StateFlow<SpokenServer?> = combine(servers.servers, servers.serversWithoutKey) { list, missing ->
+        list.firstOrNull { it.enabled && it.serverId in missing }
+    }
+        .catch { emit(null) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun syncNow() = refresher.refreshAll()
 }

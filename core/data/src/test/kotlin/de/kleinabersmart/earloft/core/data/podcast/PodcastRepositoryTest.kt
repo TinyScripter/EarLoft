@@ -200,16 +200,19 @@ class PodcastRepositoryTest {
     fun `book search keeps episodes and books apart and lists book authors once`() = runTest {
         subscribe()
         val dao = db.bookDao()
-        fun book(title: String, author: String) = BookEntity(
-            serverId = "abs", remoteId = title, title = title, normTitle = title.lowercase(), author = author, durationMs = 1,
+        fun book(title: String, author: String, narrator: String = "") = BookEntity(
+            serverId = "abs", remoteId = title, title = title, normTitle = title.lowercase(), author = author, narrator = narrator, durationMs = 1,
         )
         val first = dao.insertBook(book("Dune", "Frank Herbert"))
         dao.insertBook(book("Dune Messiah", "Frank Herbert"))
+        dao.insertBook(book("Harry Potter", "J. K. Rowling", narrator = "Rufus Beck"))
 
         assertEquals(listOf("A", "B", "C"), dao.search(BookKind.EPISODE, "%podcast%", 10).map { it.title }.sorted())
         assertEquals(emptyList<String>(), dao.search(BookKind.BOOK, "%podcast%", 10).map { it.title })
         assertEquals(listOf("Dune", "Dune Messiah"), dao.search(BookKind.BOOK, "%dune%", 10).map { it.title })
         assertEquals(emptyList<String>(), dao.search(BookKind.EPISODE, "%dune%", 10).map { it.title })
+        // Sprecher zählen mit, unabhängig von Groß- und Kleinschreibung.
+        assertEquals(listOf("Harry Potter"), dao.search(BookKind.BOOK, "%rufus beck%", 10).map { it.title })
         assertEquals(listOf(AuthorHit("Frank Herbert", first, 2)), dao.searchAuthors("%herbert%", 10))
         assertEquals(emptyList<AuthorHit>(), dao.searchAuthors("%podcast%", 10))
     }

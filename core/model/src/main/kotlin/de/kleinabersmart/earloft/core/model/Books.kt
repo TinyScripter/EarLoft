@@ -91,6 +91,8 @@ data class BookProgress(
     val updatedAt: Long,
     /** Noch nicht an den Server gemeldet. */
     val dirty: Boolean = false,
+    /** Aus „Weiterhören“ genommen, ohne den Stand zu verlieren (Audiobookshelf: `hideFromContinueListening`). */
+    val hidden: Boolean = false,
 ) {
     val fraction: Float get() = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
 }

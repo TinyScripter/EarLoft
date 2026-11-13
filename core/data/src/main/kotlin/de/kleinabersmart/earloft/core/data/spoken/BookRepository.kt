@@ -39,7 +39,7 @@ class BookRepository @Inject constructor(
 
     /**
      * Gestartete, noch nicht beendete Bücher, zuletzt gestartete oder gehörte zuerst. Ein Buch zählt ab dem Start, auch
-     * bei Position 0 (siehe [touchProgress]).
+     * bei Position 0 (siehe [touchProgress]); herausgenommene ([BookProgressEntity.hidden]) fehlen, bis sie wieder laufen.
      */
     fun continueListening(limit: Int = 12, startOrder: Flow<List<Long>> = flowOf(emptyList())): Flow<List<BookWithProgress>> =
         combine(dao.observeBooks(), dao.observeAllProgress(), startOrder) { books, progress, order ->
@@ -48,7 +48,7 @@ class BookRepository @Inject constructor(
             // gilt zuerst die Startreihenfolge und erst dahinter der Zeitpunkt der letzten Änderung.
             val rank = order.withIndex().associate { it.value to it.index }
             progress
-                .filter { !it.finished }
+                .filter { !it.finished && !it.hidden }
                 .sortedWith(compareBy<BookProgressEntity> { rank[it.bookId] ?: Int.MAX_VALUE }.thenByDescending { it.updatedAt })
                 .mapNotNull { p -> byId[p.bookId]?.let { BookWithProgress(it.toModel(), p.toModel()) } }
                 .take(limit)
@@ -57,8 +57,9 @@ class BookRepository @Inject constructor(
     /** Zuletzt hinzugefügte Bücher, die noch nicht angefangen sind. */
     fun recentlyAdded(limit: Int = 12): Flow<List<BookWithProgress>> =
         books().map { list ->
-            // Gestartete Bücher stehen in „Weiterhören“, nicht hier.
-            list.filter { item -> item.progress.let { it == null || (it.positionMs == 0L && it.finished) } }
+            // Gestartete Bücher stehen in „Weiterhören“, nicht hier. Zurückgesetzte („ungehört“, Position 0) zählen wieder
+            // als nicht angefangen; nur herausgenommene mit Stand bleiben in keiner der beiden Zeilen.
+            list.filter { item -> item.progress.let { it == null || (it.hidden && it.positionMs == 0L && !it.finished) } }
                 .sortedByDescending { it.book.addedAt }
                 .take(limit)
         }
@@ -70,7 +71,7 @@ class BookRepository @Inject constructor(
     suspend fun touchProgress(bookId: Long, startPositionMs: Long, durationMs: Long, speed: Float) {
         val old = dao.progress(bookId)
         dao.upsertProgress(
-            old?.copy(positionMs = startPositionMs, finished = false, updatedAt = System.currentTimeMillis())
+            old?.copy(positionMs = startPositionMs, finished = false, updatedAt = System.currentTimeMillis(), hidden = false)
                 ?: BookProgressEntity(bookId, startPositionMs, durationMs, finished = false, speed = speed, updatedAt = System.currentTimeMillis()),
         )
     }
@@ -118,7 +119,7 @@ class BookRepository @Inject constructor(
     /** Dateien des Buchs mit ihren Server-IDs, für die Medien-URLs. */
     suspend fun trackFiles(bookId: Long): List<BookTrack> = dao.tracks(bookId).map { it.toModel() }
 
-    /** Sucht Bücher ([BookKind.BOOK]) bzw. Podcast-Folgen ([BookKind.EPISODE]) nach Titel und Autor. */
+    /** Sucht Bücher ([BookKind.BOOK]) bzw. Podcast-Folgen ([BookKind.EPISODE]) nach Titel, Autor und Sprecher. */
     suspend fun search(query: String, kind: BookKind = BookKind.BOOK, limit: Int = 20): List<BookWithProgress> {
         val pattern = likePattern(query) ?: return emptyList()
         return dao.search(kind, pattern, limit).map { BookWithProgress(it.toModel(), dao.progress(it.bookId)?.toModel()) }
@@ -191,4 +192,4 @@ internal fun BookTrackEntity.toModel() = BookTrack(
     localPath = filePath.takeIf { downloadState == TrackDownload.DONE },
 )
 
-internal fun BookProgressEntity.toModel() = BookProgress(positionMs, durationMs, finished, speed, updatedAt, dirty)
+internal fun BookProgressEntity.toModel() = BookProgress(positionMs, durationMs, finished, speed, updatedAt, dirty, hidden)

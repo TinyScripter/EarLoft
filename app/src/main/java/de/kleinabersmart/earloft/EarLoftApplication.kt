@@ -30,6 +30,7 @@ import de.kleinabersmart.earloft.ui.image.AuthorImageFetcher
 import de.kleinabersmart.earloft.ui.image.BookCoverFetcher
 import de.kleinabersmart.earloft.ui.image.StoredPodcastImageFetcher
 import de.kleinabersmart.earloft.wear.PhoneInfoPublisher
+import de.kleinabersmart.earloft.core.playback.QueuePersistence
 import de.kleinabersmart.earloft.core.playback.TrialPodcastCleaner
 import de.kleinabersmart.earloft.wear.WearPublisher
 import de.kleinabersmart.earloft.wear.WearRemotePublisher
@@ -53,6 +54,7 @@ class EarLoftApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var episodeDownloads: EpisodeDownloads
     @Inject lateinit var bookDownloads: BookDownloads
     @Inject lateinit var trialPodcastCleaner: TrialPodcastCleaner
+    @Inject lateinit var queuePersistence: QueuePersistence
     @Inject lateinit var podcastSettings: PodcastSettings
     @Inject lateinit var syncQueueStarter: SyncQueueStarter
     @Inject lateinit var phoneInfoPublisher: PhoneInfoPublisher
@@ -73,7 +75,7 @@ class EarLoftApplication : Application(), SingletonImageLoader.Factory {
         spokenRefresher.start()
         podcastRefresher.start()
         autoDownloads.start(applicationScope)
-        episodeDownloads.start(applicationScope)
+        episodeDownloads.start(applicationScope, queuePersistence.lastBookIds)
         bookDownloads.start(applicationScope)
         trialPodcastCleaner.start(applicationScope)
         offlineImages.start()

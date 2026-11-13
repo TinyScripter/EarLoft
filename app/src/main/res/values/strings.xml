@@ -526,7 +526,11 @@
     <string name="spoken_continue">Continue listening</string>
     <string name="spoken_recent">Recently added</string>
     <string name="spoken_no_server">No Audiobookshelf server set up yet.</string>
-    <string name="spoken_no_books">No books yet. Pull down in Settings to sync.</string>
+    <string name="spoken_no_books">No books yet.</string>
+    <string name="spoken_login_expired">The sign-in to “%1$s” has expired. Sign in again to see its books.</string>
+    <string name="spoken_key_missing">“%1$s” needs its API key again (for example after restoring on another device).</string>
+    <string name="spoken_sign_in_again">Sign in again</string>
+    <string name="spoken_enter_key">Enter API key</string>
     <string name="spoken_setup">Set up Audiobookshelf</string>
     <string name="spoken_play">Play</string>
     <string name="spoken_resume">Resume</string>
@@ -692,6 +696,10 @@
     <string name="episode_mark_played">Mark as played</string>
     <string name="episode_mark_unplayed">Mark as unplayed</string>
     <string name="episode_reset_position">Reset playback position</string>
+    <string name="book_hide_from_continue">Remove from Continue listening</string>
+    <string name="book_series_volume">%1$s · Book %2$s</string>
+    <string name="book_open_series">Open series</string>
+    <string name="book_open_author">Open author</string>
     <string name="episode_delete_download">Delete download</string>
     <string name="podcast_info">Info</string>
     <string name="podcast_settings">Settings</string>

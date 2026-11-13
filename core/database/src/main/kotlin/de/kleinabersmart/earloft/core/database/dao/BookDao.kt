@@ -101,7 +101,11 @@ abstract class BookDao {
     )
     abstract fun observeImageStamp(): Flow<String>
 
-    @Query("SELECT * FROM books WHERE kind = :kind AND (normTitle LIKE :pattern ESCAPE '\\' OR author LIKE :pattern ESCAPE '\\') AND $BOOK_LISTED ORDER BY normTitle LIMIT :limit")
+    /** Titel, Autor und – bei Hörbüchern wählen viele danach – Sprecher. */
+    @Query(
+        "SELECT * FROM books WHERE kind = :kind AND (normTitle LIKE :pattern ESCAPE '\\' OR author LIKE :pattern ESCAPE '\\' " +
+            "OR narrator LIKE :pattern ESCAPE '\\') AND $BOOK_LISTED ORDER BY normTitle LIMIT :limit",
+    )
     abstract suspend fun search(kind: BookKind, pattern: String, limit: Int): List<BookEntity>
 
     /** Bücher, in deren Serienangabe [pattern] vorkommt; welche Serie genau passt, entscheidet der Aufrufer. */

@@ -236,6 +236,7 @@ fun EarLoftApp(
     val openPodcastSettings: (String) -> Unit = { navigator.navigate(PodcastSettingsRoute(it)) }
     val openAddPodcast: () -> Unit = { navigator.navigate(AddPodcastRoute()) }
     val setupAudiobookshelf: () -> Unit = { navigator.navigate(AddAudiobookshelfRoute) }
+    val editAudiobookshelf: (String) -> Unit = { navigator.navigate(EditAudiobookshelfRoute(it)) }
     // Modus gewechselt: die Detailspalte des vorigen Modus schließen (Tab auf seine Startseite zurück).
     val closeDetail: () -> Unit = { navigator.navigate(navigationState.topLevelRoute) }
     val openSearch: () -> Unit = { navigator.navigate(SearchRoute()) }
@@ -264,7 +265,7 @@ fun EarLoftApp(
                         onOpenQueue = { navigator.navigate(PodcastQueueRoute) },
                         onAddPodcast = openAddPodcast,
                     ) },
-                books = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf) },
+                books = { SpokenHomeScreen(onBookClick = openBook, onSetup = setupAudiobookshelf, onEditServer = editAudiobookshelf) },
                 onModeChange = closeDetail,
                 onSearch = openSearch,
                 onOpenAreaSettings = openAreaSettings,
@@ -295,6 +296,7 @@ fun EarLoftApp(
                         onBookClick = openBook,
                         onGroupClick = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
                         onSetup = setupAudiobookshelf,
+                        onEditServer = editAudiobookshelf,
                     )
                 },
                 onModeChange = closeDetail,
@@ -309,6 +311,7 @@ fun EarLoftApp(
                 onBack = navigator::goBack,
                 onOpenPlayer = navigator::showNowPlaying,
                 onOpenFeed = navigator::showFeed,
+                onOpenGroup = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
             )
         }
         entry<PodcastRoute>(metadata = detailPane()) { route ->

@@ -19,12 +19,14 @@ import de.kleinabersmart.earloft.core.database.dao.FinishedDownloadRow
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
@@ -52,6 +54,9 @@ class EpisodeDownloads @Inject constructor(
     private val userData: UserDataBackup,
 ) {
     private val started = AtomicBoolean(false)
+
+    /** Die Folge bzw. das Buch, das im Player geladen ist (aus [start]); deren Datei bleibt beim Aufräumen gehörter Folgen. */
+    private var loadedBookId: Flow<Long?> = flowOf(null)
 
     /**
      * Reiht die Folge ein, falls sie noch nicht geladen ist oder wird. Das Ergebnis sagt, ob der Download gleich
@@ -112,10 +117,14 @@ class EpisodeDownloads @Inject constructor(
         if (dao.queueLatestUnheard(feedId, settings.autoDownloadCount.first()) > 0) enqueueWorker()
     }
 
-    /** Hängt die Automatik an die Abgleiche und den Schalter; einmal beim Start der App. */
+    /**
+     * Hängt die Automatik an die Abgleiche und den Schalter; einmal beim Start der App. [loadedBookId]: was im Player
+     * geladen ist – eine Folge gilt schon beim Anhalten kurz vor dem Ende als gehört, lässt sich aber weiterhören.
+     */
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun start(scope: CoroutineScope) {
+    fun start(scope: CoroutineScope, loadedBookId: Flow<Long?> = flowOf(null)) {
         if (!started.compareAndSet(false, true)) return
+        this.loadedBookId = loadedBookId
         scope.launch {
             merge(
                 podcasts.refreshed,
@@ -140,11 +149,11 @@ class EpisodeDownloads @Inject constructor(
             }
         }
         // Zu Ende gehörte Folgen: der Download verfällt nach der eingestellten Zeit. Solange die App läuft, prüft jede
-        // Änderung des Fortschritts und der Einstellung („sofort“ löscht beim Ende der Folge); abgelaufene Fristen
-        // räumt der tägliche HeardCleanupWorker auf.
+        // Änderung des Fortschritts, der Einstellung und des geladenen Titels („sofort“ löscht beim Ende der Folge bzw.
+        // sobald sie nicht mehr im Player liegt); abgelaufene Fristen räumt der tägliche HeardCleanupWorker auf.
         scope.launch {
-            combine(dao.observeFinishedDownloads(), settings.deleteHeardAfterDays, ::Pair)
-                .collect { (finished, days) -> removeExpired(finished, days) }
+            combine(dao.observeFinishedDownloads(), settings.deleteHeardAfterDays, loadedBookId, ::Triple)
+                .collect { (finished, days, loaded) -> removeExpired(finished, days, loaded) }
         }
         scope.launch { HeardCleanupWorker.schedule(context) }
         scope.launch {
@@ -156,11 +165,11 @@ class EpisodeDownloads @Inject constructor(
 
     /** Löscht die Downloads zu Ende gehörter Folgen, deren Frist abgelaufen ist. @return Anzahl. */
     suspend fun removeExpiredHeard(): Int =
-        removeExpired(dao.observeFinishedDownloads().first(), settings.deleteHeardAfterDays.first())
+        removeExpired(dao.observeFinishedDownloads().first(), settings.deleteHeardAfterDays.first(), loadedBookId.first())
 
-    private suspend fun removeExpired(finished: List<FinishedDownloadRow>, days: Int): Int {
+    private suspend fun removeExpired(finished: List<FinishedDownloadRow>, days: Int, loaded: Long?): Int {
         // Die Datei ist fertig, wenn sie zuletzt geschrieben wurde (Umbenennen ändert die Zeit nicht).
-        val heard = finished.map { HeardDownload(it.bookId, it.finishedAt, it.filePath?.let(::File)?.lastModified() ?: 0L) }
+        val heard = finished.filter { it.bookId != loaded }.map { HeardDownload(it.bookId, it.finishedAt, it.filePath?.let(::File)?.lastModified() ?: 0L) }
         return expiredHeardDownloads(heard, days, System.currentTimeMillis()).onEach { remove(it) }.size
     }
 

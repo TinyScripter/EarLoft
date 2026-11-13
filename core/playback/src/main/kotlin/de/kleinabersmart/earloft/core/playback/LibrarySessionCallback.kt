@@ -6,6 +6,8 @@ import android.annotation.SuppressLint
 import android.content.res.Resources
 import android.os.Bundle
 import android.util.Log
+import android.os.Build
+import android.view.KeyEvent
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -62,6 +64,8 @@ internal class LibrarySessionCallback(
     private val continueListening: ContinueListening,
     private val playerFactory: SessionPlayerFactory?,
     private val scope: CoroutineScope,
+    /** Kopfhörer- und Medientasten bei Büchern und Folgen; `null`: alles wie Media3. */
+    private val mediaButtons: SpokenMediaButtons? = null,
     /** Wartet, bis der Service die letzte Warteschlange wiederhergestellt hat ([PlaybackService.restoreQueue]). */
     private val awaitRestore: suspend () -> Unit = {},
 ) : MediaLibrarySession.Callback {
@@ -151,6 +155,25 @@ internal class LibrarySessionCallback(
             session.notifyChildrenChanged(browser, parentId, Int.MAX_VALUE, params)
         }
         LibraryResult.ofVoid()
+    }
+
+    /** Bei Büchern und Folgen springen Doppelklick und „Weiter“ ins nächste Kapitel ([SpokenMediaButtons]). */
+    override fun onMediaButtonEvent(session: MediaSession, controllerInfo: MediaSession.ControllerInfo, intent: Intent): Boolean {
+        val event = keyEventOf(intent) ?: return false
+        val external = controllerInfo.controllerVersion == MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION
+        return mediaButtons?.onMediaButton(event, external) ?: false
+    }
+
+    /** Wie Media3 (`DefaultActionFactory.getKeyEvent`): kaputte Extras sind keine Taste. */
+    private fun keyEventOf(intent: Intent): KeyEvent? = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT)
+        }
+    } catch (_: RuntimeException) {
+        null
     }
 
     private fun areaDisabled() = SessionError(SessionError.ERROR_NOT_SUPPORTED, context.getString(R.string.area_disabled))

@@ -519,7 +519,11 @@
     <string name="spoken_continue">Weiterhören</string>
     <string name="spoken_recent">Zuletzt hinzugefügt</string>
     <string name="spoken_no_server">Noch kein Audiobookshelf-Server eingerichtet.</string>
-    <string name="spoken_no_books">Noch keine Bücher. In den Einstellungen abgleichen.</string>
+    <string name="spoken_no_books">Noch keine Bücher.</string>
+    <string name="spoken_login_expired">Die Anmeldung bei „%1$s“ ist abgelaufen. Melde dich neu an, um die Bücher zu sehen.</string>
+    <string name="spoken_key_missing">„%1$s“ braucht seinen API-Key neu (z. B. nach einer Wiederherstellung auf einem anderen Gerät).</string>
+    <string name="spoken_sign_in_again">Neu anmelden</string>
+    <string name="spoken_enter_key">API-Key eingeben</string>
     <string name="spoken_setup">Audiobookshelf einrichten</string>
     <string name="spoken_play">Abspielen</string>
     <string name="spoken_resume">Weiterhören</string>
@@ -685,6 +689,10 @@
     <string name="episode_mark_played">Als abgespielt markieren</string>
     <string name="episode_mark_unplayed">Als ungespielt markieren</string>
     <string name="episode_reset_position">Wiedergabeposition zurücksetzen</string>
+    <string name="book_hide_from_continue">Aus „Weiterhören“ entfernen</string>
+    <string name="book_series_volume">%1$s · Band %2$s</string>
+    <string name="book_open_series">Serie öffnen</string>
+    <string name="book_open_author">Autor öffnen</string>
     <string name="episode_delete_download">Download löschen</string>
     <string name="podcast_info">Info</string>
     <string name="podcast_settings">Einstellungen</string>

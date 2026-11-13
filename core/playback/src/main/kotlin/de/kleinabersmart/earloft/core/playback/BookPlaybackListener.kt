@@ -176,6 +176,24 @@ internal class BookPlaybackListener(
         player.seekTo(index, located.offsetMs)
     }
 
+    /**
+     * Kopfhörer- und Medientasten ([SpokenMediaButtons]): ins nächste Kapitel bzw. an den Anfang des Kapitels oder ins
+     * vorige (Regel der Kapitelknöpfe, 3 s). `false`, wenn es keine Kapitel bzw. kein weiteres gibt oder die Zeitachse
+     * noch lädt.
+     */
+    fun skipChapter(forward: Boolean): Boolean {
+        val item = player.currentMediaItem ?: return false
+        val bookId = item.bookId ?: return false
+        val timeline = timeline?.takeIf { timelineBookId == bookId && it.chapters.isNotEmpty() } ?: return false
+        val position = timeline.toBookPosition(item.bookTrackIndex ?: 0, player.currentPosition)
+        val target = if (forward) timeline.nextChapter(position)?.startMs else timeline.previousChapterStart(position)
+        target ?: return false
+        val located = timeline.locate(target)
+        val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).bookTrackIndex == located.trackIndex } ?: return false
+        player.seekTo(index, located.offsetMs)
+        return true
+    }
+
     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
         meter.setSpeed(playbackParameters.speed)
         if (player.isPlaying) sampleRemoteEnd()
@@ -195,9 +213,10 @@ internal class BookPlaybackListener(
             if (player.isPlaying) sampleRemoteEnd() else remoteEnd.reset()
         }
         // Ein anderes Buch (oder Musik) beginnt: den Stand des bisherigen festhalten.
-        val oldBookId = oldPosition.mediaItem?.bookId ?: return
+        val oldItem = oldPosition.mediaItem ?: return
+        val oldBookId = oldItem.bookId ?: return
         if (oldBookId == newPosition.mediaItem?.bookId) return
-        record(oldBookId, oldPosition.mediaItem?.bookTrackIndex ?: 0, oldPosition.positionMs, force = true)
+        record(oldBookId, oldItem.isEpisode, oldItem.bookTrackIndex ?: 0, oldPosition.positionMs, force = true)
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -327,23 +346,22 @@ internal class BookPlaybackListener(
     private fun recordCurrent(force: Boolean) {
         val item = player.currentMediaItem ?: return
         val bookId = item.bookId ?: return
-        record(bookId, item.bookTrackIndex ?: 0, player.currentPosition, force)
+        record(bookId, item.isEpisode, item.bookTrackIndex ?: 0, player.currentPosition, force)
     }
 
-    private fun record(bookId: Long, trackIndex: Int, positionInTrackMs: Long, force: Boolean) {
+    private fun record(bookId: Long, isEpisode: Boolean, trackIndex: Int, positionInTrackMs: Long, force: Boolean) {
         if (bookId !in touched) return
         val timeline = timeline.takeIf { timelineBookId == bookId } ?: return
         val position = timeline.toBookPosition(trackIndex, positionInTrackMs)
-        // Ohne bekannte Dauer (Folge, deren Länge noch nicht gelernt ist) kann es nicht zu Ende sein.
-        val finished = (timeline.durationMs > 0 && position >= timeline.durationMs - FINISHED_TOLERANCE_MS) ||
-            (player.playbackState == Player.STATE_ENDED && player.currentMediaItem?.bookId == bookId)
+        val current = player.currentMediaItem?.bookId == bookId
+        // Angehalten: nicht mehr im Player oder nicht mehr gewollt; Puffern zählt nicht.
+        val stopped = !current || !player.playWhenReady
+        val finished = isFinishedAt(position, timeline.durationMs, isEpisode, stopped) ||
+            (player.playbackState == Player.STATE_ENDED && current)
         persistScope.launch { progressSync.record(bookId, position, timeline.durationMs, finished, force) }
     }
 
     private companion object {
         const val SAVE_INTERVAL_MS = 15_000L
-
-        /** So kurz vor dem Ende gilt ein Buch als zu Ende gehört (Abspann). */
-        const val FINISHED_TOLERANCE_MS = 5_000L
     }
 }

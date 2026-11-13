@@ -59,8 +59,9 @@ class BookProgressSync @Inject constructor(
     /**
      * Hält die Position fest. Gesendet wird höchstens alle [PUSH_INTERVAL_MS], mit [force] (Pause, Titelwechsel,
      * Stop) sofort. Schlägt das Senden fehl, bleibt der Eintrag `dirty` und [BookProgressWorker] holt es nach.
+     * [hidden]: aus „Weiterhören“ nehmen (zurücksetzen, „ungehört“); jeder andere Stand holt das Buch wieder hinein.
      */
-    suspend fun record(bookId: Long, positionMs: Long, durationMs: Long, finished: Boolean, force: Boolean = false) {
+    suspend fun record(bookId: Long, positionMs: Long, durationMs: Long, finished: Boolean, force: Boolean = false, hidden: Boolean = false) {
         // Abo beendet bzw. Buch gelöscht, während es noch im Player liegt: kein Fortschritt mehr (Fremdschlüssel).
         if (dao.book(bookId) == null) return
         val previous = dao.progress(bookId)
@@ -75,10 +76,22 @@ class BookProgressSync @Inject constructor(
                 speed = speed,
                 updatedAt = System.currentTimeMillis(),
                 dirty = true,
+                hidden = hidden,
             ),
         )
         val sinceLastPush = System.currentTimeMillis() - (lastPush[bookId] ?: 0)
         if (force || sinceLastPush >= PUSH_INTERVAL_MS) push(bookId)
+    }
+
+    /**
+     * „Aus Weiterhören entfernen“: Der Stand bleibt, das Buch steht aber in keiner Zeile, bis es wieder läuft; bei
+     * Audiobookshelf auf allen Geräten (`hideFromContinueListening`).
+     */
+    suspend fun hideFromContinueListening(bookId: Long) {
+        val progress = dao.progress(bookId) ?: return
+        if (progress.hidden) return
+        dao.upsertProgress(progress.copy(hidden = true, updatedAt = System.currentTimeMillis(), dirty = true))
+        push(bookId)
     }
 
     /** `true`, wenn nichts mehr aussteht. */
@@ -152,6 +165,7 @@ class BookProgressSync @Inject constructor(
                 speed = local?.speed ?: 1f,
                 updatedAt = remoteModel.updatedAt,
                 dirty = false,
+                hidden = remote.hideFromContinueListening,
             ),
         )
         return true
@@ -162,6 +176,7 @@ class BookProgressSync @Inject constructor(
         duration = durationMs / 1000.0,
         progress = if (durationMs > 0) (positionMs.toDouble() / durationMs).coerceIn(0.0, 1.0) else 0.0,
         isFinished = finished,
+        hideFromContinueListening = hidden,
     )
 
     private fun AbsMediaProgressDto.toModel() = BookProgress(

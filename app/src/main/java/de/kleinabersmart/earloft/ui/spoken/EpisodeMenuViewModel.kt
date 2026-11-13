@@ -49,7 +49,10 @@ class EpisodeMenuViewModel @Inject constructor(
         viewModelScope.launch { if (queued) continueListening.append(bookId) else continueListening.remove(bookId) }
     }
 
-    /** Bücher melden den Stand auch an Audiobookshelf, Folgen haben nur den lokalen Stand. */
+    /**
+     * Bücher melden den Stand auch an Audiobookshelf, Folgen haben nur den lokalen Stand. Ein Buch „ungehört“ geht aus
+     * „Weiterhören“ zurück in „Zuletzt hinzugefügt“.
+     */
     fun setPlayed(item: BookWithProgress, played: Boolean) {
         val id = item.book.id
         viewModelScope.launch {
@@ -57,20 +60,29 @@ class EpisodeMenuViewModel @Inject constructor(
                 podcasts.setPlayed(id, played)
             } else {
                 val duration = item.book.durationMs
-                progressSync.record(id, if (played) duration else 0, duration, finished = played, force = true)
+                progressSync.record(id, if (played) duration else 0, duration, finished = played, force = true, hidden = !played)
             }
         }
     }
 
     fun resetPosition(item: BookWithProgress) {
         val bookId = item.book.id
-        // Ein nie gestartetes Buch hat nichts zurückzusetzen; sonst stünde es danach mit 0 % in „Weiterhören“.
+        // Ein nie gestartetes Buch hat nichts zurückzusetzen. Ein zurückgesetztes geht wie „ungehört“ aus „Weiterhören“.
         if (!item.isEpisode && item.progress == null) return
         viewModelScope.launch {
-            if (item.isEpisode) podcasts.resetPosition(bookId) else progressSync.record(bookId, 0, item.book.durationMs, finished = false, force = true)
+            if (item.isEpisode) {
+                podcasts.resetPosition(bookId)
+            } else {
+                progressSync.record(bookId, 0, item.book.durationMs, finished = false, force = true, hidden = true)
+            }
             // Läuft die Folge gerade, springt auch die Wiedergabe an den Anfang.
             if (playback.state.value.spoken?.bookId == bookId) playback.seekTo(0)
         }
+    }
+
+    /** „Aus Weiterhören entfernen“ (nur Bücher): Der Stand bleibt; bei Audiobookshelf auf allen Geräten. */
+    fun hideFromContinueListening(item: BookWithProgress) {
+        viewModelScope.launch { progressSync.hideFromContinueListening(item.book.id) }
     }
 
     fun removeDownload(item: BookWithProgress) {

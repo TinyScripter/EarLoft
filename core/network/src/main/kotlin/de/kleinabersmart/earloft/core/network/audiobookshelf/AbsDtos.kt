@@ -99,6 +99,8 @@ data class AbsMediaProgressDto(
     val isFinished: Boolean = false,
     /** Unix-ms der letzten Änderung auf dem Server. */
     val lastUpdate: Long = 0,
+    /** Aus „Weiterhören“ genommen; fällt auf dem Server mit der nächsten neuen Position. */
+    val hideFromContinueListening: Boolean = false,
 )
 
 @Serializable
@@ -107,4 +109,6 @@ data class AbsProgressUpdate(
     val duration: Double,
     val progress: Double,
     val isFinished: Boolean,
+    /** Immer mitgeschickt (ohne Standardwert, sonst fiele `false` weg); Audiobookshelf 2.37 übernimmt es per PATCH. */
+    val hideFromContinueListening: Boolean,
 )

@@ -74,6 +74,7 @@ import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.components.EmptyAreaHint
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.core.model.SpokenMode
+import de.kleinabersmart.earloft.core.model.SpokenServer
 import de.kleinabersmart.earloft.ui.components.LoadFailedHint
 import de.kleinabersmart.earloft.ui.components.LoadingIndicator
 import de.kleinabersmart.earloft.ui.valueOrNull
@@ -93,12 +94,14 @@ fun List<BookWithProgress>.groups(kind: BookGroupKind): List<BookGroup> =
 fun SpokenHomeScreen(
     onBookClick: (Long) -> Unit,
     onSetup: () -> Unit,
+    onEditServer: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SpokenLibraryViewModel = hiltViewModel(),
 ) {
     val continueState by viewModel.continueListening.collectAsStateWithLifecycle()
     val recentState by viewModel.recentlyAdded.collectAsStateWithLifecycle()
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
+    val signInNeeded by viewModel.signInNeeded.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val continueListening = continueState.valueOrNull.orEmpty()
     val recent = recentState.valueOrNull.orEmpty()
@@ -127,7 +130,7 @@ fun SpokenHomeScreen(
                 } else if (continueState is LoadState.Ready && recentState is LoadState.Ready &&
                     continueListening.isEmpty() && recent.isEmpty() && hasServer == true
                 ) {
-                    item(key = "empty") { NoBooksHint() }
+                    item(key = "empty") { NoBooksHint(signInNeeded, onEditServer, viewModel::syncNow) }
                 }
             }
         }
@@ -148,11 +151,13 @@ fun SpokenLibraryScreen(
     onBookClick: (Long) -> Unit,
     onGroupClick: (BookGroupKind, String) -> Unit,
     onSetup: () -> Unit,
+    onEditServer: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SpokenLibraryViewModel = hiltViewModel(),
 ) {
     val booksState by viewModel.allBooks.collectAsStateWithLifecycle()
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
+    val signInNeeded by viewModel.signInNeeded.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { BookTab.entries.size }
     val scope = rememberCoroutineScope()
@@ -162,7 +167,7 @@ fun SpokenLibraryScreen(
             hasServer == false -> NoServerHint(onSetup)
             booksState == LoadState.Failed -> LoadFailedHint()
             booksState == LoadState.Loading || hasServer == null -> LoadingIndicator()
-            booksState.valueOrNull.isNullOrEmpty() -> NoBooksHint()
+            booksState.valueOrNull.isNullOrEmpty() -> NoBooksHint(signInNeeded, onEditServer, viewModel::syncNow)
             else -> {
                 val all = booksState.valueOrNull.orEmpty()
                 val series = remember(all) { all.seriesGroups() }
@@ -344,10 +349,22 @@ private fun NoServerHint(onSetup: () -> Unit) {
     EmptyAreaHint(SpokenMode.BOOKS, stringResource(R.string.spoken_no_server), stringResource(R.string.spoken_setup), onSetup)
 }
 
-/** Server da, aber (noch) keine Bücher: nichts einzurichten, nur der Weg zum Ausblenden des Bereichs. */
+/**
+ * Server da, aber keine Bücher. Fehlt einem Server die Anmeldung bzw. der API-Key ([signInNeeded]), ist das meist der
+ * Grund: dann der Weg ins Formular des Servers. Sonst „Jetzt abgleichen“.
+ */
 @Composable
-private fun NoBooksHint() {
-    EmptyAreaHint(SpokenMode.BOOKS, stringResource(R.string.spoken_no_books), setupLabel = null, onSetup = {})
+private fun NoBooksHint(signInNeeded: SpokenServer?, onEditServer: (String) -> Unit, onSync: () -> Unit) {
+    if (signInNeeded != null) {
+        EmptyAreaHint(
+            SpokenMode.BOOKS,
+            stringResource(if (signInNeeded.openId) R.string.spoken_login_expired else R.string.spoken_key_missing, signInNeeded.name),
+            stringResource(if (signInNeeded.openId) R.string.spoken_sign_in_again else R.string.spoken_enter_key),
+            onSetup = { onEditServer(signInNeeded.serverId) },
+        )
+    } else {
+        EmptyAreaHint(SpokenMode.BOOKS, stringResource(R.string.spoken_no_books), stringResource(R.string.spoken_abs_sync), onSync)
+    }
 }
 
 @Composable
@@ -364,6 +381,7 @@ internal fun BookRow(
         contentPadding = PaddingValues(horizontal = ShelfInset),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        val sameDay = episodesSharingDay(books.map { it.book })
         items(books, key = { it.book.id }) { item ->
             BookCard(
                 item,
@@ -371,6 +389,7 @@ internal fun BookRow(
                 modifier = Modifier.width(140.dp).rowItemAnimation(this),
                 onPlay = onPlay?.let { play -> { play(item.book.id) } },
                 playing = item.book.id == playingId,
+                withTime = item.book.id in sameDay,
             )
         }
     }
@@ -421,6 +440,8 @@ fun BookCard(
     onPlay: (() -> Unit)? = null,
     playing: Boolean = false,
     contentPadding: Dp = 0.dp,
+    /** Uhrzeit beim Datum der Folge ([episodesSharingDay]). */
+    withTime: Boolean = false,
 ) {
     // Kontextmenü per Langklick, bei Folgen und Büchern.
     var menu by remember { mutableStateOf(false) }
@@ -466,7 +487,7 @@ fun BookCard(
         // Erscheinungsdatum der Folge (bei Büchern ist `addedAt` nur der Zeitpunkt des Abgleichs); die Zeile bleibt als Platz stehen.
         if (episode) {
             Text(
-                item.book.addedAt.takeIf { it > 0 }?.let(::formatEpisodeDate).orEmpty(),
+                item.book.addedAt.takeIf { it > 0 }?.let { formatEpisodeDate(it, withTime) }.orEmpty(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 minLines = 1,
