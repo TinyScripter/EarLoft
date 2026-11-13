@@ -25,4 +25,8 @@ class PlaybackPolicy @Inject constructor() {
      */
     @Volatile
     var syncsWithBookServers: Boolean = true
+
+    /** `false`: Schütteln verlängert den Sleep-Timer nicht (Uhr: das Handgelenk bewegt sich im Schlaf zu leicht). */
+    @Volatile
+    var shakeToExtendSleepTimer: Boolean = true
 }

@@ -25,14 +25,24 @@ data class BookPlayerPosition(val trackIndex: Int, val positionInTrackMs: Long, 
 @Singleton
 class ServicePlayer @Inject constructor() {
     private val player = MutableStateFlow<Player?>(null)
+    private var finisher: ((bookId: Long, playNext: Boolean) -> Boolean)? = null
 
-    internal fun attach(player: Player) {
+    internal fun attach(player: Player, finisher: (bookId: Long, playNext: Boolean) -> Boolean) {
         this.player.value = player
+        this.finisher = finisher
     }
 
     internal fun detach() {
         player.value = null
+        finisher = null
     }
+
+    /**
+     * „Als gehört markieren“ für das geladene Buch bzw. die Folge [bookId]: Der Player hält an (bzw. spielt mit
+     * [playNext] die nächste Folge der Warteschlange) und überschreibt den Stand nicht wieder. `false`, wenn [bookId]
+     * nicht geladen ist oder kein Service läuft; dann genügt es, den Stand zu schreiben.
+     */
+    fun markFinished(bookId: Long, playNext: Boolean): Boolean = finisher?.invoke(bookId, playNext) ?: false
 
     /** Datei und Position darin, solange das Buch [bookId] geladen ist; sonst `null` (auch ohne laufenden Service). */
     fun bookPosition(bookId: Long): BookPlayerPosition? {

@@ -81,6 +81,8 @@
         <item quantity="other">%1$d Minuten</item>
     </plurals>
     <string name="sleep_timer_custom">Eigene Dauer</string>
+    <string name="sleep_timer_chapter_end">Ende des Kapitels</string>
+    <string name="sleep_timer_episode_end">Ende der Folge</string>
     <string name="sleep_timer_start">Starten</string>
 
     <!-- Downloads -->

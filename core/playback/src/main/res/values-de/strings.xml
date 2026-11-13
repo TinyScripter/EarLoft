@@ -36,4 +36,5 @@
         <item quantity="one">%d Sekunde vor</item>
         <item quantity="other">%d Sekunden vor</item>
     </plurals>
+    <string name="spoken_chapter_number">Kapitel %1$d</string>
 </resources>

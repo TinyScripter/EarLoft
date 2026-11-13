@@ -42,6 +42,7 @@ class WearApplication : Application() {
         playbackPolicy.requireSuitableOutput = !debugAllowsSpeaker()
         // Bücher: Stand und Hörzeit gehen über das Handy an Audiobookshelf (Wear-Konzept 16.2).
         playbackPolicy.syncsWithBookServers = false
+        playbackPolicy.shakeToExtendSleepTimer = false
         // ReplayGain wie am Handy (W2): Die Einstellungen kommen mit /earloft/settings.
         applicationScope.launch {
             watchState.settings.map { it.replayGainMode to it.preAmpDb }.distinctUntilChanged().collect { (mode, preAmp) ->

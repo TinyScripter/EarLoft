@@ -88,6 +88,7 @@ import de.kleinabersmart.earloft.ui.player.PlayerTopBar
 import de.kleinabersmart.earloft.ui.player.ShortHeight
 import de.kleinabersmart.earloft.ui.player.SleepTimerLine
 import de.kleinabersmart.earloft.ui.player.SleepTimerSheet
+import de.kleinabersmart.earloft.ui.player.sleepTimerEnd
 import de.kleinabersmart.earloft.ui.player.ToggleIconButton
 import de.kleinabersmart.earloft.ui.player.playPauseIcon
 import de.kleinabersmart.earloft.ui.player.playPauseLabel
@@ -124,6 +125,7 @@ private fun BookPlayerContent(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val timeline by viewModel.timeline.collectAsStateWithLifecycle()
     val sleepRemaining by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
+    val sleepToEnd by viewModel.sleepTimerToEnd.collectAsStateWithLifecycle()
     val episode by viewModel.isEpisode.collectAsStateWithLifecycle()
     val hasNextEpisode by viewModel.hasNextEpisode.collectAsStateWithLifecycle()
     val bookWithProgress by viewModel.book.collectAsStateWithLifecycle()
@@ -167,6 +169,11 @@ private fun BookPlayerContent(
         )
     }
     val hasChapters = tl?.hasChapters == true
+    val sleepEnd = sleepTimerEnd(episode, hasChapters)
+    val sleepLine: @Composable () -> Unit = { SleepTimerLine(sleepRemaining, toEnd = sleepEnd.takeIf { sleepToEnd }) }
+    // Folgen mit Kapiteln: Kapitel zurück/vor statt „Neu starten“ und „Nächste Folge“; im letzten Kapitel führt „vor“
+    // zur nächsten Folge (wie der Doppelklick auf der Kopfhörertaste).
+    val lastChapter = hasChapters && chapterIndex != null && chapterIndex == tl.chapters.lastOrNull()?.index
     // Fehlt, was gewählt war (Buch ohne Kapitel, Buch statt Folge), steht wieder die Beschreibung rechts.
     val shownPane = when {
         pane == SidePane.CHAPTERS && hasChapters -> SidePane.CHAPTERS
@@ -182,16 +189,16 @@ private fun BookPlayerContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Jeder Knopf bekommt gleich viel Platz und schrumpft bei Bedarf; nur Abspielen behält seine Größe.
-            // Folgen: ganz links neu starten, ganz rechts zur nächsten Folge der Warteschlange.
-            if (episode) {
+            // Folgen ohne Kapitel: ganz links neu starten, ganz rechts zur nächsten Folge der Warteschlange.
+            if (episode && !hasChapters) {
                 ControlCell {
                     IconButton(onClick = viewModel::restartEpisode) {
                         Icon(painterResource(DesignR.drawable.ic_restart), contentDescription = stringResource(R.string.spoken_restart_episode))
                     }
                 }
             }
-            // Kapitel-Knöpfe nur bei Büchern mit Kapiteln; Folgen haben dafür die Kapitelliste.
-            if (hasChapters && !episode) {
+            // Kapitel-Knöpfe bei Büchern und Folgen mit Kapiteln (am Anfang des ersten Kapitels startet „zurück“ neu).
+            if (hasChapters) {
                 ControlCell {
                     IconButton(onClick = viewModel::previousChapter) {
                         Icon(painterResource(DesignR.drawable.ic_skip_previous), contentDescription = stringResource(R.string.spoken_previous_chapter))
@@ -207,14 +214,14 @@ private fun BookPlayerContent(
                 )
             }
             ControlCell { SeekForwardButton(seek.forwardSeconds, viewModel::skipForward) }
-            if (hasChapters && !episode) {
+            if (hasChapters && !(episode && lastChapter)) {
                 ControlCell {
-                    IconButton(onClick = viewModel::nextChapter) {
+                    IconButton(onClick = viewModel::nextChapter, enabled = !lastChapter) {
                         Icon(painterResource(DesignR.drawable.ic_skip_next), contentDescription = stringResource(R.string.spoken_next_chapter))
                     }
                 }
             }
-            if (episode) {
+            if (episode && (!hasChapters || lastChapter)) {
                 ControlCell {
                     IconButton(onClick = viewModel::skipToNextEpisode, enabled = hasNextEpisode) {
                         Icon(painterResource(DesignR.drawable.ic_last_page), contentDescription = stringResource(R.string.spoken_next_episode))
@@ -340,6 +347,8 @@ private fun BookPlayerContent(
                     // Wie auf der Buch-/Folgenseite rechts neben Teilen; ohne Uhr unsichtbar.
                     WatchToggleButton(WatchTarget.Spoken(book.id))
                 }
+                // Als gespielt markieren (bei Folgen auch „und nächste spielen“), Warteschlange, Position zurücksetzen.
+                bookWithProgress?.let { EpisodeMenuButton(it) }
             }
             if (short) {
                 // Links Cover mit den Knöpfen darunter, rechts Titel und Steuerung.
@@ -349,7 +358,7 @@ private fun BookPlayerContent(
                             BookArt(entry.bookId, Modifier.fillMaxHeight(), coverShape)
                         }
                         actionRow()
-                        SleepTimerLine(sleepRemaining)
+                        sleepLine()
                     }
                     // Ohne Scrollen: Der Titel bekommt den Platz, den Regler und Knöpfe übrig lassen, und schrumpft dafür.
                     Column(
@@ -400,7 +409,7 @@ private fun BookPlayerContent(
                         // Ohne fillMaxWidth, damit das Cover bei wenig Höhe schrumpft statt die Knöpfe zu überdecken.
                         BookArt(entry.bookId, Modifier.weight(1f, fill = false).widthIn(max = 480.dp), coverShape)
                         actionRow()
-                        SleepTimerLine(sleepRemaining)
+                        sleepLine()
                         Spacer(Modifier.height(8.dp))
                         titleAndControls()
                     }
@@ -438,7 +447,7 @@ private fun BookPlayerContent(
                             BookArt(entry.bookId, fit, coverShape)
                         }
                         actionRow()
-                        SleepTimerLine(sleepRemaining)
+                        sleepLine()
                     }
                     titleAndControls()
                 }
@@ -453,7 +462,14 @@ private fun BookPlayerContent(
     }
 
     if (showSpeed) SpeedDialog(speed, onSpeed = viewModel::setSpeed, onDismiss = { showSpeed = false })
-    if (showSleep) SleepTimerSheet(onStart = viewModel::startSleepTimer, onDismiss = { showSleep = false })
+    if (showSleep) {
+        SleepTimerSheet(
+            onStart = viewModel::startSleepTimer,
+            onDismiss = { showSleep = false },
+            toEnd = sleepEnd,
+            onStartToEnd = viewModel::startSleepTimerToEnd,
+        )
+    }
     if (showChapters && tl != null) {
         ChapterSheet(
             timeline = tl,

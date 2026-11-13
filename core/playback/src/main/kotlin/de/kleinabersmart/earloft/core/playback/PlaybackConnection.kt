@@ -30,6 +30,8 @@ data class SpokenEntry(
     val author: String,
     /** Sprungweiten der Spulen-Knöpfe, aus den Einstellungen des Bereichs (Bücher bzw. Podcasts). */
     val seek: SeekSteps = SeekSteps.DEFAULT,
+    /** Eine Podcast-Folge statt eines Buchs. */
+    val isEpisode: Boolean = false,
 )
 
 data class PlayerState(
@@ -71,6 +73,9 @@ interface PlaybackConnection {
 
     /** Restzeit des Sleep-Timers in Millisekunden, jede Sekunde neu; `null`, solange keiner läuft. */
     val sleepTimerRemainingMs: Flow<Long?>
+
+    /** Der Sleep-Timer läuft bis zum Ende des Kapitels bzw. der Folge statt eine feste Dauer. */
+    val sleepTimerToEnd: Flow<Boolean>
 
     fun play(songs: List<Song>, startIndex: Int = 0, shuffle: Boolean = false)
 
@@ -127,6 +132,9 @@ interface PlaybackConnection {
     fun changeRemoteVolume(up: Boolean)
 
     fun startSleepTimer(minutes: Int)
+
+    /** Sleep-Timer bis zum Ende des Kapitels (Bücher mit Kapiteln) bzw. der Folge oder des Buchs. */
+    fun startSleepTimerToEnd()
 
     fun cancelSleepTimer()
 }

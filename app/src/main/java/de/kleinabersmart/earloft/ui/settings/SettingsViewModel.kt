@@ -119,6 +119,8 @@ data class SettingsUiState(
     val bookResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val podcastResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val restartChapter: Boolean = false,
+    /** Schütteln verlängert den Sleep-Timer (Bücher und Podcasts, ein gemeinsamer Schalter). */
+    val shakeToExtend: Boolean = true,
     val bookSeek: SeekSteps = SeekSteps.DEFAULT,
     val podcastSeek: SeekSteps = SeekSteps.DEFAULT,
     val bookMobileData: Boolean = false,
@@ -270,8 +272,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(bookResume = book, podcastResume = podcast, restartChapter = chapter)
     }.combine(combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair)) { state, (book, podcast) ->
         state.copy(bookSeek = book, podcastSeek = podcast)
-    }.combine(spokenSettings.bookMobileData) { state, mobile ->
-        state.copy(bookMobileData = mobile)
+    }.combine(combine(spokenSettings.bookMobileData, spokenSettings.shakeToExtend, ::Pair)) { state, (mobile, shake) ->
+        state.copy(bookMobileData = mobile, shakeToExtend = shake)
     }.combine(spokenSettings.areas) { state, areas ->
         state.copy(areas = areas)
     }.combine(combine(podcastSettings.directories, podcastSettings.appleCountry, ::Pair)) { state, (directories, country) ->
@@ -339,6 +341,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setRestartChapter(enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setRestartChapter(enabled) }
+    }
+
+    fun setShakeToExtend(enabled: Boolean) {
+        viewModelScope.launch { spokenSettings.setShakeToExtend(enabled) }
     }
 
     fun setPodcastMobileData(enabled: Boolean) {

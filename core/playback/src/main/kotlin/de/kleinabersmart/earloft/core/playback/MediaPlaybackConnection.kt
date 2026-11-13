@@ -296,7 +296,11 @@ class MediaPlaybackConnection @Inject constructor(
 
     override val sleepTimerRemainingMs: Flow<Long?> get() = sleepTimer.remainingMs
 
+    override val sleepTimerToEnd: Flow<Boolean> get() = sleepTimer.state.map { it?.toEnd == true }.distinctUntilChanged()
+
     override fun startSleepTimer(minutes: Int) = sleepTimer.start(minutes * 60_000L)
+
+    override fun startSleepTimerToEnd() = sleepTimer.startToEnd()
 
     override fun cancelSleepTimer() = sleepTimer.cancel()
 
@@ -332,6 +336,7 @@ class MediaPlaybackConnection @Inject constructor(
             title = mediaMetadata.title?.toString().orEmpty(),
             author = mediaMetadata.artist?.toString().orEmpty(),
             seek = stepsFor(isEpisode),
+            isEpisode = isEpisode,
         )
     }
 

@@ -6,6 +6,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.ViewConfiguration
 import android.util.Log
 import androidx.annotation.OptIn
@@ -114,6 +116,11 @@ class PlaybackService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
     private lateinit var playTracker: PlayTracker
     private lateinit var bookListener: BookPlaybackListener
+    private var sessionPlayer: SpokenAwarePlayer? = null
+    private var shakeDetector: ShakeDetector? = null
+
+    /** Name des laufenden Kapitels für Benachrichtigung und Widget; `null` ohne Kapitel. */
+    private var chapterTitle: String? = null
     private var streamPreloader: StreamPreloader? = null
     private val replayGain = ReplayGainProcessor()
 
@@ -180,17 +187,24 @@ class PlaybackService : MediaLibraryService() {
         // Handy: Cast-fähiger Player um den ExoPlayer; Hörverlauf und Warteschlange folgen dem jeweils aktiven Player.
         val factory = sessionPlayerFactory.orElse(null)
         val player = factory?.create(this, localPlayer) ?: localPlayer
-        servicePlayer.attach(player)
-        sleepTimer.attach(player.asSleepTimerTarget())
         playTracker = PlayTracker(player) { songId, playedAt, listenedMs ->
             applicationScope.launch { playbackStateRepository.recordPlay(songId, playedAt, listenedMs) }
         }
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
-        bookListener = BookPlaybackListener(player, bookRepository, bookProgressSync, spokenSettings, statsRepository, absSessionReporter, mainScope, applicationScope) { endedId ->
-            continueWithNextEpisode(player, endedId)
-        }
+        bookListener = BookPlaybackListener(
+            player, bookRepository, bookProgressSync, spokenSettings, statsRepository, absSessionReporter, mainScope, applicationScope,
+            onEpisodeEnded = { endedId -> continueWithNextEpisode(player, endedId) },
+            onChapterChanged = { chapter ->
+                chapterTitle = chapter?.let { it.title.ifBlank { getString(R.string.spoken_chapter_number, it.index + 1) } }
+                sessionPlayer?.chapterTitle = chapterTitle
+                if (!player.awaitsRemoteQueue) notifyObservers(nowPlayingOf(player))
+            },
+        )
         player.addListener(bookListener)
+        servicePlayer.attach(player) { bookId, playNext -> markFinished(player, bookId, playNext) }
+        sleepTimer.attach(player.asSleepTimerTarget(spot = bookListener::sleepSpot, rewind = bookListener::rewindHeard))
+        bindShakeToExtend(player)
         mainScope.launch {
             libraryRemovals.removals.collect { removeMissingSongs(player) }
         }
@@ -200,7 +214,8 @@ class PlaybackService : MediaLibraryService() {
         }
 
         // Bei Büchern und Folgen gelten eigene, einstellbare Sprungweiten, siehe SpokenAwarePlayer.
-        val sessionPlayer = SpokenAwarePlayer(player)
+        val sessionPlayer = SpokenAwarePlayer(player).also { this.sessionPlayer = it }
+        sessionPlayer.chapterTitle = chapterTitle
         // Kopfhörer: Doppelklick bzw. „Weiter“ ins nächste Kapitel, ohne weiteres Kapitel bei Folgen in die nächste.
         val mediaButtons = SpokenMediaButtons(
             handler = Handler(Looper.getMainLooper()),
@@ -286,18 +301,55 @@ class PlaybackService : MediaLibraryService() {
      * Kopfhörertaste ohne weiteres Kapitel: die nächste Folge der Warteschlange wie „Nächste Folge“ im Player
      * (unabhängig vom automatischen Weiterspielen); sie spielt, wenn die bisherige lief.
      */
-    private fun skipToNextEpisode(player: Player, currentId: Long) {
-        val autoPlay = player.playWhenReady
+    private fun skipToNextEpisode(player: Player, currentId: Long, autoPlay: Boolean = player.playWhenReady, orElse: () -> Unit = {}) {
         mainScope.launch {
             val prepared = withContext(Dispatchers.IO) {
                 continueListening.next(currentId)?.let { next ->
                     continueListening.started(next)
                     bookPlaybackSource.prepare(next)
                 }
-            } ?: return@launch
+            }
             // Inzwischen etwas anderes gestartet: dabei bleiben.
-            if (player.currentMediaItem?.bookId == currentId) player.playBook(prepared, autoPlay = autoPlay)
+            if (player.currentMediaItem?.bookId != currentId) return@launch
+            if (prepared != null) player.playBook(prepared, autoPlay = autoPlay) else orElse()
         }
+    }
+
+    /**
+     * „Als gehört markieren“ für das geladene Buch bzw. die Folge ([ServicePlayer.markFinished]): Stand auf fertig, dann
+     * anhalten oder bei [playNext] die nächste Folge der Warteschlange spielen (ohne nächste ebenfalls anhalten).
+     */
+    private fun markFinished(player: Player, bookId: Long, playNext: Boolean): Boolean {
+        if (!bookListener.markFinished(bookId)) return false
+        if (playNext && player.currentMediaItem?.isEpisode == true) {
+            skipToNextEpisode(player, bookId, autoPlay = true, orElse = player::pause)
+        } else {
+            player.pause()
+        }
+        return true
+    }
+
+    /**
+     * Schütteln verlängert den Sleep-Timer ([SleepTimer.extend]): Der Sensor läuft nur, solange der Timer es zulässt
+     * (kurz vor und nach dem Ablauf), die Einstellung an ist und ein Buch oder eine Folge geladen ist. Ein kurzes Vibrieren
+     * bestätigt es.
+     */
+    private fun bindShakeToExtend(player: Player) {
+        if (!playbackPolicy.shakeToExtendSleepTimer) return
+        val detector = ShakeDetector(this) {
+            if (player.currentMediaItem?.isSpoken == true && sleepTimer.extend()) confirmShake()
+        }.also { shakeDetector = it }
+        mainScope.launch {
+            combine(sleepTimer.shakeWindow, spokenSettings.shakeToExtend) { window, enabled -> window && enabled }
+                .distinctUntilChanged()
+                .collect { listen -> if (listen && player.currentMediaItem?.isSpoken == true) detector.start() else detector.stop() }
+        }
+    }
+
+    private fun confirmShake() {
+        @Suppress("DEPRECATION") // VibratorManager erst ab API 31; für einen kurzen Impuls genügt der Standard-Vibrator.
+        val vibrator = getSystemService(Vibrator::class.java) ?: return
+        vibrator.vibrate(VibrationEffect.createOneShot(SHAKE_VIBRATION_MS, VibrationEffect.DEFAULT_AMPLITUDE))
     }
 
     /**
@@ -404,6 +456,7 @@ class PlaybackService : MediaLibraryService() {
     override fun onDestroy() {
         audioEffectSession.close(this)
         streamPreloader?.release()
+        shakeDetector?.stop()
         sleepTimer.detach()
         servicePlayer.detach()
         session?.let { session ->
@@ -546,28 +599,30 @@ class PlaybackService : MediaLibraryService() {
                     Player.EVENT_DEVICE_INFO_CHANGED,
                 )
             ) {
-                val item = player.currentMediaItem
-                val songId = item?.songId
-                val bookId = item?.bookId
-                notifyObservers(
-                    if (item != null && (songId != null || bookId != null)) {
-                        NowPlaying(
-                            songId = songId,
-                            title = item.mediaMetadata.title?.toString().orEmpty(),
-                            artist = item.mediaMetadata.artist?.toString().orEmpty(),
-                            albumId = if (bookId == null) item.mediaMetadata.albumIdExtra else null,
-                            isPlaying = player.isPlaying,
-                            bookId = bookId,
-                            isEpisode = bookId != null && item.isEpisode,
-                        )
-                    } else {
-                        null
-                    },
-                )
+                notifyObservers(nowPlayingOf(player))
             }
         }
     }
+
+    private fun nowPlayingOf(player: Player): NowPlaying? {
+        val item = player.currentMediaItem ?: return null
+        val songId = item.songId
+        val bookId = item.bookId
+        if (songId == null && bookId == null) return null
+        return NowPlaying(
+            songId = songId,
+            title = item.mediaMetadata.title?.toString().orEmpty(),
+            artist = item.mediaMetadata.artist?.toString().orEmpty(),
+            albumId = if (bookId == null) item.mediaMetadata.albumIdExtra else null,
+            isPlaying = player.isPlaying,
+            bookId = bookId,
+            isEpisode = bookId != null && item.isEpisode,
+            chapter = chapterTitle.takeIf { bookId != null },
+        )
+    }
 }
+
+private const val SHAKE_VIBRATION_MS = 40L
 
 /** Ordner im Browse-Tree, deren Inhalt von der letzten Wiedergabe abhängt. */
 private val CONTENT_FOLDERS = listOf(

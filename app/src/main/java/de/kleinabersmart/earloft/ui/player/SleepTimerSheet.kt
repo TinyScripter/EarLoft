@@ -33,12 +33,26 @@ import kotlin.math.roundToInt
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.playback.SleepTimer
 
-/** Auswahl des Einschlaf-Timers: feste Dauern oder eigene Dauer per Schieberegler. Beenden geschieht über das Symbol selbst. */
+/** Wo der Sleep-Timer „bis zum Ende“ anhält: am Kapitelende (Bücher mit Kapiteln), am Ende der Folge bzw. des Buchs. */
+enum class SleepTimerEnd { CHAPTER, EPISODE, BOOK }
+
+fun sleepTimerEnd(episode: Boolean, hasChapters: Boolean): SleepTimerEnd = when {
+    episode -> SleepTimerEnd.EPISODE
+    hasChapters -> SleepTimerEnd.CHAPTER
+    else -> SleepTimerEnd.BOOK
+}
+
+/**
+ * Auswahl des Einschlaf-Timers: bei Büchern mit Kapiteln und Folgen zuerst „Ende des Kapitels“ bzw. „Ende der Folge“
+ * ([toEnd]), dann feste Dauern oder eigene Dauer per Schieberegler. Beenden geschieht über das Symbol selbst.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SleepTimerSheet(
     onStart: (minutes: Int) -> Unit,
     onDismiss: () -> Unit,
+    toEnd: SleepTimerEnd? = null,
+    onStartToEnd: () -> Unit = {},
 ) {
     // Gleich ganz offen und scrollbar: Halb aufgeklappt lagen „Eigene Dauer“ und „Start“ auf kleinen Handys unter dem Rand.
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -48,6 +62,22 @@ fun SleepTimerSheet(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
+            // Ein Buch ohne Kapitel endet erst nach Stunden; dort gibt es diese Wahl nicht.
+            val endLabel = when (toEnd) {
+                SleepTimerEnd.CHAPTER -> R.string.sleep_timer_chapter_end
+                SleepTimerEnd.EPISODE -> R.string.sleep_timer_episode_end
+                SleepTimerEnd.BOOK, null -> null
+            }
+            if (endLabel != null) {
+                ListItem(
+                    headlineContent = { Text(stringResource(endLabel)) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable {
+                        onStartToEnd()
+                        onDismiss()
+                    },
+                )
+            }
             SleepTimer.PRESET_MINUTES.forEach { minutes ->
                 ListItem(
                     headlineContent = { Text(pluralStringResource(R.plurals.sleep_timer_minutes, minutes, minutes)) },

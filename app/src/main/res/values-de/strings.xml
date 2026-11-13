@@ -120,6 +120,11 @@
     <string name="sleep_timer_custom">Eigene Dauer</string>
     <string name="sleep_timer_start">Starten</string>
     <string name="sleep_timer_off">Timer ausschalten</string>
+    <string name="sleep_timer_chapter_end">Ende des Kapitels</string>
+    <string name="sleep_timer_episode_end">Ende der Folge</string>
+    <string name="sleep_timer_until_chapter_end">Pause am Kapitelende: %1$s</string>
+    <string name="sleep_timer_until_episode_end">Pause am Ende der Folge: %1$s</string>
+    <string name="sleep_timer_until_book_end">Pause am Ende des Buchs: %1$s</string>
 
     <!-- Chromecast -->
     <string name="cast_playing_on">Wird auf %1$s gespielt</string>
@@ -689,6 +694,7 @@
     <string name="episode_queue_remove">Aus Warteschlange entfernen</string>
     <string name="episode_mark_played">Als abgespielt markieren</string>
     <string name="episode_mark_unplayed">Als ungespielt markieren</string>
+    <string name="episode_mark_played_play_next">Als abgespielt markieren und nächste spielen</string>
     <string name="episode_reset_position">Wiedergabeposition zurücksetzen</string>
     <string name="book_hide_from_continue">Aus „Weiterhören“ entfernen</string>
     <string name="book_series_volume">%1$s · Band %2$s</string>
@@ -802,6 +808,8 @@
     <string name="settings_seek_forward">Vorspulen per Knopf</string>
     <string name="settings_chapter_restart">Neue Kapitel von vorn starten</string>
     <string name="settings_chapter_restart_summary">Wurde die Wiedergabe innerhalb von 30 Sekunden nach dem Kapitelanfang beendet, beginnt das Kapitel wieder von vorn.</string>
+    <string name="settings_sleep_shake">Schütteln verlängert den Einschlaf-Timer</string>
+    <string name="settings_sleep_shake_summary">In der letzten Minute und bis zwei Minuten nach dem Anhalten. Gilt für Bücher und Podcasts.</string>
     <!-- Benachrichtigungen über Neues: Titel bei mehreren Alben, Podcasts bzw. Büchern, zugleich Namen der Kanäle -->
     <string name="new_content_music_title">Neue Musik</string>
     <string name="new_content_episodes_title">Neue Folgen</string>

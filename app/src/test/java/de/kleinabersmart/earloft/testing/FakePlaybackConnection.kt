@@ -26,6 +26,7 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
     override val positionJumps: Flow<Unit> = MutableSharedFlow()
     override var currentPositionMs: Long = 0
     override val sleepTimerRemainingMs: Flow<Long?> = flowOf(null)
+    override val sleepTimerToEnd: Flow<Boolean> = flowOf(false)
 
     private val _commands = MutableStateFlow<List<Command>>(emptyList())
 
@@ -68,6 +69,7 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
     override fun cycleRepeatMode() = record(Command.Simple("cycleRepeatMode"))
     override fun changeRemoteVolume(up: Boolean) = record(Command.Simple("changeRemoteVolume $up"))
     override fun startSleepTimer(minutes: Int) = record(Command.Simple("startSleepTimer $minutes"))
+    override fun startSleepTimerToEnd() = record(Command.Simple("startSleepTimerToEnd"))
     override fun cancelSleepTimer() = record(Command.Simple("cancelSleepTimer"))
 
     sealed interface Command {

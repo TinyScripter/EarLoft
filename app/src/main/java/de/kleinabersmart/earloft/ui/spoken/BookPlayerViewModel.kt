@@ -65,6 +65,10 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     val sleepTimerRemainingMs: StateFlow<Long?> = playback.sleepTimerRemainingMs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Der Sleep-Timer läuft bis zum Ende des Kapitels bzw. der Folge. */
+    val sleepTimerToEnd: StateFlow<Boolean> = playback.sleepTimerToEnd
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /**
      * Länge des ganzen Buchs. Eine Folge, deren Feed keine Dauer nannte, hat sie erst, wenn der Player sie kennt; bis
      * dahin gilt dessen Angabe.
@@ -142,6 +146,7 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     fun skipForward() = playback.skipForward()
     fun setSpeed(speed: Float) = playback.setSpeed(speed)
     fun startSleepTimer(minutes: Int) = playback.startSleepTimer(minutes)
+    fun startSleepTimerToEnd() = playback.startSleepTimerToEnd()
     fun cancelSleepTimer() = playback.cancelSleepTimer()
 
     private companion object {

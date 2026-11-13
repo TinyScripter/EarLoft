@@ -121,6 +121,11 @@
     <string name="sleep_timer_custom">Custom duration</string>
     <string name="sleep_timer_start">Start</string>
     <string name="sleep_timer_off">Turn off timer</string>
+    <string name="sleep_timer_chapter_end">End of chapter</string>
+    <string name="sleep_timer_episode_end">End of episode</string>
+    <string name="sleep_timer_until_chapter_end">Pause at end of chapter: %1$s</string>
+    <string name="sleep_timer_until_episode_end">Pause at end of episode: %1$s</string>
+    <string name="sleep_timer_until_book_end">Pause at end of book: %1$s</string>
 
     <!-- Chromecast -->
     <string name="cast_playing_on">Playing on %1$s</string>
@@ -696,6 +701,7 @@
     <string name="episode_queue_remove">Remove from queue</string>
     <string name="episode_mark_played">Mark as played</string>
     <string name="episode_mark_unplayed">Mark as unplayed</string>
+    <string name="episode_mark_played_play_next">Mark as played and play next</string>
     <string name="episode_reset_position">Reset playback position</string>
     <string name="book_hide_from_continue">Remove from Continue listening</string>
     <string name="book_series_volume">%1$s · Book %2$s</string>
@@ -809,6 +815,8 @@
     <string name="settings_seek_forward">Skip forward button</string>
     <string name="settings_chapter_restart">Restart recent chapters</string>
     <string name="settings_chapter_restart_summary">If you stopped within 30 seconds of a chapter\'s start, it begins again from its start.</string>
+    <string name="settings_sleep_shake">Shake to extend sleep timer</string>
+    <string name="settings_sleep_shake_summary">In the last minute and up to two minutes after it paused. Applies to books and podcasts.</string>
     <!-- Benachrichtigungen über Neues: Titel bei mehreren Alben, Podcasts bzw. Büchern, zugleich Namen der Kanäle -->
     <string name="new_content_music_title">New music</string>
     <string name="new_content_episodes_title">New episodes</string>

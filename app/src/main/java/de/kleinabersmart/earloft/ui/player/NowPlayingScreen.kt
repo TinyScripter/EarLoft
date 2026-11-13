@@ -358,12 +358,19 @@ internal fun PlayerTopBar(title: String, closeLabel: String, onClose: () -> Unit
     }
 }
 
+/** Restzeit des Sleep-Timers; läuft er bis zum Ende ([toEnd]: Kapitel bzw. Folge), steht das davor. */
 @Composable
-internal fun SleepTimerLine(remainingMs: Long?) {
+internal fun SleepTimerLine(remainingMs: Long?, toEnd: SleepTimerEnd? = null) {
     if (remainingMs == null) return
+    val text = when (toEnd) {
+        SleepTimerEnd.CHAPTER -> R.string.sleep_timer_until_chapter_end
+        SleepTimerEnd.EPISODE -> R.string.sleep_timer_until_episode_end
+        SleepTimerEnd.BOOK -> R.string.sleep_timer_until_book_end
+        null -> R.string.sleep_timer_remaining
+    }
     // Eigene Zeile ohne Kürzung, damit die Restzeit auch bei langen Zeiten und großer Schrift ganz zu lesen ist.
     Text(
-        stringResource(R.string.sleep_timer_remaining, formatDuration(remainingMs)),
+        stringResource(text, formatDuration(remainingMs)),
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
         textAlign = TextAlign.Center,

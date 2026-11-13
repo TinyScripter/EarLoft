@@ -71,9 +71,37 @@ class SpokenAwarePlayerTest {
         assertEquals(FakePlayer.MUSIC_INCREMENT_MS, player.seekBackIncrement)
     }
 
-    private fun item(mediaId: String, mediaType: Int) = MediaItem.Builder()
+    @Test
+    fun `the chapter stands before the author for notification and lock screen`() {
+        val player = SpokenAwarePlayer(FakePlayer(item("book:1/0", MediaMetadata.MEDIA_TYPE_AUDIO_BOOK_CHAPTER, artist = "Jo Nesbø"), positionMs = 0))
+        val reported = mutableListOf<String?>()
+        player.addListener(object : Player.Listener {
+            override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+                reported += mediaMetadata.artist?.toString()
+            }
+        })
+
+        player.chapterTitle = "Kapitel 3"
+        player.chapterTitle = "Kapitel 3"
+        assertEquals("Kapitel 3 · Jo Nesbø", player.mediaMetadata.artist.toString())
+        player.chapterTitle = null
+
+        assertEquals("Jo Nesbø", player.mediaMetadata.artist.toString())
+        assertEquals(listOf("Kapitel 3 · Jo Nesbø", "Jo Nesbø"), reported)
+    }
+
+    @Test
+    fun `music keeps its metadata`() {
+        val player = SpokenAwarePlayer(FakePlayer(item("song:1", MediaMetadata.MEDIA_TYPE_MUSIC, artist = "Queen"), positionMs = 0))
+
+        player.chapterTitle = "Kapitel 3"
+
+        assertEquals("Queen", player.mediaMetadata.artist.toString())
+    }
+
+    private fun item(mediaId: String, mediaType: Int, artist: String? = null) = MediaItem.Builder()
         .setMediaId(mediaId)
-        .setMediaMetadata(MediaMetadata.Builder().setMediaType(mediaType).build())
+        .setMediaMetadata(MediaMetadata.Builder().setMediaType(mediaType).setArtist(artist).build())
         .build()
 
     /** Ein Item von zehn Minuten; Springen setzt nur die Position. */

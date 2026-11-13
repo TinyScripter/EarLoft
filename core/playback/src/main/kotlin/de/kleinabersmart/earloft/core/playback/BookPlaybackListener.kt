@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.data.spoken.ResumeRule
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.data.spoken.resumePosition
 import de.kleinabersmart.earloft.core.data.stats.StatsRepository
+import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.model.BookProgress
 import de.kleinabersmart.earloft.core.model.BookTimeline
 import kotlinx.coroutines.CoroutineScope
@@ -39,11 +40,17 @@ internal class BookPlaybackListener(
     private val persistScope: CoroutineScope,
     /** Eine Podcast-Folge ist bis zum Ende gelaufen und der Player wartet (Parameter: Buch-ID der Folge). */
     private val onEpisodeEnded: (Long) -> Unit,
+    /** Das laufende Kapitel hat gewechselt; `null` bei Musik, ohne Kapitel und solange die Zeitachse lädt. */
+    private val onChapterChanged: (BookChapter?) -> Unit = {},
 ) : Player.Listener {
 
     private var timelineBookId: Long? = null
     private var timeline: BookTimeline? = null
     private var loop: Job? = null
+
+    /** Zuletzt gemeldetes Kapitel (mit Buch) und der Wecker für den nächsten Kapitelwechsel. */
+    private var reportedChapter: Pair<Long, BookChapter>? = null
+    private var chapterJob: Job? = null
 
     // Gehörte Zeit des laufenden Buchs bzw. der laufenden Folge (Statistik); [meterBookId] gehört die gemessene Zeit.
     private val meter = ListeningMeter()
@@ -96,11 +103,13 @@ internal class BookPlaybackListener(
             }
             // Musik läuft immer mit normaler Geschwindigkeit.
             if (player.playbackParameters.speed != 1f) player.setPlaybackSpeed(1f)
+            updateChapter()
             return
         }
         // Innerhalb eines Buchs (nächste Datei) bleibt alles; bei einem anderen Buch gilt dessen Geschwindigkeit.
         if (timelineBookId == bookId) {
             if (handedOver) scope.launch { applySavedSpeed(bookId) }
+            updateChapter()
             return
         }
         timelineBookId = bookId
@@ -111,8 +120,10 @@ internal class BookPlaybackListener(
         pausedBookId = restored?.first
         pausedAt = restored?.second ?: 0L
         timeline = null
+        updateChapter()
         scope.launch {
             timeline = books.timeline(bookId)
+            updateChapter()
             if (rewindWhenLoaded == bookId) {
                 rewindWhenLoaded = null
                 player.currentMediaItem?.takeIf { it.bookId == bookId }?.let { rewindAfterPause(it, bookId) }
@@ -171,9 +182,82 @@ internal class BookPlaybackListener(
             restartChapter = !episode && restartChapter,
         )
         if (target == current) return
-        val located = timeline.locate(target)
-        val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).bookTrackIndex == located.trackIndex } ?: return
+        seekInBook(timeline, target)
+    }
+
+    /** Springt an [positionMs] im geladenen Buch, auch über Dateigrenzen; `false`, wenn die Datei nicht im Player liegt. */
+    private fun seekInBook(timeline: BookTimeline, positionMs: Long): Boolean {
+        val located = timeline.locate(positionMs)
+        val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).bookTrackIndex == located.trackIndex } ?: return false
         player.seekTo(index, located.offsetMs)
+        return true
+    }
+
+    /** Zeitachse und Buchposition des geladenen Buchs bzw. der Folge; `null` bei Musik und solange die Zeitachse lädt. */
+    private fun current(): Triple<MediaItem, BookTimeline, Long>? {
+        val item = player.currentMediaItem ?: return null
+        val bookId = item.bookId ?: return null
+        val timeline = timeline?.takeIf { timelineBookId == bookId } ?: return null
+        return Triple(item, timeline, timeline.toBookPosition(item.bookTrackIndex ?: 0, player.currentPosition))
+    }
+
+    /**
+     * Für den Sleep-Timer „bis zum Ende“: bei Büchern mit Kapiteln jedes Kapitelende, bei Folgen und Büchern ohne Kapitel
+     * nur das Ende (eine Folge läuft bis zu ihrem Ende, auch mit Kapiteln).
+     */
+    fun sleepSpot(): SpokenSpot? {
+        val (item, timeline, position) = current() ?: return null
+        val duration = timeline.durationMs.takeIf { it > 0 } ?: player.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: return null
+        val chapterEnds = if (item.isEpisode) emptyList() else timeline.chapters.map { it.endMs.coerceAtMost(duration) }.filter { it > 0 }
+        val ends = (chapterEnds + duration).distinct().sorted()
+        return SpokenSpot(item.bookId ?: return null, position, player.playbackParameters.speed, ends)
+    }
+
+    /** Schütteln nach dem Einschlafen: [heardMs] gehörte Zeit (mit Tempo) zurück, auch über Dateigrenzen. */
+    fun rewindHeard(heardMs: Long) {
+        val (_, timeline, position) = current() ?: return
+        seekInBook(timeline, (position - (heardMs * player.playbackParameters.speed).toLong()).coerceAtLeast(0))
+    }
+
+    /**
+     * „Als gehört markieren“ für das geladene Buch bzw. die Folge: Der Stand gilt als fertig, und der Player schreibt ihn
+     * nicht mehr über, bis wieder gespielt oder gespult wird. `false`, wenn [bookId] nicht geladen ist.
+     */
+    fun markFinished(bookId: Long): Boolean {
+        if (player.currentMediaItem?.bookId != bookId) return false
+        touched -= bookId
+        val duration = timeline?.takeIf { timelineBookId == bookId }?.durationMs?.takeIf { it > 0 }
+        persistScope.launch {
+            val length = duration ?: books.bookNow(bookId)?.durationMs ?: 0L
+            progressSync.record(bookId, length, length, finished = true, force = true)
+        }
+        return true
+    }
+
+    /** Meldet das laufende Kapitel und stellt den Wecker auf den nächsten Wechsel (nur während der Wiedergabe). */
+    private fun updateChapter() {
+        chapterJob?.cancel()
+        val spot = current()?.takeIf { it.second.hasChapters }
+        if (spot == null) {
+            reportChapter(null)
+            return
+        }
+        val (item, timeline, position) = spot
+        val chapter = timeline.chapterAt(position)
+        reportChapter(chapter?.let { (item.bookId ?: return) to it })
+        if (!player.isPlaying) return
+        val next = timeline.nextChapter(position) ?: return
+        val waitMs = ((next.startMs - position) / player.playbackParameters.speed.coerceAtLeast(MIN_SPEED)).toLong() + CHAPTER_SLACK_MS
+        chapterJob = scope.launch {
+            delay(waitMs)
+            updateChapter()
+        }
+    }
+
+    private fun reportChapter(chapter: Pair<Long, BookChapter>?) {
+        if (chapter == reportedChapter) return
+        reportedChapter = chapter
+        onChapterChanged(chapter?.second)
     }
 
     /**
@@ -188,14 +272,12 @@ internal class BookPlaybackListener(
         val position = timeline.toBookPosition(item.bookTrackIndex ?: 0, player.currentPosition)
         val target = if (forward) timeline.nextChapter(position)?.startMs else timeline.previousChapterStart(position)
         target ?: return false
-        val located = timeline.locate(target)
-        val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).bookTrackIndex == located.trackIndex } ?: return false
-        player.seekTo(index, located.offsetMs)
-        return true
+        return seekInBook(timeline, target)
     }
 
     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
         meter.setSpeed(playbackParameters.speed)
+        updateChapter()
         if (player.isPlaying) sampleRemoteEnd()
         val bookId = player.currentMediaItem?.bookId ?: return
         persistScope.launch { books.setSpeed(bookId, playbackParameters.speed) }
@@ -212,6 +294,7 @@ internal class BookPlaybackListener(
         if (reason != Player.DISCONTINUITY_REASON_REMOVE) {
             if (player.isPlaying) sampleRemoteEnd() else remoteEnd.reset()
         }
+        updateChapter()
         // Ein anderes Buch (oder Musik) beginnt: den Stand des bisherigen festhalten.
         val oldItem = oldPosition.mediaItem ?: return
         val oldBookId = oldItem.bookId ?: return
@@ -223,6 +306,7 @@ internal class BookPlaybackListener(
         syncMeter()
         // Vor dem Festhalten: Nach dem Ende auf dem Empfänger stünde sonst Position 0 der entladenen Folge im Stand.
         if (!isPlaying) checkRemoteEnd()
+        updateChapter()
         val item = player.currentMediaItem
         val bookId = item?.bookId
         loop?.cancel()
@@ -298,13 +382,17 @@ internal class BookPlaybackListener(
         val bookId = player.currentMediaItem?.bookId ?: return
         val duration = player.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: return
         scope.launch {
-            if (books.learnEpisodeDuration(bookId, duration) && timelineBookId == bookId) timeline = books.timeline(bookId)
+            if (books.learnEpisodeDuration(bookId, duration) && timelineBookId == bookId) {
+                timeline = books.timeline(bookId)
+                updateChapter()
+            }
         }
     }
 
     /** Beim Beenden des Service aufrufen. */
     fun finish() {
         loop?.cancel()
+        chapterJob?.cancel()
         recordCurrent(force = true)
         flushListening(force = true)
         meter.stop()
@@ -364,5 +452,9 @@ internal class BookPlaybackListener(
 
     private companion object {
         const val SAVE_INTERVAL_MS = 15_000L
+
+        /** Erst kurz nach dem Kapitelanfang nachsehen, damit die Position sicher schon im neuen Kapitel liegt. */
+        const val CHAPTER_SLACK_MS = 200L
+        const val MIN_SPEED = 0.1f
     }
 }

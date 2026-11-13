@@ -723,6 +723,15 @@ fun PodcastsSettingsScreen(
                     ResumeRows(state.podcastResume, DesignR.drawable.ic_playlist_play, "podcast", viewModel::setPodcastResume)
                 }
             }
+            row("sleep-shake") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_sleep_shake),
+                    summary = stringResource(R.string.settings_sleep_shake_summary),
+                    icon = DesignR.drawable.ic_bedtime,
+                    checked = state.shakeToExtend,
+                    onCheckedChange = viewModel::setShakeToExtend,
+                )
+            }
         }
 
         group("downloads", R.string.nav_downloads) {
@@ -1027,6 +1036,15 @@ fun AudiobookSettingsScreen(
                     icon = DesignR.drawable.ic_book,
                     checked = state.restartChapter,
                     onCheckedChange = viewModel::setRestartChapter,
+                )
+            }
+            row("sleep-shake") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_sleep_shake),
+                    summary = stringResource(R.string.settings_sleep_shake_summary),
+                    icon = DesignR.drawable.ic_bedtime,
+                    checked = state.shakeToExtend,
+                    onCheckedChange = viewModel::setShakeToExtend,
                 )
             }
         }

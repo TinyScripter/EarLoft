@@ -18,6 +18,8 @@ data class NowPlaying(
     val bookId: Long? = null,
     /** Bei [bookId]: eine Podcast-Folge statt eines Buchs. */
     val isEpisode: Boolean = false,
+    /** Bei [bookId]: das laufende Kapitel; `null` ohne Kapitel. */
+    val chapter: String? = null,
 ) {
     val isBook: Boolean get() = bookId != null
 }

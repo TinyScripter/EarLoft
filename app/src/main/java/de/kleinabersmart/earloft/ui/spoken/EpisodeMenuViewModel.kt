@@ -14,6 +14,7 @@ import de.kleinabersmart.earloft.core.download.EpisodeDownloads
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import de.kleinabersmart.earloft.core.playback.ServicePlayer
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -31,6 +32,8 @@ class EpisodeMenuViewModel @Inject constructor(
     private val books: BookRepository,
     private val bookDownloads: BookDownloads,
     private val progressSync: BookProgressSync,
+    private val servicePlayer: ServicePlayer,
+    private val launcher: BookLauncher,
 ) : ViewModel() {
 
     /** Folgen, die gerade in der Zeile „Weiterhören“ (der Warteschlange) stehen. */
@@ -55,6 +58,8 @@ class EpisodeMenuViewModel @Inject constructor(
      */
     fun setPlayed(item: BookWithProgress, played: Boolean) {
         val id = item.book.id
+        // Im Player geladen: Der hält an und schreibt den Stand selbst, sonst überschriebe er ihn beim nächsten Speichern.
+        if (played && servicePlayer.markFinished(id, playNext = false)) return
         viewModelScope.launch {
             if (item.isEpisode) {
                 podcasts.setPlayed(id, played)
@@ -62,6 +67,16 @@ class EpisodeMenuViewModel @Inject constructor(
                 val duration = item.book.durationMs
                 progressSync.record(id, if (played) duration else 0, duration, finished = played, force = true, hidden = !played)
             }
+        }
+    }
+
+    /** „Als abgespielt markieren und nächste spielen“ (nur Folgen): danach die nächste Folge der Warteschlange. */
+    fun setPlayedAndPlayNext(item: BookWithProgress) {
+        val id = item.book.id
+        if (servicePlayer.markFinished(id, playNext = true)) return
+        viewModelScope.launch {
+            podcasts.setPlayed(id, true)
+            continueListening.next(id)?.let(launcher::play)
         }
     }
 

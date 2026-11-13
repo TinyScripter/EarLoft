@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
@@ -48,11 +49,13 @@ internal fun minutesLeft(remainingMs: Long): Int = ((remainingMs + MS_PER_MINUTE
 private const val MS_PER_MINUTE = 60_000L
 
 /**
- * Sleep-Timer wählen: feste Dauern und „Eigene Dauer“. Beenden geschieht über den Knopf in der Wiedergabe.
+ * Sleep-Timer wählen: bei Folgen und Büchern mit Kapiteln zuerst „Ende der Folge“ bzw. „Ende des Kapitels“, dann feste
+ * Dauern und „Eigene Dauer“. Beenden geschieht über den Knopf in der Wiedergabe.
  * [onDone] schließt den Bildschirm nach einer Auswahl.
  */
 @Composable
 fun SleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: PlayerViewModel = hiltViewModel()) {
+    val toEndLabel by viewModel.sleepToEndLabel.collectAsStateWithLifecycle()
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(scrollState = columnState) { contentPadding ->
@@ -63,6 +66,19 @@ fun SleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: Player
             contentPadding = contentPadding,
         ) {
             line(transformationSpec, header = true) { stringResource(R.string.sleep_timer_title) }
+            toEndLabel?.let { label ->
+                item {
+                    Button(
+                        onClick = {
+                            viewModel.startSleepTimerToEnd()
+                            onDone()
+                        },
+                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                        label = { Text(stringResource(label)) },
+                    )
+                }
+            }
             SleepTimer.PRESET_MINUTES.forEach { minutes ->
                 item {
                     Button(

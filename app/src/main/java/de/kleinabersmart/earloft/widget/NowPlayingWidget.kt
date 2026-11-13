@@ -133,6 +133,9 @@ private fun albumColorProviders(seedColor: Int): ColorProviders {
 private val WIDGET_PADDING = 8.dp
 private val MIN_COVER = 32.dp
 
+/** Darunter passen Titel, Kapitel, Spielzeit und Knöpfe nicht mehr übereinander; das Kapitel entfällt dann. */
+private val CHAPTER_MIN_HEIGHT = 104.dp
+
 @Composable
 private fun NowPlayingContent(state: WidgetState) {
     val context = LocalContext.current
@@ -183,6 +186,10 @@ private fun NowPlayingContent(state: WidgetState) {
                     textAlign = TextAlign.Center
                 ),
             )
+
+            // Bei Büchern und Folgen mit Kapiteln das laufende Kapitel, sofern das Widget dafür hoch genug ist.
+            val chapter = nowPlaying?.chapter?.takeIf { nowPlaying.isBook && LocalSize.current.height >= CHAPTER_MIN_HEIGHT }
+            if (chapter != null) Subtitle(chapter)
 
             // Untertitel: bei Musik der Künstler, bei Büchern und Folgen die Spielzeit (statt Autor bzw. Abo); solange sie
             // nicht feststeht, der Autor.

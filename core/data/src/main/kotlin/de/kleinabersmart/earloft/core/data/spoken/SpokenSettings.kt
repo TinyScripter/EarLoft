@@ -138,6 +138,16 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_CHAPTER_RESTART] = enabled }
     }
 
+    /**
+     * Schütteln verlängert den Sleep-Timer bei Büchern und Folgen (Standard: an); ein Schalter für beide Bereiche, zu
+     * finden unter Bücher und unter Podcasts → Wiedergabe.
+     */
+    val shakeToExtend: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_SLEEP_SHAKE] ?: true }
+
+    suspend fun setShakeToExtend(enabled: Boolean) {
+        context.spokenSettingsDataStore.edit { it[KEY_SLEEP_SHAKE] = enabled }
+    }
+
     /** Bücher auch über Mobilfunk herunterladen (Standard: nur WLAN); unabhängig vom Schalter der Podcasts. */
     val bookMobileData: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_BOOK_MOBILE] ?: false }
 
@@ -156,6 +166,7 @@ class SpokenSettings @Inject constructor(
         val KEY_PODCAST_SEEK_BACK = intPreferencesKey("podcast_seek_back_s")
         val KEY_PODCAST_SEEK_FORWARD = intPreferencesKey("podcast_seek_forward_s")
         val KEY_CHAPTER_RESTART = booleanPreferencesKey("book_chapter_restart")
+        val KEY_SLEEP_SHAKE = booleanPreferencesKey("sleep_shake")
         val KEY_MODE = stringPreferencesKey("mode")
         // Gespeichert sind die ausgeschalteten, damit ein neuer Bereich von selbst eingeschaltet ist.
         val KEY_HIDDEN_AREAS = stringSetPreferencesKey("hidden_areas")

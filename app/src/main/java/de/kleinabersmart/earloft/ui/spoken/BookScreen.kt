@@ -122,12 +122,13 @@ fun BookScreen(
                     Icon(painterResource(DesignR.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
                 }
             },
-            // Folgen und Bücher einzeln auf die Uhr (Wear-Konzept 16.1/16.2).
+            // Folgen und Bücher einzeln auf die Uhr (Wear-Konzept 16.1/16.2); ⋮ mit gespielt/ungespielt, Warteschlange usw.
             actions = {
                 if (book != null) {
                     if (book.kind == BookKind.BOOK || !book.isLocal) ShareButton(ShareTarget.Book(book.id))
                     WatchToggleButton(WatchTarget.Spoken(book.id))
                 }
+                item?.let { EpisodeMenuButton(it) }
             },
         )
         if (book == null) return@Column
