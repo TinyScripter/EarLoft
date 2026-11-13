@@ -37,7 +37,7 @@ import de.kleinabersmart.earloft.core.playback.PlayingSources
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
-import java.util.Locale
+import androidx.compose.ui.platform.LocalConfiguration
 import javax.inject.Inject
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
@@ -140,7 +140,7 @@ private fun sourceTitle(source: SongSourceInfo): String = when {
 /** „FLAC · 1 012 kbit/s · 34,2 MB · ReplayGain −6,3 dB (Album −7,1 dB)“; was fehlt, entfällt. */
 @Composable
 private fun sourceDetails(source: SongSourceInfo): String {
-    val locale = Locale.getDefault()
+    val locale = LocalConfiguration.current.locales[0]
     val gain = source.trackGainDb?.let { track ->
         val album = source.albumGainDb?.let { stringResource(R.string.track_info_album_gain, "%+.1f".format(locale, it)) }.orEmpty()
         stringResource(R.string.track_info_gain, "%+.1f".format(locale, track)) + album

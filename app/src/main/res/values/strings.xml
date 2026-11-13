@@ -156,7 +156,7 @@
         <item quantity="one">%d subscription</item>
         <item quantity="other">%d subscriptions</item>
     </plurals>
-    <string name="settings_general_summary">Appearance, sections, downloads, backup</string>
+    <string name="settings_general_summary">Downloads, appearance, backup, sections</string>
     <string name="settings_music">Music</string>
     <string name="settings_music_summary_local">%1$s · local music</string>
     <string name="settings_audiobooks">Books</string>
@@ -375,8 +375,8 @@
     <string name="downloads_remove_all_title">Remove all downloads?</string>
     <string name="downloads_remove_all_text">All downloaded files will be deleted. The library is kept.</string>
     <string name="downloads_album_summary">%1$d of %2$d songs · %3$s</string>
-    <string name="settings_wifi_only">Download over Wi-Fi only</string>
-    <string name="settings_wifi_only_summary">Nothing is downloaded over mobile data.</string>
+    <string name="settings_music_mobile">Also use mobile data</string>
+    <string name="settings_music_mobile_summary">Off: music is only downloaded on Wi-Fi.</string>
     <string name="settings_auto_download_favorites">Download favorites automatically</string>
     <string name="settings_auto_download_favorites_summary">New favorites are downloaded, removed favorites are deleted again. Favorite albums are downloaded in full. Applies to servers from which not everything is downloaded anyway.</string>
     <string name="settings_auto_download_favorite_artists">Include favorite artists</string>
@@ -836,6 +836,7 @@
     <string name="settings_stats_reset_done">Statistics reset.</string>
     <string name="podcast_all_heard">All episodes heard.</string>
     <string name="podcast_no_episodes">This feed has no episodes.</string>
+    <string name="podcast_section_subscription">Subscription</string>
     <string name="podcast_unsubscribe">Unsubscribe</string>
     <string name="podcast_unsubscribe_summary">Archive it, or remove it with its episodes and progress</string>
     <string name="podcast_remove_heard_downloads_summary">Frees up storage; the episodes stay in the list</string>
@@ -872,7 +873,7 @@
     <string name="settings_book_auto_started">Download started books automatically</string>
     <string name="settings_book_auto_started_summary">The first two books in Continue listening, on Wi-Fi only.</string>
     <string name="settings_book_auto_next">Download the next book in a series</string>
-    <string name="settings_book_auto_next_summary">Once a book is 80 % heard, the next one of its series, on Wi-Fi only.</string>
+    <string name="settings_book_auto_next_summary" formatted="false">Once a book is 80 % heard, the next one of its series, on Wi-Fi only.</string>
     <string name="settings_book_delete_finished">Delete downloads of finished books</string>
     <string name="settings_podcast_auto_new">Automatic downloads for new subscriptions</string>
     <string name="settings_podcast_auto_new_summary">Default for podcasts you subscribe to from now on. Existing subscriptions keep their own setting.</string>

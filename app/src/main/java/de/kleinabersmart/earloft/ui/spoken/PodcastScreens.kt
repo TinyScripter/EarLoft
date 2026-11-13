@@ -799,7 +799,7 @@ private fun ActionRow(
     )
 }
 
-/** Einstellungen eines Podcasts: Wiedergabe, Downloads und Abo beenden oder archivieren. */
+/** Einstellungen eines Podcasts: Downloads, „Weiterhören“, Wiedergabe und das Abo (Benachrichtigung, Quelle, beenden). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PodcastSettingsScreen(
@@ -826,12 +826,34 @@ fun PodcastSettingsScreen(
             return@Column
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
-            group("podcast-playback", R.string.settings_playback) {
-                row("effects") {
-                    FeedPlaybackRows(current, areaEffects, viewModel::setEffects, viewModel::setSkipIntroOutro)
+            // Podcasts vom Gerät haben weder Feed noch Downloads und lassen sich nur durch Entfernen der Dateien beenden;
+            // ein Abschnitt ohne sichtbare Zeile entfällt.
+            group("podcast-downloads", R.string.nav_downloads) {
+                if (!current.isLocal) row("auto-download") {
+                    SwitchRow(
+                        title = stringResource(R.string.podcast_auto_download),
+                        summary = stringResource(R.string.podcast_auto_download_summary),
+                        icon = DesignR.drawable.ic_download,
+                        checked = current.autoDownload,
+                        onCheckedChange = viewModel::setAutoDownload,
+                    )
+                }
+                if (!current.isLocal && current.autoDownload && current.queueMode != FeedQueueMode.NEWEST_ONLY) row("auto-count") {
+                    val defaultCount by viewModel.defaultAutoDownloadCount.collectAsStateWithLifecycle()
+                    FeedAutoCountRow(current, defaultCount, viewModel::setAutoDownloadCount)
+                }
+                if (downloadStates.values.any { it == TrackDownload.DONE }) {
+                    row("remove-heard") {
+                        ActionRow(
+                            title = stringResource(R.string.podcast_remove_heard_downloads),
+                            summary = stringResource(R.string.podcast_remove_heard_downloads_summary),
+                            icon = DesignR.drawable.ic_delete,
+                            onClick = viewModel::removeHeardDownloads,
+                        )
+                    }
                 }
             }
-            group("podcast-settings") {
+            group("podcast-queue", R.string.spoken_continue) {
                 row("continuous") {
                     SwitchRow(
                         title = stringResource(R.string.podcast_continuous),
@@ -851,20 +873,13 @@ fun PodcastSettingsScreen(
                     )
                 }
                 row("queue") { FeedQueueRows(current, viewModel::setQueueMode, viewModel::setKeepEpisodes) }
-                // Podcasts vom Gerät haben weder Feed noch Downloads und lassen sich nur durch Entfernen der Dateien beenden.
-                if (!current.isLocal) row("auto-download") {
-                    SwitchRow(
-                        title = stringResource(R.string.podcast_auto_download),
-                        summary = stringResource(R.string.podcast_auto_download_summary),
-                        icon = DesignR.drawable.ic_download,
-                        checked = current.autoDownload,
-                        onCheckedChange = viewModel::setAutoDownload,
-                    )
+            }
+            group("podcast-playback", R.string.settings_playback) {
+                row("effects") {
+                    FeedPlaybackRows(current, areaEffects, viewModel::setEffects, viewModel::setSkipIntroOutro)
                 }
-                if (!current.isLocal && current.autoDownload && current.queueMode != FeedQueueMode.NEWEST_ONLY) row("auto-count") {
-                    val defaultCount by viewModel.defaultAutoDownloadCount.collectAsStateWithLifecycle()
-                    FeedAutoCountRow(current, defaultCount, viewModel::setAutoDownloadCount)
-                }
+            }
+            group("podcast-subscription", R.string.podcast_section_subscription) {
                 if (!current.isLocal) row("notify-new") {
                     SwitchRow(
                         title = stringResource(R.string.podcast_notify_new),
@@ -873,16 +888,6 @@ fun PodcastSettingsScreen(
                         checked = current.notifyNew,
                         onCheckedChange = viewModel::setNotifyNew,
                     )
-                }
-                if (downloadStates.values.any { it == TrackDownload.DONE }) {
-                    row("remove-heard") {
-                        ActionRow(
-                            title = stringResource(R.string.podcast_remove_heard_downloads),
-                            summary = stringResource(R.string.podcast_remove_heard_downloads_summary),
-                            icon = DesignR.drawable.ic_delete,
-                            onClick = viewModel::removeHeardDownloads,
-                        )
-                    }
                 }
                 if (!current.isLocal) row("switch-source") {
                     ActionRow(

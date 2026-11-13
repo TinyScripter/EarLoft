@@ -149,7 +149,7 @@ fun TransferMessagesEffect(viewModel: SettingsViewModel) {
     }
 }
 
-/** Was für alle Bereiche gilt: Darstellung, Suche, Downloads, Abgleich, Sicherung. */
+/** Was für alle Bereiche gilt: Downloads, Darstellung, Abgleich, Sicherung, Bereiche, Einrichtung. */
 @Composable
 fun GeneralSettingsScreen(
     onBack: () -> Unit,
@@ -168,6 +168,26 @@ fun GeneralSettingsScreen(
     FullBackupMessagesEffect(backupViewModel)
 
     SettingsPage(stringResource(R.string.settings_general), onBack, modifier) {
+        group("downloads", R.string.nav_downloads) {
+            row("downloads-open") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.nav_downloads)) },
+                    supportingContent = { Text(stringResource(R.string.settings_downloads_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                    modifier = Modifier.clickable(onClick = onOpenDownloads),
+                )
+            }
+            row("ask-mobile-stream") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_ask_mobile_stream),
+                    summary = stringResource(R.string.settings_ask_mobile_stream_summary),
+                    icon = DesignR.drawable.ic_cloud,
+                    checked = state.askBeforeMobileStreaming,
+                    onCheckedChange = viewModel::setAskBeforeMobileStreaming,
+                )
+            }
+        }
+
         group("appearance", R.string.settings_section_appearance) {
             row("theme") {
                 ClickRow(
@@ -219,6 +239,29 @@ fun GeneralSettingsScreen(
             }
         }
 
+        group("refresh", R.string.settings_section_refresh) {
+            row("refresh-all") { RefreshRow(stringResource(R.string.settings_refresh_all), viewModel::refreshAll) }
+        }
+
+        group("backup", R.string.settings_section_backup) {
+            row("backup-export") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_backup_export)) },
+                    supportingContent = { Text(stringResource(R.string.settings_backup_export_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
+                    modifier = Modifier.clickable { backupExportLauncher.launch("earloft-backup-${LocalDate.now()}.zip") },
+                )
+            }
+            row("backup-import") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_backup_import)) },
+                    supportingContent = { Text(stringResource(R.string.settings_backup_import_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                    modifier = Modifier.clickable(onClick = importBackup),
+                )
+            }
+        }
+
         // Bereiche ein- und ausblenden; der letzte eingeschaltete lässt sich nicht ausschalten.
         group("areas", R.string.settings_section_areas) {
             SpokenMode.entries.forEach { area ->
@@ -242,58 +285,6 @@ fun GeneralSettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
-        }
-
-        group("downloads", R.string.nav_downloads) {
-            row("wifi-only") {
-                SwitchRow(
-                    title = stringResource(R.string.settings_wifi_only),
-                    summary = stringResource(R.string.settings_wifi_only_summary),
-                    icon = DesignR.drawable.ic_download,
-                    checked = state.downloadWifiOnly,
-                    onCheckedChange = viewModel::setDownloadWifiOnly,
-                )
-            }
-            row("ask-mobile-stream") {
-                SwitchRow(
-                    title = stringResource(R.string.settings_ask_mobile_stream),
-                    summary = stringResource(R.string.settings_ask_mobile_stream_summary),
-                    icon = DesignR.drawable.ic_cloud,
-                    checked = state.askBeforeMobileStreaming,
-                    onCheckedChange = viewModel::setAskBeforeMobileStreaming,
-                )
-            }
-            row("downloads-open") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.nav_downloads)) },
-                    supportingContent = { Text(stringResource(R.string.settings_downloads_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                    modifier = Modifier.clickable(onClick = onOpenDownloads),
-                )
-            }
-        }
-
-        group("refresh", R.string.settings_section_refresh) {
-            row("refresh-all") { RefreshRow(stringResource(R.string.settings_refresh_all), viewModel::refreshAll) }
-        }
-
-        group("backup", R.string.settings_section_backup) {
-            row("backup-export") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_backup_export)) },
-                    supportingContent = { Text(stringResource(R.string.settings_backup_export_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
-                    modifier = Modifier.clickable { backupExportLauncher.launch("earloft-backup-${LocalDate.now()}.zip") },
-                )
-            }
-            row("backup-import") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_backup_import)) },
-                    supportingContent = { Text(stringResource(R.string.settings_backup_import_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                    modifier = Modifier.clickable(onClick = importBackup),
-                )
-            }
         }
 
         group("setup", R.string.settings_section_setup) {
@@ -379,6 +370,90 @@ fun MusicSettingsScreen(
             }
         }
 
+        group("playback", R.string.settings_playback) {
+            row("replay-gain") {
+                ClickRow(
+                    title = stringResource(R.string.settings_replay_gain),
+                    value = stringResource(state.replayGainMode.label),
+                    icon = DesignR.drawable.ic_volume_up,
+                    onClick = { choosingReplayGain = true },
+                )
+            }
+            row("pre-amp") {
+                PreAmpRow(
+                    preAmpDb = state.preAmpDb,
+                    enabled = state.replayGainMode != ReplayGainMode.OFF,
+                    onPreAmpChange = viewModel::setPreAmpDb,
+                )
+            }
+            row("mobile-quality") {
+                ClickRow(
+                    title = stringResource(R.string.settings_mobile_stream_quality),
+                    value = stringResource(state.mobileStreamQuality.label),
+                    icon = DesignR.drawable.ic_signal_cellular,
+                    onClick = { choosingMobileQuality = true },
+                )
+            }
+            row("scrobble") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_scrobble),
+                    summary = stringResource(R.string.settings_scrobble_summary),
+                    icon = DesignR.drawable.ic_cloud,
+                    checked = state.scrobble,
+                    onCheckedChange = viewModel::setScrobble,
+                )
+            }
+        }
+
+        group("downloads", R.string.nav_downloads) {
+            // Gilt für Musik; Podcasts und Bücher haben ihren eigenen Schalter. Gespeichert ist das Gegenteil („nur WLAN“).
+            row("music-mobile") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_music_mobile),
+                    summary = stringResource(R.string.settings_music_mobile_summary),
+                    icon = DesignR.drawable.ic_cloud,
+                    checked = !state.downloadWifiOnly,
+                    onCheckedChange = { viewModel.setDownloadWifiOnly(!it) },
+                )
+            }
+            row("auto-favorites") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_auto_download_favorites),
+                    summary = stringResource(R.string.settings_auto_download_favorites_summary),
+                    icon = DesignR.drawable.ic_favorite,
+                    checked = state.autoDownloadFavorites,
+                    onCheckedChange = viewModel::setAutoDownloadFavorites,
+                )
+            }
+            // Gehört zur Favoriten-Automatik und wirkt nur mit ihr.
+            row("auto-favorite-artists") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_auto_download_favorite_artists),
+                    summary = stringResource(R.string.settings_auto_download_favorite_artists_summary),
+                    icon = DesignR.drawable.ic_person,
+                    checked = state.autoDownloadFavoriteArtists,
+                    onCheckedChange = viewModel::setAutoDownloadFavoriteArtists,
+                    enabled = state.autoDownloadFavorites,
+                )
+            }
+            row("auto-newest-albums") {
+                ClickRow(
+                    title = stringResource(R.string.settings_auto_download_newest_albums),
+                    value = autoAlbumsLabel(state.autoDownloadNewestAlbums),
+                    icon = DesignR.drawable.ic_download,
+                    onClick = { choosingAutoAlbums = AutoAlbums.NEWEST },
+                )
+            }
+            row("auto-most-played-albums") {
+                ClickRow(
+                    title = stringResource(R.string.settings_auto_download_most_played_albums),
+                    value = autoAlbumsLabel(state.autoDownloadMostPlayedAlbums),
+                    icon = DesignR.drawable.ic_replay,
+                    onClick = { choosingAutoAlbums = AutoAlbums.MOST_PLAYED },
+                )
+            }
+        }
+
         group("refresh", R.string.settings_section_refresh) {
             row("sync-interval") {
                 ClickRow(
@@ -420,80 +495,6 @@ fun MusicSettingsScreen(
                     icon = DesignR.drawable.ic_lyrics,
                     checked = state.onlineLyrics,
                     onCheckedChange = viewModel::setOnlineLyrics,
-                )
-            }
-        }
-
-        group("playback", R.string.settings_playback) {
-            row("replay-gain") {
-                ClickRow(
-                    title = stringResource(R.string.settings_replay_gain),
-                    value = stringResource(state.replayGainMode.label),
-                    icon = DesignR.drawable.ic_volume_up,
-                    onClick = { choosingReplayGain = true },
-                )
-            }
-            row("pre-amp") {
-                PreAmpRow(
-                    preAmpDb = state.preAmpDb,
-                    enabled = state.replayGainMode != ReplayGainMode.OFF,
-                    onPreAmpChange = viewModel::setPreAmpDb,
-                )
-            }
-            row("mobile-quality") {
-                ClickRow(
-                    title = stringResource(R.string.settings_mobile_stream_quality),
-                    value = stringResource(state.mobileStreamQuality.label),
-                    icon = DesignR.drawable.ic_signal_cellular,
-                    onClick = { choosingMobileQuality = true },
-                )
-            }
-            row("scrobble") {
-                SwitchRow(
-                    title = stringResource(R.string.settings_scrobble),
-                    summary = stringResource(R.string.settings_scrobble_summary),
-                    icon = DesignR.drawable.ic_cloud,
-                    checked = state.scrobble,
-                    onCheckedChange = viewModel::setScrobble,
-                )
-            }
-        }
-
-        group("downloads", R.string.nav_downloads) {
-            row("auto-favorites") {
-                SwitchRow(
-                    title = stringResource(R.string.settings_auto_download_favorites),
-                    summary = stringResource(R.string.settings_auto_download_favorites_summary),
-                    icon = DesignR.drawable.ic_favorite,
-                    checked = state.autoDownloadFavorites,
-                    onCheckedChange = viewModel::setAutoDownloadFavorites,
-                )
-            }
-            // Gehört zur Favoriten-Automatik und wirkt nur mit ihr.
-            row("auto-favorite-artists") {
-                SwitchRow(
-                    title = stringResource(R.string.settings_auto_download_favorite_artists),
-                    summary = stringResource(R.string.settings_auto_download_favorite_artists_summary),
-                    icon = DesignR.drawable.ic_person,
-                    checked = state.autoDownloadFavoriteArtists,
-                    onCheckedChange = viewModel::setAutoDownloadFavoriteArtists,
-                    enabled = state.autoDownloadFavorites,
-                )
-            }
-            row("auto-newest-albums") {
-                ClickRow(
-                    title = stringResource(R.string.settings_auto_download_newest_albums),
-                    value = autoAlbumsLabel(state.autoDownloadNewestAlbums),
-                    icon = DesignR.drawable.ic_download,
-                    onClick = { choosingAutoAlbums = AutoAlbums.NEWEST },
-                )
-            }
-            row("auto-most-played-albums") {
-                ClickRow(
-                    title = stringResource(R.string.settings_auto_download_most_played_albums),
-                    value = autoAlbumsLabel(state.autoDownloadMostPlayedAlbums),
-                    icon = DesignR.drawable.ic_replay,
-                    onClick = { choosingAutoAlbums = AutoAlbums.MOST_PLAYED },
                 )
             }
         }
@@ -618,100 +619,6 @@ fun PodcastsSettingsScreen(
     TransferMessagesEffect(viewModel)
 
     SettingsPage(stringResource(R.string.settings_podcasts), onBack, modifier) {
-        group("sources", R.string.settings_section_sources) {
-            row("local-podcasts") {
-                SwitchRow(
-                    title = stringResource(R.string.settings_local_podcasts),
-                    summary = stringResource(R.string.settings_local_podcasts_summary),
-                    icon = DesignR.drawable.ic_playlist_play,
-                    checked = state.useLocalPodcasts,
-                    onCheckedChange = { enabled ->
-                        if (enabled) requestAudioPermission() else viewModel.setUseLocalPodcasts(false)
-                    },
-                )
-            }
-        }
-
-        group("directories", R.string.settings_section_directories) {
-            state.podcastDirectories.forEach { directory ->
-                row("directory-${directory.name}") {
-                    SwitchRow(
-                        title = stringResource(directory.label),
-                        summary = stringResource(directory.summary),
-                        icon = R.drawable.ic_nav_search,
-                        checked = directory in state.enabledPodcastDirectories,
-                        onCheckedChange = { viewModel.setPodcastDirectory(directory, it) },
-                    )
-                }
-                // Das Land gehört zu Apple und steht deshalb direkt unter seinem Schalter.
-                if (directory == PodcastDirectory.APPLE && directory in state.enabledPodcastDirectories) {
-                    row("apple-country") {
-                        ClickRow(
-                            title = stringResource(R.string.settings_directory_apple_country),
-                            value = countryName(state.appleCountry),
-                            icon = R.drawable.ic_nav_search,
-                            onClick = { choosingCountry = true },
-                        )
-                    }
-                }
-            }
-        }
-
-        group("refresh", R.string.settings_section_refresh) {
-            row("podcast-refresh") {
-                ClickRow(
-                    title = stringResource(R.string.settings_podcast_refresh),
-                    value = podcastRefreshLabel(state.podcastRefreshHours),
-                    icon = DesignR.drawable.ic_sync,
-                    onClick = { choosingRefresh = true },
-                )
-            }
-            row("refresh-podcasts") { RefreshRow(stringResource(R.string.settings_refresh_podcasts), viewModel::refreshPodcasts) }
-        }
-
-        group("opml", R.string.settings_section_opml) {
-            row("opml-import") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_opml_import)) },
-                    supportingContent = { Text(stringResource(R.string.settings_opml_import_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                    modifier = Modifier.clickable { importLauncher.launch(arrayOf("*/*")) },
-                )
-            }
-            row("db-import") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_db_import)) },
-                    supportingContent = { Text(stringResource(R.string.settings_db_import_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
-                    modifier = Modifier.clickable { backupLauncher.launch(arrayOf("*/*")) },
-                )
-            }
-            row("db-export") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_db_export)) },
-                    supportingContent = { Text(stringResource(R.string.settings_db_export_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
-                    modifier = Modifier.clickable { databaseExportLauncher.launch("earloft-podcasts.db") },
-                )
-            }
-            row("opml-export") {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_opml_export)) },
-                    supportingContent = { Text(stringResource(R.string.settings_opml_export_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
-                    modifier = Modifier.clickable { exportLauncher.launch("earloft-podcasts.opml") },
-                )
-            }
-            row("rss-bridge") {
-                ClickRow(
-                    title = stringResource(R.string.settings_rss_bridge),
-                    value = state.rssBridge.ifBlank { stringResource(R.string.settings_rss_bridge_off) },
-                    icon = DesignR.drawable.ic_cloud,
-                    onClick = { editingBridge = true },
-                )
-            }
-        }
-
         group("playback", R.string.settings_playback) {
             row("podcast-auto-play-next") {
                 SwitchRow(
@@ -789,13 +696,96 @@ fun PodcastsSettingsScreen(
             }
         }
 
-        group("stats", R.string.settings_section_stats) {
-            row("stats-reset") {
+        group("refresh", R.string.settings_section_refresh) {
+            row("podcast-refresh") {
+                ClickRow(
+                    title = stringResource(R.string.settings_podcast_refresh),
+                    value = podcastRefreshLabel(state.podcastRefreshHours),
+                    icon = DesignR.drawable.ic_sync,
+                    onClick = { choosingRefresh = true },
+                )
+            }
+            row("refresh-podcasts") { RefreshRow(stringResource(R.string.settings_refresh_podcasts), viewModel::refreshPodcasts) }
+        }
+
+        group("sources", R.string.settings_section_sources) {
+            row("local-podcasts") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_local_podcasts),
+                    summary = stringResource(R.string.settings_local_podcasts_summary),
+                    icon = DesignR.drawable.ic_playlist_play,
+                    checked = state.useLocalPodcasts,
+                    onCheckedChange = { enabled ->
+                        if (enabled) requestAudioPermission() else viewModel.setUseLocalPodcasts(false)
+                    },
+                )
+            }
+        }
+
+        group("directories", R.string.settings_section_directories) {
+            state.podcastDirectories.forEach { directory ->
+                row("directory-${directory.name}") {
+                    SwitchRow(
+                        title = stringResource(directory.label),
+                        summary = stringResource(directory.summary),
+                        icon = R.drawable.ic_nav_search,
+                        checked = directory in state.enabledPodcastDirectories,
+                        onCheckedChange = { viewModel.setPodcastDirectory(directory, it) },
+                    )
+                }
+                // Das Land gehört zu Apple und steht deshalb direkt unter seinem Schalter.
+                if (directory == PodcastDirectory.APPLE && directory in state.enabledPodcastDirectories) {
+                    row("apple-country") {
+                        ClickRow(
+                            title = stringResource(R.string.settings_directory_apple_country),
+                            value = countryName(state.appleCountry),
+                            icon = R.drawable.ic_nav_search,
+                            onClick = { choosingCountry = true },
+                        )
+                    }
+                }
+            }
+        }
+
+        group("opml", R.string.settings_section_opml) {
+            row("opml-import") {
                 ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_stats_reset)) },
-                    supportingContent = { Text(stringResource(R.string.settings_stats_reset_summary)) },
-                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
-                    modifier = Modifier.clickable { confirmingStatsReset = true },
+                    headlineContent = { Text(stringResource(R.string.settings_opml_import)) },
+                    supportingContent = { Text(stringResource(R.string.settings_opml_import_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                    modifier = Modifier.clickable { importLauncher.launch(arrayOf("*/*")) },
+                )
+            }
+            row("db-import") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_db_import)) },
+                    supportingContent = { Text(stringResource(R.string.settings_db_import_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_download), contentDescription = null) },
+                    modifier = Modifier.clickable { backupLauncher.launch(arrayOf("*/*")) },
+                )
+            }
+            row("db-export") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_db_export)) },
+                    supportingContent = { Text(stringResource(R.string.settings_db_export_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
+                    modifier = Modifier.clickable { databaseExportLauncher.launch("earloft-podcasts.db") },
+                )
+            }
+            row("opml-export") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_opml_export)) },
+                    supportingContent = { Text(stringResource(R.string.settings_opml_export_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null) },
+                    modifier = Modifier.clickable { exportLauncher.launch("earloft-podcasts.opml") },
+                )
+            }
+            row("rss-bridge") {
+                ClickRow(
+                    title = stringResource(R.string.settings_rss_bridge),
+                    value = state.rssBridge.ifBlank { stringResource(R.string.settings_rss_bridge_off) },
+                    icon = DesignR.drawable.ic_cloud,
+                    onClick = { editingBridge = true },
                 )
             }
         }
@@ -820,6 +810,17 @@ fun PodcastsSettingsScreen(
                         )
                     }
                 }
+            }
+        }
+
+        group("stats", R.string.settings_section_stats) {
+            row("stats-reset") {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_stats_reset)) },
+                    supportingContent = { Text(stringResource(R.string.settings_stats_reset_summary)) },
+                    leadingContent = { Icon(painterResource(DesignR.drawable.ic_delete), contentDescription = null) },
+                    modifier = Modifier.clickable { confirmingStatsReset = true },
+                )
             }
         }
     }
@@ -1017,22 +1018,6 @@ fun AudiobookSettingsScreen(
             row("audiobookshelf") { AudiobookshelfSection(onAdd = onAddServer, onEdit = onEditServer) }
         }
 
-        group("refresh", R.string.settings_section_refresh) {
-            row("refresh-audiobooks") { RefreshRow(stringResource(R.string.settings_refresh_audiobooks), viewModel::refreshAudiobooks) }
-        }
-
-        group("images", R.string.settings_section_images) {
-            row("author-images") {
-                SwitchRow(
-                    title = stringResource(R.string.settings_author_images),
-                    summary = stringResource(R.string.settings_author_images_summary),
-                    icon = DesignR.drawable.ic_book,
-                    checked = state.authorImages,
-                    onCheckedChange = viewModel::setAuthorImages,
-                )
-            }
-        }
-
         group("playback", R.string.settings_playback) {
             row("book-effects") {
                 Column {
@@ -1103,6 +1088,22 @@ fun AudiobookSettingsScreen(
                     value = podcastDeleteHeardLabel(state.bookDeleteFinishedDays),
                     icon = DesignR.drawable.ic_delete,
                     onClick = { choosingBookDelete = true },
+                )
+            }
+        }
+
+        group("refresh", R.string.settings_section_refresh) {
+            row("refresh-audiobooks") { RefreshRow(stringResource(R.string.settings_refresh_audiobooks), viewModel::refreshAudiobooks) }
+        }
+
+        group("images", R.string.settings_section_images) {
+            row("author-images") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_author_images),
+                    summary = stringResource(R.string.settings_author_images_summary),
+                    icon = DesignR.drawable.ic_book,
+                    checked = state.authorImages,
+                    onCheckedChange = viewModel::setAuthorImages,
                 )
             }
         }

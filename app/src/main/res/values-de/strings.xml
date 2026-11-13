@@ -155,7 +155,7 @@
         <item quantity="one">%d Abo</item>
         <item quantity="other">%d Abos</item>
     </plurals>
-    <string name="settings_general_summary">Darstellung, Bereiche, Downloads, Sicherung</string>
+    <string name="settings_general_summary">Downloads, Darstellung, Sicherung, Bereiche</string>
     <string name="settings_music">Musik</string>
     <string name="settings_music_summary_local">%1$s · lokale Musik</string>
     <string name="settings_audiobooks">Bücher</string>
@@ -368,8 +368,8 @@
     <string name="downloads_remove_all_title">Alle Downloads entfernen?</string>
     <string name="downloads_remove_all_text">Alle heruntergeladenen Dateien werden gelöscht. Die Bibliothek bleibt erhalten.</string>
     <string name="downloads_album_summary">%1$d von %2$d Songs · %3$s</string>
-    <string name="settings_wifi_only">Nur über WLAN herunterladen</string>
-    <string name="settings_wifi_only_summary">Über mobile Daten wird nichts heruntergeladen.</string>
+    <string name="settings_music_mobile">Auch über Mobilfunk laden</string>
+    <string name="settings_music_mobile_summary">Aus: Musik wird nur im WLAN heruntergeladen.</string>
     <string name="settings_auto_download_favorites">Favoriten automatisch herunterladen</string>
     <string name="settings_auto_download_favorites_summary">Neue Favoriten werden geladen, entfernte Favoriten wieder gelöscht. Favorisierte Alben werden ganz geladen. Gilt für Server, von denen nicht ohnehin alles geladen wird.</string>
     <string name="settings_auto_download_favorite_artists">Favorisierte Künstler mitladen</string>
@@ -829,6 +829,7 @@
     <string name="settings_stats_reset_done">Statistik zurückgesetzt.</string>
     <string name="podcast_all_heard">Alle Folgen gehört.</string>
     <string name="podcast_no_episodes">Dieser Feed enthält keine Folgen.</string>
+    <string name="podcast_section_subscription">Abo</string>
     <string name="podcast_unsubscribe">Abo beenden</string>
     <string name="podcast_unsubscribe_summary">Archivieren oder samt Folgen und Fortschritt entfernen</string>
     <string name="podcast_remove_heard_downloads_summary">Gibt Speicher frei; die Folgen bleiben in der Liste</string>
@@ -865,7 +866,7 @@
     <string name="settings_book_auto_started">Angefangene Bücher automatisch laden</string>
     <string name="settings_book_auto_started_summary">Die ersten zwei Bücher aus „Weiterhören“, nur im WLAN.</string>
     <string name="settings_book_auto_next">Nächsten Band einer Serie laden</string>
-    <string name="settings_book_auto_next_summary">Ist ein Buch zu 80 % gehört, den nächsten Band seiner Serie, nur im WLAN.</string>
+    <string name="settings_book_auto_next_summary" formatted="false">Ist ein Buch zu 80 % gehört, den nächsten Band seiner Serie, nur im WLAN.</string>
     <string name="settings_book_delete_finished">Downloads beendeter Bücher löschen</string>
     <string name="settings_podcast_auto_new">Neue Abos laden automatisch</string>
     <string name="settings_podcast_auto_new_summary">Vorgabe für Podcasts, die du ab jetzt abonnierst. Bestehende Abos behalten ihre eigene Einstellung.</string>
