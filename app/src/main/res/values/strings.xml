@@ -368,6 +368,8 @@
     <string name="settings_auto_download_most_played_albums">Download most played albums automatically</string>
     <string name="settings_auto_download_most_played_albums_summary">The albums played most in the last 90 days (at least 3 plays). Albums that drop out are deleted again.</string>
     <string name="settings_auto_download_albums_off">Off</string>
+    <string name="settings_auto_download_albums_custom">Custom number</string>
+    <string name="settings_auto_download_albums_apply">Apply</string>
 
     <!-- Settings: playback -->
     <string name="settings_downloads_summary">Manage downloaded music, episodes and books and check storage</string>

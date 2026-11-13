@@ -361,6 +361,8 @@
     <string name="settings_auto_download_most_played_albums">Meistgehörte Alben automatisch herunterladen</string>
     <string name="settings_auto_download_most_played_albums_summary">Die in den letzten 90 Tagen am häufigsten gehörten Alben (mindestens 3 Wiedergaben). Alben, die herausfallen, werden wieder gelöscht.</string>
     <string name="settings_auto_download_albums_off">Aus</string>
+    <string name="settings_auto_download_albums_custom">Eigene Anzahl</string>
+    <string name="settings_auto_download_albums_apply">Übernehmen</string>
 
     <!-- Einstellungen: Wiedergabe -->
     <string name="settings_downloads_summary">Heruntergeladene Musik, Folgen und Bücher verwalten und Speicher prüfen</string>

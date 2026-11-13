@@ -13,6 +13,13 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.Alignment
+import kotlin.math.roundToInt
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,6 +78,33 @@ private enum class AutoAlbums(val title: Int, val summary: Int) {
     NEWEST(R.string.settings_auto_download_newest_albums, R.string.settings_auto_download_newest_albums_summary),
     MOST_PLAYED(R.string.settings_auto_download_most_played_albums, R.string.settings_auto_download_most_played_albums_summary),
 }
+
+/** Eigene Anzahl Alben per Schieberegler, wie die eigene Dauer beim Einschlaf-Timer. */
+@Composable
+private fun CustomAlbumCount(initial: Int, onApply: (Int) -> Unit) {
+    val step = DownloadSettings.AUTO_ALBUM_STEP
+    val max = DownloadSettings.AUTO_ALBUM_MAX
+    var count by remember { mutableFloatStateOf((if (initial > 0) initial else CUSTOM_ALBUMS_DEFAULT).coerceIn(step, max).toFloat()) }
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Text(stringResource(R.string.settings_auto_download_albums_custom), style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Slider(
+                value = count,
+                // Auf ganze Schritte einrasten (der Regler liefert Zwischenwerte).
+                onValueChange = { count = (it / step).roundToInt() * step.toFloat() },
+                valueRange = step.toFloat()..max.toFloat(),
+                steps = max / step - 2,
+                modifier = Modifier.weight(1f),
+            )
+            Text(pluralStringResource(R.plurals.album_count, count.roundToInt(), count.roundToInt()))
+        }
+        Button(onClick = { onApply(count.roundToInt()) }, modifier = Modifier.align(Alignment.End)) {
+            Text(stringResource(R.string.settings_auto_download_albums_apply))
+        }
+    }
+}
+
+private const val CUSTOM_ALBUMS_DEFAULT = 20
 
 @Composable
 private fun autoAlbumsLabel(count: Int): String =
@@ -448,17 +482,21 @@ fun MusicSettingsScreen(
     }
 
     choosingAutoAlbums?.let { rule ->
+        val current = if (rule == AutoAlbums.NEWEST) state.autoDownloadNewestAlbums else state.autoDownloadMostPlayedAlbums
+        val choose: (Int) -> Unit = {
+            if (rule == AutoAlbums.NEWEST) viewModel.setAutoDownloadNewestAlbums(it) else viewModel.setAutoDownloadMostPlayedAlbums(it)
+            choosingAutoAlbums = null
+        }
         ChoiceDialog(
             title = stringResource(rule.title),
-            options = DownloadSettings.AUTO_ALBUM_CHOICES,
-            selected = if (rule == AutoAlbums.NEWEST) state.autoDownloadNewestAlbums else state.autoDownloadMostPlayedAlbums,
+            // Eine eigene Anzahl erscheint als eigene Zeile, damit die Auswahl sichtbar bleibt.
+            options = (DownloadSettings.AUTO_ALBUM_CHOICES + current).distinct().sorted(),
+            selected = current,
             label = { autoAlbumsLabel(it) },
             description = stringResource(rule.summary),
-            onSelect = {
-                if (rule == AutoAlbums.NEWEST) viewModel.setAutoDownloadNewestAlbums(it) else viewModel.setAutoDownloadMostPlayedAlbums(it)
-                choosingAutoAlbums = null
-            },
+            onSelect = choose,
             onDismiss = { choosingAutoAlbums = null },
+            footer = { CustomAlbumCount(initial = current, onApply = choose) },
         )
     }
 

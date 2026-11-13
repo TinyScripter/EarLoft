@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.selection.selectable
@@ -120,7 +122,10 @@ internal fun ClickRow(title: String, value: String, icon: Int, onClick: () -> Un
     )
 }
 
-/** Auswahl eines Werts mit Radio-Zeilen; ein Tipp wählt und schließt. [description] steht einmal über den Zeilen. */
+/**
+ * Auswahl eines Werts mit Radio-Zeilen; ein Tipp wählt und schließt. [description] steht einmal über den Zeilen, [footer]
+ * darunter (z. B. ein Schieberegler für einen eigenen Wert).
+ */
 @Composable
 internal fun <T> ChoiceDialog(
     title: String,
@@ -131,12 +136,13 @@ internal fun <T> ChoiceDialog(
     onDismiss: () -> Unit,
     summary: @Composable (T) -> String? = { null },
     description: String? = null,
+    footer: (@Composable () -> Unit)? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(Modifier.selectableGroup()) {
+            Column(Modifier.verticalScroll(rememberScrollState()).selectableGroup()) {
                 description?.let { Text(it, Modifier.padding(bottom = 8.dp), style = MaterialTheme.typography.bodyMedium) }
                 options.forEach { option ->
                     val optionSummary = summary(option)
@@ -148,6 +154,7 @@ internal fun <T> ChoiceDialog(
                         modifier = Modifier.selectable(selected = option == selected, role = Role.RadioButton) { onSelect(option) },
                     )
                 }
+                footer?.invoke()
             }
         },
         confirmButton = {

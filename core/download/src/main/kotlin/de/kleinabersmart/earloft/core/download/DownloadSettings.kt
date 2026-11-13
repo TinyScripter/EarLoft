@@ -69,8 +69,12 @@ class DownloadSettings @Inject constructor(
     }
 
     companion object {
-        /** Wahlmöglichkeiten für [autoDownloadNewestAlbums] und [autoDownloadMostPlayedAlbums]; 0 = aus. */
+        /** Feste Wahlmöglichkeiten für [autoDownloadNewestAlbums] und [autoDownloadMostPlayedAlbums]; 0 = aus. */
         val AUTO_ALBUM_CHOICES = listOf(0, 10, 25, 50)
+
+        /** Eigene Anzahl per Schieberegler: in diesen Schritten bis [AUTO_ALBUM_MAX]. */
+        const val AUTO_ALBUM_STEP = 5
+        const val AUTO_ALBUM_MAX = 100
 
         private val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only")
         private val KEY_AUTO_FAVORITES = booleanPreferencesKey("auto_download_favorites")
