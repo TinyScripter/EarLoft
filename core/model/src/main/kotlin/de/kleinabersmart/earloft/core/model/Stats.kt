@@ -70,3 +70,39 @@ data class ServerBookStats(
 ) {
     val hasHistory: Boolean get() = months.any { it.listenedMs > 0 }
 }
+
+/**
+ * Ein Eintrag der Bestenlisten der Musik-Statistik. [id] ist Song, Album bzw. Künstler (bei Genres `null`), [albumId] das
+ * Album fürs Cover (bei Künstlern und Genres `null`); [subtitle] der Künstler eines Songs oder Albums.
+ */
+data class MusicTopEntry(
+    val id: Long?,
+    val title: String,
+    val subtitle: String?,
+    val albumId: Long?,
+    val plays: Int,
+    val listenedMs: Long,
+)
+
+/**
+ * Statistik der Musik aus dem Hörverlauf (gezählte Wiedergaben, Konzept 8 „Musik-Statistik“). [songs] und [albums] zählen verschiedene
+ * Songs bzw. Alben; [newAlbums] die Alben, die im gewählten Jahr zum ersten Mal gehört wurden (in „Gesamt“ gleich
+ * [albums]). [months], [years] und [year] wie bei [PodcastStats]; [weekdays] aus dem gewählten Zeitraum.
+ */
+data class MusicStats(
+    val totalMs: Long,
+    val plays: Int,
+    val songs: Int,
+    val albums: Int,
+    val newAlbums: Int,
+    val topArtists: List<MusicTopEntry>,
+    val topAlbums: List<MusicTopEntry>,
+    val topSongs: List<MusicTopEntry>,
+    val topGenres: List<MusicTopEntry>,
+    val months: List<MonthListening>,
+    val weekdays: List<WeekdayListening>,
+    val years: List<Int> = emptyList(),
+    val year: Int? = null,
+) {
+    val hasHistory: Boolean get() = months.any { it.listenedMs > 0 }
+}

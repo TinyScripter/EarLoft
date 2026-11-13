@@ -292,6 +292,20 @@
     <string name="action_add_favorite">Zu Favoriten hinzufügen</string>
     <string name="action_remove_favorite">Aus Favoriten entfernen</string>
     <string name="library_playlists">Playlists</string>
+    <string name="library_stats">Statistik</string>
+    <string name="music_stats_empty">Noch nichts gehört. Ein Song zählt, sobald du die Hälfte oder 30 Sekunden gehört hast.</string>
+    <plurals name="music_stats_plays">
+        <item quantity="one">%1$d Wiedergabe</item>
+        <item quantity="other">%1$d Wiedergaben</item>
+    </plurals>
+    <plurals name="music_stats_new_albums">
+        <item quantity="one">%1$d Album zum ersten Mal gehört</item>
+        <item quantity="other">%1$d Alben zum ersten Mal gehört</item>
+    </plurals>
+    <string name="music_stats_top_artists">Meistgehörte Künstler</string>
+    <string name="music_stats_top_albums">Meistgehörte Alben</string>
+    <string name="music_stats_top_songs">Meistgehörte Songs</string>
+    <string name="music_stats_top_genres">Meistgehörte Genres</string>
     <string name="favorites_title">Favoriten</string>
     <string name="favorites_empty">Noch keine Favoriten. Tippe im Player auf das Herz oder nutze das Song-Menü.</string>
     <string name="settings_scrobble">Wiedergaben an den Server melden</string>

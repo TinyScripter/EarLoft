@@ -15,11 +15,13 @@ import de.kleinabersmart.earloft.core.database.model.AlbumRow
 import de.kleinabersmart.earloft.core.database.model.ArtistRow
 import de.kleinabersmart.earloft.core.database.model.GenreRow
 import de.kleinabersmart.earloft.core.database.model.MixCandidateRow
+import de.kleinabersmart.earloft.core.database.model.MusicPlayRow
 import de.kleinabersmart.earloft.core.database.model.PlayableSourceRow
 import de.kleinabersmart.earloft.core.database.model.RemoteSongIdRow
 import de.kleinabersmart.earloft.core.database.model.ReplayGainRow
 import de.kleinabersmart.earloft.core.database.model.SongRow
 import de.kleinabersmart.earloft.core.database.model.SongSourceInfoRow
+import de.kleinabersmart.earloft.core.database.model.TopPlayedRow
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -57,6 +59,13 @@ private const val SELECT_GENRE_ROWS = """
     FROM songs s
     WHERE s.genre IS NOT NULL AND TRIM(s.genre) != '' AND $SONG_VISIBLE
     GROUP BY s.genre COLLATE NOCASE
+"""
+
+/** Wiedergaben sichtbarer Songs zwischen `:from` (einschließlich) und `:to` (ausschließlich), samt Song (`s`) und Album (`a`). */
+private const val FROM_PLAYS_IN_RANGE = """
+    FROM play_events pe
+    JOIN songs s ON s.songId = pe.songId AND pe.playedAt >= :from AND pe.playedAt < :to AND $SONG_VISIBLE
+    JOIN albums a ON a.albumId = s.albumId
 """
 
 /** Merkmale sichtbarer Songs für den Mix (`MixCandidateRow`); Bedingungen hängen hinten an. */
@@ -303,6 +312,65 @@ abstract class LibraryDao {
     /** Bis zu [limit] zufällige sichtbare Songs, um einen Mix aufzufüllen. */
     @Query("$SELECT_MIX_CANDIDATES ORDER BY RANDOM() LIMIT :limit")
     abstract suspend fun getRandomMixCandidates(limit: Int): List<MixCandidateRow>
+
+    // --- Statistik ---
+
+    /** Alle gezählten Wiedergaben sichtbarer Songs (Musik-Statistik). */
+    @Query("SELECT pe.songId, s.albumId, pe.playedAt, pe.listenedMs FROM play_events pe JOIN songs s ON s.songId = pe.songId WHERE $SONG_VISIBLE")
+    abstract fun observeMusicPlays(): Flow<List<MusicPlayRow>>
+
+    /** Die zwischen [from] (einschließlich) und [to] (ausschließlich) meistgespielten Songs; bei Gleichstand der zuletzt gehörte. */
+    @Query(
+        """
+        SELECT s.songId AS id, s.title, s.artistDisplay AS subtitle, s.albumId, COUNT(*) AS plays, SUM(pe.listenedMs) AS listenedMs
+        $FROM_PLAYS_IN_RANGE
+        GROUP BY s.songId
+        ORDER BY plays DESC, MAX(pe.playedAt) DESC
+        LIMIT :limit
+        """,
+    )
+    abstract fun observeTopSongs(from: Long, to: Long, limit: Int): Flow<List<TopPlayedRow>>
+
+    /** Wie [observeTopSongs], je Album. */
+    @Query(
+        """
+        SELECT a.albumId AS id, a.title, a.albumArtistDisplay AS subtitle, a.albumId, COUNT(*) AS plays, SUM(pe.listenedMs) AS listenedMs
+        $FROM_PLAYS_IN_RANGE
+        GROUP BY a.albumId
+        ORDER BY plays DESC, MAX(pe.playedAt) DESC
+        LIMIT :limit
+        """,
+    )
+    abstract fun observeTopAlbums(from: Long, to: Long, limit: Int): Flow<List<TopPlayedRow>>
+
+    /** Wie [observeTopSongs], je Künstler: dem ersten des Songs, sonst dem ersten des Albums (wie beim Mix). */
+    @Query(
+        """
+        SELECT ar.artistId AS id, ar.name AS title, NULL AS subtitle, NULL AS albumId, COUNT(*) AS plays, SUM(pe.listenedMs) AS listenedMs
+        $FROM_PLAYS_IN_RANGE
+        JOIN artists ar ON ar.artistId = COALESCE(
+            (SELECT sa.artistId FROM song_artists sa WHERE sa.songId = s.songId ORDER BY sa.position LIMIT 1),
+            (SELECT aa.artistId FROM album_artists aa WHERE aa.albumId = s.albumId ORDER BY aa.position LIMIT 1)
+        )
+        GROUP BY ar.artistId
+        ORDER BY plays DESC, MAX(pe.playedAt) DESC
+        LIMIT :limit
+        """,
+    )
+    abstract fun observeTopArtists(from: Long, to: Long, limit: Int): Flow<List<TopPlayedRow>>
+
+    /** Wie [observeTopSongs], je Genre (Schreibweisen wie im Reiter „Genres“ zusammengefasst). */
+    @Query(
+        """
+        SELECT NULL AS id, MIN(s.genre) AS title, NULL AS subtitle, NULL AS albumId, COUNT(*) AS plays, SUM(pe.listenedMs) AS listenedMs
+        $FROM_PLAYS_IN_RANGE
+        WHERE s.genre IS NOT NULL AND TRIM(s.genre) != ''
+        GROUP BY s.genre COLLATE NOCASE
+        ORDER BY plays DESC, MAX(pe.playedAt) DESC
+        LIMIT :limit
+        """,
+    )
+    abstract fun observeTopGenres(from: Long, to: Long, limit: Int): Flow<List<TopPlayedRow>>
 
     /** Die Songs, die die Quelle [sourceId] unter [remoteIds] führt (höchstens ~900). */
     @Query("SELECT remoteId, songId FROM song_sources WHERE sourceId = :sourceId AND remoteId IN (:remoteIds)")

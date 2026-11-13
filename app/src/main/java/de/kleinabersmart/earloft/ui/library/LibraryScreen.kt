@@ -93,6 +93,7 @@ private enum class LibraryTab(val label: Int) {
     SONGS(R.string.library_songs),
     GENRES(R.string.library_genres),
     PLAYLISTS(R.string.library_playlists),
+    STATS(R.string.library_stats),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -177,6 +178,7 @@ fun LibraryScreen(
                     onPlaylistClick = onPlaylistClick,
                     onCreate = { name, serverSourceId -> viewModel.createPlaylist(name, serverSourceId, onPlaylistClick) },
                 )
+                LibraryTab.STATS -> MusicStatsScreen(onAlbumClick, onArtistClick, onGenreClick)
             }
         }
     }
@@ -257,7 +259,7 @@ private fun PlaylistList(
 }
 
 /**
- * Beschriftung eines der fünf Reiter. Mit weniger Rand als `Tab(text = …)` (16 dp je Seite), damit „Playlists“ auch auf
+ * Beschriftung eines der sechs Reiter. Mit weniger Rand als `Tab(text = …)` (16 dp je Seite), damit „Playlists“ auch auf
  * schmalen Handys in eine Zeile passt; reicht es trotzdem nicht, wird die Schrift kleiner statt umzubrechen.
  */
 @Composable

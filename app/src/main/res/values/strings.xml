@@ -299,6 +299,20 @@
     <string name="action_add_favorite">Add to favorites</string>
     <string name="action_remove_favorite">Remove from favorites</string>
     <string name="library_playlists">Playlists</string>
+    <string name="library_stats">Statistics</string>
+    <string name="music_stats_empty">Nothing played yet. Songs count as soon as you have heard half of them or 30 seconds.</string>
+    <plurals name="music_stats_plays">
+        <item quantity="one">%1$d play</item>
+        <item quantity="other">%1$d plays</item>
+    </plurals>
+    <plurals name="music_stats_new_albums">
+        <item quantity="one">%1$d album heard for the first time</item>
+        <item quantity="other">%1$d albums heard for the first time</item>
+    </plurals>
+    <string name="music_stats_top_artists">Top artists</string>
+    <string name="music_stats_top_albums">Top albums</string>
+    <string name="music_stats_top_songs">Top songs</string>
+    <string name="music_stats_top_genres">Top genres</string>
     <string name="favorites_title">Favorites</string>
     <string name="favorites_empty">No favorites yet. Tap the heart in the player or use the song menu.</string>
     <string name="settings_scrobble">Report plays to the server</string>

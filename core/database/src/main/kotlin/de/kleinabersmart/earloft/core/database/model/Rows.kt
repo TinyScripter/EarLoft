@@ -223,3 +223,19 @@ data class SongSourceInfoRow(
     val albumGainDb: Float?,
     val isDownloaded: Boolean,
 )
+
+/** Eine gezählte Wiedergabe eines sichtbaren Songs (Musik-Statistik). */
+data class MusicPlayRow(val songId: Long, val albumId: Long, val playedAt: Long, val listenedMs: Long)
+
+/**
+ * Eine Zeile der Bestenlisten der Musik-Statistik: Song, Album, Künstler oder Genre. [id] ist die Kennung (bei Genres
+ * `null`), [albumId] das Album für das Cover (bei Künstlern und Genres `null`).
+ */
+data class TopPlayedRow(
+    val id: Long?,
+    val title: String,
+    val subtitle: String?,
+    val albumId: Long?,
+    val plays: Int,
+    val listenedMs: Long,
+)
