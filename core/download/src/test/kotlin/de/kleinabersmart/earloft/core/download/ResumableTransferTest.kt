@@ -260,7 +260,7 @@ class ResumableTransferTest {
         }
 
         server.enqueue(MockResponse.Builder().code(403).build())
-        assertEquals(TransferResult.Failed("Nicht angemeldet"), run())
+        assertEquals(TransferResult.Failed("Nicht angemeldet", forbidden = true), run())
     }
 
     @Test

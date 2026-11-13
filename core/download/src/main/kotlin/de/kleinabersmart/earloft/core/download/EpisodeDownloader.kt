@@ -56,8 +56,7 @@ class EpisodeDownloader @Inject constructor(
         val request = api.audioRequest(track.remoteFileId) ?: return DownloadOutcome.Failed("Ungültige Adresse")
         val transfer = if (network == null) transfer else ResumableTransfer(clientFor(network), storage)
         // „Download entfernen“ setzt den Zustand zurück; ohne die Frage liefe die Übertragung bis zum Ende weiter.
-        val stillWanted = suspend { dao.trackOf(track.bookId)?.downloadState == TrackDownload.RUNNING }
-        return when (val result = transfer.run(request, track.bookId, 0, onProgress, stillWanted)) {
+        return when (val result = transfer.run(request, track.bookId, 0, onProgress, { stillRunning(track.bookId) })) {
             is TransferResult.Failed -> DownloadOutcome.Failed(result.reason)
             TransferResult.Cancelled -> DownloadOutcome.Cancelled
             is TransferResult.Completed -> finish(track.bookId, result.mimeType ?: track.mimeType)
@@ -70,10 +69,16 @@ class EpisodeDownloader @Inject constructor(
             .dns { host -> network.getAllByName(host).toList() }
             .build()
 
+    private suspend fun stillRunning(bookId: Long): Boolean = dao.trackOf(bookId)?.downloadState == TrackDownload.RUNNING
+
     private suspend fun finish(bookId: Long, mimeType: String?): DownloadOutcome {
         val part = storage.partFileFor(bookId)
         val target = storage.fileFor(bookId, mimeType)
-        if (!part.renameTo(target)) throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
+        if (!part.renameTo(target)) {
+            // Kurz vor dem Ende entfernt: Die Teildatei ist schon weg, kein Grund für einen neuen Versuch.
+            if (!stillRunning(bookId)) return DownloadOutcome.Cancelled
+            throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
+        }
         val size = target.length()
         if (dao.markDownloadDone(bookId, target.absolutePath, size) == 0) {
             // Während des Ladens entfernt oder zurückgesetzt.

@@ -51,6 +51,9 @@ class EpisodeDownloadWorker(
     private val running = ConcurrentHashMap<Long, Pair<Long, Long?>>()
     private val throttle = ProgressThrottle()
 
+    /** Beide Läufe melden aus dem IO-Thread ihres Downloads; [throttle] und die Benachrichtigung nur nacheinander. */
+    private val report = Mutex()
+
     override suspend fun doWork(): Result {
         dao.requeueRunningDownloads()
         if (dao.countPendingDownloads() == 0) return finish()
@@ -82,7 +85,6 @@ class EpisodeDownloadWorker(
     /** @return `false`, wenn der Lauf mit Backoff wiederholt werden soll. */
     private suspend fun load(next: BookTrackEntity): Boolean {
         progress.report(next.bookId, 0, null)
-        running[next.bookId] = 0L to null
         val outcome = try {
             downloader.download(next) { done, total ->
                 progress.report(next.bookId, done, total)
@@ -115,11 +117,11 @@ class EpisodeDownloadWorker(
         return true
     }
 
-    /** Ein Prozentwert über alle laufenden Folgen; ohne bekannte Größe einer davon unbestimmt. */
-    private suspend fun reportOverall() {
-        val all = running.values.toList()
-        val total = if (all.any { it.second == null }) null else all.sumOf { it.second ?: 0L }
-        val percent = throttle.next(all.sumOf { it.first }, total) ?: return
+    /** Ein Prozentwert über die laufenden Folgen mit bekannter Größe; ist keine bekannt, unbestimmt. */
+    private suspend fun reportOverall() = report.withLock {
+        val known = running.values.mapNotNull { (done, total) -> total?.let { done to it } }
+        val total = known.sumOf { it.second }.takeIf { known.isNotEmpty() }
+        val percent = throttle.next(known.sumOf { it.first }, total) ?: return@withLock
         notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
     }
 
@@ -134,12 +136,11 @@ class EpisodeDownloadWorker(
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo(buildNotification(pending = 0, progress = null))
 
-    /** Ohne Vordergrund-Erlaubnis (Start aus dem Hintergrund) wird einfach normal weitergeladen. */
     /**
      * Aus dem Hintergrund (z. B. Wiederholung nach Backoff) verweigert das System den Vordergrunddienst; dann wird normal
      * weitergeladen und in diesem Lauf nicht erneut gefragt (sonst bei jedem Prozent eine Ausnahme samt Stacktrace).
      */
-    private var foregroundDenied = false
+    @Volatile private var foregroundDenied = false
 
     private suspend fun startForeground(progress: Int?) {
         if (foregroundDenied) return

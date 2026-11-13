@@ -377,7 +377,11 @@ abstract class PodcastDao {
     @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState = 'RUNNING'")
     abstract suspend fun requeueDownload(bookId: Long)
 
-    @Query("UPDATE book_tracks SET downloadState = 'FAILED', filePath = NULL, fileSize = 0 WHERE bookId = :bookId AND trackIndex = 0")
+    /** Nur ein wartender oder laufender Download: Ein inzwischen entfernter bleibt entfernt (die Automatik lädt ihn nicht wieder). */
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'FAILED', filePath = NULL, fileSize = 0 " +
+            "WHERE bookId = :bookId AND trackIndex = 0 AND downloadState IN ('QUEUED', 'RUNNING')",
+    )
     abstract suspend fun markDownloadFailed(bookId: Long)
 
     /** `0`, wenn der Eintrag inzwischen entfernt oder zurückgesetzt wurde. */

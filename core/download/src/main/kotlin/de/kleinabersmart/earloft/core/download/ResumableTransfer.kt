@@ -20,8 +20,8 @@ internal sealed interface TransferResult {
     /** Die Datei liegt vollständig als `.part` vor. [mimeType] nur, wenn der Server einen Audio-Typ nannte. */
     data class Completed(val mimeType: String?) : TransferResult
 
-    /** Dauerhaft fehlgeschlagen; die Teildatei ist verworfen. */
-    data class Failed(val reason: String) : TransferResult
+    /** Dauerhaft fehlgeschlagen; die Teildatei ist verworfen. [forbidden]: Der Server verweigert den Zugriff (403). */
+    data class Failed(val reason: String, val forbidden: Boolean = false) : TransferResult
 
     /** Unterwegs nicht mehr gewünscht (Download entfernt); die Teildatei verwirft der Aufrufer. */
     data object Cancelled : TransferResult
@@ -85,7 +85,7 @@ internal class ResumableTransfer(
                         response.code in 500..599 -> throw IOException("HTTP ${response.code}")
                         // 401 ist ein Netzfehler im Sinne des Aufrufers: Auf der Uhr kann ein neuer Schlüssel vom Handy kommen.
                         response.code == 401 -> throw HttpStatusException(response.code)
-                        response.code == 403 -> return@withContext TransferResult.Failed("Nicht angemeldet")
+                        response.code == 403 -> return@withContext TransferResult.Failed("Nicht angemeldet", forbidden = true)
                         !response.isSuccessful -> return@withContext TransferResult.Failed("HTTP ${response.code}")
                     }
                     val contentType = response.header("Content-Type").orEmpty().substringBefore(';').trim().lowercase()
@@ -105,7 +105,7 @@ internal class ResumableTransfer(
                         }
                         offset = resume.offset
                         total = range.total ?: length?.let { offset + it }
-                        Log.i(TAG, "Buch $bookId Datei $trackIndex: setze bei $offset von ${total ?: "?"} Bytes fort")
+                        Log.i(TAG, "Eintrag $bookId Datei $trackIndex: setze bei $offset von ${total ?: "?"} Bytes fort")
                     } else {
                         // 200: ganze Datei, entweder frischer Start oder der Server hat die Datei geändert.
                         offset = 0

@@ -41,10 +41,15 @@ class EpisodeMenuViewModel @Inject constructor(
         .map { list -> list.mapTo(HashSet()) { it.book.id } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    /** Folgen und Bücher mit geladenen Dateien oder laufendem bzw. wartendem Download (dann gibt es etwas zu löschen). */
+    /**
+     * Folgen und Bücher mit geladenen Dateien oder laufendem bzw. wartendem Download (dann gibt es etwas zu löschen); auch
+     * teilweise geladene Bücher, deren Zustand nach einer gescheiterten Datei „fehlgeschlagen“ ist.
+     */
     val downloaded: StateFlow<Set<Long>> = combine(
         podcasts.downloadedIds(),
-        books.downloads().map { map -> map.filterValues { it.state != TrackDownload.NONE && it.state != TrackDownload.FAILED }.keys },
+        books.downloads().map { map ->
+            map.filterValues { it.state != TrackDownload.NONE && (it.state != TrackDownload.FAILED || it.partial) }.keys
+        },
     ) { episodes, bookIds -> episodes + bookIds }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 

@@ -179,9 +179,14 @@ private fun DownloadsContent(
                         item = item,
                         transfer = transfers[item.book.id],
                         onClick = { onBookClick(item.book.id) },
-                        // Ein wartender oder ladender Download wird ohne Rückfrage abgebrochen, ein geladener gelöscht.
+                        // Ein wartender oder ladender Download wird ohne Rückfrage abgebrochen; ein ganz oder teilweise
+                        // geladener gelöscht, nach Rückfrage.
                         onRemove = {
-                            if (item.download.state == TrackDownload.DONE) bookToRemove = item.book.id else onRemoveBook(item.book.id)
+                            if (item.download.state == TrackDownload.DONE || item.download.partial) {
+                                bookToRemove = item.book.id
+                            } else {
+                                onRemoveBook(item.book.id)
+                            }
                         },
                     )
                 }

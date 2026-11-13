@@ -63,18 +63,28 @@ class BookDownloader @Inject constructor(
         val url = api.fileUrl(server, book.remoteId, track.remoteFileId)
         val transfer = if (network == null) transfer else ResumableTransfer(clientFor(network), storage)
         // „Download entfernen“ setzt den Zustand zurück; ohne die Frage liefe die Übertragung bis zum Ende weiter.
-        val stillWanted = suspend { dao.tracks(track.bookId).getOrNull(track.trackIndex)?.downloadState == TrackDownload.RUNNING }
-        return when (val result = transfer.run(url, track.bookId, track.trackIndex, onProgress, stillWanted)) {
-            is TransferResult.Failed -> DownloadOutcome.Failed(result.reason)
+        return when (val result = transfer.run(url, track.bookId, track.trackIndex, onProgress, { stillRunning(track) })) {
+            is TransferResult.Failed -> {
+                // Verweigert der Server den Zugriff, gilt das für jede Datei des Buchs: nicht jede einzeln anfragen.
+                if (result.forbidden) dao.markBookDownloadFailed(track.bookId)
+                DownloadOutcome.Failed(result.reason)
+            }
             TransferResult.Cancelled -> DownloadOutcome.Cancelled
             is TransferResult.Completed -> finish(track, result.mimeType ?: track.mimeType)
         }
     }
 
+    private suspend fun stillRunning(track: BookTrackEntity): Boolean =
+        dao.tracks(track.bookId).getOrNull(track.trackIndex)?.downloadState == TrackDownload.RUNNING
+
     private suspend fun finish(track: BookTrackEntity, mimeType: String?): DownloadOutcome {
         val part = storage.partFileFor(track.bookId, track.trackIndex)
         val target = storage.fileFor(track.bookId, track.trackIndex, mimeType)
-        if (!part.renameTo(target)) throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
+        if (!part.renameTo(target)) {
+            // Kurz vor dem Ende entfernt: Die Teildatei ist schon weg, kein Grund für einen neuen Versuch.
+            if (!stillRunning(track)) return DownloadOutcome.Cancelled
+            throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
+        }
         val size = target.length()
         if (dao.markBookTrackDone(track.bookId, track.trackIndex, target.absolutePath, size) == 0) {
             // Während des Ladens entfernt oder zurückgesetzt.
