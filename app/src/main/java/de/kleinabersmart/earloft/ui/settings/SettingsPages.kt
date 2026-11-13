@@ -403,6 +403,18 @@ fun MusicSettingsScreen(
             }
         }
 
+        group("lyrics", R.string.settings_section_lyrics) {
+            row("online-lyrics") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_online_lyrics),
+                    summary = stringResource(R.string.settings_online_lyrics_summary),
+                    icon = DesignR.drawable.ic_lyrics,
+                    checked = state.onlineLyrics,
+                    onCheckedChange = viewModel::setOnlineLyrics,
+                )
+            }
+        }
+
         group("playback", R.string.settings_playback) {
             row("replay-gain") {
                 ClickRow(

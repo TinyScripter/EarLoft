@@ -139,6 +139,7 @@ fun SetupScreen(
         setDirectory = viewModel::setPodcastDirectory,
         setArtistImages = viewModel::setArtistImages,
         setAlbumCovers = viewModel::setAlbumCovers,
+        setOnlineLyrics = viewModel::setOnlineLyrics,
         setAuthorImages = viewModel::setAuthorImages,
     )
     val moreActions = SetupMoreActions(
@@ -366,7 +367,7 @@ fun SetupExitDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 @Composable
 private fun SetupWelcomePreview() {
     EarLoftTheme {
-        val actions = SetupActions({}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, { _, _ -> }, {}, {}, {})
+        val actions = SetupActions({}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, { _, _ -> }, {}, {}, {}, {})
         val moreActions = SetupMoreActions({}, {}, {}, {}, {}, {})
         SetupContent(
             SetupPage.WELCOME, SettingsUiState(), emptyList(), WatchSetup.NONE, WatchSettings(), actions, moreActions,

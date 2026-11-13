@@ -163,6 +163,7 @@
     <string name="settings_directory_apple_country">Land für Apple Podcasts</string>
     <string name="settings_section_refresh">Aktualisierung</string>
     <string name="settings_section_images">Bilder</string>
+    <string name="settings_section_lyrics">Songtexte</string>
     <string name="settings_section_appearance">Darstellung</string>
     <string name="settings_refresh_music">Musik jetzt abgleichen</string>
     <string name="settings_refresh_audiobooks">Bücher jetzt abgleichen</string>
@@ -224,6 +225,8 @@
     <string name="settings_author_images_summary">Für Autoren in der Büchersammlung, wenn Audiobookshelf kein Bild hat. Sucht bei Audnexus; dazu wird der Name des Autors gesendet.</string>
     <string name="settings_album_covers">Fehlende Album-Cover herunterladen</string>
     <string name="settings_album_covers_summary">Sucht Cover bei MusicBrainz und im Cover Art Archive. Dafür werden Albumtitel und Interpret gesendet.</string>
+    <string name="settings_online_lyrics">Songtexte im Internet suchen</string>
+    <string name="settings_online_lyrics_summary">Ergänzt fehlende und synchrone Songtexte über LRCLIB. Dafür werden Titel und Interpret an LRCLIB gesendet.</string>
     <string name="settings_local_media">Musik auf diesem Gerät nutzen</string>
     <string name="settings_local_media_summary">Aus: Die Bibliothek zeigt nur Musik von Servern.</string>
     <string name="settings_local_books">Bücher auf diesem Gerät nutzen</string>

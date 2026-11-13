@@ -20,6 +20,8 @@ import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
 import de.kleinabersmart.earloft.core.data.sync.LibraryRefresher
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
 import de.kleinabersmart.earloft.core.data.repository.ArtworkSettings
+import de.kleinabersmart.earloft.core.data.repository.LyricsRepository
+import de.kleinabersmart.earloft.core.data.repository.LyricsSettings
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRefresher
 import de.kleinabersmart.earloft.core.data.stats.StatsRepository
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
@@ -107,6 +109,7 @@ data class SettingsUiState(
     val artistImages: Boolean = false,
     val albumCovers: Boolean = false,
     val authorImages: Boolean = false,
+    val onlineLyrics: Boolean = false,
     val podcastRefreshHours: Int = PodcastSettings.DEFAULT_REFRESH_HOURS,
     val podcastMobileData: Boolean = false,
     val podcastDeleteHeardDays: Int = PodcastSettings.DEFAULT_DELETE_HEARD_DAYS,
@@ -166,6 +169,8 @@ class SettingsViewModel @Inject constructor(
     private val podcastSettings: PodcastSettings,
     private val artworkSettings: ArtworkSettings,
     private val artworkRepository: ArtworkRepository,
+    private val lyricsSettings: LyricsSettings,
+    private val lyricsRepository: LyricsRepository,
     private val authorImages: AuthorImages,
     private val registry: DataSourceRegistry,
     private val spokenRefresher: SpokenRefresher,
@@ -235,8 +240,8 @@ class SettingsViewModel @Inject constructor(
             artistImages = general.artistImages,
             albumCovers = general.albumCovers,
         )
-    }.combine(artworkSettings.authorImages) { state, authors ->
-        state.copy(authorImages = authors)
+    }.combine(combine(artworkSettings.authorImages, lyricsSettings.onlineLyrics, ::Pair)) { state, (authors, lyrics) ->
+        state.copy(authorImages = authors, onlineLyrics = lyrics)
     }.combine(combine(themeSettings.alwaysShowNavigationBar, themeSettings.systemColors, ::Pair)) { state, (always, systemColors) ->
         state.copy(alwaysShowNavigationBar = always, systemColors = systemColors)
     }.combine(combine(themeSettings.playerCoverColors, themeSettings.widgetCoverColors, ::Pair)) { state, (player, widget) ->
@@ -414,6 +419,11 @@ class SettingsViewModel @Inject constructor(
             artworkSettings.setAlbumCovers(enabled)
             artworkRepository.clearDisabledOnlineImages()
         }
+    }
+
+    /** Das Repository vergisst dabei die Texte, die sich dadurch ändern können. */
+    fun setOnlineLyrics(enabled: Boolean) {
+        viewModelScope.launch { lyricsRepository.setOnlineLyrics(enabled) }
     }
 
     /** Beim Ausschalten werden die schon geladenen Autorenbilder aus dem Internet gelöscht. */

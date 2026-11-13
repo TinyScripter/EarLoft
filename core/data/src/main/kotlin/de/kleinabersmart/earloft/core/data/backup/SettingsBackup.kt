@@ -22,6 +22,7 @@ import dagger.multibindings.ElementsIntoSet
 import de.kleinabersmart.earloft.core.data.podcast.episodeQueueDataStore
 import de.kleinabersmart.earloft.core.data.podcast.podcastSettingsDataStore
 import de.kleinabersmart.earloft.core.data.repository.artworkSettingsDataStore
+import de.kleinabersmart.earloft.core.data.repository.lyricsSettingsDataStore
 import de.kleinabersmart.earloft.core.data.spoken.KEY_LOCAL_BOOKS
 import de.kleinabersmart.earloft.core.data.spoken.KEY_LOCAL_PODCASTS
 import de.kleinabersmart.earloft.core.data.spoken.spokenSettingsDataStore
@@ -150,5 +151,6 @@ internal object SettingsBackupModule {
         BackedUpSettings("episode_queue", context.episodeQueueDataStore),
         BackedUpSettings("sync_settings", context.syncSettingsDataStore),
         BackedUpSettings("artwork_settings", context.artworkSettingsDataStore),
+        BackedUpSettings("lyrics_settings", context.lyricsSettingsDataStore),
     )
 }

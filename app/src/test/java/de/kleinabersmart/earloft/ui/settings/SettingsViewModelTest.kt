@@ -14,6 +14,8 @@ import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
 import de.kleinabersmart.earloft.core.data.repository.ArtworkSettings
+import de.kleinabersmart.earloft.core.data.repository.LyricsRepository
+import de.kleinabersmart.earloft.core.data.repository.LyricsSettings
 import de.kleinabersmart.earloft.core.data.repository.ServerRepository
 import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
@@ -86,6 +88,8 @@ class SettingsViewModelTest {
     @Inject lateinit var podcastSettings: PodcastSettings
     @Inject lateinit var artworkSettings: ArtworkSettings
     @Inject lateinit var artworkRepository: ArtworkRepository
+    @Inject lateinit var lyricsSettings: LyricsSettings
+    @Inject lateinit var lyricsRepository: LyricsRepository
     @Inject lateinit var authorImages: AuthorImages
     @Inject lateinit var registry: DataSourceRegistry
     @Inject lateinit var spokenRefresher: SpokenRefresher
@@ -104,7 +108,7 @@ class SettingsViewModelTest {
         SettingsViewModel(
             serverRepository, refresher, downloadSettings, downloadRepository, syncSettings, replayGainSettings,
             themeSettings, librarySettings, spokenSettings, podcastSettings, artworkSettings, artworkRepository,
-            authorImages, registry, spokenRefresher, podcastRefresher, podcastRepository, opmlImporter, directorySearch,
+            lyricsSettings, lyricsRepository, authorImages, registry, spokenRefresher, podcastRefresher, podcastRepository, opmlImporter, directorySearch,
             databaseImporter, databaseExport, statsRepository, context, applicationScope, audiobookServers, syncer,
         )
     }

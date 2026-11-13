@@ -45,6 +45,7 @@ internal class SetupActions(
     val setDirectory: (PodcastDirectory, Boolean) -> Unit,
     val setArtistImages: (Boolean) -> Unit,
     val setAlbumCovers: (Boolean) -> Unit,
+    val setOnlineLyrics: (Boolean) -> Unit,
     val setAuthorImages: (Boolean) -> Unit,
 )
 
@@ -108,6 +109,17 @@ internal fun LazyListScope.musicPage(state: SettingsUiState, actions: SetupActio
                 icon = DesignR.drawable.ic_music_note,
                 checked = state.albumCovers,
                 onCheckedChange = actions.setAlbumCovers,
+            )
+        }
+    }
+    group("lyrics", R.string.settings_section_lyrics) {
+        row("online-lyrics") {
+            SwitchRow(
+                title = stringResource(R.string.settings_online_lyrics),
+                summary = stringResource(R.string.settings_online_lyrics_summary),
+                icon = DesignR.drawable.ic_lyrics,
+                checked = state.onlineLyrics,
+                onCheckedChange = actions.setOnlineLyrics,
             )
         }
     }

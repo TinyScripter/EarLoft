@@ -164,6 +164,7 @@
     <string name="settings_directory_apple_country">Country for Apple Podcasts</string>
     <string name="settings_section_refresh">Updating</string>
     <string name="settings_section_images">Images</string>
+    <string name="settings_section_lyrics">Lyrics</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_refresh_music">Sync music now</string>
     <string name="settings_refresh_audiobooks">Sync books now</string>
@@ -225,6 +226,8 @@
     <string name="settings_author_images_summary">Used for authors in the book library when Audiobookshelf has no image. Looks them up on Audnexus; the author’s name is sent for this.</string>
     <string name="settings_album_covers">Download missing album covers</string>
     <string name="settings_album_covers_summary">Looks up covers on MusicBrainz and the Cover Art Archive. Album title and artist are sent for this.</string>
+    <string name="settings_online_lyrics">Look up lyrics online</string>
+    <string name="settings_online_lyrics_summary">Fills in missing lyrics and adds synced ones from LRCLIB. Song title and artist are sent to LRCLIB for this.</string>
     <string name="settings_local_media">Use music on this device</string>
     <string name="settings_local_media_summary">Off: the library only shows music from servers.</string>
     <string name="settings_local_books">Use books on this device</string>

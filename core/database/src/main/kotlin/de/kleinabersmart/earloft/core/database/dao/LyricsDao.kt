@@ -33,4 +33,20 @@ interface LyricsDao {
         """,
     )
     suspend fun getServerSources(songId: Long): List<SongSourceEntity>
+
+    /** Erster Interpret des Songs (ohne „feat.“), für die Suche im Internet. */
+    @Query(
+        """
+        SELECT a.name FROM song_artists sa JOIN artists a ON a.artistId = sa.artistId
+        WHERE sa.songId = :songId ORDER BY sa.position LIMIT 1
+        """,
+    )
+    suspend fun getFirstArtistName(songId: Long): String?
+
+    @Query("DELETE FROM lyrics WHERE origin = :origin")
+    suspend fun deleteByOrigin(origin: String)
+
+    /** Fehlende und statische Texte außer [keepOrigin] vergessen, damit eine neue Quelle sie ergänzen kann. */
+    @Query("DELETE FROM lyrics WHERE kind != 'SYNCED' AND origin != :keepOrigin")
+    suspend fun deleteUnsyncedExcept(keepOrigin: String)
 }
