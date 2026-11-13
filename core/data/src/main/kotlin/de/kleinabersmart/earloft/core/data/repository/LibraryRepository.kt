@@ -47,6 +47,14 @@ class LibraryRepository @Inject constructor(
 
     suspend fun songsOfGenre(genre: String): List<Song> = libraryDao.getSongRowsOfGenre(genre).map { it.toSong() }
 
+    /** Alle Songs der [albumIds], Album für Album in deren Reihenfolge, je Album in Albumreihenfolge. */
+    suspend fun songsOfAlbums(albumIds: List<Long>): List<Song> {
+        val byAlbum = albumIds.distinct().chunked(SQLITE_MAX_VARIABLES)
+            .flatMap { libraryDao.getSongRowsOfAlbums(it) }
+            .groupBy { it.albumId }
+        return albumIds.distinct().flatMap { albumId -> byAlbum[albumId].orEmpty().map { it.toSong() } }
+    }
+
     fun decades(): Flow<List<Decade>> =
         libraryDao.observeDecadeRows().map { rows -> rows.map { Decade(it.startYear, it.albumCount) } }
 

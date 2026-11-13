@@ -40,7 +40,7 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
-    libraryRepository: LibraryRepository,
+    private val libraryRepository: LibraryRepository,
     serverRepository: ServerRepository,
     private val librarySettings: LibrarySettings,
     private val playlistRepository: PlaylistRepository,
@@ -85,6 +85,14 @@ class LibraryViewModel @Inject constructor(
         combine(albums, selectedGenres, libraryRepository.albumGenreKeys()) { state, chosen, genresOf ->
             state.filterAlbums(chosen.isNotEmpty()) { album -> genresOf[album.id]?.any { it in chosen } == true }
         }.stateInViewModel(LoadState.Loading)
+
+    /** Alle Songs der gezeigten (gefilterten) [albums], Album für Album in ihrer Reihenfolge oder gemischt. */
+    fun playAlbums(albums: List<Album>, shuffle: Boolean) {
+        viewModelScope.launch {
+            val songs = libraryRepository.songsOfAlbums(albums.map { it.id })
+            if (songs.isNotEmpty()) playbackConnection.play(songs, shuffle = shuffle)
+        }
+    }
 
     fun toggleDecade(startYear: Int) = chosenDecades.update { if (startYear in it) it - startYear else it + startYear }
 

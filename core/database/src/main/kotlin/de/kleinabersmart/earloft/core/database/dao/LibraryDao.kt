@@ -418,6 +418,10 @@ abstract class LibraryDao {
     @Query("$SELECT_SONG_ROWS WHERE s.albumId = :albumId ORDER BY s.discNumber, s.trackNumber, s.title")
     abstract fun observeSongRowsOfAlbum(albumId: Long): Flow<List<SongRow>>
 
+    /** Die Songs mehrerer Alben, je Album in Albumreihenfolge; max. ~900 IDs pro Aufruf (SQLite-Variablenlimit). */
+    @Query("$SELECT_SONG_ROWS WHERE s.albumId IN (:albumIds) ORDER BY s.albumId, s.discNumber, s.trackNumber, s.title")
+    abstract suspend fun getSongRowsOfAlbums(albumIds: List<Long>): List<SongRow>
+
     @Query("$SELECT_SONG_ROWS WHERE s.isFavorite ORDER BY s.favoriteChangedAt DESC")
     abstract fun observeFavoriteSongRows(): Flow<List<SongRow>>
 

@@ -165,9 +165,15 @@ fun LibraryScreen(
                         scrollLabel = albumSort.scrollLabel(),
                         header = if (decades.isEmpty()) null else {
                             {
-                                ToggleChips(decades, { decade -> decade.startYear in selectedDecades }, { decade -> decadeLabel(decade.startYear) }) {
-                                    viewModel.toggleDecade(it.startYear)
-                                }
+                                FilterHeader(
+                                    chips = {
+                                        ToggleChips(decades, { decade -> decade.startYear in selectedDecades }, { decade -> decadeLabel(decade.startYear) }) {
+                                            viewModel.toggleDecade(it.startYear)
+                                        }
+                                    },
+                                    filtered = selectedDecades.isNotEmpty(),
+                                    onPlay = { shuffle -> viewModel.playAlbums(it, shuffle) },
+                                )
                             }
                         },
                     )
@@ -194,7 +200,13 @@ fun LibraryScreen(
                             albums = it,
                             onAlbumClick = onAlbumClick,
                             scrollLabel = albumSort.scrollLabel(),
-                            header = { ToggleChips(genreList, { genre -> genre.key in selectedGenres }, { genre -> genre.name }, viewModel::toggleGenre) },
+                            header = {
+                                FilterHeader(
+                                    chips = { ToggleChips(genreList, { genre -> genre.key in selectedGenres }, { genre -> genre.name }, viewModel::toggleGenre) },
+                                    filtered = selectedGenres.isNotEmpty(),
+                                    onPlay = { shuffle -> viewModel.playAlbums(it, shuffle) },
+                                )
+                            },
                         )
                     }
                 }
@@ -317,6 +329,15 @@ private fun <T> ToggleChips(items: List<T>, selected: (T) -> Boolean, label: @Co
         items.forEach { item ->
             FilterChip(selected = selected(item), onClick = { onToggle(item) }, label = { Text(label(item)) })
         }
+    }
+}
+
+/** Chip-Reihe über den Alben; ist etwas ausgewählt ([filtered]), darunter „Abspielen“ und „Zufällig“ für die gezeigten Alben. */
+@Composable
+private fun FilterHeader(chips: @Composable () -> Unit, filtered: Boolean, onPlay: (shuffle: Boolean) -> Unit) {
+    Column {
+        chips()
+        if (filtered) PlayShuffleRow(onPlay = { onPlay(false) }, onShuffle = { onPlay(true) }, modifier = Modifier.padding(top = 4.dp))
     }
 }
 

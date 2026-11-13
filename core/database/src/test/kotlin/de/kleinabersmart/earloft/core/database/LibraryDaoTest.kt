@@ -180,6 +180,11 @@ class LibraryDaoTest {
             libraryDao.observeAlbumGenreRows().first().map { it.albumId to it.genre }.toSet(),
         )
 
+        assertEquals(
+            listOf("Glósóli", "Hoppípolla", "Svefn-g-englar", "Starálfur", "Flugufrelsarinn"),
+            libraryDao.getSongRowsOfAlbums(listOf(agaetis, takk)).sortedBy { it.albumId != takk }.map { it.title },
+        )
+
         val albums = libraryDao.observeAlbumRowsOfGenre("POST-ROCK").first()
         assertEquals(listOf("Takk...", "Ágætis byrjun").sorted(), albums.map { it.title }.sorted())
         // Die Zahl der Songs gilt dem ganzen Album, nicht nur dem Genre.
