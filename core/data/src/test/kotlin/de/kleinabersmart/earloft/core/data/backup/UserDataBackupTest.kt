@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.UserDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.BookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningDayEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
@@ -320,6 +321,106 @@ class UserDataBackupTest {
         main.podcastDao().deleteFeed("feed-1")
         backup.mirror()
         assertTrue(user.userDataDao().progress().isEmpty())
+    }
+
+    private fun bookmark(
+        bookId: Long,
+        positionMs: Long,
+        title: String,
+        note: String = "",
+        remoteTime: Double? = null,
+        dirty: Boolean = false,
+        deleted: Boolean = false,
+    ) = BookmarkEntity(
+        bookId = bookId, positionMs = positionMs, title = title, note = note, createdAt = positionMs, updatedAt = positionMs,
+        remoteTime = remoteTime, dirty = dirty, deleted = deleted,
+    )
+
+    @Test
+    fun `bookmarks are saved by book key, Audiobookshelf only what the server does not fully know`() = runTest {
+        fillMain()
+        val episode = book(main, "feed-1", "guid-1")
+        val absBook = book(main, "abs", "item-1", BookKind.BOOK)
+        main.bookDao().insertBookmark(bookmark(episode, 10_000, "Folge", note = "Notiz"))
+        main.bookDao().insertBookmark(bookmark(episode, 20_000, "Gelöscht", deleted = true))
+        main.bookDao().insertBookmark(bookmark(absBook, 30_000, "Neu", dirty = true))
+        val known = main.bookDao().insertBookmark(bookmark(absBook, 40_000, "Bekannt", remoteTime = 40.0))
+        main.bookDao().insertBookmark(bookmark(absBook, 50_000, "Mit Notiz", note = "nur hier", remoteTime = 50.0))
+        main.bookDao().insertBookmark(bookmark(absBook, 60_000, "Umbenannt", remoteTime = 60.0, dirty = true))
+        val backup = backupFor(main)
+        backup.mirror()
+
+        assertEquals(
+            setOf(
+                BookmarkKey("feed-1", "guid-1", 10_000),
+                BookmarkKey("abs", "item-1", 30_000),
+                BookmarkKey("abs", "item-1", 50_000),
+                BookmarkKey("abs", "item-1", 60_000),
+            ),
+            user.userDataDao().bookmarks().map { it.key }.toSet(),
+        )
+        assertEquals("Notiz", user.userDataDao().bookmarks().single { it.remoteId == "guid-1" }.note)
+
+        // Hier gelöscht: auch aus der Sicherung. Bekommt das bekannte eine Notiz, kommt es dazu.
+        main.bookDao().deleteBookmark(main.bookDao().bookmarksOf(listOf(episode)).single { it.positionMs == 10_000L }.bookmarkId)
+        main.bookDao().updateBookmark(main.bookDao().bookmark(known)!!.copy(note = "später"))
+        backup.mirror(setOf("bookmarks"))
+        val saved = user.userDataDao().bookmarks().map { it.key }.toSet()
+        assertFalse(BookmarkKey("feed-1", "guid-1", 10_000) in saved)
+        assertTrue(BookmarkKey("abs", "item-1", 40_000) in saved)
+
+        // Mit dem Server fallen seine Lesezeichen aus der Sicherung.
+        main.bookDao().deleteServer("abs")
+        backup.mirror()
+        assertTrue(user.userDataDao().bookmarks().none { it.serverId == "abs" })
+    }
+
+    @Test
+    fun `bookmarks wait for their book on a new device, Audiobookshelf ones not yet on the server are reported again`() = runTest {
+        fillMain()
+        val episode = book(main, "feed-1", "guid-1")
+        val absBook = book(main, "abs", "item-1", BookKind.BOOK)
+        main.bookDao().insertBookmark(bookmark(episode, 10_000, "Folge", note = "Notiz"))
+        main.bookDao().insertBookmark(bookmark(absBook, 30_000, "Neu", dirty = true))
+        main.bookDao().insertBookmark(bookmark(absBook, 50_000, "Mit Notiz", note = "nur hier", remoteTime = 50.0))
+        backupFor(main).mirror()
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val backup = backupFor(newDevice)
+            val saved = user.userDataDao().snapshot()
+            backup.restore(saved)
+            // Vor dem Abgleich gibt es die Bücher nicht: Alles wartet, und der Spiegel löscht nichts.
+            assertEquals(3, backup.applyBookmarks(saved.bookmarks.values).size)
+            backup.mirror()
+            assertEquals(3, user.userDataDao().bookmarks().size)
+
+            // Die Bücher kommen mit neuen Ids; der Abgleich hat das Lesezeichen mit Notiz schon geholt, ohne Notiz.
+            book(newDevice, "feed-0", "andere")
+            val newEpisode = book(newDevice, "feed-1", "guid-1")
+            val newAbsBook = book(newDevice, "abs", "item-1", BookKind.BOOK)
+            newDevice.bookDao().insertBookmark(bookmark(newAbsBook, 50_000, "Vom Server", remoteTime = 50.0))
+            assertTrue(backup.applyBookmarks(saved.bookmarks.values).isEmpty())
+
+            val episodeMarks = newDevice.bookDao().bookmarksOf(listOf(newEpisode))
+            assertEquals(listOf("Folge" to "Notiz"), episodeMarks.map { it.title to it.note })
+            assertFalse(episodeMarks.single().dirty)
+            val absMarks = newDevice.bookDao().bookmarksOf(listOf(newAbsBook)).associateBy { it.positionMs }
+            assertEquals(2, absMarks.size)
+            // Noch nicht beim Server: wird wieder gemeldet.
+            assertTrue(absMarks.getValue(30_000).dirty)
+            assertNull(absMarks.getValue(30_000).remoteTime)
+            // Schon beim Server: bleibt, bekommt nur die Notiz.
+            assertEquals("Vom Server", absMarks.getValue(50_000).title)
+            assertEquals("nur hier", absMarks.getValue(50_000).note)
+            assertFalse(absMarks.getValue(50_000).dirty)
+
+            // Ein zweites Anwenden legt nichts doppelt an.
+            assertTrue(backup.applyBookmarks(saved.bookmarks.values).isEmpty())
+            assertEquals(3, newDevice.bookDao().bookmarksOf(listOf(newEpisode, newAbsBook)).size)
+        } finally {
+            newDevice.close()
+        }
     }
 
     @Test

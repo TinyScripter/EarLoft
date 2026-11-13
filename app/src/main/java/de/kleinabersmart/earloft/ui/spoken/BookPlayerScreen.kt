@@ -61,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -151,6 +152,14 @@ private fun BookPlayerContent(
     var showSpeed by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
     var showChapters by remember { mutableStateOf(false) }
+    var showBookmarks by remember { mutableStateOf(false) }
+    val resources = LocalResources.current
+    val bookmarksViewModel: BookmarksViewModel = hiltViewModel()
+    // Lesezeichen an der Stelle, die gerade läuft (beim Ziehen am Regler: dort), mit Kapitelname und Zeit als Titel.
+    val addBookmark: () -> Unit = {
+        val at = dragging.value?.toLong() ?: viewModel.bookPositionMs()
+        entry?.let { bookmarksViewModel.add(it.bookId, at, bookmarkTitle(resources, timeline, at)) }
+    }
     var showQueue by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     // Breit: Kapitelliste oder Warteschlange ersetzen im rechten Panel die Beschreibung.
@@ -187,6 +196,7 @@ private fun BookPlayerContent(
     // Fehlt, was gewählt war (Buch ohne Kapitel, Buch statt Folge), steht wieder die Beschreibung rechts.
     val shownPane = when {
         pane == SidePane.CHAPTERS && hasChapters -> SidePane.CHAPTERS
+        pane == SidePane.BOOKMARKS -> SidePane.BOOKMARKS
         pane == SidePane.QUEUE && episode -> SidePane.QUEUE
         else -> SidePane.DESCRIPTION
     }
@@ -290,6 +300,12 @@ private fun BookPlayerContent(
                         onClick = { if (wide) togglePane(SidePane.CHAPTERS) else showChapters = true },
                     )
                 }
+                ToggleIconButton(
+                    icon = DesignR.drawable.ic_bookmark,
+                    active = wide && shownPane == SidePane.BOOKMARKS,
+                    label = stringResource(R.string.spoken_bookmarks),
+                    onClick = { if (wide) togglePane(SidePane.BOOKMARKS) else showBookmarks = true },
+                )
                 if (episode) {
                     ToggleIconButton(
                         icon = DesignR.drawable.ic_queue_music,
@@ -454,6 +470,14 @@ private fun BookPlayerContent(
                         when {
                             shownPane == SidePane.CHAPTERS && tl != null ->
                                 ChapterList(tl, chapterIndex, onChapter = viewModel::seekToBook, modifier = Modifier.fillMaxSize().padding(vertical = 8.dp))
+                            shownPane == SidePane.BOOKMARKS ->
+                                BookmarkList(
+                                    entry.bookId,
+                                    onAdd = addBookmark,
+                                    onJump = viewModel::seekToBook,
+                                    modifier = Modifier.fillMaxSize().padding(vertical = 8.dp),
+                                    viewModel = bookmarksViewModel,
+                                )
                             shownPane == SidePane.QUEUE ->
                                 PodcastQueueList(
                                     onEpisodeClick,
@@ -523,6 +547,20 @@ private fun BookPlayerContent(
             onDismiss = { showChapters = false },
         )
     }
+    if (showBookmarks) {
+        ModalBottomSheet(onDismissRequest = { showBookmarks = false }) {
+            BookmarkList(
+                entry.bookId,
+                onAdd = addBookmark,
+                onJump = {
+                    viewModel.seekToBook(it)
+                    showBookmarks = false
+                },
+                modifier = Modifier.navigationBarsPadding(),
+                viewModel = bookmarksViewModel,
+            )
+        }
+    }
     if (showQueue && episode) {
         ModalBottomSheet(onDismissRequest = { showQueue = false }) {
             PodcastQueueList(
@@ -538,7 +576,7 @@ private fun BookPlayerContent(
 }
 
 /** Was breit im rechten Panel steht. */
-private enum class SidePane { DESCRIPTION, CHAPTERS, QUEUE }
+private enum class SidePane { DESCRIPTION, CHAPTERS, BOOKMARKS, QUEUE }
 
 /**
  * Oben das ganze Buch (zum Spulen), darunter nur das Kapitel; jeweils links gespielt, rechts die Restzeit mit „-“.

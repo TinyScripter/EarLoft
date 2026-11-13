@@ -22,6 +22,7 @@ import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookProgress
 import de.kleinabersmart.earloft.core.model.isLocalSource
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsMeResponse
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsMediaProgressDto
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsProgressUpdate
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
@@ -126,9 +127,14 @@ class BookProgressSync @Inject constructor(
     /** Sendet alles, was aussteht. `true`, wenn nichts mehr offen ist. */
     suspend fun pushPending(): Boolean = dao.dirtyProgress().map { push(it.bookId) }.all { it }
 
-    /** Fortschritt des ganzen Kontos übernehmen, wo der Server neuer ist (beim Vollabgleich). */
-    suspend fun pullAll(server: AbsServer) {
-        api.me(server).mediaProgress.filter { it.episodeId == null }.forEach { applyRemote(server.serverId, it) }
+    /**
+     * Fortschritt des ganzen Kontos übernehmen, wo der Server neuer ist (beim Vollabgleich). Liefert die Antwort, damit
+     * die Lesezeichen aus demselben Abruf übernommen werden können ([Bookmarks.applyRemote]).
+     */
+    suspend fun pullAll(server: AbsServer): AbsMeResponse {
+        val me = api.me(server)
+        me.mediaProgress.filter { it.episodeId == null }.forEach { applyRemote(server.serverId, it) }
+        return me
     }
 
     /** Nur der Stand auf diesem Gerät, ohne den Server zu fragen. */
@@ -199,21 +205,24 @@ class BookProgressSync @Inject constructor(
     }
 }
 
-/** Holt nach, was offline nicht gemeldet werden konnte. Nur das Netz ist Voraussetzung. */
+/** Holt nach, was offline nicht gemeldet werden konnte (Fortschritt und Lesezeichen). Nur das Netz ist Voraussetzung. */
 class BookProgressWorker(
     context: Context,
     params: WorkerParameters,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val sync = EntryPointAccessors.fromApplication(applicationContext, ProgressEntryPoint::class.java).progressSync()
-        return if (sync.pushPending()) Result.success() else Result.retry()
+        val entryPoint = EntryPointAccessors.fromApplication(applicationContext, ProgressEntryPoint::class.java)
+        val progressDone = entryPoint.progressSync().pushPending()
+        val bookmarksDone = entryPoint.bookmarks().pushPending()
+        return if (progressDone && bookmarksDone) Result.success() else Result.retry()
     }
 
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     internal interface ProgressEntryPoint {
         fun progressSync(): BookProgressSync
+        fun bookmarks(): Bookmarks
     }
 
     companion object {

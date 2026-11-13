@@ -179,3 +179,30 @@ data class BookProgressEntity(
     val skipSilence: Boolean? = null,
     val volumeBoostDb: Int? = null,
 )
+
+/**
+ * Lesezeichen in einem Buch oder einer Folge (Konzept 12.6, Schema v31). Bei Büchern eines Audiobookshelf-Servers kennt
+ * der Server es unter [remoteTime] (Sekunden; Audiobookshelf erkennt Lesezeichen an der Zeit), `null` = dort noch nicht
+ * angelegt. `dirty`: Änderung noch nicht gemeldet; `deleted`: gelöscht, beim Server noch nicht. Folgen und lokale Bücher
+ * bleiben auf dem Gerät und sind nie `dirty`.
+ */
+@Entity(
+    tableName = "bookmarks",
+    indices = [Index("bookId")],
+    foreignKeys = [
+        ForeignKey(entity = BookEntity::class, parentColumns = ["bookId"], childColumns = ["bookId"], onDelete = ForeignKey.CASCADE),
+    ],
+)
+data class BookmarkEntity(
+    @PrimaryKey(autoGenerate = true) val bookmarkId: Long = 0,
+    val bookId: Long,
+    /** Position im ganzen Buch. */
+    val positionMs: Long,
+    val title: String,
+    val note: String = "",
+    val createdAt: Long,
+    val updatedAt: Long,
+    val remoteTime: Double? = null,
+    val dirty: Boolean = false,
+    val deleted: Boolean = false,
+)

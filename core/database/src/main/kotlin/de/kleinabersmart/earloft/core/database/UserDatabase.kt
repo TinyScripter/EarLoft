@@ -10,6 +10,7 @@ import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.UserBookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
@@ -31,7 +32,8 @@ import java.io.File
  *
  * Versionen: 1 Server, Abos, Statistik; 2 Fortschritt; 3 lokale Playlists, Favoriten, Hörverlauf, Auswahl für die Uhr;
  * 5 archivierte Abos; 6 ohne Cast-Adresse je Server; 7 OpenID je Audiobookshelf-Server; 8 Downloads der Folgen; 9 Favoriten
- * von Alben und Künstlern; 10 „aus Weiterhören genommen“ am Fortschritt; 11 Tempo und Effekte je Abo und Buch, Tempo nullbar; 12 gesparte Zeit je Tag.
+ * von Alben und Künstlern; 10 „aus Weiterhören genommen“ am Fortschritt; 11 Tempo und Effekte je Abo und Buch, Tempo nullbar; 12 gesparte Zeit je Tag;
+ * 13 Folgenliste und „Weiterhören“ je Abo; 14 Lesezeichen.
  */
 @Database(
     entities = [
@@ -48,6 +50,7 @@ import java.io.File
         UserWearSelectionEntity::class,
         UserEpisodeDownloadEntity::class,
         UserCollectionFavoriteEntity::class,
+        UserBookmarkEntity::class,
     ],
     version = UserDatabase.VERSION,
     exportSchema = true,
@@ -64,6 +67,7 @@ import java.io.File
         AutoMigration(from = 10, to = 11, spec = UserDatabase.InheritSpeed::class),
         AutoMigration(from = 11, to = 12),
         AutoMigration(from = 12, to = 13),
+        AutoMigration(from = 13, to = 14),
     ],
 )
 abstract class UserDatabase : RoomDatabase() {
@@ -84,7 +88,7 @@ abstract class UserDatabase : RoomDatabase() {
         const val NAME = "user.db"
 
         /** Schemaversion; die Komplett-Sicherung lehnt Dateien einer neueren ab. */
-        const val VERSION = 13
+        const val VERSION = 14
 
         /**
          * Eine Kopie außerhalb der App-Datenbanken (Komplett-Sicherung, `FullBackup`): ältere Fassungen werden beim Öffnen

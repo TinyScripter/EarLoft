@@ -111,6 +111,16 @@ data class BookChapter(
     val durationMs: Long get() = endMs - startMs
 }
 
+/** Lesezeichen in einem Buch oder einer Folge (Konzept 12.6); [positionMs] ist die Position im ganzen Buch. */
+data class Bookmark(
+    val id: Long,
+    val bookId: Long,
+    val positionMs: Long,
+    val title: String,
+    val note: String,
+    val createdAt: Long,
+)
+
 /** Eine Audiodatei des Buchs. Ein m4b ist ein Titel, ein MP3-Ordner hat viele. */
 data class BookTrack(
     val index: Int,

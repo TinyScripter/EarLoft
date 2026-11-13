@@ -56,7 +56,7 @@ class ContinueListeningShelvesTest {
         progressSync = BookProgressSync(context, dao, servers, api, PlaybackPolicy())
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
-        val syncer = BookSyncer(dao, servers, api, progressSync, LocalBooks(dao, scanner, SpokenSettings(context), covers))
+        val syncer = BookSyncer(dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, SpokenSettings(context), covers))
         books = BookRepository(dao, syncer)
     }
 

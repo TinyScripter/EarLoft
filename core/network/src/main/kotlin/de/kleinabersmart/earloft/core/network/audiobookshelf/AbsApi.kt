@@ -85,6 +85,27 @@ class AbsApi @Inject constructor(
         execute(authorized(server, server.endpoint("api/me/progress/$progressId").build()) { delete() })
     }
 
+    /** Legt ein Lesezeichen an; Audiobookshelf 2.x antwortet mit dem Lesezeichen. */
+    suspend fun createBookmark(server: AbsServer, itemId: String, bookmark: AbsBookmarkUpdate) {
+        val body = JSON.encodeToString(AbsBookmarkUpdate.serializer(), bookmark).toRequestBody(JSON_MEDIA_TYPE)
+        execute(authorized(server, server.endpoint("api/me/item/$itemId/bookmark").build()) { post(body) })
+    }
+
+    /** Ändert den Titel des Lesezeichens bei [AbsBookmarkUpdate.time]; 404, wenn es dort keines gibt. */
+    suspend fun updateBookmark(server: AbsServer, itemId: String, bookmark: AbsBookmarkUpdate) {
+        val body = JSON.encodeToString(AbsBookmarkUpdate.serializer(), bookmark).toRequestBody(JSON_MEDIA_TYPE)
+        execute(authorized(server, server.endpoint("api/me/item/$itemId/bookmark").build()) { patch(body) })
+    }
+
+    /** Entfernt das Lesezeichen bei [time]; schon fehlende (404) gelten als entfernt. */
+    suspend fun deleteBookmark(server: AbsServer, itemId: String, time: Double) {
+        try {
+            execute(authorized(server, server.endpoint("api/me/item/$itemId/bookmark/${bookmarkTime(time)}").build()) { delete() })
+        } catch (e: AbsException) {
+            if (e.code != 404) throw e
+        }
+    }
+
     fun fileUrl(server: AbsServer, itemId: String, fileId: String): HttpUrl =
         server.endpoint("api/items/$itemId/file/$fileId").build()
 
@@ -141,3 +162,7 @@ class AbsApi @Inject constructor(
         val JSON_MEDIA_TYPE = "application/json".toMediaType()
     }
 }
+
+/** Zeit eines Lesezeichens im Pfad: ganze Sekunden ohne „.0“, sonst als Dezimalzahl (der Server vergleicht Zahlen). */
+internal fun bookmarkTime(time: Double): String =
+    if (time % 1.0 == 0.0) time.toLong().toString() else java.math.BigDecimal.valueOf(time).toPlainString()

@@ -11,6 +11,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
+import de.kleinabersmart.earloft.core.database.entity.BookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.model.BookCoverRow
 import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
@@ -286,6 +287,49 @@ abstract class BookDao {
     @Query("SELECT b.serverId AS serverId, b.remoteId AS remoteId, p.* FROM book_progress p JOIN books b ON b.bookId = p.bookId")
     abstract suspend fun keyedProgress(): List<KeyedProgress>
 
+    // --- Lesezeichen (Konzept 12.6) ---
+
+    @Query("SELECT * FROM bookmarks WHERE bookId = :bookId AND deleted = 0 ORDER BY positionMs, createdAt")
+    abstract fun observeBookmarks(bookId: Long): Flow<List<BookmarkEntity>>
+
+    /** Alle Lesezeichen mit ihrem Buch, neueste zuerst (gesammelte Liste). */
+    @Query(
+        "SELECT b.title AS bookTitle, b.kind AS kind, m.* FROM bookmarks m JOIN books b ON b.bookId = m.bookId " +
+            "WHERE m.deleted = 0 ORDER BY m.createdAt DESC",
+    )
+    abstract fun observeAllBookmarks(): Flow<List<BookmarkWithBook>>
+
+    @Query("SELECT * FROM bookmarks WHERE bookmarkId = :bookmarkId")
+    abstract suspend fun bookmark(bookmarkId: Long): BookmarkEntity?
+
+    /** Auch gelöschte, die der Server noch kennt (Abgleich). */
+    @Query("SELECT * FROM bookmarks WHERE bookId IN (:bookIds)")
+    abstract suspend fun bookmarksOf(bookIds: List<Long>): List<BookmarkEntity>
+
+    @Query("SELECT * FROM bookmarks WHERE dirty = 1")
+    abstract suspend fun dirtyBookmarks(): List<BookmarkEntity>
+
+    @Insert
+    abstract suspend fun insertBookmark(bookmark: BookmarkEntity): Long
+
+    @Update
+    abstract suspend fun updateBookmark(bookmark: BookmarkEntity)
+
+    @Query("DELETE FROM bookmarks WHERE bookmarkId = :bookmarkId")
+    abstract suspend fun deleteBookmark(bookmarkId: Long)
+
+    /** Löschen beim Server gemeldet; zwischendurch zurückgeholt, bleibt es. */
+    @Query("DELETE FROM bookmarks WHERE bookmarkId = :bookmarkId AND deleted = 1 AND updatedAt = :updatedAt")
+    abstract suspend fun deleteDeletedBookmark(bookmarkId: Long, updatedAt: Long)
+
+    /** Gemeldet; eine inzwischen neuere Änderung bleibt `dirty`. */
+    @Query("UPDATE bookmarks SET dirty = 0, remoteTime = :remoteTime WHERE bookmarkId = :bookmarkId AND updatedAt = :updatedAt")
+    abstract suspend fun markBookmarkClean(bookmarkId: Long, remoteTime: Double?, updatedAt: Long)
+
+    /** Alle Lesezeichen samt dem geräteübergreifenden Schlüssel ihres Buchs (Backup). */
+    @Query("SELECT b.serverId AS serverId, b.remoteId AS remoteId, m.* FROM bookmarks m JOIN books b ON b.bookId = m.bookId")
+    abstract suspend fun keyedBookmarks(): List<KeyedBookmark>
+
     // --- Schlüssel der Bücher: (serverId, remoteId) bleibt auf einem neuen Gerät gleich, die bookId nicht ---
 
     @Query("SELECT bookId, serverId, remoteId FROM books")
@@ -428,4 +472,18 @@ data class KeyedProgress(
     val serverId: String,
     val remoteId: String,
     @Embedded val progress: BookProgressEntity,
+)
+
+/** Lesezeichen mit dem Titel seines Buchs bzw. seiner Folge. */
+data class BookmarkWithBook(
+    val bookTitle: String,
+    val kind: BookKind,
+    @Embedded val bookmark: BookmarkEntity,
+)
+
+/** Lesezeichen mit dem Schlüssel seines Buchs. */
+data class KeyedBookmark(
+    val serverId: String,
+    val remoteId: String,
+    @Embedded val bookmark: BookmarkEntity,
 )

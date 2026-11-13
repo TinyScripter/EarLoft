@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.backup
 
+import de.kleinabersmart.earloft.core.database.dao.KeyedBookmark
 import de.kleinabersmart.earloft.core.database.dao.KeyedCollectionFavorite
 import de.kleinabersmart.earloft.core.database.dao.KeyedEpisodeDownload
 import de.kleinabersmart.earloft.core.database.dao.KeyedFavorite
@@ -11,6 +12,7 @@ import de.kleinabersmart.earloft.core.database.dao.RowChanges
 import de.kleinabersmart.earloft.core.database.dao.UserDataChanges
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.BookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningDayEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
@@ -18,6 +20,7 @@ import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.UserBookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
@@ -50,11 +53,13 @@ data class UserDataSnapshot(
     val wearSelections: Map<String, UserWearSelectionEntity> = emptyMap(),
     val episodeDownloads: Map<BookKey, UserEpisodeDownloadEntity> = emptyMap(),
     val collectionFavorites: Map<CollectionKey, UserCollectionFavoriteEntity> = emptyMap(),
+    val bookmarks: Map<BookmarkKey, UserBookmarkEntity> = emptyMap(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty() && spokenServers.isEmpty() && podcasts.isEmpty() && listeningStats.isEmpty() &&
             listeningDays.isEmpty() && progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() &&
-            playEvents.isEmpty() && wearSelections.isEmpty() && episodeDownloads.isEmpty() && collectionFavorites.isEmpty()
+            playEvents.isEmpty() && wearSelections.isEmpty() && episodeDownloads.isEmpty() && collectionFavorites.isEmpty() &&
+            bookmarks.isEmpty()
 
     /** Einträge der gesicherten Playlists, in ihrer Reihenfolge. */
     fun entriesOf(playlistKey: String): List<UserSongKey> =
@@ -75,8 +80,8 @@ data class UserDataSnapshot(
     }
 
     /**
-     * Dieser Stand, ergänzt um das, was nur in [other] steht. Vorhandene Zeilen bleiben; Fortschritt und Favoriten kommen
-     * aus [other], wenn sie dort neuer sind. Einträge von Playlists nur zusammen mit ihrer Playlist.
+     * Dieser Stand, ergänzt um das, was nur in [other] steht. Vorhandene Zeilen bleiben; Fortschritt, Lesezeichen und
+     * Favoriten kommen aus [other], wenn sie dort neuer sind. Einträge von Playlists nur zusammen mit ihrer Playlist.
      */
     fun plusMissing(other: UserDataSnapshot): UserDataSnapshot {
         val addedPlaylists = other.playlists.keys - playlists.keys
@@ -94,6 +99,7 @@ data class UserDataSnapshot(
             wearSelections = other.wearSelections + wearSelections,
             episodeDownloads = other.episodeDownloads + episodeDownloads,
             collectionFavorites = newest(collectionFavorites, other.collectionFavorites) { it.changedAt },
+            bookmarks = newest(bookmarks, other.bookmarks) { it.updatedAt },
         )
     }
 
@@ -112,6 +118,7 @@ data class UserDataSnapshot(
         wearSelections = rowChanges(previous.wearSelections, wearSelections),
         episodeDownloads = rowChanges(previous.episodeDownloads, episodeDownloads),
         collectionFavorites = rowChanges(previous.collectionFavorites, collectionFavorites),
+        bookmarks = rowChanges(previous.bookmarks, bookmarks),
     )
 
     companion object {
@@ -130,6 +137,7 @@ data class UserDataSnapshot(
             wearSelections: List<UserWearSelectionEntity> = emptyList(),
             episodeDownloads: List<UserEpisodeDownloadEntity> = emptyList(),
             collectionFavorites: List<UserCollectionFavoriteEntity> = emptyList(),
+            bookmarks: List<UserBookmarkEntity> = emptyList(),
         ) = UserDataSnapshot(
             servers = servers.associateBy { it.sourceId },
             spokenServers = spokenServers.associateBy { it.serverId },
@@ -144,11 +152,14 @@ data class UserDataSnapshot(
             wearSelections = wearSelections.associateBy { it.key },
             episodeDownloads = episodeDownloads.associateBy { BookKey(it.serverId, it.remoteId) },
             collectionFavorites = collectionFavorites.associateBy { it.key },
+            bookmarks = bookmarks.associateBy { it.key },
         )
 
         /**
-         * Was aus der Hauptdatenbank gesichert wird: Musik-Server, ABS-Server, abonnierte Podcasts, die Statistik und der
-         * Fortschritt (bei Audiobookshelf nur der noch nicht gemeldete), lokale Playlists (mit `backupKey`), Favoriten von
+         * Was aus der Hauptdatenbank gesichert wird: Musik-Server, ABS-Server, abonnierte Podcasts, die Statistik, der
+         * Fortschritt (bei Audiobookshelf nur der noch nicht gemeldete), die Lesezeichen (ohne gelöschte; bei Audiobookshelf
+         * nur die, die der Server nicht vollständig kennt: noch nicht oder nicht im jetzigen Stand gemeldet oder mit Notiz,
+         * die er nicht speichert), lokale Playlists (mit `backupKey`), Favoriten von
          * Songs, Alben und Künstlern ohne Server, der Hörverlauf, die Auswahl für die Uhr (schon mit Schlüsseln, siehe `UserDataBackup`) und die
          * Downloads der Folgen gesicherter Abos.
          */
@@ -166,6 +177,7 @@ data class UserDataSnapshot(
             wearSelections: List<UserWearSelectionEntity> = emptyList(),
             episodeDownloads: List<KeyedEpisodeDownload> = emptyList(),
             collectionFavorites: List<KeyedCollectionFavorite> = emptyList(),
+            bookmarks: List<KeyedBookmark> = emptyList(),
         ) = ofUser(
             servers = sources.filter { it.type.isServer }.map { it.toUser() },
             spokenServers = spokenServers.map { it.toUser() },
@@ -178,6 +190,9 @@ data class UserDataSnapshot(
             listeningDays = listeningDays.map { it.toUser() },
             progress = spokenServers.map { it.serverId }.toSet().let { abs ->
                 progress.filter { it.serverId !in abs || it.progress.dirty }.map { it.toUser() }
+            },
+            bookmarks = spokenServers.map { it.serverId }.toSet().let { abs ->
+                bookmarks.filter { !it.bookmark.deleted && (it.serverId !in abs || !it.bookmark.knownToServer) }.map { it.toUser() }
             },
             playlists = playlists.mapNotNull { playlist ->
                 playlist.backupKey?.takeIf { playlist.boundSourceId == null }?.let { UserPlaylistEntity(it, playlist.name, playlist.updatedAt) }
@@ -207,6 +222,14 @@ data class EntryKey(val playlistKey: String, val position: Int)
 
 data class PlayKey(val song: UserSongKey, val playedAt: Long)
 
+/** Ein Lesezeichen: sein Buch bzw. seine Folge und die Stelle darin. */
+data class BookmarkKey(val serverId: String, val remoteId: String, val positionMs: Long)
+
+val UserBookmarkEntity.key: BookmarkKey get() = BookmarkKey(serverId, remoteId, positionMs)
+
+/** Der Server hat es so, wie es hier steht; die Notiz kennt er nicht. */
+private val BookmarkEntity.knownToServer: Boolean get() = remoteTime != null && !dirty && note.isEmpty()
+
 /** Ein Album (Album-Künstler, Titel) oder ein Künstler (Name, leerer Titel), normalisiert. */
 data class CollectionKey(val kind: FavoriteKind, val artist: String, val title: String)
 
@@ -230,6 +253,7 @@ suspend fun UserDataDao.snapshot() = UserDataSnapshot.ofUser(
     wearSelections = wearSelections(),
     episodeDownloads = episodeDownloads(),
     collectionFavorites = collectionFavorites(),
+    bookmarks = bookmarks(),
 )
 
 /** [mine], wo es mindestens so neu ist wie [other], sonst [other]. */
@@ -258,6 +282,10 @@ fun ListeningDayEntity.toUser() = UserListeningDayEntity(day, kind, groupKey, li
 
 fun KeyedProgress.toUser() = with(progress) {
     UserBookProgressEntity(serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty, hidden, skipSilence, volumeBoostDb)
+}
+
+fun KeyedBookmark.toUser() = with(bookmark) {
+    UserBookmarkEntity(serverId, remoteId, positionMs, title, note, createdAt, updatedAt, remoteTime)
 }
 
 /** Zurück in die Hauptdatenbank; der Abgleichsstand beginnt von vorn. */
@@ -335,4 +363,16 @@ fun UserBookProgressEntity.toMain(bookId: Long) = BookProgressEntity(
     hidden = hidden,
     skipSilence = skipSilence,
     volumeBoostDb = volumeBoostDb,
+)
+
+/** [dirty]: noch beim Server anzulegen (siehe `UserDataBackup.applyBookmarks`). */
+fun UserBookmarkEntity.toMain(bookId: Long, dirty: Boolean) = BookmarkEntity(
+    bookId = bookId,
+    positionMs = positionMs,
+    title = title,
+    note = note,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    remoteTime = remoteTime,
+    dirty = dirty,
 )

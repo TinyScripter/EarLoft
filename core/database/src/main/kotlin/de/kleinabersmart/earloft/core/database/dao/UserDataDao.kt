@@ -6,6 +6,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.UserBookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlaylistEntity
@@ -40,6 +41,9 @@ abstract class UserDataDao {
 
     @Query("SELECT * FROM book_progress")
     abstract suspend fun progress(): List<UserBookProgressEntity>
+
+    @Query("SELECT * FROM bookmarks")
+    abstract suspend fun bookmarks(): List<UserBookmarkEntity>
 
     @Query("SELECT * FROM playlists")
     abstract suspend fun playlists(): List<UserPlaylistEntity>
@@ -103,6 +107,16 @@ abstract class UserDataDao {
     abstract suspend fun deleteProgressKeys(serverId: String, remoteIds: List<String>)
 
     @Upsert
+    protected abstract suspend fun upsertBookmarks(rows: List<UserBookmarkEntity>)
+
+    @Delete
+    protected abstract suspend fun deleteBookmarks(rows: List<UserBookmarkEntity>)
+
+    /** Wie [deleteProgressKeys] für die Lesezeichen. */
+    @Query("DELETE FROM bookmarks WHERE serverId = :serverId AND remoteId IN (:remoteIds)")
+    abstract suspend fun deleteBookmarkKeys(serverId: String, remoteIds: List<String>)
+
+    @Upsert
     protected abstract suspend fun upsertPlaylists(rows: List<UserPlaylistEntity>)
 
     @Delete
@@ -147,13 +161,16 @@ abstract class UserDataDao {
     @Query("DELETE FROM book_progress WHERE serverId IN (:serverIds)")
     protected abstract suspend fun deleteProgressOf(serverIds: List<String>)
 
+    @Query("DELETE FROM bookmarks WHERE serverId IN (:serverIds)")
+    protected abstract suspend fun deleteBookmarksOf(serverIds: List<String>)
+
     @Query("DELETE FROM episode_downloads WHERE serverId IN (:serverIds)")
     protected abstract suspend fun deleteEpisodeDownloadsOf(serverIds: List<String>)
 
     /**
      * Schreibt alle Änderungen in einem Zug; [UserDataChanges.isEmpty] spart den Aufruf. Mit einem Abo oder
-     * Audiobookshelf-Server fällt auch sein Fortschritt weg, auch der noch nicht angewendete; mit einem Abo auch seine
-     * Downloads.
+     * Audiobookshelf-Server fallen auch sein Fortschritt und seine Lesezeichen weg, auch die noch nicht angewendeten; mit
+     * einem Abo auch seine Downloads.
      */
     @Transaction
     open suspend fun apply(changes: UserDataChanges) {
@@ -170,6 +187,8 @@ abstract class UserDataDao {
             if (listeningDays.deletes.isNotEmpty()) deleteListeningDays(listeningDays.deletes)
             if (progress.upserts.isNotEmpty()) upsertProgress(progress.upserts)
             if (progress.deletes.isNotEmpty()) deleteProgress(progress.deletes)
+            if (bookmarks.upserts.isNotEmpty()) upsertBookmarks(bookmarks.upserts)
+            if (bookmarks.deletes.isNotEmpty()) deleteBookmarks(bookmarks.deletes)
             if (playlists.upserts.isNotEmpty()) upsertPlaylists(playlists.upserts)
             if (playlists.deletes.isNotEmpty()) deletePlaylists(playlists.deletes)
             if (playlistEntries.upserts.isNotEmpty()) upsertPlaylistEntries(playlistEntries.upserts)
@@ -185,7 +204,10 @@ abstract class UserDataDao {
             if (episodeDownloads.upserts.isNotEmpty()) upsertEpisodeDownloads(episodeDownloads.upserts)
             if (episodeDownloads.deletes.isNotEmpty()) deleteEpisodeDownloads(episodeDownloads.deletes)
             val removedServers = podcasts.deletes.map { it.feedId } + spokenServers.deletes.map { it.serverId }
-            removedServers.chunked(MAX_ARGS).forEach { deleteProgressOf(it) }
+            removedServers.chunked(MAX_ARGS).forEach {
+                deleteProgressOf(it)
+                deleteBookmarksOf(it)
+            }
             podcasts.deletes.map { it.feedId }.chunked(MAX_ARGS).forEach { deleteEpisodeDownloadsOf(it) }
         }
     }
@@ -209,6 +231,7 @@ data class UserDataChanges(
     val listeningStats: RowChanges<UserListeningStatEntity> = RowChanges(),
     val listeningDays: RowChanges<UserListeningDayEntity> = RowChanges(),
     val progress: RowChanges<UserBookProgressEntity> = RowChanges(),
+    val bookmarks: RowChanges<UserBookmarkEntity> = RowChanges(),
     val playlists: RowChanges<UserPlaylistEntity> = RowChanges(),
     val playlistEntries: RowChanges<UserPlaylistEntryEntity> = RowChanges(),
     val favorites: RowChanges<UserFavoriteEntity> = RowChanges(),
@@ -219,7 +242,7 @@ data class UserDataChanges(
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty && spokenServers.isEmpty && podcasts.isEmpty && listeningStats.isEmpty && listeningDays.isEmpty &&
-            progress.isEmpty && playlists.isEmpty && playlistEntries.isEmpty && favorites.isEmpty && collectionFavorites.isEmpty &&
+            progress.isEmpty && bookmarks.isEmpty && playlists.isEmpty && playlistEntries.isEmpty && favorites.isEmpty && collectionFavorites.isEmpty &&
             playEvents.isEmpty &&
             wearSelections.isEmpty && episodeDownloads.isEmpty
 }

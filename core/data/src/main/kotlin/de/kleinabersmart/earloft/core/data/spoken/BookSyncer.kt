@@ -37,6 +37,7 @@ class BookSyncer @Inject constructor(
     private val servers: AudiobookshelfServers,
     private val api: AbsApi,
     private val progressSync: BookProgressSync,
+    private val bookmarks: Bookmarks,
     private val localBooks: LocalBooks,
 ) {
     private val syncMutex = Mutex()
@@ -87,10 +88,11 @@ class BookSyncer @Inject constructor(
         }
         // Erst ungemeldeten Fortschritt hochladen: Gelöschte Bücher nehmen ihn mit.
         progressSync.pushPending()
+        bookmarks.pushPending()
         // Ein abgebrochener Abgleich kommt nie bis hierher und löscht deshalb nichts.
         dao.deleteUnseen(server.serverId, generation)
         dao.upsertServer(entity.copy(libraryId = libraryId, syncGeneration = generation, lastFullSyncAt = System.currentTimeMillis()))
-        progressSync.pullAll(server)
+        bookmarks.applyRemote(server.serverId, progressSync.pullAll(server).bookmarks)
         loadMissingDetails(server)
         if (fresh.isEmpty()) emptyList()
         else dao.booksOf(server.serverId).filter { it.remoteId in fresh }.map { NewBook(it.bookId, it.title, it.author) }

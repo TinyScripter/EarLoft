@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.database.dao.SourceDao
 import de.kleinabersmart.earloft.core.database.dao.StatsDao
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.UserBookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
@@ -48,6 +49,7 @@ import javax.inject.Singleton
  * - **Fortschritt** hängt an Büchern, die es erst nach Scan bzw. Abgleich wieder gibt. Er wird deshalb bei jedem Start
  *   und danach immer dann angewendet, wenn neue Bücher auftauchen, und zwar nur, wenn er neuer ist als der vorhandene.
  *   Solange sein Buch fehlt, bleibt er in `user.db` stehen; mit seinem Abo oder Server fällt er weg.
+ * - **Lesezeichen** ebenso; sie kommen dazu, wenn ihr Buch an derselben Stelle noch keins hat.
  * - **Musik** ([MusicBackup]) ebenso, sobald ihre Songs, Alben und Playlists wieder da sind: lokale Playlists (werden beim
  *   Zurückspielen leer angelegt), Favoriten von Songs ohne Server, Hörverlauf und die Auswahl für die Uhr.
  * - **Downloads der Folgen** ebenso, nach dem Fortschritt: Was auf dem alten Gerät geladen war, kommt wieder, solange es
@@ -238,8 +240,8 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Nimmt aus [saved] Server und Abos heraus, die es hier unter anderer Kennung gibt, und hängt ihren Fortschritt und ihre
-     * Downloads an die hiesige Kennung.
+     * Nimmt aus [saved] Server und Abos heraus, die es hier unter anderer Kennung gibt, und hängt ihren Fortschritt, ihre
+     * Lesezeichen und ihre Downloads an die hiesige Kennung.
      */
     private suspend fun withLocalIds(saved: UserDataSnapshot): UserDataSnapshot {
         val music = sourceDao.getServers()
@@ -267,6 +269,10 @@ class UserDataBackup @Inject constructor(
             episodeDownloads = saved.episodeDownloads.values
                 .map { it.copy(serverId = ids[it.serverId] ?: it.serverId) }
                 .associateBy { BookKey(it.serverId, it.remoteId) },
+            bookmarks = saved.bookmarks.values
+                .map { it.copy(serverId = ids[it.serverId] ?: it.serverId) }
+                .groupBy { it.key }
+                .mapValues { (_, rows) -> rows.maxBy { it.updatedAt } },
         )
     }
 
@@ -289,7 +295,7 @@ class UserDataBackup @Inject constructor(
                 TAG,
                 "Nutzerdaten zurückgespielt: ${saved.servers.size} Musik-Server, ${saved.spokenServers.size} ABS-Server, " +
                     "${saved.podcasts.size} Podcasts, ${saved.listeningStats.size} Statistik-Einträge, " +
-                    "${saved.progress.size} Fortschritte, ${saved.playlists.size} Playlists, ${saved.favorites.size} Favoriten, " +
+                    "${saved.progress.size} Fortschritte, ${saved.bookmarks.size} Lesezeichen, ${saved.playlists.size} Playlists, ${saved.favorites.size} Favoriten, " +
                     "${saved.playEvents.size} Einträge im Hörverlauf, ${saved.wearSelections.size} Auswahlen für die Uhr, " +
                     "${saved.episodeDownloads.size} Downloads von Folgen " +
                     "(folgen mit ihren Büchern und Songs)",
@@ -343,6 +349,48 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
+     * Überträgt gesicherte Lesezeichen in die Hauptdatenbank, wenn es ihr Buch dort gibt und an derselben Stelle noch keins
+     * (auch kein gelöschtes, dessen Meldung aussteht). Hat das vorhandene keine Notiz, bekommt es die gesicherte:
+     * Audiobookshelf kennt keine Notizen, der Abgleich bringt seine Lesezeichen ohne sie zurück. Liefert den Rest, dessen
+     * Buch (noch) fehlt.
+     */
+    internal suspend fun applyBookmarks(saved: Collection<UserBookmarkEntity>): List<UserBookmarkEntity> {
+        if (saved.isEmpty()) return emptyList()
+        val unresolved = mutableListOf<UserBookmarkEntity>()
+        var applied = 0
+        database.withTransaction {
+            val abs = bookDao.servers().map { it.serverId }.toSet()
+            saved.groupBy { it.serverId }.forEach { (serverId, rows) ->
+                val bookIds = rows.map { it.remoteId }.distinct().chunked(MAX_ARGS)
+                    .flatMap { chunk -> bookDao.bookRefs(serverId, chunk) }
+                    .associate { it.remoteId to it.bookId }
+                val current = bookIds.values.chunked(MAX_ARGS).flatMap { bookDao.bookmarksOf(it) }
+                    .associateBy { it.bookId to it.positionMs }
+                rows.forEach { row ->
+                    val bookId = bookIds[row.remoteId]
+                    val existing = bookId?.let { current[it to row.positionMs] }
+                    when {
+                        bookId == null -> unresolved += row
+                        existing == null -> {
+                            // Von Audiobookshelf-Büchern ist ohne Notiz nur gesichert, was der Server noch nicht (so) hat:
+                            // wieder zu melden. Mit Notiz kann es auch eins sein, das er schon kennt.
+                            val dirty = serverId in abs && (row.remoteTime == null || row.note.isEmpty())
+                            bookDao.insertBookmark(row.toMain(bookId, dirty))
+                            applied++
+                        }
+                        !existing.deleted && existing.note.isEmpty() && row.note.isNotEmpty() -> {
+                            bookDao.updateBookmark(existing.copy(note = row.note))
+                            applied++
+                        }
+                    }
+                }
+            }
+        }
+        if (applied > 0) Log.i(TAG, "Lesezeichen zurückgespielt: $applied, noch ohne Buch: ${unresolved.size}")
+        return unresolved
+    }
+
+    /**
      * Überträgt den gesicherten Download-Zustand auf Folgen, die es hier gibt und die hier noch nie geladen wurden:
      * entfernte und fehlgeschlagene lässt die Automatik aus, geladene kommen wieder, solange sie nicht zu Ende gehört sind.
      * Liefert den Rest, dessen Folge (noch) fehlt.
@@ -376,6 +424,7 @@ class UserDataBackup @Inject constructor(
     /** Wendet von [saved] an, was davon in [pending] steht; liefert, was (noch) kein Buch, keinen Song usw. hat. */
     internal suspend fun applySaved(saved: UserDataSnapshot, pending: Pending): Pending {
         val progress = applyProgress(pending.progress)
+        val bookmarks = applyBookmarks(pending.bookmarks)
         // Nach dem Fortschritt: Gehörte Folgen kommen nicht wieder.
         val episodeDownloads = applyEpisodeDownloads(pending.episodeDownloads)
         // Danach: Mehr als auf dem alten Gerät geladen war, lädt die Automatik für zurückgespielte Abos nicht.
@@ -387,6 +436,7 @@ class UserDataBackup @Inject constructor(
         val rest = database.withTransaction {
             Pending(
                 progress = progress,
+                bookmarks = bookmarks,
                 episodeDownloads = episodeDownloads,
                 restoredFeeds = restoredFeeds,
                 playlists = music.applyPlaylists(saved, pending.playlists),
@@ -431,12 +481,15 @@ class UserDataBackup @Inject constructor(
     }
 
     /**
-     * Vergisst gesicherten Fortschritt der Folgen [remoteIds] von [serverId], deren Kennung sich geändert hat (Quelle
-     * wechseln, Konzept 12.10): Das Spiegeln löscht nur, was es in der Hauptdatenbank noch gibt, und die neuen Kennungen
-     * kommen von selbst hinzu.
+     * Vergisst gesicherten Fortschritt und gesicherte Lesezeichen der Folgen [remoteIds] von [serverId], deren Kennung sich
+     * geändert hat (Quelle wechseln, Konzept 12.10): Das Spiegeln löscht nur, was es in der Hauptdatenbank noch gibt, und
+     * die neuen Kennungen kommen von selbst hinzu.
      */
     suspend fun forgetProgress(serverId: String, remoteIds: Collection<String>) = mutex.withLock {
-        remoteIds.chunked(MAX_ARGS).forEach { userDao.deleteProgressKeys(serverId, it) }
+        remoteIds.chunked(MAX_ARGS).forEach {
+            userDao.deleteProgressKeys(serverId, it)
+            userDao.deleteBookmarkKeys(serverId, it)
+        }
         // Der gemerkte Stand stimmt nicht mehr mit `user.db` überein; beim nächsten Spiegeln neu lesen.
         mirrored = null
     }
@@ -454,9 +507,13 @@ class UserDataBackup @Inject constructor(
         val stillWaiting = waiting?.pending
         val waitingProgress = stillWaiting?.progress.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
         val waitingDownloads = stillWaiting?.episodeDownloads.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
+        val waitingBookmarks = stillWaiting?.bookmarks.orEmpty().map { it.key }.toSet()
         val changes = current.changesSince(previous).let { changes ->
             val progressDeletes = changes.progress.deletes.filter {
                 BookKey(it.serverId, it.remoteId) !in waitingProgress && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
+            }
+            val bookmarkDeletes = changes.bookmarks.deletes.filter {
+                it.key !in waitingBookmarks && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
             }
             val downloadDeletes = changes.episodeDownloads.deletes.filter {
                 BookKey(it.serverId, it.remoteId) !in waitingDownloads && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
@@ -464,6 +521,7 @@ class UserDataBackup @Inject constructor(
             val songs = music.resolve((changes.favorites.deletes.map { it.song } + changes.playEvents.deletes.map { it.song }).toSet())
             changes.copy(
                 progress = changes.progress.copy(deletes = progressDeletes),
+                bookmarks = changes.bookmarks.copy(deletes = bookmarkDeletes),
                 episodeDownloads = changes.episodeDownloads.copy(deletes = downloadDeletes),
                 favorites = changes.favorites.copy(deletes = changes.favorites.deletes.filter { it.song in songs }),
                 collectionFavorites = changes.collectionFavorites.copy(
@@ -487,12 +545,13 @@ class UserDataBackup @Inject constructor(
         val days = read("listening_days")
         // Welcher Fortschritt gesichert wird, hängt auch an den Audiobookshelf-Servern.
         val progress = read("book_progress", "spoken_servers")
+        val bookmarks = read("bookmarks", "spoken_servers")
         // Welche Downloads gesichert werden, hängt an den gesicherten Abos.
         val downloads = read("book_tracks", "podcast_feeds")
         val musicData = if (read(*MUSIC_TABLES)) music.read() else null
         val fresh = UserDataSnapshot.ofMain(
             sources = if (servers) sourceDao.getServers() else emptyList(),
-            spokenServers = if (spokenServers || progress) bookDao.servers() else emptyList(),
+            spokenServers = if (spokenServers || progress || bookmarks) bookDao.servers() else emptyList(),
             feeds = if (feeds || downloads) podcastDao.keptFeeds() else emptyList(),
             listeningStats = if (stats) statsDao.all() else emptyList(),
             listeningDays = if (days) statsDao.allDays() else emptyList(),
@@ -504,6 +563,7 @@ class UserDataBackup @Inject constructor(
             wearSelections = musicData?.wearSelections.orEmpty(),
             episodeDownloads = if (downloads) podcastDao.keyedEpisodeDownloads() else emptyList(),
             collectionFavorites = musicData?.collectionFavorites.orEmpty(),
+            bookmarks = if (bookmarks) bookDao.keyedBookmarks() else emptyList(),
         )
         if (base == null) return fresh
         return UserDataSnapshot(
@@ -520,6 +580,7 @@ class UserDataBackup @Inject constructor(
             wearSelections = if (musicData != null) fresh.wearSelections else base.wearSelections,
             episodeDownloads = if (downloads) fresh.episodeDownloads else base.episodeDownloads,
             collectionFavorites = if (musicData != null) fresh.collectionFavorites else base.collectionFavorites,
+            bookmarks = if (bookmarks) fresh.bookmarks else base.bookmarks,
         )
     }
 
@@ -534,7 +595,7 @@ class UserDataBackup @Inject constructor(
         const val APPLY_INTERVAL_MS = 5_000L
         const val MAX_ARGS = 500
         val MIRRORED_TABLES = arrayOf(
-            "sources", "spoken_servers", "podcast_feeds", "listening_stats", "listening_days", "book_progress",
+            "sources", "spoken_servers", "podcast_feeds", "listening_stats", "listening_days", "book_progress", "bookmarks",
             "songs", "albums", "artists", "playlists", "playlist_entries", "play_events", "wear_selections", "book_tracks",
         )
     }
@@ -551,6 +612,7 @@ data class BackupCounts(
 /** Gesichertes, dessen Buch, Folge, Song, Album oder Playlist es (noch) nicht gibt; Playlists über ihren Schlüssel. */
 internal data class Pending(
     val progress: List<UserBookProgressEntity> = emptyList(),
+    val bookmarks: List<UserBookmarkEntity> = emptyList(),
     val playlists: List<String> = emptyList(),
     val favorites: List<UserFavoriteEntity> = emptyList(),
     val collectionFavorites: List<UserCollectionFavoriteEntity> = emptyList(),
@@ -561,12 +623,13 @@ internal data class Pending(
     val restoredFeeds: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean
-        get() = progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() && collectionFavorites.isEmpty() && playEvents.isEmpty() &&
+        get() = progress.isEmpty() && bookmarks.isEmpty() && playlists.isEmpty() && favorites.isEmpty() && collectionFavorites.isEmpty() && playEvents.isEmpty() &&
             wearSelections.isEmpty() && episodeDownloads.isEmpty() && restoredFeeds.isEmpty()
 
     companion object {
         fun of(saved: UserDataSnapshot) = Pending(
             progress = saved.progress.values.toList(),
+            bookmarks = saved.bookmarks.values.toList(),
             playlists = saved.playlists.keys.toList(),
             favorites = saved.favorites.values.toList(),
             collectionFavorites = saved.collectionFavorites.values.toList(),

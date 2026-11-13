@@ -118,6 +118,24 @@ data class UserBookProgressEntity(
 )
 
 /**
+ * Ein Lesezeichen (`bookmarks`, seit Version 14) über `(serverId, remoteId)` seines Buchs und seine Position: Audiobookshelf
+ * kennt Lesezeichen an ihrer Zeit, zwei an derselben Stelle ergeben keinen Sinn. Gelöschte fehlen. Von Audiobookshelf-Büchern
+ * nur die, die der Server noch nicht hat (`remoteTime` fehlt oder geändert); den Rest holt der Abgleich zurück.
+ */
+@Entity(tableName = "bookmarks", primaryKeys = ["serverId", "remoteId", "positionMs"])
+data class UserBookmarkEntity(
+    val serverId: String,
+    val remoteId: String,
+    val positionMs: Long,
+    val title: String,
+    val note: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    /** Zeit beim Server (Sekunden), `null` = dort noch unbekannt. */
+    val remoteTime: Double?,
+)
+
+/**
  * Was mit dem Download einer Podcast-Folge war (`book_tracks.downloadState`), über Feed und guid. [wanted]: geladen oder
  * wartend – kommt auf einem neuen Gerät wieder, solange die Folge nicht gehört ist. Sonst entfernt oder fehlgeschlagen –
  * die Automatik lädt sie dann auch dort nicht.

@@ -283,6 +283,32 @@ class UserMigrationTest {
         }
     }
 
+    @Test
+    fun `v13 to v14 keeps progress and adds empty bookmarks`() {
+        helper.createDatabase(DB_NAME, 13).use { db ->
+            db.execSQL(
+                "INSERT INTO book_progress (serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty, hidden) " +
+                    "VALUES ('abs', 'item', 1000, 2000, 0, NULL, 10, 1, 0)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 14, true).use { db ->
+            db.query("SELECT positionMs, dirty FROM book_progress WHERE serverId = 'abs' AND remoteId = 'item'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1000, cursor.getInt(0))
+                assertEquals(1, cursor.getInt(1))
+            }
+            db.query("SELECT COUNT(*) FROM bookmarks").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+            db.execSQL(
+                "INSERT INTO bookmarks (serverId, remoteId, positionMs, title, note, createdAt, updatedAt, remoteTime) " +
+                    "VALUES ('abs', 'item', 30000, 'Kapitel', '', 1, 1, NULL)",
+            )
+        }
+    }
+
     private companion object {
         const val DB_NAME = "user-migration-test"
     }

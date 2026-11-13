@@ -91,7 +91,21 @@ data class AbsMeResponse(
     /** Kennung des Kontos; die Sitzungen, die die App meldet, gehören diesem Konto. */
     val id: String = "",
     val mediaProgress: List<AbsMediaProgressDto> = emptyList(),
+    val bookmarks: List<AbsBookmarkDto> = emptyList(),
 )
+
+/** Lesezeichen des Kontos; der Server erkennt es an Eintrag und [time] (Sekunden). */
+@Serializable
+data class AbsBookmarkDto(
+    val libraryItemId: String,
+    val time: Double,
+    val title: String = "",
+    /** Unix-ms. */
+    val createdAt: Long = 0,
+)
+
+@Serializable
+data class AbsBookmarkUpdate(val time: Double, val title: String)
 
 @Serializable
 data class AbsMediaProgressDto(

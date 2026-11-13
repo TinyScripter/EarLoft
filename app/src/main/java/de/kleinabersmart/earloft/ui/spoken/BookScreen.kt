@@ -95,6 +95,9 @@ fun BookScreen(
     val item by viewModel.book.collectAsStateWithLifecycle()
     val trialFeedId by viewModel.trialFeedId.collectAsStateWithLifecycle()
     val chapters by viewModel.chapters.collectAsStateWithLifecycle()
+    val bookmarksViewModel: BookmarksViewModel = hiltViewModel()
+    val bookmarks by remember(bookId) { bookmarksViewModel.of(bookId) }.collectAsStateWithLifecycle(emptyList())
+    val bookmarkActions = rememberBookmarkActions(bookmarksViewModel)
     val book = item?.book
     val progress = item?.progress
     val download by viewModel.download.collectAsStateWithLifecycle()
@@ -177,15 +180,18 @@ fun BookScreen(
                     ) { header() }
                     LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(bottom = 16.dp)) {
                         bookDetailItems(book, chapters, onChapter = viewModel::playFrom)
+                        bookmarkItems(bookmarks, bookmarkActions, onJump = viewModel::playFrom)
                     }
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                     item(key = "header") { header() }
                     bookDetailItems(book, chapters, onChapter = viewModel::playFrom)
+                    bookmarkItems(bookmarks, bookmarkActions, onJump = viewModel::playFrom)
                 }
             }
         }
+        bookmarkActions.Dialog()
     }
 }
 

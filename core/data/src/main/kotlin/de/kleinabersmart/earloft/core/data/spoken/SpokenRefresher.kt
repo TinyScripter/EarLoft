@@ -50,6 +50,7 @@ class SpokenRefresher @Inject constructor(
     private val events: RefreshEvents,
     private val syncer: BookSyncer,
     private val progressSync: BookProgressSync,
+    private val bookmarks: Bookmarks,
     private val servers: AudiobookshelfServers,
     private val dao: BookDao,
     private val localBooks: LocalBooks,
@@ -108,6 +109,7 @@ class SpokenRefresher @Inject constructor(
             // Ausgeblendete Bücher (Allgemein → Bereiche): kein Kontakt zu Audiobookshelf.
             if (!books) return@launch
             progressSync.pushPending()
+            bookmarks.pushPending()
             var fresh = 0
             servers.all().forEach { server ->
                 if (now - (dao.server(server.serverId)?.lastFullSyncAt ?: 0) > FULL_SYNC_INTERVAL_MS) {
@@ -116,7 +118,7 @@ class SpokenRefresher @Inject constructor(
                     return@forEach
                 }
                 try {
-                    progressSync.pullAll(server)
+                    bookmarks.applyRemote(server.serverId, progressSync.pullAll(server).bookmarks)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: IOException) {
