@@ -131,6 +131,9 @@ class BookProgressSync @Inject constructor(
         api.me(server).mediaProgress.filter { it.episodeId == null }.forEach { applyRemote(server.serverId, it) }
     }
 
+    /** Nur der Stand auf diesem Gerät, ohne den Server zu fragen. */
+    suspend fun local(bookId: Long): PullResult = PullResult(dao.progress(bookId)?.toModel(), tookRemote = false, noticeable = false)
+
     /** Vor dem Abspielen: den Stand dieses einen Buchs abgleichen. Ohne Verbindung gilt der lokale Stand. */
     suspend fun pull(bookId: Long): PullResult {
         val local = dao.progress(bookId)?.toModel()

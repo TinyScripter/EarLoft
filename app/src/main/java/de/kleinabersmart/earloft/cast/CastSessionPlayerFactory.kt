@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.cast
 
 import android.content.Context
+import android.net.Uri
 import android.os.Handler
 import android.util.Log
 import androidx.annotation.OptIn
@@ -27,6 +28,7 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.playback.QueueReserve
 import de.kleinabersmart.earloft.core.playback.SessionPlayerFactory
+import de.kleinabersmart.earloft.core.playback.SpokenItemRebuilder
 import de.kleinabersmart.earloft.core.playback.queueWindow
 import de.kleinabersmart.earloft.core.playback.songId
 import de.kleinabersmart.earloft.ui.snackbar.Snackbars
@@ -63,6 +65,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
     private val cache: CastMediaCache,
     @param:ApplicationScope private val scope: CoroutineScope,
     private val snackbars: Snackbars,
+    private val spokenItems: SpokenItemRebuilder,
 ) : SessionPlayerFactory {
 
     private var sessionListener: SessionManagerListener<CastSession>? = null
@@ -83,7 +86,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         val player = CastPlayer.Builder(context)
             .setLocalPlayer(localPlayer)
             .setRemotePlayer(remotePlayer)
-            .setTransferCallback(CastTransferCallback(cache, handOver, reserve, ::showSkipped))
+            .setTransferCallback(CastTransferCallback(cache, handOver, reserve, spokenItems::playable, ::showSkipped))
             .build()
         prepareOnSessionStart(player)
         watchRemoteLoad(player)
@@ -361,12 +364,35 @@ private class HandOver {
     @Volatile var lastRemote: PlayerTransferState? = null
 }
 
-/** Übergibt nur Songs mit Server-Quelle an den Empfänger; zurück aufs Handy geht alles. */
+/**
+ * Was vom Empfänger aufs Handy zurückgeht: Einträge ohne Adresse auf dem Handy baut [rebuild] neu (Bücher und Folgen nach
+ * einem Neustart der App, siehe [SpokenItemRebuilder]); was danach noch keine hat, fällt weg wie bei
+ * `TransferCallback.DEFAULT` (fremde Sitzung).
+ */
+@OptIn(UnstableApi::class)
+internal fun PlayerTransferState.playableOnPhone(rebuild: (List<MediaItem>) -> List<MediaItem>): PlayerTransferState {
+    val items = rebuild(mediaItems)
+    val playable = items.indices.filter { items[it].localConfiguration?.uri.let { uri -> uri != null && uri != Uri.EMPTY } }
+    if (playable.size == items.size) return buildUpon().setMediaItems(items).build()
+    val current = currentMediaItemIndex
+    val index = when {
+        playable.isEmpty() -> C.INDEX_UNSET
+        else -> playable.indexOfFirst { it >= current }.takeIf { it >= 0 } ?: (playable.size - 1)
+    }
+    return buildUpon()
+        .setMediaItems(playable.map(items::get))
+        .setCurrentMediaItemIndex(index)
+        .apply { if (current !in playable) setCurrentPosition(0) }
+        .build()
+}
+
+/** Übergibt nur Songs mit Server-Quelle an den Empfänger; zurück aufs Handy geht alles, was das Handy abspielen kann. */
 @OptIn(UnstableApi::class)
 private class CastTransferCallback(
     private val cache: CastMediaCache,
     private val handOver: HandOver,
     private val reserve: QueueReserve<MediaItem>,
+    private val rebuild: (List<MediaItem>) -> List<MediaItem>,
     private val onSkipped: (skipped: Int, total: Int) -> Unit,
 ) : CastPlayer.TransferCallback {
 
@@ -382,16 +408,15 @@ private class CastTransferCallback(
             // Leer, weil eine andere App den Empfänger übernommen hat: der letzte Stand kommt pausiert aufs Handy.
             val takenOver = source.mediaItems.isEmpty() && lastRemote != null
             val state = if (takenOver) lastRemote.buildUpon().setPlayWhenReady(false).build() else source
-            if (rescue != null) {
-                rescue.buildUpon().setPlayWhenReady(false).build().setToPlayer(targetPlayer)
+            val back = if (rescue != null) {
+                rescue.buildUpon().setPlayWhenReady(false).build()
             } else if (remaining != null) {
                 val (all, index) = remaining.complete(state.mediaItems, state.currentMediaItemIndex)
-                state.buildUpon().setMediaItems(all).setCurrentMediaItemIndex(index).build().setToPlayer(targetPlayer)
-            } else if (takenOver) {
-                state.setToPlayer(targetPlayer)
+                state.buildUpon().setMediaItems(all).setCurrentMediaItemIndex(index).build()
             } else {
-                CastPlayer.TransferCallback.DEFAULT.transferState(sourcePlayer, targetPlayer)
+                state
             }
+            back.playableOnPhone(rebuild).setToPlayer(targetPlayer)
             reserve.clear()
             return
         }
