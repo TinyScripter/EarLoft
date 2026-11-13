@@ -129,6 +129,13 @@ abstract class PodcastDao {
     @Query("UPDATE podcast_feeds SET keepEpisodes = :keep WHERE feedId = :feedId")
     abstract suspend fun setKeepEpisodes(feedId: String, keep: Int)
 
+    /** Podcast einer Folge. */
+    @Query("SELECT serverId FROM books WHERE bookId = :bookId AND kind = 'EPISODE'")
+    abstract suspend fun feedIdOf(bookId: Long): String?
+
+    @Query("UPDATE podcast_feeds SET autoDownloadCount = :count WHERE feedId = :feedId")
+    abstract suspend fun setAutoDownloadCount(feedId: String, count: Int?)
+
     /** Ids der Folgen eines Podcasts, älteste zuerst (bei gleichem Datum in der Reihenfolge des Auftauchens). */
     @Query("SELECT bookId FROM books WHERE kind = 'EPISODE' AND serverId = :feedId ORDER BY addedAt, bookId")
     abstract suspend fun episodeIdsOldestFirst(feedId: String): List<Long>
@@ -266,7 +273,10 @@ abstract class PodcastDao {
     abstract suspend fun allDownloadedEpisodeIds(): List<Long>
 
     /** Von Hand: auch fehlgeschlagene und entfernte Folgen laden wieder. */
-    @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND trackIndex = 0 AND downloadState IN ('NONE', 'FAILED', 'REMOVED')")
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'QUEUED', autoDownload = 0 " +
+            "WHERE bookId = :bookId AND trackIndex = 0 AND downloadState IN ('NONE', 'FAILED', 'REMOVED')",
+    )
     abstract suspend fun queueDownload(bookId: Long): Int
 
     /**
@@ -274,7 +284,7 @@ abstract class PodcastDao {
      * nur neue: neuer als die neueste zu Ende gehörte. Den Rückstand dahinter lädt nur, wer ihn von Hand anfordert.
      */
     @Query(
-        "UPDATE book_tracks SET downloadState = 'QUEUED' WHERE trackIndex = 0 AND downloadState = 'NONE' AND bookId IN (" +
+        "UPDATE book_tracks SET downloadState = 'QUEUED', autoDownload = 1 WHERE trackIndex = 0 AND downloadState = 'NONE' AND bookId IN (" +
             "SELECT bookId FROM books WHERE kind = 'EPISODE' AND serverId = :feedId " +
             "AND bookId NOT IN (SELECT bookId FROM book_progress WHERE finished = 1) " +
             "AND addedAt > (SELECT COALESCE(MAX(h.addedAt), -1) FROM books h JOIN book_progress p ON p.bookId = h.bookId " +
@@ -282,6 +292,20 @@ abstract class PodcastDao {
             "ORDER BY addedAt DESC, bookId DESC LIMIT :count)",
     )
     abstract suspend fun queueLatestUnheard(feedId: String, count: Int): Int
+
+    /**
+     * „Nur die neueste“: automatisch geladene (oder wartende), nie angefangene Folgen des Podcasts, die älter sind als die
+     * neueste fertig geladene. Solange die neue noch lädt, bleibt die alte.
+     */
+    @Query(
+        "SELECT t.bookId FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND b.serverId = :feedId AND t.trackIndex = 0 AND t.autoDownload = 1 " +
+            "AND t.downloadState IN ('QUEUED', 'DONE') " +
+            "AND t.bookId NOT IN (SELECT bookId FROM book_progress WHERE positionMs > 0 OR finished = 1) " +
+            "AND b.addedAt < (SELECT MAX(n.addedAt) FROM books n JOIN book_tracks d ON d.bookId = n.bookId " +
+            "WHERE n.serverId = :feedId AND n.kind = 'EPISODE' AND d.trackIndex = 0 AND d.downloadState = 'DONE')",
+    )
+    abstract suspend fun supersededAutomaticDownloads(feedId: String): List<Long>
 
     /** Downloads der Folgen samt Schlüssel ihrer Folge (Backup): alles außer „nie geladen“. */
     @Query(

@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -116,9 +117,27 @@ class EpisodeDownloads @Inject constructor(
     suspend fun queueAutomatic(feedId: String) {
         val feed = dao.feed(feedId)?.takeIf { it.autoDownload } ?: return
         userData.applyWaiting()
-        // „Nur die neueste“ in Weiterhören: auch nur die neueste bereithalten.
-        val count = if (feed.queueMode == FeedQueueMode.NEWEST_ONLY) 1 else settings.autoDownloadCount.first()
+        // „Nur die neueste“ in Weiterhören: auch nur die neueste bereithalten; sonst die Anzahl des Abos oder die Vorgabe.
+        val newestOnly = feed.queueMode == FeedQueueMode.NEWEST_ONLY
+        val count = if (newestOnly) 1 else feed.autoDownloadCount ?: settings.autoDownloadCount.first()
         if (dao.queueLatestUnheard(feedId, count) > 0) enqueueWorker()
+        if (newestOnly) removeSuperseded(feedId)
+    }
+
+    /**
+     * „Nur die neueste“: Ältere automatisch geladene, nie angefangene Folgen gehen, sobald eine neuere fertig ist (nach
+     * jedem Abgleich und jedem fertigen Download). Von Hand geladene und angefangene bleiben, ebenso die im Player.
+     */
+    suspend fun removeSuperseded(feedId: String) {
+        val loaded = loadedBookId.first()
+        dao.supersededAutomaticDownloads(feedId).filter { it != loaded }.forEach { remove(it) }
+    }
+
+    /** Nach einem fertigen Download: bei „Nur die neueste“ die älteren automatisch geladenen weg ([removeSuperseded]). */
+    suspend fun onDownloaded(bookId: Long) {
+        val feedId = dao.feedIdOf(bookId) ?: return
+        val feed = dao.feed(feedId) ?: return
+        if (feed.autoDownload && feed.queueMode == FeedQueueMode.NEWEST_ONLY) removeSuperseded(feedId)
     }
 
     /**
@@ -132,10 +151,12 @@ class EpisodeDownloads @Inject constructor(
         scope.launch {
             merge(
                 podcasts.refreshed,
+                // Eingeschaltet, Anzahl geändert oder „Nur die neueste“ gewählt: nur die geänderten Abos.
                 podcasts.feeds
-                    .map { feeds -> feeds.filter { it.autoDownload }.map { it.id }.toSet() }
+                    .map { feeds -> feeds.filter { it.autoDownload }.associate { it.id to (it.autoDownloadCount to it.queueMode) } }
                     .distinctUntilChanged()
-                    .flatMapConcat { it.asFlow() },
+                    .runningFold(emptyMap<String, Any?>() to emptyMap<String, Any?>()) { last, now -> last.second to now }
+                    .flatMapConcat { (before, now) -> now.filter { (id, value) -> before[id] != value }.keys.asFlow() },
             ).collect { queueAutomatic(it) }
         }
         // Eine größere Anzahl holt sofort fehlende Folgen nach (eine kleinere löscht nichts).

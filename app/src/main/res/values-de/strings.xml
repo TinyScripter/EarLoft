@@ -682,7 +682,7 @@
     <string name="podcast_none">Noch keine Abos. Tippe auf „Podcast hinzufügen“, um eine Feed-Adresse einzugeben oder in einem Verzeichnis zu suchen.</string>
     <string name="podcast_refresh">Podcasts aktualisieren</string>
     <string name="podcast_auto_download">Neue Folgen automatisch herunterladen</string>
-    <string name="podcast_auto_download_summary">Hält die neuesten ungehörten Folgen auf diesem Gerät bereit (Anzahl: Einstellungen → Podcasts).</string>
+    <string name="podcast_auto_download_summary">Hält die neuesten ungehörten Folgen auf diesem Gerät bereit. Bei „Nur die neueste“ verschwinden ältere, nie angefangene wieder.</string>
     <string name="podcast_download_episode">Folge herunterladen</string>
     <string name="podcast_download_cancel">Download abbrechen</string>
     <string name="podcast_download_offline">Keine Verbindung. Der Download startet, sobald du online bist.</string>
@@ -859,6 +859,7 @@
     <string name="settings_podcast_auto_new">Neue Abos laden automatisch</string>
     <string name="settings_podcast_auto_new_summary">Vorgabe für Podcasts, die du ab jetzt abonnierst. Bestehende Abos behalten ihre eigene Einstellung.</string>
     <string name="settings_podcast_auto_count">Automatisch bereitgehaltene Folgen</string>
+    <string name="podcast_auto_count_default">Vorgabe: %1$s</string>
     <plurals name="settings_podcast_auto_count_value">
         <item quantity="one">Die neueste ungehörte Folge</item>
         <item quantity="other">Die %d neuesten ungehörten Folgen</item>

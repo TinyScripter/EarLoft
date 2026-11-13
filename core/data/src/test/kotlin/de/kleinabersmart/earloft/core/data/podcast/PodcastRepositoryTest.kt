@@ -873,6 +873,33 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `newest only removes older automatic downloads once a newer one is done but keeps manual and started ones`() = runTest {
+        served = feed(
+            "D" to "Thu, 30 Oct 2025 06:00:00 GMT", "C" to "Wed, 29 Oct 2025 06:00:00 GMT",
+            "B" to "Tue, 28 Oct 2025 06:00:00 GMT", "A" to "Mon, 27 Oct 2025 06:00:00 GMT",
+        )
+        val feedId = subscribe()
+        val (d, c, b, a) = listOf("D", "C", "B", "A").map { idOf(feedId, it) }
+        val dao = db.podcastDao()
+        dao.queueLatestUnheard(feedId, 3)
+        dao.queueDownload(a)
+        for (id in listOf(c, b, a)) {
+            dao.markDownloadRunning(id)
+            dao.markDownloadDone(id, "/x/episode-$id.mp3", 100)
+        }
+        listen(b, positionMs = 60_000, updatedAt = 1, finished = false)
+
+        // Die neueste lädt noch: nichts geht.
+        assertEquals(emptyList<Long>(), dao.supersededAutomaticDownloads(feedId))
+
+        dao.markDownloadRunning(d)
+        dao.markDownloadDone(d, "/x/episode-$d.mp3", 100)
+
+        // C automatisch und nie angefangen; B angefangen, A von Hand.
+        assertEquals(listOf(c), dao.supersededAutomaticDownloads(feedId))
+    }
+
+    @Test
     fun `removing a queued or finished download is remembered and manual download works again`() = runTest {
         val feedId = subscribe()
         val a = idOf(feedId, "A")

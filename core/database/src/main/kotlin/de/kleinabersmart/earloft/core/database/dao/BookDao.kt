@@ -243,7 +243,7 @@ abstract class BookDao {
                 if (old == null || old.downloadState == TrackDownload.NONE || old.durationMs != track.durationMs) {
                     track
                 } else {
-                    track.copy(downloadState = old.downloadState, filePath = old.filePath, fileSize = old.fileSize)
+                    track.copy(downloadState = old.downloadState, filePath = old.filePath, fileSize = old.fileSize, autoDownload = old.autoDownload)
                 }
             },
         )

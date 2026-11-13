@@ -196,6 +196,38 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `v31 to v32 keeps downloads as manual and feeds with the default number`() {
+        helper.createDatabase(DB_NAME, 31).use { db ->
+            db.execSQL(
+                "INSERT INTO podcast_feeds (feedId, url, title, author, description, lastRefreshAt, syncGeneration, autoDownload) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'Lage', '', '', 5, 2, 1)",
+            )
+            db.execSQL(
+                "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
+                    "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
+                    "VALUES (7, 'f', 'EPISODE', 'guid-7', 'Folge', 'folge', '', '', '', '', 60000, 0, 1, 1, 2)",
+            )
+            db.execSQL(
+                "INSERT INTO book_tracks (bookId, trackIndex, remoteFileId, startMs, durationMs, downloadState, filePath, fileSize) " +
+                    "VALUES (7, 0, 'https://example.com/7.mp3', 0, 60000, 'DONE', '/x/episode-7.mp3', 100)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 32, true).use { db ->
+            db.query("SELECT downloadState, autoDownload FROM book_tracks WHERE bookId = 7").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("DONE", cursor.getString(0))
+                // Vorhandene Downloads gelten als von Hand geladen: „Nur die neueste“ löscht sie nicht.
+                assertEquals(0, cursor.getInt(1))
+            }
+            db.query("SELECT autoDownloadCount FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertTrue(cursor.isNull(0))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }
@@ -306,6 +338,24 @@ class UserMigrationTest {
                 "INSERT INTO bookmarks (serverId, remoteId, positionMs, title, note, createdAt, updatedAt, remoteTime) " +
                     "VALUES ('abs', 'item', 30000, 'Kapitel', '', 1, 1, NULL)",
             )
+        }
+    }
+
+    @Test
+    fun `v14 to v15 keeps podcasts with the default number of episodes`() {
+        helper.createDatabase(DB_NAME, 14).use { db ->
+            db.execSQL(
+                "INSERT INTO podcasts (feedId, url, title, author, imageUrl, autoDownload, newestFirst, continuous, notifyNew) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'Lage', '', NULL, 1, 0, 1, 1)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 15, true).use { db ->
+            db.query("SELECT autoDownload, autoDownloadCount FROM podcasts WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+                assertTrue(cursor.isNull(1))
+            }
         }
     }
 

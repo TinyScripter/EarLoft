@@ -72,6 +72,8 @@ data class PodcastFeedEntity(
     @ColumnInfo(defaultValue = "0") val listOldestFirst: Boolean = false,
     @ColumnInfo(defaultValue = "'ALL_NEW'") val queueMode: FeedQueueMode = FeedQueueMode.ALL_NEW,
     @ColumnInfo(defaultValue = "0") val keepEpisodes: Int = 0,
+    /** Wie viele neue Folgen die Automatik bereithält (v32); `null` = die Vorgabe aus den Einstellungen. */
+    val autoDownloadCount: Int? = null,
 )
 
 @Entity(
@@ -134,6 +136,8 @@ data class BookTrackEntity(
     /** Heruntergeladene Datei, solange [downloadState] `DONE` ist. */
     val filePath: String? = null,
     @ColumnInfo(defaultValue = "0") val fileSize: Long = 0,
+    /** Folgen: von der Automatik eingereiht (v32), nicht von Hand; „Nur die neueste“ räumt solche wieder weg. */
+    @ColumnInfo(defaultValue = "0") val autoDownload: Boolean = false,
 )
 
 @Entity(

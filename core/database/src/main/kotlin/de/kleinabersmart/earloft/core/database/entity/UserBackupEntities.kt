@@ -68,6 +68,8 @@ data class UserPodcastEntity(
     @ColumnInfo(defaultValue = "0") val listOldestFirst: Boolean = false,
     @ColumnInfo(defaultValue = "'ALL_NEW'") val queueMode: FeedQueueMode = FeedQueueMode.ALL_NEW,
     @ColumnInfo(defaultValue = "0") val keepEpisodes: Int = 0,
+    /** Bereithalten je Abo (seit Version 15), `null` = Vorgabe. */
+    val autoDownloadCount: Int? = null,
 )
 
 /** Gehörte Zeit je Eintrag (`listening_stats`), über den natürlichen Schlüssel statt der laufenden `statId`. */

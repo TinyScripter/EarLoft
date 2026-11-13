@@ -204,6 +204,8 @@ data class PodcastFeed(
     val queueMode: FeedQueueMode = FeedQueueMode.ALL_NEW,
     /** Nur die neuesten so vielen Folgen zeigen, ältere nie angefangene ausblenden ([keepNewest]); 0 = alle. */
     val keepEpisodes: Int = 0,
+    /** Wie viele neue Folgen die Automatik bereithält; `null` = Vorgabe aus den Einstellungen. */
+    val autoDownloadCount: Int? = null,
 ) {
     /** Aus dem Ordner „Podcasts“: keine Feed-Adresse, kein Abgleich, kein Download, kein Abo zu beenden. */
     val isLocal: Boolean get() = id.startsWith(LOCAL_PODCAST_PREFIX)

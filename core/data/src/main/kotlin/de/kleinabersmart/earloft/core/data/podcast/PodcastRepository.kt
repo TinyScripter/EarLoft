@@ -518,6 +518,9 @@ class PodcastRepository @Inject constructor(
 
     suspend fun setKeepEpisodes(feedId: String, keep: Int) = dao.setKeepEpisodes(feedId, keep.coerceAtLeast(0))
 
+    /** `null` = Vorgabe aus den Einstellungen. */
+    suspend fun setAutoDownloadCount(feedId: String, count: Int?) = dao.setAutoDownloadCount(feedId, count?.coerceAtLeast(1))
+
     /**
      * Die ungehörte Folge, die in der Reihenfolge des Podcasts auf [bookId] folgt und in die Zeile „Weiterhören“
      * eingereiht wird. `null` bei Hörbüchern, wenn das Einreihen für den Podcast aus ist oder nichts Ungehörtes mehr folgt.
@@ -767,6 +770,7 @@ private fun PodcastFeedEntity.toModel() = PodcastFeed(
     listOldestFirst = listOldestFirst,
     queueMode = queueMode,
     keepEpisodes = keepEpisodes,
+    autoDownloadCount = autoDownloadCount,
 )
 
 /** Nie angefangen und nicht als gehört markiert. */

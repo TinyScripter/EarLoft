@@ -10,6 +10,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.EffectOverrides
+import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.SpokenEffects
@@ -186,6 +187,44 @@ internal fun FeedQueueRows(feed: PodcastFeed, onQueueMode: (FeedQueueMode) -> Un
             description = stringResource(R.string.podcast_keep_episodes_description),
         )
         null -> Unit
+    }
+}
+
+/**
+ * Wie viele neue Folgen die Automatik dieses Abos bereithält: die Vorgabe aus Einstellungen → Podcasts ([defaultCount])
+ * oder eine eigene Anzahl. Bei „Nur die neueste“ ist es immer eine, die Zeile entfällt dann.
+ */
+@Composable
+internal fun FeedAutoCountRow(feed: PodcastFeed, defaultCount: Int, onSelect: (Int?) -> Unit) {
+    var choosing by rememberSaveable { mutableStateOf(false) }
+    val label: @Composable (Int?) -> String = { count ->
+        if (count == null) {
+            stringResource(
+                R.string.podcast_auto_count_default,
+                pluralStringResource(R.plurals.settings_podcast_auto_count_value, defaultCount, defaultCount),
+            )
+        } else {
+            pluralStringResource(R.plurals.settings_podcast_auto_count_value, count, count)
+        }
+    }
+    ClickRow(
+        title = stringResource(R.string.settings_podcast_auto_count),
+        value = label(feed.autoDownloadCount),
+        icon = DesignR.drawable.ic_download,
+        onClick = { choosing = true },
+    )
+    if (choosing) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_podcast_auto_count),
+            options = listOf<Int?>(null) + (PodcastSettings.AUTO_DOWNLOAD_COUNT_CHOICES + listOfNotNull(feed.autoDownloadCount)).distinct().sorted(),
+            selected = feed.autoDownloadCount,
+            label = label,
+            onSelect = {
+                onSelect(it)
+                choosing = false
+            },
+            onDismiss = { choosing = false },
+        )
     }
 }
 

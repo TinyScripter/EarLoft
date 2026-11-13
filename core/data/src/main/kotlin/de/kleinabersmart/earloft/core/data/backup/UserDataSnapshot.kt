@@ -273,6 +273,7 @@ fun SpokenServerEntity.toUser() = UserSpokenServerEntity(serverId, name, baseUrl
 fun PodcastFeedEntity.toUser() = UserPodcastEntity(
     feedId, url, title, author, imageUrl, autoDownload, newestFirst, continuous, notifyNew, archived,
     speed, skipSilence, volumeBoostDb, skipIntroS, skipOutroS, episodeFilter, listOldestFirst, queueMode, keepEpisodes,
+    autoDownloadCount,
 )
 
 fun ListeningStatEntity.toUser() =
@@ -330,6 +331,7 @@ fun UserPodcastEntity.toMain() = PodcastFeedEntity(
     listOldestFirst = listOldestFirst,
     queueMode = queueMode,
     keepEpisodes = keepEpisodes,
+    autoDownloadCount = autoDownloadCount,
 )
 
 fun UserListeningStatEntity.toMain() = ListeningStatEntity(

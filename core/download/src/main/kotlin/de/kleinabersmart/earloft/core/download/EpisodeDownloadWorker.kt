@@ -41,6 +41,7 @@ class EpisodeDownloadWorker(
     private val storage = entryPoint.episodeStorage()
     private val progress = entryPoint.episodeProgress()
     private val podcasts = entryPoint.podcastRepository()
+    private val episodeDownloads = entryPoint.episodeDownloads()
 
     /** Folgen, die einer der parallelen Läufe gerade genommen hat (bis der Downloader sie auf `RUNNING` setzt, stehen sie noch auf `QUEUED`). */
     private val active = HashSet<Long>()
@@ -105,7 +106,10 @@ class EpisodeDownloadWorker(
             }
             is DownloadOutcome.Failed -> Log.w(TAG, "Folge ${next.bookId} fehlgeschlagen: ${outcome.reason}")
             // Nennt der Feed keine Kapitel, stehen sie vielleicht in der Datei (Konzept 12.5 „Kapitelquellen“).
-            DownloadOutcome.Done -> podcasts.chaptersFromFile(next.bookId)
+            DownloadOutcome.Done -> {
+                podcasts.chaptersFromFile(next.bookId)
+                episodeDownloads.onDownloaded(next.bookId)
+            }
             DownloadOutcome.Cancelled -> Unit
         }
         return true
@@ -187,6 +191,7 @@ class EpisodeDownloadWorker(
         fun episodeStorage(): EpisodeStorage
         fun episodeProgress(): EpisodeDownloadProgress
         fun podcastRepository(): PodcastRepository
+        fun episodeDownloads(): EpisodeDownloads
     }
 
     private companion object {

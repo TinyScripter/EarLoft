@@ -20,6 +20,7 @@ import de.kleinabersmart.earloft.core.download.EpisodeDownloadProgress
 import de.kleinabersmart.earloft.core.download.EpisodeDownloads
 import de.kleinabersmart.earloft.core.model.EffectOverrides
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.filterEpisodes
 import de.kleinabersmart.earloft.core.model.PodcastFeed
@@ -62,6 +63,7 @@ class PodcastFeedViewModel @AssistedInject constructor(
     private val trialPages: TrialPodcastPages,
     private val effects: SpokenEffectsRepository,
     spokenSettings: SpokenSettings,
+    podcastSettings: PodcastSettings,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -149,6 +151,15 @@ class PodcastFeedViewModel @AssistedInject constructor(
 
     fun setKeepEpisodes(keep: Int) {
         viewModelScope.launch { podcasts.setKeepEpisodes(feedId, keep) }
+    }
+
+    /** Vorgabe aus Einstellungen → Podcasts, für „Vorgabe (…)“. */
+    val defaultAutoDownloadCount: StateFlow<Int> = podcastSettings.autoDownloadCount
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PodcastSettings.DEFAULT_AUTO_DOWNLOAD_COUNT)
+
+    /** `null` = Vorgabe. Eine größere Anzahl holt die Automatik sofort nach ([EpisodeDownloads]). */
+    fun setAutoDownloadCount(count: Int?) {
+        viewModelScope.launch { podcasts.setAutoDownloadCount(feedId, count) }
     }
 
     private val _messages = MutableSharedFlow<Int>(extraBufferCapacity = 2)

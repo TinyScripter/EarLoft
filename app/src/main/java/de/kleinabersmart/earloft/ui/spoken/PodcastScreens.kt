@@ -42,6 +42,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.ui.res.pluralStringResource
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.FeedSort
 import de.kleinabersmart.earloft.ui.components.HeaderAction
 import de.kleinabersmart.earloft.ui.components.SortButton
@@ -859,6 +860,10 @@ fun PodcastSettingsScreen(
                         checked = current.autoDownload,
                         onCheckedChange = viewModel::setAutoDownload,
                     )
+                }
+                if (!current.isLocal && current.autoDownload && current.queueMode != FeedQueueMode.NEWEST_ONLY) row("auto-count") {
+                    val defaultCount by viewModel.defaultAutoDownloadCount.collectAsStateWithLifecycle()
+                    FeedAutoCountRow(current, defaultCount, viewModel::setAutoDownloadCount)
                 }
                 if (!current.isLocal) row("notify-new") {
                     SwitchRow(
