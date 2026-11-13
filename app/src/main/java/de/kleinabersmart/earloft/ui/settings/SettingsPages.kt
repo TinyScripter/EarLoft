@@ -41,6 +41,7 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.sync.LibrarySettings
+import de.kleinabersmart.earloft.core.model.MobileStreamQuality
 import de.kleinabersmart.earloft.core.model.ReplayGainMode
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.LoadFailedHint
@@ -279,6 +280,7 @@ fun MusicSettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var serverToRemove by rememberSaveable { mutableStateOf<String?>(null) }
     var choosingReplayGain by rememberSaveable { mutableStateOf(false) }
+    var choosingMobileQuality by rememberSaveable { mutableStateOf(false) }
     var choosingSyncInterval by rememberSaveable { mutableStateOf(false) }
     // Einschalten erst mit Berechtigung; sonst stünde gleich wieder die Berechtigungsseite davor.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
@@ -371,6 +373,14 @@ fun MusicSettingsScreen(
                     onPreAmpChange = viewModel::setPreAmpDb,
                 )
             }
+            row("mobile-quality") {
+                ClickRow(
+                    title = stringResource(R.string.settings_mobile_stream_quality),
+                    value = stringResource(state.mobileStreamQuality.label),
+                    icon = DesignR.drawable.ic_signal_cellular,
+                    onClick = { choosingMobileQuality = true },
+                )
+            }
             row("scrobble") {
                 SwitchRow(
                     title = stringResource(R.string.settings_scrobble),
@@ -406,6 +416,21 @@ fun MusicSettingsScreen(
                 choosingSyncInterval = false
             },
             onDismiss = { choosingSyncInterval = false },
+        )
+    }
+
+    if (choosingMobileQuality) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_mobile_stream_quality),
+            options = MobileStreamQuality.entries,
+            selected = state.mobileStreamQuality,
+            label = { stringResource(it.label) },
+            summary = { if (it == MobileStreamQuality.ORIGINAL) null else stringResource(R.string.stream_quality_transcoded_summary) },
+            onSelect = {
+                viewModel.setMobileStreamQuality(it)
+                choosingMobileQuality = false
+            },
+            onDismiss = { choosingMobileQuality = false },
         )
     }
 

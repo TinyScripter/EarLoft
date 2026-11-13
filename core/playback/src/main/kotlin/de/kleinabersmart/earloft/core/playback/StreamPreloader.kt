@@ -7,8 +7,10 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheWriter
+import androidx.media3.datasource.cache.ContentMetadata
 import de.kleinabersmart.earloft.core.data.repository.ResolvedPlayback
 import de.kleinabersmart.earloft.core.datasource.PlaybackLocation
 import kotlinx.coroutines.CoroutineDispatcher
@@ -39,6 +41,8 @@ internal class StreamPreloader(
     private val candidatesOf: suspend (songId: Long) -> List<ResolvedPlayback>,
     private val isMetered: () -> Boolean,
     private val scope: CoroutineScope,
+    /** Siehe [preferCachedOriginals]. */
+    private val isFullyCached: (cacheKey: String) -> Boolean = { false },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val meteredLimitBytes: Long = METERED_LIMIT_BYTES,
 ) : Player.Listener {
@@ -78,16 +82,19 @@ internal class StreamPreloader(
     }
 
     /**
-     * Lädt [songIds] nacheinander in den Cache, je höchstens [limitBytes] (`null`: ganz). Schon Vorhandenes lädt
-     * [CacheWriter] nicht noch einmal. Scheitert ein Titel am Netz, bleibt der Rest für den nächsten Anlass.
+     * Lädt [songIds] nacheinander in den Cache, je höchstens [limitBytes] (`null`: ganz) – vom Server umgewandelte Titel immer
+     * ganz, sie sind klein (höchstens 192 kbit/s) und erst mit bekannter Länge spulbar. Schon Vorhandenes lädt [CacheWriter]
+     * nicht noch einmal. Scheitert ein Titel am Netz, bleibt der Rest für den nächsten Anlass.
      */
     internal suspend fun preload(songIds: List<Long>, limitBytes: Long?) {
         for (songId in songIds) {
-            val location = candidatesOf(songId).firstOrNull()?.location as? PlaybackLocation.Remote ?: continue
+            val playback = candidatesOf(songId).preferCachedOriginals(isFullyCached).firstOrNull() ?: continue
+            val location = playback.location as? PlaybackLocation.Remote ?: continue
+            val limit = if (playback.transcodedTo != null) null else limitBytes
             val spec = DataSpec.Builder()
                 .setUri(location.uri)
                 .setKey(location.cacheKey)
-                .setLength(limitBytes ?: C.LENGTH_UNSET.toLong())
+                .setLength(limit ?: C.LENGTH_UNSET.toLong())
                 .build()
             if (!cache(songId, spec)) return
         }
@@ -143,4 +150,11 @@ internal class StreamPreloader(
             return result.distinct()
         }
     }
+}
+
+/** Ob der Inhalt zu [key] vollständig im Cache liegt (die Länge ist erst nach einmal ganz Laden bekannt). */
+@OptIn(UnstableApi::class)
+internal fun Cache.isFullyCached(key: String): Boolean {
+    val length = ContentMetadata.getContentLength(getContentMetadata(key))
+    return length != C.LENGTH_UNSET.toLong() && isCached(key, 0, length)
 }

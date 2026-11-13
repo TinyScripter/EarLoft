@@ -8,8 +8,11 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Woher ein Song gespielt wird: Datei auf dem Gerät, Download (Kopie einer Server-Datei) oder Stream von [sourceId]. */
-data class PlayedFrom(val kind: Kind, val sourceId: String?) {
+/**
+ * Woher ein Song gespielt wird: Datei auf dem Gerät, Download (Kopie einer Server-Datei) oder Stream von [sourceId];
+ * [transcodedTo] sind Format und Bitrate (kbit/s), wenn der Server den Stream umwandelt.
+ */
+data class PlayedFrom(val kind: Kind, val sourceId: String?, val transcodedTo: Pair<String, Int>? = null) {
     enum class Kind { DEVICE, DOWNLOAD, STREAM }
 }
 
@@ -26,7 +29,7 @@ class PlayingSources @Inject constructor() {
 
     internal fun record(songId: Long, playback: ResolvedPlayback) {
         val from = when {
-            playback.location is PlaybackLocation.Remote -> PlayedFrom(PlayedFrom.Kind.STREAM, playback.sourceId)
+            playback.location is PlaybackLocation.Remote -> PlayedFrom(PlayedFrom.Kind.STREAM, playback.sourceId, playback.transcodedTo)
             // Downloads haben keine Quelle (sie liegen auf dem Gerät, unabhängig vom Server), lokale Dateien schon.
             playback.sourceId == null -> PlayedFrom(PlayedFrom.Kind.DOWNLOAD, null)
             else -> PlayedFrom(PlayedFrom.Kind.DEVICE, playback.sourceId)

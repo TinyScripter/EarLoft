@@ -1,10 +1,12 @@
 package de.kleinabersmart.earloft.core.data.repository
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.data.source.MusicDataSources
+import de.kleinabersmart.earloft.core.data.sync.LibrarySettings
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.AlbumEntity
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
@@ -13,6 +15,7 @@ import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.datasource.MusicDataSource
 import de.kleinabersmart.earloft.core.datasource.PlaybackLocation
+import de.kleinabersmart.earloft.core.datasource.RemoteTranscoding
 import de.kleinabersmart.earloft.core.datasource.SourceBatch
 import de.kleinabersmart.earloft.core.model.DownloadState
 import de.kleinabersmart.earloft.core.model.ReplayGain
@@ -39,6 +42,8 @@ class PlaybackSourceResolverTest {
     private lateinit var db: EarLoftDatabase
     private lateinit var resolver: PlaybackSourceResolver
     private val policy = PlaybackPolicy()
+    /** Was [MobileStreaming] gerade verlangt; `null`: Original (WLAN bzw. Einstellung „Original“). */
+    private var transcodeTo: Pair<String, Int>? = null
     private var albumId = 0L
 
     @Before
@@ -46,7 +51,11 @@ class PlaybackSourceResolverTest {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), EarLoftDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        resolver = PlaybackSourceResolver(db.libraryDao(), db.downloadDao(), Sources, policy)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val mobile = object : MobileStreaming(context, LibrarySettings(context)) {
+            override suspend fun transcodeTo() = this@PlaybackSourceResolverTest.transcodeTo
+        }
+        resolver = PlaybackSourceResolver(db.libraryDao(), db.downloadDao(), Sources, policy, mobile)
         db.sourceDao().upsert(SourceEntity("local", SourceType.LOCAL, "local"))
         db.sourceDao().upsert(SourceEntity("nd", SourceType.SUBSONIC, "nd"))
         albumId = db.libraryDao().insertAlbum(AlbumEntity(title = "A", sortTitle = "A", normTitle = "a", albumArtistDisplay = "B", normAlbumArtist = "b"))
@@ -132,7 +141,42 @@ class PlaybackSourceResolverTest {
         assertEquals(serverValues, resolver.candidates(streamed).firstOrNull()?.replayGain)
     }
 
-    private suspend fun song(vararg sources: Pair<String, String>, replayGain: Map<String, ReplayGain> = emptyMap()): Long {
+    @Test
+    fun `over mobile data the converted stream comes first, the original stays as fallback`() = runTest {
+        transcodeTo = "opus" to 128
+        val songId = song("nd" to "1", "local" to "9", bitRate = mapOf("nd" to 320_000))
+
+        val candidates = resolver.candidates(songId)
+        assertEquals(
+            listOf(Sources.local("9"), Sources.transcoded("nd", "1", "opus", 128), Sources.stream("nd", "1")),
+            candidates.map { it.location },
+        )
+        assertEquals(listOf(null, "opus" to 128, null), candidates.map { it.transcodedTo })
+
+        // In WLAN (bzw. mit „Original“) bleibt es beim Original.
+        transcodeTo = null
+        assertEquals(listOf(null, null), resolver.candidates(songId).map { it.transcodedTo })
+    }
+
+    @Test
+    fun `songs that would hardly shrink are not converted`() = runTest {
+        transcodeTo = "opus" to 128
+        val small = song("nd" to "1", bitRate = mapOf("nd" to 135_000))
+        assertEquals(listOf(Sources.stream("nd", "1")), resolver.candidates(small).map { it.location })
+        // Ab dem 1,25-Fachen lohnt es sich.
+        val mp3 = song("nd" to "3", bitRate = mapOf("nd" to 192_000))
+        assertEquals("opus" to 128, resolver.candidates(mp3).first().transcodedTo)
+
+        // Ohne bekannte Bitrate wird umgewandelt.
+        val unknown = song("nd" to "2")
+        assertEquals("opus" to 128, resolver.candidates(unknown).first().transcodedTo)
+    }
+
+    private suspend fun song(
+        vararg sources: Pair<String, String>,
+        replayGain: Map<String, ReplayGain> = emptyMap(),
+        bitRate: Map<String, Int> = emptyMap(),
+    ): Long {
         val songId = db.libraryDao().insertSong(
             SongEntity(albumId = albumId, title = "S", normTitle = "s", artistDisplay = "B", durationMs = 1, dateAdded = 0),
         )
@@ -142,7 +186,7 @@ class PlaybackSourceResolverTest {
                 SongSourceEntity(
                     uid = "$sourceId:$remoteId", songId = songId, sourceId = sourceId, remoteId = remoteId, seenInGeneration = 1,
                     rgTrackGainDb = rg?.trackGainDb, rgTrackPeak = rg?.trackPeak,
-                    rgAlbumGainDb = rg?.albumGainDb, rgAlbumPeak = rg?.albumPeak,
+                    rgAlbumGainDb = rg?.albumGainDb, rgAlbumPeak = rg?.albumPeak, bitRate = bitRate[sourceId],
                 ),
             )
         }
@@ -153,19 +197,25 @@ class PlaybackSourceResolverTest {
         fun stream(sourceId: String, remoteId: String) =
             PlaybackLocation.Remote(Uri.parse("http://$sourceId/stream/$remoteId"), "$sourceId:$remoteId")
 
+        fun transcoded(sourceId: String, remoteId: String, codec: String, kbps: Int) =
+            PlaybackLocation.Remote(Uri.parse("http://$sourceId/stream/$remoteId?format=$codec"), "$sourceId:$remoteId:$codec-$kbps")
+
         fun local(remoteId: String) = PlaybackLocation.LocalFile(Uri.parse("content://media/$remoteId"))
 
-        private fun source(id: String, type: SourceType) = object : MusicDataSource {
-            override val sourceId = id
-            override val type = type
-            override val displayName = id
+        private open class Source(override val sourceId: String, override val type: SourceType) : MusicDataSource {
+            override val displayName = sourceId
             override fun fullScan(): Flow<SourceBatch> = emptyFlow()
             override suspend fun resolvePlayback(remoteId: String) =
-                if (type == SourceType.LOCAL) local(remoteId) else stream(id, remoteId)
+                if (type == SourceType.LOCAL) local(remoteId) else stream(sourceId, remoteId)
             override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = null
         }
 
-        private val all = listOf(source("local", SourceType.LOCAL), source("nd", SourceType.SUBSONIC))
+        /** Der Server kann umwandeln, die Geräte-Quelle nicht. */
+        private class Server(sourceId: String) : Source(sourceId, SourceType.SUBSONIC), RemoteTranscoding {
+            override fun transcodedPlayback(remoteId: String, codec: String, maxKbps: Int) = transcoded(sourceId, remoteId, codec, maxKbps)
+        }
+
+        private val all = listOf(Source("local", SourceType.LOCAL), Server("nd"))
 
         override suspend fun all() = all
         override suspend fun get(sourceId: String) = all.firstOrNull { it.sourceId == sourceId }

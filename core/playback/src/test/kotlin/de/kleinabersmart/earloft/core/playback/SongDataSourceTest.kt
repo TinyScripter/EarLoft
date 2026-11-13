@@ -107,6 +107,40 @@ class SongDataSourceTest {
         assertEquals(null, playing.bySong.value[4L])
     }
 
+    @Test
+    fun `over mobile data a cached original beats the conversion, seeking keeps the version`() {
+        val opus = ResolvedPlayback(
+            PlaybackLocation.Remote(Uri.parse("http://home-opus/stream"), "home:1:opus-128"), null, sourceId = "home", transcodedTo = "opus" to 128,
+        )
+        fun open(songId: Long, position: Long, cached: Set<String>, vararg candidates: ResolvedPlayback) =
+            SongDataSource(upstream, { candidates.toList() }, health, onResolved = { _, _ -> }, onOpened = playing::record, isFullyCached = { it in cached })
+                .open(spec(songId, position))
+
+        // Das Original liegt schon ganz im Cache: kostet nichts, also das.
+        open(1, 0, setOf("home:1"), opus, home)
+        assertEquals(listOf("home"), upstream.opened)
+        assertEquals(PlayedFrom(PlayedFrom.Kind.STREAM, "home"), playing.bySong.value[1L])
+
+        upstream.opened.clear()
+        open(2, 0, emptySet(), opus, home)
+        assertEquals(listOf("home-opus"), upstream.opened)
+        assertEquals(PlayedFrom(PlayedFrom.Kind.STREAM, "home", "opus" to 128), playing.bySong.value[2L])
+
+        // Ins WLAN gewechselt, die Umwandlung ist kein Kandidat mehr: Spulen bleibt trotzdem bei ihr.
+        upstream.opened.clear()
+        open(2, 5000, emptySet(), home)
+        assertEquals(listOf("home-opus"), upstream.opened)
+    }
+
+    @Test
+    fun `cached originals move only ahead of conversions`() {
+        val download = ResolvedPlayback(PlaybackLocation.LocalFile(Uri.parse("file:///dl/1.flac")), null, sourceId = null)
+        val opus = home.copy(location = PlaybackLocation.Remote(Uri.parse("http://home-opus/stream"), "home:1:opus-128"), transcodedTo = "opus" to 128)
+        assertEquals(listOf(download, office, opus, home), listOf(download, opus, home, office).preferCachedOriginals { it == "office:1" })
+        // Ohne Umwandlung bleibt alles, wie es ist.
+        assertEquals(listOf(home, office), listOf(home, office).preferCachedOriginals { it == "office:1" })
+    }
+
     private fun spec(songId: Long, position: Long = 0) =
         DataSpec.Builder().setUri(AppUris.song(songId)).setPosition(position).build()
 

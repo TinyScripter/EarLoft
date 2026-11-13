@@ -2,7 +2,6 @@ package de.kleinabersmart.earloft.core.playback
 
 import android.app.PendingIntent
 import android.content.Context
-import android.net.ConnectivityManager
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -34,6 +33,7 @@ import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
 import de.kleinabersmart.earloft.core.data.repository.FavoritesRepository
 import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
 import de.kleinabersmart.earloft.core.data.repository.PlaybackPolicy
+import de.kleinabersmart.earloft.core.data.repository.MobileStreaming
 import de.kleinabersmart.earloft.core.data.repository.PlaybackSourceResolver
 import de.kleinabersmart.earloft.core.data.repository.PlaybackStateRepository
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
@@ -82,6 +82,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var playbackPolicy: PlaybackPolicy
     @Inject lateinit var okHttpClient: OkHttpClient
     @Inject lateinit var streamCache: SimpleCache
+    @Inject lateinit var mobileStreaming: MobileStreaming
     @Inject lateinit var replayGainSettings: ReplayGainSettings
     @Inject internal lateinit var libraryRemovals: LibraryRemovals
     @Inject lateinit var sessionPlayerFactory: Optional<SessionPlayerFactory>
@@ -127,6 +128,7 @@ class PlaybackService : MediaLibraryService() {
             getString(R.string.song_unavailable),
             replayGain::onSourceResolved,
             playingSources::record,
+            streamCache::isFullyCached,
         )
         val renderersFactory = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
@@ -154,13 +156,13 @@ class PlaybackService : MediaLibraryService() {
         audioEffectSession.attach(this, localPlayer)
         // Uhr: keine Streams, also nichts vorzuladen.
         if (playbackPolicy.allowStreaming) {
-            val connectivity = getSystemService(ConnectivityManager::class.java)
             streamPreloader = StreamPreloader(
                 localPlayer,
                 streamFactory::createDataSourceForDownloading,
                 sourceResolver::candidates,
-                isMetered = { connectivity.isActiveNetworkMetered },
+                isMetered = mobileStreaming::isMetered,
                 scope = mainScope,
+                isFullyCached = streamCache::isFullyCached,
             ).also(localPlayer::addListener)
         }
         localPlayer.addListener(WakeModeListener(localPlayer, playbackPolicy.allowStreaming))

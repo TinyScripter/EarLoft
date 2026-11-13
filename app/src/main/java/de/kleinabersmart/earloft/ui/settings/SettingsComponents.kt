@@ -53,6 +53,7 @@ import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.sync.LibrarySettings
 import de.kleinabersmart.earloft.core.data.sync.SyncFailure
+import de.kleinabersmart.earloft.core.model.MobileStreamQuality
 import de.kleinabersmart.earloft.core.model.ReplayGainMode
 import de.kleinabersmart.earloft.core.playback.ReplayGainSettings
 import de.kleinabersmart.earloft.ui.components.readableWidth
@@ -307,6 +308,13 @@ internal val ThemeMode.label: Int
         ThemeMode.SYSTEM -> R.string.theme_system
         ThemeMode.LIGHT -> R.string.theme_light
         ThemeMode.DARK -> R.string.theme_dark
+    }
+
+internal val MobileStreamQuality.label: Int
+    get() = when (this) {
+        MobileStreamQuality.ORIGINAL -> R.string.stream_quality_original
+        MobileStreamQuality.OPUS_192 -> R.string.stream_quality_opus_192
+        MobileStreamQuality.OPUS_128 -> R.string.stream_quality_opus_128
     }
 
 internal val ReplayGainMode.label: Int

@@ -38,6 +38,7 @@ import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.download.DownloadRepository
 import de.kleinabersmart.earloft.core.download.DownloadSettings
 import de.kleinabersmart.earloft.core.model.PodcastFeed
+import de.kleinabersmart.earloft.core.model.MobileStreamQuality
 import de.kleinabersmart.earloft.core.model.ReplayGainMode
 import de.kleinabersmart.earloft.core.model.ServerInfo
 import de.kleinabersmart.earloft.core.model.SpokenMode
@@ -93,6 +94,7 @@ data class SettingsUiState(
     /** Archivierte Abos, nach Titel; unter Einstellungen → Podcasts reaktivierbar. */
     val archivedPodcasts: List<PodcastFeed> = emptyList(),
     val syncIntervalDays: Int = LibrarySettings.DEFAULT_SYNC_DAYS,
+    val mobileStreamQuality: MobileStreamQuality = MobileStreamQuality.ORIGINAL,
     val isSyncing: Boolean = false,
     val downloadWifiOnly: Boolean = true,
     val autoDownloadFavorites: Boolean = false,
@@ -242,8 +244,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(audiobookServerCount = list.size)
     }.combine(combine(podcastRepository.feeds, podcastRepository.archivedFeeds, ::Pair)) { state, (feeds, archived) ->
         state.copy(podcastFeedCount = feeds.size, archivedPodcasts = archived)
-    }.combine(librarySettings.syncIntervalDays) { state, days ->
-        state.copy(syncIntervalDays = days)
+    }.combine(combine(librarySettings.syncIntervalDays, librarySettings.mobileStreamQuality, ::Pair)) { state, (days, quality) ->
+        state.copy(syncIntervalDays = days, mobileStreamQuality = quality)
     }.combine(
         combine(podcastSettings.refreshHours, podcastSettings.useMobileData, podcastSettings.deleteHeardAfterDays, ::Triple),
     ) { state, (hours, mobile, deleteHeardDays) ->
@@ -346,6 +348,10 @@ class SettingsViewModel @Inject constructor(
     /** Die Planung des periodischen Auftrags folgt der Einstellung ([de.kleinabersmart.earloft.core.data.sync.LibraryRefresher]). */
     fun setSyncIntervalDays(days: Int) {
         viewModelScope.launch { librarySettings.setSyncIntervalDays(days) }
+    }
+
+    fun setMobileStreamQuality(quality: MobileStreamQuality) {
+        viewModelScope.launch { librarySettings.setMobileStreamQuality(quality) }
     }
 
     fun setThemeMode(mode: ThemeMode) {

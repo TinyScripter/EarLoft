@@ -365,6 +365,11 @@
     <string name="replay_gain_album">Je Album</string>
     <string name="replay_gain_auto">Automatisch</string>
     <string name="replay_gain_auto_summary">Je Album, wenn ein Album in Reihenfolge läuft, sonst je Titel</string>
+    <string name="settings_mobile_stream_quality">Streamen über mobile Daten</string>
+    <string name="stream_quality_original">Original</string>
+    <string name="stream_quality_opus_192">Opus 192 kbit/s</string>
+    <string name="stream_quality_opus_128">Opus 128 kbit/s</string>
+    <string name="stream_quality_transcoded_summary">Vom Server umgewandelt, nur bei Songs mit deutlich höherer Bitrate. Im WLAN immer Original.</string>
     <string name="settings_pre_amp">Vorverstärkung</string>
     <string name="settings_pre_amp_summary">Gilt für Titel mit ReplayGain-Werten; übersteuert nicht.</string>
     <string name="settings_pre_amp_value">%1$+.0f dB</string>
@@ -391,6 +396,7 @@
     <string name="track_info_from_download">Download auf diesem Gerät</string>
     <string name="track_info_from_download_of">Download (von %1$s)</string>
     <string name="track_info_from_stream">Stream von %1$s</string>
+    <string name="track_info_transcoded">%1$s, umgewandelt in %2$s %3$d kbit/s</string>
     <string name="track_info_source_device">Auf diesem Gerät</string>
     <string name="track_info_source_downloaded">%1$s (heruntergeladen)</string>
     <string name="track_info_played_source">Wird von dieser Quelle gespielt</string>

@@ -117,10 +117,16 @@ private fun playedFromText(info: TrackInfo): String {
         PlayedFrom.Kind.DOWNLOAD -> info.sources.firstOrNull { it.isDownloaded }
             ?.let { stringResource(R.string.track_info_from_download_of, it.sourceName) }
             ?: stringResource(R.string.track_info_from_download)
-        PlayedFrom.Kind.STREAM -> stringResource(
-            R.string.track_info_from_stream,
-            info.sources.firstOrNull { it.sourceId == played.sourceId }?.sourceName ?: played.sourceId.orEmpty(),
-        )
+        PlayedFrom.Kind.STREAM -> {
+            val stream = stringResource(
+                R.string.track_info_from_stream,
+                info.sources.firstOrNull { it.sourceId == played.sourceId }?.sourceName ?: played.sourceId.orEmpty(),
+            )
+            // Über mobile Daten (Konzept 7.4): Der Server wandelt um, Format und Bitrate der Quelle gelten dann nicht.
+            played.transcodedTo?.let { (codec, kbps) ->
+                stringResource(R.string.track_info_transcoded, stream, formatLabel("audio/$codec") ?: codec, kbps)
+            } ?: stream
+        }
     }
 }
 

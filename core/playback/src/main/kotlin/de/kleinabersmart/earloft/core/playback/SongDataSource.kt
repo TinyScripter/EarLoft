@@ -37,27 +37,31 @@ internal class SongDataSource(
     private val onResolved: (songId: Long, replayGain: ReplayGain?) -> Unit,
     /** Der Ort, der den Anfang geliefert hat (Titel-Info). */
     private val onOpened: (songId: Long, playback: ResolvedPlayback) -> Unit = { _, _ -> },
+    /** Ob ein Stream mit diesem Cache-Schlüssel ganz im Stream-Cache liegt, siehe [preferCachedOriginals]. */
+    private val isFullyCached: (cacheKey: String) -> Boolean = { false },
 ) : DataSource {
 
     override fun addTransferListener(transferListener: TransferListener) = upstream.addTransferListener(transferListener)
 
     override fun open(dataSpec: DataSpec): Long {
         val songId = AppUris.parseSongId(dataSpec.uri.toString()) ?: return upstream.open(dataSpec)
-        val candidates = health.reachableFirst(runBlocking { candidatesOf(songId) })
+        val candidates = health.reachableFirst(runBlocking { candidatesOf(songId) }.preferCachedOriginals(isFullyCached))
         if (candidates.isEmpty()) throw IOException(unavailableMessage)
 
         val tries = if (dataSpec.position == 0L) {
             candidates
         } else {
+            // Auch wenn es den Ort nicht mehr unter den Kandidaten gibt (z. B. die Umwandlung nach dem Wechsel ins WLAN):
+            // Byte-Positionen einer anderen Fassung passen nicht.
             val openedFrom = health.openedFrom(songId)
-            listOf(candidates.firstOrNull { it.key == openedFrom } ?: candidates.first())
+            listOf(candidates.firstOrNull { it.key == openedFrom?.key } ?: openedFrom ?: candidates.first())
         }
         var lastError: IOException? = null
         for (candidate in tries) {
             try {
                 val length = upstream.open(candidate.applyTo(dataSpec))
                 health.succeeded(candidate.sourceId)
-                health.rememberOpened(songId, candidate.key)
+                health.rememberOpened(songId, candidate)
                 onResolved(songId, candidate.replayGain)
                 if (dataSpec.position == 0L) onOpened(songId, candidate)
                 return length
@@ -86,9 +90,10 @@ internal class SongDataSource(
         private val unavailableMessage: String,
         private val onResolved: (songId: Long, replayGain: ReplayGain?) -> Unit,
         private val onOpened: (songId: Long, playback: ResolvedPlayback) -> Unit = { _, _ -> },
+        private val isFullyCached: (cacheKey: String) -> Boolean = { false },
     ) : DataSource.Factory {
         override fun createDataSource(): DataSource =
-            SongDataSource(upstream.createDataSource(), sourceResolver::candidates, health, unavailableMessage, onResolved, onOpened)
+            SongDataSource(upstream.createDataSource(), sourceResolver::candidates, health, unavailableMessage, onResolved, onOpened, isFullyCached)
     }
 
     private companion object {
@@ -96,8 +101,21 @@ internal class SongDataSource(
     }
 }
 
+/**
+ * Über mobile Daten (umgewandelte Kandidaten vorhanden): Ein Original, das schon ganz im Stream-Cache liegt, kostet nichts und
+ * klingt besser – es rückt vor die Umwandlungen. Lokale Dateien und Downloads davor bleiben, wo sie sind.
+ */
+internal fun List<ResolvedPlayback>.preferCachedOriginals(isFullyCached: (cacheKey: String) -> Boolean): List<ResolvedPlayback> {
+    val firstTranscoded = indexOfFirst { it.transcodedTo != null }
+    if (firstTranscoded < 0) return this
+    val rest = drop(firstTranscoded)
+    val cached = rest.filter { it.transcodedTo == null && (it.location as? PlaybackLocation.Remote)?.cacheKey?.let(isFullyCached) == true }
+    if (cached.isEmpty()) return this
+    return take(firstTranscoded) + cached + rest.filterNot { it in cached }
+}
+
 /** Kennung eines Orts – für Streams der Cache-Schlüssel (`sourceUid`), sonst die URI. */
-private val ResolvedPlayback.key: String
+internal val ResolvedPlayback.key: String
     get() = when (val location = location) {
         is PlaybackLocation.LocalFile -> location.uri.toString()
         is PlaybackLocation.Remote -> location.cacheKey
@@ -117,7 +135,7 @@ internal class SourceHealth(
     private val clock: () -> Long = SystemClock::elapsedRealtime,
 ) {
     private val failedAt = ConcurrentHashMap<String, Long>()
-    private val openedFrom = ConcurrentHashMap<Long, String>()
+    private val openedFrom = ConcurrentHashMap<Long, ResolvedPlayback>()
 
     fun failed(sourceId: String?) {
         if (sourceId != null) failedAt[sourceId] = clock()
@@ -135,11 +153,11 @@ internal class SourceHealth(
         }
     }
 
-    fun rememberOpened(songId: Long, key: String) {
-        openedFrom[songId] = key
+    fun rememberOpened(songId: Long, playback: ResolvedPlayback) {
+        openedFrom[songId] = playback
     }
 
-    fun openedFrom(songId: Long): String? = openedFrom[songId]
+    fun openedFrom(songId: Long): ResolvedPlayback? = openedFrom[songId]
 
     private companion object {
         const val RETRY_AFTER_MS = 2 * 60 * 1000L

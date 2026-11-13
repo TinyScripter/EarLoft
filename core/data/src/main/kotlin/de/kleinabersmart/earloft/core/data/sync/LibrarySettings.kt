@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.model.AlbumSort
 import de.kleinabersmart.earloft.core.model.ArtistSort
+import de.kleinabersmart.earloft.core.model.MobileStreamQuality
 import de.kleinabersmart.earloft.core.model.SongSort
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -66,6 +67,14 @@ class LibrarySettings @Inject constructor(
         context.librarySettingsDataStore.edit { it[KEY_SONG_SORT] = sort.name }
     }
 
+    /** Streams über mobile Daten: Original oder vom Server umgewandelt (Standard: Original). Im WLAN immer Original. */
+    val mobileStreamQuality: Flow<MobileStreamQuality> =
+        context.librarySettingsDataStore.data.map { it[KEY_MOBILE_STREAM_QUALITY].toEnum(MobileStreamQuality.ORIGINAL) }
+
+    suspend fun setMobileStreamQuality(quality: MobileStreamQuality) {
+        context.librarySettingsDataStore.edit { it[KEY_MOBILE_STREAM_QUALITY] = quality.name }
+    }
+
     companion object {
         /** Kein automatischer Abgleich; nur von Hand (und beim Einrichten oder Einschalten eines Servers). */
         const val SYNC_NEVER = 0
@@ -76,6 +85,7 @@ class LibrarySettings @Inject constructor(
         private val KEY_ALBUM_SORT = stringPreferencesKey("album_sort")
         private val KEY_ARTIST_SORT = stringPreferencesKey("artist_sort")
         private val KEY_SONG_SORT = stringPreferencesKey("song_sort")
+        private val KEY_MOBILE_STREAM_QUALITY = stringPreferencesKey("mobile_stream_quality")
 
         /** Unbekannte Werte (z. B. aus einer neueren Sicherung) fallen auf [default] zurück. */
         private inline fun <reified T : Enum<T>> String?.toEnum(default: T): T =
