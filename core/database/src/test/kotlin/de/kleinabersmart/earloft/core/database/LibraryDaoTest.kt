@@ -186,6 +186,30 @@ class LibraryDaoTest {
     }
 
     @Test
+    fun `decades group visible albums by year and list them in year order`() = runTest {
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
+        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
+        val agaetis = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós").copy(year = 1999))
+        val von = libraryDao.insertAlbum(album("Von", "Sigur Rós").copy(year = 1997))
+        val noYear = libraryDao.insertAlbum(album("Demo", "Sigur Rós").copy(year = 0))
+        val hidden = libraryDao.insertAlbum(album("Kveikur", "Sigur Rós").copy(year = 2013))
+        listOf(takk, agaetis, von, noYear).forEachIndexed { index, albumId ->
+            val songId = libraryDao.insertSong(song(albumId, "Song $index", track = 1))
+            libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
+        }
+        // Nur auf einem ausgeschalteten Server: zählt nicht.
+        val hiddenSong = libraryDao.insertSong(song(hidden, "Brennisteinn", track = 1))
+        libraryDao.insertSongSource(songSource(hiddenSong, NAVIDROME, "k"))
+
+        val decades = libraryDao.observeDecadeRows().first()
+        assertEquals(listOf(1990 to 2, 2000 to 1), decades.map { it.startYear to it.albumCount })
+        assertEquals(listOf("Von", "Ágætis byrjun"), libraryDao.observeAlbumRowsOfYears(1990, 1999).first().map { it.title })
+        assertEquals(listOf("Song 2", "Song 1"), libraryDao.getSongRowsOfYears(1990, 1999).map { it.title })
+        assertEquals(emptyList<String>(), libraryDao.observeAlbumRowsOfYears(2010, 2019).first().map { it.title })
+    }
+
+    @Test
     fun `albums, artists and songs follow the chosen order`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
         val beatles = libraryDao.insertArtist(ArtistEntity(name = "The Beatles", sortName = "Beatles", normName = "thebeatles"))

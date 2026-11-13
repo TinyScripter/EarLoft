@@ -44,6 +44,7 @@
     <string name="library_songs">Songs</string>
     <string name="library_genres">Genres</string>
     <string name="genres_empty">Noch keine Genres. Deine Musik hat keine Genre-Angaben.</string>
+    <string name="decade">%1$der</string>
     <string name="sort_label">Sortieren</string>
     <string name="sort_title">Titel</string>
     <string name="sort_name">Name</string>

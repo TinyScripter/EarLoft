@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.model.SongSort
 import de.kleinabersmart.earloft.core.model.SongSourceInfo
 import de.kleinabersmart.earloft.core.model.Artist
 import de.kleinabersmart.earloft.core.model.ArtistDetails
+import de.kleinabersmart.earloft.core.model.Decade
 import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.SearchResults
 import de.kleinabersmart.earloft.core.model.Song
@@ -45,6 +46,15 @@ class LibraryRepository @Inject constructor(
         libraryDao.observeAlbumRowsOfGenre(genre).map { rows -> rows.map { it.toAlbum() } }
 
     suspend fun songsOfGenre(genre: String): List<Song> = libraryDao.getSongRowsOfGenre(genre).map { it.toSong() }
+
+    fun decades(): Flow<List<Decade>> =
+        libraryDao.observeDecadeRows().map { rows -> rows.map { Decade(it.startYear, it.albumCount) } }
+
+    /** Alben des Jahrzehnts ab [startYear], nach Jahr. */
+    fun albumsOfDecade(startYear: Int): Flow<List<Album>> =
+        libraryDao.observeAlbumRowsOfYears(startYear, startYear + 9).map { rows -> rows.map { it.toAlbum() } }
+
+    suspend fun songsOfDecade(startYear: Int): List<Song> = libraryDao.getSongRowsOfYears(startYear, startYear + 9).map { it.toSong() }
 
     fun album(albumId: Long): Flow<AlbumDetails?> =
         combine(libraryDao.observeAlbumRow(albumId), libraryDao.observeSongRowsOfAlbum(albumId)) { album, songs ->

@@ -32,6 +32,14 @@ data class Genre(
     val songCount: Int,
 )
 
+/** Ein Jahrzehnt der Album-Jahre, z. B. [startYear] 1980 für 1980–1989. */
+data class Decade(
+    val startYear: Int,
+    val albumCount: Int,
+) {
+    val endYear: Int get() = startYear + 9
+}
+
 data class AlbumDetails(
     val album: Album,
     val songs: List<Song>,

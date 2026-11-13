@@ -33,6 +33,11 @@ data class ArtistRow(
 )
 
 /** Ein Genre (Schreibweisen ohne Unterschied von Groß/Klein zusammengefasst) mit seinen sichtbaren Alben und Songs. */
+data class DecadeRow(
+    val startYear: Int,
+    val albumCount: Int,
+)
+
 data class GenreRow(
     val name: String,
     val albumCount: Int,

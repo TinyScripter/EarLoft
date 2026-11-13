@@ -34,6 +34,14 @@ data class GenreRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
+/** Ein Jahrzehnt der Album-Jahre ab [startYear] (1980 = 1980–1989). */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class DecadeRoute(
+    val startYear: Int,
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PlaylistRoute(

@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
+import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.LoadFailedHint
@@ -32,7 +33,6 @@ import de.kleinabersmart.earloft.ui.components.LoadingIndicator
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /** Die Alben eines Genres, darüber „Abspielen“ und „Zufällig“ für alle seine Songs. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GenreScreen(
     genre: String,
@@ -42,23 +42,45 @@ fun GenreScreen(
     viewModel: GenreViewModel = hiltViewModel<GenreViewModel, GenreViewModel.Factory> { it.create(genre) },
 ) {
     val state by viewModel.albums.collectAsStateWithLifecycle()
+    AlbumCollectionScreen(
+        title = genre,
+        state = state,
+        onBack = onBack,
+        onAlbumClick = onAlbumClick,
+        onPlay = viewModel::play,
+        modifier = modifier,
+    )
+}
 
+/** Alben einer Auswahl (Genre, Jahrzehnt) unter [title], darüber „Abspielen“ und „Zufällig“ ([onPlay] mit `shuffle`). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AlbumCollectionScreen(
+    title: String,
+    state: LoadState<List<Album>>,
+    onBack: () -> Unit,
+    onAlbumClick: (Long) -> Unit,
+    onPlay: (shuffle: Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    scrollLabel: ((Album) -> String)? = null,
+) {
     Column(modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(genre, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
         )
-        when (val current = state) {
+        when (state) {
             LoadState.Loading -> LoadingIndicator()
             LoadState.Missing -> EmptyHint(stringResource(R.string.item_missing))
             LoadState.Failed -> LoadFailedHint()
-            is LoadState.Ready -> if (current.value.isEmpty()) {
+            is LoadState.Ready -> if (state.value.isEmpty()) {
                 EmptyHint(stringResource(R.string.item_missing))
             } else {
                 AlbumGrid(
-                    albums = current.value,
+                    albums = state.value,
                     onAlbumClick = onAlbumClick,
-                    header = { PlayShuffleRow(onPlay = { viewModel.play(shuffle = false) }, onShuffle = { viewModel.play(shuffle = true) }) },
+                    scrollLabel = scrollLabel,
+                    header = { PlayShuffleRow(onPlay = { onPlay(false) }, onShuffle = { onPlay(true) }) },
                 )
             }
         }

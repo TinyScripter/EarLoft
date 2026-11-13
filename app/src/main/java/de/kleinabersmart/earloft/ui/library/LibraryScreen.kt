@@ -1,6 +1,10 @@
 package de.kleinabersmart.earloft.ui.library
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.SuggestionChip
+import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +61,7 @@ import de.kleinabersmart.earloft.core.model.SongSort
 import de.kleinabersmart.earloft.ui.components.SortChip
 import androidx.compose.foundation.layout.Row
 import de.kleinabersmart.earloft.core.model.Artist
+import de.kleinabersmart.earloft.core.model.Decade
 import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.Playlist
 import de.kleinabersmart.earloft.core.model.ServerInfo
@@ -102,6 +107,7 @@ fun LibraryScreen(
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
     onGenreClick: (String) -> Unit,
+    onDecadeClick: (Int) -> Unit,
     onFavoritesClick: () -> Unit,
     onPlaylistClick: (Long) -> Unit,
     onAddServer: () -> Unit,
@@ -112,6 +118,7 @@ fun LibraryScreen(
     val artists by viewModel.artists.collectAsStateWithLifecycle()
     val songs by viewModel.songs.collectAsStateWithLifecycle()
     val genres by viewModel.genres.collectAsStateWithLifecycle()
+    val decades by viewModel.decades.collectAsStateWithLifecycle()
     val albumSort by viewModel.albumSort.collectAsStateWithLifecycle()
     val artistSort by viewModel.artistSort.collectAsStateWithLifecycle()
     val songSort by viewModel.songSort.collectAsStateWithLifecycle()
@@ -166,9 +173,15 @@ fun LibraryScreen(
                 }
                 LibraryTab.GENRES -> LoadableList(
                     genres,
-                    // Musik ohne Genre-Angaben: eigener Hinweis; ganz ohne Musik wie die anderen Reiter.
-                    empty = { if (songs.valueOrNull.isNullOrEmpty()) empty() else EmptyHint(stringResource(R.string.genres_empty)) },
-                ) { GenreList(it, onGenreClick) }
+                    // Musik ohne Genre-Angaben: eigener Hinweis (die Jahrzehnte bleiben); ganz ohne Musik wie die anderen Reiter.
+                    empty = {
+                        when {
+                            songs.valueOrNull.isNullOrEmpty() -> empty()
+                            decades.isEmpty() -> EmptyHint(stringResource(R.string.genres_empty))
+                            else -> GenreList(emptyList(), decades, onGenreClick, onDecadeClick)
+                        }
+                    },
+                ) { GenreList(it, decades, onGenreClick, onDecadeClick) }
                 LibraryTab.PLAYLISTS -> PlaylistList(
                     favoriteCount = favoriteCount,
                     // „Neue Playlist“ und „Favoriten“ stehen immer da; die eigenen Playlists erscheinen, sobald sie geladen sind.
@@ -274,16 +287,35 @@ private fun TabLabel(text: String) {
     }
 }
 
+/** Die Genres, darüber die Jahrzehnte der Album-Jahre als Chips. */
 @Composable
-private fun GenreList(genres: List<Genre>, onGenreClick: (String) -> Unit) {
+private fun GenreList(genres: List<Genre>, decades: List<Decade>, onGenreClick: (String) -> Unit, onDecadeClick: (Int) -> Unit) {
     val state = rememberLazyListState()
+    val headerRows = if (decades.isEmpty()) 0 else 1
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(vertical = 8.dp)) {
+            if (decades.isNotEmpty()) {
+                item(key = "decades") { DecadeChips(decades, onDecadeClick) }
+            }
             groupedItems(genres, key = { it.name.lowercase() }) { genre ->
                 GenreListItem(genre = genre, onClick = { onGenreClick(genre.name) })
             }
         }
-        LazyListFastScroller(state, labelAt = { index -> letterOf(genres.getOrNull(index)?.name.orEmpty()) })
+        LazyListFastScroller(state, labelAt = { index -> letterOf(genres.getOrNull((index - headerRows).coerceAtLeast(0))?.name.orEmpty()) })
+    }
+}
+
+@Composable
+private fun DecadeChips(decades: List<Decade>, onDecadeClick: (Int) -> Unit) {
+    val chipScroll = rememberScrollState()
+    Row(
+        Modifier.keepHorizontalScroll(chipScroll).horizontalScroll(chipScroll).padding(horizontal = GroupMargin + 4.dp)
+            .padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        decades.forEach { decade ->
+            SuggestionChip(onClick = { onDecadeClick(decade.startYear) }, label = { Text(decadeLabel(decade.startYear, short = true)) })
+        }
     }
 }
 

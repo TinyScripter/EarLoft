@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.model.AlbumLookupRow
 import de.kleinabersmart.earloft.core.database.model.AlbumRow
 import de.kleinabersmart.earloft.core.database.model.ArtistRow
+import de.kleinabersmart.earloft.core.database.model.DecadeRow
 import de.kleinabersmart.earloft.core.database.model.GenreRow
 import de.kleinabersmart.earloft.core.database.model.MixCandidateRow
 import de.kleinabersmart.earloft.core.database.model.MusicPlayRow
@@ -238,6 +239,39 @@ abstract class LibraryDao {
         """,
     )
     abstract suspend fun getSongRowsOfGenre(genre: String): List<SongRow>
+
+    /** Jahrzehnte (`startYear` = 1970, 1980, …) mit der Zahl ihrer sichtbaren Alben; Alben ohne plausibles Jahr fehlen. */
+    @Query(
+        """
+        SELECT (a.year / 10) * 10 AS startYear, COUNT(*) AS albumCount
+        FROM albums a
+        WHERE a.year >= 1000 AND EXISTS (SELECT 1 FROM songs s WHERE s.albumId = a.albumId AND $SONG_VISIBLE)
+        GROUP BY startYear
+        ORDER BY startYear
+        """,
+    )
+    abstract fun observeDecadeRows(): Flow<List<DecadeRow>>
+
+    /** Alben der Jahre [from] bis [to], nach Jahr und dann nach Titel. */
+    @Query(
+        """
+        $SELECT_ALBUM_ROWS
+        WHERE a.year BETWEEN :from AND :to
+        GROUP BY a.albumId
+        ORDER BY a.year, a.sortTitle COLLATE NOCASE
+        """,
+    )
+    abstract fun observeAlbumRowsOfYears(from: Int, to: Int): Flow<List<AlbumRow>>
+
+    /** Die Songs der Jahre [from] bis [to], Album für Album in der Reihenfolge von [observeAlbumRowsOfYears]. */
+    @Query(
+        """
+        $SELECT_SONG_ROWS
+        WHERE a.year BETWEEN :from AND :to
+        ORDER BY a.year, a.sortTitle COLLATE NOCASE, a.albumId, s.discNumber, s.trackNumber, s.title
+        """,
+    )
+    abstract suspend fun getSongRowsOfYears(from: Int, to: Int): List<SongRow>
 
     /**
      * Alben, auf denen [artistId] mindestens einen Song singt bzw. spielt, ohne Album-Künstler zu sein (Gäste, Sampler),
