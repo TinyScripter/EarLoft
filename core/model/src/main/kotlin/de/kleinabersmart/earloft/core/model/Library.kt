@@ -30,7 +30,14 @@ data class Genre(
     val name: String,
     val albumCount: Int,
     val songCount: Int,
-)
+) {
+    /** Schreibweisen, die sich nur in Groß-/Kleinschreibung unterscheiden, sind ein Genre. */
+    val key: String get() = key(name)
+
+    companion object {
+        fun key(name: String): String = name.trim().lowercase()
+    }
+}
 
 /** Ein Jahrzehnt der Album-Jahre, z. B. [startYear] 1980 für 1980–1989. */
 data class Decade(

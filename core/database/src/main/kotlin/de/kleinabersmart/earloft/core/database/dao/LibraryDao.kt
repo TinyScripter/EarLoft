@@ -10,6 +10,7 @@ import de.kleinabersmart.earloft.core.database.entity.ArtistEntity
 import de.kleinabersmart.earloft.core.database.entity.SongArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
+import de.kleinabersmart.earloft.core.database.model.AlbumGenreRow
 import de.kleinabersmart.earloft.core.database.model.AlbumLookupRow
 import de.kleinabersmart.earloft.core.database.model.AlbumRow
 import de.kleinabersmart.earloft.core.database.model.ArtistRow
@@ -252,26 +253,17 @@ abstract class LibraryDao {
     )
     abstract fun observeDecadeRows(): Flow<List<DecadeRow>>
 
-    /** Alben der Jahre [from] bis [to], nach Jahr und dann nach Titel. */
+    /**
+     * Je Album seine Genres (Schreibweisen wie in den Songs, leere ausgelassen), für die Genre-Auswahl der Bibliothek; Alben
+     * ohne Genre fehlen.
+     */
     @Query(
         """
-        $SELECT_ALBUM_ROWS
-        WHERE a.year BETWEEN :from AND :to
-        GROUP BY a.albumId
-        ORDER BY a.year, a.sortTitle COLLATE NOCASE
+        SELECT DISTINCT s.albumId, s.genre FROM songs s
+        WHERE s.genre IS NOT NULL AND TRIM(s.genre) != '' AND $SONG_VISIBLE
         """,
     )
-    abstract fun observeAlbumRowsOfYears(from: Int, to: Int): Flow<List<AlbumRow>>
-
-    /** Die Songs der Jahre [from] bis [to], Album für Album in der Reihenfolge von [observeAlbumRowsOfYears]. */
-    @Query(
-        """
-        $SELECT_SONG_ROWS
-        WHERE a.year BETWEEN :from AND :to
-        ORDER BY a.year, a.sortTitle COLLATE NOCASE, a.albumId, s.discNumber, s.trackNumber, s.title
-        """,
-    )
-    abstract suspend fun getSongRowsOfYears(from: Int, to: Int): List<SongRow>
+    abstract fun observeAlbumGenreRows(): Flow<List<AlbumGenreRow>>
 
     /**
      * Alben, auf denen [artistId] mindestens einen Song singt bzw. spielt, ohne Album-Künstler zu sein (Gäste, Sampler),

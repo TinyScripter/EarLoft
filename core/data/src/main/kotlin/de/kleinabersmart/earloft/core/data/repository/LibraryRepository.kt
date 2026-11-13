@@ -50,11 +50,11 @@ class LibraryRepository @Inject constructor(
     fun decades(): Flow<List<Decade>> =
         libraryDao.observeDecadeRows().map { rows -> rows.map { Decade(it.startYear, it.albumCount) } }
 
-    /** Alben des Jahrzehnts ab [startYear], nach Jahr. */
-    fun albumsOfDecade(startYear: Int): Flow<List<Album>> =
-        libraryDao.observeAlbumRowsOfYears(startYear, startYear + 9).map { rows -> rows.map { it.toAlbum() } }
-
-    suspend fun songsOfDecade(startYear: Int): List<Song> = libraryDao.getSongRowsOfYears(startYear, startYear + 9).map { it.toSong() }
+    /** Je Album die Schlüssel seiner Genres ([Genre.key]); Alben ohne Genre fehlen. */
+    fun albumGenreKeys(): Flow<Map<Long, Set<String>>> =
+        libraryDao.observeAlbumGenreRows().map { rows ->
+            rows.groupBy({ it.albumId }, { Genre.key(it.genre) }).mapValues { (_, keys) -> keys.toSet() }
+        }
 
     fun album(albumId: Long): Flow<AlbumDetails?> =
         combine(libraryDao.observeAlbumRow(albumId), libraryDao.observeSongRowsOfAlbum(albumId)) { album, songs ->

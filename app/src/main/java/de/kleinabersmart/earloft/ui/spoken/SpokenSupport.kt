@@ -104,6 +104,8 @@ import de.kleinabersmart.earloft.ui.components.AppLogo
 import de.kleinabersmart.earloft.ui.components.CoverOutlineWidth
 import de.kleinabersmart.earloft.ui.components.coverOutlineColor
 import de.kleinabersmart.earloft.ui.components.EmptyAreaHint
+import de.kleinabersmart.earloft.ui.components.HeaderActions
+import de.kleinabersmart.earloft.ui.components.LocalHeaderActions
 import de.kleinabersmart.earloft.ui.components.LocalOpenAreaSettings
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
@@ -160,6 +162,8 @@ private fun SpokenModeScaffold(
     val fallbackAreas by viewModel.areas.collectAsStateWithLifecycle()
     val areas = pages ?: fallbackAreas
     val scope = rememberCoroutineScope()
+    // Knöpfe der Bereiche für den Kopf (z. B. die Sortierung der Bibliothek), je Bereich ein Platz.
+    val headerActions = remember { SpokenMode.entries.associateWith { HeaderActions() } }
     if (pagerState != null && pages != null) {
         val currentOnModeChange by rememberUpdatedState(onModeChange)
         // Gespeichert wird erst, wo der Pager einrastet; ein angefangenes und zurückgenommenes Wischen ändert nichts.
@@ -212,6 +216,7 @@ private fun SpokenModeScaffold(
                     title = { AppLogo(Modifier.height(40.dp)) },
                     // Wie im einzelnen Abo: Aktualisieren ganz rechts, die Suche links davon.
                     actions = {
+                        mode?.let { headerActions.getValue(it).content?.invoke() }
                         IconButton(onClick = onSearch) {
                             Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(searchLabel(mode ?: SpokenMode.MUSIC)))
                         }
@@ -298,7 +303,9 @@ private fun SpokenModeScaffold(
                 CompositionLocalProvider(LocalOpenAreaSettings provides onOpenAreaSettings.takeIf { pages.size > 1 }) {
                     HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), key = { pages[it].ordinal }) { page ->
                         Box(Modifier.fillMaxSize().nestedScroll(handoff)) {
-                            content(pages[page])
+                            CompositionLocalProvider(LocalHeaderActions provides headerActions.getValue(pages[page])) {
+                                content(pages[page])
+                            }
                         }
                     }
                 }

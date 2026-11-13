@@ -65,7 +65,6 @@ import de.kleinabersmart.earloft.ui.spoken.PodcastPreviewScreen
 import de.kleinabersmart.earloft.navigation.AddServerRoute
 import de.kleinabersmart.earloft.navigation.AlbumRoute
 import de.kleinabersmart.earloft.navigation.ArtistRoute
-import de.kleinabersmart.earloft.navigation.DecadeRoute
 import de.kleinabersmart.earloft.navigation.GenreRoute
 import de.kleinabersmart.earloft.navigation.DownloadsRoute
 import de.kleinabersmart.earloft.navigation.EditAudiobookshelfRoute
@@ -109,7 +108,6 @@ import de.kleinabersmart.earloft.ui.downloads.DownloadsScreen
 import de.kleinabersmart.earloft.ui.home.HomeScreen
 import de.kleinabersmart.earloft.ui.library.AlbumScreen
 import de.kleinabersmart.earloft.ui.library.ArtistScreen
-import de.kleinabersmart.earloft.ui.library.DecadeScreen
 import de.kleinabersmart.earloft.ui.library.GenreScreen
 import de.kleinabersmart.earloft.ui.library.FavoritesScreen
 import de.kleinabersmart.earloft.ui.library.LibraryScreen
@@ -231,7 +229,6 @@ fun EarLoftApp(
     val openAlbum: (Long) -> Unit = { navigator.navigate(AlbumRoute(it)) }
     val openArtist: (Long) -> Unit = { navigator.navigate(ArtistRoute(it)) }
     val openGenre: (String) -> Unit = { navigator.navigate(GenreRoute(it)) }
-    val openDecade: (Int) -> Unit = { navigator.navigate(DecadeRoute(it)) }
     val openBook: (Long) -> Unit = { navigator.navigate(BookRoute(it)) }
     val openPodcast: (String) -> Unit = { navigator.navigate(PodcastRoute(it)) }
     val openPodcastSettings: (String) -> Unit = { navigator.navigate(PodcastSettingsRoute(it)) }
@@ -278,7 +275,6 @@ fun EarLoftApp(
                         onAlbumClick = openAlbum,
                         onArtistClick = openArtist,
                         onGenreClick = openGenre,
-                        onDecadeClick = openDecade,
                         onFavoritesClick = { navigator.navigate(FavoritesRoute) },
                         onPlaylistClick = { navigator.navigate(PlaylistRoute(it)) },
                         onAddServer = addMusicServer,
@@ -394,9 +390,6 @@ fun EarLoftApp(
         }
         entry<GenreRoute>(metadata = detailPane()) { route ->
             GenreScreen(genre = route.name, onBack = navigator::goBack, onAlbumClick = openAlbum)
-        }
-        entry<DecadeRoute>(metadata = detailPane()) { route ->
-            DecadeScreen(startYear = route.startYear, onBack = navigator::goBack, onAlbumClick = openAlbum)
         }
         entry<ArtistRoute>(metadata = detailPane()) { route ->
             ArtistScreen(artistId = route.artistId, onBack = navigator::goBack, onAlbumClick = openAlbum)

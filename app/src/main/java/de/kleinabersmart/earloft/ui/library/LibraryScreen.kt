@@ -3,7 +3,7 @@ package de.kleinabersmart.earloft.ui.library
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.FilterChip
 import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.remember
@@ -58,11 +58,10 @@ import de.kleinabersmart.earloft.core.model.Album
 import de.kleinabersmart.earloft.core.model.AlbumSort
 import de.kleinabersmart.earloft.core.model.ArtistSort
 import de.kleinabersmart.earloft.core.model.SongSort
-import de.kleinabersmart.earloft.ui.components.SortChip
+import de.kleinabersmart.earloft.ui.components.HeaderAction
+import de.kleinabersmart.earloft.ui.components.SortButton
 import androidx.compose.foundation.layout.Row
 import de.kleinabersmart.earloft.core.model.Artist
-import de.kleinabersmart.earloft.core.model.Decade
-import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.Playlist
 import de.kleinabersmart.earloft.core.model.ServerInfo
 import de.kleinabersmart.earloft.core.model.Song
@@ -70,10 +69,8 @@ import de.kleinabersmart.earloft.ui.components.AlbumCard
 import de.kleinabersmart.earloft.ui.components.GridTilePadding
 import de.kleinabersmart.earloft.ui.components.GroupMargin
 import de.kleinabersmart.earloft.ui.components.group
-import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.components.groupedItemsIndexed
 import de.kleinabersmart.earloft.ui.components.EmptyHint
-import de.kleinabersmart.earloft.ui.components.GenreListItem
 import de.kleinabersmart.earloft.ui.components.gridTile
 import de.kleinabersmart.earloft.ui.components.PlayControlViewModel
 import de.kleinabersmart.earloft.ui.components.ArtistAvatar
@@ -107,14 +104,16 @@ fun LibraryScreen(
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
     onGenreClick: (String) -> Unit,
-    onDecadeClick: (Int) -> Unit,
     onFavoritesClick: () -> Unit,
     onPlaylistClick: (Long) -> Unit,
     onAddServer: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
-    val albums by viewModel.albums.collectAsStateWithLifecycle()
+    val albumsOfDecades by viewModel.albumsOfDecades.collectAsStateWithLifecycle()
+    val albumsOfGenres by viewModel.albumsOfGenres.collectAsStateWithLifecycle()
+    val selectedDecades by viewModel.selectedDecades.collectAsStateWithLifecycle()
+    val selectedGenres by viewModel.selectedGenres.collectAsStateWithLifecycle()
     val artists by viewModel.artists.collectAsStateWithLifecycle()
     val songs by viewModel.songs.collectAsStateWithLifecycle()
     val genres by viewModel.genres.collectAsStateWithLifecycle()
@@ -133,6 +132,17 @@ fun LibraryScreen(
         EmptyAreaHint(SpokenMode.MUSIC, stringResource(R.string.library_empty), stringResource(R.string.home_setup_server), onAddServer)
     }
 
+    // Die Sortierung des gezeigten Reiters steht im Kopf der App links von der Lupe; die Genres zeigen Alben, also deren Sortierung.
+    HeaderAction {
+        when (LibraryTab.entries[pagerState.targetPage]) {
+            LibraryTab.ALBUMS, LibraryTab.GENRES ->
+                SortButton(albumSort, AlbumSort.entries, { stringResource(it.label) }, viewModel::setAlbumSort)
+            LibraryTab.ARTISTS -> SortButton(artistSort, ArtistSort.entries, { stringResource(it.label) }, viewModel::setArtistSort)
+            LibraryTab.SONGS -> SortButton(songSort, SongSort.entries, { stringResource(it.label) }, viewModel::setSongSort)
+            LibraryTab.PLAYLISTS, LibraryTab.STATS -> {}
+        }
+    }
+
     Column(modifier.fillMaxSize()) {
         PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
             LibraryTab.entries.forEachIndexed { index, tab ->
@@ -148,18 +158,22 @@ fun LibraryScreen(
             key = { it },
         ) { page ->
             when (LibraryTab.entries[page]) {
-                LibraryTab.ALBUMS -> LoadableList(albums, empty) {
+                LibraryTab.ALBUMS -> LoadableList(albumsOfDecades, empty) {
                     AlbumGrid(
                         albums = it,
                         onAlbumClick = onAlbumClick,
                         scrollLabel = albumSort.scrollLabel(),
-                        header = {
-                            SortRow { SortChip(albumSort, AlbumSort.entries, { sort -> stringResource(sort.label) }, viewModel::setAlbumSort) }
+                        header = if (decades.isEmpty()) null else {
+                            {
+                                ToggleChips(decades, { decade -> decade.startYear in selectedDecades }, { decade -> decadeLabel(decade.startYear) }) {
+                                    viewModel.toggleDecade(it.startYear)
+                                }
+                            }
                         },
                     )
                 }
                 LibraryTab.ARTISTS -> LoadableList(artists, empty) {
-                    ArtistGrid(it, onArtistClick, sorted = { SortChip(artistSort, ArtistSort.entries, { sort -> stringResource(sort.label) }, viewModel::setArtistSort) }, byName = artistSort == ArtistSort.NAME)
+                    ArtistGrid(it, onArtistClick, byName = artistSort == ArtistSort.NAME)
                 }
                 LibraryTab.SONGS -> LoadableList(songs, empty) {
                     SongList(
@@ -168,20 +182,22 @@ fun LibraryScreen(
                         onShuffle = viewModel::shuffleSongs,
                         actions = viewModel,
                         scrollLabel = songSort.scrollLabel(),
-                        sortChip = { SortChip(songSort, SongSort.entries, { sort -> stringResource(sort.label) }, viewModel::setSongSort) },
                     )
                 }
                 LibraryTab.GENRES -> LoadableList(
                     genres,
-                    // Musik ohne Genre-Angaben: eigener Hinweis (die Jahrzehnte bleiben); ganz ohne Musik wie die anderen Reiter.
-                    empty = {
-                        when {
-                            songs.valueOrNull.isNullOrEmpty() -> empty()
-                            decades.isEmpty() -> EmptyHint(stringResource(R.string.genres_empty))
-                            else -> GenreList(emptyList(), decades, onGenreClick, onDecadeClick)
-                        }
-                    },
-                ) { GenreList(it, decades, onGenreClick, onDecadeClick) }
+                    // Musik ohne Genre-Angaben: eigener Hinweis; ganz ohne Musik wie die anderen Reiter.
+                    empty = { if (songs.valueOrNull.isNullOrEmpty()) empty() else EmptyHint(stringResource(R.string.genres_empty)) },
+                ) { genreList ->
+                    LoadableList(albumsOfGenres, empty) {
+                        AlbumGrid(
+                            albums = it,
+                            onAlbumClick = onAlbumClick,
+                            scrollLabel = albumSort.scrollLabel(),
+                            header = { ToggleChips(genreList, { genre -> genre.key in selectedGenres }, { genre -> genre.name }, viewModel::toggleGenre) },
+                        )
+                    }
+                }
                 LibraryTab.PLAYLISTS -> PlaylistList(
                     favoriteCount = favoriteCount,
                     // „Neue Playlist“ und „Favoriten“ stehen immer da; die eigenen Playlists erscheinen, sobald sie geladen sind.
@@ -287,37 +303,27 @@ private fun TabLabel(text: String) {
     }
 }
 
-/** Die Genres, darüber die Jahrzehnte der Album-Jahre als Chips. */
+/**
+ * Eine Reihe von Chips zum An- und Abschalten (mehrere zugleich), z. B. Jahrzehnte oder Genres über den Alben. Passt sie nicht
+ * in die Breite, lässt sie sich seitlich wischen.
+ */
 @Composable
-private fun GenreList(genres: List<Genre>, decades: List<Decade>, onGenreClick: (String) -> Unit, onDecadeClick: (Int) -> Unit) {
-    val state = rememberLazyListState()
-    val headerRows = if (decades.isEmpty()) 0 else 1
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(vertical = 8.dp)) {
-            if (decades.isNotEmpty()) {
-                item(key = "decades") { DecadeChips(decades, onDecadeClick) }
-            }
-            groupedItems(genres, key = { it.name.lowercase() }) { genre ->
-                GenreListItem(genre = genre, onClick = { onGenreClick(genre.name) })
-            }
+private fun <T> ToggleChips(items: List<T>, selected: (T) -> Boolean, label: @Composable (T) -> String, onToggle: (T) -> Unit) {
+    val chipScroll = rememberScrollState()
+    Row(
+        Modifier.keepHorizontalScroll(chipScroll).horizontalScroll(chipScroll).padding(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items.forEach { item ->
+            FilterChip(selected = selected(item), onClick = { onToggle(item) }, label = { Text(label(item)) })
         }
-        LazyListFastScroller(state, labelAt = { index -> letterOf(genres.getOrNull((index - headerRows).coerceAtLeast(0))?.name.orEmpty()) })
     }
 }
 
+/** „80er“, ab 2000 „2000er“ (Jahrzehnte vor 1910 ebenfalls mit voller Jahreszahl). */
 @Composable
-private fun DecadeChips(decades: List<Decade>, onDecadeClick: (Int) -> Unit) {
-    val chipScroll = rememberScrollState()
-    Row(
-        Modifier.keepHorizontalScroll(chipScroll).horizontalScroll(chipScroll).padding(horizontal = GroupMargin + 4.dp)
-            .padding(bottom = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        decades.forEach { decade ->
-            SuggestionChip(onClick = { onDecadeClick(decade.startYear) }, label = { Text(decadeLabel(decade.startYear, short = true)) })
-        }
-    }
-}
+private fun decadeLabel(startYear: Int): String =
+    stringResource(R.string.decade, if (startYear in 1910..1999) startYear - 1900 else startYear)
 
 @Composable
 fun AlbumGrid(
@@ -349,12 +355,6 @@ fun AlbumGrid(
             LazyGridFastScroller(state, labelAt = { index -> albums.getOrNull((index - offset).coerceAtLeast(0))?.let(scrollLabel) ?: "" })
         }
     }
-}
-
-/** Die Sortierung links über einer Liste. */
-@Composable
-private fun SortRow(content: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) { content() }
 }
 
 private val AlbumSort.label: Int
@@ -425,8 +425,6 @@ fun LazyGridScope.fullWidthItem(key: Any, content: @Composable () -> Unit) {
 private fun ArtistGrid(
     artists: List<Artist>,
     onArtistClick: (Long) -> Unit,
-    /** Die Sortierung über dem Raster. */
-    sorted: @Composable () -> Unit,
     /** Nach Name sortiert: mit Schnellscroller. */
     byName: Boolean,
 ) {
@@ -440,7 +438,6 @@ private fun ArtistGrid(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            fullWidthItem("sort") { SortRow(sorted) }
             items(artists, key = { it.id }) { artist ->
                 var menu by remember { mutableStateOf(false) }
                 Column(
@@ -472,8 +469,7 @@ private fun ArtistGrid(
             }
         }
         if (byName) {
-            // Index 0 ist die Sortierung.
-            LazyGridFastScroller(state, labelAt = { index -> letterOf(artists.getOrNull((index - 1).coerceAtLeast(0))?.name.orEmpty().sortKey()) })
+            LazyGridFastScroller(state, labelAt = { index -> letterOf(artists.getOrNull(index)?.name.orEmpty().sortKey()) })
         }
     }
 }
@@ -487,8 +483,6 @@ fun SongList(
     actions: SongActions,
     /** Mit Schnellscroller, der zu jedem Song diese Marke zeigt (z. B. den Anfangsbuchstaben); `null`: ohne. */
     scrollLabel: ((Song) -> String)? = null,
-    /** Die Sortierung rechts neben „Zufällig“. */
-    sortChip: (@Composable () -> Unit)? = null,
 ) {
     val state = rememberLazyListState()
     Box(Modifier.fillMaxSize()) {
@@ -496,14 +490,12 @@ fun SongList(
             item(key = "shuffle") {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     FilledTonalButton(onClick = onShuffle) {
                         Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = null)
                         Text(stringResource(R.string.action_shuffle), modifier = Modifier.padding(start = 8.dp))
                     }
-                    sortChip?.invoke()
                 }
             }
             groupedItemsIndexed(songs, key = { _, song -> song.id }) { index, song ->

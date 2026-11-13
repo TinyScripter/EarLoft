@@ -25,6 +25,9 @@ import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.ui.components.SongActions
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -58,6 +61,34 @@ class LibraryViewModel @Inject constructor(
         .flatMapLatest { libraryRepository.songs(it) }.stateInViewModel()
     val genres: StateFlow<LoadState<List<Genre>>> = libraryRepository.genres().stateInViewModel()
     val decades: StateFlow<List<Decade>> = libraryRepository.decades().stateInViewModel(emptyList())
+
+    // Gewählte Chips (an/aus, mehrere zugleich); keiner gewählt = alle Alben. Was es nicht mehr gibt, zählt nicht mehr.
+    private val chosenDecades = MutableStateFlow(emptySet<Int>())
+    private val chosenGenres = MutableStateFlow(emptySet<String>())
+
+    val selectedDecades: StateFlow<Set<Int>> = combine(chosenDecades, decades) { chosen, all ->
+        chosen.intersect(all.mapTo(HashSet()) { it.startYear })
+    }.stateInViewModel(emptySet())
+
+    /** Gewählte Genres als [Genre.key]. */
+    val selectedGenres: StateFlow<Set<String>> = combine(chosenGenres, genres) { chosen, all ->
+        chosen.intersect(all.valueOrNull.orEmpty().mapTo(HashSet()) { it.key })
+    }.stateInViewModel(emptySet())
+
+    /** Die Alben (in ihrer Sortierung) aus den gewählten Jahrzehnten. */
+    val albumsOfDecades: StateFlow<LoadState<List<Album>>> = combine(albums, selectedDecades) { state, chosen ->
+        state.filterAlbums(chosen.isNotEmpty()) { album -> album.year?.takeIf { it >= 1000 }?.let { it / 10 * 10 in chosen } == true }
+    }.stateInViewModel(LoadState.Loading)
+
+    /** Die Alben (in ihrer Sortierung) mit mindestens einem Song aus den gewählten Genres. */
+    val albumsOfGenres: StateFlow<LoadState<List<Album>>> =
+        combine(albums, selectedGenres, libraryRepository.albumGenreKeys()) { state, chosen, genresOf ->
+            state.filterAlbums(chosen.isNotEmpty()) { album -> genresOf[album.id]?.any { it in chosen } == true }
+        }.stateInViewModel(LoadState.Loading)
+
+    fun toggleDecade(startYear: Int) = chosenDecades.update { if (startYear in it) it - startYear else it + startYear }
+
+    fun toggleGenre(genre: Genre) = chosenGenres.update { if (genre.key in it) it - genre.key else it + genre.key }
     val favoriteCount: StateFlow<Int> = favoritesRepository.favorites().map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), 0)
     val playlists: StateFlow<LoadState<List<Playlist>>> = playlistRepository.playlists().stateInViewModel()
@@ -97,6 +128,9 @@ class LibraryViewModel @Inject constructor(
     override fun toggleFavorite(song: Song) {
         viewModelScope.launch { favoritesRepository.setFavorite(song.id, !song.isFavorite) }
     }
+
+    private fun LoadState<List<Album>>.filterAlbums(active: Boolean, keep: (Album) -> Boolean): LoadState<List<Album>> =
+        if (active && this is LoadState.Ready) LoadState.Ready(value.filter(keep)) else this
 
     private fun <T> Flow<T>.stateInViewModel(initial: T): StateFlow<T> =
         stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), initial)

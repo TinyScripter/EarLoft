@@ -175,6 +175,11 @@ class LibraryDaoTest {
         assertEquals(2, genres[1].albumCount)
         assertEquals(3, genres[1].songCount)
 
+        assertEquals(
+            setOf(takk to "Post-Rock", takk to "post-rock", agaetis to "Post-Rock", agaetis to "Ambient"),
+            libraryDao.observeAlbumGenreRows().first().map { it.albumId to it.genre }.toSet(),
+        )
+
         val albums = libraryDao.observeAlbumRowsOfGenre("POST-ROCK").first()
         assertEquals(listOf("Takk...", "Ágætis byrjun").sorted(), albums.map { it.title }.sorted())
         // Die Zahl der Songs gilt dem ganzen Album, nicht nur dem Genre.
@@ -186,7 +191,7 @@ class LibraryDaoTest {
     }
 
     @Test
-    fun `decades group visible albums by year and list them in year order`() = runTest {
+    fun `decades group visible albums by year`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
         val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
@@ -204,9 +209,6 @@ class LibraryDaoTest {
 
         val decades = libraryDao.observeDecadeRows().first()
         assertEquals(listOf(1990 to 2, 2000 to 1), decades.map { it.startYear to it.albumCount })
-        assertEquals(listOf("Von", "Ágætis byrjun"), libraryDao.observeAlbumRowsOfYears(1990, 1999).first().map { it.title })
-        assertEquals(listOf("Song 2", "Song 1"), libraryDao.getSongRowsOfYears(1990, 1999).map { it.title })
-        assertEquals(emptyList<String>(), libraryDao.observeAlbumRowsOfYears(2010, 2019).first().map { it.title })
     }
 
     @Test
