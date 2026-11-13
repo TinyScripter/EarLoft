@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.core.playback
 
 import android.app.PendingIntent
 import android.content.Context
+import android.net.ConnectivityManager
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -108,6 +109,7 @@ class PlaybackService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
     private lateinit var playTracker: PlayTracker
     private lateinit var bookListener: BookPlaybackListener
+    private var streamPreloader: StreamPreloader? = null
     private val replayGain = ReplayGainProcessor()
 
     override fun onCreate() {
@@ -150,6 +152,17 @@ class PlaybackService : MediaLibraryService() {
             .build()
         localPlayer.addListener(SourceErrorRecovery(localPlayer))
         audioEffectSession.attach(this, localPlayer)
+        // Uhr: keine Streams, also nichts vorzuladen.
+        if (playbackPolicy.allowStreaming) {
+            val connectivity = getSystemService(ConnectivityManager::class.java)
+            streamPreloader = StreamPreloader(
+                localPlayer,
+                streamFactory::createDataSourceForDownloading,
+                sourceResolver::candidates,
+                isMetered = { connectivity.isActiveNetworkMetered },
+                scope = mainScope,
+            ).also(localPlayer::addListener)
+        }
         localPlayer.addListener(WakeModeListener(localPlayer, playbackPolicy.allowStreaming))
         localPlayer.addListener(ContentTypeListener(localPlayer))
         localPlayer.addListener(object : Player.Listener {
@@ -354,6 +367,7 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onDestroy() {
         audioEffectSession.close(this)
+        streamPreloader?.release()
         sleepTimer.detach()
         servicePlayer.detach()
         session?.let { session ->
