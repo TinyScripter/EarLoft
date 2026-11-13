@@ -12,7 +12,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,8 +54,11 @@ class BookDownloadStateTest {
     }
 
     @Test
-    fun `one failed file fails the book and removed files count as removed`() {
+    fun `a failed file shows only once the rest has loaded and removed files count as removed`() {
         assertEquals(TrackDownload.FAILED, row(done = 1, failed = 1).state())
+        assertEquals(TrackDownload.RUNNING, row(total = 3, done = 1, running = 1, failed = 1).state())
+        assertTrue(row(done = 1, failed = 1).toDownload().partial)
+        assertFalse(row(failed = 2).toDownload().partial)
         assertEquals(TrackDownload.REMOVED, row(removed = 2).state())
         assertEquals(TrackDownload.NONE, row().state())
     }
@@ -91,6 +96,29 @@ class BookDownloadStateTest {
         // Die fertige Datei bleibt, ein neuer Versuch lädt nur die fehlenden.
         assertEquals(2, db.bookDao().queueBookDownload(book))
         assertEquals(1, db.bookDao().nextQueuedBookTrack()!!.trackIndex)
+    }
+
+    @Test
+    fun `a failed file leaves the others of the book loading`() = runTest {
+        val book = addBook(BookKind.BOOK, "b", files = 3)
+        db.bookDao().queueBookDownload(book)
+
+        db.bookDao().markBookTrackRunning(book, 0)
+        db.bookDao().markBookTrackFailed(book, 0)
+
+        assertEquals(1, db.bookDao().nextQueuedBookTrack()!!.trackIndex)
+        db.bookDao().markBookTrackRunning(book, 1)
+        db.bookDao().markBookTrackDone(book, 1, "/x/book-$book-1.m4b", 400)
+        db.bookDao().markBookTrackRunning(book, 2)
+        db.bookDao().markBookTrackDone(book, 2, "/x/book-$book-2.m4b", 400)
+
+        val download = db.bookDao().observeBookDownloads().first().single().toDownload()
+        assertEquals(TrackDownload.FAILED, download.state)
+        assertTrue(download.partial)
+        assertEquals(2 to 3, download.doneFiles to download.totalFiles)
+        // „Erneut laden“ nimmt nur die fehlende Datei.
+        assertEquals(1, db.bookDao().queueBookDownload(book))
+        assertEquals(0, db.bookDao().nextQueuedBookTrack()!!.trackIndex)
     }
 
     @Test

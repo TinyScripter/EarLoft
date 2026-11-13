@@ -147,6 +147,7 @@ fun BookScreen(
             BookHeader(
                 book, progress,
                 download = download.state,
+                partial = download.takeIf { it.partial }?.let { it.doneFiles to it.totalFiles },
                 transfer = transfer,
                 episodeFraction = episodeFraction,
                 onPlay = viewModel::play,
@@ -201,6 +202,8 @@ private fun BookHeader(
     book: Book,
     progress: BookProgress?,
     download: TrackDownload,
+    /** Teilweise geladen: fertige und alle Dateien. */
+    partial: Pair<Int, Int>?,
     transfer: BookTransfer?,
     episodeFraction: Float?,
     onPlay: () -> Unit,
@@ -316,6 +319,14 @@ private fun BookHeader(
                 if (book.kind == BookKind.EPISODE) episodeTransferText(episodeFraction) else transferText(transfer),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        if (partial != null) {
+            Text(
+                stringResource(R.string.book_download_partial, partial.first, partial.second),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 4.dp),
             )
         }

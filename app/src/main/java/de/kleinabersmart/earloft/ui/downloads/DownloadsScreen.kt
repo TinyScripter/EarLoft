@@ -402,7 +402,11 @@ private fun DownloadedBookRow(item: DownloadedBook, transfer: BookTransfer?, onC
                 when (state) {
                     TrackDownload.DONE -> Text(formatBytes(item.download.bytes), style = MaterialTheme.typography.bodySmall)
                     TrackDownload.FAILED -> Text(
-                        stringResource(R.string.book_download_failed),
+                        if (item.download.partial) {
+                            stringResource(R.string.book_download_partial, item.download.doneFiles, item.download.totalFiles)
+                        } else {
+                            stringResource(R.string.book_download_failed)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )

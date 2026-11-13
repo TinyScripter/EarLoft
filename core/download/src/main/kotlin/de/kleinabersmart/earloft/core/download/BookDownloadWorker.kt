@@ -65,7 +65,13 @@ class BookDownloadWorker(
                         dao.requeueBookTrack(next.bookId, next.trackIndex)
                         return Result.retry()
                     }
-                    dao.markBookDownloadFailed(next.bookId)
+                    if (outcome.isAuthRejection) {
+                        dao.markBookDownloadFailed(next.bookId)
+                    } else {
+                        // Nur diese Datei gibt auf; „Erneut versuchen“ lädt später genau die fehlenden.
+                        dao.markBookTrackFailed(next.bookId, next.trackIndex)
+                        storage.deletePart(next.bookId, next.trackIndex)
+                    }
                 }
                 is DownloadOutcome.Failed -> Log.w(TAG, "Buch ${next.bookId} fehlgeschlagen: ${outcome.reason}")
                 DownloadOutcome.Done, DownloadOutcome.Cancelled -> Unit

@@ -44,7 +44,8 @@ class BookDownloader @Inject constructor(
         if (dao.markBookTrackRunning(bookId, index) == 0) return DownloadOutcome.Cancelled
         return try {
             fetch(track, network, onProgress).also { outcome ->
-                if (outcome is DownloadOutcome.Failed) dao.markBookDownloadFailed(bookId)
+                // Nur diese Datei: Die übrigen laden weiter, das Buch ist dann teilweise geladen.
+                if (outcome is DownloadOutcome.Failed) dao.markBookTrackFailed(bookId, index)
                 if (outcome is DownloadOutcome.Failed || outcome is DownloadOutcome.Cancelled) storage.deletePart(bookId, index)
             }
         } catch (e: CancellationException) {

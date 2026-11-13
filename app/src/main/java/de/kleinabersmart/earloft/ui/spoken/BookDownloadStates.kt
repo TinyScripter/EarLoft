@@ -60,10 +60,14 @@ val TrackDownload.offlineMark: OfflineMark?
         TrackDownload.NONE, TrackDownload.REMOVED -> null
     }
 
+/** Markierung eines Buchs: wie [TrackDownload.offlineMark], teilweise geladene wie Alben. */
+val BookDownload.offlineMark: OfflineMark?
+    get() = if (partial) OfflineMark.PARTIAL else state.offlineMark
+
 /** [OfflineBadge] eines Buchs oder einer Folge, unten links auf das Cover zu setzen. */
 @Composable
 fun BookDownloadBadge(bookId: Long, modifier: Modifier = Modifier) {
-    OfflineBadge(LocalBookDownloads.current[bookId]?.state?.offlineMark, modifier)
+    OfflineBadge(LocalBookDownloads.current[bookId]?.offlineMark, modifier)
 }
 
 /** [OfflineBadge] eines Abos mit der Zahl der geladenen Folgen. */

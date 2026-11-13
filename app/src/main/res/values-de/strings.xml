@@ -700,6 +700,7 @@
     <string name="book_download_delete_message">Das gibt %1$s frei. Das Buch bleibt in der Bibliothek und lässt sich weiter streamen.</string>
     <string name="book_download_delete_confirm">Löschen</string>
     <string name="book_download_failed">Download fehlgeschlagen</string>
+    <string name="book_download_partial">Teilweise geladen: %1$d von %2$d Dateien</string>
     <string name="downloads_section_music">Musik</string>
     <string name="downloads_section_books">Bücher</string>
     <string name="downloads_section_podcasts">Podcasts</string>

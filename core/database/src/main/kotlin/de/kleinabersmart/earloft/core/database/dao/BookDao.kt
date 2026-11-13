@@ -384,12 +384,22 @@ abstract class BookDao {
     @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND trackIndex = :trackIndex AND downloadState = 'RUNNING'")
     abstract suspend fun requeueBookTrack(bookId: Long, trackIndex: Int)
 
-    /** Scheitert eine Datei, ist das Buch nicht brauchbar: die übrigen wartenden Dateien hören auf zu warten. */
+    /**
+     * Alle noch wartenden Dateien des Buchs scheitern mit: abgelehnte Anmeldung (ändert sich durch Warten nicht), auf der
+     * Uhr eine Datei, die auch auf dem Handy fehlt.
+     */
     @Query(
         "UPDATE book_tracks SET downloadState = 'FAILED', filePath = NULL, fileSize = 0 " +
             "WHERE bookId = :bookId AND downloadState IN ('QUEUED', 'RUNNING')",
     )
     abstract suspend fun markBookDownloadFailed(bookId: Long)
+
+    /** Nur diese Datei scheitert; die übrigen laden weiter, das Buch ist danach teilweise geladen. */
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'FAILED', filePath = NULL, fileSize = 0 " +
+            "WHERE bookId = :bookId AND trackIndex = :trackIndex AND downloadState IN ('QUEUED', 'RUNNING')",
+    )
+    abstract suspend fun markBookTrackFailed(bookId: Long, trackIndex: Int)
 
     /** Uhr, „Erneut versuchen“: gescheiterte Dateien von Büchern und Folgen wieder zum Laden freigeben. @return Anzahl. */
     @Query("UPDATE book_tracks SET downloadState = 'NONE' WHERE downloadState = 'FAILED'")

@@ -390,7 +390,7 @@ private fun smallLineStyle() = MaterialTheme.typography.labelSmall.copy(lineHeig
 @Composable
 private fun EpisodeFacts(item: BookWithProgress, withTime: Boolean) {
     val book = item.book
-    val mark = LocalBookDownloads.current[book.id]?.state?.offlineMark
+    val mark = LocalBookDownloads.current[book.id]?.offlineMark
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (book.addedAt > 0) {
             Text(formatEpisodeDay(book.addedAt, withTime), style = smallLineStyle(), maxLines = 1)
