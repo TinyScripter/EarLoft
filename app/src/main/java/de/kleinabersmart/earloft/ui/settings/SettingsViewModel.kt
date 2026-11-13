@@ -98,6 +98,8 @@ data class SettingsUiState(
     val isSyncing: Boolean = false,
     val downloadWifiOnly: Boolean = true,
     val autoDownloadFavorites: Boolean = false,
+    val autoDownloadNewestAlbums: Int = 0,
+    val autoDownloadMostPlayedAlbums: Int = 0,
     val scrobble: Boolean = true,
     val replayGainMode: ReplayGainMode = ReplayGainMode.AUTO,
     val preAmpDb: Float = 0f,
@@ -246,6 +248,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(podcastFeedCount = feeds.size, archivedPodcasts = archived)
     }.combine(combine(librarySettings.syncIntervalDays, librarySettings.mobileStreamQuality, ::Pair)) { state, (days, quality) ->
         state.copy(syncIntervalDays = days, mobileStreamQuality = quality)
+    }.combine(combine(downloadSettings.autoDownloadNewestAlbums, downloadSettings.autoDownloadMostPlayedAlbums, ::Pair)) { state, (newest, mostPlayed) ->
+        state.copy(autoDownloadNewestAlbums = newest, autoDownloadMostPlayedAlbums = mostPlayed)
     }.combine(
         combine(podcastSettings.refreshHours, podcastSettings.useMobileData, podcastSettings.deleteHeardAfterDays, ::Triple),
     ) { state, (hours, mobile, deleteHeardDays) ->
@@ -543,6 +547,14 @@ class SettingsViewModel @Inject constructor(
     /** Die Downloads selbst stößt [de.kleinabersmart.earloft.core.download.AutoDownloads] an. */
     fun setAutoDownloadFavorites(enabled: Boolean) {
         viewModelScope.launch { downloadSettings.setAutoDownloadFavorites(enabled) }
+    }
+
+    fun setAutoDownloadNewestAlbums(count: Int) {
+        viewModelScope.launch { downloadSettings.setAutoDownloadNewestAlbums(count) }
+    }
+
+    fun setAutoDownloadMostPlayedAlbums(count: Int) {
+        viewModelScope.launch { downloadSettings.setAutoDownloadMostPlayedAlbums(count) }
     }
 
     fun setScrobble(enabled: Boolean) {

@@ -362,6 +362,11 @@
     <string name="settings_wifi_only_summary">Nothing is downloaded over mobile data.</string>
     <string name="settings_auto_download_favorites">Download favorites automatically</string>
     <string name="settings_auto_download_favorites_summary">New favorites are downloaded, removed favorites are deleted again. Applies to servers from which not everything is downloaded anyway.</string>
+    <string name="settings_auto_download_newest_albums">Download newest albums automatically</string>
+    <string name="settings_auto_download_newest_albums_summary">The most recently added albums on your servers. Albums that drop out are deleted again.</string>
+    <string name="settings_auto_download_most_played_albums">Download most played albums automatically</string>
+    <string name="settings_auto_download_most_played_albums_summary">The albums played most in the last 90 days (at least 3 plays). Albums that drop out are deleted again.</string>
+    <string name="settings_auto_download_albums_off">Off</string>
 
     <!-- Settings: playback -->
     <string name="settings_downloads_summary">Manage downloaded music, episodes and books and check storage</string>

@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.core.download
 
 import androidx.room.withTransaction
 import de.kleinabersmart.earloft.core.data.repository.CoverFiles
+import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
 import de.kleinabersmart.earloft.core.data.repository.SourcePreference
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.DownloadDao
@@ -24,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -61,10 +63,9 @@ class DownloadRepository @Inject constructor(
         if (songIds.isEmpty()) return 0
         val count = database.withTransaction {
             val chunks = songIds.distinct().chunked(SQLITE_MAX_VARIABLES)
-            // Wer einen automatisch geladenen Song selbst anfordert, behält ihn auch ohne Favorit.
-            if (pinnedBy != PINNED_FAVORITES) {
-                chunks.forEach { downloadDao.repinForSongs(PINNED_FAVORITES, pinnedBy, it) }
-            }
+            // Ein Download gehört der stärksten Regel, die ihn will (von Hand > ganzer Server > neueste/meistgehörte Alben >
+            // Favoriten): Wer einen automatisch geladenen Song selbst anfordert, behält ihn auch ohne Favorit.
+            weakerPins(pinnedBy).forEach { weaker -> chunks.forEach { downloadDao.repinForSongs(weaker, pinnedBy, it) } }
             val sourcesBySong = chunks.flatMap { libraryDao.getPlayableSourcesOfSongs(it) }.groupBy { it.songId }
             val alreadyDownloaded = chunks.flatMapTo(HashSet()) { downloadDao.getSongIdsWithDownload(it) }
 
@@ -134,6 +135,35 @@ class DownloadRepository @Inject constructor(
             // Wie bei den Favoriten: Fehlgeschlagene nicht bei jedem Abgleich neu versuchen.
             enqueue(downloadDao.getSongIdsOfSource(sourceId), PINNED_SERVER_PREFIX + sourceId, retryFailed = false)
         }
+    }
+
+    /**
+     * Die Alben, die die Automatik „neueste“ ([newest]) und „meistgehörte“ ([mostPlayed], wie das Regal auf Start) laden soll,
+     * zusammen; `null`, wenn beide aus sind (0). Der Zeitraum für „meistgehört“ zählt ab jetzt.
+     */
+    fun autoAlbumIds(newest: Int, mostPlayed: Int): Flow<List<Long>?> {
+        if (newest <= 0 && mostPlayed <= 0) return flowOf(null)
+        val since = System.currentTimeMillis() - LibraryRepository.MOST_PLAYED_PERIOD_MS
+        return combine(
+            downloadDao.observeNewestServerAlbumIds(newest.coerceAtLeast(0)),
+            downloadDao.observeMostPlayedServerAlbumIds(since, LibraryRepository.MOST_PLAYED_MIN_PLAYS, mostPlayed.coerceAtLeast(0)),
+        ) { newestIds, mostPlayedIds -> (newestIds + mostPlayedIds).distinct() }
+    }
+
+    /**
+     * Gleicht die automatisch geladenen neuesten und meistgehörten Alben ab ([albumIds] aus [autoAlbumIds]): Ihre Songs
+     * werden eingereiht, Downloads herausgefallener Alben entfernt – Favoriten gehen dabei an die Favoriten-Automatik über,
+     * wenn sie eingeschaltet ist ([keepFavorites]). Sind beide aus (`null`), behalten ihre Downloads (nun als manuell).
+     */
+    suspend fun reconcileAlbumDownloads(albumIds: List<Long>?, keepFavorites: Boolean) {
+        if (albumIds == null) {
+            downloadDao.repinAll(PINNED_AUTO_ALBUMS, PINNED_MANUAL)
+            return
+        }
+        if (keepFavorites) downloadDao.repinFavoritesOutsideAlbums(PINNED_AUTO_ALBUMS, PINNED_FAVORITES, albumIds)
+        remove(downloadDao.getPinnedByOutsideAlbums(PINNED_AUTO_ALBUMS, albumIds))
+        // Wie bei den Favoriten: Fehlgeschlagene nicht bei jedem Abgleich neu versuchen.
+        enqueue(albumIds.flatMap { libraryDao.getSongIdsOfAlbum(it) }, PINNED_AUTO_ALBUMS, retryFailed = false)
     }
 
     /** Offline-Zustand beliebiger Songs, für alle Listen. */
@@ -248,7 +278,15 @@ class DownloadRepository @Inject constructor(
     private companion object {
         const val PINNED_MANUAL = "manual"
         const val PINNED_FAVORITES = "favorites"
+        const val PINNED_AUTO_ALBUMS = "auto-albums"
         const val PINNED_SERVER_PREFIX = "server:"
         const val SQLITE_MAX_VARIABLES = 900
+
+        /** Die automatischen Regeln, deren Downloads [pinnedBy] übernimmt. */
+        fun weakerPins(pinnedBy: String): List<String> = when (pinnedBy) {
+            PINNED_FAVORITES -> emptyList()
+            PINNED_AUTO_ALBUMS -> listOf(PINNED_FAVORITES)
+            else -> listOf(PINNED_FAVORITES, PINNED_AUTO_ALBUMS)
+        }
     }
 }

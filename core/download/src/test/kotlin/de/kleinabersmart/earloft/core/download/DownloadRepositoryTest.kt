@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.core.download
 import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.data.repository.CoverFiles
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
+import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.PlaylistEntryEntity
 import de.kleinabersmart.earloft.core.model.DownloadState
@@ -294,6 +295,70 @@ class DownloadRepositoryTest {
 
         assertEquals("manual", library.db.downloadDao().get("home:a")!!.pinnedBy)
         assertEquals("server:office", library.db.downloadDao().get("office:b")!!.pinnedBy)
+    }
+
+    @Test
+    fun `the newest server albums are downloaded and give way to newer ones`() = runTest {
+        val old = library.album("Old")
+        library.song(old, "A", "home" to "a", dateAdded = 1)
+        val middle = library.album("Middle")
+        library.song(middle, "B", "home" to "b", dateAdded = 2)
+        // Liegt schon auf dem Gerät: zählt nicht zu den neuesten Alben zum Laden.
+        val onDevice = library.album("On device")
+        library.song(onDevice, "C", "local" to "c", "home" to "c", dateAdded = 3)
+
+        val first = repository.autoAlbumIds(newest = 2, mostPlayed = 0).first()
+        assertEquals(listOf(middle, old), first)
+        repository.reconcileAlbumDownloads(first, keepFavorites = false)
+        assertEquals(setOf("home:a", "home:b"), library.db.downloadDao().getAll().map { it.sourceUid }.toSet())
+        assertEquals("auto-albums", library.db.downloadDao().get("home:a")!!.pinnedBy)
+
+        val newer = library.album("Newer")
+        library.song(newer, "D", "home" to "d", dateAdded = 4)
+        val second = repository.autoAlbumIds(newest = 2, mostPlayed = 0).first()
+        assertEquals(listOf(newer, middle), second)
+        repository.reconcileAlbumDownloads(second, keepFavorites = false)
+        assertEquals(setOf("home:b", "home:d"), library.db.downloadDao().getAll().map { it.sourceUid }.toSet())
+    }
+
+    @Test
+    fun `most played albums need enough plays and hand favorites back when they drop out`() = runTest {
+        val loved = library.album("Loved")
+        val liked = library.song(loved, "A", "home" to "a")
+        library.song(loved, "B", "home" to "b")
+        val rare = library.album("Rare")
+        val rareSong = library.song(rare, "C", "home" to "c")
+        val now = System.currentTimeMillis()
+        library.db.backupDao().insertPlayEvents(
+            List(3) { PlayEventEntity(songId = liked, playedAt = now - it, listenedMs = 1_000) } +
+                List(2) { PlayEventEntity(songId = rareSong, playedAt = now - it, listenedMs = 1_000) },
+        )
+        library.db.syncDao().setSongFavorite(liked, true, 1)
+
+        val albumIds = repository.autoAlbumIds(newest = 0, mostPlayed = 10).first()
+        assertEquals(listOf(loved), albumIds)
+        repository.reconcileAlbumDownloads(albumIds, keepFavorites = true)
+        assertEquals("auto-albums", library.db.downloadDao().get("home:a")!!.pinnedBy)
+
+        repository.reconcileAlbumDownloads(emptyList(), keepFavorites = true)
+        assertEquals(listOf("home:a"), library.db.downloadDao().getAll().map { it.sourceUid })
+        assertEquals("favorites", library.db.downloadDao().get("home:a")!!.pinnedBy)
+    }
+
+    @Test
+    fun `automatic album downloads give way to whole servers and stay when switched off`() = runTest {
+        val albumId = library.album("Takk")
+        library.song(albumId, "A", "home" to "a")
+        library.song(albumId, "B", "office" to "b")
+        assertEquals(null, repository.autoAlbumIds(newest = 0, mostPlayed = 0).first())
+        repository.reconcileAlbumDownloads(listOf(albumId), keepFavorites = false)
+
+        repository.reconcileServerDownloads(setOf("home"))
+        assertEquals("server:home", library.db.downloadDao().get("home:a")!!.pinnedBy)
+
+        repository.reconcileAlbumDownloads(null, keepFavorites = false)
+        assertEquals("manual", library.db.downloadDao().get("office:b")!!.pinnedBy)
+        assertEquals("server:home", library.db.downloadDao().get("home:a")!!.pinnedBy)
     }
 
     @Test

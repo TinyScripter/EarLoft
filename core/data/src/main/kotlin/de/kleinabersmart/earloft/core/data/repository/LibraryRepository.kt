@@ -144,10 +144,12 @@ class LibraryRepository @Inject constructor(
             .map { it.toGenre() }
     }
 
-    private companion object {
-        const val SQLITE_MAX_VARIABLES = 900
-        val SEARCH_SEPARATORS = Regex("[^\\p{L}\\p{N}]+")
-        const val REDISCOVER_AFTER_MS = 30L * 24 * 60 * 60 * 1000
+    companion object {
+        private const val SQLITE_MAX_VARIABLES = 900
+        private val SEARCH_SEPARATORS = Regex("[^\\p{L}\\p{N}]+")
+        private const val REDISCOVER_AFTER_MS = 30L * 24 * 60 * 60 * 1000
+
+        /** „Meistgehört“ (Regal auf Start, automatische Downloads): Zeitraum und Mindestzahl der Wiedergaben je Album. */
         const val MOST_PLAYED_PERIOD_MS = 90L * 24 * 60 * 60 * 1000
         const val MOST_PLAYED_MIN_PLAYS = 3
     }

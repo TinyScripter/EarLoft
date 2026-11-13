@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.Module
@@ -51,10 +52,31 @@ class DownloadSettings @Inject constructor(
         }
     }
 
-    private companion object {
-        val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only")
-        val KEY_AUTO_FAVORITES = booleanPreferencesKey("auto_download_favorites")
-        val KEY_AUTO_SERVERS = stringSetPreferencesKey("auto_download_servers")
+    /** So viele zuletzt hinzugefügte Alben automatisch herunterladen (Standard: 0 = aus). */
+    val autoDownloadNewestAlbums: Flow<Int> =
+        context.downloadSettingsDataStore.data.map { it[KEY_AUTO_NEWEST_ALBUMS] ?: 0 }
+
+    suspend fun setAutoDownloadNewestAlbums(count: Int) {
+        context.downloadSettingsDataStore.edit { it[KEY_AUTO_NEWEST_ALBUMS] = count }
+    }
+
+    /** So viele meistgehörte Alben automatisch herunterladen (Standard: 0 = aus). */
+    val autoDownloadMostPlayedAlbums: Flow<Int> =
+        context.downloadSettingsDataStore.data.map { it[KEY_AUTO_MOST_PLAYED_ALBUMS] ?: 0 }
+
+    suspend fun setAutoDownloadMostPlayedAlbums(count: Int) {
+        context.downloadSettingsDataStore.edit { it[KEY_AUTO_MOST_PLAYED_ALBUMS] = count }
+    }
+
+    companion object {
+        /** Wahlmöglichkeiten für [autoDownloadNewestAlbums] und [autoDownloadMostPlayedAlbums]; 0 = aus. */
+        val AUTO_ALBUM_CHOICES = listOf(0, 10, 25, 50)
+
+        private val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only")
+        private val KEY_AUTO_FAVORITES = booleanPreferencesKey("auto_download_favorites")
+        private val KEY_AUTO_SERVERS = stringSetPreferencesKey("auto_download_servers")
+        private val KEY_AUTO_NEWEST_ALBUMS = intPreferencesKey("auto_download_newest_albums")
+        private val KEY_AUTO_MOST_PLAYED_ALBUMS = intPreferencesKey("auto_download_most_played_albums")
     }
 }
 

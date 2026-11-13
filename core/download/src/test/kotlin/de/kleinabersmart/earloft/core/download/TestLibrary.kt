@@ -39,7 +39,7 @@ internal class TestLibrary {
         ),
     )
 
-    suspend fun song(albumId: Long, title: String, vararg sources: Pair<String, String>): Long {
+    suspend fun song(albumId: Long, title: String, vararg sources: Pair<String, String>, dateAdded: Long = 0): Long {
         val songId = db.libraryDao().insertSong(
             SongEntity(
                 albumId = albumId,
@@ -47,7 +47,7 @@ internal class TestLibrary {
                 normTitle = title.lowercase(),
                 artistDisplay = "Band",
                 durationMs = 1_000,
-                dateAdded = 0,
+                dateAdded = dateAdded,
             ),
         )
         sources.forEach { (sourceId, remoteId) ->

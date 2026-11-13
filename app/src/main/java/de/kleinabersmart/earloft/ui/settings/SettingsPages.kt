@@ -41,6 +41,7 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.sync.LibrarySettings
+import de.kleinabersmart.earloft.core.download.DownloadSettings
 import de.kleinabersmart.earloft.core.model.MobileStreamQuality
 import de.kleinabersmart.earloft.core.model.ReplayGainMode
 import de.kleinabersmart.earloft.ui.components.EmptyHint
@@ -65,6 +66,16 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 // Abschnitte ohne Inhalt entfallen (Konzept 6).
 
 /** „Jetzt abgleichen“ o. Ä. als Zeile des Abschnitts „Aktualisierung“. */
+/** Die beiden Automatiken für Alben in den Download-Einstellungen. */
+private enum class AutoAlbums(val title: Int, val summary: Int) {
+    NEWEST(R.string.settings_auto_download_newest_albums, R.string.settings_auto_download_newest_albums_summary),
+    MOST_PLAYED(R.string.settings_auto_download_most_played_albums, R.string.settings_auto_download_most_played_albums_summary),
+}
+
+@Composable
+private fun autoAlbumsLabel(count: Int): String =
+    if (count == 0) stringResource(R.string.settings_auto_download_albums_off) else pluralStringResource(R.plurals.album_count, count, count)
+
 @Composable
 private fun RefreshRow(title: String, onClick: () -> Unit) {
     ListItem(
@@ -281,6 +292,7 @@ fun MusicSettingsScreen(
     var serverToRemove by rememberSaveable { mutableStateOf<String?>(null) }
     var choosingReplayGain by rememberSaveable { mutableStateOf(false) }
     var choosingMobileQuality by rememberSaveable { mutableStateOf(false) }
+    var choosingAutoAlbums by rememberSaveable { mutableStateOf<AutoAlbums?>(null) }
     var choosingSyncInterval by rememberSaveable { mutableStateOf(false) }
     // Einschalten erst mit Berechtigung; sonst stünde gleich wieder die Berechtigungsseite davor.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
@@ -402,6 +414,22 @@ fun MusicSettingsScreen(
                     onCheckedChange = viewModel::setAutoDownloadFavorites,
                 )
             }
+            row("auto-newest-albums") {
+                ClickRow(
+                    title = stringResource(R.string.settings_auto_download_newest_albums),
+                    value = autoAlbumsLabel(state.autoDownloadNewestAlbums),
+                    icon = DesignR.drawable.ic_download,
+                    onClick = { choosingAutoAlbums = AutoAlbums.NEWEST },
+                )
+            }
+            row("auto-most-played-albums") {
+                ClickRow(
+                    title = stringResource(R.string.settings_auto_download_most_played_albums),
+                    value = autoAlbumsLabel(state.autoDownloadMostPlayedAlbums),
+                    icon = DesignR.drawable.ic_replay,
+                    onClick = { choosingAutoAlbums = AutoAlbums.MOST_PLAYED },
+                )
+            }
         }
     }
 
@@ -416,6 +444,21 @@ fun MusicSettingsScreen(
                 choosingSyncInterval = false
             },
             onDismiss = { choosingSyncInterval = false },
+        )
+    }
+
+    choosingAutoAlbums?.let { rule ->
+        ChoiceDialog(
+            title = stringResource(rule.title),
+            options = DownloadSettings.AUTO_ALBUM_CHOICES,
+            selected = if (rule == AutoAlbums.NEWEST) state.autoDownloadNewestAlbums else state.autoDownloadMostPlayedAlbums,
+            label = { autoAlbumsLabel(it) },
+            description = stringResource(rule.summary),
+            onSelect = {
+                if (rule == AutoAlbums.NEWEST) viewModel.setAutoDownloadNewestAlbums(it) else viewModel.setAutoDownloadMostPlayedAlbums(it)
+                choosingAutoAlbums = null
+            },
+            onDismiss = { choosingAutoAlbums = null },
         )
     }
 

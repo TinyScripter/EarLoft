@@ -33,6 +33,12 @@ const val SONG_VISIBLE = """EXISTS (
     WHERE vss.songId = s.songId AND vsrc.enabled = 1
 )"""
 
+/** Der Song (Alias `s`) liegt als Datei auf dem Gerät (eingeschaltete lokale Quelle). */
+const val SONG_LOCAL = """EXISTS (
+    SELECT 1 FROM song_sources lss JOIN sources lsrc ON lsrc.sourceId = lss.sourceId
+    WHERE lss.songId = s.songId AND lsrc.type = 'LOCAL' AND lsrc.enabled = 1
+)"""
+
 private const val SELECT_SONG_ROWS = """
     SELECT s.songId, s.title, s.artistDisplay, s.albumId, a.title AS albumTitle,
            s.durationMs, s.discNumber, s.trackNumber, s.isFavorite

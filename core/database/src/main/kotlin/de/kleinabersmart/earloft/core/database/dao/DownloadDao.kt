@@ -189,6 +189,60 @@ interface DownloadDao {
     @Query("SELECT DISTINCT pinnedBy FROM downloads WHERE pinnedBy LIKE :prefix || '%'")
     suspend fun getPinnedByWithPrefix(prefix: String): List<String>
 
+    // --- Neueste und meistgehörte Alben automatisch herunterladen ---
+
+    /** Die zuletzt hinzugefügten sichtbaren Alben mit Songs ohne Datei auf dem Gerät (nur die zählen beim Laden). */
+    @Query(
+        """
+        SELECT a.albumId FROM albums a
+        JOIN songs s ON s.albumId = a.albumId AND $SONG_VISIBLE AND NOT $SONG_LOCAL
+        GROUP BY a.albumId
+        ORDER BY MAX(s.dateAdded) DESC, a.albumId DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeNewestServerAlbumIds(limit: Int): Flow<List<Long>>
+
+    /**
+     * Wie das Regal „Meistgehört“: die seit [since] am häufigsten gehörten Alben mit mindestens [minPlays] Wiedergaben, bei
+     * Gleichstand das zuletzt gehörte zuerst; gezählt nur Songs ohne Datei auf dem Gerät.
+     */
+    @Query(
+        """
+        SELECT a.albumId FROM albums a
+        JOIN songs s ON s.albumId = a.albumId AND $SONG_VISIBLE AND NOT $SONG_LOCAL
+        JOIN play_events pe ON pe.songId = s.songId AND pe.playedAt >= :since
+        GROUP BY a.albumId
+        HAVING COUNT(*) >= :minPlays
+        ORDER BY COUNT(*) DESC, MAX(pe.playedAt) DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeMostPlayedServerAlbumIds(since: Long, minPlays: Int, limit: Int): Flow<List<Long>>
+
+    /** Downloads mit [pinnedBy], deren Song zu keinem der [albumIds] gehört. */
+    @Query(
+        """
+        SELECT d.* FROM downloads d
+        JOIN song_sources ss ON ss.uid = d.sourceUid
+        JOIN songs s ON s.songId = ss.songId
+        WHERE d.pinnedBy = :pinnedBy AND s.albumId NOT IN (:albumIds)
+        """,
+    )
+    suspend fun getPinnedByOutsideAlbums(pinnedBy: String, albumIds: List<Long>): List<DownloadEntity>
+
+    /** Wie [getPinnedByOutsideAlbums], aber nur Favoriten; sie gehen an [to] über. */
+    @Query(
+        """
+        UPDATE downloads SET pinnedBy = :to
+        WHERE pinnedBy = :from AND sourceUid IN (
+            SELECT ss.uid FROM song_sources ss JOIN songs s ON s.songId = ss.songId
+            WHERE s.isFavorite = 1 AND s.albumId NOT IN (:albumIds)
+        )
+        """,
+    )
+    suspend fun repinFavoritesOutsideAlbums(from: String, to: String, albumIds: List<Long>)
+
     // --- Wiedergabe ---
 
     /** Fertig geladene Dateien eines Songs (meist höchstens eine). */

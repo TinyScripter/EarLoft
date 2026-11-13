@@ -120,7 +120,7 @@ internal fun ClickRow(title: String, value: String, icon: Int, onClick: () -> Un
     )
 }
 
-/** Auswahl eines Werts mit Radio-Zeilen; ein Tipp wählt und schließt. */
+/** Auswahl eines Werts mit Radio-Zeilen; ein Tipp wählt und schließt. [description] steht einmal über den Zeilen. */
 @Composable
 internal fun <T> ChoiceDialog(
     title: String,
@@ -130,12 +130,14 @@ internal fun <T> ChoiceDialog(
     onSelect: (T) -> Unit,
     onDismiss: () -> Unit,
     summary: @Composable (T) -> String? = { null },
+    description: String? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
             Column(Modifier.selectableGroup()) {
+                description?.let { Text(it, Modifier.padding(bottom = 8.dp), style = MaterialTheme.typography.bodyMedium) }
                 options.forEach { option ->
                     val optionSummary = summary(option)
                     ListItem(
