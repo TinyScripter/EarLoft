@@ -20,16 +20,18 @@ import de.kleinabersmart.earloft.core.data.spoken.automaticBookDownloads
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.FinishedDownloadRow
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -56,6 +58,9 @@ class BookDownloads @Inject constructor(
 
     /** Das Buch im Player (aus [start]); seine Dateien bleiben beim Aufräumen beendeter Bücher. */
     private var loadedBookId: Flow<Long?> = flowOf(null)
+
+    /** Die zuletzt vollständig eingereihte Auswahl der Automatik; erst eine andere wird wieder eingereiht. */
+    private var handled: List<Long> = emptyList()
 
     /**
      * Reiht alle Dateien des Buchs ein, die noch nicht geladen sind. Die Dateiliste kommt vom Server und muss dafür
@@ -106,7 +111,7 @@ class BookDownloads @Inject constructor(
      * Einmal beim Start der App: wartende Downloads nach einem Prozessende fortsetzen, Netzeinstellung nachziehen,
      * Automatik und Aufräumen anhängen. [loadedBookId]: was im Player liegt.
      */
-    @OptIn(FlowPreview::class)
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     fun start(scope: CoroutineScope, loadedBookId: Flow<Long?> = flowOf(null)) {
         if (!started.compareAndSet(false, true)) return
         this.loadedBookId = loadedBookId
@@ -121,22 +126,23 @@ class BookDownloads @Inject constructor(
                 if (dao.countPendingBookDownloads() > 0) enqueueWorker(ExistingWorkPolicy.REPLACE)
             }
         }
-        // Automatik: bei jeder Änderung von Fortschritt, Büchern, Schaltern und WLAN, gebündelt (beim Hören ändert sich der
-        // Fortschritt alle paar Sekunden). Ohne WLAN wird nichts eingereiht, im WLAN dann nachgeholt.
+        // Automatik, nur mit einem ihrer Schalter: bei jeder Änderung von Fortschritt, Büchern und WLAN, höchstens alle
+        // [AUTOMATIC_SAMPLE_MS] (beim Hören ändert sich der Fortschritt alle paar Sekunden). Ohne WLAN wird nichts
+        // eingereiht, im WLAN dann nachgeholt; ein Buch ohne Dateiliste (Server nicht erreichbar) beim nächsten Mal.
         scope.launch {
-            combine(
-                books.continueListening(),
-                books.books(),
-                settings.bookAutoStarted,
-                settings.bookAutoNextInSeries,
-                unmeteredNetwork(),
-            ) { continueListening, all, started, next, wifi ->
-                if (!wifi) return@combine emptyList()
-                automaticBookDownloads(continueListening, all, started, next, System.currentTimeMillis())
-            }
-                .debounce(AUTOMATIC_DEBOUNCE_MS)
+            combine(settings.bookAutoStarted, settings.bookAutoNextInSeries, ::Pair)
                 .distinctUntilChanged()
-                .collect { queueAutomatic(it) }
+                .flatMapLatest { (started, next) ->
+                    if (!started && !next) return@flatMapLatest flowOf(emptyList())
+                    combine(books.continueListening(), books.books(), unmeteredNetwork()) { continueListening, all, wifi ->
+                        if (!wifi) return@combine emptyList()
+                        automaticBookDownloads(continueListening, all, started, next, System.currentTimeMillis())
+                    }
+                }
+                .sample(AUTOMATIC_SAMPLE_MS)
+                .collect { bookIds ->
+                    if (bookIds != handled && queueAutomatic(bookIds)) handled = bookIds
+                }
         }
         scope.launch {
             combine(dao.observeFinishedBookDownloads(), settings.bookDeleteFinishedDays, loadedBookId, ::Triple)
@@ -165,18 +171,23 @@ class BookDownloads @Inject constructor(
         awaitClose { manager.unregisterNetworkCallback(callback) }
     }.distinctUntilChanged()
 
-    private suspend fun queueAutomatic(bookIds: List<Long>) {
-        if (bookIds.isEmpty()) return
+    /** @return ob alle Bücher erledigt sind (sonst fehlte einem die Dateiliste vom Server). */
+    private suspend fun queueAutomatic(bookIds: List<Long>): Boolean {
         var queued = 0
+        var complete = true
         for (bookId in bookIds) {
             // Dateiliste vom Server, falls noch nicht geladen; ohne Verbindung beim nächsten Mal.
-            if (books.timeline(bookId) == null) continue
+            if (books.timeline(bookId) == null) {
+                complete = false
+                continue
+            }
             queued += dao.queueBookDownloadAutomatic(bookId)
         }
         if (queued > 0) {
             Log.i(TAG, "Automatik: $queued Dateien von ${bookIds.size} Büchern eingereiht")
             enqueueWorker()
         }
+        return complete
     }
 
     private suspend fun enqueueWorker(policy: ExistingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE) {
@@ -196,6 +207,6 @@ class BookDownloads @Inject constructor(
     private companion object {
         const val WORK_NAME = "book-downloads"
         const val TAG = "BookDownloads"
-        const val AUTOMATIC_DEBOUNCE_MS = 5_000L
+        const val AUTOMATIC_SAMPLE_MS = 5_000L
     }
 }

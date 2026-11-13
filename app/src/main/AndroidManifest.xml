@@ -27,7 +27,7 @@
     <!-- MissingMediaBrowserServiceIntentFilter: Der PlaybackService samt Filter steht im Manifest von core:playback, das
          Lint hier nicht mitliest.
          largeHeap: ExoPlayer hält bei MP4/M4B die Sample-Tabelle der ganzen Datei im Java-Heap (rund 32 Byte je
-         AAC-Frame, ein 17-h-Buch etwa 70 MB, beim Einlesen kurz das Doppelte). Mit der normalen Grenze (192 MB am
+         AAC-Frame, ein 17-h-Buch etwa 85 MB, beim Einlesen kurz das Doppelte). Mit der normalen Grenze (192 MB am
          Emulator) scheiterten lange Hörbücher mit OutOfMemoryError. -->
     <application
         android:name=".EarLoftApplication"

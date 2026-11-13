@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -139,6 +140,11 @@ class BookViewModel @AssistedInject constructor(
 
     /** Die Wiedergabe-Ansicht soll aufgehen: [play] hat das Buch gestartet oder fortgesetzt. */
     val openPlayer: Flow<Unit> = _openPlayer.receiveAsFlow()
+
+    init {
+        // Kam vor dem Start die Rückfrage zu mobilen Daten, startet das Buch erst nach „Abspielen“.
+        viewModelScope.launch { launcher.confirmedStarts.filter { it == bookId }.collect { _openPlayer.send(Unit) } }
+    }
 
     /**
      * „Abspielen“/„Weiterhören“: Ist das Buch schon geladen, geht es dort weiter, sonst wird es gestartet (ein zu Ende

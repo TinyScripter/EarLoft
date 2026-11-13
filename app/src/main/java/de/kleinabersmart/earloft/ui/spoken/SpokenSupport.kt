@@ -11,7 +11,6 @@ import de.kleinabersmart.earloft.core.model.BookKind
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -485,23 +484,19 @@ fun formatClock(ms: Long): String {
 fun BookLaunchEffect(viewModel: BookLaunchViewModel = hiltViewModel()) {
     val resources = LocalResources.current
     val snackbars = LocalSnackbars.current
-    var confirming by remember { mutableStateOf<BookLaunchEvent.ConfirmMobile?>(null) }
     LaunchedEffect(viewModel) {
         viewModel.launcher.events.collect { event ->
             val text = when (event) {
                 BookLaunchEvent.Failed -> resources.getString(R.string.spoken_play_failed)
                 is BookLaunchEvent.ResumedFromServer ->
                     resources.getString(R.string.spoken_resumed_from_server, formatClock(event.positionMs))
-                is BookLaunchEvent.ConfirmMobile -> {
-                    confirming = event
-                    null
-                }
             }
-            if (text != null) snackbars.show(text, SnackbarDuration.Long)
+            snackbars.show(text, SnackbarDuration.Long)
         }
     }
-    confirming?.let { request ->
-        val close = { confirming = null }
+    val question by viewModel.launcher.question.collectAsStateWithLifecycle()
+    question?.let { request ->
+        val close = viewModel.launcher::dismissQuestion
         AlertDialog(
             onDismissRequest = close,
             title = { Text(stringResource(R.string.spoken_mobile_stream_title)) },
