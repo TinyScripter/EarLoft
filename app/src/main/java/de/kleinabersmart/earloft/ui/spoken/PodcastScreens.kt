@@ -33,10 +33,21 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Surface
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.FeedSort
+import de.kleinabersmart.earloft.ui.components.HeaderAction
+import de.kleinabersmart.earloft.ui.components.SortButton
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -135,6 +146,8 @@ fun PodcastHomeScreen(
     val recent by viewModel.recent.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
+    val feedSort by viewModel.feedSort.collectAsStateWithLifecycle()
+    val newEpisodeCounts by viewModel.newEpisodeCounts.collectAsStateWithLifecycle()
     val rowState = rememberFrontRowState(episodes.map { it.book.id })
     val recentRowState = rememberFrontRowState(recent.map { it.book.id })
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
@@ -184,12 +197,13 @@ fun PodcastHomeScreen(
             return@LazyColumn
         }
         item(key = "subscriptions") {
-            Shelf(stringResource(R.string.podcast_subscriptions)) {
+            Shelf(stringResource(R.string.podcast_subscriptions), action = { FeedSortButton(feedSort, viewModel::setFeedSort) }) {
                 val list = feeds.valueOrNull
                 if (feeds == LoadState.Failed) {
                     LoadFailedHint()
                 } else {
                     val rowState = rememberLazyListState()
+                    ShowStartOnNewFirst(list?.firstOrNull()?.id) { rowState.scrollToItem(0) }
                     LazyRow(
                         state = rowState,
                         modifier = Modifier.keepHorizontalScroll(rowState),
@@ -201,7 +215,8 @@ fun PodcastHomeScreen(
                                 feed,
                                 onClick = { onFeedClick(feed.id) },
                                 onSettings = { onFeedSettings(feed.id) },
-                                modifier = Modifier.width(140.dp),
+                                modifier = Modifier.width(140.dp).animateItem(),
+                                newEpisodes = newEpisodeCounts[feed.id] ?: 0,
                             )
                         }
                     }
@@ -218,8 +233,8 @@ fun PodcastHomeScreen(
 }
 
 /**
- * Bild und Titel eines Abos, unten links auf dem Bild die Zahl der geladenen Folgen ([FeedDownloadBadge]); Langklick öffnet
- * das [FeedMenu], dessen letzter Eintrag die Einstellungen ([onSettings]).
+ * Bild und Titel eines Abos, unten links auf dem Bild die Zahl der geladenen Folgen ([FeedDownloadBadge]), oben rechts die
+ * der neuen ([newEpisodes]); Langklick öffnet das [FeedMenu], dessen letzter Eintrag die Einstellungen ([onSettings]).
  */
 @Composable
 fun FeedCard(
@@ -228,6 +243,7 @@ fun FeedCard(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: Dp = 0.dp,
+    newEpisodes: Int = 0,
 ) {
     var menu by remember { mutableStateOf(false) }
     Column(
@@ -243,6 +259,7 @@ fun FeedCard(
         Box {
             PodcastArt(feed.imageUrl, Modifier.fillMaxWidth())
             FeedDownloadBadge(feed.id, Modifier.align(Alignment.BottomStart).padding(6.dp))
+            NewEpisodesBadge(newEpisodes, Modifier.align(Alignment.TopEnd).padding(6.dp))
         }
         // Immer zwei Zeilen hoch, damit Kacheln einer Reihe gleich hoch sind.
         Text(
@@ -275,10 +292,17 @@ fun PodcastLibraryScreen(
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
     val unheard by viewModel.unheard.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
+    val feedSort by viewModel.feedSort.collectAsStateWithLifecycle()
+    val newEpisodeCounts by viewModel.newEpisodeCounts.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { PodcastTab.entries.size }
     val scope = rememberCoroutineScope()
     val empty: @Composable () -> Unit = {
         EmptyAreaHint(SpokenMode.PODCASTS, stringResource(R.string.podcast_none), stringResource(R.string.podcast_add), onAddPodcast)
+    }
+
+    // Wie in der Musik-Bibliothek steht die Sortierung des Reiters „Abos“ im Kopf der App links von der Lupe.
+    HeaderAction {
+        if (PodcastTab.entries[pagerState.targetPage] == PodcastTab.FEEDS) FeedSortButton(feedSort, viewModel::setFeedSort)
     }
 
     Column(modifier.fillMaxSize()) {
@@ -302,7 +326,7 @@ fun PodcastLibraryScreen(
                     playingId,
                     viewModel::playOrPause,
                 )
-                PodcastTab.FEEDS -> FeedGrid(feeds, onFeedClick, onFeedSettings, onAdd = onAddPodcast, empty = empty)
+                PodcastTab.FEEDS -> FeedGrid(feeds, newEpisodeCounts, onFeedClick, onFeedSettings, onAdd = onAddPodcast, empty = empty)
                 PodcastTab.STATS -> PodcastStatsScreen(onFeedClick)
             }
         }
@@ -365,6 +389,7 @@ private fun UnheardList(
 @Composable
 private fun FeedGrid(
     state: LoadState<List<PodcastFeed>>,
+    newEpisodeCounts: Map<String, Int>,
     onFeedClick: (String) -> Unit,
     onFeedSettings: (String) -> Unit,
     onAdd: () -> Unit,
@@ -372,8 +397,11 @@ private fun FeedGrid(
 ) {
     Box(Modifier.fillMaxSize()) {
         LoadableList(state, empty) { feeds ->
+            val gridState = rememberLazyGridState()
+            ShowStartOnNewFirst(feeds.firstOrNull()?.id) { gridState.scrollToItem(0) }
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
+                state = gridState,
                 // Unten Platz lassen, damit der Knopf das letzte Abo nicht verdeckt.
                 contentPadding = PaddingValues(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 88.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -385,8 +413,9 @@ private fun FeedGrid(
                         feed,
                         onClick = { onFeedClick(feed.id) },
                         onSettings = { onFeedSettings(feed.id) },
-                        modifier = Modifier.gridTile(MaterialTheme.colorScheme.surfaceContainer),
+                        modifier = Modifier.gridTile(MaterialTheme.colorScheme.surfaceContainer).animateItem(),
                         contentPadding = GridTilePadding,
+                        newEpisodes = newEpisodeCounts[feed.id] ?: 0,
                     )
                 }
             }
@@ -415,6 +444,7 @@ fun PodcastScreen(
 ) {
     val feed by viewModel.feed.collectAsStateWithLifecycle()
     val episodes by viewModel.episodes.collectAsStateWithLifecycle()
+    val shownEpisodes by viewModel.shownEpisodes.collectAsStateWithLifecycle()
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.progress.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
@@ -432,6 +462,14 @@ fun PodcastScreen(
             navigationIcon = { BackButton(onBack) },
             // Der Aktualisieren-Knopf steht ganz rechts wie in den anderen Bildschirmen, die Suche links davon.
             actions = {
+                if (current != null) {
+                    SortButton(
+                        current.listOldestFirst,
+                        listOf(false, true),
+                        { stringResource(if (it) R.string.episode_sort_oldest else R.string.episode_sort_newest) },
+                        viewModel::setListOldestFirst,
+                    )
+                }
                 if (current != null && !current.isLocal) ShareButton(ShareTarget.Feed(current.id))
                 IconButton(onClick = onSearch, enabled = current != null) {
                     Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_search))
@@ -445,7 +483,7 @@ fun PodcastScreen(
             FeedNotReady(feed)
             return@Column
         }
-        val list = episodes.valueOrNull.orEmpty()
+        val list = shownEpisodes.valueOrNull.orEmpty()
         PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                 item(key = "header") {
@@ -492,8 +530,14 @@ fun PodcastScreen(
                 item(key = "episodes-header") { SectionHeader(stringResource(R.string.podcast_episodes)) }
                 if (episodes == LoadState.Failed) {
                     item(key = "failed") { LoadFailedHint() }
-                } else if (episodes is LoadState.Ready && list.isEmpty()) {
+                } else if (episodes is LoadState.Ready && episodes.valueOrNull.isNullOrEmpty()) {
                     item(key = "empty") { EmptyHint(stringResource(R.string.podcast_no_episodes)) }
+                } else if (episodes is LoadState.Ready) {
+                    // Die Chips bleiben stehen, auch wenn der Filter nichts übrig lässt, damit man ihn lösen kann.
+                    item(key = "filter") { EpisodeFilterChips(current.episodeFilter, viewModel::setEpisodeFilter) }
+                    if (shownEpisodes is LoadState.Ready && list.isEmpty()) {
+                        item(key = "filter-empty") { EmptyHint(stringResource(R.string.library_filter_empty)) }
+                    }
                 }
                 // Mehrere Folgen am selben Tag bzw. mit gleichem Titel: Uhrzeit bzw. erste Zeile der Shownotes dazu.
                 val sameDay = episodesSharingDay(list.map { it.book })
@@ -518,6 +562,78 @@ fun PodcastScreen(
 }
 
 private val HEADER_ART_SIZE = 144.dp
+
+/**
+ * Steht ein anderes Abo vorn (andere Sortierung, neue Folge, gehört), zeigt die Liste wieder ihren Anfang: Eine Lazy-Liste
+ * hielte sonst das bisher erste Abo fest, und die neuen ersten lägen außerhalb (wie [rememberFrontRowState]).
+ */
+@Composable
+private fun ShowStartOnNewFirst(firstId: String?, scrollToStart: suspend () -> Unit) {
+    var shown by rememberSaveable { mutableStateOf(firstId) }
+    LaunchedEffect(firstId) {
+        if (firstId != shown) {
+            shown = firstId
+            scrollToStart()
+        }
+    }
+}
+
+/** Sortierung der Abos (Start und Reiter „Abos“ teilen sie). */
+@Composable
+private fun FeedSortButton(sort: FeedSort, onSelect: (FeedSort) -> Unit) {
+    SortButton(sort, FeedSort.entries, { stringResource(it.label) }, onSelect)
+}
+
+private val FeedSort.label: Int
+    get() = when (this) {
+        FeedSort.NAME -> R.string.sort_name
+        FeedSort.NEWEST_EPISODE -> R.string.feed_sort_newest_episode
+        FeedSort.RECENTLY_PLAYED -> R.string.sort_recently_played
+        FeedSort.MOST_NEW -> R.string.feed_sort_most_new
+    }
+
+/** Filter der Folgenliste eines Abos: genau einer ist gewählt. Lässt sich seitlich wischen, wenn die Breite nicht reicht. */
+@Composable
+private fun EpisodeFilterChips(selected: EpisodeFilter, onSelect: (EpisodeFilter) -> Unit) {
+    val scroll = rememberScrollState()
+    Row(
+        Modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        EpisodeFilter.entries.forEach { filter ->
+            FilterChip(selected = filter == selected, onClick = { onSelect(filter) }, label = { Text(stringResource(filter.label)) })
+        }
+    }
+}
+
+private val EpisodeFilter.label: Int
+    get() = when (this) {
+        EpisodeFilter.ALL -> R.string.episode_filter_all
+        EpisodeFilter.UNHEARD -> R.string.episode_filter_unheard
+        EpisodeFilter.STARTED -> R.string.episode_filter_started
+        EpisodeFilter.DOWNLOADED -> R.string.episode_filter_downloaded
+    }
+
+/** Zahl der neuen Folgen ([FeedStats.newEpisodes]) oben rechts auf dem Bild eines Abos; ab 100 „99+“. */
+@Composable
+private fun NewEpisodesBadge(count: Int, modifier: Modifier = Modifier) {
+    if (count <= 0) return
+    val description = pluralStringResource(R.plurals.feed_new, count, count)
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.tertiary,
+        contentColor = MaterialTheme.colorScheme.onTertiary,
+        modifier = modifier.clearAndSetSemantics { contentDescription = description },
+    ) {
+        Text(
+            if (count > MAX_BADGE_COUNT) "$MAX_BADGE_COUNT+" else count.toString(),
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
+}
+
+private const val MAX_BADGE_COUNT = 99
 
 /** Inhalt der Podcast-Seiten, solange der Podcast nicht geladen ist oder nicht mehr existiert. */
 @Composable
@@ -744,6 +860,7 @@ fun PodcastSettingsScreen(
                         onCheckedChange = viewModel::setNewestFirst,
                     )
                 }
+                row("queue") { FeedQueueRows(current, viewModel::setQueueMode, viewModel::setKeepEpisodes) }
                 // Podcasts vom Gerät haben weder Feed noch Downloads und lassen sich nur durch Entfernen der Dateien beenden.
                 if (!current.isLocal) row("auto-download") {
                     SwitchRow(

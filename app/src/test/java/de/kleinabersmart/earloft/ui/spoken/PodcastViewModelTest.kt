@@ -6,6 +6,7 @@ import dagger.hilt.android.testing.HiltTestApplication
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRefresher
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
+import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.SpokenEntry
 import de.kleinabersmart.earloft.testing.FakePlaybackConnection
@@ -38,8 +39,9 @@ class PodcastViewModelTest {
     @Inject lateinit var refresher: PodcastRefresher
     @Inject lateinit var launcher: BookLauncher
     @Inject lateinit var continueListening: ContinueListening
+    @Inject lateinit var settings: PodcastSettings
 
-    private val viewModel by lazy { PodcastViewModel(podcasts, refresher, launcher, playback, continueListening) }
+    private val viewModel by lazy { PodcastViewModel(podcasts, refresher, launcher, playback, continueListening, settings) }
 
     @Before
     fun setUp() {

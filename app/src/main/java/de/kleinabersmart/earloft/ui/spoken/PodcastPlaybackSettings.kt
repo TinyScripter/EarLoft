@@ -6,9 +6,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.EffectOverrides
+import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.ui.settings.ChoiceDialog
@@ -133,6 +135,69 @@ internal fun FeedPlaybackRows(
         null -> Unit
     }
 }
+
+private enum class QueueChoice { MODE, KEEP }
+
+/** Was von selbst in „Weiterhören“ kommt und wie viele Folgen die Listen zeigen (Abo-Einstellungen). */
+@Composable
+internal fun FeedQueueRows(feed: PodcastFeed, onQueueMode: (FeedQueueMode) -> Unit, onKeep: (Int) -> Unit) {
+    var choosing by rememberSaveable { mutableStateOf<QueueChoice?>(null) }
+    val keepLabel: @Composable (Int) -> String = {
+        if (it <= 0) stringResource(R.string.podcast_keep_all) else pluralStringResource(R.plurals.podcast_keep_newest, it, it)
+    }
+    Column {
+        ClickRow(
+            title = stringResource(R.string.podcast_queue_mode),
+            value = stringResource(feed.queueMode.label),
+            icon = DesignR.drawable.ic_queue_music,
+            onClick = { choosing = QueueChoice.MODE },
+        )
+        ClickRow(
+            title = stringResource(R.string.podcast_keep_episodes),
+            value = keepLabel(feed.keepEpisodes),
+            icon = DesignR.drawable.ic_list,
+            onClick = { choosing = QueueChoice.KEEP },
+        )
+    }
+    val close = { choosing = null }
+    when (choosing) {
+        QueueChoice.MODE -> ChoiceDialog(
+            title = stringResource(R.string.podcast_queue_mode),
+            options = FeedQueueMode.entries,
+            selected = feed.queueMode,
+            label = { stringResource(it.label) },
+            onSelect = {
+                onQueueMode(it)
+                close()
+            },
+            onDismiss = close,
+            description = stringResource(R.string.podcast_queue_mode_description),
+        )
+        QueueChoice.KEEP -> ChoiceDialog(
+            title = stringResource(R.string.podcast_keep_episodes),
+            options = (KEEP_CHOICES + feed.keepEpisodes).distinct().sorted(),
+            selected = feed.keepEpisodes,
+            label = keepLabel,
+            onSelect = {
+                onKeep(it)
+                close()
+            },
+            onDismiss = close,
+            description = stringResource(R.string.podcast_keep_episodes_description),
+        )
+        null -> Unit
+    }
+}
+
+private val FeedQueueMode.label: Int
+    get() = when (this) {
+        FeedQueueMode.ALL_NEW -> R.string.podcast_queue_mode_all
+        FeedQueueMode.NEWEST_ONLY -> R.string.podcast_queue_mode_newest
+        FeedQueueMode.MANUAL -> R.string.podcast_queue_mode_manual
+    }
+
+/** „Folgen behalten“: 0 = alle. */
+private val KEEP_CHOICES = listOf(0, 1, 3, 5, 10, 25, 50)
 
 /** Der Wert des Abos, ohne eigenen „Standard (Wert des Bereichs)“. */
 @Composable

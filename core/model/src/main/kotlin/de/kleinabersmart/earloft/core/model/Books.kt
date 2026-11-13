@@ -172,6 +172,13 @@ data class PodcastFeed(
     /** Sekunden, die am Anfang bzw. Ende jeder Folge übersprungen werden (0 = aus). */
     val skipIntroS: Int = 0,
     val skipOutroS: Int = 0,
+    /** Filter und Reihenfolge der Folgen auf der Seite des Abos (nur die Anzeige). */
+    val episodeFilter: EpisodeFilter = EpisodeFilter.ALL,
+    val listOldestFirst: Boolean = false,
+    /** Was von selbst in „Weiterhören“ kommt. */
+    val queueMode: FeedQueueMode = FeedQueueMode.ALL_NEW,
+    /** Nur die neuesten so vielen Folgen zeigen, ältere nie angefangene ausblenden ([keepNewest]); 0 = alle. */
+    val keepEpisodes: Int = 0,
 ) {
     /** Aus dem Ordner „Podcasts“: keine Feed-Adresse, kein Abgleich, kein Download, kein Abo zu beenden. */
     val isLocal: Boolean get() = id.startsWith(LOCAL_PODCAST_PREFIX)

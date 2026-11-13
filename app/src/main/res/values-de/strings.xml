@@ -716,6 +716,38 @@
     <string name="episode_mark_unplayed">Als ungespielt markieren</string>
     <string name="episode_mark_played_play_next">Als abgespielt markieren und nächste spielen</string>
     <string name="episode_reset_position">Wiedergabeposition zurücksetzen</string>
+    <string name="episode_play_next">Als Nächstes spielen</string>
+    <string name="episode_filter_all">Alle</string>
+    <string name="episode_filter_unheard">Ungehört</string>
+    <string name="episode_filter_started">Angefangen</string>
+    <string name="episode_filter_downloaded">Geladen</string>
+    <string name="episode_sort_newest">Neueste zuerst</string>
+    <string name="episode_sort_oldest">Älteste zuerst</string>
+    <string name="feed_sort_newest_episode">Neueste Folge</string>
+    <string name="feed_sort_most_new">Meiste neue Folgen</string>
+    <plurals name="feed_new">
+        <item quantity="one">%1$d neue Folge seit dem letzten Hören</item>
+        <item quantity="other">%1$d neue Folgen seit dem letzten Hören</item>
+    </plurals>
+    <string name="podcast_queue_mode">In Weiterhören</string>
+    <string name="podcast_queue_mode_all">Alle neuen Folgen</string>
+    <string name="podcast_queue_mode_newest">Nur die neueste</string>
+    <string name="podcast_queue_mode_manual">Nur von Hand</string>
+    <string name="podcast_queue_mode_description">Welche neuen Folgen dort von selbst erscheinen. Angefangene Folgen bleiben immer. Mit automatischem Download hält „Nur die neueste“ auch nur die neueste Folge bereit.</string>
+    <string name="podcast_keep_episodes">Folgen behalten</string>
+    <string name="podcast_keep_all">Alle</string>
+    <plurals name="podcast_keep_newest">
+        <item quantity="one">Nur die neueste</item>
+        <item quantity="other">Die neuesten %1$d</item>
+    </plurals>
+    <string name="podcast_keep_episodes_description">Ältere Folgen, die nie angefangen wurden, verschwinden aus den Listen. Angefangene und gehörte bleiben; am Feed selbst ändert sich nichts.</string>
+    <plurals name="podcast_queue_summary">
+        <item quantity="one">%1$d Folge · noch %2$s</item>
+        <item quantity="other">%1$d Folgen · noch %2$s</item>
+    </plurals>
+    <string name="podcast_queue_clear">Warteschlange leeren</string>
+    <string name="podcast_queue_clear_title">Warteschlange leeren?</string>
+    <string name="podcast_queue_clear_message">Alle Folgen verlassen Weiterhören, nur die geladene bleibt. Die Stellen bleiben erhalten, neue Folgen erscheinen weiter wie gewohnt. Gehörte Folgen verlassen die Warteschlange von selbst.</string>
     <string name="book_hide_from_continue">Aus „Weiterhören“ entfernen</string>
     <string name="book_series_volume">%1$s · Band %2$s</string>
     <string name="book_open_series">Serie öffnen</string>

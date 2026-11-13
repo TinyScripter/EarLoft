@@ -1,6 +1,12 @@
 package de.kleinabersmart.earloft.ui.spoken
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Column
@@ -75,18 +81,67 @@ fun PodcastQueueScreen(
     onSearch: () -> Unit,
     onEpisodeClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    viewModel: PodcastQueueViewModel = hiltViewModel(),
 ) {
+    val summary by viewModel.summary.collectAsStateWithLifecycle()
+    var menu by remember { mutableStateOf(false) }
+    var confirmClear by rememberSaveable { mutableStateOf(false) }
     Column(modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(stringResource(R.string.player_queue)) },
+            title = {
+                Column {
+                    Text(stringResource(R.string.player_queue))
+                    summary?.let {
+                        Text(
+                            pluralStringResource(R.plurals.podcast_queue_summary, it.count, it.count, formatDuration(it.remainingMs)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            },
             navigationIcon = { BackButton(onBack) },
             actions = {
                 IconButton(onClick = onSearch) {
                     Icon(painterResource(R.drawable.ic_nav_search), contentDescription = stringResource(R.string.podcast_queue_search))
                 }
+                if (summary != null) {
+                    Box {
+                        IconButton(onClick = { menu = true }) {
+                            Icon(painterResource(DesignR.drawable.ic_more_vert), contentDescription = stringResource(R.string.action_more))
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.podcast_queue_clear)) },
+                                onClick = {
+                                    menu = false
+                                    confirmClear = true
+                                },
+                            )
+                        }
+                    }
+                }
             },
         )
-        PodcastQueueList(onEpisodeClick = onEpisodeClick, modifier = Modifier.navigationBarsPadding())
+        PodcastQueueList(onEpisodeClick = onEpisodeClick, modifier = Modifier.navigationBarsPadding(), viewModel = viewModel)
+    }
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text(stringResource(R.string.podcast_queue_clear_title)) },
+            text = { Text(stringResource(R.string.podcast_queue_clear_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmClear = false
+                    viewModel.clear()
+                }) { Text(stringResource(R.string.podcast_queue_clear)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
     }
 }
 
@@ -340,12 +395,9 @@ private fun EpisodeFacts(item: BookWithProgress, withTime: Boolean) {
 /** Letzte Zeile: gehörte Zeit, kleiner Balken, Restzeit wie im Player (beim eingestellten Tempo). Ohne Dauer nichts. */
 @Composable
 private fun EpisodeProgress(item: BookWithProgress, inheritedSpeed: Float) {
-    val progress = item.progress
-    val durationMs = progress?.durationMs?.takeIf { it > 0 } ?: item.book.durationMs
-    if (durationMs <= 0) return
-    val positionMs = progress?.positionMs?.coerceIn(0, durationMs) ?: 0
-    val speed = (progress?.speed ?: inheritedSpeed).takeIf { it > 0f } ?: 1f
-    val remainingMs = ((durationMs - positionMs) / speed).toLong()
+    val remainingMs = item.remainingPlayMs(inheritedSpeed) ?: return
+    val durationMs = item.progress?.durationMs?.takeIf { it > 0 } ?: item.book.durationMs
+    val positionMs = item.progress?.positionMs?.coerceIn(0, durationMs) ?: 0
     val style = smallLineStyle()
     // Gleich breite Zeiten, damit die Balken untereinander gleich lang sind.
     val measurer = rememberTextMeasurer()

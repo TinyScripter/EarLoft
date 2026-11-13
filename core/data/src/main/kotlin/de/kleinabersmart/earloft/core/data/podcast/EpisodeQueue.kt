@@ -69,6 +69,24 @@ class EpisodeQueue @Inject constructor(
         if (key in order) order else order.take(1) + key + order.drop(1)
     }
 
+    /**
+     * Stellt die Folge direkt hinter [anchorId] („Als Nächstes spielen“), auch wenn sie schon anderswo steht; [anchorId] kommt
+     * dazu nach vorn, falls er noch nicht festgelegt war. Ohne [anchorId] an die erste Stelle.
+     */
+    suspend fun insertAfter(bookId: Long, anchorId: Long?) {
+        val keys = keysOf(listOfNotNull(bookId, anchorId))
+        val key = keys[bookId] ?: return
+        val anchor = anchorId?.let(keys::get)
+        update { order ->
+            val rest = order - key
+            when {
+                anchor == null -> listOf(key) + rest
+                anchor in rest -> rest.toMutableList().apply { add(indexOf(anchor) + 1, key) }
+                else -> listOf(anchor, key) + rest
+            }
+        }
+    }
+
     /** Hängt die Folge ans Ende (steht sie schon in der festgelegten Reihenfolge, bleibt sie an ihrer Stelle). */
     suspend fun append(bookId: Long) = edit(bookId) { key, order -> if (key in order) order else order + key }
 
@@ -87,6 +105,18 @@ class EpisodeQueue @Inject constructor(
             prefs.write(KEY_ORDER, prefs.read(KEY_ORDER) - key)
             val hidden = prefs.read(KEY_HIDDEN)
             if (key !in hidden) prefs.write(KEY_HIDDEN, hidden + key)
+        }
+    }
+
+    /** Nimmt die Folgen aus der Zeile, wie [remove] für jede, in einem Schritt. */
+    suspend fun removeAll(bookIds: List<Long>) {
+        val keys = keysOf(bookIds).values.toSet()
+        if (keys.isEmpty()) return
+        migrateLegacyIds()
+        context.episodeQueueDataStore.edit { prefs ->
+            prefs.write(KEY_ORDER, prefs.read(KEY_ORDER).filter { it !in keys })
+            val hidden = prefs.read(KEY_HIDDEN)
+            prefs.write(KEY_HIDDEN, hidden + (keys - hidden.toSet()))
         }
     }
 

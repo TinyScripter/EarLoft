@@ -38,6 +38,21 @@ class ContinueListening @Inject constructor(
     /** Die nächste Folge der Zeile nach [currentId], unabhängig vom automatischen Weiterspielen (für „Überspringen“). */
     suspend fun next(currentId: Long): Long? = episodes.first().firstOrNull { it.book.id != currentId }?.book?.id
 
+    /**
+     * „Als Nächstes spielen“: direkt hinter die vorderste Folge der Zeile (die laufende bzw. die, mit der es weitergeht); ist
+     * die Zeile leer, an die erste Stelle.
+     */
+    suspend fun playNext(bookId: Long) {
+        podcasts.reopenIfFinished(bookId)
+        val anchor = episodes.first().firstOrNull { it.book.id != bookId }?.book?.id
+        queue.insertAfter(bookId, anchor)
+    }
+
+    /** „Warteschlange leeren“: alle Folgen der Zeile außer [keepId] (der geladenen) heraus, wie einzeln entfernt. */
+    suspend fun clear(keepId: Long?) {
+        queue.removeAll(episodes.first().map { it.book.id }.filter { it != keepId })
+    }
+
     /** „In Warteschlange einfügen“: ganz ans Ende der Zeile. */
     suspend fun append(bookId: Long) {
         podcasts.reopenIfFinished(bookId)

@@ -723,6 +723,38 @@
     <string name="episode_mark_unplayed">Mark as unplayed</string>
     <string name="episode_mark_played_play_next">Mark as played and play next</string>
     <string name="episode_reset_position">Reset playback position</string>
+    <string name="episode_play_next">Play next</string>
+    <string name="episode_filter_all">All</string>
+    <string name="episode_filter_unheard">Unheard</string>
+    <string name="episode_filter_started">Started</string>
+    <string name="episode_filter_downloaded">Downloaded</string>
+    <string name="episode_sort_newest">Newest first</string>
+    <string name="episode_sort_oldest">Oldest first</string>
+    <string name="feed_sort_newest_episode">Newest episode</string>
+    <string name="feed_sort_most_new">Most new episodes</string>
+    <plurals name="feed_new">
+        <item quantity="one">%1$d new episode since you last listened</item>
+        <item quantity="other">%1$d new episodes since you last listened</item>
+    </plurals>
+    <string name="podcast_queue_mode">In Continue listening</string>
+    <string name="podcast_queue_mode_all">All new episodes</string>
+    <string name="podcast_queue_mode_newest">Only the newest</string>
+    <string name="podcast_queue_mode_manual">Only by hand</string>
+    <string name="podcast_queue_mode_description">Which new episodes appear there by themselves. Started episodes always stay. With automatic downloads, “Only the newest” keeps only the newest episode ready.</string>
+    <string name="podcast_keep_episodes">Keep episodes</string>
+    <string name="podcast_keep_all">All</string>
+    <plurals name="podcast_keep_newest">
+        <item quantity="one">Only the newest</item>
+        <item quantity="other">The newest %1$d</item>
+    </plurals>
+    <string name="podcast_keep_episodes_description">Older episodes you never started are hidden from the lists. Started and heard episodes stay; the feed itself is not changed.</string>
+    <plurals name="podcast_queue_summary">
+        <item quantity="one">%1$d episode · %2$s left</item>
+        <item quantity="other">%1$d episodes · %2$s left</item>
+    </plurals>
+    <string name="podcast_queue_clear">Clear queue</string>
+    <string name="podcast_queue_clear_title">Clear the queue?</string>
+    <string name="podcast_queue_clear_message">All episodes leave Continue listening; the one that is loaded stays. Positions are kept, and new episodes appear again as usual. Heard episodes leave the queue by themselves.</string>
     <string name="book_hide_from_continue">Remove from Continue listening</string>
     <string name="book_series_volume">%1$s · Book %2$s</string>
     <string name="book_open_series">Open series</string>

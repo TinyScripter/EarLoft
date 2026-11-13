@@ -48,6 +48,20 @@ class EpisodeMenuViewModel @Inject constructor(
     ) { episodes, bookIds -> episodes + bookIds }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
+    /** Die vorderste Folge der Zeile (die laufende bzw. die, mit der es weitergeht); hinter sie kommt „Als Nächstes“. */
+    val queueHead: StateFlow<Long?> = continueListening.episodes
+        .map { it.firstOrNull()?.book?.id }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Ist die Folge schon die zweite der Zeile, ändert sich nichts. */
+    val queueSecond: StateFlow<Long?> = continueListening.episodes
+        .map { it.getOrNull(1)?.book?.id }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun playNext(bookId: Long) {
+        viewModelScope.launch { continueListening.playNext(bookId) }
+    }
+
     fun setQueued(bookId: Long, queued: Boolean) {
         viewModelScope.launch { if (queued) continueListening.append(bookId) else continueListening.remove(bookId) }
     }

@@ -15,6 +15,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import de.kleinabersmart.earloft.core.model.FeedSort
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.DEFAULT_RSS_BRIDGE
 import de.kleinabersmart.earloft.core.network.podcast.directory.PodcastDirectory
 import kotlinx.coroutines.flow.Flow
@@ -76,6 +77,15 @@ class PodcastSettings @Inject constructor(
 
     suspend fun setAutoPlayNext(enabled: Boolean) {
         context.podcastSettingsDataStore.edit { it[KEY_AUTO_PLAY_NEXT] = enabled }
+    }
+
+    /** Reihenfolge der Abos auf Start und im Reiter „Abos“ (Standard: nach Name). */
+    val feedSort: Flow<FeedSort> = context.podcastSettingsDataStore.data.map { prefs ->
+        FeedSort.entries.firstOrNull { it.name == prefs[KEY_FEED_SORT] } ?: FeedSort.NAME
+    }
+
+    suspend fun setFeedSort(sort: FeedSort) {
+        context.podcastSettingsDataStore.edit { it[KEY_FEED_SORT] = sort.name }
     }
 
     /** In diesen Verzeichnissen sucht die Seite „Podcast hinzufügen“ (Standard: in keinem, Konzept 12.10). */
@@ -162,6 +172,7 @@ class PodcastSettings @Inject constructor(
         private val KEY_DIRECTORIES = stringSetPreferencesKey("directories")
         private val KEY_APPLE_COUNTRY = stringPreferencesKey("apple_country")
         private val KEY_RSS_BRIDGE = stringPreferencesKey("rss_bridge")
+        private val KEY_FEED_SORT = stringPreferencesKey("feed_sort")
 
         val AUTO_DOWNLOAD_COUNT_CHOICES = listOf(1, 2, 3, 5, 10)
         const val DEFAULT_AUTO_DOWNLOAD_COUNT = 3

@@ -7,6 +7,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.network.podcast.Opml
@@ -252,6 +253,63 @@ class PodcastRepositoryTest {
         val titles = repository.continueListening { now + 30L * 24 * 60 * 60 * 1000 }.first().map { it.book.title }
 
         assertEquals(emptyList<String>(), titles)
+    }
+
+    @Test
+    fun `only the newest new episode or none comes by itself depending on the subscription`() = runTest {
+        val feedId = subscribe()
+        listen(idOf(feedId, "B"), positionMs = 60_000, updatedAt = 100)
+
+        repository.setQueueMode(feedId, FeedQueueMode.NEWEST_ONLY)
+        assertEquals(listOf("B", "A"), repository.continueListening { now }.first().map { it.book.title })
+
+        repository.setQueueMode(feedId, FeedQueueMode.MANUAL)
+        assertEquals(listOf("B"), repository.continueListening { now }.first().map { it.book.title })
+
+        // Ist die neueste gehört, rückt keine ältere nach.
+        repository.setQueueMode(feedId, FeedQueueMode.NEWEST_ONLY)
+        listen(idOf(feedId, "A"), positionMs = 600_000, updatedAt = 150, finished = true)
+        assertEquals(listOf("B"), repository.continueListening { now }.first().map { it.book.title })
+    }
+
+    @Test
+    fun `keeping the newest episodes hides older untouched ones everywhere but keeps started ones`() = runTest {
+        val feedId = subscribe()
+        listen(idOf(feedId, "C"), positionMs = 30_000, updatedAt = 300)
+
+        repository.setKeepEpisodes(feedId, 1)
+
+        assertEquals(listOf("A", "C"), repository.episodes(feedId).first().map { it.book.title })
+        assertEquals(listOf("A", "C"), repository.unheardByFeed().first().single().episodes.map { it.book.title })
+        assertEquals(listOf("C", "A"), repository.continueListening { now }.first().map { it.book.title })
+        val stats = repository.feedStats().first().getValue(feedId)
+        assertEquals(1, stats.newEpisodes)
+        assertEquals(300L, stats.lastPlayedAt)
+        assertEquals(Instant.parse("2025-10-30T06:00:00Z").toEpochMilli(), stats.newestEpisodeAt)
+    }
+
+    @Test
+    fun `play next goes right behind the first episode and clearing keeps only the loaded one`() = runTest {
+        val feedId = subscribe()
+        val (a, b, c) = listOf("A", "B", "C").map { idOf(feedId, it) }
+        listen(b, positionMs = 60_000, updatedAt = 200)
+        listen(c, positionMs = 30_000, updatedAt = 100)
+        val continueListening = ContinueListening(
+            EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()),
+            repository,
+            PodcastSettings(ApplicationProvider.getApplicationContext()),
+        )
+        // Die Folgen sind älter als 14 Tage: Von selbst stehen nur die angefangenen da.
+        assertEquals(listOf(b, c), continueListening.episodes.first().map { it.book.id })
+
+        continueListening.playNext(a)
+        assertEquals(listOf(b, a, c), continueListening.episodes.first().map { it.book.id })
+
+        continueListening.playNext(c)
+        assertEquals(listOf(b, c, a), continueListening.episodes.first().map { it.book.id })
+
+        continueListening.clear(keepId = b)
+        assertEquals(listOf(b), continueListening.episodes.first().map { it.book.id })
     }
 
     @Test

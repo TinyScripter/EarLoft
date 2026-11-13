@@ -6,6 +6,8 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
 
 /** Audiobookshelf-Server (Konzept 12.1). Der API-Key liegt im SecretStore, nie hier. */
@@ -64,6 +66,11 @@ data class PodcastFeedEntity(
     /** Sekunden, die am Anfang (nur beim Start bei 0) bzw. am Ende jeder Folge übersprungen werden. */
     @ColumnInfo(defaultValue = "0") val skipIntroS: Int = 0,
     @ColumnInfo(defaultValue = "0") val skipOutroS: Int = 0,
+    /** Filter und Reihenfolge der Folgenliste, was von selbst in „Weiterhören“ kommt, wie viele Folgen sichtbar bleiben (v27). */
+    @ColumnInfo(defaultValue = "'ALL'") val episodeFilter: EpisodeFilter = EpisodeFilter.ALL,
+    @ColumnInfo(defaultValue = "0") val listOldestFirst: Boolean = false,
+    @ColumnInfo(defaultValue = "'ALL_NEW'") val queueMode: FeedQueueMode = FeedQueueMode.ALL_NEW,
+    @ColumnInfo(defaultValue = "0") val keepEpisodes: Int = 0,
 )
 
 @Entity(

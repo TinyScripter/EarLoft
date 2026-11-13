@@ -17,6 +17,7 @@ import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.podcast.expiredHeardDownloads
 import de.kleinabersmart.earloft.core.database.dao.FinishedDownloadRow
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
+import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -112,9 +113,11 @@ class EpisodeDownloads @Inject constructor(
      * Folgen weiß (gehört, Download entfernt): Nach einem Gerätewechsel stehen sie erst nach dem Abgleich wieder da.
      */
     suspend fun queueAutomatic(feedId: String) {
-        if (dao.feed(feedId)?.autoDownload != true) return
+        val feed = dao.feed(feedId)?.takeIf { it.autoDownload } ?: return
         userData.applyWaiting()
-        if (dao.queueLatestUnheard(feedId, settings.autoDownloadCount.first()) > 0) enqueueWorker()
+        // „Nur die neueste“ in Weiterhören: auch nur die neueste bereithalten.
+        val count = if (feed.queueMode == FeedQueueMode.NEWEST_ONLY) 1 else settings.autoDownloadCount.first()
+        if (dao.queueLatestUnheard(feedId, count) > 0) enqueueWorker()
     }
 
     /**

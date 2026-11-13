@@ -46,6 +46,20 @@ class PodcastQueueViewModel @Inject constructor(
     val currentBookId: StateFlow<Long?> = playback.state.map { it.spoken?.bookId }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Anzahl der Folgen und ihre Restzeit zusammen, jede bei ihrem Tempo (Kopf der Warteschlange); `null` = leer. */
+    val summary: StateFlow<QueueSummary?> = combine(continueListening.episodes, feedSpeeds) { episodes, speeds ->
+        if (episodes.isEmpty()) {
+            null
+        } else {
+            QueueSummary(episodes.size, episodes.sumOf { it.remainingPlayMs(speeds[it.book.serverId] ?: 1f) ?: 0L })
+        }
+    }.orOnError(null).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** „Warteschlange leeren“; die geladene Folge bleibt. */
+    fun clear() {
+        viewModelScope.launch { continueListening.clear(keepId = currentBookId.value) }
+    }
+
     private val searchQuery = MutableStateFlow("")
 
     /** Suchtext der Seite [PodcastQueueSearchScreen]; die Treffer kommen über [searchHits]. */
@@ -73,4 +87,18 @@ class PodcastQueueViewModel @Inject constructor(
     fun reorder(bookIds: List<Long>) {
         viewModelScope.launch { continueListening.reorder(bookIds) }
     }
+}
+
+data class QueueSummary(val count: Int, val remainingMs: Long)
+
+/**
+ * Restzeit der Folge in Wiedergabezeit: beim eigenen Tempo, sonst bei [inheritedSpeed] (Abo bzw. Vorgabe); `null` ohne
+ * bekannte Dauer.
+ */
+internal fun BookWithProgress.remainingPlayMs(inheritedSpeed: Float): Long? {
+    val durationMs = progress?.durationMs?.takeIf { it > 0 } ?: book.durationMs
+    if (durationMs <= 0) return null
+    val positionMs = progress?.positionMs?.coerceIn(0, durationMs) ?: 0
+    val speed = (progress?.speed ?: inheritedSpeed).takeIf { it > 0f } ?: 1f
+    return ((durationMs - positionMs) / speed).toLong()
 }

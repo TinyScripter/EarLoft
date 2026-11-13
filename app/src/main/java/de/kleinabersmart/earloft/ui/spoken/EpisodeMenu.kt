@@ -59,6 +59,8 @@ fun EpisodeMenu(
 ) {
     val queued by viewModel.queued.collectAsStateWithLifecycle()
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
+    val queueHead by viewModel.queueHead.collectAsStateWithLifecycle()
+    val queueSecond by viewModel.queueSecond.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     val id = item.book.id
@@ -79,6 +81,14 @@ fun EpisodeMenu(
                 viewModel.setQueued(id, !inQueue)
                 // Hinten angehängt; bei langer Warteschlange sieht man das sonst nicht.
                 if (!inQueue) snackbars.show(resources.getString(R.string.queue_added_at_end, item.book.title))
+                onDismiss()
+            },
+        )
+        // Direkt hinter die laufende Folge; nicht für diese selbst und nicht, wenn sie dort schon steht.
+        if (item.isEpisode && id != queueHead && id != queueSecond) DropdownMenuItem(
+            text = { Text(stringResource(R.string.episode_play_next)) },
+            onClick = {
+                viewModel.playNext(id)
                 onDismiss()
             },
         )

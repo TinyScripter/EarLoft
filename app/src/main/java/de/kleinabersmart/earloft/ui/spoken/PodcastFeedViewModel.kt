@@ -19,6 +19,9 @@ import de.kleinabersmart.earloft.core.download.DownloadStart
 import de.kleinabersmart.earloft.core.download.EpisodeDownloadProgress
 import de.kleinabersmart.earloft.core.download.EpisodeDownloads
 import de.kleinabersmart.earloft.core.model.EffectOverrides
+import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.FeedQueueMode
+import de.kleinabersmart.earloft.core.model.filterEpisodes
 import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.data.spoken.SpokenEffectsRepository
@@ -118,6 +121,35 @@ class PodcastFeedViewModel @AssistedInject constructor(
     val downloadStates: StateFlow<Map<Long, TrackDownload>> = podcasts.downloadStates(feedId)
         .orOnError(emptyMap())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** Die Folgen nach Filter und Reihenfolge des Abos (Chips und Sortierung auf seiner Seite). */
+    val shownEpisodes: StateFlow<LoadState<List<BookWithProgress>>> = combine(
+        episodes,
+        podcasts.feed(feedId),
+        downloadStates,
+    ) { state, feed, downloads ->
+        val list = state.valueOrNull ?: return@combine state
+        val done = downloads.filterValues { it == TrackDownload.DONE }.keys
+        LoadState.Ready(list.filterEpisodes(feed?.episodeFilter ?: EpisodeFilter.ALL, feed?.listOldestFirst == true, done))
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
+
+    fun setEpisodeFilter(filter: EpisodeFilter) {
+        val feed = feed.value.valueOrNull ?: return
+        viewModelScope.launch { podcasts.setEpisodeList(feedId, filter, feed.listOldestFirst) }
+    }
+
+    fun setListOldestFirst(oldestFirst: Boolean) {
+        val feed = feed.value.valueOrNull ?: return
+        viewModelScope.launch { podcasts.setEpisodeList(feedId, feed.episodeFilter, oldestFirst) }
+    }
+
+    fun setQueueMode(mode: FeedQueueMode) {
+        viewModelScope.launch { podcasts.setQueueMode(feedId, mode) }
+    }
+
+    fun setKeepEpisodes(keep: Int) {
+        viewModelScope.launch { podcasts.setKeepEpisodes(feedId, keep) }
+    }
 
     private val _messages = MutableSharedFlow<Int>(extraBufferCapacity = 2)
 

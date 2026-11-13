@@ -17,6 +17,10 @@ import de.kleinabersmart.earloft.core.data.spoken.toModel
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.EffectOverrides
+import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.FeedQueueMode
+import de.kleinabersmart.earloft.core.model.FeedStats
+import de.kleinabersmart.earloft.core.model.keepNewest
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.TrackDownload
@@ -132,18 +136,38 @@ class PodcastRepository @Inject constructor(
     fun downloadStates(feedId: String): Flow<Map<Long, TrackDownload>> =
         dao.observeDownloadStates(feedId).map { rows -> rows.associate { it.bookId to it.state } }
 
-    /** Folgen eines Podcasts, neueste zuerst, mit Fortschritt. */
+    /** Folgen eines Podcasts, neueste zuerst, mit Fortschritt; ohne die, die „Folgen behalten“ ausblendet ([keepNewest]). */
     fun episodes(feedId: String): Flow<List<BookWithProgress>> =
-        combine(dao.observeEpisodesOf(feedId), bookDao.observeAllProgress()) { episodes, progress ->
+        combine(dao.observeEpisodesOf(feedId), bookDao.observeAllProgress(), dao.observeFeed(feedId)) { episodes, progress, feed ->
             val byBook = progress.associateBy { it.bookId }
-            episodes.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
+            episodes
+                .keepNewest({ feedId }, { feed?.keepEpisodes ?: 0 }) { byBook[it.bookId].isUntouched }
+                .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
         }
+
+    /**
+     * Je Abo die neueste Folge, der zuletzt gehörte Zeitpunkt und die Zahl der neuen Folgen ([FeedStats.newEpisodes], ohne die
+     * von „Folgen behalten“ ausgeblendeten), für Sortierung und Kacheln.
+     */
+    fun feedStats(): Flow<Map<String, FeedStats>> =
+        combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress()) { feeds, episodes, progress ->
+            val byBook = progress.associateBy { it.bookId }
+            episodes.visibleIn(feeds, byBook).groupBy { it.serverId }.mapValues { (_, list) ->
+                FeedStats(
+                    newestEpisodeAt = list.first().addedAt,
+                    lastPlayedAt = list.maxOf { e -> byBook[e.bookId]?.takeUnless { it.isUntouched }?.updatedAt ?: 0L },
+                    // Die Liste ist neueste zuerst: alles vor der ersten angefangenen oder gehörten Folge.
+                    newEpisodes = list.takeWhile { byBook[it.bookId].isUntouched }.size,
+                )
+            }
+        }.distinctUntilChanged()
 
     /** Pro Abo (nach Titel) die Folgen, die noch nicht zu Ende gehört sind, neueste zuerst; Abos ohne solche Folgen entfallen. */
     fun unheardByFeed(): Flow<List<FeedEpisodes>> =
         combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress()) { feeds, episodes, progress ->
             val byBook = progress.associateBy { it.bookId }
             val byFeed = episodes
+                .visibleIn(feeds, byBook)
                 .filter { byBook[it.bookId]?.finished != true }
                 .groupBy { it.serverId }
             feeds.mapNotNull { feed ->
@@ -158,9 +182,9 @@ class PodcastRepository @Inject constructor(
      * „Weiterhören“ bleiben drin, denn dort stehen neue Folgen ohnehin von selbst, nur in der Reihenfolge der Warteschlange.
      */
     fun recentEpisodes(limit: Int = RECENT_LIMIT): Flow<List<BookWithProgress>> =
-        combine(dao.observeEpisodes(), bookDao.observeAllProgress()) { episodes, progress ->
+        combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress()) { feeds, episodes, progress ->
             val byBook = progress.associateBy { it.bookId }
-            episodes.asSequence()
+            episodes.visibleIn(feeds, byBook).asSequence()
                 .filter { byBook[it.bookId]?.finished != true }
                 .sortedByDescending { it.addedAt }
                 .take(limit)
@@ -171,7 +195,8 @@ class PodcastRepository @Inject constructor(
     /**
      * „Weiterhören“ (die Warteschlange der Podcasts): ganz vorn die Folgen aus [order] (nicht zu Ende gehörte, in dieser
      * Reihenfolge), dahinter von selbst die angefangenen Folgen mit der zuletzt gehörten zuerst und die neuen, noch nicht
-     * angefangenen Folgen der letzten [NEW_DAYS] Tage (neueste zuerst). Folgen in [hidden] fehlen.
+     * angefangenen Folgen der letzten [NEW_DAYS] Tage (neueste zuerst) – je nach [FeedQueueMode] des Abos alle, nur seine
+     * neueste oder keine. Folgen in [hidden] fehlen.
      */
     fun continueListening(
         order: Flow<List<Long>> = flowOf(emptyList()),
@@ -179,22 +204,30 @@ class PodcastRepository @Inject constructor(
         now: () -> Long = System::currentTimeMillis,
     ): Flow<List<BookWithProgress>> =
         combine(
-            combine(dao.observeEpisodes(), dao.observeTrialEpisodes(), ::Pair),
+            combine(dao.observeEpisodes(), dao.observeTrialEpisodes(), dao.observeFeeds(), ::Triple),
             bookDao.observeAllProgress(),
             order,
             hidden,
-        ) { (episodes, trial), progress, orderIds, hiddenIds ->
+        ) { (episodes, trial, feeds), progress, orderIds, hiddenIds ->
             val byBook = progress.associateBy { it.bookId }
+            val modes = feeds.associate { it.feedId to it.queueMode }
+            // Die neueste Folge jedes Abos (die Liste ist nach Datum absteigend), für „Nur die neueste“.
+            val newest = HashMap<String, Long>()
+            episodes.forEach { newest.putIfAbsent(it.serverId, it.bookId) }
             val started = episodes
                 .filter { it.bookId !in hiddenIds }
                 .mapNotNull { e -> byBook[e.bookId]?.takeIf { !it.finished && it.positionMs > 0 }?.let { e to it } }
                 .sortedByDescending { (_, p) -> p.updatedAt }
                 .map { (e, p) -> BookWithProgress(e.toModel(), p.toModel()) }
             val since = now() - NEW_DAYS * DAY_MS
-            val fresh = episodes
+            val fresh = episodes.visibleIn(feeds, byBook)
+                .filter { e -> e.bookId !in hiddenIds && byBook[e.bookId].isUntouched && e.addedAt >= since }
                 .filter { e ->
-                    e.bookId !in hiddenIds && (byBook[e.bookId]?.positionMs ?: 0L) == 0L &&
-                        byBook[e.bookId]?.finished != true && e.addedAt >= since
+                    when (modes[e.serverId]) {
+                        FeedQueueMode.MANUAL -> false
+                        FeedQueueMode.NEWEST_ONLY -> newest[e.serverId] == e.bookId
+                        FeedQueueMode.ALL_NEW, null -> true
+                    }
                 }
                 .take(MAX_NEW)
                 .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
@@ -473,6 +506,13 @@ class PodcastRepository @Inject constructor(
 
     suspend fun setNotifyNew(feedId: String, enabled: Boolean) = dao.setNotifyNew(feedId, enabled)
 
+    suspend fun setEpisodeList(feedId: String, filter: EpisodeFilter, oldestFirst: Boolean) =
+        dao.setEpisodeList(feedId, filter, oldestFirst)
+
+    suspend fun setQueueMode(feedId: String, mode: FeedQueueMode) = dao.setQueueMode(feedId, mode)
+
+    suspend fun setKeepEpisodes(feedId: String, keep: Int) = dao.setKeepEpisodes(feedId, keep.coerceAtLeast(0))
+
     /**
      * Die ungehörte Folge, die in der Reihenfolge des Podcasts auf [bookId] folgt und in die Zeile „Weiterhören“
      * eingereiht wird. `null` bei Hörbüchern, wenn das Einreihen für den Podcast aus ist oder nichts Ungehörtes mehr folgt.
@@ -669,7 +709,21 @@ private fun PodcastFeedEntity.toModel() = PodcastFeed(
     effects = EffectOverrides(speed, skipSilence, volumeBoostDb),
     skipIntroS = skipIntroS,
     skipOutroS = skipOutroS,
+    episodeFilter = episodeFilter,
+    listOldestFirst = listOldestFirst,
+    queueMode = queueMode,
+    keepEpisodes = keepEpisodes,
 )
+
+/** Nie angefangen und nicht als gehört markiert. */
+private val BookProgressEntity?.isUntouched: Boolean get() = this == null || (!finished && positionMs <= 0)
+
+/** Folgen (neueste zuerst) ohne die, die „Folgen behalten“ ihres Abos ausblendet. */
+private fun List<BookEntity>.visibleIn(feeds: List<PodcastFeedEntity>, byBook: Map<Long, BookProgressEntity>): List<BookEntity> {
+    val keep = feeds.filter { it.keepEpisodes > 0 }.associate { it.feedId to it.keepEpisodes }
+    if (keep.isEmpty()) return this
+    return keepNewest({ it.serverId }, { keep[it] ?: 0 }) { byBook[it.bookId].isUntouched }
+}
 
 /**
  * Beschreibungen kommen als HTML und bleiben mit ihren Tags erhalten; die Oberfläche setzt sie um. Manche Feeds maskieren

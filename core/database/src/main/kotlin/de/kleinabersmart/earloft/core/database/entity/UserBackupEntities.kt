@@ -5,7 +5,9 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.EpisodeFilter
 import de.kleinabersmart.earloft.core.model.FavoriteKind
+import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.model.WearSelectionKind
 
@@ -61,6 +63,11 @@ data class UserPodcastEntity(
     val volumeBoostDb: Int? = null,
     @ColumnInfo(defaultValue = "0") val skipIntroS: Int = 0,
     @ColumnInfo(defaultValue = "0") val skipOutroS: Int = 0,
+    /** Folgenliste und „Weiterhören“ (seit Version 13). */
+    @ColumnInfo(defaultValue = "'ALL'") val episodeFilter: EpisodeFilter = EpisodeFilter.ALL,
+    @ColumnInfo(defaultValue = "0") val listOldestFirst: Boolean = false,
+    @ColumnInfo(defaultValue = "'ALL_NEW'") val queueMode: FeedQueueMode = FeedQueueMode.ALL_NEW,
+    @ColumnInfo(defaultValue = "0") val keepEpisodes: Int = 0,
 )
 
 /** Gehörte Zeit je Eintrag (`listening_stats`), über den natürlichen Schlüssel statt der laufenden `statId`. */

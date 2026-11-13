@@ -63,6 +63,7 @@ import java.io.File
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11, spec = UserDatabase.InheritSpeed::class),
         AutoMigration(from = 11, to = 12),
+        AutoMigration(from = 12, to = 13),
     ],
 )
 abstract class UserDatabase : RoomDatabase() {
@@ -83,7 +84,7 @@ abstract class UserDatabase : RoomDatabase() {
         const val NAME = "user.db"
 
         /** Schemaversion; die Komplett-Sicherung lehnt Dateien einer neueren ab. */
-        const val VERSION = 12
+        const val VERSION = 13
 
         /**
          * Eine Kopie außerhalb der App-Datenbanken (Komplett-Sicherung, `FullBackup`): ältere Fassungen werden beim Öffnen

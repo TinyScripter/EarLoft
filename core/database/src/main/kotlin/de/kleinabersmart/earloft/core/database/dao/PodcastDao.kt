@@ -9,6 +9,8 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import kotlinx.coroutines.flow.Flow
+import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
 
 /** Geladene Folgen eines Podcasts: Anzahl und belegte Bytes. */
@@ -117,6 +119,15 @@ abstract class PodcastDao {
 
     @Query("UPDATE podcast_feeds SET skipIntroS = :introS, skipOutroS = :outroS WHERE feedId = :feedId")
     abstract suspend fun setSkipIntroOutro(feedId: String, introS: Int, outroS: Int)
+
+    @Query("UPDATE podcast_feeds SET episodeFilter = :filter, listOldestFirst = :oldestFirst WHERE feedId = :feedId")
+    abstract suspend fun setEpisodeList(feedId: String, filter: EpisodeFilter, oldestFirst: Boolean)
+
+    @Query("UPDATE podcast_feeds SET queueMode = :mode WHERE feedId = :feedId")
+    abstract suspend fun setQueueMode(feedId: String, mode: FeedQueueMode)
+
+    @Query("UPDATE podcast_feeds SET keepEpisodes = :keep WHERE feedId = :feedId")
+    abstract suspend fun setKeepEpisodes(feedId: String, keep: Int)
 
     /** Ids der Folgen eines Podcasts, älteste zuerst (bei gleichem Datum in der Reihenfolge des Auftauchens). */
     @Query("SELECT bookId FROM books WHERE kind = 'EPISODE' AND serverId = :feedId ORDER BY addedAt, bookId")
