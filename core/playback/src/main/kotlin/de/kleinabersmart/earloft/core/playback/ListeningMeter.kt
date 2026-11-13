@@ -31,6 +31,11 @@ internal class ListeningMeter(private val clock: () -> Long = System::currentTim
         running = false
     }
 
+    /** Inhalt, der ohne Abspielen vorüberging (gekürzte Stille): zählt als gehört, sonst wäre eine Stunde Inhalt weniger. */
+    fun addContent(ms: Long) {
+        if (ms > 0) pending += ms
+    }
+
     /** Die seit dem letzten Aufruf gemessene Zeit in ms; die Messung läuft weiter. Der Rest unter 1 ms bleibt stehen. */
     fun drain(): Long {
         if (running) fold()

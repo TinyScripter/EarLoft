@@ -21,7 +21,7 @@ import javax.inject.Singleton
 data class DatabaseExportResult(val feeds: Int, val episodes: Int)
 
 /**
- * Schreibt Abos, Hörfortschritt und gehörte Zeit in eine SQLite-Datei mit genau den Tabellen, die [DatabaseReader] liest
+ * Schreibt Abos (samt Tempo, Effekten, Intro und Ende, [ExchangeEffects]), Hörfortschritt und gehörte Zeit in eine SQLite-Datei mit genau den Tabellen, die [DatabaseReader] liest
  * (`Feeds`, `FeedItems`, `FeedMedia`; dazu leere Hilfstabellen im selben Format). Der Export ist das Gegenstück zum Import.
  *
  * - Podcasts vom Gerät fehlen (kein Feed). Archivierte Abos gehen als archiviert mit, samt Folgen und Fortschritt.
@@ -65,6 +65,11 @@ class DatabaseExporter @Inject constructor(
         val autoDownload: Boolean,
         val active: Boolean,
         val episodes: MutableList<OutEpisode> = mutableListOf(),
+        val speed: Float? = null,
+        val skipSilence: Boolean? = null,
+        val volumeBoostDb: Int? = null,
+        val skipIntroS: Int = 0,
+        val skipOutroS: Int = 0,
     )
 
     private class OutEpisode(
@@ -94,6 +99,11 @@ class DatabaseExporter @Inject constructor(
             val out = OutFeed(
                 bridgeUrl ?: feed.url, feed.title, feed.author, feed.description, feed.imageUrl, feed.autoDownload,
                 active = !feed.archived && (feed.hasRssFeed || bridgeUrl != null),
+                speed = feed.speed,
+                skipSilence = feed.skipSilence,
+                volumeBoostDb = feed.volumeBoostDb,
+                skipIntroS = feed.skipIntroS,
+                skipOutroS = feed.skipOutroS,
             )
             result[feed.url] = out
             for (book in bookDao.booksOf(feed.feedId).filter { it.kind == BookKind.EPISODE }.sortedBy { it.addedAt }) {
@@ -160,6 +170,11 @@ class DatabaseExporter @Inject constructor(
                     put("auto_download", if (feed.autoDownload) 1 else 0)
                     put("keep_updated", if (feed.active) 1 else 0)
                     put("state", if (feed.active) STATE_ACTIVE else STATE_ARCHIVED)
+                    put("feed_playback_speed", ExchangeEffects.speedCode(feed.speed))
+                    put("feed_skip_silence", ExchangeEffects.silenceCode(feed.skipSilence))
+                    put("feed_volume_adaption", ExchangeEffects.boostCode(feed.volumeBoostDb))
+                    put("feed_skip_intro", feed.skipIntroS)
+                    put("feed_skip_ending", feed.skipOutroS)
                 },
             )
             for (episode in feed.episodes) {

@@ -69,6 +69,9 @@ internal class BookPlaybackListener(
     private var meterBookId: Long? = null
     private var meterIsEpisode = false
 
+    /** Durch „Stille kürzen“ gesparte Zeit (Wanduhr) an [meterBookId] seit dem letzten Verbuchen. */
+    private var savedPending = 0.0
+
     // Einstellungen zum Fortsetzen; mitgeführt, damit das Zurückspulen beim Drücken von Play ohne Verzögerung greift.
     private var bookRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S)
     private var podcastRule = bookRule
@@ -360,6 +363,7 @@ internal class BookPlaybackListener(
         if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) {
             newPosition.mediaItem?.bookId?.let { touched += it }
         }
+        if (reason == Player.DISCONTINUITY_REASON_SILENCE_SKIP) countSkippedSilence(oldPosition, newPosition)
         if (reason != Player.DISCONTINUITY_REASON_REMOVE) {
             if (player.isPlaying) sampleRemoteEnd() else remoteEnd.reset()
         }
@@ -412,6 +416,19 @@ internal class BookPlaybackListener(
             }
         }
         if (playbackState == Player.STATE_READY) learnDuration()
+    }
+
+    /**
+     * Gekürzte Stille: Sie zählt als gehörter Inhalt (wie bei höherem Tempo), und was sie an Zeit gespart hat (geteilt
+     * durch das Tempo) geht als gesparte Zeit in die Statistik.
+     */
+    private fun countSkippedSilence(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo) {
+        val bookId = newPosition.mediaItem?.bookId ?: return
+        if (bookId != meterBookId || oldPosition.mediaItemIndex != newPosition.mediaItemIndex) return
+        val skipped = newPosition.positionMs - oldPosition.positionMs
+        if (skipped <= 0) return
+        meter.addContent(skipped)
+        savedPending += skipped / player.playbackParameters.speed.coerceAtLeast(MIN_SPEED).toDouble()
     }
 
     /** Merkt sich für [remoteEnd], wo das laufende Buch gerade steht. */
@@ -477,8 +494,10 @@ internal class BookPlaybackListener(
         val bookId = meterBookId ?: return
         val ms = meter.drain()
         if (ms <= 0) return
+        val saved = savedPending.toLong()
+        savedPending -= saved
         if (meterIsEpisode) {
-            persistScope.launch { stats.recordEpisodeListening(bookId, ms) }
+            persistScope.launch { stats.recordEpisodeListening(bookId, ms, savedMs = saved) }
             return
         }
         // Die Position kommt aus dem Player, solange er noch dieses Buch spielt; sonst bleibt die bisherige.
@@ -487,7 +506,7 @@ internal class BookPlaybackListener(
         val position = timeline?.toBookPosition(item?.bookTrackIndex ?: 0, player.currentPosition)
         val duration = timeline?.durationMs
         persistScope.launch {
-            stats.recordBookListening(bookId, ms)
+            stats.recordBookListening(bookId, ms, savedMs = saved)
             sessions.record(bookId, ms, position, duration, force)
         }
     }
@@ -497,6 +516,8 @@ internal class BookPlaybackListener(
         flushListening()
         val item = player.currentMediaItem
         val bookId = item?.bookId
+        // Was beim Verbuchen unter einer ms blieb, gehört nicht zum nächsten Buch.
+        if (bookId != meterBookId) savedPending = 0.0
         meterBookId = bookId
         meterIsEpisode = item?.mediaMetadata?.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE
         if (bookId != null && player.isPlaying) meter.start(player.playbackParameters.speed) else meter.stop()

@@ -737,6 +737,7 @@
     <string name="podcast_stats_minutes">%1$d min</string>
     <string name="podcast_stats_seconds">%1$d s</string>
     <string name="podcast_stats_listened">gehörte Zeit</string>
+    <string name="stats_silence_saved">Durch Stille kürzen gespart: %1$s</string>
     <plurals name="podcast_stats_listened_days">
         <item quantity="one">gehörte Zeit (etwa %1$d Tag)</item>
         <item quantity="other">gehörte Zeit (etwa %1$d Tage)</item>

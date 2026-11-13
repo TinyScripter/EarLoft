@@ -126,6 +126,38 @@ class DatabaseExporterTest {
     }
 
     @Test
+    fun `speed, effects, intro and outro of a subscription go out and come back`() = runTest {
+        val feedId = db.podcastDao().feedByUrl(FEED_URL)!!.feedId
+        db.podcastDao().setEffects(feedId, speed = 1.5f, skipSilence = true, volumeBoostDb = 6)
+        db.podcastDao().setSkipIntroOutro(feedId, introS = 30, outroS = 45)
+        val file = folder.newFile("export.db")
+
+        exporter.export(file, rssBridge = null)
+
+        val expected = ImportFeed(FEED_URL, "Test-Podcast", true, speed = 1.5f, skipSilence = true, volumeBoostDb = 6, skipIntroS = 30, skipOutroS = 45)
+        assertEquals(expected, DatabaseReader.read(file).feeds.single())
+        // In einer frischen App bekommt das neu angelegte Abo die Werte.
+        db.clearAllTables()
+        importer.import(DatabaseReader.read(file))
+        with(db.podcastDao().feedByUrl(FEED_URL)!!) {
+            assertEquals(listOf<Any?>(1.5f, true, 6, 30, 45), listOf(speed, skipSilence, volumeBoostDb, skipIntroS, skipOutroS))
+        }
+    }
+
+    @Test
+    fun `an existing subscription keeps its own playback settings on import`() = runTest {
+        val feedId = db.podcastDao().feedByUrl(FEED_URL)!!.feedId
+        db.podcastDao().setEffects(feedId, speed = 1.2f, skipSilence = null, volumeBoostDb = null)
+
+        importer.import(ImportData(listOf(ImportFeed(FEED_URL, "Test", true, speed = 2f, skipIntroS = 10)), emptyList()))
+
+        with(db.podcastDao().feedByUrl(FEED_URL)!!) {
+            assertEquals(1.2f, speed)
+            assertEquals(0, skipIntroS)
+        }
+    }
+
+    @Test
     fun `exporting twice replaces the file`() = runTest {
         val file = folder.newFile("export.db")
 

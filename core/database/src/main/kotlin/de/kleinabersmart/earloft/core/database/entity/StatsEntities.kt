@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -52,6 +53,11 @@ data class ListeningDayEntity(
     val groupKey: String,
     /** Gehörte Zeit in ms, gemessen am Inhalt (eine Stunde Inhalt zählt eine Stunde, egal bei welcher Geschwindigkeit). */
     val listenedMs: Long,
+    /**
+     * Durch „Stille kürzen“ gesparte Zeit in ms (Schema v26): die übersprungene Stille geteilt durch das Tempo, also
+     * Wanduhr-Zeit. Die Stille selbst zählt als Inhalt in [listenedMs].
+     */
+    @ColumnInfo(defaultValue = "0") val savedMs: Long = 0,
 )
 
 /**

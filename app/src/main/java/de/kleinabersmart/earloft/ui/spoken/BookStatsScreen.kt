@@ -185,6 +185,7 @@ private fun LazyListScope.deviceSection(stats: DeviceBookStats, onBookClick: (Lo
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                SilenceSavedLine(stats.silenceSavedMs)
             }
         }
     }

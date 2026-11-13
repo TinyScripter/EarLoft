@@ -55,6 +55,16 @@ class ListeningMeterTest {
     }
 
     @Test
+    fun `skipped silence counts as content`() {
+        meter.start(1f)
+        now += 10_000
+        meter.addContent(2_500)
+        meter.addContent(-100)
+
+        assertEquals(12_500L, meter.drain())
+    }
+
+    @Test
     fun `starting twice does not reset the measurement`() {
         meter.start(1f)
         now += 5_000

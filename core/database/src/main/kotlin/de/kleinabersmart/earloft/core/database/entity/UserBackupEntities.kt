@@ -83,6 +83,8 @@ data class UserListeningDayEntity(
     val kind: BookKind,
     val groupKey: String,
     val listenedMs: Long,
+    /** Durch „Stille kürzen“ gespart (seit Version 12). */
+    @ColumnInfo(defaultValue = "0") val savedMs: Long = 0,
 )
 
 /**

@@ -51,6 +51,34 @@ class DatabaseReaderTest {
     }
 
     @Test
+    fun `playback settings of a subscription map to the app's values`() {
+        val file = folder.newFile("backup.db")
+        SQLiteDatabase.openOrCreateDatabase(file, null).use { db ->
+            db.execSQL(
+                "CREATE TABLE Feeds (id INTEGER PRIMARY KEY, title TEXT, custom_title TEXT, download_url TEXT, state INTEGER, " +
+                    "feed_playback_speed REAL, feed_skip_silence INTEGER, feed_volume_adaption INTEGER, feed_skip_intro INTEGER, feed_skip_ending INTEGER)",
+            )
+            db.execSQL("CREATE TABLE FeedItems (id INTEGER PRIMARY KEY, title TEXT, read INTEGER, media INTEGER, feed INTEGER, item_identifier TEXT)")
+            db.execSQL(
+                "CREATE TABLE FeedMedia (id INTEGER PRIMARY KEY, duration INTEGER, position INTEGER, playback_completion_date INTEGER, " +
+                    "feeditem INTEGER, played_duration INTEGER, last_played_time INTEGER)",
+            )
+            db.execSQL(
+                "INSERT INTO Feeds VALUES (1, 'Eigen', NULL, 'https://a.example/feed', 0, 1.75, 0, 4, 20, 40), " +
+                    "(2, 'Vorgabe', NULL, 'https://b.example/feed', 0, -1.0, 1, 0, 0, 0), " +
+                    "(3, 'Leiser', NULL, 'https://c.example/feed', 0, -1.0, 2, 2, 0, 0)",
+            )
+        }
+
+        val feeds = DatabaseReader.read(file).feeds
+
+        assertEquals(ImportFeed("https://a.example/feed", "Eigen", true, 1.75f, false, 6, 20, 40), feeds[0])
+        assertEquals(ImportFeed("https://b.example/feed", "Vorgabe", true), feeds[1])
+        // Leiser gibt es in der App nicht: Vorgabe; Stille ab Stufe 2 an.
+        assertEquals(ImportFeed("https://c.example/feed", "Leiser", true, skipSilence = true), feeds[2])
+    }
+
+    @Test
     fun `other files are rejected`() {
         val text = folder.newFile("kein.db").apply { writeText("das ist keine datenbank") }
         val empty = folder.newFile("leer.db")

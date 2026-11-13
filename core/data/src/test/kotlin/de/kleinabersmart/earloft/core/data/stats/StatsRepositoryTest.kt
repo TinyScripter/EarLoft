@@ -164,6 +164,19 @@ class StatsRepositoryTest {
     }
 
     @Test
+    fun `time saved by shortening silence adds up per day and year`() = runTest {
+        val a = bookId("guid-A")
+        stats.recordEpisodeListening(a, 60_000, now = noon, zone = ZoneOffset.UTC, savedMs = 4_000)
+        stats.recordEpisodeListening(a, 30_000, now = noon + 1_000, zone = ZoneOffset.UTC, savedMs = 2_000)
+        stats.recordEpisodeListening(a, 30_000, now = Instant.parse("2025-03-10T12:00:00Z").toEpochMilli(), zone = ZoneOffset.UTC, savedMs = 1_000)
+
+        assertEquals(7_000, stats.podcastStats(zone = ZoneOffset.UTC) { today }.first().silenceSavedMs)
+        assertEquals(1_000, stats.podcastStats(2025, ZoneOffset.UTC) { today }.first().silenceSavedMs)
+        // Die gesparte Zeit zählt nicht zur gehörten.
+        assertEquals(120_000, stats.podcastStats(zone = ZoneOffset.UTC) { today }.first().totalMs)
+    }
+
+    @Test
     fun `reset deletes counted and imported statistics but keeps progress`() = runTest {
         val a = bookId("guid-A")
         stats.recordEpisodeListening(a, 60_000, now = noon, zone = ZoneOffset.UTC)

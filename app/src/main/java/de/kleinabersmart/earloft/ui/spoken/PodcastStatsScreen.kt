@@ -133,7 +133,20 @@ private fun Summary(stats: PodcastStats) {
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 8.dp),
         )
+        SilenceSavedLine(stats.silenceSavedMs)
     }
+}
+
+/** „Durch Stille kürzen gespart: …“ (Podcasts und Bücher); ohne gesparte Zeit nichts. */
+@Composable
+internal fun SilenceSavedLine(savedMs: Long) {
+    // Unter einer Sekunde stünde dort „0 s“.
+    if (savedMs < 1_000) return
+    Text(
+        stringResource(R.string.stats_silence_saved, formatListened(savedMs)),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

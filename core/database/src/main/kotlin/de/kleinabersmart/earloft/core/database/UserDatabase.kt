@@ -31,7 +31,7 @@ import java.io.File
  *
  * Versionen: 1 Server, Abos, Statistik; 2 Fortschritt; 3 lokale Playlists, Favoriten, Hörverlauf, Auswahl für die Uhr;
  * 5 archivierte Abos; 6 ohne Cast-Adresse je Server; 7 OpenID je Audiobookshelf-Server; 8 Downloads der Folgen; 9 Favoriten
- * von Alben und Künstlern; 10 „aus Weiterhören genommen“ am Fortschritt; 11 Tempo und Effekte je Abo und Buch, Tempo nullbar.
+ * von Alben und Künstlern; 10 „aus Weiterhören genommen“ am Fortschritt; 11 Tempo und Effekte je Abo und Buch, Tempo nullbar; 12 gesparte Zeit je Tag.
  */
 @Database(
     entities = [
@@ -62,6 +62,7 @@ import java.io.File
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11, spec = UserDatabase.InheritSpeed::class),
+        AutoMigration(from = 11, to = 12),
     ],
 )
 abstract class UserDatabase : RoomDatabase() {
@@ -82,7 +83,7 @@ abstract class UserDatabase : RoomDatabase() {
         const val NAME = "user.db"
 
         /** Schemaversion; die Komplett-Sicherung lehnt Dateien einer neueren ab. */
-        const val VERSION = 11
+        const val VERSION = 12
 
         /**
          * Eine Kopie außerhalb der App-Datenbanken (Komplett-Sicherung, `FullBackup`): ältere Fassungen werden beim Öffnen

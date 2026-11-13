@@ -27,12 +27,16 @@ class StatsRepository @Inject constructor(
     private val bookDao: BookDao,
     private val podcastDao: PodcastDao,
 ) {
-    /** Zählt [ms] gehörte Inhaltszeit der Folge [bookId] zu ihrer Summe und zum Tag von [now] hinzu. */
+    /**
+     * Zählt [ms] gehörte Inhaltszeit der Folge [bookId] zu ihrer Summe und zum Tag von [now] hinzu; [savedMs] ist die
+     * dabei durch „Stille kürzen“ gesparte Zeit (nur je Tag).
+     */
     suspend fun recordEpisodeListening(
         bookId: Long,
         ms: Long,
         now: Long = System.currentTimeMillis(),
         zone: ZoneId = ZoneId.systemDefault(),
+        savedMs: Long = 0,
     ) {
         if (ms <= 0) return
         val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.EPISODE } ?: return
@@ -51,6 +55,7 @@ class StatsRepository @Inject constructor(
                 lastListenedAt = now,
             ),
             day,
+            savedMs.coerceAtLeast(0),
         )
     }
 
@@ -60,6 +65,7 @@ class StatsRepository @Inject constructor(
         ms: Long,
         now: Long = System.currentTimeMillis(),
         zone: ZoneId = ZoneId.systemDefault(),
+        savedMs: Long = 0,
     ) {
         if (ms <= 0) return
         val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.BOOK } ?: return
@@ -76,6 +82,7 @@ class StatsRepository @Inject constructor(
                 lastListenedAt = now,
             ),
             day,
+            savedMs.coerceAtLeast(0),
         )
     }
 
@@ -97,6 +104,7 @@ class StatsRepository @Inject constructor(
         ) { total, items, finished, days ->
             DeviceBookStats(
                 totalMs = if (year == null) total else days.inYear(year).sumOf { it.listenedMs },
+                silenceSavedMs = (if (year == null) days else days.inYear(year)).sumOf { it.savedMs },
                 finishedBooks = finished,
                 books = if (year != null) emptyList() else items.map {
                     BookListening("${it.groupKey}/${it.itemKey}", it.itemTitle, it.listenedMs, bookDao.bookByRemote(it.groupKey, it.itemKey)?.bookId)
@@ -138,6 +146,7 @@ class StatsRepository @Inject constructor(
             val titles = groups.associate { it.groupKey to it.groupTitle }
             PodcastStats(
                 totalMs = if (year == null) total else days.inYear(year).sumOf { it.listenedMs },
+                silenceSavedMs = (if (year == null) days else days.inYear(year)).sumOf { it.savedMs },
                 finishedEpisodes = finished,
                 subscriptions = subscribed.size,
                 podcasts = if (year == null) {

@@ -254,7 +254,7 @@ fun PodcastFeedEntity.toUser() = UserPodcastEntity(
 fun ListeningStatEntity.toUser() =
     UserListeningStatEntity(source, groupKey, itemKey, kind, groupTitle, itemTitle, listenedMs, lastListenedAt)
 
-fun ListeningDayEntity.toUser() = UserListeningDayEntity(day, kind, groupKey, listenedMs)
+fun ListeningDayEntity.toUser() = UserListeningDayEntity(day, kind, groupKey, listenedMs, savedMs)
 
 fun KeyedProgress.toUser() = with(progress) {
     UserBookProgressEntity(serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty, hidden, skipSilence, volumeBoostDb)
@@ -311,7 +311,7 @@ fun UserListeningStatEntity.toMain() = ListeningStatEntity(
     lastListenedAt = lastListenedAt,
 )
 
-fun UserListeningDayEntity.toMain() = ListeningDayEntity(day, kind, groupKey, listenedMs)
+fun UserListeningDayEntity.toMain() = ListeningDayEntity(day, kind, groupKey, listenedMs, savedMs)
 
 /** Geladen oder wartend zählt als gewollt; entfernt oder fehlgeschlagen nicht. */
 fun KeyedEpisodeDownload.toUser() = UserEpisodeDownloadEntity(

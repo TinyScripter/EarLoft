@@ -29,6 +29,8 @@ data class PodcastStats(
     val months: List<MonthListening>,
     val years: List<Int> = emptyList(),
     val year: Int? = null,
+    /** Durch „Stille kürzen“ gesparte Zeit (Wanduhr), im gewählten Jahr bzw. insgesamt; nur selbst gezählt. */
+    val silenceSavedMs: Long = 0,
 ) {
     /** Ob der Verlauf überhaupt Zahlen hat (sonst zeigt die Oberfläche kein Diagramm). */
     val hasHistory: Boolean get() = months.any { it.listenedMs > 0 }
@@ -48,6 +50,8 @@ data class DeviceBookStats(
     val months: List<MonthListening>,
     val years: List<Int> = emptyList(),
     val year: Int? = null,
+    /** Wie bei [PodcastStats]. */
+    val silenceSavedMs: Long = 0,
 ) {
     val hasHistory: Boolean get() = months.any { it.listenedMs > 0 }
 }

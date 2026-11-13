@@ -47,12 +47,18 @@ class DatabaseImporter @Inject constructor(
         val known = podcastDao.feeds().mapTo(HashSet()) { it.url }
         // Steht eine Adresse aktiv und archiviert in der Datei, gilt sie als aktiv.
         val wanted = backup.feeds
-            .mapNotNull { f -> key(f.url)?.let { url -> WantedFeed(url, f.title.ifBlank { url }, f.active || ardSoundsShowId(f.url) != null) } }
+            .mapNotNull { f -> key(f.url)?.let { url -> WantedFeed(url, f.title.ifBlank { url }, f.active || ardSoundsShowId(f.url) != null, f) } }
             .groupBy { it.url }
             .map { (_, same) -> same.firstOrNull { it.active } ?: same.first() }
         repository.importOpml(wanted.map { OpmlFeed(it.title, it.url) }, replace = false)
         val added = wanted.filter { it.url !in known }.mapNotNull { wish ->
-            podcastDao.feedByUrl(wish.url)?.also { if (!wish.active) podcastDao.setArchived(it.feedId, true) }
+            podcastDao.feedByUrl(wish.url)?.also {
+                if (!wish.active) podcastDao.setArchived(it.feedId, true)
+                // Tempo und Effekte nur für neue Abos; ein Abo der App behält seine Einstellungen.
+                val source = wish.source
+                podcastDao.setEffects(it.feedId, source.speed, source.skipSilence, source.volumeBoostDb)
+                podcastDao.setSkipIntroOutro(it.feedId, source.skipIntroS, source.skipOutroS)
+            }
         }
         // Ohne Folgen gibt es nichts, dem sich ein Fortschritt zuordnen ließe.
         added.forEach { repository.refresh(it.feedId) }
@@ -120,7 +126,7 @@ class DatabaseImporter @Inject constructor(
         return true
     }
 
-    private data class WantedFeed(val url: String, val title: String, val active: Boolean)
+    private data class WantedFeed(val url: String, val title: String, val active: Boolean, val source: ImportFeed)
 
     /** Abo-Adresse wie in der App: Sendungen aus ARD Sounds (auch über die RSS-Bridge) als `ardsounds:<Kennung>`, sonst der Feed. */
     private fun key(url: String): String? = parseArdSoundsInput(url) ?: normalizeFeedUrl(url)?.toString()

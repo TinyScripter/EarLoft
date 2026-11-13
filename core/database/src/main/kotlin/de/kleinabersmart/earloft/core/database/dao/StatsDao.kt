@@ -23,8 +23,8 @@ data class GroupListeningRow(
 /** Gehörte Zeit eines Eintrags (Buch bzw. Folge), summiert über alle Quellen. */
 data class ItemListeningRow(val groupKey: String, val itemKey: String, val itemTitle: String, val listenedMs: Long)
 
-/** Gehörte Zeit an einem Tag, summiert über alle Gruppen. */
-data class DayListeningRow(val day: Long, val listenedMs: Long)
+/** Gehörte Zeit an einem Tag, summiert über alle Gruppen; [savedMs] durch „Stille kürzen“ gespart. */
+data class DayListeningRow(val day: Long, val listenedMs: Long, val savedMs: Long = 0)
 
 /** Gehörte Zeit einer Gruppe in einem Zeitraum (aus den Tageswerten). */
 data class GroupDayRow(val groupKey: String, val listenedMs: Long)
@@ -94,7 +94,10 @@ abstract class StatsDao {
     @Query("SELECT * FROM listening_stats")
     abstract suspend fun all(): List<ListeningStatEntity>
 
-    @Query("SELECT day, SUM(listenedMs) AS listenedMs FROM listening_days WHERE kind = :kind AND day >= :sinceDay GROUP BY day")
+    @Query(
+        "SELECT day, SUM(listenedMs) AS listenedMs, SUM(savedMs) AS savedMs FROM listening_days " +
+            "WHERE kind = :kind AND day >= :sinceDay GROUP BY day",
+    )
     abstract fun observeDays(kind: BookKind, sinceDay: Long): Flow<List<DayListeningRow>>
 
     @Query("SELECT * FROM listening_days")
@@ -117,24 +120,27 @@ abstract class StatsDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     protected abstract suspend fun insertStat(stat: ListeningStatEntity): Long
 
-    @Query("UPDATE listening_days SET listenedMs = listenedMs + :ms WHERE day = :day AND kind = :kind AND groupKey = :groupKey")
-    protected abstract suspend fun addToDay(day: Long, kind: BookKind, groupKey: String, ms: Long): Int
+    @Query(
+        "UPDATE listening_days SET listenedMs = listenedMs + :ms, savedMs = savedMs + :savedMs " +
+            "WHERE day = :day AND kind = :kind AND groupKey = :groupKey",
+    )
+    protected abstract suspend fun addToDay(day: Long, kind: BookKind, groupKey: String, ms: Long, savedMs: Long): Int
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     protected abstract suspend fun insertDay(day: ListeningDayEntity): Long
 
     /**
      * Zählt [stat] zur Summe seines Eintrags (wird bei Bedarf angelegt) und zur Summe seines Tages [day] hinzu.
-     * [ListeningStatEntity.listenedMs] ist der Zuwachs.
+     * [ListeningStatEntity.listenedMs] ist der Zuwachs, [savedMs] die dabei durch „Stille kürzen“ gesparte Zeit.
      */
     @Transaction
-    open suspend fun addListening(stat: ListeningStatEntity, day: Long) {
+    open suspend fun addListening(stat: ListeningStatEntity, day: Long, savedMs: Long = 0) {
         val updated = addToStat(
             stat.source, stat.groupKey, stat.itemKey, stat.groupTitle, stat.itemTitle, stat.listenedMs, stat.lastListenedAt,
         )
         if (updated == 0) insertStat(stat)
-        if (addToDay(day, stat.kind, stat.groupKey, stat.listenedMs) == 0) {
-            insertDay(ListeningDayEntity(day, stat.kind, stat.groupKey, stat.listenedMs))
+        if (addToDay(day, stat.kind, stat.groupKey, stat.listenedMs, savedMs) == 0) {
+            insertDay(ListeningDayEntity(day, stat.kind, stat.groupKey, stat.listenedMs, savedMs))
         }
     }
 
