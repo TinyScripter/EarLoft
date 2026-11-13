@@ -133,6 +133,36 @@ class ResumableTransferTest {
     }
 
     @Test
+    fun `an episode continues with the headers of its request`() = runTest {
+        val episodes = EpisodeStorage(tempFolder.newFolder("episodes"))
+        val episodeTransfer = ResumableTransfer(OkHttpClient(), episodes)
+        val request = okhttp3.Request.Builder().url(server.url("/episode.mp3")).header("User-Agent", "EarLoft").build()
+        server.enqueue(cutOff())
+        try {
+            episodeTransfer.run(request, bookId = 9, trackIndex = 0, onProgress = progress)
+            fail("Der Abbruch hätte eine Ausnahme auslösen müssen")
+        } catch (_: IOException) {
+            // erwartet
+        }
+        val have = episodes.partFileFor(9).length()
+        assertTrue(episodes.metaFileFor(9).exists())
+        // Die Teildatei einer wartenden Folge übersteht das Aufräumen.
+        episodes.deleteOrphans(emptyList(), listOf(9L))
+        assertEquals(have, episodes.partFileFor(9).length())
+        server.takeRequest()
+        server.enqueue(rest(have))
+
+        val result = episodeTransfer.run(request, bookId = 9, trackIndex = 0, onProgress = progress)
+
+        assertEquals(TransferResult.Completed("audio/mp4"), result)
+        server.takeRequest().also {
+            assertEquals("bytes=$have-", it.headers["Range"])
+            assertEquals("EarLoft", it.headers["User-Agent"])
+        }
+        assertArrayEquals(audio, episodes.partFileFor(9).readBytes())
+    }
+
+    @Test
     fun `progress of a resumed download includes what was already loaded`() = runTest {
         val have = interrupt()
         server.enqueue(rest(have))

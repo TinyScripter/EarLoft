@@ -98,6 +98,7 @@ class EpisodeDownloads @Inject constructor(
      */
     suspend fun deleteOrphans(): Int {
         if (dao.countPendingDownloads() > 0) return 0
+        // Nichts wartet: Teildateien setzt keiner mehr fort.
         return storage.deleteOrphans(dao.downloadedTracks().mapNotNull { it.filePath }, emptyList())
     }
 

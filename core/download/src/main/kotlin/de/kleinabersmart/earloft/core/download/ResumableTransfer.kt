@@ -39,7 +39,7 @@ internal sealed interface TransferResult {
  */
 internal class ResumableTransfer(
     private val client: OkHttpClient,
-    private val storage: BookStorage,
+    private val storage: PartFiles,
 ) {
     suspend fun run(
         url: HttpUrl,
@@ -47,6 +47,15 @@ internal class ResumableTransfer(
         trackIndex: Int,
         onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit,
         /** Im Takt des Fortschritts gefragt; `false` bricht ab (Download unterwegs entfernt). */
+        stillWanted: suspend () -> Boolean = { true },
+    ): TransferResult = run(Request.Builder().url(url).build(), bookId, trackIndex, onProgress, stillWanted)
+
+    /** Wie oben; [base] trägt eigene Kopfzeilen (Podcast-Feeds: User-Agent). */
+    suspend fun run(
+        base: Request,
+        bookId: Long,
+        trackIndex: Int,
+        onProgress: suspend (bytesDone: Long, bytesTotal: Long?) -> Unit,
         stillWanted: suspend () -> Boolean = { true },
     ): TransferResult {
         // Vor dem Merkmal: Beim allerersten Buch auf dem Gerät (z. B. auf der Uhr) gibt es den Ordner noch nicht.
@@ -56,7 +65,7 @@ internal class ResumableTransfer(
         val resume = readResume(part, meta)
         if (resume == null) storage.deletePart(bookId, trackIndex)
 
-        val request = Request.Builder().url(url).apply {
+        val request = base.newBuilder().apply {
             if (resume != null) {
                 header("Range", "bytes=${resume.offset}-")
                 header("If-Range", resume.validator)

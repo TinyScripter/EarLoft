@@ -321,6 +321,13 @@ abstract class PodcastDao {
     )
     abstract suspend fun nextQueuedDownload(): BookTrackEntity?
 
+    /** Wie [nextQueuedDownload], die nächsten [limit] (der Worker lädt mehrere parallel). */
+    @Query(
+        "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'EPISODE' AND t.downloadState = 'QUEUED' ORDER BY b.addedAt DESC, t.bookId DESC LIMIT :limit",
+    )
+    abstract suspend fun nextQueuedDownloads(limit: Int): List<BookTrackEntity>
+
     @Query(
         "SELECT COUNT(*) FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
             "WHERE b.kind = 'EPISODE' AND t.downloadState IN ('QUEUED', 'RUNNING')",

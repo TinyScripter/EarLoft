@@ -17,10 +17,18 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
+import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Arbeitet die Warteschlange der Folgen-Downloads nacheinander ab, neueste Folge zuerst. Aufbau wie beim
- * [DownloadWorker]: Vordergrund-Worker mit Fortschritt, Netzfehler stellen zurück und versuchen es mit Backoff erneut.
+ * Arbeitet die Warteschlange der Folgen-Downloads ab, neueste Folge zuerst und [PARALLEL] zugleich. Aufbau wie beim
+ * [DownloadWorker]: Vordergrund-Worker mit Fortschritt, Netzfehler stellen zurück und versuchen es mit Backoff erneut,
+ * dann an der Stelle, an der die Teildatei endet.
  */
 class EpisodeDownloadWorker(
     context: Context,
@@ -34,45 +42,89 @@ class EpisodeDownloadWorker(
     private val progress = entryPoint.episodeProgress()
     private val podcasts = entryPoint.podcastRepository()
 
+    /** Folgen, die einer der parallelen Läufe gerade genommen hat (bis der Downloader sie auf `RUNNING` setzt, stehen sie noch auf `QUEUED`). */
+    private val active = HashSet<Long>()
+    private val pick = Mutex()
+
+    /** Fortschritt der laufenden Folgen (Bytes, Größe) für eine gemeinsame Anzeige in der Benachrichtigung. */
+    private val running = ConcurrentHashMap<Long, Pair<Long, Long?>>()
+    private val throttle = ProgressThrottle()
+
     override suspend fun doWork(): Result {
         dao.requeueRunningDownloads()
         if (dao.countPendingDownloads() == 0) return finish()
         startForeground(progress = null)
 
-        while (true) {
-            val next = dao.nextQueuedDownload() ?: break
-            val throttle = ProgressThrottle()
-            progress.report(next.bookId, 0, null)
-            val outcome = try {
-                downloader.download(next) { done, total ->
-                    progress.report(next.bookId, done, total)
-                    val percent = throttle.next(done, total)
-                    if (percent != null) notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
-                }
-            } finally {
-                progress.clear(next.bookId)
-            }
-            when (outcome) {
-                is DownloadOutcome.Retry -> {
-                    Log.w(TAG, "Folge ${next.bookId} unterbrochen (Versuch ${runAttemptCount + 1})", outcome.cause)
-                    if (runAttemptCount + 1 < MAX_ATTEMPTS) {
-                        dao.requeueDownload(next.bookId)
-                        return Result.retry()
+        // Ein Netzfehler beendet den Lauf: Keiner nimmt danach eine neue Folge, der Worker versucht es mit Backoff erneut.
+        val retry = AtomicBoolean(false)
+        coroutineScope {
+            repeat(PARALLEL) {
+                launch {
+                    while (!retry.get()) {
+                        val next = takeNext() ?: break
+                        try {
+                            if (!load(next)) retry.set(true)
+                        } finally {
+                            pick.withLock { active -= next.bookId }
+                        }
                     }
-                    dao.markDownloadFailed(next.bookId)
                 }
-                is DownloadOutcome.Failed -> Log.w(TAG, "Folge ${next.bookId} fehlgeschlagen: ${outcome.reason}")
-                // Nennt der Feed keine Kapitel, stehen sie vielleicht in der Datei (Konzept 12.5 „Kapitelquellen“).
-                DownloadOutcome.Done -> podcasts.chaptersFromFile(next.bookId)
-                DownloadOutcome.Cancelled -> Unit
             }
         }
-        return finish()
+        return if (retry.get()) Result.retry() else finish()
     }
 
-    /** Räumt Dateien weg, zu denen es keinen Eintrag mehr gibt (Abo beendet, Folge aus dem Feed gefallen). */
+    private suspend fun takeNext(): BookTrackEntity? = pick.withLock {
+        dao.nextQueuedDownloads(PARALLEL + 1).firstOrNull { it.bookId !in active }?.also { active += it.bookId }
+    }
+
+    /** @return `false`, wenn der Lauf mit Backoff wiederholt werden soll. */
+    private suspend fun load(next: BookTrackEntity): Boolean {
+        progress.report(next.bookId, 0, null)
+        running[next.bookId] = 0L to null
+        val outcome = try {
+            downloader.download(next) { done, total ->
+                progress.report(next.bookId, done, total)
+                running[next.bookId] = done to total
+                reportOverall()
+            }
+        } finally {
+            progress.clear(next.bookId)
+            running -= next.bookId
+        }
+        when (outcome) {
+            is DownloadOutcome.Retry -> {
+                Log.w(TAG, "Folge ${next.bookId} unterbrochen (Versuch ${runAttemptCount + 1})", outcome.cause)
+                // Ein abgelehnter Zugang ändert sich durch Warten nicht.
+                if (!outcome.isAuthRejection && runAttemptCount + 1 < MAX_ATTEMPTS) {
+                    dao.requeueDownload(next.bookId)
+                    return false
+                }
+                dao.markDownloadFailed(next.bookId)
+                storage.deletePart(next.bookId, 0)
+            }
+            is DownloadOutcome.Failed -> Log.w(TAG, "Folge ${next.bookId} fehlgeschlagen: ${outcome.reason}")
+            // Nennt der Feed keine Kapitel, stehen sie vielleicht in der Datei (Konzept 12.5 „Kapitelquellen“).
+            DownloadOutcome.Done -> podcasts.chaptersFromFile(next.bookId)
+            DownloadOutcome.Cancelled -> Unit
+        }
+        return true
+    }
+
+    /** Ein Prozentwert über alle laufenden Folgen; ohne bekannte Größe einer davon unbestimmt. */
+    private suspend fun reportOverall() {
+        val all = running.values.toList()
+        val total = if (all.any { it.second == null }) null else all.sumOf { it.second ?: 0L }
+        val percent = throttle.next(all.sumOf { it.first }, total) ?: return
+        notify(percent.takeIf { it != ProgressThrottle.UNKNOWN })
+    }
+
+    /**
+     * Räumt Dateien weg, zu denen es keinen Eintrag mehr gibt (Abo beendet, Folge aus dem Feed gefallen). Teildateien
+     * wartender Folgen bleiben für den nächsten Lauf.
+     */
     private suspend fun finish(): Result {
-        storage.deleteOrphans(dao.downloadedTracks().mapNotNull { it.filePath }, emptyList())
+        storage.deleteOrphans(dao.downloadedTracks().mapNotNull { it.filePath }, dao.pendingTracks().map { it.bookId })
         return Result.success()
     }
 
@@ -144,5 +196,8 @@ class EpisodeDownloadWorker(
         const val CHANNEL_ID = "downloads"
         const val NOTIFICATION_ID = 2002
         const val MAX_ATTEMPTS = 5
+
+        /** Folgen liegen auf vielen Hosts; zwei zugleich nutzen die Leitung besser, ohne einen Server zu überlasten. */
+        const val PARALLEL = 2
     }
 }

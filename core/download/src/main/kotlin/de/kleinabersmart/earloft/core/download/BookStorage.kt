@@ -14,7 +14,7 @@ import javax.inject.Singleton
  * `.part.meta` mit dem Merkmal der Serverdatei (siehe [ResumableTransfer]).
  */
 @Singleton
-class BookStorage internal constructor(val directory: File) {
+class BookStorage internal constructor(val directory: File) : PartFiles {
 
     @Inject
     constructor(@ApplicationContext context: Context) : this(File(context.noBackupFilesDir, "books"))
@@ -23,10 +23,10 @@ class BookStorage internal constructor(val directory: File) {
         File(directory, "${prefix(bookId)}$trackIndex.${DownloadStorage.extensionFor(mimeType)}")
 
     /** Ziel während des Ladens; wird erst nach vollständigem Download umbenannt. */
-    fun partFileFor(bookId: Long, trackIndex: Int): File = File(directory, "${prefix(bookId)}$trackIndex$PART_SUFFIX")
+    override fun partFileFor(bookId: Long, trackIndex: Int): File = File(directory, "${prefix(bookId)}$trackIndex$PART_SUFFIX")
 
     /** Merkmal der Serverdatei, zu der die Teildatei gehört. */
-    fun metaFileFor(bookId: Long, trackIndex: Int): File = File(directory, "${prefix(bookId)}$trackIndex$META_SUFFIX")
+    override fun metaFileFor(bookId: Long, trackIndex: Int): File = File(directory, "${prefix(bookId)}$trackIndex$META_SUFFIX")
 
     /**
      * Teildatei einer Übertragung vom Handy (Uhr), getrennt von der des Servers ([partFileFor]); wie diese bleibt sie nach
@@ -39,15 +39,9 @@ class BookStorage internal constructor(val directory: File) {
     fun phoneLengthFileFor(bookId: Long, trackIndex: Int): File =
         File(directory, "${prefix(bookId)}$trackIndex${DownloadStorage.PHONE_LENGTH_SUFFIX}")
 
-    fun ensureDirectory(): File = directory.apply { mkdirs() }
+    override fun ensureDirectory(): File = directory.apply { mkdirs() }
 
-    fun freeBytes(): Long = ensureDirectory().usableSpace
-
-    /** Verwirft die Teildatei samt Merkmal; der nächste Versuch beginnt von vorn. */
-    fun deletePart(bookId: Long, trackIndex: Int) {
-        partFileFor(bookId, trackIndex).delete()
-        metaFileFor(bookId, trackIndex).delete()
-    }
+    override fun freeBytes(): Long = ensureDirectory().usableSpace
 
     /** Löscht alle Dateien und Teildateien des Buchs. */
     fun delete(bookId: Long) {

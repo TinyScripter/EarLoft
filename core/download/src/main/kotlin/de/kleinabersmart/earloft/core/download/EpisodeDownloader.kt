@@ -7,20 +7,16 @@ import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.network.podcast.PodcastFeedApi
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.IOException
 import javax.inject.Inject
 
 /**
- * Lädt die Audiodatei einer Podcast-Folge vollständig in den App-Speicher (Konzept 12). Wie beim [Downloader] entsteht
- * die Datei als `.part` und wird erst nach vollständigem Empfang umbenannt. Die Adresse steht im Track der Folge; sie
- * führt zu beliebigen Hosts, daher kein Server-Login.
+ * Lädt die Audiodatei einer Podcast-Folge vollständig in den App-Speicher (Konzept 12). Die Übertragung, auch das
+ * Fortsetzen nach einem Abbruch, macht [ResumableTransfer] wie bei den Büchern; erst nach vollständigem Empfang wird die
+ * `.part`-Datei umbenannt. Die Adresse steht im Track der Folge; sie führt zu beliebigen Hosts, daher kein Server-Login.
  */
 class EpisodeDownloader @Inject constructor(
     private val dao: PodcastDao,
@@ -28,9 +24,12 @@ class EpisodeDownloader @Inject constructor(
     private val client: OkHttpClient,
     private val storage: EpisodeStorage,
 ) {
+    private val transfer = ResumableTransfer(client, storage)
+
     /**
-     * Bei [DownloadOutcome.Retry] bleibt der Eintrag auf `RUNNING`; der Aufrufer reiht ihn neu ein oder markiert ihn.
-     * Mit [network] läuft die Verbindung über genau dieses Netz (die Uhr lädt über WLAN, wie beim [Downloader]).
+     * Bei [DownloadOutcome.Retry] bleibt der Eintrag auf `RUNNING` und die Teildatei liegen, damit der nächste Versuch dort
+     * weitermacht; der Aufrufer reiht ihn neu ein oder markiert ihn. Mit [network] läuft die Verbindung über genau dieses
+     * Netz (die Uhr lädt über WLAN, wie beim [Downloader]).
      */
     suspend fun download(
         track: BookTrackEntity,
@@ -42,83 +41,34 @@ class EpisodeDownloader @Inject constructor(
         return try {
             fetch(track, network, onProgress).also { outcome ->
                 if (outcome is DownloadOutcome.Failed) dao.markDownloadFailed(bookId)
-                if (outcome !is DownloadOutcome.Done) storage.partFileFor(bookId).delete()
+                if (outcome is DownloadOutcome.Failed || outcome is DownloadOutcome.Cancelled) storage.deletePart(bookId, 0)
             }
         } catch (e: CancellationException) {
-            storage.partFileFor(bookId).delete()
+            // Abgebrochen (z. B. Netz weg, Worker gestoppt): die Teildatei bleibt für den nächsten Lauf.
             withContext(NonCancellable) { dao.requeueDownload(bookId) }
             throw e
         } catch (e: IOException) {
-            storage.partFileFor(bookId).delete()
             DownloadOutcome.Retry(e)
         }
     }
 
     private suspend fun fetch(track: BookTrackEntity, network: Network?, onProgress: suspend (Long, Long?) -> Unit): DownloadOutcome {
         val request = api.audioRequest(track.remoteFileId) ?: return DownloadOutcome.Failed("Ungültige Adresse")
-        val call = clientFor(network).newCall(request)
-        val cancelCall = currentCoroutineContext().job.invokeOnCompletion { call.cancel() }
-        try {
-            return withContext(Dispatchers.IO) {
-                call.execute().use { response ->
-                    when {
-                        response.code in 500..599 -> throw IOException("HTTP ${response.code}")
-                        !response.isSuccessful -> return@withContext DownloadOutcome.Failed("HTTP ${response.code}")
-                    }
-                    val contentType = response.header("Content-Type").orEmpty().substringBefore(';').trim().lowercase()
-                    if (contentType.startsWith("text/") || contentType.contains("json") || contentType.contains("xml")) {
-                        return@withContext DownloadOutcome.Failed("Keine Audiodatei ($contentType)")
-                    }
-                    val total = response.body.contentLength().takeIf { it > 0 }
-                    if (total != null && storage.freeBytes() < total + FREE_SPACE_RESERVE_BYTES) {
-                        return@withContext DownloadOutcome.Failed("Zu wenig Speicher")
-                    }
-                    if (!writeToPart(track.bookId, response.body.byteStream(), total, onProgress)) {
-                        return@withContext DownloadOutcome.Cancelled
-                    }
-                    val mimeType = contentType.takeIf { it.startsWith("audio/") } ?: track.mimeType
-                    finish(track.bookId, mimeType)
-                }
-            }
-        } finally {
-            cancelCall.dispose()
+        val transfer = if (network == null) transfer else ResumableTransfer(clientFor(network), storage)
+        // „Download entfernen“ setzt den Zustand zurück; ohne die Frage liefe die Übertragung bis zum Ende weiter.
+        val stillWanted = suspend { dao.trackOf(track.bookId)?.downloadState == TrackDownload.RUNNING }
+        return when (val result = transfer.run(request, track.bookId, 0, onProgress, stillWanted)) {
+            is TransferResult.Failed -> DownloadOutcome.Failed(result.reason)
+            TransferResult.Cancelled -> DownloadOutcome.Cancelled
+            is TransferResult.Completed -> finish(track.bookId, result.mimeType ?: track.mimeType)
         }
     }
 
-    private fun clientFor(network: Network?): OkHttpClient =
-        if (network == null) {
-            client
-        } else {
-            client.newBuilder()
-                .socketFactory(network.socketFactory)
-                .dns { host -> network.getAllByName(host).toList() }
-                .build()
-        }
-
-    /** @return `false`, wenn der Download unterwegs entfernt wurde (sonst liefe er bis zum Ende weiter). */
-    private suspend fun writeToPart(bookId: Long, input: java.io.InputStream, total: Long?, onProgress: suspend (Long, Long?) -> Unit): Boolean {
-        storage.ensureDirectory()
-        var written = 0L
-        var lastReport = 0L
-        storage.partFileFor(bookId).outputStream().use { output ->
-            val buffer = ByteArray(BUFFER_BYTES)
-            while (true) {
-                currentCoroutineContext().ensureActive()
-                val read = input.read(buffer)
-                if (read < 0) break
-                output.write(buffer, 0, read)
-                written += read
-                val now = System.nanoTime()
-                if (now - lastReport >= PROGRESS_INTERVAL_NANOS) {
-                    lastReport = now
-                    if (dao.trackOf(bookId)?.downloadState != TrackDownload.RUNNING) return false
-                    onProgress(written, total)
-                }
-            }
-        }
-        if (total != null && written != total) throw IOException("Unvollständig: $written von $total Bytes")
-        return true
-    }
+    private fun clientFor(network: Network): OkHttpClient =
+        client.newBuilder()
+            .socketFactory(network.socketFactory)
+            .dns { host -> network.getAllByName(host).toList() }
+            .build()
 
     private suspend fun finish(bookId: Long, mimeType: String?): DownloadOutcome {
         val part = storage.partFileFor(bookId)
@@ -136,8 +86,5 @@ class EpisodeDownloader @Inject constructor(
 
     private companion object {
         const val TAG = "EpisodeDownloader"
-        const val BUFFER_BYTES = 64 * 1024
-        const val PROGRESS_INTERVAL_NANOS = 500_000_000L
-        const val FREE_SPACE_RESERVE_BYTES = 100L * 1024 * 1024
     }
 }
