@@ -189,6 +189,16 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_BOOK_MOBILE] = enabled }
     }
 
+    /**
+     * Vor dem Streamen eines Buchs oder einer Folge über mobile Daten fragen (Standard: nein, wie bisher); gilt für Starts
+     * aus der App, nicht von der Uhr.
+     */
+    val askBeforeMobileStreaming: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_ASK_MOBILE_STREAM] ?: false }
+
+    suspend fun setAskBeforeMobileStreaming(enabled: Boolean) {
+        context.spokenSettingsDataStore.edit { it[KEY_ASK_MOBILE_STREAM] = enabled }
+    }
+
     /** Die ersten Bücher aus „Weiterhören“ automatisch laden, nur im WLAN ([automaticBookDownloads]; Standard: aus). */
     val bookAutoStarted: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_BOOK_AUTO_STARTED] ?: false }
 
@@ -236,6 +246,7 @@ class SpokenSettings @Inject constructor(
         val KEY_BOOK_FILTER = stringPreferencesKey("book_filter")
         val KEY_BOOK_MOBILE = booleanPreferencesKey("book_mobile_data")
         val KEY_BOOK_AUTO_STARTED = booleanPreferencesKey("book_auto_started")
+        val KEY_ASK_MOBILE_STREAM = booleanPreferencesKey("ask_before_mobile_streaming")
         val KEY_BOOK_AUTO_NEXT = booleanPreferencesKey("book_auto_next_in_series")
         val KEY_BOOK_DELETE_FINISHED = intPreferencesKey("book_delete_finished_days")
         val KEY_BOOK_REWIND_AFTER = intPreferencesKey("book_rewind_after_s")

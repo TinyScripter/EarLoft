@@ -132,6 +132,8 @@ data class SettingsUiState(
     val bookAutoStarted: Boolean = false,
     val bookAutoNextInSeries: Boolean = false,
     val bookDeleteFinishedDays: Int = PodcastSettings.DELETE_HEARD_NEVER,
+    /** Vor dem Streamen von Büchern und Folgen über mobile Daten fragen. */
+    val askBeforeMobileStreaming: Boolean = false,
     /** Verzeichnisse, die dieser Build kennt, und die eingeschalteten (Konzept 12.10). */
     val podcastDirectories: List<PodcastDirectory> = emptyList(),
     val enabledPodcastDirectories: Set<PodcastDirectory> = emptySet(),
@@ -286,6 +288,8 @@ class SettingsViewModel @Inject constructor(
         combine(spokenSettings.bookAutoStarted, spokenSettings.bookAutoNextInSeries, spokenSettings.bookDeleteFinishedDays, ::Triple),
     ) { state, (autoStarted, autoNext, deleteDays) ->
         state.copy(bookAutoStarted = autoStarted, bookAutoNextInSeries = autoNext, bookDeleteFinishedDays = deleteDays)
+    }.combine(spokenSettings.askBeforeMobileStreaming) { state, ask ->
+        state.copy(askBeforeMobileStreaming = ask)
     }.combine(combine(spokenSettings.bookEffects, spokenSettings.podcastEffects, ::Pair)) { state, (book, podcast) ->
         state.copy(bookEffects = book, podcastEffects = podcast)
     }.combine(spokenSettings.areas) { state, areas ->
@@ -351,6 +355,10 @@ class SettingsViewModel @Inject constructor(
     /** Wartende Buch-Downloads bekommen die neue Netzbedingung sofort (BookDownloads). */
     fun setBookMobileData(enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setBookMobileData(enabled) }
+    }
+
+    fun setAskBeforeMobileStreaming(enabled: Boolean) {
+        viewModelScope.launch { spokenSettings.setAskBeforeMobileStreaming(enabled) }
     }
 
     fun setBookAutoStarted(enabled: Boolean) {

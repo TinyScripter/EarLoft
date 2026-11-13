@@ -585,6 +585,12 @@
     <string name="spoken_position_state">%1$s von %2$s</string>
     <string name="spoken_speed_description">Geschwindigkeit %1$s×</string>
     <string name="spoken_play_failed">Das Buch konnte nicht geladen werden. Ist der Server erreichbar?</string>
+    <string name="spoken_mobile_stream_title">Über mobile Daten streamen?</string>
+    <string name="spoken_mobile_stream_message">„%1$s“ ist nicht geladen und würde über mobile Daten abgespielt.</string>
+    <string name="spoken_mobile_stream_play">Abspielen</string>
+    <string name="spoken_mobile_stream_always">Immer erlauben</string>
+    <string name="settings_ask_mobile_stream">Vor dem Streamen über mobile Daten fragen</string>
+    <string name="settings_ask_mobile_stream_summary">Bücher und Folgen, die nicht geladen sind. „Abspielen“ gilt, bis die App beendet wird.</string>
     <string name="spoken_resumed_from_server">Weiter an der Stelle von einem anderen Gerät (%1$s)</string>
     <string name="spoken_abs_add">Audiobookshelf-Server hinzufügen</string>
     <string name="spoken_abs_none">Noch kein Audiobookshelf-Server.</string>

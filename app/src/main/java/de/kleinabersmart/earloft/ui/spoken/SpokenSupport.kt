@@ -11,6 +11,11 @@ import de.kleinabersmart.earloft.core.model.BookKind
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.TextLinkStyles
@@ -472,20 +477,51 @@ fun formatClock(ms: Long): String {
     return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
 }
 
-/** Einmal an der Wurzel der App: zeigt die Hinweise des [BookLauncher] als Snackbar. */
+/**
+ * Einmal an der Wurzel der App: zeigt die Hinweise des [BookLauncher] als Snackbar und fragt, bevor ein Buch oder eine
+ * Folge über mobile Daten gestreamt wird (wenn eingeschaltet).
+ */
 @Composable
 fun BookLaunchEffect(viewModel: BookLaunchViewModel = hiltViewModel()) {
     val resources = LocalResources.current
     val snackbars = LocalSnackbars.current
+    var confirming by remember { mutableStateOf<BookLaunchEvent.ConfirmMobile?>(null) }
     LaunchedEffect(viewModel) {
         viewModel.launcher.events.collect { event ->
             val text = when (event) {
                 BookLaunchEvent.Failed -> resources.getString(R.string.spoken_play_failed)
                 is BookLaunchEvent.ResumedFromServer ->
                     resources.getString(R.string.spoken_resumed_from_server, formatClock(event.positionMs))
+                is BookLaunchEvent.ConfirmMobile -> {
+                    confirming = event
+                    null
+                }
             }
-            snackbars.show(text, SnackbarDuration.Long)
+            if (text != null) snackbars.show(text, SnackbarDuration.Long)
         }
+    }
+    confirming?.let { request ->
+        val close = { confirming = null }
+        AlertDialog(
+            onDismissRequest = close,
+            title = { Text(stringResource(R.string.spoken_mobile_stream_title)) },
+            text = { Text(stringResource(R.string.spoken_mobile_stream_message, request.title)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.playOverMobile(request, always = false)
+                    close()
+                }) { Text(stringResource(R.string.spoken_mobile_stream_play)) }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = close) { Text(stringResource(R.string.action_cancel)) }
+                    TextButton(onClick = {
+                        viewModel.playOverMobile(request, always = true)
+                        close()
+                    }) { Text(stringResource(R.string.spoken_mobile_stream_always)) }
+                }
+            },
+        )
     }
 }
 

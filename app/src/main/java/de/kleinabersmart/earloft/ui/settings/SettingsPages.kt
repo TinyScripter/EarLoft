@@ -254,6 +254,15 @@ fun GeneralSettingsScreen(
                     onCheckedChange = viewModel::setDownloadWifiOnly,
                 )
             }
+            row("ask-mobile-stream") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_ask_mobile_stream),
+                    summary = stringResource(R.string.settings_ask_mobile_stream_summary),
+                    icon = DesignR.drawable.ic_cloud,
+                    checked = state.askBeforeMobileStreaming,
+                    onCheckedChange = viewModel::setAskBeforeMobileStreaming,
+                )
+            }
             row("downloads-open") {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.nav_downloads)) },

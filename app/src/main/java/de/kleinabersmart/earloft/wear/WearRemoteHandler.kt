@@ -74,7 +74,7 @@ class WearRemoteHandler @Inject constructor(
 
     suspend fun play(request: WearRemotePlayRequest) {
         if (request.kind == WearRemoteListKind.CONTINUE) {
-            request.refId?.let(bookLauncher::play)
+            request.refId?.let { bookLauncher.playConfirmed(it) }
             return
         }
         val list = resolve(request.kind, request.refId)
