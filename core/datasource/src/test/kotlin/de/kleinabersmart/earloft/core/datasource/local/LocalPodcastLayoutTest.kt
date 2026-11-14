@@ -103,6 +103,22 @@ class LocalPodcastLayoutTest {
     }
 
     @Test
+    fun `numbered chapters from the start of the file are chapters`() {
+        fun chapter(id: String, start: Int, end: Int, title: String) =
+            ChapterFrame(id, start, end, 0, 0, arrayOf<Id3Frame>(TextInformationFrame("TIT2", null, listOf(title))))
+        fun tags(vararg titles: String) = SpokenTags.from(
+            listOf(Metadata(*titles.mapIndexed { i, title -> chapter("c$i", i * 600_000, (i + 1) * 600_000, title) }.toTypedArray())),
+        )
+
+        assertEquals(listOf("Chapter 1", "Chapter 2", "Chapter 3"), tags("Chapter 1", "Chapter 2", "Chapter 3").chapters.map { it.title })
+        assertEquals(3, tags("Kapitel 1", "Kapitel 2", "Kapitel 3").chapters.size)
+        assertEquals(3, tags("001", "002", "003").chapters.size)
+        assertEquals(4, tags("Vorwort", "Chapter 1", "Chapter 2", "Chapter 3").chapters.size)
+        // Nummern mit Lücken sind Kennungen, keine Kapitel.
+        assertEquals(emptyList<LocalBookChapter>(), tags("ch1", "ch4", "ch9").chapters)
+    }
+
+    @Test
     fun `ID3v2_3 year and day-month are joined`() {
         val both = SpokenTags.from(listOf(Metadata(TextInformationFrame("TYER", null, listOf("2026")), TextInformationFrame("TDAT", null, listOf("2110")))))
         val yearOnly = SpokenTags.from(listOf(Metadata(TextInformationFrame("TYER", null, listOf("2026")))))

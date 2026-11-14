@@ -76,18 +76,23 @@ internal data class SpokenTags(
         }
 
         /** Titel ohne Inhalt: die Kennung des Kapitels („ch3“, „c4“) oder nur eine Zahl. */
-        private val GENERIC_TITLE = Regex("""(?i)(c|ch|chp|chap|chapter|kapitel)?[ _-]?\d+""")
+        private val GENERIC_TITLE = Regex("""(?i)(?:c|ch|chp|chap|chapter|kapitel)?[ _-]?(\d+)""")
         private const val OVERLAP_TOLERANCE_MS = 1_000L
 
         /**
          * Manche Sender (am Emulator: ARD) lassen Schnittmarken ihres Produktionssystems als ID3-Kapitel in der Datei:
          * verschachtelt („ch1“ … „ch9“ innerhalb einer Minute) oder fast ohne Namen. Solche Listen sind keine Kapitel und
-         * fallen ganz weg, statt die Kapitelknöpfe auf Schnittmarken springen zu lassen.
+         * fallen ganz weg, statt die Kapitelknöpfe auf Schnittmarken springen zu lassen. Durchnummerierte Kapitel ab dem
+         * Anfang der Datei („Chapter 1“ …, „Kapitel 1“ …, „001“ …, wie Werkzeuge sie in Hörbücher schreiben) bleiben.
          */
         private fun List<LocalBookChapter>.plausible(): List<LocalBookChapter> {
             val overlapping = zipWithNext().any { (a, b) -> b.startMs < a.endMs - OVERLAP_TOLERANCE_MS }
-            val named = count { !GENERIC_TITLE.matches(it.title.trim()) }
-            return if (overlapping || named * 2 < size) emptyList() else this
+            if (overlapping) return emptyList()
+            val numbers = mapNotNull { GENERIC_TITLE.matchEntire(it.title.trim())?.groupValues?.get(1)?.toIntOrNull() }
+            val named = size - numbers.size
+            val numbered = numbers.size >= 2 && numbers.zipWithNext().all { (a, b) -> b == a + 1 } &&
+                first().startMs <= OVERLAP_TOLERANCE_MS
+            return if (named * 2 < size && !numbered) emptyList() else this
         }
 
         @OptIn(UnstableApi::class)
