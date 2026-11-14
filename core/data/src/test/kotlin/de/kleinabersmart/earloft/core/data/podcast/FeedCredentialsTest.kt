@@ -145,6 +145,23 @@ class FeedCredentialsTest {
         observer.cancel()
     }
 
+    @Test
+    fun `stored credentials only go along to a new source on the same host`() = runTest {
+        val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "geheim")) as SubscribeResult.Added
+        val stored = repository.storedCredentials(added.feedId)
+
+        val sameHost = repository.fetchSource(server.url("/neu.xml").toString(), stored)
+        assertEquals("anna", (sameHost as PodcastRepository.SourceFetch.Loaded).auth?.username)
+
+        // Derselbe Server unter einem anderen Namen gilt als fremder Host (z. B. ein Umzug per `itunes:new-feed-url`).
+        val otherHost = if (server.hostName == "localhost") "127.0.0.1" else "localhost"
+        val foreign = server.url("/neu.xml").newBuilder().host(otherHost).build()
+        assertEquals(
+            PodcastRepository.SourceFetch.Failed(SubscribeResult.CredentialsNeeded(rejected = false)),
+            repository.fetchSource(foreign.toString(), stored),
+        )
+    }
+
     private fun eventually(condition: () -> Boolean) {
         repeat(300) {
             if (condition()) return

@@ -494,7 +494,12 @@ class PodcastRepository @Inject constructor(
      */
     internal suspend fun fetchSource(input: String, stored: FeedAuth? = null): SourceFetch {
         val entered = FeedAddress.of(input) ?: return SourceFetch.Failed(SubscribeResult.InvalidUrl)
-        val withStored = if (entered is FeedAddress.Http && entered.auth == null) entered.copy(auth = stored) else entered
+        // Nur auf demselben Host: Der HTTPS-Versuch einer `http://`-Adresse legt die Zugangsdaten auf deren Host fest.
+        val withStored = if (entered is FeedAddress.Http && entered.auth == null) {
+            entered.copy(auth = stored?.takeIf { it.scope.host == entered.url.host })
+        } else {
+            entered
+        }
         return fetchSource(withStored)
     }
 
