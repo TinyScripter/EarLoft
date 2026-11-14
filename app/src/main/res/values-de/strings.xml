@@ -1187,6 +1187,9 @@
     <string name="ard_books_add">Zur Bibliothek hinzufügen</string>
     <string name="ard_books_add_failed">Buch nicht hinzugefügt: ARD Sounds ist nicht erreichbar.</string>
     <string name="ard_books_subscribe">Abonnieren</string>
+    <string name="ard_books_my_series">Meine Reihen</string>
+    <string name="ard_books_unsubscribe">Abo beenden</string>
+    <string name="ard_books_unsubscribe_confirm">Keine neuen Bücher von „%1$s“ mehr holen? Bücher in deiner Bibliothek bleiben.</string>
     <string name="ard_books_subscribed">Abonniert</string>
     <string name="ard_books_subscribe_done">Neue Bücher von „%1$s“ kommen in deine Bibliothek.</string>
     <string name="ard_books_unsubscribe_done">Abo beendet. Bücher in deiner Bibliothek bleiben.</string>

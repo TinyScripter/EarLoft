@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -34,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
+import de.kleinabersmart.earloft.core.data.spoken.ArdSubscription
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdBook
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdBookSummary
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdCategory
@@ -79,6 +82,8 @@ fun ArdSoundsScreen(
 ) {
     val library by viewModel.library.collectAsStateWithLifecycle()
     val subscribed by viewModel.subscribed.collectAsStateWithLifecycle()
+    val subscriptions by viewModel.subscriptions.collectAsStateWithLifecycle()
+    var unsubscribing by remember { mutableStateOf<ArdSubscription?>(null) }
     val category by viewModel.category.collectAsStateWithLifecycle()
     val shows by viewModel.shows.collectAsStateWithLifecycle()
     val search by viewModel.search.collectAsStateWithLifecycle()
@@ -92,6 +97,21 @@ fun ArdSoundsScreen(
     LaunchedEffect(term.isBlank()) { if (term.isBlank()) viewModel.clearSearch() }
     val openBook: (ArdBookSummary) -> Unit = { book -> library[book.key]?.let(onOpenBook) ?: onBook(book) }
     val noResults = search?.let { stringResource(R.string.search_no_results, it.first) }.orEmpty()
+
+    unsubscribing?.let { subscription ->
+        AlertDialog(
+            onDismissRequest = { unsubscribing = null },
+            title = { Text(stringResource(R.string.ard_books_unsubscribe)) },
+            text = { Text(stringResource(R.string.ard_books_unsubscribe_confirm, subscription.title)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.unsubscribe(subscription.showId)
+                    unsubscribing = null
+                }) { Text(stringResource(R.string.ard_books_unsubscribe)) }
+            },
+            dismissButton = { TextButton(onClick = { unsubscribing = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
 
     Column(modifier.fillMaxSize()) {
         TopAppBar(
@@ -120,6 +140,23 @@ fun ArdSoundsScreen(
                 item(key = "results-header") { SectionHeader(stringResource(R.string.ard_books_results)) }
                 ardBookList(current.second, library, empty = noResults, onBook = openBook, keyPrefix = "hit")
             } else {
+                if (subscriptions.isNotEmpty()) {
+                    item(key = "mine-header") { SectionHeader(stringResource(R.string.ard_books_my_series)) }
+                    groupedItems(subscriptions, key = { "mine-${it.showId}" }) { subscription ->
+                        ListItem(
+                            headlineContent = { Text(subscription.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                            leadingContent = {
+                                Icon(painterResource(DesignR.drawable.ic_notifications), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            },
+                            trailingContent = {
+                                IconButton(onClick = { unsubscribing = subscription }) {
+                                    Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.ard_books_unsubscribe))
+                                }
+                            },
+                            modifier = Modifier.clickable { onShow(ArdShow(subscription.showId, subscription.title, publisher = "", imageUrl = null, itemCount = 0)) },
+                        )
+                    }
+                }
                 item(key = "categories") {
                     Row(
                         Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),

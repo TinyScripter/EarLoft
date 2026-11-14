@@ -208,6 +208,10 @@ fun EarLoftApp(
             target.albumId != null -> navigator.navigate(AlbumRoute(target.albumId))
             target.feedId != null -> navigator.navigate(PodcastRoute(target.feedId))
             target.bookId != null -> navigator.navigate(BookRoute(target.bookId))
+            target.ardShowId != null -> {
+                navigator.navigate(ArdSoundsRoute())
+                navigator.navigate(ArdShowRoute(target.ardShowId, target.ardShowTitle.orEmpty()))
+            }
         }
         onNewContentOpened()
     }

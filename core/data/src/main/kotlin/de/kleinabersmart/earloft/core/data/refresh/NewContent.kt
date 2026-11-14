@@ -23,8 +23,11 @@ data class NewEpisodes(
 /** Ein Album mit [songs] neuen Titeln. */
 data class NewAlbum(val albumId: Long, val title: String, val artist: String, val songs: Int)
 
-/** Ein neues Buch. */
-data class NewBook(val bookId: Long, val title: String, val author: String)
+/** Eine abonnierte Sendung aus ARD Sounds. */
+data class NewShow(val id: String, val title: String)
+
+/** Ein neues Buch; [ardShow], wenn es zu einer abonnierten Sendung aus ARD Sounds gehört. */
+data class NewBook(val bookId: Long, val title: String, val author: String, val ardShow: NewShow? = null)
 
 /** Was ein Abgleich im Hintergrund in einem Bereich Neues gebracht hat; jeder Bereich hat seine eigene Benachrichtigung. */
 sealed interface NewContent {

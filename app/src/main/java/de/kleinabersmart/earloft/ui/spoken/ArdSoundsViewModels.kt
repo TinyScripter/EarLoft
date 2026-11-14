@@ -8,6 +8,7 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
+import de.kleinabersmart.earloft.core.data.spoken.ArdSubscription
 import de.kleinabersmart.earloft.core.download.BookDownloads
 import de.kleinabersmart.earloft.core.download.DownloadStart
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdBook
@@ -55,10 +56,18 @@ class ArdSoundsViewModel @Inject constructor(private val ardBooks: ArdBooks) : V
     val library: StateFlow<Map<String, Long>> = ardBooks.library
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
+    /** Die abonnierten Sendungen („Meine Reihen“). */
+    val subscriptions: StateFlow<List<ArdSubscription>> = ardBooks.subscriptions
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** Kennungen der abonnierten Sendungen (Glocke in der Liste). */
     val subscribed: StateFlow<Set<String>> = ardBooks.subscriptions
         .map { list -> list.mapTo(HashSet()) { it.showId } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    fun unsubscribe(showId: String) {
+        viewModelScope.launch { ardBooks.unsubscribe(showId) }
+    }
 
     private val _category = MutableStateFlow(ArdCategory.AUDIOBOOK)
     val category: StateFlow<ArdCategory> = _category.asStateFlow()

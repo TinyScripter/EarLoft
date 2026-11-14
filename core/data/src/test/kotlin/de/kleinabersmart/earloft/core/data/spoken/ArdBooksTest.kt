@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.core.data.spoken
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import de.kleinabersmart.earloft.core.data.refresh.NewShow
 import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.BookDao
@@ -159,6 +160,8 @@ class ArdBooksTest {
         assertEquals(listOf("Neu"), result.newBooks.map { it.title })
         val bookId = dao.bookByRemote(ARD_BOOK_SERVER_ID, "item:new")!!.bookId
         assertEquals(bookId, result.newBooks.single().bookId)
+        // Die Sendung steht dabei, damit die Benachrichtigung auf sie führen kann.
+        assertEquals(NewShow(SHOW, "Reihe"), result.newBooks.single().ardShow)
 
         // Wer es aus der Bibliothek nimmt, bekommt es nicht wieder.
         ardBooks.remove(bookId)

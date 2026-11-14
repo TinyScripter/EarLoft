@@ -1194,6 +1194,9 @@
     <string name="ard_books_add">Add to library</string>
     <string name="ard_books_add_failed">Could not add the book: ARD Sounds is not reachable.</string>
     <string name="ard_books_subscribe">Subscribe</string>
+    <string name="ard_books_my_series">My series</string>
+    <string name="ard_books_unsubscribe">Unsubscribe</string>
+    <string name="ard_books_unsubscribe_confirm">Stop getting new books of “%1$s”? Books already in your library stay.</string>
     <string name="ard_books_subscribed">Subscribed</string>
     <string name="ard_books_subscribe_done">New books of “%1$s” will be added to your library.</string>
     <string name="ard_books_unsubscribe_done">Unsubscribed. Books already in your library stay.</string>

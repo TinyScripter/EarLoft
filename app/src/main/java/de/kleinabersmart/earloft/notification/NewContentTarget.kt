@@ -6,19 +6,24 @@ import de.kleinabersmart.earloft.core.model.SpokenMode
 
 /**
  * Wohin der Tipp auf eine Benachrichtigung über Neues führt: Start im Bereich [mode]; geht es um genau ein Album, einen
- * Podcast oder ein Buch, gleich dessen Seite darüber.
+ * Podcast oder ein Buch, gleich dessen Seite darüber; bei mehreren neuen Büchern einer abonnierten Sendung aus ARD Sounds
+ * ([ardShowId], [ardShowTitle]) deren Seite.
  */
 data class NewContentTarget(
     val mode: SpokenMode,
     val albumId: Long? = null,
     val feedId: String? = null,
     val bookId: Long? = null,
+    val ardShowId: String? = null,
+    val ardShowTitle: String? = null,
 ) {
     fun toBundle(): Bundle = Bundle().apply {
         putString(KEY_MODE, mode.name)
         albumId?.let { putLong(KEY_ALBUM, it) }
         feedId?.let { putString(KEY_FEED, it) }
         bookId?.let { putLong(KEY_BOOK, it) }
+        ardShowId?.let { putString(KEY_ARD_SHOW, it) }
+        ardShowTitle?.let { putString(KEY_ARD_SHOW_TITLE, it) }
     }
 
     companion object {
@@ -28,6 +33,8 @@ data class NewContentTarget(
         private const val KEY_ALBUM = "albumId"
         private const val KEY_FEED = "feedId"
         private const val KEY_BOOK = "bookId"
+        private const val KEY_ARD_SHOW = "ardShowId"
+        private const val KEY_ARD_SHOW_TITLE = "ardShowTitle"
 
         fun Intent.putNewContentTarget(target: NewContentTarget): Intent = putExtra(EXTRA_TARGET, target.toBundle())
 
@@ -42,6 +49,8 @@ data class NewContentTarget(
                 albumId = if (bundle.containsKey(KEY_ALBUM)) bundle.getLong(KEY_ALBUM) else null,
                 feedId = bundle.getString(KEY_FEED),
                 bookId = if (bundle.containsKey(KEY_BOOK)) bundle.getLong(KEY_BOOK) else null,
+                ardShowId = bundle.getString(KEY_ARD_SHOW),
+                ardShowTitle = bundle.getString(KEY_ARD_SHOW_TITLE),
             )
         }
     }

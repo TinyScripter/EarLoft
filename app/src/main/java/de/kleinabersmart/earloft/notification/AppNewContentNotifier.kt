@@ -198,6 +198,16 @@ class AppNewContentNotifier @Inject constructor(
                 cover = { bookCovers.cover(book.bookId) },
             )
         }
+        // Mehrere neue Bücher einer abonnierten Sendung: Sie nennt sich beim Namen und führt auf ihre Seite.
+        content.books.mapNotNull { it.ardShow }.distinct().singleOrNull()?.takeIf { content.books.all { book -> book.ardShow == it } }?.let { show ->
+            return Message(
+                title = show.title,
+                text = booksText,
+                details = names(content.books.map { book -> listOf(book.title, bookAuthorLine(book.author)).filter { it.isNotBlank() }.joinToString(" – ") }),
+                target = NewContentTarget(SpokenMode.BOOKS, ardShowId = show.id, ardShowTitle = show.title),
+                cover = { bookCovers.cover(content.books.first().bookId) },
+            )
+        }
         return Message(
             title = context.getString(R.string.new_content_books_title),
             text = booksText,

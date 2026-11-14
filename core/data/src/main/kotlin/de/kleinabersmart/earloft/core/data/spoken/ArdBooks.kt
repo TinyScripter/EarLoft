@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.core.data.spoken
 import android.util.Log
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
 import de.kleinabersmart.earloft.core.data.refresh.NewBook
+import de.kleinabersmart.earloft.core.data.refresh.NewShow
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
@@ -147,7 +148,7 @@ class ArdBooks @Inject constructor(
                     continue
                 }
                 val bookId = add(summary.key) ?: continue
-                taken += NewBook(bookId, summary.title, summary.author)
+                taken += NewBook(bookId, summary.title, summary.author, NewShow(subscription.showId, subscription.title))
                 handled += summary.key
             }
         } finally {
