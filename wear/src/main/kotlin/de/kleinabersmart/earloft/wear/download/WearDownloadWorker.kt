@@ -34,6 +34,7 @@ import de.kleinabersmart.earloft.core.download.EpisodeDownloader
 import de.kleinabersmart.earloft.core.download.EpisodeStorage
 import de.kleinabersmart.earloft.core.download.ProgressThrottle
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import de.kleinabersmart.earloft.core.model.isArdSoundsBook
 import de.kleinabersmart.earloft.core.wearsync.WearBookFile
 import de.kleinabersmart.earloft.core.wearsync.WearEpisodeFile
 import de.kleinabersmart.earloft.core.wearsync.WearQuality
@@ -175,7 +176,8 @@ class WearDownloadWorker(
                     continue
                 }
                 val book = bookDao.book(track.bookId) ?: break
-                if (entryPoint.audiobookshelf().server(book.serverId) == null) {
+                // Bücher aus ARD Sounds lädt die Uhr wie Folgen direkt von ihrer Adresse, ohne Schlüssel.
+                if (!isArdSoundsBook(book.serverId) && entryPoint.audiobookshelf().server(book.serverId) == null) {
                     // Der Schlüssel ist noch unterwegs (Anfrage beim Handy läuft) oder fehlt dort; zählt als Fehlversuch.
                     val failures = state.recordServerFailure(key)
                     Log.w(TAG, "Buch ${track.bookId}: Audiobookshelf ohne Schlüssel (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS})")

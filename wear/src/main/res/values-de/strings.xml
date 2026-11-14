@@ -72,6 +72,7 @@
     <string name="player_volume">Lautstärke</string>
     <string name="player_volume_percent">%d %%</string>
     <string name="player_chapters">Kapitel</string>
+    <string name="player_chapter_gone">Nicht mehr abrufbar</string>
 
     <!-- Einschlaf-Timer -->
     <string name="sleep_timer_title">Einschlaf-Timer</string>

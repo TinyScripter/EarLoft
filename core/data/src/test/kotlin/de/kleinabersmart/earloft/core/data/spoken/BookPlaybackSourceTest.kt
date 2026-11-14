@@ -158,6 +158,22 @@ class BookPlaybackSourceTest {
     }
 
     @Test
+    fun `ohne Streams zaehlt eine nicht mehr abrufbare Datei nicht`() = runTest {
+        policy.allowStreaming = false
+        val dao = db.bookDao()
+        val file = File.createTempFile("buch", ".m4b").apply { deleteOnExit() }
+        dao.queueBookDownload(bookId)
+        dao.markBookTrackRunning(bookId, 0)
+        dao.markBookTrackDone(bookId, 0, file.absolutePath, file.length())
+        dao.insertTracks(listOf(BookTrackEntity(bookId, trackIndex = 1, remoteFileId = "https://weg.example/2.mp3", startMs = 3_600_000, durationMs = 60_000)))
+        assertNull(source.prepare(bookId))
+
+        dao.setTrackUnavailable(bookId, 1, since = 5)
+
+        assertEquals(2, source.prepare(bookId)!!.trackUrls.size)
+    }
+
+    @Test
     fun `eine Folge ueberspringt das Intro ihres Abos nur beim Start bei 0`() = runTest {
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "feed", url = "https://example.org/feed", title = "Podcast", skipIntroS = 45))
         val episode = db.bookDao().upsertBook(

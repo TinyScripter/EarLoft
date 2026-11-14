@@ -78,8 +78,8 @@ class BookPlaybackSource @Inject constructor(
         // Kapitel einer Folge kommen aus einer eigenen Liste; fehlt sie oder ist sie offline nicht erreichbar, geht es ohne.
         if (episode && !offline) podcasts.ensureChapters(bookId)
         val timeline = repository.timeline(bookId) ?: return null
-        // Ohne Streams (Uhr, Wear-Konzept 16.1) nur, wenn jede Datei auf dem Gerät liegt.
-        if (!policy.allowStreaming && timeline.tracks.any { track -> track.localPath?.let(::File)?.isFile != true }) return null
+        // Ohne Streams (Uhr, Wear-Konzept 16.1) nur, wenn jede Datei auf dem Gerät liegt; nicht mehr abrufbare überspringt der Player.
+        if (!policy.allowStreaming && timeline.tracks.any { track -> !track.unavailable && track.localPath?.let(::File)?.isFile != true }) return null
         // Eine geladene Datei geht vor dem Stream (Folgen und Bücher, auch gemischt, wenn nur ein Teil geladen ist).
         // Folgen, Bücher vom Gerät und aus ARD Sounds haben keinen Audiobookshelf-Server; ihre Dateikennung ist die Adresse selbst.
         // Ohne Streams liegt alles als Datei vor: Der Server wird dann nicht gebraucht (Uhr ohne Schlüssel, 16.2).

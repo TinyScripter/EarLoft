@@ -26,11 +26,13 @@ import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
+import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.wear.R
 
 /**
  * Kapitel des laufenden Buchs bzw. der Folge (aus der Wiedergabe-Ansicht): das laufende hervorgehoben und beim Öffnen im
- * Blick; ein Tipp springt an den Beginn des Kapitels, [onDone] führt zurück zur Wiedergabe.
+ * Blick; ein Tipp springt an den Beginn des Kapitels, [onDone] führt zurück zur Wiedergabe. Kapitel in einer nicht mehr
+ * abrufbaren Datei ([BookChapter.unavailable]) sind ausgegraut; der Player überspringt sie.
  */
 @Composable
 fun ChaptersScreen(onDone: () -> Unit, viewModel: PlayerViewModel = hiltViewModel()) {
@@ -68,9 +70,12 @@ fun ChaptersScreen(onDone: () -> Unit, viewModel: PlayerViewModel = hiltViewMode
                         .transformedHeight(this, transformationSpec)
                         .semantics { selected = active },
                     transformation = SurfaceTransformation(transformationSpec),
+                    enabled = !chapter.unavailable,
                     colors = if (active) ButtonDefaults.buttonColors() else ButtonDefaults.filledTonalButtonColors(),
                     label = { Text(chapter.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-                    secondaryLabel = { Text(formatPosition(chapter.startMs)) },
+                    secondaryLabel = {
+                        Text(if (chapter.unavailable) stringResource(R.string.player_chapter_gone) else formatPosition(chapter.startMs))
+                    },
                 )
             }
         }

@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.database.model.WearSelectionProgressRow
 import de.kleinabersmart.earloft.core.database.model.WearSongArtistRow
 import de.kleinabersmart.earloft.core.database.model.WearSongRow
 import de.kleinabersmart.earloft.core.database.model.WearSourceRow
+import de.kleinabersmart.earloft.core.model.ARD_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.model.BookKind
 import kotlinx.coroutines.flow.Flow
 
@@ -69,7 +70,7 @@ interface WearDao {
 
     /**
      * Gewählte Folgen und Bücher in der Reihenfolge des Wählens. Folgen archivierter Abos und Bücher ausgeschalteter Server
-     * bleiben gewählt, aber von der Uhr fern; Bücher vom Gerät (`local…`) haben keinen Server.
+     * bleiben gewählt, aber von der Uhr fern; Bücher vom Gerät (`local…`) und aus ARD Sounds haben keinen Server.
      */
     @Query(
         """
@@ -78,7 +79,7 @@ interface WearDao {
         LEFT JOIN podcast_feeds f ON f.feedId = b.serverId
         LEFT JOIN spoken_servers s ON s.serverId = b.serverId
         WHERE (b.kind = 'EPISODE' AND f.feedId IS NOT NULL AND NOT f.archived)
-           OR (b.kind = 'BOOK' AND (s.enabled OR b.serverId LIKE 'local%'))
+           OR (b.kind = 'BOOK' AND (s.enabled OR b.serverId LIKE 'local%' OR b.serverId = '$ARD_BOOK_SERVER_ID'))
         ORDER BY w.addedAt, w.bookId
         """,
     )

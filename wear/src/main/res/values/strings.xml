@@ -74,6 +74,7 @@
     <string name="player_volume">Volume</string>
     <string name="player_volume_percent">%d %%</string>
     <string name="player_chapters">Chapters</string>
+    <string name="player_chapter_gone">No longer available</string>
 
     <!-- Sleep timer -->
     <string name="sleep_timer_title">Sleep timer</string>
