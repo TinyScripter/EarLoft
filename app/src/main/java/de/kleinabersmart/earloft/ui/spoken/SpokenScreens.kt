@@ -63,6 +63,12 @@ import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
 import de.kleinabersmart.earloft.ui.components.letterOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.currentCoroutineContext
+import kotlin.coroutines.cancellation.CancellationException
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -154,9 +160,9 @@ fun SpokenHomeScreen(
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val continueListening = continueState.valueOrNull.orEmpty()
     val recent = recentState.valueOrNull.orEmpty()
-    val rowState = rememberFrontRowState(continueListening.map { it.book.id })
-    val recentRowState = rememberFrontRowState(recent.map { it.book.id })
-    val seriesRowState = rememberFrontRowState(continueSeries.map { it.first.book.id })
+    val continueRow = rememberFrontRow(continueListening) { it.book.id }
+    val recentRow = rememberFrontRow(recent) { it.book.id }
+    val seriesRow = rememberFrontRow(continueSeries) { it.first.book.id }
 
     Column(modifier.fillMaxSize()) {
         when {
@@ -172,7 +178,7 @@ fun SpokenHomeScreen(
                                 }
                             },
                         ) {
-                            BookRow(continueListening, onBookClick, state = rowState, playingId = playingId, onPlay = viewModel::playOrPause)
+                            BookRow(continueRow.items, onBookClick, state = continueRow.state, playingId = playingId, onPlay = viewModel::playOrPause)
                         }
                     }
                 }
@@ -181,12 +187,12 @@ fun SpokenHomeScreen(
                     item(key = "series") {
                         Shelf(stringResource(R.string.spoken_continue_series)) {
                             BookRow(
-                                continueSeries.map { it.first },
+                                seriesRow.items.map { it.first },
                                 onBookClick,
-                                state = seriesRowState,
+                                state = seriesRow.state,
                                 playingId = playingId,
                                 onPlay = viewModel::playOrPause,
-                                volumes = continueSeries.mapNotNull { (item, volume) -> volume?.let { item.book.id to volumeNumber(it) } }.toMap(),
+                                volumes = seriesRow.items.mapNotNull { (item, volume) -> volume?.let { item.book.id to volumeNumber(it) } }.toMap(),
                             )
                         }
                     }
@@ -194,7 +200,7 @@ fun SpokenHomeScreen(
                 if (recent.isNotEmpty()) {
                     item(key = "recent") {
                         Shelf(stringResource(R.string.spoken_recent)) {
-                            BookRow(recent, onBookClick, state = recentRowState, playingId = playingId, onPlay = viewModel::playOrPause)
+                            BookRow(recentRow.items, onBookClick, state = recentRow.state, playingId = playingId, onPlay = viewModel::playOrPause)
                         }
                     }
                 }
@@ -852,28 +858,88 @@ internal fun BookRow(
     }
 }
 
+/** Zeile aus [rememberFrontRow]: ihr Scrollzustand und ihre Einträge in der Reihenfolge, die sie gerade zeigt. */
+class FrontRow<T>(val state: LazyListState, val items: List<T>)
+
 /**
- * Zustand einer Zeile, deren Neues vorn steht („Weiterhören“, „Zuletzt hinzugefügt“; [ids] in ihrer Reihenfolge): Kommt
- * ein Eintrag neu oder von weiter hinten nach vorn, zeigt die Zeile wieder ihren Anfang – eine Lazy-Zeile hielte sonst
- * den bisher ersten Eintrag fest, und der neue läge links außerhalb. Fällt nur der vorderste weg (zu Ende gehört,
- * angefangen, aus der Warteschlange genommen), rückt der Rest gleitend nach ([rowItemAnimation]); ein Sprung an den
- * Anfang schnitte diese Animation ab. Die vorderen Einträge überstehen das Verlassen des Bildschirms: Zurück von einer
- * Buchseite bleibt die Zeile, wo sie war, solange vorn nichts Neues steht.
+ * Zeile, deren Neues vorn steht („Weiterhören“, „Zuletzt hinzugefügt“, Musik-Warteschlange; [key] liefert die ID eines
+ * Eintrags): Kommt ein Eintrag neu oder von weiter hinten nach vorn (etwa in der Zeile selbst gestartet), behält die Zeile
+ * ihre Reihenfolge noch [FRONT_HOLD] lang – die angetippte Kachel bleibt stehen und lässt sich gleich wieder anhalten.
+ * Danach gleitet die Zeile an ihren Anfang ([glideToStart]), und der Eintrag rückt nach vorn. Ohne das hielte eine
+ * Lazy-Zeile den bisher ersten Eintrag fest, und der neue läge links außerhalb. Fällt nur der vorderste weg (zu Ende
+ * gehört, angefangen, aus der Warteschlange genommen), rückt der Rest sofort gleitend nach ([rowItemAnimation]); ein
+ * Sprung an den Anfang schnitte diese Animation ab. Die vorderen Einträge überstehen das Verlassen des Bildschirms: Zurück
+ * von einer Buchseite bleibt die Zeile, wo sie war, solange vorn nichts Neues steht, sonst zeigt sie gleich ihren Anfang.
  */
 @Composable
-fun rememberFrontRowState(ids: List<Long>): LazyListState {
+fun <T> rememberFrontRow(items: List<T>, key: (T) -> Long): FrontRow<T> {
     val state = rememberLazyListState()
-    val previous = rememberSaveable(saver = FrontIdsSaver) { FrontIds(emptyList()) }
-    val before = previous.ids
-    val first = ids.firstOrNull()
-    LaunchedEffect(first) {
-        if (first != before.firstOrNull() && first != before.getOrNull(1)) state.scrollToItem(0)
+    val saved = rememberSaveable(saver = FrontIdsSaver) { FrontIds(emptyList()) }
+    val ids = items.map(key)
+    // Zuletzt übernommene Reihenfolge; null, bis die Zeile hier zum ersten Mal gezeichnet ist.
+    var shown by remember { mutableStateOf<List<Long>?>(null) }
+    val held = shown?.takeIf { frontChange(it, ids) == FrontChange.MOVED }
+    val visible = if (held == null) items else items.associateBy(key).let { byId -> held.mapNotNull(byId::get) }
+    LaunchedEffect(ids) {
+        val before = shown
+        if (before == null) {
+            if (frontChange(saved.ids, ids) != FrontChange.NONE) state.scrollToItem(0)
+        } else if (frontChange(before, ids) != FrontChange.NONE) {
+            delay(FRONT_HOLD)
+            // Zusammen mit der neuen Reihenfolge, sonst hielte die Zeile den bisher ersten fest.
+            if (state.glideToStart()) state.requestScrollToItem(0)
+        }
+        shown = ids
     }
-    SideEffect { previous.ids = ids.take(2) }
-    return state
+    SideEffect { saved.ids = visible.take(2).map(key) }
+    return FrontRow(state, visible)
 }
 
-/** Die ersten beiden Einträge einer Zeile beim letzten Zeichnen (für [rememberFrontRowState]). */
+/** Was sich vorn in einer Zeile geändert hat ([rememberFrontRow]). */
+internal enum class FrontChange {
+    /** Vorn steht derselbe, oder nur der vorderste fiel weg und der zweite rückt nach. */
+    NONE,
+
+    /** Ein Eintrag kam neu oder von weiter hinten nach vorn, der bisher erste ist noch da. */
+    MOVED,
+
+    /** Vorn steht ein anderer, der bisher erste ist weg. */
+    REPLACED,
+}
+
+internal fun frontChange(before: List<Long>, ids: List<Long>): FrontChange {
+    val first = ids.firstOrNull()
+    val oldFirst = before.firstOrNull()
+    return when {
+        first == null || oldFirst == null || first == oldFirst -> FrontChange.NONE
+        oldFirst in ids -> FrontChange.MOVED
+        first == before.getOrNull(1) -> FrontChange.NONE
+        else -> FrontChange.REPLACED
+    }
+}
+
+/**
+ * Gleitet ruhig an den Anfang der Zeile (die Kacheln sind gleich breit); false, wenn der Nutzer dabei selbst scrollt.
+ * [LazyListState.animateScrollToItem] wäre schneller, als man folgen kann, und ließe sich nicht verlangsamen.
+ */
+private suspend fun LazyListState.glideToStart(): Boolean {
+    val info = layoutInfo
+    val item = info.visibleItemsInfo.firstOrNull() ?: return true
+    val distance = firstVisibleItemIndex * (item.size + info.mainAxisItemSpacing) + firstVisibleItemScrollOffset
+    if (distance <= 0) return true
+    return try {
+        animateScrollBy(-distance.toFloat(), tween(FRONT_GLIDE_MS, easing = FastOutSlowInEasing))
+        true
+    } catch (e: CancellationException) {
+        currentCoroutineContext().ensureActive()
+        false
+    }
+}
+
+private val FRONT_HOLD = 2.seconds
+private const val FRONT_GLIDE_MS = 800
+
+/** Die ersten beiden Einträge einer Zeile beim letzten Zeichnen (für [rememberFrontRow]). */
 private class FrontIds(var ids: List<Long>)
 
 private val FrontIdsSaver = Saver<FrontIds, LongArray>(save = { it.ids.toLongArray() }, restore = { FrontIds(it.toList()) })

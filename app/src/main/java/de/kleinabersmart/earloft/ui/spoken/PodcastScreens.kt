@@ -152,8 +152,8 @@ fun PodcastHomeScreen(
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
     val feedSort by viewModel.feedSort.collectAsStateWithLifecycle()
     val newEpisodeCounts by viewModel.newEpisodeCounts.collectAsStateWithLifecycle()
-    val rowState = rememberFrontRowState(episodes.map { it.book.id })
-    val recentRowState = rememberFrontRowState(recent.map { it.book.id })
+    val continueRow = rememberFrontRow(episodes) { it.book.id }
+    val recentRow = rememberFrontRow(recent) { it.book.id }
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
         if (episodes.isNotEmpty()) {
             item(key = "continue") {
@@ -166,13 +166,13 @@ fun PodcastHomeScreen(
                     },
                 ) {
                     LazyRow(
-                        state = rowState,
-                        modifier = Modifier.keepHorizontalScroll(rowState),
+                        state = continueRow.state,
+                        modifier = Modifier.keepHorizontalScroll(continueRow.state),
                         contentPadding = PaddingValues(horizontal = ShelfInset),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        val sameDay = episodesSharingDay(episodes.map { it.book })
-                        items(episodes, key = { it.book.id }) { item ->
+                        val sameDay = episodesSharingDay(continueRow.items.map { it.book })
+                        items(continueRow.items, key = { it.book.id }) { item ->
                             BookCard(
                                 item,
                                 onClick = { onEpisodeClick(item.book.id) },
@@ -189,7 +189,7 @@ fun PodcastHomeScreen(
         if (recent.isNotEmpty()) {
             item(key = "recent") {
                 Shelf(stringResource(R.string.spoken_recent)) {
-                    BookRow(recent, onEpisodeClick, state = recentRowState, playingId = playingId, onPlay = viewModel::playOrPause)
+                    BookRow(recentRow.items, onEpisodeClick, state = recentRow.state, playingId = playingId, onPlay = viewModel::playOrPause)
                 }
             }
         }
@@ -674,7 +674,7 @@ private val HEADER_ART_SIZE = 144.dp
 
 /**
  * Steht ein anderes Abo vorn (andere Sortierung, neue Folge, gehört), zeigt die Liste wieder ihren Anfang: Eine Lazy-Liste
- * hielte sonst das bisher erste Abo fest, und die neuen ersten lägen außerhalb (wie [rememberFrontRowState]).
+ * hielte sonst das bisher erste Abo fest, und die neuen ersten lägen außerhalb (wie [rememberFrontRow]).
  */
 @Composable
 private fun ShowStartOnNewFirst(firstId: String?, scrollToStart: suspend () -> Unit) {

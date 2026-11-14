@@ -25,7 +25,7 @@ import de.kleinabersmart.earloft.core.playback.QueueEntry
 import de.kleinabersmart.earloft.ui.components.AlbumArt
 import de.kleinabersmart.earloft.ui.components.PlayPauseButton
 import de.kleinabersmart.earloft.ui.player.PlayerViewModel
-import de.kleinabersmart.earloft.ui.spoken.rememberFrontRowState
+import de.kleinabersmart.earloft.ui.spoken.rememberFrontRow
 import de.kleinabersmart.earloft.ui.spoken.rowItemAnimation
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 import androidx.compose.foundation.layout.Arrangement
@@ -199,14 +199,14 @@ private fun LazyListScope.queueSection(queue: QueueRowState) {
                 }
             },
         ) {
-            val rowState = rememberFrontRowState(queue.entries.map { it.index.toLong() })
+            val row = rememberFrontRow(queue.entries) { it.index.toLong() }
             LazyRow(
-                state = rowState,
-                modifier = Modifier.keepHorizontalScroll(rowState),
+                state = row.state,
+                modifier = Modifier.keepHorizontalScroll(row.state),
                 contentPadding = PaddingValues(horizontal = ShelfInset - CardInset),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                items(queue.entries, key = { it.index }) { item ->
+                items(row.items, key = { it.index }) { item ->
                     val current = item.index == queue.currentIndex
                     QueueCard(
                         entry = item.entry,
