@@ -90,7 +90,7 @@ import java.io.File
         ArtistSourceEntity::class,
         BookmarkEntity::class,
     ],
-    version = 34,
+    version = 35,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -126,6 +126,7 @@ import java.io.File
         AutoMigration(from = 31, to = 32),
         AutoMigration(from = 32, to = 33),
         AutoMigration(from = 33, to = 34),
+        AutoMigration(from = 34, to = 35, spec = EarLoftDatabase.DecodeTitles::class),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {
@@ -185,6 +186,16 @@ abstract class EarLoftDatabase : RoomDatabase() {
     class ReloadChapterLists : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
             db.execSQL("UPDATE books SET chapterSource = NULL WHERE chapterSource = 'JSON'")
+            db.execSQL("UPDATE podcast_feeds SET etag = NULL, lastModified = NULL")
+        }
+    }
+
+    /**
+     * v34 → v35 (ohne Schemaänderung): Titel und Autoren aus Feeds werden jetzt von doppelt kodierten HTML-Entities befreit
+     * („&amp;“ im Titel). Ohne Validatoren liest der nächste Abgleich jeden Feed einmal ganz und schreibt sie neu.
+     */
+    class DecodeTitles : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
             db.execSQL("UPDATE podcast_feeds SET etag = NULL, lastModified = NULL")
         }
     }

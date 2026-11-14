@@ -80,7 +80,7 @@ object PodcastFeedParser {
             val guid = item.child("guid")
             ParsedEpisode(
                 guid = item.text("guid").ifEmpty { url },
-                title = item.text("title").ifEmpty { item.text("title", NS_ITUNES) },
+                title = item.plain("title").ifEmpty { item.plain("title", NS_ITUNES) },
                 description = item.text("encoded", NS_CONTENT).ifEmpty { item.text("description") }.ifEmpty { item.text("summary", NS_ITUNES) },
                 audioUrl = url,
                 mimeType = enclosure?.attr("type")?.takeIf { it.isNotBlank() },
@@ -94,8 +94,8 @@ object PodcastFeedParser {
             )
         }
         return ParsedFeed(
-            title = channel.text("title"),
-            author = channel.text("author", NS_ITUNES),
+            title = channel.plain("title"),
+            author = channel.plain("author", NS_ITUNES),
             description = channel.text("description").ifEmpty { channel.text("summary", NS_ITUNES) },
             imageUrl = channel.child("image", NS_ITUNES)?.attr("href")?.takeIf { it.isNotBlank() }
                 ?: channel.child("image", NS_NONE)?.text("url")?.takeIf { it.isNotBlank() },
@@ -112,7 +112,7 @@ object PodcastFeedParser {
             if (url.isEmpty()) return@mapNotNull null
             ParsedEpisode(
                 guid = entry.text("id").ifEmpty { url },
-                title = entry.text("title", NS_ATOM),
+                title = entry.plain("title", NS_ATOM),
                 description = entry.text("content", NS_ATOM).ifEmpty { entry.text("summary", NS_ATOM) },
                 audioUrl = url,
                 mimeType = enclosure?.attr("type")?.takeIf { it.isNotBlank() },
@@ -125,8 +125,8 @@ object PodcastFeedParser {
             )
         }
         return ParsedFeed(
-            title = feed.text("title", NS_ATOM),
-            author = feed.text("author", NS_ITUNES).ifEmpty { feed.child("author", NS_ATOM)?.text("name").orEmpty() },
+            title = feed.plain("title", NS_ATOM),
+            author = feed.plain("author", NS_ITUNES).ifEmpty { feed.child("author", NS_ATOM)?.plain("name").orEmpty() },
             description = feed.text("subtitle", NS_ATOM).ifEmpty { feed.text("summary", NS_ITUNES) },
             imageUrl = feed.child("image", NS_ITUNES)?.attr("href")?.takeIf { it.isNotBlank() }
                 ?: feed.text("logo").ifEmpty { feed.text("icon") }.takeIf { it.isNotBlank() },
@@ -153,7 +153,7 @@ object PodcastFeedParser {
         child("chapters", NS_PSC)?.children("chapter", NS_PSC).orEmpty()
             .mapNotNull { chapter ->
                 val start = parseClock(chapter.attr("start").orEmpty().trim().removePrefix("npt:")) ?: return@mapNotNull null
-                ParsedChapter(start, chapter.attr("title")?.trim().orEmpty(), webAddress(chapter.attr("image")), webAddress(chapter.attr("href")))
+                ParsedChapter(start, decodeHtmlEntities(chapter.attr("title")?.trim().orEmpty()), webAddress(chapter.attr("image")), webAddress(chapter.attr("href")))
             }
             .sortedBy { it.startMs }
 
@@ -208,6 +208,12 @@ object PodcastFeedParser {
             children.firstOrNull { it.name == name && it.namespace.contains("podcastindex", ignoreCase = true) }
 
         fun text(name: String, namespace: String? = null): String = child(name, namespace)?.text?.toString()?.trim().orEmpty()
+
+        /**
+         * Klartext (Titel, Autor): wie [text], dazu einmal HTML-Entities aufgelöst. Viele Feeds kodieren doppelt
+         * (`&amp;amp;` oder `&amp;` in CDATA), dann bliebe nach dem XML-Parser „&amp;“ im Titel stehen.
+         */
+        fun plain(name: String, namespace: String? = null): String = decodeHtmlEntities(text(name, namespace))
 
         fun attr(name: String): String? = attributes[name]
     }

@@ -75,6 +75,31 @@ class PodcastFeedParserTest {
     }
 
     @Test
+    fun `doubly encoded titles, authors and chapter names are decoded once`() {
+        val feed = parse(
+            """
+            <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:psc="http://podlove.org/simple-chapters">
+              <channel>
+                <title>Banse &amp;amp; Buermeyer</title>
+                <itunes:author><![CDATA[Philip &amp; Ulf]]></itunes:author>
+                <item>
+                  <title><![CDATA[BlackRock &amp; Co &#8211; &quot;Teil&quot; &#x2764; &amp;lt;b&amp;gt; &unbekannt; & mehr]]></title>
+                  <enclosure url="https://example.com/1.mp3" type="audio/mpeg"/>
+                  <psc:chapters><psc:chapter start="0" title="Fragen &amp;amp; Antworten"/></psc:chapters>
+                </item>
+              </channel>
+            </rss>
+            """,
+        )
+
+        assertEquals("Banse & Buermeyer", feed.title)
+        assertEquals("Philip & Ulf", feed.author)
+        // Nur einmal: Was danach noch kodiert ist, war im Titel so gemeint.
+        assertEquals("BlackRock & Co – \"Teil\" ❤ &lt;b&gt; &unbekannt; & mehr", feed.episodes.single().title)
+        assertEquals("Fragen & Antworten", feed.episodes.single().chapters.single().title)
+    }
+
+    @Test
     fun `podlove simple chapters are read in order and unreadable starts are skipped`() {
         val feed = parse(
             """

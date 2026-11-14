@@ -247,6 +247,24 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `v34 to v35 drops the feed validators so titles are read again`() {
+        helper.createDatabase(DB_NAME, 34).use { db ->
+            db.execSQL(
+                "INSERT INTO podcast_feeds (feedId, url, title, author, description, lastRefreshAt, syncGeneration, autoDownload, etag, lastModified) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'A &amp; B', '', '', 5, 2, 0, 'x', 'Mon, 01 Jan 2024 00:00:00 GMT')",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 35, true).use { db ->
+            db.query("SELECT title, etag, lastModified FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("A &amp; B", cursor.getString(0))
+                assertTrue(cursor.isNull(1) && cursor.isNull(2))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }
