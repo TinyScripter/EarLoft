@@ -1186,6 +1186,11 @@
     <string name="ard_books_gone">ARD Sounds bietet dieses Buch nicht mehr an.</string>
     <string name="ard_books_add">Zur Bibliothek hinzufügen</string>
     <string name="ard_books_add_failed">Buch nicht hinzugefügt: ARD Sounds ist nicht erreichbar.</string>
+    <string name="ard_books_subscribe">Abonnieren</string>
+    <string name="ard_books_subscribed">Abonniert</string>
+    <string name="ard_books_subscribe_done">Neue Bücher von „%1$s“ kommen in deine Bibliothek.</string>
+    <string name="ard_books_unsubscribe_done">Abo beendet. Bücher in deiner Bibliothek bleiben.</string>
+    <string name="ard_books_subscribe_failed">Abonnieren nicht möglich: ARD Sounds ist nicht erreichbar.</string>
     <string name="ard_books_in_library">In der Bibliothek</string>
     <string name="ard_books_read_by">gelesen von %1$s</string>
     <string name="ard_books_available_until">Verfügbar bis %1$s</string>

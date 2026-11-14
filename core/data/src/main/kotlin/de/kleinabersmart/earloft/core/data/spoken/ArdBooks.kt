@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.core.data.spoken
 
 import android.util.Log
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
+import de.kleinabersmart.earloft.core.data.refresh.NewBook
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
@@ -25,9 +26,15 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Eine abonnierte Sendung oder Reihe aus ARD Sounds: Ihre neuen Bücher kommen von selbst in die Bibliothek. */
+data class ArdSubscription(val showId: String, val title: String)
+
+/** Ergebnis eines Abgleichs der Bücher aus ARD Sounds: `ok`, wenn nichts fehlgeschlagen ist, und die neu in die Bibliothek gekommenen. */
+data class ArdRefresh(val ok: Boolean, val newBooks: List<NewBook>)
+
 /**
  * Hörbücher und Hörspiele aus ARD Sounds (`books_improvements.md` M9). Ein Buch kommt in die Bibliothek, sobald es abgespielt,
- * geladen oder hinzugefügt wird ([add]); es liegt wie die übrigen in `books` (`serverId = `[ARD_BOOK_SERVER_ID], `remoteId` = die
+ * geladen oder hinzugefügt wird ([add]) oder zu einer abonnierten Sendung gehört ([subscribe]); es liegt wie die übrigen in `books` (`serverId = `[ARD_BOOK_SERVER_ID], `remoteId` = die
  * Kennung von [ArdSoundsBooks]), je Teil eine Datei mit ihrer Adresse und ein Kapitel. Der Abgleich ([refresh]) nimmt neue Teile
  * auf, lässt geladene stehen, auch wenn ARD Sounds sie nicht mehr führt, und entfernt nie ein Buch.
  */
@@ -46,6 +53,9 @@ class ArdBooks @Inject constructor(
     /** Die Bücher aus ARD Sounds in der Bibliothek: Kennung bei ARD Sounds → `bookId`. */
     val library: Flow<Map<String, Long>> =
         dao.observeBookRefsOf(ARD_BOOK_SERVER_ID).map { refs -> refs.associate { it.remoteId to it.bookId } }.distinctUntilChanged()
+
+    /** Die abonnierten Sendungen. */
+    val subscriptions: Flow<List<ArdSubscription>> get() = settings.ardSubscriptions
 
     suspend fun shows(category: ArdCategory): List<ArdShow> = api.shows(category)
 
@@ -67,6 +77,16 @@ class ArdBooks @Inject constructor(
         store(book, existing = null, addedAt = addedAt)
     }
 
+    /**
+     * Abonniert die Sendung [showId]: Was von jetzt an dort erscheint, kommt in die Bibliothek (beim [refresh]); die Bücher, die es
+     * schon gibt, nicht. @throws IOException ohne Verbindung.
+     */
+    suspend fun subscribe(showId: String, title: String) {
+        settings.subscribeArd(showId, title, api.showBooks(showId).map { it.key })
+    }
+
+    suspend fun unsubscribe(showId: String) = settings.unsubscribeArd(showId)
+
     /** Entfernt das Buch aus der Bibliothek, samt Fortschritt und Lesezeichen; die Hörzeit bleibt in der Statistik. */
     suspend fun remove(bookId: Long) = mutex.withLock {
         val book = dao.book(bookId) ?: return@withLock
@@ -74,11 +94,11 @@ class ArdBooks @Inject constructor(
     }
 
     /**
-     * Gleicht die Bücher aus ARD Sounds in der Bibliothek ab (nur mit eingeschaltetem Schalter). `false`, wenn eins nicht abrufbar
-     * war; die übrigen werden trotzdem abgeglichen.
+     * Gleicht die Bücher aus ARD Sounds in der Bibliothek ab und holt die neuen der abonnierten Sendungen (nur mit eingeschaltetem
+     * Schalter). `ok` ist `false`, wenn etwas nicht abrufbar war; das Übrige wird trotzdem abgeglichen.
      */
-    suspend fun refresh(): Boolean {
-        if (!settings.ardSoundsBooks.first()) return true
+    suspend fun refresh(): ArdRefresh {
+        if (!settings.ardSoundsBooks.first()) return ArdRefresh(ok = true, newBooks = emptyList())
         var ok = true
         for (existing in dao.booksOf(ARD_BOOK_SERVER_ID)) {
             try {
@@ -95,7 +115,45 @@ class ArdBooks @Inject constructor(
                 ok = false
             }
         }
-        return ok
+        val fresh = mutableListOf<NewBook>()
+        for (subscription in settings.ardSubscriptions.first()) {
+            try {
+                fresh += takeNew(subscription)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                Log.w(TAG, "${subscription.title} aus ARD Sounds nicht abrufbar", e)
+                ok = false
+            }
+        }
+        return ArdRefresh(ok, fresh)
+    }
+
+    /**
+     * Nimmt die Bücher einer abonnierten Sendung auf, die der Abgleich noch nicht kannte (höchstens [MAX_NEW_PER_CHECK], den Rest beim
+     * nächsten Mal). Wer ein Buch aus der Bibliothek nimmt, bekommt es nicht wieder: Es gilt als bekannt. Ein Buch ohne Teile bei ARD
+     * Sounds (angekündigt) bleibt unbekannt, bis es welche hat. @throws IOException, wenn etwas nicht abrufbar war.
+     */
+    private suspend fun takeNew(subscription: ArdSubscription): List<NewBook> {
+        val seen = settings.ardSeen(subscription.showId)
+        val unseen = api.showBooks(subscription.showId).filter { it.key !in seen }
+        val taken = mutableListOf<NewBook>()
+        val handled = mutableListOf<String>()
+        try {
+            for (summary in unseen) {
+                if (taken.size >= MAX_NEW_PER_CHECK) break
+                if (dao.bookByRemote(ARD_BOOK_SERVER_ID, summary.key) != null) {
+                    handled += summary.key
+                    continue
+                }
+                val bookId = add(summary.key) ?: continue
+                taken += NewBook(bookId, summary.title, summary.author)
+                handled += summary.key
+            }
+        } finally {
+            settings.addArdSeen(subscription.showId, handled)
+        }
+        return taken
     }
 
     /** Ein Buch ohne veröffentlichte Teile: Es bleibt mit dem, was geladen ist, und gilt ab jetzt als abgelaufen. */
@@ -156,6 +214,7 @@ class ArdBooks @Inject constructor(
 
     private companion object {
         const val TAG = "ArdBooks"
+        const val MAX_NEW_PER_CHECK = 20
 
         /** Die Rubrik als Genre, wie ARD Sounds sie nennt. */
         fun genreOf(category: ArdCategory): String = when (category) {

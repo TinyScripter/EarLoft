@@ -55,11 +55,13 @@ class SpokenRefresher @Inject constructor(
     private val dao: BookDao,
     private val localBooks: LocalBooks,
     private val localPodcasts: LocalPodcasts,
+    private val ardBooks: ArdBooks,
     private val settings: SpokenSettings,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val started = AtomicBoolean(false)
     private val lastQuick = AtomicLong(0)
+    private val lastArd = AtomicLong(0)
     private val _refreshing = MutableStateFlow(false)
 
     /** `true`, solange ein Abgleich läuft, den der Nutzer angestoßen hat (für Pull-to-refresh). */
@@ -125,6 +127,9 @@ class SpokenRefresher @Inject constructor(
                     Log.w(TAG, "Fortschritt von ${server.baseUrl} nicht abrufbar", e)
                 }
             }
+            // Die Bücher aus ARD Sounds gehören nicht zu einem Server: Sie werden auch ohne Audiobookshelf abgeglichen.
+            val lastArdAt = lastArd.get()
+            if (now - lastArdAt > FULL_SYNC_INTERVAL_MS && lastArd.compareAndSet(lastArdAt, now)) fresh += ardBooks.refresh().newBooks.size
             if (fresh > 0) events.emit(RefreshEvent.Finished(RefreshKind.BOOKS, fresh, failed = false))
         }
     }
@@ -162,13 +167,18 @@ class BookRefreshWorker(
         // Ausgeblendete Bücher (Allgemein → Bereiche): kein Abgleich mit Audiobookshelf.
         if (SpokenMode.BOOKS !in entryPoint.spokenSettings().areas.first()) return Result.success()
         val servers = entryPoint.bookServers().all()
-        if (servers.isEmpty()) return Result.success()
+        val ardBooks = entryPoint.ardBooks()
+        val ardOn = ardBooks.enabled.first()
+        if (servers.isEmpty() && !ardOn) return Result.success()
         val results = servers.map { entryPoint.bookSyncer().syncSafely(it) }
-        val fresh = results.flatMap { it.newBooks }
+        // Auch ohne Server: Bücher aus ARD Sounds (Ablauf, neue Bücher abonnierter Sendungen).
+        val ard = ardBooks.refresh()
+        val fresh = results.flatMap { it.newBooks } + ard.newBooks
         if (fresh.isNotEmpty()) entryPoint.notifier().show(NewContent.Books(fresh))
         // Wie bei Podcasts: Ein Server, der hier nicht erreichbar ist (nur im Heimnetz), glich sonst alle paar Minuten
         // alle Server neu ab; wiederholt wird nur, wenn keiner ging.
-        return if (results.none { it.ok } && runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
+        val reached = results.any { it.ok } || (servers.isEmpty() && ard.ok)
+        return if (!reached && runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
     }
 
     private companion object {
@@ -180,6 +190,7 @@ class BookRefreshWorker(
     internal interface RefreshEntryPoint {
         fun bookSyncer(): BookSyncer
         fun bookServers(): AudiobookshelfServers
+        fun ardBooks(): ArdBooks
         fun notifier(): NewContentNotifier
         fun spokenSettings(): SpokenSettings
     }

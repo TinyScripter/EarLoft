@@ -1193,6 +1193,11 @@
     <string name="ard_books_gone">ARD Sounds no longer offers this book.</string>
     <string name="ard_books_add">Add to library</string>
     <string name="ard_books_add_failed">Could not add the book: ARD Sounds is not reachable.</string>
+    <string name="ard_books_subscribe">Subscribe</string>
+    <string name="ard_books_subscribed">Subscribed</string>
+    <string name="ard_books_subscribe_done">New books of “%1$s” will be added to your library.</string>
+    <string name="ard_books_unsubscribe_done">Unsubscribed. Books already in your library stay.</string>
+    <string name="ard_books_subscribe_failed">Could not subscribe: ARD Sounds is not reachable.</string>
     <string name="ard_books_in_library">In your library</string>
     <string name="ard_books_read_by">read by %1$s</string>
     <string name="ard_books_available_until">Available until %1$s</string>

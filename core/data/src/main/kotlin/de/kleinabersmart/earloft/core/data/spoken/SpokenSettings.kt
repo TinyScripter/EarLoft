@@ -20,6 +20,7 @@ import de.kleinabersmart.earloft.core.model.SeriesSort
 import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
@@ -28,6 +29,10 @@ import javax.inject.Singleton
 internal val KEY_LOCAL_PODCASTS = booleanPreferencesKey("local_podcasts")
 internal val KEY_LOCAL_BOOKS = booleanPreferencesKey("local_books")
 private val KEY_ARD_SOUNDS_BOOKS = booleanPreferencesKey("ard_sounds_books")
+private val KEY_ARD_SHOWS = stringSetPreferencesKey("ard_shows")
+private val KEY_ARD_SEEN = stringSetPreferencesKey("ard_seen")
+
+private const val ARD_SEPARATOR = '\t'
 
 internal val Context.spokenSettingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "spoken_settings",
@@ -92,6 +97,45 @@ class SpokenSettings @Inject constructor(
 
     suspend fun setArdSoundsBooks(enabled: Boolean) {
         context.spokenSettingsDataStore.edit { it[KEY_ARD_SOUNDS_BOOKS] = enabled }
+    }
+
+    /**
+     * Abonnierte Sendungen und Reihen aus ARD Sounds, nach Titel sortiert. Sie stehen mit den Einstellungen in der Sicherung; je Eintrag
+     * `Kennung<Tab>Titel`.
+     */
+    val ardSubscriptions: Flow<List<ArdSubscription>> = context.spokenSettingsDataStore.data.map { preferences ->
+        preferences[KEY_ARD_SHOWS].orEmpty().mapNotNull { entry ->
+            entry.split(ARD_SEPARATOR, limit = 2).takeIf { it.size == 2 }?.let { (id, title) -> ArdSubscription(id, title) }
+        }.sortedBy { it.title.lowercase() }
+    }
+
+    /** Die Bücher von [showId], die der Abgleich schon kennt: Was fehlt, ist neu (Eintrag `Sendung<Tab>Buch`). */
+    suspend fun ardSeen(showId: String): Set<String> {
+        val prefix = showId + ARD_SEPARATOR
+        return context.spokenSettingsDataStore.data.first()[KEY_ARD_SEEN].orEmpty().filter { it.startsWith(prefix) }.mapTo(HashSet()) { it.removePrefix(prefix) }
+    }
+
+    suspend fun addArdSeen(showId: String, keys: Collection<String>) {
+        if (keys.isEmpty()) return
+        context.spokenSettingsDataStore.edit { it[KEY_ARD_SEEN] = it[KEY_ARD_SEEN].orEmpty() + keys.map { key -> showId + ARD_SEPARATOR + key } }
+    }
+
+    /** Abonniert [showId]; [seen] sind die Bücher, die schon da sind und deshalb nicht als neu gelten. */
+    suspend fun subscribeArd(showId: String, title: String, seen: Collection<String>) {
+        context.spokenSettingsDataStore.edit { preferences ->
+            val prefix = showId + ARD_SEPARATOR
+            preferences[KEY_ARD_SHOWS] = preferences[KEY_ARD_SHOWS].orEmpty().filterNot { it.startsWith(prefix) }.toSet() +
+                (prefix + title.replace(ARD_SEPARATOR, ' '))
+            preferences[KEY_ARD_SEEN] = preferences[KEY_ARD_SEEN].orEmpty() + seen.map { prefix + it }
+        }
+    }
+
+    suspend fun unsubscribeArd(showId: String) {
+        context.spokenSettingsDataStore.edit { preferences ->
+            val prefix = showId + ARD_SEPARATOR
+            preferences[KEY_ARD_SHOWS] = preferences[KEY_ARD_SHOWS].orEmpty().filterNot { it.startsWith(prefix) }.toSet()
+            preferences[KEY_ARD_SEEN] = preferences[KEY_ARD_SEEN].orEmpty().filterNot { it.startsWith(prefix) }.toSet()
+        }
     }
 
     /** Podcast-Dateien aus dem Ordner „Podcasts“ auf diesem Gerät anzeigen (Standard: aus). */

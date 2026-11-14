@@ -51,7 +51,7 @@ class BookSyncer @Inject constructor(
         val local = localBooks.sync()
         val results = servers.all().map { syncSafely(it) }
         val ard = ardBooks.refresh()
-        return BookSyncResult(results.all { it.ok } && local && ard, results.flatMap { it.newBooks })
+        return BookSyncResult(results.all { it.ok } && local && ard.ok, results.flatMap { it.newBooks } + ard.newBooks)
     }
 
     suspend fun syncSafely(server: AbsServer): BookSyncResult =

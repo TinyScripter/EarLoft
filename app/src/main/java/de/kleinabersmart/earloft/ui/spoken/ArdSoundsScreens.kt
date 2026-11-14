@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -76,6 +78,7 @@ fun ArdSoundsScreen(
     viewModel: ArdSoundsViewModel = hiltViewModel(),
 ) {
     val library by viewModel.library.collectAsStateWithLifecycle()
+    val subscribed by viewModel.subscribed.collectAsStateWithLifecycle()
     val category by viewModel.category.collectAsStateWithLifecycle()
     val shows by viewModel.shows.collectAsStateWithLifecycle()
     val search by viewModel.search.collectAsStateWithLifecycle()
@@ -134,7 +137,7 @@ fun ArdSoundsScreen(
                 when (val state = shows) {
                     ArdLoad.Loading -> item(key = "shows-loading") { ArdLoading() }
                     ArdLoad.Failed -> item(key = "shows-failed") { ArdFailed(viewModel::retry) }
-                    is ArdLoad.Done -> groupedItems(state.value, key = { "show-${it.id}" }) { show -> ArdShowRow(show) { onShow(show) } }
+                    is ArdLoad.Done -> groupedItems(state.value, key = { "show-${it.id}" }) { show -> ArdShowRow(show, subscribed = show.id in subscribed) { onShow(show) } }
                 }
             }
         }
@@ -155,11 +158,35 @@ fun ArdShowScreen(
 ) {
     val library by viewModel.library.collectAsStateWithLifecycle()
     val books by viewModel.books.collectAsStateWithLifecycle()
+    val subscribed by viewModel.subscribed.collectAsStateWithLifecycle()
     val noBooks = stringResource(R.string.ard_books_none)
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
+    LaunchedEffect(viewModel) {
+        viewModel.subscription.collect { result ->
+            val message = when (result) {
+                ArdShowViewModel.SubscriptionResult.SUBSCRIBED -> resources.getString(R.string.ard_books_subscribe_done, title)
+                ArdShowViewModel.SubscriptionResult.UNSUBSCRIBED -> resources.getString(R.string.ard_books_unsubscribe_done)
+                ArdShowViewModel.SubscriptionResult.FAILED -> resources.getString(R.string.ard_books_subscribe_failed)
+            }
+            snackbars.show(message, SnackbarDuration.Long)
+        }
+    }
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
+            actions = {
+                if (subscribed) {
+                    FilledTonalButton(onClick = { viewModel.toggleSubscription(title) }) {
+                        Icon(painterResource(DesignR.drawable.ic_notifications), contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.ard_books_subscribed), modifier = Modifier.padding(start = 8.dp))
+                    }
+                } else {
+                    OutlinedButton(onClick = { viewModel.toggleSubscription(title) }) { Text(stringResource(R.string.ard_books_subscribe)) }
+                }
+                Spacer(Modifier.width(8.dp))
+            },
         )
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
             when (val state = books) {
@@ -330,7 +357,7 @@ private fun LazyListScope.ardBookList(
 }
 
 @Composable
-private fun ArdShowRow(show: ArdShow, onClick: () -> Unit) {
+private fun ArdShowRow(show: ArdShow, subscribed: Boolean, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(show.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
@@ -342,6 +369,17 @@ private fun ArdShowRow(show: ArdShow, onClick: () -> Unit) {
             )
         },
         leadingContent = { PodcastArt(show.imageUrl, Modifier.size(56.dp)) },
+        trailingContent = if (subscribed) {
+            {
+                Icon(
+                    painterResource(DesignR.drawable.ic_notifications),
+                    contentDescription = stringResource(R.string.ard_books_subscribed),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        } else {
+            null
+        },
         modifier = Modifier.clickable(onClick = onClick),
     )
 }

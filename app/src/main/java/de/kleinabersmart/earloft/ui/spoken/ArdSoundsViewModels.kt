@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -53,6 +54,11 @@ class ArdSoundsViewModel @Inject constructor(private val ardBooks: ArdBooks) : V
     /** Kennung bei ARD Sounds → `bookId` der Bücher in der Bibliothek (Häkchen in den Listen). */
     val library: StateFlow<Map<String, Long>> = ardBooks.library
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** Kennungen der abonnierten Sendungen (Glocke in der Liste). */
+    val subscribed: StateFlow<Set<String>> = ardBooks.subscriptions
+        .map { list -> list.mapTo(HashSet()) { it.showId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     private val _category = MutableStateFlow(ArdCategory.AUDIOBOOK)
     val category: StateFlow<ArdCategory> = _category.asStateFlow()
@@ -117,8 +123,38 @@ class ArdShowViewModel @AssistedInject constructor(
     private val _books = MutableStateFlow<ArdLoad<List<ArdBookSummary>>>(ArdLoad.Loading)
     val books: StateFlow<ArdLoad<List<ArdBookSummary>>> = _books.asStateFlow()
 
+    /** Ob die Sendung abonniert ist: Ihre neuen Bücher kommen dann von selbst in die Bibliothek. */
+    val subscribed: StateFlow<Boolean> = ardBooks.subscriptions
+        .map { list -> list.any { it.showId == showId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    // Kanal: Ein Ergebnis während einer Drehung (kein Sammler) bliebe sonst verloren.
+    private val _subscription = Channel<SubscriptionResult>(Channel.BUFFERED)
+
+    /** Was ein Tipp auf „Abonnieren“ bewirkt hat, für den Hinweis unten. */
+    val subscription: Flow<SubscriptionResult> = _subscription.receiveAsFlow()
+
+    enum class SubscriptionResult { SUBSCRIBED, UNSUBSCRIBED, FAILED }
+
     init {
         load()
+    }
+
+    fun toggleSubscription(title: String) {
+        viewModelScope.launch {
+            if (subscribed.value) {
+                ardBooks.unsubscribe(showId)
+                _subscription.send(SubscriptionResult.UNSUBSCRIBED)
+            } else {
+                val result = try {
+                    ardBooks.subscribe(showId, title)
+                    SubscriptionResult.SUBSCRIBED
+                } catch (e: IOException) {
+                    SubscriptionResult.FAILED
+                }
+                _subscription.send(result)
+            }
+        }
     }
 
     fun load() {
