@@ -102,6 +102,7 @@ import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsPageUrl
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsShowId
+import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.components.EmptyAreaHint
 import de.kleinabersmart.earloft.core.model.SpokenMode
@@ -456,6 +457,8 @@ fun PodcastScreen(
     }
     val current = feed.valueOrNull
     var switchingSource by rememberSaveable { mutableStateOf(false) }
+    var editingCredentials by rememberSaveable { mutableStateOf(false) }
+    val credentialsUser by viewModel.credentialsUser.collectAsStateWithLifecycle()
 
     // Breit (Tablet, von Start aus ohne Liste daneben): nicht über die ganze Breite, sonst stehen Knöpfe weit vom Titel.
     Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
@@ -536,10 +539,15 @@ fun PodcastScreen(
                             text = feedProblemText(current),
                             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
                             error = true,
-                            action = if (current.subscribed) {
-                                { FilledTonalButton(onClick = { switchingSource = true }) { Text(stringResource(R.string.podcast_source_switch)) } }
-                            } else {
-                                null
+                            // Abgelehnte Anmeldung: eher Zugangsdaten als eine andere Quelle.
+                            action = when {
+                                !current.subscribed -> null
+                                current.refreshError == FeedError.DENIED && ardSoundsShowId(current.url) == null -> {
+                                    { FilledTonalButton(onClick = { editingCredentials = true }) { Text(stringResource(R.string.podcast_credentials)) } }
+                                }
+                                else -> {
+                                    { FilledTonalButton(onClick = { switchingSource = true }) { Text(stringResource(R.string.podcast_source_switch)) } }
+                                }
                             },
                         )
                     }
@@ -586,6 +594,18 @@ fun PodcastScreen(
                 switchingSource = false
                 snackbars.show(doneText)
             },
+        )
+    }
+    if (editingCredentials && current != null) {
+        FeedCredentialsDialog(
+            feedUrl = current.url,
+            rejected = credentialsUser != null,
+            initialUsername = credentialsUser.orEmpty(),
+            onConfirm = {
+                editingCredentials = false
+                viewModel.setCredentials(it)
+            },
+            onDismiss = { editingCredentials = false },
         )
     }
 }
@@ -843,9 +863,16 @@ fun PodcastSettingsScreen(
     val feed by viewModel.feed.collectAsStateWithLifecycle()
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val areaEffects by viewModel.areaEffects.collectAsStateWithLifecycle()
+    val credentialsUser by viewModel.credentialsUser.collectAsStateWithLifecycle()
     var confirmUnsubscribe by rememberSaveable { mutableStateOf(false) }
     var switchingSource by rememberSaveable { mutableStateOf(false) }
+    var editingCredentials by rememberSaveable { mutableStateOf(false) }
     val current = feed.valueOrNull
+    val snackbars = LocalSnackbars.current
+    val resources = LocalResources.current
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
+    }
 
     Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
@@ -934,6 +961,16 @@ fun PodcastSettingsScreen(
                         onCheckedChange = viewModel::setNotifyNew,
                     )
                 }
+                // Geschützte Feeds (Konzept 12.10); ARD Sounds kennt keine Anmeldung.
+                if (!current.isLocal && ardSoundsShowId(current.url) == null) row("credentials") {
+                    ActionRow(
+                        title = stringResource(R.string.podcast_credentials),
+                        summary = credentialsUser?.let { stringResource(R.string.podcast_credentials_user, it) }
+                            ?: stringResource(R.string.podcast_credentials_none),
+                        icon = DesignR.drawable.ic_person,
+                        onClick = { editingCredentials = true },
+                    )
+                }
                 if (!current.isLocal) row("switch-source") {
                     ActionRow(
                         title = stringResource(R.string.podcast_source_switch),
@@ -955,8 +992,26 @@ fun PodcastSettingsScreen(
         }
     }
 
+    if (editingCredentials && current != null) {
+        FeedCredentialsDialog(
+            feedUrl = current.url,
+            rejected = credentialsUser != null && current.refreshError == FeedError.DENIED,
+            initialUsername = credentialsUser.orEmpty(),
+            onConfirm = {
+                editingCredentials = false
+                viewModel.setCredentials(it)
+            },
+            onDismiss = { editingCredentials = false },
+            onRemove = credentialsUser?.let {
+                {
+                    editingCredentials = false
+                    viewModel.setCredentials(null)
+                }
+            },
+        )
+    }
+
     if (switchingSource && current != null) {
-        val snackbars = LocalSnackbars.current
         val doneText = stringResource(R.string.podcast_source_switch_done)
         SourceSwitchDialog(
             feed = current,
@@ -969,7 +1024,6 @@ fun PodcastSettingsScreen(
     }
 
     if (confirmUnsubscribe && current != null) {
-        val snackbars = LocalSnackbars.current
         val archivedText = stringResource(R.string.podcast_archived_done, current.title)
         // Archivieren links, Abo beenden ganz rechts mit „Abbrechen“ dazwischen: Das Löschen soll man nicht versehentlich treffen.
         AlertDialog(

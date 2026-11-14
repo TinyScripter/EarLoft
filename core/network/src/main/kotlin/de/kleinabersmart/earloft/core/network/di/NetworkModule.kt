@@ -11,6 +11,7 @@ import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthInterceptor
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsTokenAuthenticator
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinAuthInterceptor
 import de.kleinabersmart.earloft.core.network.jellyfin.JellyfinClientInfo
+import de.kleinabersmart.earloft.core.network.podcast.FeedAuthInterceptor
 import de.kleinabersmart.earloft.core.network.subsonic.CoverArtCacheInterceptor
 import de.kleinabersmart.earloft.core.network.subsonic.SubsonicAuthInterceptor
 import okhttp3.Cache
@@ -33,12 +34,15 @@ internal object NetworkModule {
         absTokenAuthenticator: AbsTokenAuthenticator,
         jellyfinAuthInterceptor: JellyfinAuthInterceptor,
         coverArtCacheInterceptor: CoverArtCacheInterceptor,
+        feedAuthInterceptor: FeedAuthInterceptor,
     ): OkHttpClient =
         OkHttpClient.Builder()
             .cache(Cache(File(context.cacheDir, "http"), HTTP_CACHE_BYTES))
             .addNetworkInterceptor(authInterceptor)
             .addNetworkInterceptor(absAuthInterceptor)
             .addNetworkInterceptor(jellyfinAuthInterceptor)
+            // Nach den Servern: Ihre Anmeldung geht auf demselben Host vor.
+            .addNetworkInterceptor(feedAuthInterceptor)
             .addNetworkInterceptor(coverArtCacheInterceptor)
             .authenticator(absTokenAuthenticator)
             .connectTimeout(15, TimeUnit.SECONDS)

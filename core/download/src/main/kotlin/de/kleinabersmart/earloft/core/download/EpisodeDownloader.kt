@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.core.download
 
 import android.net.Network
 import android.util.Log
+import de.kleinabersmart.earloft.core.data.podcast.FeedCredentials
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.model.TrackDownload
@@ -17,12 +18,14 @@ import javax.inject.Inject
  * Lädt die Audiodatei einer Podcast-Folge vollständig in den App-Speicher (Konzept 12). Die Übertragung, auch das
  * Fortsetzen nach einem Abbruch, macht [ResumableTransfer] wie bei den Büchern; erst nach vollständigem Empfang wird die
  * `.part`-Datei umbenannt. Die Adresse steht im Track der Folge; sie führt zu beliebigen Hosts, daher kein Server-Login.
+ * Nur die Zugangsdaten eines geschützten Abos gehen mit, wenn die Datei auf dessen Host liegt (Konzept 12.10).
  */
 class EpisodeDownloader @Inject constructor(
     private val dao: PodcastDao,
     private val api: PodcastFeedApi,
     private val client: OkHttpClient,
     private val storage: EpisodeStorage,
+    private val credentials: FeedCredentials,
 ) {
     private val transfer = ResumableTransfer(client, storage)
 
@@ -53,7 +56,9 @@ class EpisodeDownloader @Inject constructor(
     }
 
     private suspend fun fetch(track: BookTrackEntity, network: Network?, onProgress: suspend (Long, Long?) -> Unit): DownloadOutcome {
-        val request = api.audioRequest(track.remoteFileId) ?: return DownloadOutcome.Failed("Ungültige Adresse")
+        // Der Prozess kann für den Download gestartet sein, bevor die Zugangsdaten aller Abos bereitliegen.
+        val auth = dao.feedIdOf(track.bookId)?.let { credentials.forFeed(it) }
+        val request = api.audioRequest(track.remoteFileId, auth) ?: return DownloadOutcome.Failed("Ungültige Adresse")
         val transfer = if (network == null) transfer else ResumableTransfer(clientFor(network), storage)
         // „Download entfernen“ setzt den Zustand zurück; ohne die Frage liefe die Übertragung bis zum Ende weiter.
         return when (val result = transfer.run(request, track.bookId, 0, onProgress, { stillRunning(track.bookId) })) {

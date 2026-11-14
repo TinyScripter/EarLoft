@@ -232,6 +232,23 @@ class PodcastFeedViewModel @AssistedInject constructor(
         }
     }
 
+    /** Benutzername der gespeicherten Anmeldung eines geschützten Feeds; `null` = keine (Konzept 12.10). */
+    val credentialsUser: StateFlow<String?> = podcasts.credentials(feedId)
+        .map { it?.username }
+        .orOnError(null)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Speichert die Zugangsdaten (`null` entfernt sie) und gleicht gleich ab; im App-Scope, damit es auch nach dem Schließen
+     * der Seite gespeichert wird. Die Meldung sagt, ob der Feed sie angenommen hat.
+     */
+    fun setCredentials(credentials: PodcastRepository.Credentials?) {
+        applicationScope.launch {
+            val refreshed = podcasts.setCredentials(feedId, credentials) != null
+            if (credentials != null) _messages.emit(if (refreshed) R.string.podcast_credentials_saved else R.string.podcast_credentials_failed)
+        }
+    }
+
     /** Aus dem Probeabo wird ein Abo; Folgen, Stellen und Downloads bleiben. */
     fun subscribe() {
         viewModelScope.launch { podcasts.subscribeTrial(feedId) }

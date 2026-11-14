@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.data.repository.OfflineImages
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.spoken.AuthorImages
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
+import de.kleinabersmart.earloft.core.data.podcast.FeedCredentials
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRefresher
 import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.earloft.core.data.sync.LibraryRefresher
@@ -45,6 +46,7 @@ class EarLoftApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var libraryRefresher: LibraryRefresher
     @Inject lateinit var spokenRefresher: SpokenRefresher
     @Inject lateinit var podcastRefresher: PodcastRefresher
+    @Inject lateinit var feedCredentials: FeedCredentials
     @Inject lateinit var bookCovers: BookCovers
     @Inject lateinit var authorImages: AuthorImages
     @Inject lateinit var artworkRepository: ArtworkRepository
@@ -69,6 +71,8 @@ class EarLoftApplication : Application(), SingletonImageLoader.Factory {
         Cast.getSingletonInstance(this).initialize()
         // Nach einem Gerätewechsel zuerst die gesicherten Nutzerdaten zurückspielen, danach Änderungen nach user.db spiegeln.
         userDataBackup.start()
+        // Vor allem, was streamt oder lädt: Zugangsdaten geschützter Feeds für Anfragen außerhalb des Feed-Abrufs.
+        feedCredentials.start()
         // Nur Beobachter und Zeitpläne: Der Prozess startet auch für Hintergrund-Jobs und Nachrichten der Uhr. Abgeglichen
         // wird beim Öffnen der App (MainActivity.onStart) bzw. von den Workern mit ihren Netz-Bedingungen.
         libraryRefresher.start()

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.stats
 
+import de.kleinabersmart.earloft.core.data.podcast.testFeedCredentials
 import androidx.room.Room
 import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
 import androidx.test.core.app.ApplicationProvider
@@ -56,7 +57,7 @@ class StatsRepositoryTest {
                     .build()
             }
             .build()
-        feedId = (PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }).subscribe(FEED_URL) as SubscribeResult.Added).feedId
+        feedId = (PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db)).subscribe(FEED_URL) as SubscribeResult.Added).feedId
         stats = StatsRepository(db.statsDao(), db.bookDao(), db.podcastDao())
     }
 

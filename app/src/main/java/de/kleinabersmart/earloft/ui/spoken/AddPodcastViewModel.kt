@@ -41,13 +41,20 @@ sealed interface AddPodcastState {
 
     /** Das Abo besteht schon, ist aber archiviert: Der Nutzer entscheidet, ob es reaktiviert wird. */
     data class Archived(val feedId: String, val title: String) : AddPodcastState
+
+    /**
+     * Der Feed unter [input] verlangt eine Anmeldung (Konzept 12.10 „Geschützte Feeds“); [rejected]: die eingegebene nicht
+     * ([username] war ihr Benutzername).
+     */
+    data class NeedsCredentials(val input: String, val rejected: Boolean, val username: String = "") : AddPodcastState
 }
 
-/** Gelungen: das neue Abo; schon abonniert: Hinweis; sonst die Fehlermeldung. */
-private fun SubscribeResult.toState(): AddPodcastState = when (this) {
+/** Gelungen: das neue Abo; schon abonniert: Hinweis; geschützt: Frage nach den Zugangsdaten; sonst die Fehlermeldung. */
+private fun SubscribeResult.toState(input: String, username: String?): AddPodcastState = when (this) {
     is SubscribeResult.Added -> AddPodcastState.Done(feedId)
     is SubscribeResult.AlreadySubscribed -> AddPodcastState.Failed(R.string.podcast_already)
     is SubscribeResult.Archived -> AddPodcastState.Archived(feedId, title)
+    is SubscribeResult.CredentialsNeeded -> AddPodcastState.NeedsCredentials(input, rejected, username.orEmpty())
     else -> AddPodcastState.Failed(message)
 }
 
@@ -58,14 +65,20 @@ internal val SubscribeResult.message: Int
         SubscribeResult.InvalidUrl -> R.string.podcast_error_invalid
         SubscribeResult.Unreachable -> R.string.podcast_error_unreachable
         SubscribeResult.NotAFeed -> R.string.podcast_error_not_feed
+        is SubscribeResult.CredentialsNeeded -> R.string.podcast_error_credentials
     }
 
 /**
  * Abonniert im App-Scope: Wer die Seite während „Feed wird gelesen …“ verlässt, bricht nur das Warten ab, das Abo
  * entsteht trotzdem (ein großer Feed braucht einige Sekunden).
  */
-private suspend fun subscribeOutlivingScreen(scope: CoroutineScope, podcasts: PodcastRepository, input: String): SubscribeResult =
-    scope.async { podcasts.subscribe(input) }.await()
+private suspend fun subscribeOutlivingScreen(
+    scope: CoroutineScope,
+    podcasts: PodcastRepository,
+    input: String,
+    credentials: PodcastRepository.Credentials?,
+): SubscribeResult =
+    scope.async { podcasts.subscribe(input, credentials) }.await()
 
 /** Suche in den Verzeichnissen; [Done] gehört zu [term]. */
 sealed interface DirectorySearchState {
@@ -86,10 +99,13 @@ class AddPodcastViewModel @Inject constructor(
     private val _add = MutableStateFlow<AddPodcastState>(AddPodcastState.Idle)
     val add: StateFlow<AddPodcastState> = _add
 
-    fun subscribe(input: String) {
+    /** [credentials]: für einen geschützten Feed, nach [AddPodcastState.NeedsCredentials]. */
+    fun subscribe(input: String, credentials: PodcastRepository.Credentials? = null) {
         if (_add.value == AddPodcastState.Working) return
         _add.value = AddPodcastState.Working
-        viewModelScope.launch { _add.value = subscribeOutlivingScreen(applicationScope, podcasts, input).toState() }
+        viewModelScope.launch {
+            _add.value = subscribeOutlivingScreen(applicationScope, podcasts, input, credentials).toState(input, credentials?.username)
+        }
     }
 
     fun resetAdd() {

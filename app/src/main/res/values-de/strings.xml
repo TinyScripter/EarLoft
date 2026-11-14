@@ -637,6 +637,17 @@
     <string name="podcast_error_invalid">Das ist keine gültige Adresse.</string>
     <string name="podcast_error_unreachable">Der Feed ist nicht erreichbar.</string>
     <string name="podcast_error_not_feed">Unter dieser Adresse liegt kein Podcast-Feed (RSS oder Atom).</string>
+    <string name="podcast_error_credentials">Dieser Feed verlangt Benutzername und Passwort. Füge ihn über seine Adresse hinzu.</string>
+    <string name="podcast_credentials">Anmeldung</string>
+    <string name="podcast_credentials_title">Geschützter Feed</string>
+    <string name="podcast_credentials_message">Dieser Feed verlangt Benutzername und Passwort. Sie bleiben verschlüsselt auf diesem Gerät und gehen nur an %1$s.</string>
+    <string name="podcast_credentials_rejected">Benutzername oder Passwort wurden nicht angenommen.</string>
+    <string name="podcast_credentials_http">Ohne https geht das Passwort unverschlüsselt durchs Netz.</string>
+    <string name="podcast_credentials_confirm">Anmelden</string>
+    <string name="podcast_credentials_none">Nur für Feeds, die Benutzername und Passwort verlangen</string>
+    <string name="podcast_credentials_user">Angemeldet als %1$s</string>
+    <string name="podcast_credentials_failed">Mit diesen Zugangsdaten ließ sich der Feed nicht abgleichen.</string>
+    <string name="podcast_credentials_saved">Angemeldet, Feed abgeglichen</string>
     <string name="podcast_already">Dieser Podcast ist schon abonniert.</string>
     <string name="podcast_add_direct">Direkt hinzufügen</string>
     <string name="podcast_add_search">In Verzeichnissen suchen</string>

@@ -42,13 +42,22 @@ data class ParsedChapter(val startMs: Long, val title: String, val imageUrl: Str
 internal fun webAddress(raw: String?): String? =
     raw?.trim()?.takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
 
-/** Abruf von Feeds, Kapitellisten und Bildern. Feeds und Kapitel kommen nie aus dem HTTP-Cache. */
+/**
+ * Abruf von Feeds, Kapitellisten und Bildern. Feeds und Kapitel kommen nie aus dem HTTP-Cache. [FeedAuth] meldet beim
+ * geschützten Feed an ([FeedAuthInterceptor]); ohne sie gelten die gespeicherten Zugangsdaten des Hosts.
+ */
 @Singleton
 class PodcastFeedApi @Inject constructor(
     private val client: OkHttpClient,
 ) {
-    suspend fun fetch(url: HttpUrl, etag: String? = null, lastModified: String? = null): FeedFetch = withContext(Dispatchers.IO) {
+    suspend fun fetch(
+        url: HttpUrl,
+        etag: String? = null,
+        lastModified: String? = null,
+        auth: FeedAuth? = null,
+    ): FeedFetch = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url)
+            .tag(FeedAuth::class.java, auth)
             .header("User-Agent", USER_AGENT)
             .header("Accept", "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5")
             .cacheControl(CacheControl.FORCE_NETWORK)
@@ -77,10 +86,15 @@ class PodcastFeedApi @Inject constructor(
         parseChapters(text)
     }
 
-    /** Anfrage für die Audiodatei einer Folge (eigener User-Agent, nie aus dem HTTP-Cache); `null` bei ungültiger Adresse. */
-    fun audioRequest(url: String): Request? =
+    /**
+     * Anfrage für die Audiodatei einer Folge (eigener User-Agent, nie aus dem HTTP-Cache); `null` bei ungültiger Adresse.
+     * [auth]: die Zugangsdaten ihres Abos (gelten nur auf dessen Host).
+     */
+    fun audioRequest(url: String, auth: FeedAuth? = null): Request? =
         url.toHttpUrlOrNull()?.let {
-            Request.Builder().url(it).header("User-Agent", USER_AGENT).cacheControl(CacheControl.Builder().noStore().build()).build()
+            Request.Builder().url(it).header("User-Agent", USER_AGENT).cacheControl(CacheControl.Builder().noStore().build())
+                .tag(FeedAuth::class.java, auth)
+                .build()
         }
 
     /** Bild-Bytes; `null`, wenn es das Bild nicht (mehr) gibt. */

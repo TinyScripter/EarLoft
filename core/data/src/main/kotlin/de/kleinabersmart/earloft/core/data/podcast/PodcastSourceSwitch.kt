@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.dao.StatsDao
 import de.kleinabersmart.earloft.core.database.entity.ListeningDayEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
+import de.kleinabersmart.earloft.core.network.podcast.FeedAuth
 import de.kleinabersmart.earloft.core.network.podcast.FeedFetch
 import de.kleinabersmart.earloft.core.network.podcast.ParsedEpisode
 import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
@@ -51,6 +52,8 @@ internal class SwitchPlan(
     val fetched: FeedFetch.Fetched,
     /** Folge (`bookId`) → ihr Gegenstück in der neuen Quelle, samt alter Kennung. */
     val matches: Map<Long, Match>,
+    /** Zugangsdaten, mit denen die neue Quelle geladen wurde (Konzept 12.10 „Geschützte Feeds“). */
+    val auth: FeedAuth? = null,
 ) {
     class Match(val oldGuid: String, val episode: ParsedEpisode)
 }
@@ -75,7 +78,7 @@ class PodcastSourceSwitch @Inject constructor(
     /** Lädt die neue Quelle [input] und ordnet die Folgen zu; ändert noch nichts. */
     suspend fun check(feedId: String, input: String): SourceCheck {
         val feed = podcastDao.feed(feedId) ?: return SourceCheck.Failed(SubscribeResult.NotAFeed)
-        val source = when (val fetched = podcasts.fetchSource(input)) {
+        val source = when (val fetched = podcasts.fetchSource(input, podcasts.storedCredentials(feedId))) {
             is PodcastRepository.SourceFetch.Failed -> return SourceCheck.Failed(fetched.result)
             is PodcastRepository.SourceFetch.Loaded -> fetched
         }
@@ -97,6 +100,7 @@ class PodcastSourceSwitch @Inject constructor(
                 source.url,
                 source.fetched,
                 matches.mapValues { (bookId, episode) -> SwitchPlan.Match(guids.getValue(bookId), episode) },
+                source.auth,
             ),
             episodes = books.size,
             matched = matches.size,
@@ -132,6 +136,7 @@ class PodcastSourceSwitch @Inject constructor(
             true
         }
         if (!switched) return false
+        plan.auth?.let { podcasts.storeCredentials(plan.feedId, it) }
         val keys = renamed.values.associate {
             BookKeys.encode(plan.feedId, it.oldGuid) to BookKeys.encode(plan.feedId, it.episode.guid)
         }

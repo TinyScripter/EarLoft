@@ -28,6 +28,7 @@ import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.model.PodcastFeed
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.network.HttpStatusException
+import de.kleinabersmart.earloft.core.network.podcast.FeedAuth
 import de.kleinabersmart.earloft.core.network.podcast.FeedFetch
 import de.kleinabersmart.earloft.core.network.podcast.Opml
 import de.kleinabersmart.earloft.core.network.podcast.ParsedChapter
@@ -41,6 +42,7 @@ import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsBridgeU
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsShowId
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.parseArdSoundsInput
 import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
+import de.kleinabersmart.earloft.core.network.podcast.splitCredentials
 import de.kleinabersmart.earloft.core.network.podcast.directory.feedKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -71,6 +73,12 @@ sealed interface SubscribeResult {
     data object InvalidUrl : SubscribeResult
     data object Unreachable : SubscribeResult
     data object NotAFeed : SubscribeResult
+
+    /**
+     * Der Feed verlangt eine Anmeldung (HTTP 401, Konzept 12.10 „Geschützte Feeds“); [rejected]: Die mitgeschickten
+     * Zugangsdaten wurden abgelehnt.
+     */
+    data class CredentialsNeeded(val rejected: Boolean) : SubscribeResult
 }
 
 /** Was ein OPML-Import getan hat: neue Abos, übersprungene Dubletten, beim Ersetzen entfernte Abos. */
@@ -111,6 +119,7 @@ class PodcastRepository @Inject constructor(
     private val fileChapters: AudioFileChapters,
     // Lazy: Der Wechsel der Quelle braucht seinerseits dieses Repository.
     private val sourceSwitch: dagger.Lazy<PodcastSourceSwitch>,
+    private val credentials: FeedCredentials,
 ) {
     private val mutex = Mutex()
 
@@ -309,8 +318,8 @@ class PodcastRepository @Inject constructor(
      * Ein archiviertes Abo derselben Adresse bleibt archiviert und meldet [SubscribeResult.Archived]. Ein neues Abo lädt
      * automatisch, wenn [PodcastSettings.autoDownloadNew] an ist.
      */
-    suspend fun subscribe(input: String): SubscribeResult {
-        val entered = FeedAddress.of(input) ?: return SubscribeResult.InvalidUrl
+    suspend fun subscribe(input: String, auth: Credentials? = null): SubscribeResult {
+        val entered = FeedAddress.of(input, auth) ?: return SubscribeResult.InvalidUrl
         knownFeed(entered)?.let { feed ->
             if (feed.archived) return SubscribeResult.Archived(feed.feedId, feed.title)
             if (feed.subscribed) return SubscribeResult.AlreadySubscribed(feed.feedId)
@@ -342,17 +351,46 @@ class PodcastRepository @Inject constructor(
     /** Macht aus dem Probeabo [feedId] ein Abo, mit der Vorgabe für neue Abos zur Download-Automatik. */
     suspend fun subscribeTrial(feedId: String) = dao.subscribeTrial(feedId, settings.autoDownloadNew.first())
 
+    /** Benutzername und Passwort, wie sie der Nutzer für einen geschützten Feed eingibt. */
+    data class Credentials(val username: String, val password: String) {
+        override fun toString() = "Credentials($username)"
+    }
+
+    /** Zugangsdaten des Abos (gelten nur auf dem Host, unter dem sie eingegeben wurden). */
+    fun credentials(feedId: String): Flow<FeedAuth?> = credentials.observe(feedId)
+
+    /**
+     * Speichert neue Zugangsdaten für das Abo unter seiner jetzigen Adresse (`null` löscht sie) und gleicht es gleich ab.
+     * `null`, wenn der Abgleich danach scheiterte.
+     */
+    suspend fun setCredentials(feedId: String, auth: Credentials?): RefreshResult? {
+        val feed = dao.feed(feedId) ?: return null
+        val scope = normalizeFeedUrl(feed.url) ?: return null
+        credentials.set(feedId, auth?.let { FeedAuth(scope, it.username, it.password) })
+        return refresh(feedId)
+    }
+
+    /** Nach „Quelle wechseln“ mit Zugangsdaten in der neuen Adresse. */
+    internal suspend fun storeCredentials(feedId: String, auth: FeedAuth) = credentials.set(feedId, auth)
+
+    /** Gespeicherte Zugangsdaten des Abos, für eine neue Quelle (sie gelten nur, wenn sie auf demselben Host liegt). */
+    internal suspend fun storedCredentials(feedId: String): FeedAuth? = credentials.forFeed(feedId)
+
     /**
      * Abo-Adresse aus einer Eingabe: ein RSS-/Atom-Feed oder eine Sendung aus ARD Sounds (Abo-Adresse `ardsounds:<Kennung>`
-     * oder Link der Sendungsseite, Konzept 12.10).
+     * oder Link der Sendungsseite, Konzept 12.10). Zugangsdaten in der Adresse (`https://name:passwort@host/…`) werden
+     * herausgelöst; eingegebene [auth] gehen vor.
      */
     private sealed interface FeedAddress {
-        data class Http(val url: HttpUrl) : FeedAddress
+        data class Http(val url: HttpUrl, val auth: FeedAuth? = null) : FeedAddress
         data class ArdSounds(val url: String) : FeedAddress
 
         companion object {
-            fun of(input: String): FeedAddress? =
-                parseArdSoundsInput(input)?.let(::ArdSounds) ?: normalizeFeedUrl(input)?.let(::Http)
+            fun of(input: String, auth: Credentials? = null): FeedAddress? =
+                parseArdSoundsInput(input)?.let(::ArdSounds) ?: normalizeFeedUrl(input)?.let { raw ->
+                    val (url, inUrl) = raw.splitCredentials()
+                    Http(url, auth?.let { FeedAuth(url, it.username, it.password) } ?: inUrl)
+                }
         }
     }
 
@@ -368,16 +406,20 @@ class PodcastRepository @Inject constructor(
     /** Lädt den Feed und legt ihn an. */
     private suspend fun fetchAndAdd(entered: FeedAddress, subscribed: Boolean, imageUrl: String? = null): SubscribeResult =
         when (val source = fetchSource(entered)) {
-            is SourceFetch.Loaded -> add(source.url, source.fallbackTitle, source.fetched, subscribed, imageUrl)
+            is SourceFetch.Loaded -> add(source.url, source.fallbackTitle, source.fetched, subscribed, imageUrl, source.auth)
             is SourceFetch.Failed -> source.result
         }
 
     /**
      * Lädt den Feed bzw. die Sendung unter [input], ohne etwas anzulegen (Quelle wechseln, Konzept 12.10). Wie beim
-     * Abonnieren wird eine `http://`-Adresse zuerst still per HTTPS versucht.
+     * Abonnieren wird eine `http://`-Adresse zuerst still per HTTPS versucht. [stored]: die Zugangsdaten des Abos; sie gehen
+     * nur mit, wenn die neue Quelle auf demselben Host liegt und die Adresse selbst keine trägt.
      */
-    internal suspend fun fetchSource(input: String): SourceFetch =
-        FeedAddress.of(input)?.let { fetchSource(it) } ?: SourceFetch.Failed(SubscribeResult.InvalidUrl)
+    internal suspend fun fetchSource(input: String, stored: FeedAuth? = null): SourceFetch {
+        val entered = FeedAddress.of(input) ?: return SourceFetch.Failed(SubscribeResult.InvalidUrl)
+        val withStored = if (entered is FeedAddress.Http && entered.auth == null) entered.copy(auth = stored) else entered
+        return fetchSource(withStored)
+    }
 
     /**
      * Eine `http://`-Adresse wird zuerst still per HTTPS versucht und bei Erfolg so verwendet; erst wenn das scheitert,
@@ -389,26 +431,52 @@ class PodcastRepository @Inject constructor(
             return fetchForSubscribe(entered.url, "ARD Sounds") { FeedFetch.Fetched(ardSounds.fetch(showId), null, null) }
         }
         val url = (entered as FeedAddress.Http).url
+        val auth = entered.auth
         val secure = if (url.isHttps) null else url.newBuilder().scheme("https").build()
         if (secure != null) {
-            val attempt = fetchForSubscribe(secure.toString(), secure.host) { api.fetch(secure) }
-            if (attempt is SourceFetch.Loaded) return attempt
+            // Unter HTTPS gelten die Zugangsdaten nur noch dort (kein Zurück auf HTTP).
+            val secureAuth = auth?.copy(scope = secure)
+            val attempt = fetchForSubscribe(secure.toString(), secure.host, secureAuth) { api.fetch(secure, auth = secureAuth) }
+            // Verlangt der Host per HTTPS eine Anmeldung, gibt es ihn dort; unverschlüsselt würde das Passwort lesbar.
+            if (attempt is SourceFetch.Loaded || (attempt as SourceFetch.Failed).result is SubscribeResult.CredentialsNeeded) {
+                return attempt
+            }
             Log.i(TAG, "Kein HTTPS bei ${secure.host}, lade unverschlüsselt")
         }
-        return fetchForSubscribe(url.toString(), url.host) { api.fetch(url) }
+        return fetchForSubscribe(url.toString(), url.host, auth) { api.fetch(url, auth = auth) }
     }
 
-    /** Geladene Quelle unter ihrer endgültigen Adresse [url]; [fallbackTitle] gilt, wenn sie keinen Titel nennt. */
+    /**
+     * Geladene Quelle unter ihrer endgültigen Adresse [url]; [fallbackTitle] gilt, wenn sie keinen Titel nennt. [auth]: die
+     * Zugangsdaten, mit denen sie geladen wurde.
+     */
     internal sealed interface SourceFetch {
-        data class Loaded(val url: String, val fallbackTitle: String, val fetched: FeedFetch.Fetched) : SourceFetch
+        data class Loaded(
+            val url: String,
+            val fallbackTitle: String,
+            val fetched: FeedFetch.Fetched,
+            val auth: FeedAuth? = null,
+        ) : SourceFetch
         data class Failed(val result: SubscribeResult) : SourceFetch
     }
 
     /** [source] nennt im Log nur den Host: Private Feeds tragen ihr Zugangstoken in Pfad oder Query. */
-    private suspend fun fetchForSubscribe(url: String, source: String, fetch: suspend () -> FeedFetch): SourceFetch = try {
-        SourceFetch.Loaded(url, source, fetch() as FeedFetch.Fetched)
+    private suspend fun fetchForSubscribe(
+        url: String,
+        source: String,
+        auth: FeedAuth? = null,
+        fetch: suspend () -> FeedFetch,
+    ): SourceFetch = try {
+        SourceFetch.Loaded(url, source, fetch() as FeedFetch.Fetched, auth)
     } catch (e: CancellationException) {
         throw e
+    } catch (e: HttpStatusException) {
+        Log.w(TAG, "Feed nicht geladen: $source (HTTP ${e.status})")
+        if (e.status == 401) {
+            SourceFetch.Failed(SubscribeResult.CredentialsNeeded(rejected = auth != null))
+        } else {
+            SourceFetch.Failed(SubscribeResult.Unreachable)
+        }
     } catch (e: PodcastFeedException) {
         Log.w(TAG, "Kein Feed: $source", e)
         SourceFetch.Failed(SubscribeResult.NotAFeed)
@@ -423,6 +491,7 @@ class PodcastRepository @Inject constructor(
         fetched: FeedFetch.Fetched,
         subscribed: Boolean,
         imageUrl: String?,
+        auth: FeedAuth?,
     ): SubscribeResult {
         val feed = PodcastFeedEntity(
             feedId = UUID.randomUUID().toString(),
@@ -432,6 +501,8 @@ class PodcastRepository @Inject constructor(
             autoDownload = subscribed && settings.autoDownloadNew.first(),
             subscribed = subscribed,
         )
+        // Vor dem Anlegen: Die Download-Automatik eines neuen Abos braucht sie sofort.
+        if (auth != null) credentials.set(feed.feedId, auth)
         mutex.withLock { apply(feed, fetched) }
         return SubscribeResult.Added(feed.feedId)
     }
@@ -627,7 +698,7 @@ class PodcastRepository @Inject constructor(
     /** Sendungen aus ARD Sounds kommen über GraphQL, ohne bedingten Abruf; ein Fehler dort trifft nur sie. */
     private suspend fun fetch(feed: PodcastFeedEntity): FeedFetch {
         ardSoundsShowId(feed.url)?.let { return FeedFetch.Fetched(ardSounds.fetch(it), etag = null, lastModified = null) }
-        return api.fetch(feed.url.toHttpUrlOrThrow(), feed.etag, feed.lastModified)
+        return api.fetch(feed.url.toHttpUrlOrThrow(), feed.etag, feed.lastModified, credentials.forFeed(feed.feedId))
     }
 
     /**

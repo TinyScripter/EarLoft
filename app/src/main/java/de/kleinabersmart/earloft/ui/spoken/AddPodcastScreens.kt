@@ -231,6 +231,15 @@ fun AddPodcastScreen(
     (add as? AddPodcastState.Archived)?.let { archived ->
         ReactivateDialog(archived.title, onReactivate = { viewModel.reactivate(archived.feedId) }, onDismiss = viewModel::resetAdd)
     }
+    (add as? AddPodcastState.NeedsCredentials)?.let { needed ->
+        FeedCredentialsDialog(
+            feedUrl = needed.input,
+            rejected = needed.rejected,
+            initialUsername = needed.username,
+            onConfirm = { viewModel.subscribe(needed.input, it) },
+            onDismiss = viewModel::resetAdd,
+        )
+    }
 }
 
 /** Rückfrage, wenn ein Podcast abonniert werden soll, dessen Abo schon besteht, aber archiviert ist. */
