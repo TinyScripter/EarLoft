@@ -167,6 +167,15 @@ class SpokenSettings @Inject constructor(
         }
     }
 
+    /** Knöpfe in Benachrichtigung und Android Auto bei Büchern ([BookButtons], Standard: Spulen). */
+    val bookButtons: Flow<BookButtons> = context.spokenSettingsDataStore.data.map { prefs ->
+        BookButtons.entries.firstOrNull { it.name == prefs[KEY_BOOK_BUTTONS] } ?: BookButtons.SEEK
+    }
+
+    suspend fun setBookButtons(buttons: BookButtons) {
+        context.spokenSettingsDataStore.edit { it[KEY_BOOK_BUTTONS] = buttons.name }
+    }
+
     /** Ein Buch, das kurz nach einem Kapitelanfang beendet wurde, beginnt das Kapitel von vorn (Standard: aus). */
     val restartChapter: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_CHAPTER_RESTART] ?: false }
 
@@ -295,6 +304,7 @@ class SpokenSettings @Inject constructor(
         val KEY_PODCAST_SEEK_BACK = intPreferencesKey("podcast_seek_back_s")
         val KEY_PODCAST_SEEK_FORWARD = intPreferencesKey("podcast_seek_forward_s")
         val KEY_CHAPTER_RESTART = booleanPreferencesKey("book_chapter_restart")
+        val KEY_BOOK_BUTTONS = stringPreferencesKey("book_buttons")
         val KEY_SLEEP_SHAKE = booleanPreferencesKey("sleep_shake")
         val KEY_BOOK_SPEED = floatPreferencesKey("book_speed")
         val KEY_BOOK_SKIP_SILENCE = booleanPreferencesKey("book_skip_silence")

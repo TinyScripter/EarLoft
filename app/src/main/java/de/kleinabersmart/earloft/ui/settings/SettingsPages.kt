@@ -47,6 +47,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.SpokenMode
+import de.kleinabersmart.earloft.core.data.spoken.BookButtons
+import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.sync.LibrarySettings
 import de.kleinabersmart.earloft.core.download.DownloadSettings
@@ -1036,6 +1038,7 @@ fun AudiobookSettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var confirmingBookStatsReset by rememberSaveable { mutableStateOf(false) }
     var choosingBookDelete by rememberSaveable { mutableStateOf(false) }
+    var choosingBookButtons by rememberSaveable { mutableStateOf(false) }
     // Einschalten erst mit Berechtigung, sonst bliebe der Schalter an und es erschiene nichts.
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalBooks(true)
@@ -1071,6 +1074,14 @@ fun AudiobookSettingsScreen(
                 Column {
                     SeekRows(state.bookSeek, "book", viewModel::setBookSeek)
                 }
+            }
+            row("book-buttons") {
+                ClickRow(
+                    title = stringResource(R.string.settings_book_buttons),
+                    value = bookButtonsLabel(state.bookButtons, state.bookSeek),
+                    icon = DesignR.drawable.ic_skip_next,
+                    onClick = { choosingBookButtons = true },
+                )
             }
             row("book-resume") {
                 Column {
@@ -1159,6 +1170,21 @@ fun AudiobookSettingsScreen(
         }
     }
 
+    if (choosingBookButtons) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_book_buttons),
+            options = BookButtons.entries,
+            selected = state.bookButtons,
+            label = { bookButtonsLabel(it, state.bookSeek) },
+            description = stringResource(R.string.settings_book_buttons_summary),
+            onSelect = {
+                viewModel.setBookButtons(it)
+                choosingBookButtons = false
+            },
+            onDismiss = { choosingBookButtons = false },
+        )
+    }
+
     if (choosingBookDelete) {
         ChoiceDialog(
             title = stringResource(R.string.settings_book_delete_finished),
@@ -1189,4 +1215,11 @@ fun AudiobookSettingsScreen(
             },
         )
     }
+}
+
+/** „Springen (−10 s / +30 s)“ bzw. „Kapitel zurück und vor“. */
+@Composable
+private fun bookButtonsLabel(buttons: BookButtons, seek: SeekSteps): String = when (buttons) {
+    BookButtons.SEEK -> stringResource(R.string.settings_book_buttons_seek, seek.backSeconds, seek.forwardSeconds)
+    BookButtons.CHAPTERS -> stringResource(R.string.settings_book_buttons_chapters)
 }

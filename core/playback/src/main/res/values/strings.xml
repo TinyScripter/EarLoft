@@ -38,4 +38,6 @@
         <item quantity="other">Forward %d seconds</item>
     </plurals>
     <string name="spoken_chapter_number">Chapter %1$d</string>
+    <string name="spoken_chapter_previous">Previous chapter</string>
+    <string name="spoken_chapter_next">Next chapter</string>
 </resources>

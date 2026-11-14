@@ -31,6 +31,7 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.CommandButton
+import de.kleinabersmart.earloft.core.data.spoken.BookButtons
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
@@ -129,6 +130,11 @@ class PlaybackService : MediaLibraryService() {
 
     /** Name des laufenden Kapitels für Benachrichtigung und Widget; `null` ohne Kapitel. */
     private var chapterTitle: String? = null
+
+    /** Das geladene Buch bzw. die Folge hat Kapitel; mit [bookButtons] bestimmt das die Knöpfe ([bindFavoriteButton]). */
+    private var hasChapters = false
+    private var bookButtons = BookButtons.SEEK
+    private var updateButtons: (() -> Unit)? = null
     private var streamPreloader: StreamPreloader? = null
     private val replayGain = ReplayGainProcessor()
 
@@ -209,6 +215,11 @@ class PlaybackService : MediaLibraryService() {
                 chapterTitle = chapter?.let { it.title.ifBlank { getString(R.string.spoken_chapter_number, it.index + 1) } }
                 sessionPlayer?.chapterTitle = chapterTitle
                 if (!player.awaitsRemoteQueue) notifyObservers(nowPlayingOf(player))
+                // Kapitelknöpfe nur, wenn das Buch Kapitel hat (M4); ohne Kapitel bleiben die Spulen-Knöpfe.
+                if ((chapter != null) != hasChapters) {
+                    hasChapters = chapter != null
+                    updateButtons?.invoke()
+                }
             },
             effects = spokenEffects,
             // Ein Cast-Empfänger spielt ohne Effekte; der lokale Player behält sie, bis wieder lokal gespielt wird.
@@ -229,16 +240,19 @@ class PlaybackService : MediaLibraryService() {
         // Bei Büchern und Folgen gelten eigene, einstellbare Sprungweiten, siehe SpokenAwarePlayer.
         val sessionPlayer = SpokenAwarePlayer(player).also { this.sessionPlayer = it }
         sessionPlayer.chapterTitle = chapterTitle
-        // Kopfhörer: Doppelklick bzw. „Weiter“ ins nächste Kapitel, ohne weiteres Kapitel bei Folgen in die nächste.
+        // Kopfhörer: Doppelklick bzw. „Weiter“ ins nächste Kapitel, ohne weiteres Kapitel bei Folgen in die nächste. Dieselben
+        // Sprünge machen die Kapitelknöpfe in Benachrichtigung und Auto (M4).
+        val nextChapter = {
+            if (!bookListener.skipChapter(forward = true)) player.currentMediaItem?.takeIf { it.isEpisode }?.bookId?.let { skipToNextEpisode(player, it) }
+        }
+        val previousChapter = { if (!bookListener.skipChapter(forward = false)) player.seekToPrevious() }
         val mediaButtons = SpokenMediaButtons(
             handler = Handler(Looper.getMainLooper()),
             doubleTapTimeoutMs = ViewConfiguration.getDoubleTapTimeout().toLong(),
             isSpoken = { player.currentMediaItem?.isSpoken == true },
             playPause = { Util.handlePlayPauseButtonAction(player) },
-            next = {
-                if (!bookListener.skipChapter(forward = true)) player.currentMediaItem?.takeIf { it.isEpisode }?.bookId?.let { skipToNextEpisode(player, it) }
-            },
-            previous = { if (!bookListener.skipChapter(forward = false)) player.seekToPrevious() },
+            next = nextChapter,
+            previous = previousChapter,
         )
         session = MediaLibrarySession.Builder(
             this,
@@ -246,6 +260,7 @@ class PlaybackService : MediaLibraryService() {
             LibrarySessionCallback(
                 this, libraryRepository, favoritesRepository, queuePersistence, bookPlaybackSource, browseTree, continueListening, factory, mainScope,
                 mediaButtons = mediaButtons,
+                onChapterButton = { forward -> if (forward) nextChapter() else previousChapter() },
             ) {
                 restoreJob?.join()
             },
@@ -368,7 +383,8 @@ class PlaybackService : MediaLibraryService() {
     /**
      * Herz neben den Wiedergabetasten (Android Auto, Benachrichtigung); zeigt den Favoriten-Zustand des aktuellen Songs.
      * Bei Büchern und Folgen stattdessen die Spulen-Knöpfe an Stelle von ⏮/⏭; der Pfeil ohne Zahl, weil die
-     * Sprungweite einstellbar ist und Media3 nicht für jede ein Symbol hat.
+     * Sprungweite einstellbar ist und Media3 nicht für jede ein Symbol hat. Bücher mit Kapiteln bekommen nach Wahl
+     * ([BookButtons.CHAPTERS], `books_improvements.md` M4) stattdessen Kapitel zurück/vor als eigene Befehle der Session.
      *
      * Über `setMediaButtonPreferences`, nicht `setCustomLayout`: Nur dann macht Media3 aus Knöpfen mit Player-Befehl
      * (Spulen) Custom Actions der Plattform-Session. Sonst fehlen sie in der Mediensteuerung des Systems und in Android
@@ -380,6 +396,24 @@ class PlaybackService : MediaLibraryService() {
             favoriteJob?.cancel()
             val songId = player.currentMediaItem?.songId
             val steps = player.currentSteps
+            val item = player.currentMediaItem
+            if (steps != null && bookButtons == BookButtons.CHAPTERS && item?.isEpisode == false && hasChapters) {
+                session.setMediaButtonPreferences(
+                    listOf(
+                        CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                            .setDisplayName(getString(R.string.spoken_chapter_previous))
+                            .setSessionCommand(SessionCommand(ACTION_CHAPTER_PREVIOUS, Bundle.EMPTY))
+                            .setSlots(CommandButton.SLOT_BACK)
+                            .build(),
+                        CommandButton.Builder(CommandButton.ICON_NEXT)
+                            .setDisplayName(getString(R.string.spoken_chapter_next))
+                            .setSessionCommand(SessionCommand(ACTION_CHAPTER_NEXT, Bundle.EMPTY))
+                            .setSlots(CommandButton.SLOT_FORWARD)
+                            .build(),
+                    ),
+                )
+                return
+            }
             if (steps != null) {
                 session.setMediaButtonPreferences(
                     listOf(
@@ -413,12 +447,14 @@ class PlaybackService : MediaLibraryService() {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = update()
         })
         mainScope.launch {
-            combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair).collect { (book, podcast) ->
+            combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, spokenSettings.bookButtons, ::Triple).collect { (book, podcast, buttons) ->
                 player.bookSteps = book
                 player.podcastSteps = podcast
+                bookButtons = buttons
                 update()
             }
         }
+        updateButtons = ::update
         update()
     }
 

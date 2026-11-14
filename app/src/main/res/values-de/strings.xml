@@ -852,6 +852,10 @@
     <string name="book_genre_all">Alle Genres</string>
     <string name="book_library">Bibliothek</string>
     <string name="book_library_all">Alle Bibliotheken</string>
+    <string name="settings_book_buttons">Knöpfe in Benachrichtigung und Auto</string>
+    <string name="settings_book_buttons_summary">Android zeigt in der kompakten Benachrichtigung und in Android Auto nur drei Knöpfe. Bücher ohne Kapitel springen immer.</string>
+    <string name="settings_book_buttons_seek">Springen (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_chapters">Kapitel zurück und vor</string>
     <string name="spoken_abs_libraries">Bibliotheken</string>
     <string name="episode_delete_download">Download löschen</string>
     <string name="podcast_info">Info</string>

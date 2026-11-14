@@ -15,3 +15,10 @@ data class SeekSteps(val backSeconds: Int, val forwardSeconds: Int) {
         val DEFAULT = SeekSteps(DEFAULT_BACK_S, DEFAULT_FORWARD_S)
     }
 }
+
+/**
+ * Was Benachrichtigung, Mediensteuerung des Systems und Android Auto bei Büchern an Stelle von ⏮/⏭ zeigen (`books_improvements.md`
+ * M4): die Spulen-Knöpfe ([SEEK], Standard) oder Kapitel zurück/vor ([CHAPTERS]; Bücher ohne Kapitel spulen weiter). Im kompakten
+ * Bild zeigt Android nur drei Knöpfe, deshalb die Wahl statt beider. Folgen spulen immer.
+ */
+enum class BookButtons { SEEK, CHAPTERS }

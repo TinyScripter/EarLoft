@@ -40,6 +40,10 @@ import kotlinx.coroutines.guava.future
 /** Benutzerdefinierte Aktion „Favorit umschalten“ (Herz in Android Auto, Benachrichtigung, Uhr). */
 internal const val ACTION_TOGGLE_FAVORITE = "de.kleinabersmart.earloft.TOGGLE_FAVORITE"
 
+/** Kapitel zurück bzw. vor als Knopf in Benachrichtigung und Auto (`books_improvements.md` M4). */
+internal const val ACTION_CHAPTER_PREVIOUS = "de.kleinabersmart.earloft.CHAPTER_PREVIOUS"
+internal const val ACTION_CHAPTER_NEXT = "de.kleinabersmart.earloft.CHAPTER_NEXT"
+
 /**
  * Browse-Tree und Auflösung von Media-Items für alle Controller (App, System, Uhr, Android Auto).
  *
@@ -66,6 +70,8 @@ internal class LibrarySessionCallback(
     private val scope: CoroutineScope,
     /** Kopfhörer- und Medientasten bei Büchern und Folgen; `null`: alles wie Media3. */
     private val mediaButtons: SpokenMediaButtons? = null,
+    /** Kapitelknöpfe ([ACTION_CHAPTER_NEXT] = `true`); auf dem Main-Thread. */
+    private val onChapterButton: (forward: Boolean) -> Unit = {},
     /** Wartet, bis der Service die letzte Warteschlange wiederhergestellt hat ([PlaybackService.restoreQueue]). */
     private val awaitRestore: suspend () -> Unit = {},
 ) : MediaLibrarySession.Callback {
@@ -195,6 +201,8 @@ internal class LibrarySessionCallback(
         grantCoverAccess(controller.packageName)
         val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
             .add(SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY))
+            .add(SessionCommand(ACTION_CHAPTER_PREVIOUS, Bundle.EMPTY))
+            .add(SessionCommand(ACTION_CHAPTER_NEXT, Bundle.EMPTY))
             .build()
         return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller).setAvailableSessionCommands(commands).build()
     }
@@ -245,8 +253,12 @@ internal class LibrarySessionCallback(
         customCommand: SessionCommand,
         args: Bundle,
     ): ListenableFuture<SessionResult> = scope.future {
-        if (customCommand.customAction != ACTION_TOGGLE_FAVORITE) return@future SessionResult(SessionError.ERROR_NOT_SUPPORTED)
-        session.player.currentMediaItem?.songId?.let { favoritesRepository.toggleFavorite(it) }
+        when (customCommand.customAction) {
+            ACTION_TOGGLE_FAVORITE -> session.player.currentMediaItem?.songId?.let { favoritesRepository.toggleFavorite(it) }
+            ACTION_CHAPTER_PREVIOUS -> onChapterButton(false)
+            ACTION_CHAPTER_NEXT -> onChapterButton(true)
+            else -> return@future SessionResult(SessionError.ERROR_NOT_SUPPORTED)
+        }
         SessionResult(SessionResult.RESULT_SUCCESS)
     }
 

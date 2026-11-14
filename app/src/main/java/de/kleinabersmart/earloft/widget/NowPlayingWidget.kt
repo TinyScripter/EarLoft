@@ -133,7 +133,10 @@ private fun albumColorProviders(seedColor: Int): ColorProviders {
 private val WIDGET_PADDING = 8.dp
 private val MIN_COVER = 32.dp
 
-/** Darunter passen Titel, Kapitel, Spielzeit und Knöpfe nicht mehr übereinander; das Kapitel entfällt dann. */
+/**
+ * Darunter passen Titel, Kapitel, Spielzeit und Knöpfe nicht mehr übereinander; das Kapitel entfällt dann. Das 4×1-Widget ist am
+ * Pixel 10 Pro etwa 100 dp hoch; wer das Kapitel sehen will, zieht es eine Zeile höher (M4).
+ */
 private val CHAPTER_MIN_HEIGHT = 104.dp
 
 @Composable

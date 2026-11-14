@@ -29,6 +29,7 @@ import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.data.spoken.AuthorImages
 import de.kleinabersmart.earloft.core.data.spoken.ResumeRule
+import de.kleinabersmart.earloft.core.data.spoken.BookButtons
 import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
 import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
@@ -123,6 +124,8 @@ data class SettingsUiState(
     val bookResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val podcastResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val restartChapter: Boolean = false,
+    /** Knöpfe in Benachrichtigung und Auto bei Büchern: Spulen oder Kapitel. */
+    val bookButtons: BookButtons = BookButtons.SEEK,
     /** Schütteln verlängert den Sleep-Timer (Bücher und Podcasts, ein gemeinsamer Schalter). */
     val shakeToExtend: Boolean = true,
     val bookSeek: SeekSteps = SeekSteps.DEFAULT,
@@ -283,8 +286,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(podcastAutoPlayNext = autoPlay, podcastSwipeActions = swipe)
     }.combine(combine(spokenSettings.bookResume, spokenSettings.podcastResume, spokenSettings.restartChapter, ::Triple)) { state, (book, podcast, chapter) ->
         state.copy(bookResume = book, podcastResume = podcast, restartChapter = chapter)
-    }.combine(combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair)) { state, (book, podcast) ->
-        state.copy(bookSeek = book, podcastSeek = podcast)
+    }.combine(combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, spokenSettings.bookButtons, ::Triple)) { state, (book, podcast, buttons) ->
+        state.copy(bookSeek = book, podcastSeek = podcast, bookButtons = buttons)
     }.combine(combine(spokenSettings.bookMobileData, spokenSettings.shakeToExtend, ::Pair)) { state, (mobile, shake) ->
         state.copy(bookMobileData = mobile, shakeToExtend = shake)
     }.combine(
@@ -378,6 +381,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setBookDeleteFinishedDays(days: Int) {
         viewModelScope.launch { spokenSettings.setBookDeleteFinishedDays(days) }
+    }
+
+    fun setBookButtons(buttons: BookButtons) {
+        viewModelScope.launch { spokenSettings.setBookButtons(buttons) }
     }
 
     fun setRestartChapter(enabled: Boolean) {

@@ -859,6 +859,10 @@
     <string name="book_genre_all">All genres</string>
     <string name="book_library">Library</string>
     <string name="book_library_all">All libraries</string>
+    <string name="settings_book_buttons">Buttons in notification and car</string>
+    <string name="settings_book_buttons_summary">Android shows only three buttons in the compact notification and in Android Auto. Books without chapters always skip.</string>
+    <string name="settings_book_buttons_seek">Skip (−%1$d s / +%2$d s)</string>
+    <string name="settings_book_buttons_chapters">Previous and next chapter</string>
     <string name="spoken_abs_libraries">Libraries</string>
     <string name="episode_delete_download">Delete download</string>
     <string name="podcast_info">Info</string>
