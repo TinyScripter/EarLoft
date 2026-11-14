@@ -23,6 +23,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
@@ -41,7 +43,7 @@ import javax.inject.Singleton
 
 /**
  * Downloads von Hörbüchern: von Hand, und mit den Schaltern unter Bücher → Downloads auch automatisch (die ersten aus
- * „Weiterhören“, der nächste Band einer Serie; nur im WLAN, [automaticBookDownloads]). Beendete Bücher verlieren ihre
+ * „Weiterhören“, der nächste Band einer Serie, bald ablaufende Bücher aus ARD Sounds; nur im WLAN, [automaticBookDownloads]). Beendete Bücher verlieren ihre
  * Dateien nach der eingestellten Frist ([SpokenSettings.bookDeleteFinishedDays], Standard nie), sonst bleiben sie, bis der
  * Nutzer sie löscht. Beim Abspielen ersetzen die Dateien den Stream (`BookPlaybackSource`). Netz: WLAN, mit dem eigenen
  * Schalter „Auch über Mobilfunk laden“ der Bücher ([SpokenSettings.bookMobileData]) jedes Netz.
@@ -130,13 +132,14 @@ class BookDownloads @Inject constructor(
         // [AUTOMATIC_SAMPLE_MS] (beim Hören ändert sich der Fortschritt alle paar Sekunden). Ohne WLAN wird nichts
         // eingereiht, im WLAN dann nachgeholt; ein Buch ohne Dateiliste (Server nicht erreichbar) beim nächsten Mal.
         scope.launch {
-            combine(settings.bookAutoStarted, settings.bookAutoNextInSeries, ::Pair)
+            combine(settings.bookAutoStarted, settings.bookAutoNextInSeries, settings.bookLoadExpiring, ::Triple)
                 .distinctUntilChanged()
-                .flatMapLatest { (started, next) ->
-                    if (!started && !next) return@flatMapLatest flowOf(emptyList())
-                    combine(books.continueListening(), books.books(), unmeteredNetwork()) { continueListening, all, wifi ->
+                .flatMapLatest { (started, next, expiring) ->
+                    if (!started && !next && !expiring) return@flatMapLatest flowOf(emptyList())
+                    // Ablaufende Bücher ändern keine Zeile, wenn ihre Frist unter die Schwelle rutscht: Die Uhr stößt es an.
+                    combine(books.continueListening(), books.books(), unmeteredNetwork(), expiryCheck()) { continueListening, all, wifi, _ ->
                         if (!wifi) return@combine emptyList()
-                        automaticBookDownloads(continueListening, all, started, next, System.currentTimeMillis())
+                        automaticBookDownloads(continueListening, all, started, next, System.currentTimeMillis(), expiring)
                     }
                 }
                 .sample(AUTOMATIC_SAMPLE_MS)
@@ -147,6 +150,14 @@ class BookDownloads @Inject constructor(
         scope.launch {
             combine(dao.observeFinishedBookDownloads(), settings.bookDeleteFinishedDays, loadedBookId, ::Triple)
                 .collect { (finished, days, loaded) -> removeExpired(finished, days, loaded) }
+        }
+    }
+
+    /** Meldet sich sofort und dann alle [EXPIRY_CHECK_MS] (nur solange die Automatik läuft). */
+    private fun expiryCheck(): Flow<Unit> = flow {
+        while (true) {
+            emit(Unit)
+            delay(EXPIRY_CHECK_MS)
         }
     }
 
@@ -208,5 +219,6 @@ class BookDownloads @Inject constructor(
         const val WORK_NAME = "book-downloads"
         const val TAG = "BookDownloads"
         const val AUTOMATIC_SAMPLE_MS = 5_000L
+        const val EXPIRY_CHECK_MS = 6 * 60 * 60 * 1000L
     }
 }

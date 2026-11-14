@@ -980,6 +980,8 @@
     <string name="settings_book_auto_started_summary">The first two books in Continue listening, on Wi-Fi only.</string>
     <string name="settings_book_auto_next">Download the next book in a series</string>
     <string name="settings_book_auto_next_summary" formatted="false">Once a book is 80 % heard, the next one of its series, on Wi-Fi only.</string>
+    <string name="settings_book_load_expiring">Download expiring ARD Sounds books</string>
+    <string name="settings_book_load_expiring_summary">Books in your library that ARD Sounds withdraws within a week, on Wi-Fi only. Otherwise they disappear.</string>
     <string name="settings_book_delete_finished">Delete downloads of finished books</string>
     <string name="settings_podcast_auto_new">Automatic downloads for new subscriptions</string>
     <string name="settings_podcast_auto_new_summary">Default for podcasts you subscribe to from now on. Existing subscriptions keep their own setting.</string>

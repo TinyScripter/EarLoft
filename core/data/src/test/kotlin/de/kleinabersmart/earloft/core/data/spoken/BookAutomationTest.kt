@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.spoken
 
+import de.kleinabersmart.earloft.core.model.ARD_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.model.Book
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookProgress
@@ -11,10 +12,15 @@ class BookAutomationTest {
 
     private val now = 100L * 24 * 60 * 60 * 1000
 
-    private fun book(id: Long, series: String = "", serverId: String = "abs", progress: BookProgress? = null) = BookWithProgress(
-        Book(id = id, serverId = serverId, kind = BookKind.BOOK, title = "B$id", author = "", series = series, durationMs = 1000, remoteId = "r$id"),
+    private fun book(id: Long, series: String = "", serverId: String = "abs", progress: BookProgress? = null, availableUntil: Long? = null) = BookWithProgress(
+        Book(
+            id = id, serverId = serverId, kind = BookKind.BOOK, title = "B$id", author = "", series = series, durationMs = 1000, remoteId = "r$id",
+            availableUntil = availableUntil,
+        ),
         progress,
     )
+
+    private fun days(count: Int) = count * 24 * 60 * 60 * 1000L
 
     private fun at(positionMs: Long, finished: Boolean = false, updatedAt: Long = now) =
         BookProgress(positionMs = positionMs, durationMs = 1000, finished = finished, updatedAt = updatedAt)
@@ -39,6 +45,25 @@ class BookAutomationTest {
 
         // Hole: 79 % reicht nicht. Wisting: Band 2 ist schon gehört, also Band 3 – und nach dem beendeten Band 2 ebenso.
         assertEquals(listOf(5L), automaticBookDownloads(emptyList(), all, started = false, nextInSeries = true, now = now))
+    }
+
+    @Test
+    fun `ARD books expiring within a week load, the soonest first`() {
+        val all = listOf(
+            book(1, serverId = ARD_BOOK_SERVER_ID, availableUntil = now + days(6)),
+            book(2, serverId = ARD_BOOK_SERVER_ID, availableUntil = now + days(2)),
+            // Noch lange da, schon abgelaufen, beendet, ohne Frist und von einem Server: nicht.
+            book(3, serverId = ARD_BOOK_SERVER_ID, availableUntil = now + days(30)),
+            book(4, serverId = ARD_BOOK_SERVER_ID, availableUntil = now - 1),
+            book(5, serverId = ARD_BOOK_SERVER_ID, availableUntil = now + days(1), progress = at(1000, finished = true)),
+            book(6, serverId = ARD_BOOK_SERVER_ID),
+            book(7, availableUntil = now + days(1)),
+            // Angefangen zählt wie nicht angefangen: Es steht in der Bibliothek, also soll es bleiben.
+            book(8, serverId = ARD_BOOK_SERVER_ID, availableUntil = now + days(3), progress = at(100)),
+        )
+
+        assertEquals(listOf(2L, 8L, 1L), automaticBookDownloads(emptyList(), all, started = false, nextInSeries = false, now = now, expiring = true))
+        assertEquals(emptyList<Long>(), automaticBookDownloads(emptyList(), all, started = false, nextInSeries = false, now = now))
     }
 
     @Test

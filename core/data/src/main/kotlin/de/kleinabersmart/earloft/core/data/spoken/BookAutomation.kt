@@ -9,6 +9,9 @@ const val AUTO_STARTED_BOOKS = 2
 /** Ab diesem Anteil eines Bands lädt „Nächsten Band laden“ den folgenden. */
 const val NEXT_IN_SERIES_AT = 0.8
 
+/** So viele Tage vor dem Ablauf bei ARD Sounds lädt „Bald ablaufende Bücher laden“ ein Buch. */
+const val ARD_EXPIRY_LOAD_DAYS = 7
+
 private const val DAY_MS = 24 * 60 * 60 * 1000L
 
 /** Ein beendeter Band zählt noch so lange für „Nächsten Band laden“ (danach hat man sich wohl dagegen entschieden). */
@@ -18,7 +21,9 @@ private const val NEXT_IN_SERIES_FINISHED_DAYS = 14
  * Welche Bücher die Automatik laden soll (Konzept 12.8, `books_improvements.md` M5): mit [started] die ersten
  * [AUTO_STARTED_BOOKS] aus [continueListening], mit [nextInSeries] je Serie den nächsten Band nach einem, der zu
  * [NEXT_IN_SERIES_AT] gehört ist (oder vor höchstens [NEXT_IN_SERIES_FINISHED_DAYS] Tagen beendet wurde) – der nächste ist
- * der mit der kleinsten höheren Bandnummer, der noch nicht beendet ist. Bücher vom Gerät brauchen keinen Download.
+ * der mit der kleinsten höheren Bandnummer, der noch nicht beendet ist. Bücher vom Gerät brauchen keinen Download. Mit [expiring]
+ * die Bücher aus ARD Sounds, die noch nicht beendet sind und in höchstens [ARD_EXPIRY_LOAD_DAYS] Tagen ablaufen, die zuerst
+ * ablaufenden zuerst; schon abgelaufene gibt es dort nicht mehr.
  */
 fun automaticBookDownloads(
     continueListening: List<BookWithProgress>,
@@ -26,6 +31,7 @@ fun automaticBookDownloads(
     started: Boolean,
     nextInSeries: Boolean,
     now: Long,
+    expiring: Boolean = false,
 ): List<Long> = buildList {
     if (started) {
         continueListening.filter { !it.book.isLocal }.take(AUTO_STARTED_BOOKS).forEach { add(it.book.id) }
@@ -40,6 +46,12 @@ fun automaticBookDownloads(
                 sorted.firstOrNull { (next, item) -> next > sequence && item.progress?.finished != true }?.let { add(it.second.book.id) }
             }
         }
+    }
+    if (expiring) {
+        all.filter { it.book.isArdSounds && it.progress?.finished != true }
+            .mapNotNull { item -> item.book.availableUntil?.takeIf { it > now && it - now <= ARD_EXPIRY_LOAD_DAYS * DAY_MS }?.let { it to item.book.id } }
+            .sortedBy { it.first }
+            .forEach { add(it.second) }
     }
 }.distinct()
 

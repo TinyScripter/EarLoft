@@ -1182,6 +1182,17 @@ fun AudiobookSettingsScreen(
                     onCheckedChange = viewModel::setBookAutoNextInSeries,
                 )
             }
+            if (state.ardSoundsBooks) {
+                row("book-load-expiring") {
+                    SwitchRow(
+                        title = stringResource(R.string.settings_book_load_expiring),
+                        summary = stringResource(R.string.settings_book_load_expiring_summary),
+                        icon = DesignR.drawable.ic_download,
+                        checked = state.bookLoadExpiring,
+                        onCheckedChange = viewModel::setBookLoadExpiring,
+                    )
+                }
+            }
             row("book-delete-finished") {
                 ClickRow(
                     title = stringResource(R.string.settings_book_delete_finished),

@@ -142,6 +142,7 @@ data class SettingsUiState(
     /** Buch-Automatik und Aufräumen (Konzept 12.8). */
     val bookAutoStarted: Boolean = false,
     val bookAutoNextInSeries: Boolean = false,
+    val bookLoadExpiring: Boolean = true,
     val bookDeleteFinishedDays: Int = PodcastSettings.DELETE_HEARD_NEVER,
     /** Vor dem Streamen von Büchern und Folgen über mobile Daten fragen. */
     val askBeforeMobileStreaming: Boolean = false,
@@ -300,6 +301,8 @@ class SettingsViewModel @Inject constructor(
         combine(spokenSettings.bookAutoStarted, spokenSettings.bookAutoNextInSeries, spokenSettings.bookDeleteFinishedDays, ::Triple),
     ) { state, (autoStarted, autoNext, deleteDays) ->
         state.copy(bookAutoStarted = autoStarted, bookAutoNextInSeries = autoNext, bookDeleteFinishedDays = deleteDays)
+    }.combine(spokenSettings.bookLoadExpiring) { state, expiring ->
+        state.copy(bookLoadExpiring = expiring)
     }.combine(spokenSettings.askBeforeMobileStreaming) { state, ask ->
         state.copy(askBeforeMobileStreaming = ask)
     }.combine(combine(spokenSettings.bookEffects, spokenSettings.podcastEffects, ::Pair)) { state, (book, podcast) ->
@@ -379,6 +382,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setBookAutoStarted(enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setBookAutoStarted(enabled) }
+    }
+
+    fun setBookLoadExpiring(enabled: Boolean) {
+        viewModelScope.launch { spokenSettings.setBookLoadExpiring(enabled) }
     }
 
     fun setBookAutoNextInSeries(enabled: Boolean) {

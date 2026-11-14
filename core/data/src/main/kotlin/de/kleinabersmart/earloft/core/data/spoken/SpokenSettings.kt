@@ -236,6 +236,16 @@ class SpokenSettings @Inject constructor(
     }
 
     /**
+     * Bücher aus ARD Sounds in der Bibliothek, die bald ablaufen, im WLAN laden ([automaticBookDownloads], [ARD_EXPIRY_LOAD_DAYS] Tage
+     * vorher; Standard: an – sonst verschwände ein Buch, das man behalten wollte, mit dem Ablauf bei ARD Sounds).
+     */
+    val bookLoadExpiring: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_BOOK_LOAD_EXPIRING] ?: true }
+
+    suspend fun setBookLoadExpiring(enabled: Boolean) {
+        context.spokenSettingsDataStore.edit { it[KEY_BOOK_LOAD_EXPIRING] = enabled }
+    }
+
+    /**
      * Nach wie vielen Tagen der Download eines beendeten Buchs gelöscht wird: wie bei Folgen 0 = sofort, eine Anzahl Tage
      * oder [PodcastSettings.DELETE_HEARD_NEVER] (Standard); die Auswahl wie dort ([PodcastSettings.DELETE_HEARD_CHOICES]).
      */
@@ -305,6 +315,7 @@ class SpokenSettings @Inject constructor(
         val KEY_ASK_MOBILE_STREAM = booleanPreferencesKey("ask_before_mobile_streaming")
         val KEY_BOOK_AUTO_STARTED = booleanPreferencesKey("book_auto_started")
         val KEY_BOOK_AUTO_NEXT = booleanPreferencesKey("book_auto_next_in_series")
+        val KEY_BOOK_LOAD_EXPIRING = booleanPreferencesKey("book_load_expiring")
         val KEY_BOOK_DELETE_FINISHED = intPreferencesKey("book_delete_finished_days")
         val KEY_BOOK_REWIND_AFTER = intPreferencesKey("book_rewind_after_s")
         val KEY_BOOK_REWIND = intPreferencesKey("book_rewind_s")
