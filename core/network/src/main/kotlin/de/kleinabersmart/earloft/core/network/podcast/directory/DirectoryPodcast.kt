@@ -3,7 +3,38 @@ package de.kleinabersmart.earloft.core.network.podcast.directory
 import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
 
 /** Öffentliche Podcast-Verzeichnisse, in denen die Seite „Podcast hinzufügen“ sucht (Konzept 12.10); in Anzeigereihenfolge. */
-enum class PodcastDirectory { APPLE, PODCAST_INDEX, FYYD, ARD_SOUNDS }
+enum class PodcastDirectory {
+    APPLE, PODCAST_INDEX, FYYD, ARD_SOUNDS;
+
+    /** Hat Charts bzw. Trends für „Entdecken“ (Apple: Top-Podcasts je Land, Podcast Index: Trending). */
+    val discoverable: Boolean get() = this == APPLE || this == PODCAST_INDEX
+}
+
+/**
+ * Kategorien fürs Entdecken, in Anzeigereihenfolge: die Hauptgenres von Apple Podcasts ([appleGenre]) und die passenden
+ * Kategorien von Podcast Index ([podcastIndex], Namen durch Komma getrennt).
+ */
+enum class PodcastCategory(val appleGenre: Int, val podcastIndex: String) {
+    NEWS(1489, "News"),
+    SOCIETY(1324, "Society,Culture"),
+    COMEDY(1303, "Comedy"),
+    HISTORY(1487, "History"),
+    TRUE_CRIME(1488, "True Crime"),
+    SCIENCE(1533, "Science"),
+    TECHNOLOGY(1318, "Technology"),
+    BUSINESS(1321, "Business"),
+    GOVERNMENT(1511, "Government"),
+    EDUCATION(1304, "Education"),
+    HEALTH(1512, "Health,Fitness"),
+    SPORTS(1545, "Sports"),
+    ARTS(1301, "Arts"),
+    FICTION(1483, "Fiction"),
+    MUSIC(1310, "Music"),
+    TV_FILM(1309, "TV,Film"),
+    LEISURE(1502, "Leisure"),
+    KIDS(1305, "Kids,Family"),
+    RELIGION(1314, "Religion,Spirituality"),
+}
 
 /** Ein Treffer der Verzeichnissuche. */
 data class DirectoryPodcast(

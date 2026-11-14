@@ -27,6 +27,9 @@ class PodcastDirectoryApiTest {
                 apple = mockServer.url("/search"),
                 podcastIndex = mockServer.url("/api/1.0/search/byterm"),
                 fyyd = mockServer.url("/0.2/search/podcast"),
+                appleCharts = mockServer.url("/"),
+                appleLookup = mockServer.url("/lookup"),
+                podcastIndexTrending = mockServer.url("/api/1.0/podcasts/trending"),
             ),
             DirectoryAccess(podcastIndexKey = "KEY", podcastIndexSecret = "SECRET", fyydEnabled = true),
             ArdSoundsApi(OkHttpClient(), mockServer.url("/graphql")),
@@ -103,6 +106,72 @@ class PodcastDirectoryApiTest {
         assertEquals("https://www.example.io/feed/mp3/", hit.feedUrl)
         assertEquals("https://small", hit.imageUrl)
         assertEquals("banse", mockServer.takeRequest().url.queryParameter("term"))
+    }
+
+    @Test
+    fun `apple charts of a genre keep their order and get their feeds from one lookup`() = runTest {
+        mockServer.enqueue(
+            json(
+                """{"feed":{"title":{"label":"Top"},"entry":[
+                    {"im:name":{"label":"Zwei"},"id":{"label":"https://podcasts.apple.com/de/podcast/id2","attributes":{"im:id":"2"}}},
+                    {"im:name":{"label":"Eins"},"id":{"label":"https://podcasts.apple.com/de/podcast/id1","attributes":{"im:id":"1"}}},
+                    {"im:name":{"label":"Ohne Feed"},"id":{"label":"x","attributes":{"im:id":"3"}}}
+                ]}}""",
+            ),
+        )
+        mockServer.enqueue(
+            json(
+                """{"resultCount":3,"results":[
+                    {"collectionId":1,"collectionName":"Eins","artistName":"A","feedUrl":"https://one.example/feed","artworkUrl600":"https://img/1"},
+                    {"collectionId":2,"collectionName":"Zwei","artistName":"B","feedUrl":"https://two.example/feed"},
+                    {"collectionId":3,"collectionName":"Ohne Feed"}
+                ]}""",
+            ),
+        )
+
+        val hits = api.popular(PodcastDirectory.APPLE, PodcastCategory.NEWS, "DE", "de")
+
+        assertEquals(listOf("https://two.example/feed", "https://one.example/feed"), hits.map { it.feedUrl })
+        assertEquals("https://img/1", hits[1].imageUrl)
+        assertEquals("/de/rss/toppodcasts/limit=50/genre=1489/json", mockServer.takeRequest().url.encodedPath)
+        val lookup = mockServer.takeRequest().url
+        assertEquals("2,1,3", lookup.queryParameter("id"))
+        assertEquals("DE", lookup.queryParameter("country"))
+    }
+
+    @Test
+    fun `apple charts without genre, with a single entry or none`() = runTest {
+        mockServer.enqueue(json("""{"feed":{"entry":{"id":{"label":"x","attributes":{"im:id":"7"}}}}}"""))
+        mockServer.enqueue(json("""{"results":[{"collectionId":7,"collectionName":"Sieben","feedUrl":"https://seven.example/feed"}]}"""))
+        mockServer.enqueue(json("""{"feed":{"title":{"label":"Leer"}}}"""))
+
+        assertEquals(listOf("Sieben"), api.popular(PodcastDirectory.APPLE, null, "AT", "de").map { it.title })
+        assertEquals("/at/rss/toppodcasts/limit=50/json", mockServer.takeRequest().url.encodedPath)
+        mockServer.takeRequest()
+        // Ohne Einträge keine zweite Anfrage.
+        assertEquals(emptyList<DirectoryPodcast>(), api.popular(PodcastDirectory.APPLE, null, "AT", "de"))
+        assertEquals(3, mockServer.requestCount)
+    }
+
+    @Test
+    fun `podcast index trends are signed and filtered by language and category`() = runTest {
+        mockServer.enqueue(json("""{"status":"true","feeds":[{"title":"Trend","author":"T","url":"https://trend.example/feed","artwork":"https://img/t"}]}"""))
+
+        val hit = api.popular(PodcastDirectory.PODCAST_INDEX, PodcastCategory.HEALTH, "DE", "de").single()
+
+        assertEquals("https://trend.example/feed" to "https://img/t", hit.feedUrl to hit.imageUrl)
+        val request = mockServer.takeRequest()
+        assertEquals("/api/1.0/podcasts/trending", request.url.encodedPath)
+        assertEquals("de,de-de", request.url.queryParameter("lang"))
+        assertEquals("Health,Fitness", request.url.queryParameter("cat"))
+        assertEquals(sha1("KEYSECRET1700000000"), request.headers["Authorization"])
+    }
+
+    @Test
+    fun `an unexpected chart form is an io error`() = runTest {
+        mockServer.enqueue(json("""{"feed":[1,2]}"""))
+
+        assertTrue(runCatching { api.popular(PodcastDirectory.APPLE, null, "DE", "de") }.exceptionOrNull() is IOException)
     }
 
     @Test

@@ -51,6 +51,15 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.network.podcast.directory.DirectoryPodcast
+import de.kleinabersmart.earloft.core.network.podcast.directory.PodcastCategory
+import de.kleinabersmart.earloft.core.network.podcast.directory.PodcastDirectory
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FilterChip
+import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
+import java.util.Locale
 import de.kleinabersmart.earloft.core.network.podcast.directory.feedKey
 import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
 import de.kleinabersmart.earloft.ui.components.EmptyHint
@@ -64,7 +73,8 @@ import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
  * Seite „Podcast hinzufügen“ (Konzept 12.10): oben Feed-Adresse und OPML-Import, darunter die Suche in den eingeschalteten
- * Verzeichnissen. Gesucht wird erst auf die Lupe (oder die Such-Taste der Tastatur).
+ * Verzeichnissen. Gesucht wird erst auf die Lupe (oder die Such-Taste der Tastatur). Solange nichts gesucht ist, stehen
+ * dort die beliebten Podcasts der Verzeichnisse mit Charts („Entdecken“) mit Kategorien als Chips.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +91,9 @@ fun AddPodcastScreen(
     val directories by viewModel.directories.collectAsStateWithLifecycle()
     val subscribed by viewModel.subscribed.collectAsStateWithLifecycle()
     val search by viewModel.search.collectAsStateWithLifecycle()
+    val discoverable by viewModel.discoverable.collectAsStateWithLifecycle()
+    val country by viewModel.country.collectAsStateWithLifecycle()
+    val discover by viewModel.discover.collectAsStateWithLifecycle()
     var url by rememberSaveable { mutableStateOf("") }
     var term by rememberSaveable { mutableStateOf("") }
     var opmlToImport by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -104,6 +117,18 @@ fun AddPodcastScreen(
     val startSearch = {
         focus.clearFocus()
         viewModel.search(term)
+    }
+    // Ohne Suchbegriff wieder die beliebten Podcasts; sie laden, sobald ein Verzeichnis mit Charts an ist.
+    LaunchedEffect(term.isBlank()) { if (term.isBlank()) viewModel.clearSearch() }
+    LaunchedEffect(discoverable) { discoverable?.let { viewModel.discover(viewModel.discover.value?.category, it) } }
+    val openHit: (DirectoryPodcast) -> Unit = { hit ->
+        // Abonniert ist der Treffer, wenn es eine der beiden Quellen ist; dann öffnet er gleich das Abo.
+        val feedId = subscribed[feedKey(hit.feedUrl)] ?: hit.ardSoundsUrl?.let { subscribed[feedKey(it)] }
+        when {
+            feedId != null -> onOpenFeed(feedId)
+            hit.ardSoundsUrl != null -> choosingSource = feedKey(hit.feedUrl)
+            else -> onPreview(hit)
+        }
     }
 
     Column(modifier.fillMaxSize()) {
@@ -164,7 +189,16 @@ fun AddPodcastScreen(
                         )
                     }
                     when (val state = search) {
-                        DirectorySearchState.Idle -> Unit
+                        DirectorySearchState.Idle -> discoverable?.takeIf { it.isNotEmpty() }?.let { directories ->
+                            discoverSection(
+                                directories,
+                                country,
+                                discover,
+                                subscribed,
+                                onCategory = { viewModel.discover(it, directories) },
+                                onHit = openHit,
+                            )
+                        }
                         DirectorySearchState.Searching -> item(key = "searching") {
                             Row(Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -189,15 +223,7 @@ fun AddPodcastScreen(
                                 item(key = "empty") { EmptyHint(stringResource(R.string.search_no_results, state.term)) }
                             }
                             groupedItems(state.hits, key = { "hit-${feedKey(it.feedUrl)}" }) { hit ->
-                                // Abonniert ist der Treffer, wenn es eine der beiden Quellen ist; dann öffnet er gleich das Abo.
-                                val feedId = subscribed[feedKey(hit.feedUrl)] ?: hit.ardSoundsUrl?.let { subscribed[feedKey(it)] }
-                                DirectoryHitRow(hit, subscribed = feedId != null) {
-                                    when {
-                                        feedId != null -> onOpenFeed(feedId)
-                                        hit.ardSoundsUrl != null -> choosingSource = feedKey(hit.feedUrl)
-                                        else -> onPreview(hit)
-                                    }
-                                }
+                                DirectoryHitRow(hit, subscribed = hit.isSubscribed(subscribed)) { openHit(hit) }
                             }
                         }
                     }
@@ -217,7 +243,8 @@ fun AddPodcastScreen(
     }
     choosingSource?.let { key ->
         // Eine neue Suche ersetzt die Treffer; ist der gewählte weg, bleibt der Dialog zu.
-        (search as? DirectorySearchState.Done)?.hits?.firstOrNull { feedKey(it.feedUrl) == key }?.let { hit ->
+        val shown = (search as? DirectorySearchState.Done)?.hits ?: (discover as? DiscoverState.Done)?.hits
+        shown?.firstOrNull { feedKey(it.feedUrl) == key }?.let { hit ->
             SourceDialog(
                 hit,
                 onChoose = { url ->
@@ -241,6 +268,94 @@ fun AddPodcastScreen(
         )
     }
 }
+
+private fun DirectoryPodcast.isSubscribed(subscribed: Map<String, String>): Boolean =
+    feedKey(feedUrl) in subscribed || ardSoundsUrl?.let { feedKey(it) in subscribed } == true
+
+/**
+ * „Entdecken“ unter dem leeren Suchfeld (Konzept 12.10): Überschrift „Beliebt in <Land>“ (mit Apple, sonst „Gerade
+ * gefragt“ aus Podcast Index), Kategorien als Chips und die Treffer wie bei der Suche.
+ */
+private fun LazyListScope.discoverSection(
+    directories: List<PodcastDirectory>,
+    country: String?,
+    state: DiscoverState?,
+    subscribed: Map<String, String>,
+    onCategory: (PodcastCategory?) -> Unit,
+    onHit: (DirectoryPodcast) -> Unit,
+) {
+    item(key = "discover-header") {
+        val title = if (PodcastDirectory.APPLE in directories && country != null) {
+            stringResource(R.string.podcast_discover_popular, Locale.Builder().setRegion(country).build().displayCountry)
+        } else {
+            stringResource(R.string.podcast_discover_trending)
+        }
+        SectionHeader(title)
+    }
+    item(key = "discover-categories") {
+        val scroll = rememberScrollState()
+        val selected = state?.category
+        Row(
+            Modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = GroupMargin + 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(selected = selected == null, onClick = { onCategory(null) }, label = { Text(stringResource(R.string.podcast_category_all)) })
+            PodcastCategory.entries.forEach { category ->
+                FilterChip(selected = selected == category, onClick = { onCategory(category) }, label = { Text(stringResource(category.label)) })
+            }
+        }
+    }
+    when (state) {
+        null, is DiscoverState.Loading -> item(key = "discover-loading") {
+            Row(Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                Text(stringResource(R.string.podcast_discover_loading), modifier = Modifier.padding(start = 12.dp))
+            }
+        }
+        is DiscoverState.Done -> {
+            if (state.failed.isNotEmpty()) {
+                item(key = "discover-failed") {
+                    val resources = LocalResources.current
+                    Text(
+                        stringResource(R.string.podcast_directory_failed, state.failed.sorted().joinToString(", ") { resources.getString(it.label) }),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
+            if (state.hits.isEmpty() && state.failed.size < directories.size) {
+                item(key = "discover-empty") { EmptyHint(stringResource(R.string.podcast_discover_empty)) }
+            }
+            groupedItems(state.hits, key = { "popular-${feedKey(it.feedUrl)}" }) { hit ->
+                DirectoryHitRow(hit, subscribed = hit.isSubscribed(subscribed)) { onHit(hit) }
+            }
+        }
+    }
+}
+
+private val PodcastCategory.label: Int
+    get() = when (this) {
+        PodcastCategory.NEWS -> R.string.podcast_category_news
+        PodcastCategory.SOCIETY -> R.string.podcast_category_society
+        PodcastCategory.COMEDY -> R.string.podcast_category_comedy
+        PodcastCategory.HISTORY -> R.string.podcast_category_history
+        PodcastCategory.TRUE_CRIME -> R.string.podcast_category_true_crime
+        PodcastCategory.SCIENCE -> R.string.podcast_category_science
+        PodcastCategory.TECHNOLOGY -> R.string.podcast_category_technology
+        PodcastCategory.BUSINESS -> R.string.podcast_category_business
+        PodcastCategory.GOVERNMENT -> R.string.podcast_category_government
+        PodcastCategory.EDUCATION -> R.string.podcast_category_education
+        PodcastCategory.HEALTH -> R.string.podcast_category_health
+        PodcastCategory.SPORTS -> R.string.podcast_category_sports
+        PodcastCategory.ARTS -> R.string.podcast_category_arts
+        PodcastCategory.FICTION -> R.string.podcast_category_fiction
+        PodcastCategory.MUSIC -> R.string.podcast_category_music
+        PodcastCategory.TV_FILM -> R.string.podcast_category_tv_film
+        PodcastCategory.LEISURE -> R.string.podcast_category_leisure
+        PodcastCategory.KIDS -> R.string.podcast_category_kids
+        PodcastCategory.RELIGION -> R.string.podcast_category_religion
+    }
 
 /** Rückfrage, wenn ein Podcast abonniert werden soll, dessen Abo schon besteht, aber archiviert ist. */
 @Composable

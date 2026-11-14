@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.data.podcast.PodcastDirectorySearch
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.podcast.SubscribeResult
 import de.kleinabersmart.earloft.core.network.podcast.directory.DirectoryPodcast
+import de.kleinabersmart.earloft.core.network.podcast.directory.PodcastCategory
 import de.kleinabersmart.earloft.core.network.podcast.directory.PodcastDirectory
 import de.kleinabersmart.earloft.core.network.podcast.directory.feedKey
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
@@ -87,6 +88,14 @@ sealed interface DirectorySearchState {
     data class Done(val term: String, val hits: List<DirectoryPodcast>, val failed: Set<PodcastDirectory>) : DirectorySearchState
 }
 
+/** Beliebte Podcasts ohne Suchbegriff („Entdecken“); [Done] gehört zu [category] (`null` = alle). */
+sealed interface DiscoverState {
+    val category: PodcastCategory?
+
+    data class Loading(override val category: PodcastCategory?) : DiscoverState
+    data class Done(override val category: PodcastCategory?, val hits: List<DirectoryPodcast>, val failed: Set<PodcastDirectory>) : DiscoverState
+}
+
 /** Seite „Podcast hinzufügen“: Feed-Adresse, OPML-Import und Suche in Verzeichnissen (Konzept 12.10). */
 @HiltViewModel
 class AddPodcastViewModel @Inject constructor(
@@ -144,6 +153,53 @@ class AddPodcastViewModel @Inject constructor(
         searchJob = viewModelScope.launch {
             val result = directorySearch.search(trimmed)
             _search.value = DirectorySearchState.Done(trimmed, result.hits, result.failed)
+        }
+    }
+
+    /** Das Suchfeld ist leer: wieder „Entdecken“ statt der Treffer. */
+    fun clearSearch() {
+        searchJob?.cancel()
+        _search.value = DirectorySearchState.Idle
+    }
+
+    /** Eingeschaltete Verzeichnisse mit Charts bzw. Trends; `null`, solange die Einstellung noch nicht gelesen ist. */
+    val discoverable: StateFlow<List<PodcastDirectory>?> = directorySearch.discoverable
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Land der Apple-Charts für die Überschrift. */
+    val country: StateFlow<String?> = directorySearch.country
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private val _discover = MutableStateFlow<DiscoverState?>(null)
+
+    /** `null`: noch nicht geladen. */
+    val discover: StateFlow<DiscoverState?> = _discover
+
+    private var discoverJob: Job? = null
+
+    /** Geladene Charts je Kategorie und Verzeichnissen, solange die Seite lebt: Hin- und Herwechseln fragt nicht erneut. */
+    private val popular = HashMap<Pair<PodcastCategory?, List<PodcastDirectory>>, DiscoverState.Done>()
+
+    /**
+     * Lädt die beliebten Podcasts von [directories] für [category] (eine laufende Abfrage wird abgebrochen). Ein Ergebnis mit
+     * ausgefallenem Verzeichnis wird nicht gemerkt, damit ein erneuter Tipp es noch einmal versucht.
+     */
+    fun discover(category: PodcastCategory?, directories: List<PodcastDirectory>) {
+        if (directories.isEmpty()) return
+        val key = category to directories
+        popular[key]?.let {
+            discoverJob?.cancel()
+            _discover.value = it
+            return
+        }
+        if (_discover.value == DiscoverState.Loading(category) && discoverJob?.isActive == true) return
+        discoverJob?.cancel()
+        _discover.value = DiscoverState.Loading(category)
+        discoverJob = viewModelScope.launch {
+            val result = directorySearch.popular(category)
+            val done = DiscoverState.Done(category, result.hits, result.failed)
+            if (result.failed.isEmpty()) popular[key] = done
+            _discover.value = done
         }
     }
 
