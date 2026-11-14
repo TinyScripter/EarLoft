@@ -39,6 +39,8 @@ data class UserSpokenServerEntity(
     val libraryId: String?,
     val enabled: Boolean,
     @ColumnInfo(defaultValue = "0") val openId: Boolean = false,
+    /** Abgewählte Buch-Bibliotheken (v17), wie in der Hauptdatenbank. */
+    @ColumnInfo(defaultValue = "''") val hiddenLibraries: String = "",
 )
 
 /**

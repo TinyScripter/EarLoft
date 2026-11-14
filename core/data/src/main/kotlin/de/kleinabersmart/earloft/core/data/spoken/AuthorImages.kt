@@ -91,10 +91,13 @@ class AuthorImages @Inject constructor(
     private suspend fun fromServers(candidates: List<String>): ByteArray? {
         val wanted = candidates.map { it.normalizeForMerge() }
         for (entity in dao.servers()) {
-            val libraryId = entity.libraryId ?: continue
+            // Alle gezeigten Buch-Bibliotheken des Servers (M3); vor dem ersten Abgleich nur die eine bekannte.
+            val libraryIds = dao.libraries(entity.serverId).map { it.libraryId }.filter { it !in entity.hiddenLibraryIds }
+                .ifEmpty { listOfNotNull(entity.libraryId) }
+            if (libraryIds.isEmpty()) continue
             val server = servers.server(entity.serverId) ?: continue
             val index = try {
-                index(entity.serverId) { api.authors(server, libraryId) }
+                index(entity.serverId) { libraryIds.flatMap { api.authors(server, it) } }
             } catch (e: IOException) {
                 Log.w(TAG, "Autoren von ${entity.name} nicht abrufbar", e)
                 continue

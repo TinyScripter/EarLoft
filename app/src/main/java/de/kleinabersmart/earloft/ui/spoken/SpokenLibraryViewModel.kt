@@ -33,7 +33,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SpokenLibraryViewModel @Inject constructor(
     books: BookRepository,
-    servers: AudiobookshelfServers,
+    private val servers: AudiobookshelfServers,
     private val launcher: BookLauncher,
     private val playback: PlaybackConnection,
     queue: EpisodeQueue,
@@ -87,18 +87,38 @@ class SpokenLibraryViewModel @Inject constructor(
     val bookGenre: StateFlow<String?> = combine(settings.bookGenre, genres) { genre, all -> genre?.takeIf { it in all } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Reiter „Alle“: nach Filter, Genre und Reihenfolge; `null`, solange noch geladen wird. */
+    /**
+     * Die gezeigten Buch-Bibliotheken eingeschalteter Server als (Kennung, Name), für den Filter des Reiters „Alle“ (M3); den
+     * Filter gibt es erst ab zwei. Gleiche Namen auf mehreren Servern tragen den Servernamen dahinter.
+     */
+    val libraries: StateFlow<List<Pair<String, String>>> = servers.servers.map { list ->
+        val shown = list.filter { it.enabled }.flatMap { server -> server.libraries.filter { it.shown }.map { server to it } }
+        val repeated = shown.groupingBy { it.second.name }.eachCount().filterValues { it > 1 }.keys
+        shown.map { (server, library) -> library.libraryId to if (library.name in repeated) "${library.name} (${server.name})" else library.name }
+    }
+        .catch { emit(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Gewählte Bibliothek; eine, die es nicht mehr gibt (abgewählt, Server aus), gilt als keine. */
+    val bookLibrary: StateFlow<String?> = combine(settings.bookLibrary, libraries) { id, all -> id?.takeIf { all.size > 1 && all.any { it.first == id } } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Reiter „Alle“: nach Filter, Genre, Bibliothek und Reihenfolge; `null`, solange noch geladen wird. */
     val shownBooks: StateFlow<List<BookWithProgress>?> = combine(
         books.books(),
-        settings.bookSort,
-        settings.bookFilter,
+        combine(settings.bookSort, settings.bookFilter, ::Pair),
         books.downloads().map { map -> map.filterValues { it.state == TrackDownload.DONE }.keys },
         settings.bookGenre,
-    ) { all, sort, filter, downloaded, genre ->
-        all.sortedAndFiltered(sort, filter, downloaded, genre?.takeIf { g -> all.any { g in it.book.genres } })
+        bookLibrary,
+    ) { all, (sort, filter), downloaded, genre, library ->
+        all.sortedAndFiltered(sort, filter, downloaded, genre?.takeIf { g -> all.any { g in it.book.genres } }, library)
     }
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setBookLibrary(libraryId: String?) {
+        viewModelScope.launch { settings.setBookLibrary(libraryId) }
+    }
 
     fun setBookGenre(genre: String?) {
         viewModelScope.launch { settings.setBookGenre(genre) }

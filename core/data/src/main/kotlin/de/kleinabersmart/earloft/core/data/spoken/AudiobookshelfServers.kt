@@ -4,6 +4,7 @@ import android.util.Log
 import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.data.wear.CredentialsStamps
 import de.kleinabersmart.earloft.core.database.dao.BookDao
+import de.kleinabersmart.earloft.core.database.entity.SpokenLibraryEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthApi
@@ -13,6 +14,7 @@ import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsOpenIdLogin
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
 import de.kleinabersmart.earloft.core.network.acceptsCredentialsOf
+import de.kleinabersmart.earloft.core.model.SpokenLibrary
 import de.kleinabersmart.earloft.core.model.SpokenServer
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -68,8 +70,28 @@ class AudiobookshelfServers @Inject constructor(
     private val registry: AbsServerRegistry,
     private val stamps: CredentialsStamps,
 ) {
-    val servers: Flow<List<SpokenServer>> = bookDao.observeServers().map { list ->
-        list.map { SpokenServer(it.serverId, it.name, it.baseUrl, it.lastFullSyncAt, it.enabled, it.openId) }
+    val servers: Flow<List<SpokenServer>> = combine(bookDao.observeServers(), bookDao.observeLibraries()) { list, libraries ->
+        val byServer = libraries.groupBy { it.serverId }
+        list.map { server ->
+            val hidden = server.hiddenLibraryIds
+            SpokenServer(
+                server.serverId, server.name, server.baseUrl, server.lastFullSyncAt, server.enabled, server.openId,
+                libraries = byServer[server.serverId].orEmpty().map { SpokenLibrary(it.serverId, it.libraryId, it.name, it.libraryId !in hidden) },
+            )
+        }
+    }
+
+    /**
+     * Wählt eine Buch-Bibliothek ab bzw. wieder an (`books_improvements.md` M3); ihre Bücher verschwinden sofort und fallen
+     * beim nächsten Abgleich weg bzw. kommen mit ihm. Die letzte gezeigte bleibt: `false`, wenn sie abgewählt werden sollte.
+     */
+    suspend fun setLibraryShown(serverId: String, libraryId: String, shown: Boolean): Boolean {
+        val entity = bookDao.server(serverId) ?: return false
+        val hidden = if (shown) entity.hiddenLibraryIds - libraryId else entity.hiddenLibraryIds + libraryId
+        val known = bookDao.libraries(serverId).map { it.libraryId }
+        if (known.isNotEmpty() && known.all { it in hidden }) return false
+        bookDao.setHiddenLibraries(serverId, hidden.sorted().joinToString(","))
+        return true
     }
 
     /**
@@ -213,17 +235,19 @@ class AudiobookshelfServers @Inject constructor(
         }
         if (key.isEmpty()) return AddServerResult.AuthFailed
         val candidate = AbsServer(existingId ?: UUID.randomUUID().toString(), baseUrl, key)
-        val library = try {
+        val libraries = try {
             api.ping(candidate)
             api.me(candidate)
-            api.libraries(candidate).firstOrNull { it.mediaType == "book" }
+            api.libraries(candidate).filter { it.mediaType == "book" }
         } catch (e: AbsException) {
             Log.w(TAG, "Server $baseUrl abgelehnt", e)
             return if (e.isAuthError) AddServerResult.AuthFailed else AddServerResult.Unreachable
         } catch (e: IOException) {
             Log.w(TAG, "Server $baseUrl nicht erreichbar", e)
             return AddServerResult.Unreachable
-        } ?: return AddServerResult.NoBookLibrary
+        }
+        val library = libraries.firstOrNull { it.id !in existing?.hiddenLibraryIds.orEmpty() } ?: libraries.firstOrNull()
+            ?: return AddServerResult.NoBookLibrary
 
         val serverId = candidate.serverId
         when (credentials) {
@@ -250,6 +274,8 @@ class AudiobookshelfServers @Inject constructor(
                 openId = if (keep) existing?.openId == true else credentials is Credentials.OpenId,
             ),
         )
+        // Alle Buch-Bibliotheken; ohne abgewählte sind alle dabei (M3). Die Auswahl steht danach in den Einstellungen.
+        bookDao.replaceLibraries(serverId, libraries.mapIndexed { index, it -> SpokenLibraryEntity(serverId, it.id, it.name, index) })
         registry.register(candidate.copy(token = secretStore.get(tokenKey(serverId)) ?: key))
         return AddServerResult.Added(serverId)
     }

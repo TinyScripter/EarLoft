@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.BookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.EpisodePersonEntity
+import de.kleinabersmart.earloft.core.database.entity.SpokenLibraryEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.model.BookCoverRow
 import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
@@ -21,8 +22,13 @@ import de.kleinabersmart.earloft.core.model.ChapterSource
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import kotlinx.coroutines.flow.Flow
 
-/** Bücher (und Folgen) der ausgeschalteten Audiobookshelf-Server sind ausgeblendet; Podcast-Feeds stehen nicht in `spoken_servers`. */
-private const val BOOK_VISIBLE = "serverId NOT IN (SELECT serverId FROM spoken_servers WHERE enabled = 0)"
+/**
+ * Bücher (und Folgen) der ausgeschalteten Audiobookshelf-Server sind ausgeblendet, ebenso Bücher abgewählter Bibliotheken
+ * (bis der nächste Abgleich sie entfernt); Podcast-Feeds stehen nicht in `spoken_servers`.
+ */
+private const val BOOK_VISIBLE = "serverId NOT IN (SELECT serverId FROM spoken_servers WHERE enabled = 0) AND (libraryId IS NULL OR " +
+    "NOT EXISTS (SELECT 1 FROM spoken_servers s WHERE s.serverId = books.serverId AND " +
+    "instr(',' || s.hiddenLibraries || ',', ',' || books.libraryId || ',') > 0))"
 
 // Folgen von Probeabos aus der Podcast-Vorschau (Konzept 12.10) haben eine Seite, stehen aber in keiner Liste und Suche;
 // Folgen archivierter Abos ebenso wenig.
@@ -53,6 +59,28 @@ abstract class BookDao {
     @Query("UPDATE spoken_servers SET enabled = :enabled WHERE serverId = :serverId")
     abstract suspend fun setServerEnabled(serverId: String, enabled: Boolean)
 
+    @Query("UPDATE spoken_servers SET hiddenLibraries = :hidden WHERE serverId = :serverId")
+    abstract suspend fun setHiddenLibraries(serverId: String, hidden: String)
+
+    @Query("SELECT * FROM spoken_libraries ORDER BY serverId, position")
+    abstract fun observeLibraries(): Flow<List<SpokenLibraryEntity>>
+
+    @Query("SELECT * FROM spoken_libraries WHERE serverId = :serverId ORDER BY position")
+    abstract suspend fun libraries(serverId: String): List<SpokenLibraryEntity>
+
+    @Query("DELETE FROM spoken_libraries WHERE serverId = :serverId")
+    abstract suspend fun deleteLibraries(serverId: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertLibraries(libraries: List<SpokenLibraryEntity>)
+
+    /** Die Buch-Bibliotheken des Servers, wie er sie gerade nennt. */
+    @Transaction
+    open suspend fun replaceLibraries(serverId: String, libraries: List<SpokenLibraryEntity>) {
+        deleteLibraries(serverId)
+        insertLibraries(libraries)
+    }
+
     @Query("DELETE FROM spoken_servers WHERE serverId = :serverId")
     abstract suspend fun deleteServerRow(serverId: String)
 
@@ -62,6 +90,7 @@ abstract class BookDao {
     @Transaction
     open suspend fun deleteServer(serverId: String) {
         deleteBooksOf(serverId)
+        deleteLibraries(serverId)
         deleteServerRow(serverId)
     }
 

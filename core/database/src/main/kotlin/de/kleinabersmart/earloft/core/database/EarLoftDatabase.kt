@@ -50,6 +50,7 @@ import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongFtsEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
+import de.kleinabersmart.earloft.core.database.entity.SpokenLibraryEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.entity.SyncActionEntity
 import de.kleinabersmart.earloft.core.database.entity.WearBookEntity
@@ -77,6 +78,7 @@ import java.io.File
         ArtistFtsEntity::class,
         WearSelectionEntity::class,
         SpokenServerEntity::class,
+        SpokenLibraryEntity::class,
         BookEntity::class,
         BookTrackEntity::class,
         BookChapterEntity::class,
@@ -92,7 +94,7 @@ import java.io.File
         BookmarkEntity::class,
         EpisodePersonEntity::class,
     ],
-    version = 37,
+    version = 38,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -131,6 +133,7 @@ import java.io.File
         AutoMigration(from = 34, to = 35, spec = EarLoftDatabase.DecodeTitles::class),
         AutoMigration(from = 35, to = 36, spec = EarLoftDatabase.ReadPodcasting20::class),
         AutoMigration(from = 36, to = 37),
+        AutoMigration(from = 37, to = 38, spec = EarLoftDatabase.SeveralLibraries::class),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {
@@ -211,6 +214,19 @@ abstract class EarLoftDatabase : RoomDatabase() {
     class ReadPodcasting20 : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
             db.execSQL("UPDATE podcast_feeds SET etag = NULL, lastModified = NULL")
+        }
+    }
+
+    /**
+     * v37 → v38: mehrere Bibliotheken je Server (`books_improvements.md` M3). Die Bücher stammen bisher alle aus der einen
+     * abgeglichenen Bibliothek des Servers.
+     */
+    class SeveralLibraries : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "UPDATE books SET libraryId = (SELECT s.libraryId FROM spoken_servers s WHERE s.serverId = books.serverId) " +
+                    "WHERE kind = 'BOOK'",
+            )
         }
     }
 

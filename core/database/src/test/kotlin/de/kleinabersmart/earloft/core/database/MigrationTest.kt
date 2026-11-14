@@ -266,6 +266,40 @@ class MigrationTest {
     }
 
     @Test
+    fun `v37 to v38 puts the books into the one library of their server`() {
+        helper.createDatabase(DB_NAME, 37).use { db ->
+            db.execSQL(
+                "INSERT INTO spoken_servers (serverId, name, baseUrl, libraryId, syncGeneration, lastFullSyncAt, enabled, openId) " +
+                    "VALUES ('abs', 'ABS', 'https://abs.example', 'lib', 2, 5, 1, 0)",
+            )
+            for ((id, server) in listOf(3 to "abs", 4 to "local")) {
+                db.execSQL(
+                    "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
+                        "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
+                        "VALUES ($id, '$server', 'BOOK', 'li_$id', 'Buch', 'buch', 'A', '', '', '', 60000, 0, 1, 1, 2)",
+                )
+            }
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 38, true).use { db ->
+            db.query("SELECT bookId, libraryId FROM books ORDER BY bookId").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("lib", cursor.getString(1))
+                assertTrue(cursor.moveToNext())
+                assertTrue(cursor.isNull(1))
+            }
+            db.query("SELECT hiddenLibraries FROM spoken_servers").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("", cursor.getString(0))
+            }
+            db.query("SELECT COUNT(*) FROM spoken_libraries").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun `v36 to v37 keeps books without genres`() {
         helper.createDatabase(DB_NAME, 36).use { db ->
             db.execSQL(
@@ -463,6 +497,21 @@ class UserMigrationTest {
             db.query("SELECT COUNT(*) FROM episode_stars").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
+    fun `v16 to v17 keeps spoken servers with all libraries shown`() {
+        helper.createDatabase(DB_NAME, 16).use { db ->
+            db.execSQL("INSERT INTO spoken_servers (serverId, name, baseUrl, libraryId, enabled, openId) VALUES ('abs', 'ABS', 'https://abs.example', 'lib', 1, 0)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 17, true).use { db ->
+            db.query("SELECT libraryId, hiddenLibraries FROM spoken_servers WHERE serverId = 'abs'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("lib", cursor.getString(0))
+                assertEquals("", cursor.getString(1))
             }
         }
     }

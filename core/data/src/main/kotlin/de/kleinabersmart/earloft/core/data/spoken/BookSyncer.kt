@@ -7,6 +7,7 @@ import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
+import de.kleinabersmart.earloft.core.database.entity.SpokenLibraryEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.parseGenres
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
@@ -60,39 +61,49 @@ class BookSyncer @Inject constructor(
             BookSyncResult(ok = false, newBooks = emptyList())
         }
 
-    /** Gibt die Bücher zurück, die es auf dem Server neu gibt (keine beim allerersten Abgleich). */
+    /**
+     * Gibt die Bücher zurück, die es auf dem Server neu gibt (keine beim allerersten Abgleich). Abgeglichen werden alle Buch-
+     * Bibliotheken außer den abgewählten (`books_improvements.md` M3); die Bücher einer gerade erst gewählten zählen nicht als neu.
+     */
     private suspend fun sync(server: AbsServer): List<NewBook> = syncMutex.withLock {
         val entity = dao.server(server.serverId) ?: return@withLock emptyList()
-        val libraryId = entity.libraryId
-            ?: api.libraries(server).firstOrNull { it.mediaType == "book" }?.id
-            ?: return@withLock emptyList()
+        val libraries = api.libraries(server).filter { it.mediaType == "book" }
+        dao.replaceLibraries(server.serverId, libraries.mapIndexed { index, it -> SpokenLibraryEntity(server.serverId, it.id, it.name, index) })
+        val shown = libraries.filter { it.id !in entity.hiddenLibraryIds }
+        if (shown.isEmpty()) return@withLock emptyList()
         val generation = entity.syncGeneration + 1
         val firstSync = entity.lastFullSyncAt == 0L
-        val known = if (firstSync) emptySet() else dao.booksOf(server.serverId).mapTo(HashSet()) { it.remoteId }
+        val stored = if (firstSync) emptyList() else dao.booksOf(server.serverId)
+        val known = stored.mapTo(HashSet()) { it.remoteId }
+        val syncedBefore = stored.mapNotNullTo(HashSet()) { it.libraryId }
         val fresh = HashSet<String>()
-        var page = 0
-        while (true) {
-            val result = api.libraryItems(server, libraryId, page, PAGE_SIZE)
-            result.results.forEach {
-                if (it.isMissing || it.isInvalid) {
-                    // Fehlen die Dateien nur gerade (Freigabe beim Scan nicht eingehängt), bleibt ein bekanntes Buch
-                    // samt Download und Fortschritt stehen; neue kommen erst, wenn sie abspielbar sind.
-                    dao.markSeen(server.serverId, it.id, generation)
-                    return@forEach
+        for (library in shown) {
+            var page = 0
+            while (true) {
+                val result = api.libraryItems(server, library.id, page, PAGE_SIZE)
+                result.results.forEach {
+                    if (it.isMissing || it.isInvalid) {
+                        // Fehlen die Dateien nur gerade (Freigabe beim Scan nicht eingehängt), bleibt ein bekanntes Buch
+                        // samt Download und Fortschritt stehen; neue kommen erst, wenn sie abspielbar sind.
+                        dao.markSeen(server.serverId, it.id, generation)
+                        return@forEach
+                    }
+                    val entityToStore = it.toEntity(server.serverId, library.id, generation)
+                    if (library.id in syncedBefore && entityToStore.remoteId !in known) fresh += entityToStore.remoteId
+                    dao.upsertBook(entityToStore)
                 }
-                val entityToStore = it.toEntity(server.serverId, generation)
-                if (!firstSync && entityToStore.remoteId !in known) fresh += entityToStore.remoteId
-                dao.upsertBook(entityToStore)
+                if (result.results.isEmpty() || (page + 1) * PAGE_SIZE >= result.total) break
+                page++
             }
-            if (result.results.isEmpty() || (page + 1) * PAGE_SIZE >= result.total) break
-            page++
         }
         // Erst ungemeldeten Fortschritt hochladen: Gelöschte Bücher nehmen ihn mit.
         progressSync.pushPending()
         bookmarks.pushPending()
         // Ein abgebrochener Abgleich kommt nie bis hierher und löscht deshalb nichts.
         dao.deleteUnseen(server.serverId, generation)
-        dao.upsertServer(entity.copy(libraryId = libraryId, syncGeneration = generation, lastFullSyncAt = System.currentTimeMillis()))
+        // Neu gelesen: Schalter und Auswahl können sich während des Abgleichs geändert haben.
+        val current = dao.server(server.serverId) ?: entity
+        dao.upsertServer(current.copy(libraryId = shown.first().id, syncGeneration = generation, lastFullSyncAt = System.currentTimeMillis()))
         bookmarks.applyRemote(server.serverId, progressSync.pullAll(server).bookmarks)
         loadMissingDetails(server)
         if (fresh.isEmpty()) emptyList()
@@ -136,7 +147,7 @@ class BookSyncer @Inject constructor(
         return true
     }
 
-    private fun AbsItemDto.toEntity(serverId: String, generation: Long): BookEntity {
+    private fun AbsItemDto.toEntity(serverId: String, libraryId: String, generation: Long): BookEntity {
         val metadata = media.metadata
         return BookEntity(
             serverId = serverId,
@@ -154,6 +165,7 @@ class BookSyncer @Inject constructor(
             publisher = metadata.publisher.orNullIfBlank(),
             language = metadata.language.orNullIfBlank(),
             genres = parseGenres(metadata.genres).joinToString(", ").ifEmpty { null },
+            libraryId = libraryId,
             durationMs = (media.duration * 1000).roundToLong(),
             remoteUpdatedAt = updatedAt,
             addedAt = addedAt,

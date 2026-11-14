@@ -250,6 +250,13 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { if (genre == null) it.remove(KEY_BOOK_GENRE) else it[KEY_BOOK_GENRE] = genre }
     }
 
+    /** Bibliotheks-Filter des Reiters „Alle“ (Kennung der Audiobookshelf-Bibliothek, M3); `null` = alle. */
+    val bookLibrary: Flow<String?> = context.spokenSettingsDataStore.data.map { prefs -> prefs[KEY_BOOK_LIBRARY]?.ifEmpty { null } }
+
+    suspend fun setBookLibrary(libraryId: String?) {
+        context.spokenSettingsDataStore.edit { if (libraryId == null) it.remove(KEY_BOOK_LIBRARY) else it[KEY_BOOK_LIBRARY] = libraryId }
+    }
+
     /** Reihenfolge der Reiter „Serien“ und „Autoren“ (Standard: nach Name). */
     val seriesSort: Flow<SeriesSort> = context.spokenSettingsDataStore.data.map { prefs ->
         SeriesSort.entries.firstOrNull { it.name == prefs[KEY_SERIES_SORT] } ?: SeriesSort.NAME
@@ -271,6 +278,7 @@ class SpokenSettings @Inject constructor(
         val KEY_BOOK_SORT = stringPreferencesKey("book_sort")
         val KEY_SERIES_SORT = stringPreferencesKey("series_sort")
         val KEY_BOOK_GENRE = stringPreferencesKey("book_genre")
+        val KEY_BOOK_LIBRARY = stringPreferencesKey("book_library")
         val KEY_AUTHOR_SORT = stringPreferencesKey("author_sort")
         val KEY_BOOK_FILTER = stringPreferencesKey("book_filter")
         val KEY_BOOK_MOBILE = booleanPreferencesKey("book_mobile_data")

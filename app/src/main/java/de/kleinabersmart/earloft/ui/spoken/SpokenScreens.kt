@@ -229,6 +229,8 @@ fun SpokenLibraryScreen(
     val bookFilter by viewModel.bookFilter.collectAsStateWithLifecycle()
     val genres by viewModel.genres.collectAsStateWithLifecycle()
     val bookGenre by viewModel.bookGenre.collectAsStateWithLifecycle()
+    val libraries by viewModel.libraries.collectAsStateWithLifecycle()
+    val bookLibrary by viewModel.bookLibrary.collectAsStateWithLifecycle()
     val seriesSort by viewModel.seriesSort.collectAsStateWithLifecycle()
     val authorSort by viewModel.authorSort.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { BookTab.entries.size }
@@ -278,7 +280,12 @@ fun SpokenLibraryScreen(
                                 // Die Chips bleiben stehen, auch wenn der Filter nichts übrig lässt, damit man ihn lösen kann.
                                 header = {
                                     Column {
-                                        BookFilterChips(bookFilter, viewModel::setBookFilter, genres, bookGenre, viewModel::setBookGenre)
+                                        BookFilterChips(
+                                            bookFilter,
+                                            viewModel::setBookFilter,
+                                            genre = OptionFilter(genres.map { it to it }, bookGenre, viewModel::setBookGenre),
+                                            library = OptionFilter(libraries.takeIf { it.size > 1 }.orEmpty(), bookLibrary, viewModel::setBookLibrary),
+                                        )
                                         if (shown.isEmpty()) {
                                             Text(
                                                 stringResource(R.string.library_filter_empty),
@@ -290,7 +297,7 @@ fun SpokenLibraryScreen(
                                     }
                                 },
                                 // Andere Reihenfolge oder anderer Filter: wieder von oben.
-                                resetKey = Triple(bookSort, bookFilter, bookGenre),
+                                resetKey = listOf(bookSort, bookFilter, bookGenre, bookLibrary),
                             )
                         }
                         BookTab.SERIES -> SeriesList(series, byName = seriesSort == SeriesSort.NAME, resetKey = seriesSort) {
@@ -404,61 +411,65 @@ private val BookSort.label: Int
         BookSort.YEAR -> R.string.sort_year
     }
 
+/** Ein Filter mit Auswahlliste: [options] als (Kennung, Name), [selected] die gewählte Kennung (`null` = alle). */
+private class OptionFilter(val options: List<Pair<String, String>>, val selected: String?, val onSelect: (String?) -> Unit)
+
 /**
- * Filter des Reiters „Alle“: genau einer ist gewählt; lässt sich seitlich wischen, wenn die Breite nicht reicht. Führt der
- * Server Genres ([genres]), steht vorn ein Chip mit Auswahlliste dafür; er wirkt zusätzlich zum Filter.
+ * Filter des Reiters „Alle“: genau einer ist gewählt; lässt sich seitlich wischen, wenn die Breite nicht reicht. Davor, wenn
+ * es sie gibt, Chips mit Auswahlliste für die Bibliothek (ab zwei, M3) und das Genre (S9); sie wirken zusätzlich zum Filter.
  */
 @Composable
-private fun BookFilterChips(
-    selected: BookFilter,
-    onSelect: (BookFilter) -> Unit,
-    genres: List<String>,
-    genre: String?,
-    onGenre: (String?) -> Unit,
-) {
+private fun BookFilterChips(selected: BookFilter, onSelect: (BookFilter) -> Unit, genre: OptionFilter, library: OptionFilter) {
     val scroll = rememberScrollState()
     Row(
         Modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (genres.isNotEmpty()) GenreChip(genres, genre, onGenre)
+        if (library.options.isNotEmpty()) OptionChip(library, stringResource(R.string.book_library), stringResource(R.string.book_library_all))
+        if (genre.options.isNotEmpty()) OptionChip(genre, stringResource(R.string.book_genre), stringResource(R.string.book_genre_all))
         BookFilter.entries.forEach { filter ->
             FilterChip(selected = filter == selected, onClick = { onSelect(filter) }, label = { Text(stringResource(filter.label)) })
         }
     }
 }
 
-/** „Genre ▾“ bzw. das gewählte Genre; die Liste beginnt mit „Alle Genres“. */
+/** „Genre ▾“ bzw. das Gewählte; die Liste beginnt mit [allLabel] („Alle Genres“). */
 @Composable
-private fun GenreChip(genres: List<String>, genre: String?, onGenre: (String?) -> Unit) {
+private fun OptionChip(filter: OptionFilter, label: String, allLabel: String) {
     var open by remember { mutableStateOf(false) }
     Box {
         FilterChip(
-            selected = genre != null,
+            selected = filter.selected != null,
             onClick = { open = true },
-            label = { Text(genre ?: stringResource(R.string.book_genre), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            label = {
+                Text(
+                    filter.options.firstOrNull { it.first == filter.selected }?.second ?: label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
             trailingIcon = { Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = null) },
             modifier = Modifier.widthIn(max = 220.dp),
         )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.book_genre_all)) },
+                text = { Text(allLabel) },
                 onClick = {
                     open = false
-                    onGenre(null)
+                    filter.onSelect(null)
                 },
             )
-            genres.forEach { name ->
+            filter.options.forEach { (key, name) ->
                 DropdownMenuItem(
                     text = { Text(name) },
-                    trailingIcon = if (name == genre) {
+                    trailingIcon = if (key == filter.selected) {
                         { Icon(painterResource(DesignR.drawable.ic_check), contentDescription = null) }
                     } else {
                         null
                     },
                     onClick = {
                         open = false
-                        onGenre(name)
+                        filter.onSelect(key)
                     },
                 )
             }

@@ -163,6 +163,11 @@ class AudiobookshelfViewModel @Inject constructor(
 
     suspend fun editable(serverId: String) = servers.editable(serverId)
 
+    /** Wählt eine Buch-Bibliothek ab bzw. an und gleicht danach ab, damit ihre Bücher gehen bzw. kommen. */
+    fun setLibraryShown(serverId: String, libraryId: String, shown: Boolean) {
+        viewModelScope.launch { if (servers.setLibraryShown(serverId, libraryId, shown)) refresher.refreshAll() }
+    }
+
     fun setEnabled(serverId: String, enabled: Boolean) {
         viewModelScope.launch {
             servers.setEnabled(serverId, enabled)

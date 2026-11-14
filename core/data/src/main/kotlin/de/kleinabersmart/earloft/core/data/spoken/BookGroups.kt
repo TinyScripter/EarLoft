@@ -50,7 +50,7 @@ internal fun peopleHits(rows: List<Pair<Long, String>>, query: String, limit: In
 
 /**
  * Die Bücher (nach Titel) nach [filter] und in der Reihenfolge [sort]; [downloaded]: fertig geladene; mit [genre] nur die
- * Bücher dieses Genres. „Zuletzt gehört“ nimmt die letzte Änderung des Fortschritts, nie gestartete stehen hinten; ohne Jahr
+ * Bücher dieses Genres, mit [library] nur die dieser Audiobookshelf-Bibliothek. „Zuletzt gehört“ nimmt die letzte Änderung des Fortschritts, nie gestartete stehen hinten; ohne Jahr
  * bzw. Dauer ebenso.
  */
 fun List<BookWithProgress>.sortedAndFiltered(
@@ -58,8 +58,10 @@ fun List<BookWithProgress>.sortedAndFiltered(
     filter: BookFilter,
     downloaded: Set<Long>,
     genre: String? = null,
+    library: String? = null,
 ): List<BookWithProgress> {
-    val inGenre = if (genre == null) this else filter { genre in it.book.genres }
+    val inLibrary = if (library == null) this else filter { it.book.libraryId == library }
+    val inGenre = if (genre == null) inLibrary else inLibrary.filter { genre in it.book.genres }
     val shown = when (filter) {
         BookFilter.ALL -> inGenre
         BookFilter.NOT_STARTED -> inGenre.filter { it.progress.let { p -> p == null || (!p.finished && p.positionMs <= 0) } }

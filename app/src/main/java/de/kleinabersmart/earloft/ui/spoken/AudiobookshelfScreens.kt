@@ -114,6 +114,34 @@ fun AudiobookshelfSection(
                     }
                 },
             )
+            // Mehrere Buch-Bibliotheken: jede abwählbar (books_improvements M3); die letzte gezeigte bleibt.
+            if (server.libraries.size > 1) {
+                Text(
+                    stringResource(R.string.spoken_abs_libraries),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 56.dp, top = 4.dp),
+                )
+                val shownCount = server.libraries.count { it.shown }
+                server.libraries.forEach { library ->
+                    val locked = library.shown && shownCount == 1
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = library.shown,
+                                enabled = server.enabled && !locked,
+                                role = Role.Checkbox,
+                                onValueChange = { viewModel.setLibraryShown(server.serverId, library.libraryId, it) },
+                            )
+                            .padding(start = 44.dp, end = 16.dp),
+                    ) {
+                        Checkbox(checked = library.shown, onCheckedChange = null, enabled = server.enabled && !locked)
+                        Text(library.name, modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
             TextButton(onClick = { removing = server.serverId }, modifier = Modifier.padding(start = 56.dp)) {
                 Text(stringResource(R.string.spoken_abs_remove))
             }

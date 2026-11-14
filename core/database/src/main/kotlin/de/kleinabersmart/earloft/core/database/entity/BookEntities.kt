@@ -19,7 +19,10 @@ data class SpokenServerEntity(
     @PrimaryKey val serverId: String,
     val name: String,
     val baseUrl: String,
-    /** Bibliothek mit `mediaType = book`, aus der abgeglichen wird. */
+    /**
+     * Die erste abgeglichene Bibliothek mit `mediaType = book` (Autorenbilder, Wiedererkennen beim Wiederherstellen); alle Buch-
+     * Bibliotheken stehen in [SpokenLibraryEntity].
+     */
     val libraryId: String? = null,
     /** Zähler für Mark-and-Sweep beim Vollabgleich. */
     val syncGeneration: Long = 0,
@@ -28,6 +31,26 @@ data class SpokenServerEntity(
     @ColumnInfo(defaultValue = "1") val enabled: Boolean = true,
     /** Angemeldet per OpenID statt API-Key (Konzept 12.11): Tokens erneuern sich, fehlen sie, heißt es „Neu anmelden“. */
     @ColumnInfo(defaultValue = "0") val openId: Boolean = false,
+    /**
+     * Abgewählte Buch-Bibliotheken (v38, mit „,“ verbunden): Sie werden nicht abgeglichen, ihre Bücher sind ausgeblendet. Neue
+     * Bibliotheken des Servers sind damit von selbst dabei (`books_improvements.md` M3).
+     */
+    @ColumnInfo(defaultValue = "''") val hiddenLibraries: String = "",
+) {
+    val hiddenLibraryIds: Set<String> get() = hiddenLibraries.split(',').filterTo(HashSet()) { it.isNotBlank() }
+}
+
+/**
+ * Eine Buch-Bibliothek eines Audiobookshelf-Servers (v38), wie der letzte Abgleich sie gesehen hat; für Namen und Auswahl.
+ * Ohne Fremdschlüssel: `upsertServer` ersetzt die Zeile des Servers, eine Kaskade nähme die Bibliotheken mit.
+ */
+@Entity(tableName = "spoken_libraries", primaryKeys = ["serverId", "libraryId"])
+data class SpokenLibraryEntity(
+    val serverId: String,
+    val libraryId: String,
+    val name: String,
+    /** Reihenfolge auf dem Server. */
+    val position: Int,
 )
 
 /** Abonnierter Podcast oder Probeabo (Konzept 12.1, 12.10). Seine Folgen sind `books`-Zeilen mit `serverId = feedId`. */
@@ -146,6 +169,8 @@ data class BookEntity(
     val transcriptType: String? = null,
     /** Bücher (v37): Genres von Audiobookshelf, einzeln und mit „, “ verbunden; `null` = keine. */
     val genres: String? = null,
+    /** Bücher eines Audiobookshelf-Servers (v38): Bibliothek, aus der das Buch stammt; sonst `null`. */
+    val libraryId: String? = null,
 )
 
 /** Mitwirkende einer Folge aus dem Feed (`podcast:person`, v36), in der Reihenfolge des Feeds. */

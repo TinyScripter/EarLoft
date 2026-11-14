@@ -59,6 +59,8 @@ data class Book(
     val transcriptUrl: String? = null,
     /** Bücher: Genres von Audiobookshelf, einzeln ([parseGenres]). */
     val genres: List<String> = emptyList(),
+    /** Bücher eines Audiobookshelf-Servers: die Bibliothek dort. */
+    val libraryId: String? = null,
 ) {
     /** Liegt auf diesem Gerät: kein Server, kein Download, kein Cast. */
     val isLocal: Boolean get() = isLocalSource(serverId)
@@ -191,7 +193,12 @@ data class SpokenServer(
     val enabled: Boolean = true,
     /** Angemeldet per OpenID statt API-Key. */
     val openId: Boolean = false,
+    /** Die Buch-Bibliotheken des Servers in seiner Reihenfolge; mit mehr als einer lässt sich wählen (`books_improvements.md` M3). */
+    val libraries: List<SpokenLibrary> = emptyList(),
 )
+
+/** Eine Buch-Bibliothek eines Audiobookshelf-Servers; [shown] = wird abgeglichen und gezeigt. */
+data class SpokenLibrary(val serverId: String, val libraryId: String, val name: String, val shown: Boolean)
 
 /** Ein Autor aus der Suche: sein Name, ein Buch für das Cover und die Anzahl seiner Bücher. */
 data class AuthorHit(val name: String, val firstBookId: Long, val bookCount: Int)
