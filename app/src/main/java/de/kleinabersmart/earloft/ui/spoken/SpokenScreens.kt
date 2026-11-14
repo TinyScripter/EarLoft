@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import de.kleinabersmart.earloft.core.model.BookFilter
 import de.kleinabersmart.earloft.core.model.BookSort
+import de.kleinabersmart.earloft.core.model.authorLine
 import de.kleinabersmart.earloft.core.model.bookAuthors
 import de.kleinabersmart.earloft.core.model.parseSeries
 import de.kleinabersmart.earloft.ui.components.HeaderAction
@@ -638,7 +639,7 @@ fun BookCard(
             modifier = Modifier.padding(top = 6.dp),
         )
         Text(
-            item.book.author,
+            item.book.authorLine,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             minLines = 1,

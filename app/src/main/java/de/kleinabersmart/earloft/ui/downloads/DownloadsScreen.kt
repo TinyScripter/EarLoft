@@ -45,6 +45,7 @@ import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.designsystem.theme.EarLoftTheme
+import de.kleinabersmart.earloft.core.model.authorLine
 import de.kleinabersmart.earloft.core.model.DownloadOverview
 import de.kleinabersmart.earloft.core.model.DownloadedAlbum
 import de.kleinabersmart.earloft.core.download.BookTransfer
@@ -403,7 +404,7 @@ private fun DownloadedBookRow(item: DownloadedBook, transfer: BookTransfer?, onC
         headlineContent = { Text(item.book.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             Column {
-                Text(item.book.author, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(item.book.authorLine, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 when (state) {
                     TrackDownload.DONE -> Text(formatBytes(item.download.bytes), style = MaterialTheme.typography.bodySmall)
                     TrackDownload.FAILED -> Text(

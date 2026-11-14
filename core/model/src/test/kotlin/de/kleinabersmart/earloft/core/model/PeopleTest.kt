@@ -30,4 +30,15 @@ class PeopleTest {
         assertEquals(listOf("Anna Muster (Herausgeberin)"), bookAuthors("Anna Muster (Herausgeberin)"))
         assertEquals(emptyList<String>(), bookAuthors(""))
     }
+
+    @Test
+    fun `tiles show the authors without translators in front`() {
+        assertEquals("Jo Nesbø", bookAuthorLine("Günther Frauenlob — Translator, Jo Nesbø"))
+        assertEquals("Line Holm, Jussi Adler-Olsen", bookAuthorLine("Line Holm; Jussi Adler-Olsen"))
+        assertEquals("", bookAuthorLine(" "))
+        val book = Book(1, "s", BookKind.BOOK, "T", "Günther Frauenlob - Übersetzer, Jo Nesbø", durationMs = 0, remoteId = "r")
+        assertEquals("Jo Nesbø", book.authorLine)
+        // Folgen tragen den Autor des Feeds; der bleibt, wie er ist.
+        assertEquals("Sprecher: Anna, Ben", book.copy(kind = BookKind.EPISODE, author = "Sprecher: Anna, Ben").authorLine)
+    }
 }

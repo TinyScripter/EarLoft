@@ -17,6 +17,7 @@ import de.kleinabersmart.earloft.core.data.refresh.NewContent
 import de.kleinabersmart.earloft.core.data.refresh.NewContentNotifier
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
+import de.kleinabersmart.earloft.core.model.bookAuthorLine
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.notification.NewContentTarget.Companion.putNewContentTarget
 import kotlinx.coroutines.CancellationException
@@ -191,7 +192,7 @@ class AppNewContentNotifier @Inject constructor(
         content.books.singleOrNull()?.let { book ->
             return Message(
                 title = book.title,
-                text = book.author.ifBlank { booksText },
+                text = bookAuthorLine(book.author).ifBlank { booksText },
                 details = emptyList(),
                 target = NewContentTarget(SpokenMode.BOOKS, bookId = book.bookId),
                 cover = { bookCovers.cover(book.bookId) },
@@ -200,7 +201,7 @@ class AppNewContentNotifier @Inject constructor(
         return Message(
             title = context.getString(R.string.new_content_books_title),
             text = booksText,
-            details = names(content.books.map { book -> listOf(book.title, book.author).filter { it.isNotBlank() }.joinToString(" – ") }),
+            details = names(content.books.map { book -> listOf(book.title, bookAuthorLine(book.author)).filter { it.isNotBlank() }.joinToString(" – ") }),
             target = NewContentTarget(SpokenMode.BOOKS),
         )
     }

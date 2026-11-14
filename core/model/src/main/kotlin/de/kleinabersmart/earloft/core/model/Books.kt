@@ -105,6 +105,15 @@ fun bookAuthors(author: String): List<String> {
     return all.filterNot(::hasContributorRole).ifEmpty { all }
 }
 
+/**
+ * Autorenzeile eines Buchs für Kacheln, Player, Benachrichtigung und Android Auto: die [bookAuthors], damit Übersetzer u. Ä.
+ * nicht vorn stehen. Die Buchseite zeigt weiter alle Namen samt Rolle.
+ */
+fun bookAuthorLine(author: String): String = bookAuthors(author).joinToString(", ").ifEmpty { author.trim() }
+
+/** Autorenzeile in Listen: bei Büchern [bookAuthorLine], bei Folgen der Eintrag des Feeds unverändert. */
+val Book.authorLine: String get() = if (kind == BookKind.BOOK) bookAuthorLine(author) else author
+
 private val CONTRIBUTOR_ROLES =
     listOf("translator", "übersetz", "narrator", "sprecher", "editor", "herausgeber", "illustrator", "foreword", "vorwort")
 

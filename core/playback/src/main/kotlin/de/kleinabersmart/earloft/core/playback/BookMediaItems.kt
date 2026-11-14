@@ -7,6 +7,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import de.kleinabersmart.earloft.core.data.spoken.PreparedBook
+import de.kleinabersmart.earloft.core.model.authorLine
 import de.kleinabersmart.earloft.core.model.BookKind
 
 /**
@@ -48,7 +49,7 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> =
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(book.title)
-                    .setArtist(book.author)
+                    .setArtist(book.authorLine)
                     .setAlbumTitle(book.title)
                     .setArtworkUri(CoverProvider.queueBookCoverUri(book.id))
                     .setDurationMs(timeline.tracks[index].durationMs)

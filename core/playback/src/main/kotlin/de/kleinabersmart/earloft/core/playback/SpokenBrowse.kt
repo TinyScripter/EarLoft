@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.data.spoken.authorGroups
 import de.kleinabersmart.earloft.core.data.spoken.seriesGroups
+import de.kleinabersmart.earloft.core.model.authorLine
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -102,7 +103,7 @@ internal class BookBrowse @Inject constructor(
     suspend fun bookItems(books: List<BookWithProgress>): List<MediaItem> {
         if (books.isEmpty()) return emptyList()
         val downloads = bookRepository.downloads().first()
-        return books.map { it.toPlayableSpokenItem(context, it.book.author, downloads[it.book.id]?.state) }
+        return books.map { it.toPlayableSpokenItem(context, it.book.authorLine, downloads[it.book.id]?.state) }
     }
 
     /** Das erste angefangene, nicht beendete Buch (Sprachbefehl ohne Begriff, wenn sonst nichts passt). */
