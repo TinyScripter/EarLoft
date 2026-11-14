@@ -6,6 +6,14 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
+import okhttp3.MediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import okio.Buffer
+import okio.BufferedSink
+import okio.source
+import java.io.File
+import java.util.concurrent.TimeUnit
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -135,6 +143,43 @@ class AbsApi @Inject constructor(
         }
     }
 
+    /**
+     * Lädt ein Buch hoch (`POST /api/upload`): Der Server legt `<Ordner>/<Autor>/<Titel>/` mit den Dateien an und nimmt es nach
+     * dem Scannen in die Bibliothek auf. Braucht das Recht „Hochladen“. Ein vorhandener Zielordner ist [AbsUploadExists].
+     * [onProgress] bekommt die gesendeten Bytes und die Gesamtgröße.
+     */
+    suspend fun uploadBook(server: AbsServer, upload: AbsUpload, onProgress: (sent: Long, total: Long) -> Unit = { _, _ -> }) {
+        val total = upload.files.sumOf { it.file.length() }
+        var sent = 0L
+        val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("title", upload.title)
+            .addFormDataPart("author", upload.author)
+            .apply { upload.series?.let { addFormDataPart("series", it) } }
+            .addFormDataPart("library", upload.libraryId)
+            .addFormDataPart("folder", upload.folderId)
+            .apply {
+                upload.files.forEachIndexed { index, part ->
+                    addFormDataPart(index.toString(), part.name, ProgressBody(part.file, part.mimeType.toMediaType()) { bytes ->
+                        sent += bytes
+                        onProgress(sent, total)
+                    })
+                }
+            }
+            .build()
+        // Große Dateien über ein langsames Netz: weder Gesamt- noch Schreibzeit begrenzen, solange Daten fließen.
+        val patient = client.newBuilder().callTimeout(0, TimeUnit.MILLISECONDS).writeTimeout(60, TimeUnit.SECONDS).build()
+        val request = authorized(server, server.endpoint("api/upload").build()) { post(body) }
+        withContext(Dispatchers.IO) {
+            patient.newCall(request).await().use { response ->
+                if (response.isSuccessful) return@use
+                val text = response.body.string()
+                // Der Server meldet einen vorhandenen Ordner als 500 mit Hinweis im Text.
+                if (response.code == 500 && text.contains("exist", ignoreCase = true)) throw AbsUploadExists()
+                throw AbsException(response.code, "HTTP ${response.code}: ${text.take(200)}")
+            }
+        }
+    }
+
     private fun authorized(server: AbsServer, url: HttpUrl, configure: Request.Builder.() -> Request.Builder = { this }): Request =
         Request.Builder().url(url).header("Authorization", "Bearer ${server.token}").configure().build()
 
@@ -160,6 +205,43 @@ class AbsApi @Inject constructor(
             explicitNulls = false
         }
         val JSON_MEDIA_TYPE = "application/json".toMediaType()
+    }
+}
+
+/** Das Buch ist auf dem Server schon vorhanden (der Zielordner besteht). */
+class AbsUploadExists : IOException("Das Buch gibt es auf dem Server schon")
+
+/** Ein Buch zum Hochladen: [title] und [author] bestimmen den Ordner, [files] die Dateien in dieser Reihenfolge. */
+data class AbsUpload(
+    val libraryId: String,
+    val folderId: String,
+    val title: String,
+    val author: String,
+    val series: String? = null,
+    val files: List<AbsUploadFile>,
+)
+
+/** Eine Datei des Uploads unter dem Namen [name] auf dem Server. */
+data class AbsUploadFile(val file: File, val name: String, val mimeType: String)
+
+/** Liest [file] und meldet jedes gesendete Stück, damit ein Upload seinen Fortschritt zeigen kann. */
+private class ProgressBody(private val file: File, private val type: MediaType, private val onBytes: (Long) -> Unit) : RequestBody() {
+    override fun contentType(): MediaType = type
+    override fun contentLength(): Long = file.length()
+    override fun writeTo(sink: BufferedSink) {
+        file.source().use { source ->
+            val buffer = Buffer()
+            while (true) {
+                val read = source.read(buffer, CHUNK_BYTES)
+                if (read == -1L) break
+                sink.write(buffer, read)
+                onBytes(read)
+            }
+        }
+    }
+
+    private companion object {
+        const val CHUNK_BYTES = 64L * 1024
     }
 }
 

@@ -1201,4 +1201,26 @@
         <item quantity="one">%d Titel</item>
         <item quantity="other">%d Titel</item>
     </plurals>
+    <!-- Hochladen eines Buchs aus ARD Sounds zu Audiobookshelf (books_improvements M9) -->
+    <string name="ard_upload_open">In Audiobookshelf hochladen</string>
+    <string name="ard_upload_title">In Audiobookshelf hochladen</string>
+    <string name="ard_upload_message">„%1$s“ wird mit Cover, Beschreibung und Sprecher hochgeladen. Es ersetzt dann dieses Buch aus ARD Sounds: Fortschritt, Lesezeichen und Tempo gehen mit, die geladenen Dateien hier werden gelöscht.</string>
+    <string name="ard_upload_size">Größe: %1$s</string>
+    <string name="ard_upload_target">Server „%1$s“, Bibliothek „%2$s“</string>
+    <string name="ard_upload_choose">Wohin soll es hochgeladen werden?</string>
+    <string name="ard_upload_hint">Ist das Buch noch nicht geladen, wird es zuerst heruntergeladen.</string>
+    <string name="ard_upload_action">Hochladen</string>
+    <string name="ard_upload_downloading">Lädt zuerst das Buch herunter …</string>
+    <string name="ard_upload_uploading">Lädt hoch … %1$s von %2$s</string>
+    <string name="ard_upload_no_target">Keines deiner Audiobookshelf-Konten darf hochladen. Bitte den Administrator um das Recht „Hochladen“.</string>
+    <string name="ard_upload_waiting_wifi">Der Download wartet auf WLAN. Versuche es nach dem Laden noch einmal.</string>
+    <string name="ard_upload_download_failed">Das Buch ließ sich nicht vollständig laden.</string>
+    <string name="ard_upload_exists">Dieses Buch gibt es auf dem Server schon (der Ordner Autor/Titel besteht).</string>
+    <string name="ard_upload_no_permission">Der Server hat den Upload abgelehnt. Prüfe das Recht „Hochladen“ deines Kontos.</string>
+    <string name="ard_upload_server_error">Der Server konnte das Buch nicht ablegen (HTTP 500). Meist kann Audiobookshelf nicht in den Bibliotheksordner schreiben: Prüfe, ob er für den Server beschreibbar ist.</string>
+    <string name="ard_upload_failed">Der Upload ist fehlgeschlagen. Versuche es später noch einmal.</string>
+    <string name="ard_upload_not_yet">Hochgeladen. Der Server hat das Buch noch nicht eingelesen; es erscheint beim nächsten Abgleich. Bis dahin bleibt diese Fassung aus ARD Sounds.</string>
+    <string name="ard_upload_kept_playing">Hochgeladen. Diese Fassung aus ARD Sounds läuft gerade und bleibt; entferne sie später mit „Aus der Bibliothek entfernen“.</string>
+    <string name="ard_upload_done">Zu Audiobookshelf hochgeladen</string>
+    <string name="action_ok">OK</string>
 </resources>

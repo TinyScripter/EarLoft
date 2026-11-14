@@ -1208,4 +1208,26 @@
         <item quantity="one">%d title</item>
         <item quantity="other">%d titles</item>
     </plurals>
+    <!-- Hochladen eines Buchs aus ARD Sounds zu Audiobookshelf (books_improvements M9) -->
+    <string name="ard_upload_open">Upload to Audiobookshelf</string>
+    <string name="ard_upload_title">Upload to Audiobookshelf</string>
+    <string name="ard_upload_message">“%1$s” will be uploaded with cover, description and narrator. It then replaces this book from ARD Sounds: progress, bookmarks and speed move with it, the downloaded files here are deleted.</string>
+    <string name="ard_upload_size">Size: %1$s</string>
+    <string name="ard_upload_target">Server “%1$s”, library “%2$s”</string>
+    <string name="ard_upload_choose">Choose where to upload:</string>
+    <string name="ard_upload_hint">If the book is not downloaded yet, it is downloaded first.</string>
+    <string name="ard_upload_action">Upload</string>
+    <string name="ard_upload_downloading">Downloading the book first …</string>
+    <string name="ard_upload_uploading">Uploading … %1$s of %2$s</string>
+    <string name="ard_upload_no_target">None of your Audiobookshelf accounts may upload. Ask the administrator for the “Upload” permission.</string>
+    <string name="ard_upload_waiting_wifi">The download waits for Wi-Fi. Try again once it is finished.</string>
+    <string name="ard_upload_download_failed">The book could not be downloaded completely.</string>
+    <string name="ard_upload_exists">This book is already on the server (the folder author/title exists).</string>
+    <string name="ard_upload_no_permission">The server refused the upload. Check the “Upload” permission of your account.</string>
+    <string name="ard_upload_server_error">The server could not store the book (HTTP 500). Usually Audiobookshelf cannot write to the library folder: check that it is writable for the server.</string>
+    <string name="ard_upload_failed">The upload failed. Try again later.</string>
+    <string name="ard_upload_not_yet">Uploaded. The server has not scanned the book yet; it appears after the next sync. This copy from ARD Sounds stays until then.</string>
+    <string name="ard_upload_kept_playing">Uploaded. This copy from ARD Sounds is playing right now and stays; remove it later with “Remove from library”.</string>
+    <string name="ard_upload_done">Uploaded to Audiobookshelf</string>
+    <string name="action_ok">OK</string>
 </resources>

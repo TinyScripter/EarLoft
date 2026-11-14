@@ -13,7 +13,12 @@ data class AbsLibraryDto(
     val name: String = "",
     /** `book` oder `podcast`. */
     val mediaType: String = "book",
+    /** Ordner der Bibliothek auf dem Server; ein Upload landet in einem davon (`books_improvements.md` M9). */
+    val folders: List<AbsFolderDto> = emptyList(),
 )
+
+@Serializable
+data class AbsFolderDto(val id: String, val fullPath: String = "")
 
 @Serializable
 data class AbsAuthorsResponse(val authors: List<AbsAuthorDto> = emptyList())
@@ -96,7 +101,16 @@ data class AbsMeResponse(
     val id: String = "",
     val mediaProgress: List<AbsMediaProgressDto> = emptyList(),
     val bookmarks: List<AbsBookmarkDto> = emptyList(),
-)
+    /** `root`, `admin` oder `user`; Administratoren dürfen immer hochladen. */
+    val type: String = "",
+    val permissions: AbsPermissionsDto = AbsPermissionsDto(),
+) {
+    /** Darf das Konto Bücher hochladen (`POST /api/upload`)? */
+    val canUpload: Boolean get() = type == "root" || type == "admin" || permissions.upload
+}
+
+@Serializable
+data class AbsPermissionsDto(val upload: Boolean = false)
 
 /** Lesezeichen des Kontos; der Server erkennt es an Eintrag und [time] (Sekunden). */
 @Serializable

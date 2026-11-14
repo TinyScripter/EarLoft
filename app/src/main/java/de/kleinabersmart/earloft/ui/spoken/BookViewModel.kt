@@ -67,6 +67,11 @@ class BookViewModel @AssistedInject constructor(
     var wasLoaded = false
         private set
 
+    /** Die Seite wird gerade ersetzt (nach dem Hochladen): Das Verschwinden des Buchs schließt sie nicht. */
+    fun markLeaving() {
+        wasLoaded = false
+    }
+
     /**
      * Der Podcast der Folge, wenn er nur ein Probeabo aus der Vorschau ist (Konzept 12.10); sonst `null`. Solange die
      * Seite offen ist, bleibt das Probeabo bestehen, auch wenn die Folge die Warteschlange verlässt.

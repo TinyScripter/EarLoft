@@ -332,6 +332,8 @@ fun EarLoftApp(
                 onOpenPlayer = navigator::showNowPlaying,
                 onOpenFeed = navigator::showFeed,
                 onOpenGroup = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
+                // Nach dem Hochladen tritt das Buch auf dem Server an die Stelle dieser Seite.
+                onReplaceBook = { navigator.replaceTop(BookRoute(it)) },
             )
         }
         entry<ArdSoundsRoute>(metadata = detailPane()) {

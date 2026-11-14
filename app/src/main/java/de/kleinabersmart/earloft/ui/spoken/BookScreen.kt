@@ -90,9 +90,13 @@ fun BookScreen(
     onOpenPlayer: () -> Unit,
     onOpenFeed: (String) -> Unit,
     onOpenGroup: (BookGroupKind, String) -> Unit,
+    onReplaceBook: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BookViewModel = hiltViewModel<BookViewModel, BookViewModel.Factory> { it.create(bookId) },
+    upload: ArdUploadViewModel = hiltViewModel<ArdUploadViewModel, ArdUploadViewModel.Factory> { it.create(bookId) },
 ) {
+    val uploadState by upload.state.collectAsStateWithLifecycle()
+    val canUpload by upload.hasServer.collectAsStateWithLifecycle()
     val item by viewModel.book.collectAsStateWithLifecycle()
     val trialFeedId by viewModel.trialFeedId.collectAsStateWithLifecycle()
     val chapters by viewModel.chapters.collectAsStateWithLifecycle()
@@ -112,6 +116,13 @@ fun BookScreen(
         viewModel.messages.collect { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
     }
     LaunchedEffect(viewModel) { viewModel.openPlayer.collect { onOpenPlayer() } }
+    LaunchedEffect(upload) {
+        upload.uploaded.collect {
+            snackbars.show(resources.getString(R.string.ard_upload_done), SnackbarDuration.Long)
+            viewModel.markLeaving()
+            onReplaceBook(it.bookId)
+        }
+    }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -164,6 +175,7 @@ fun BookScreen(
                 // Eine Folge ist klein und wird wie in der Folgenliste ohne Rückfrage gelöscht.
                 onDeleteDownload = { if (book.kind == BookKind.EPISODE) viewModel.removeDownload() else confirmDelete = true },
                 onOpenGroup = onOpenGroup,
+                onUpload = upload::start.takeIf { book.isArdSounds && canUpload },
                 trialNotice = trialFeedId?.let { feedId ->
                     @Composable {
                         TrialNotice(
@@ -202,6 +214,7 @@ fun BookScreen(
         }
         bookmarkActions.Dialog()
     }
+    ArdUploadDialogs(uploadState, title = book?.title.orEmpty(), onConfirm = upload::confirm, onDismiss = upload::dismiss)
 }
 
 /** Cover, Titel, Autor, Dauer, Fortschritt und Abspielen. */
@@ -219,6 +232,8 @@ private fun BookHeader(
     onCancelDownload: () -> Unit,
     onDeleteDownload: () -> Unit,
     onOpenGroup: (BookGroupKind, String) -> Unit,
+    /** Bücher aus ARD Sounds: „In Audiobookshelf hochladen“ (`null` = nicht anbieten). */
+    onUpload: (() -> Unit)? = null,
     trialNotice: (@Composable () -> Unit)? = null,
 ) {
     Column(
@@ -335,6 +350,12 @@ private fun BookHeader(
                 Text(stringResource(label), modifier = Modifier.padding(start = 8.dp), maxLines = 1)
             }
             if (!book.isLocal) DownloadButton(download, onDownload, onCancelDownload, onDeleteDownload, Modifier.weight(1f))
+        }
+        if (onUpload != null) {
+            TextButton(onClick = onUpload) {
+                Icon(painterResource(DesignR.drawable.ic_cloud), contentDescription = null)
+                Text(stringResource(R.string.ard_upload_open), modifier = Modifier.padding(start = 8.dp))
+            }
         }
         if (download == TrackDownload.QUEUED || download == TrackDownload.RUNNING) {
             Text(
