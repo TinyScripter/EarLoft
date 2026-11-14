@@ -62,8 +62,14 @@ import de.kleinabersmart.earloft.navigation.PodcastRoute
 import de.kleinabersmart.earloft.navigation.PodcastSearchRoute
 import de.kleinabersmart.earloft.navigation.PodcastSettingsRoute
 import de.kleinabersmart.earloft.navigation.AddPodcastRoute
+import de.kleinabersmart.earloft.navigation.ArdBookRoute
+import de.kleinabersmart.earloft.navigation.ArdShowRoute
+import de.kleinabersmart.earloft.navigation.ArdSoundsRoute
 import de.kleinabersmart.earloft.navigation.PodcastPreviewRoute
 import de.kleinabersmart.earloft.ui.spoken.AddPodcastScreen
+import de.kleinabersmart.earloft.ui.spoken.ArdBookPreviewScreen
+import de.kleinabersmart.earloft.ui.spoken.ArdShowScreen
+import de.kleinabersmart.earloft.ui.spoken.ArdSoundsScreen
 import de.kleinabersmart.earloft.ui.spoken.PodcastPreviewScreen
 import de.kleinabersmart.earloft.navigation.AddServerRoute
 import de.kleinabersmart.earloft.navigation.AlbumRoute
@@ -240,6 +246,7 @@ fun EarLoftApp(
     val openPodcastSettings: (String) -> Unit = { navigator.navigate(PodcastSettingsRoute(it)) }
     val openAddPodcast: () -> Unit = { navigator.navigate(AddPodcastRoute()) }
     val setupAudiobookshelf: () -> Unit = { navigator.navigate(AddAudiobookshelfRoute) }
+    val openArdSounds: () -> Unit = { navigator.navigate(ArdSoundsRoute()) }
     val editAudiobookshelf: (String) -> Unit = { navigator.navigate(EditAudiobookshelfRoute(it)) }
     // Modus gewechselt: die Detailspalte des vorigen Modus schließen (Tab auf seine Startseite zurück).
     val closeDetail: () -> Unit = { navigator.navigate(navigationState.topLevelRoute) }
@@ -275,6 +282,7 @@ fun EarLoftApp(
                         onOpenQueue = { navigator.navigate(BookQueueRoute) },
                         onSetup = setupAudiobookshelf,
                         onEditServer = editAudiobookshelf,
+                        onOpenArdSounds = openArdSounds,
                     )
                 },
                 onModeChange = closeDetail,
@@ -324,6 +332,35 @@ fun EarLoftApp(
                 onOpenPlayer = navigator::showNowPlaying,
                 onOpenFeed = navigator::showFeed,
                 onOpenGroup = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
+            )
+        }
+        entry<ArdSoundsRoute>(metadata = detailPane()) {
+            ArdSoundsScreen(
+                onBack = navigator::goBack,
+                onShow = { navigator.navigate(ArdShowRoute(it.id, it.title)) },
+                onBook = { navigator.navigate(ArdBookRoute(it.key, it.title)) },
+                onOpenBook = openBook,
+            )
+        }
+        entry<ArdShowRoute>(metadata = nestedDetailPane()) { route ->
+            ArdShowScreen(
+                showId = route.showId,
+                title = route.title,
+                onBack = navigator::goBack,
+                onBook = { navigator.navigate(ArdBookRoute(it.key, it.title)) },
+                onOpenBook = openBook,
+            )
+        }
+        entry<ArdBookRoute>(metadata = nestedDetailPane()) { route ->
+            // In der Bibliothek tritt die Buchseite an die Stelle der Vorschau; nach „Abspielen“ geht die Wiedergabe auf.
+            ArdBookPreviewScreen(
+                key = route.key,
+                title = route.title,
+                onBack = navigator::goBack,
+                onAdded = { bookId, openPlayer ->
+                    navigator.replaceTop(BookRoute(bookId))
+                    if (openPlayer) navigator.showNowPlaying()
+                },
             )
         }
         entry<PodcastRoute>(metadata = detailPane()) { route ->

@@ -1088,6 +1088,15 @@ fun AudiobookSettingsScreen(
                 }
             }
             row("audiobookshelf") { AudiobookshelfSection(onAdd = onAddServer, onEdit = onEditServer) }
+            row("ard-sounds-books") {
+                SwitchRow(
+                    title = stringResource(R.string.directory_ard_sounds),
+                    summary = stringResource(R.string.settings_ard_sounds_books_summary),
+                    icon = DesignR.drawable.ic_cloud,
+                    checked = state.ardSoundsBooks,
+                    onCheckedChange = viewModel::setArdSoundsBooks,
+                )
+            }
         }
 
         group("refresh", R.string.settings_section_refresh) {

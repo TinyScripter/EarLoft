@@ -92,6 +92,9 @@ class BookRepository @Inject constructor(
 
     suspend fun bookNow(bookId: Long): Book? = dao.book(bookId)?.toModel()
 
+    /** Die öffentliche Bild-Adresse des Buchs bzw. der Folge (ARD Sounds, Feeds); `null` ohne eine. */
+    suspend fun coverUrlOf(bookId: Long): String? = dao.book(bookId)?.coverUrl?.takeIf { it.startsWith("http") }
+
     /**
      * Beschreibung des Autors [name] von Audiobookshelf (`books_improvements.md` M8); steht er auf mehreren Servern, die erste
      * vorhandene. `null`, wenn kein Server eine hat.
@@ -203,6 +206,8 @@ internal fun BookEntity.toModel() = Book(
     transcriptUrl = transcriptUrl,
     genres = genres?.let { parsePeople(it) }.orEmpty(),
     libraryId = libraryId,
+    availableUntil = availableUntil,
+    webUrl = webUrl,
 )
 
 internal fun EpisodePersonEntity.toModel() = EpisodePerson(name, role, personGroup, imageUrl, url)

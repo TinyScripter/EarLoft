@@ -8,6 +8,7 @@ import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookListening
 import de.kleinabersmart.earloft.core.model.DeviceBookStats
+import de.kleinabersmart.earloft.core.model.isArdSoundsBook
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.model.MonthListening
 import de.kleinabersmart.earloft.core.model.PodcastListening
@@ -75,7 +76,7 @@ class StatsRepository @Inject constructor(
                 source = ListeningStatEntity.SOURCE_APP,
                 kind = BookKind.BOOK,
                 groupKey = book.serverId,
-                groupTitle = bookDao.server(book.serverId)?.name.orEmpty(),
+                groupTitle = bookDao.server(book.serverId)?.name ?: if (isArdSoundsBook(book.serverId)) "ARD Sounds" else "",
                 itemKey = book.remoteId,
                 itemTitle = book.title,
                 listenedMs = ms,

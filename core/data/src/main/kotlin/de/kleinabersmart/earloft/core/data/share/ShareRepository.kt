@@ -7,6 +7,7 @@ import de.kleinabersmart.earloft.core.database.dao.SourceDao
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.isArdSoundsBook
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsPageUrl
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsShowId
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -58,7 +59,8 @@ class ShareRepository @Inject constructor(
                 BookKind.BOOK -> content(
                     titleWithArtist(book.title, ShareLinks.mainAuthor(book.author) ?: book.author),
                     target.at?.label,
-                    ShareLinks.openLibrary(book.isbn, book.title, book.author),
+                    // Bücher aus ARD Sounds: ihre Seite dort (wie bei den Abos von dort).
+                    book.webUrl?.takeIf { isArdSoundsBook(book.serverId) } ?: ShareLinks.openLibrary(book.isbn, book.title, book.author),
                 )
                 BookKind.EPISODE -> episode(book, target.at)
             }

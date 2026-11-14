@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
+import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
 import de.kleinabersmart.earloft.core.data.spoken.BookProgressSync
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.download.BookDownloads
@@ -34,7 +35,23 @@ class EpisodeMenuViewModel @Inject constructor(
     private val progressSync: BookProgressSync,
     private val servicePlayer: ServicePlayer,
     private val launcher: BookLauncher,
+    private val ardBooks: ArdBooks,
 ) : ViewModel() {
+
+    /** Das Buch bzw. die Folge im Player; ein Buch aus ARD Sounds lässt sich dann nicht entfernen. */
+    val loadedBookId: StateFlow<Long?> = playback.state
+        .map { it.spoken?.bookId }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Ein Buch aus ARD Sounds samt Downloads aus der Bibliothek nehmen (`books_improvements.md` M9). */
+    fun removeFromLibrary(item: BookWithProgress) {
+        val id = item.book.id
+        if (!item.book.isArdSounds || loadedBookId.value == id) return
+        viewModelScope.launch {
+            bookDownloads.remove(id)
+            ardBooks.remove(id)
+        }
+    }
 
     /** Folgen, die gerade in der Zeile „Weiterhören“ (der Warteschlange) stehen. */
     val queued: StateFlow<Set<Long>> = continueListening.episodes

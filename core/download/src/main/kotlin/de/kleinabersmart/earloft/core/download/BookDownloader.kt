@@ -6,10 +6,12 @@ import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import de.kleinabersmart.earloft.core.model.isArdSoundsBook
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import java.io.IOException
 import javax.inject.Inject
@@ -59,8 +61,13 @@ class BookDownloader @Inject constructor(
 
     private suspend fun fetch(track: BookTrackEntity, network: Network?, onProgress: suspend (Long, Long?) -> Unit): DownloadOutcome {
         val book = dao.book(track.bookId) ?: return DownloadOutcome.Cancelled
-        val server = servers.server(book.serverId) ?: return DownloadOutcome.Failed("Server nicht eingerichtet")
-        val url = api.fileUrl(server, book.remoteId, track.remoteFileId)
+        // Bücher aus ARD Sounds: Die Dateikennung ist die Adresse der Datei (`books_improvements.md` M9).
+        val url = if (isArdSoundsBook(book.serverId)) {
+            track.remoteFileId.toHttpUrlOrNull() ?: return DownloadOutcome.Failed("Keine Adresse")
+        } else {
+            val server = servers.server(book.serverId) ?: return DownloadOutcome.Failed("Server nicht eingerichtet")
+            api.fileUrl(server, book.remoteId, track.remoteFileId)
+        }
         val transfer = if (network == null) transfer else ResumableTransfer(clientFor(network), storage)
         // „Download entfernen“ setzt den Zustand zurück; ohne die Frage liefe die Übertragung bis zum Ende weiter.
         return when (val result = transfer.run(url, track.bookId, track.trackIndex, onProgress, { stillRunning(track) })) {

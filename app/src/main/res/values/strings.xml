@@ -1178,4 +1178,34 @@
         <item quantity="other">%d playlists</item>
     </plurals>
     <string name="setup_backup_summary">Already have an EarLoft backup? Servers, subscriptions, progress and settings are back right away; you enter passwords again afterwards.</string>
+    <!-- Hörbücher und Hörspiele aus ARD Sounds (books_improvements M9) -->
+    <string name="settings_ard_sounds_books_summary">Audiobooks and radio plays of the German public broadcasters: browse, play, download. Uses an unofficial interface that may stop working; search terms and the books in your library are sent to the ARD.</string>
+    <string name="ard_books_open">Audiobooks from ARD Sounds</string>
+    <string name="ard_books_search_label">Search titles in ARD Sounds</string>
+    <string name="ard_books_results">Results</string>
+    <string name="ard_books_category_audiobook">Audiobooks</string>
+    <string name="ard_books_category_radio_play">Radio plays</string>
+    <string name="ard_books_none">No books in this show.</string>
+    <string name="ard_books_loading">Loading from ARD Sounds …</string>
+    <string name="ard_books_failed">ARD Sounds could not be reached.</string>
+    <string name="ard_books_gone">ARD Sounds no longer offers this book.</string>
+    <string name="ard_books_add">Add to library</string>
+    <string name="ard_books_add_failed">Could not add the book: ARD Sounds is not reachable.</string>
+    <string name="ard_books_in_library">In your library</string>
+    <string name="ard_books_read_by">read by %1$s</string>
+    <string name="ard_books_available_until">Available until %1$s</string>
+    <string name="ard_books_available_until_downloaded">Available until %1$s · downloaded, stays playable</string>
+    <string name="ard_books_expired">No longer available in ARD Sounds</string>
+    <string name="ard_books_expired_downloaded">No longer in ARD Sounds · downloaded, stays playable</string>
+    <string name="ard_books_remove">Remove from library</string>
+    <string name="ard_books_remove_title">Remove “%1$s”?</string>
+    <string name="ard_books_remove_message">Progress, bookmarks and downloads of this book will be deleted. The listening time stays in the statistics.</string>
+    <plurals name="ard_books_parts">
+        <item quantity="one">%d part</item>
+        <item quantity="other">%d parts</item>
+    </plurals>
+    <plurals name="ard_books_titles">
+        <item quantity="one">%d title</item>
+        <item quantity="other">%d titles</item>
+    </plurals>
 </resources>

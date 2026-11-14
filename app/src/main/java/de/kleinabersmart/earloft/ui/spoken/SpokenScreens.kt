@@ -141,9 +141,11 @@ fun SpokenHomeScreen(
     onOpenQueue: () -> Unit,
     onSetup: () -> Unit,
     onEditServer: (String) -> Unit,
+    onOpenArdSounds: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SpokenLibraryViewModel = hiltViewModel(),
 ) {
+    val ardSounds by viewModel.ardSounds.collectAsStateWithLifecycle()
     val continueState by viewModel.continueListening.collectAsStateWithLifecycle()
     val recentState by viewModel.recentlyAdded.collectAsStateWithLifecycle()
     val continueSeries by viewModel.continueSeries.collectAsStateWithLifecycle()
@@ -202,6 +204,15 @@ fun SpokenHomeScreen(
                     continueListening.isEmpty() && recent.isEmpty() && hasServer == true
                 ) {
                     item(key = "empty") { NoBooksHint(signInNeeded, onEditServer, viewModel::syncNow) }
+                }
+                // Hörbücher und Hörspiele aus ARD Sounds (books_improvements M9), wie „Podcast hinzufügen“ unter den Regalen.
+                if (ardSounds) {
+                    item(key = "ard-sounds") {
+                        FilledTonalButton(onClick = onOpenArdSounds, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Icon(painterResource(DesignR.drawable.ic_add), contentDescription = null)
+                            Text(stringResource(R.string.ard_books_open), modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
                 }
             }
         }

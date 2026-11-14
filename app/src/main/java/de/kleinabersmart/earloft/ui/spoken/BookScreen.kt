@@ -146,7 +146,11 @@ fun BookScreen(
                 item?.let { EpisodeMenuButton(it) }
             },
         )
-        if (book == null) return@Column
+        if (book == null) {
+            // Aus der Bibliothek entfernt (ARD Sounds): die Seite schließen.
+            LaunchedEffect(Unit) { if (viewModel.wasLoaded) onBack() }
+            return@Column
+        }
         val header = @Composable {
             BookHeader(
                 book, progress,
@@ -299,6 +303,8 @@ private fun BookHeader(
             remaining,
         )
         if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+        // Bücher aus ARD Sounds sind oft nur befristet abrufbar (`books_improvements.md` M9).
+        if (book.isArdSounds) book.availableUntil?.let { AvailabilityText(it, downloaded = download == TrackDownload.DONE) }
         if (progress != null && progress.positionMs > 0) {
             LinearProgressIndicator(
                 progress = { if (progress.finished) 1f else progress.fraction },

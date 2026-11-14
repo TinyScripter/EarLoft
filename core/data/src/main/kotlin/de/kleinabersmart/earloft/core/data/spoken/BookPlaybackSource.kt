@@ -81,9 +81,13 @@ class BookPlaybackSource @Inject constructor(
         // Ohne Streams (Uhr, Wear-Konzept 16.1) nur, wenn jede Datei auf dem Gerät liegt.
         if (!policy.allowStreaming && timeline.tracks.any { track -> track.localPath?.let(::File)?.isFile != true }) return null
         // Eine geladene Datei geht vor dem Stream (Folgen und Bücher, auch gemischt, wenn nur ein Teil geladen ist).
-        // Folgen und Bücher vom Gerät haben keinen Audiobookshelf-Server; ihre Dateikennung ist die Adresse selbst.
+        // Folgen, Bücher vom Gerät und aus ARD Sounds haben keinen Audiobookshelf-Server; ihre Dateikennung ist die Adresse selbst.
         // Ohne Streams liegt alles als Datei vor: Der Server wird dann nicht gebraucht (Uhr ohne Schlüssel, 16.2).
-        val server = if (episode || book.isLocal) null else servers.server(book.serverId) ?: if (policy.allowStreaming) return null else null
+        val server = if (episode || book.isLocal || book.isArdSounds) {
+            null
+        } else {
+            servers.server(book.serverId) ?: if (policy.allowStreaming) return null else null
+        }
         val urls = timeline.tracks.map { track ->
             track.localPath?.let(::File)?.takeIf { it.isFile }?.let { Uri.fromFile(it).toString() }
                 // Bei Folgen ist die Dateikennung die Audio-Adresse aus dem Feed.
@@ -127,7 +131,8 @@ class BookPlaybackSource @Inject constructor(
             speed = speed,
             castUrls = castUrls,
             absServerId = server?.serverId,
-            castCoverUrl = server?.let { api.coverUrl(it, book.remoteId, CAST_COVER_PX).toString() },
+            castCoverUrl = server?.let { api.coverUrl(it, book.remoteId, CAST_COVER_PX).toString() }
+                ?: repository.coverUrlOf(bookId).takeIf { book.isArdSounds },
             pausedSinceMs = if (forPlayback) null else progress?.takeUnless { it.finished }?.updatedAt,
         )
     }

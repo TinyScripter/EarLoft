@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.spoken
 
+import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsBooks
 import de.kleinabersmart.earloft.core.data.podcast.testFeedCredentials
 import android.content.Context
 import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
@@ -70,7 +71,8 @@ class BookPlaybackSourceTest {
         val settings = SpokenSettings(context)
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
-        val syncer = BookSyncer(dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, settings, covers))
+        val syncer = BookSyncer(dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, settings, covers),
+            ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), settings, covers))
         source = BookPlaybackSource(
             BookRepository(dao, syncer),
             servers,

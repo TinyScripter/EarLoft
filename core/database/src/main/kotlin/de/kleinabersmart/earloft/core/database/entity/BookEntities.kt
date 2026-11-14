@@ -185,6 +185,11 @@ data class BookEntity(
     val genres: String? = null,
     /** Bücher eines Audiobookshelf-Servers (v38): Bibliothek, aus der das Buch stammt; sonst `null`. */
     val libraryId: String? = null,
+    /**
+     * Bücher aus ARD Sounds (v40, `books_improvements.md` M9): bis wann alle Teile abrufbar sind (Unix-ms, der früheste Teil);
+     * `null` = unbefristet bzw. unbekannt.
+     */
+    val availableUntil: Long? = null,
 )
 
 /** Mitwirkende einer Folge aus dem Feed (`podcast:person`, v36), in der Reihenfolge des Feeds. */

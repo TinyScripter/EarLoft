@@ -170,7 +170,8 @@ class ArdSoundsApi(
         )
     }
 
-    private suspend fun <T> query(query: String, variables: JsonObject, serializer: KSerializer<T>): T = withContext(Dispatchers.IO) {
+    /** Eine GraphQL-Abfrage; auch für die Bücher aus ARD Sounds ([ArdSoundsBooks]). */
+    internal suspend fun <T> query(query: String, variables: JsonObject, serializer: KSerializer<T>): T = withContext(Dispatchers.IO) {
         val body = buildJsonObject {
             put("query", query)
             put("variables", variables)

@@ -28,6 +28,18 @@ const val LOCAL_PODCAST_PREFIX = "local:"
 /** Bücher und Folgen vom Gerät haben keinen Server: kein Download, kein Cast, Fortschritt nur lokal. */
 fun isLocalSource(serverId: String): Boolean = serverId == LOCAL_BOOK_SERVER_ID || serverId.startsWith(LOCAL_PODCAST_PREFIX)
 
+/**
+ * `serverId` der Hörbücher und Hörspiele aus ARD Sounds (`books_improvements.md` M9). Es gibt keinen Server wie bei Audiobookshelf:
+ * Die Dateikennung ist die Adresse der Datei (wie bei Folgen), Fortschritt und Lesezeichen bleiben auf dem Gerät; laden und casten
+ * geht.
+ */
+const val ARD_BOOK_SERVER_ID = "ardsounds"
+
+fun isArdSoundsBook(serverId: String): Boolean = serverId == ARD_BOOK_SERVER_ID
+
+/** Bücher ohne Audiobookshelf-Server (vom Gerät, aus ARD Sounds): Fortschritt, Lesezeichen und Sitzungen bleiben hier. */
+fun hasNoBookServer(serverId: String): Boolean = isLocalSource(serverId) || isArdSoundsBook(serverId)
+
 /** Schalter in der oberen Leiste von Start und Bibliothek (Konzept 12.5). */
 enum class SpokenMode { MUSIC, PODCASTS, BOOKS }
 
@@ -61,9 +73,16 @@ data class Book(
     val genres: List<String> = emptyList(),
     /** Bücher eines Audiobookshelf-Servers: die Bibliothek dort. */
     val libraryId: String? = null,
+    /** Bücher aus ARD Sounds: bis wann alle Teile abrufbar sind (Unix-ms); `null` = unbefristet bzw. unbekannt. */
+    val availableUntil: Long? = null,
+    /** Webseite des Buchs bzw. der Folge (ARD Sounds, Feed). */
+    val webUrl: String? = null,
 ) {
     /** Liegt auf diesem Gerät: kein Server, kein Download, kein Cast. */
     val isLocal: Boolean get() = isLocalSource(serverId)
+
+    /** Aus ARD Sounds (`books_improvements.md` M9). */
+    val isArdSounds: Boolean get() = isArdSoundsBook(serverId)
 
     val starred: Boolean get() = starredAt != null
 }

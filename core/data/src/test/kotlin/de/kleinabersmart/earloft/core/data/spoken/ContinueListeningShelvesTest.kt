@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.core.data.spoken
 
+import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsBooks
+import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsApi
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -56,7 +58,8 @@ class ContinueListeningShelvesTest {
         progressSync = BookProgressSync(context, dao, servers, api, PlaybackPolicy())
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
-        val syncer = BookSyncer(dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, SpokenSettings(context), covers))
+        val syncer = BookSyncer(dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, SpokenSettings(context), covers),
+            ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), SpokenSettings(context), covers))
         books = BookRepository(dao, syncer)
     }
 

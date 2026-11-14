@@ -137,6 +137,14 @@ abstract class BookDao {
     @Query("SELECT * FROM books WHERE serverId = :serverId")
     abstract suspend fun booksOf(serverId: String): List<BookEntity>
 
+    /** Die Kennungen der Bücher einer Quelle (Katalog von ARD Sounds: Welche Bücher sind schon in der Bibliothek?). */
+    @Query("SELECT bookId, serverId, remoteId FROM books WHERE serverId = :serverId")
+    abstract fun observeBookRefsOf(serverId: String): Flow<List<BookRef>>
+
+    /** Ein Buch samt Dateien, Kapiteln, Fortschritt und Lesezeichen (Kaskade); die Statistik bleibt. */
+    @Query("DELETE FROM books WHERE bookId = :bookId")
+    abstract suspend fun deleteBook(bookId: Long)
+
     /** Alle Bücher und Folgen, auch ausgeblendete: Ihre Bilder bleiben auf dem Gerät, solange es sie gibt. */
     @Query("SELECT bookId, serverId, kind, coverUrl FROM books")
     abstract suspend fun coverRows(): List<BookCoverRow>

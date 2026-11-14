@@ -60,7 +60,12 @@ class BookViewModel @AssistedInject constructor(
 ) : ViewModel() {
 
     val book: StateFlow<BookWithProgress?> = books.book(bookId)
+        .onEach { if (it != null) wasLoaded = true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Das Buch war schon da; ist es jetzt `null`, wurde es entfernt (nicht: lädt noch). */
+    var wasLoaded = false
+        private set
 
     /**
      * Der Podcast der Folge, wenn er nur ein Probeabo aus der Vorschau ist (Konzept 12.10); sonst `null`. Solange die

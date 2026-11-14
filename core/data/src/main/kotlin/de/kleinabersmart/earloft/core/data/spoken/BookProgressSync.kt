@@ -20,7 +20,7 @@ import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookProgress
-import de.kleinabersmart.earloft.core.model.isLocalSource
+import de.kleinabersmart.earloft.core.model.hasNoBookServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsMeResponse
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsMediaProgressDto
@@ -115,8 +115,8 @@ class BookProgressSync @Inject constructor(
         // Uhr: Den Stand meldet sie dem Handy (Wear-Konzept 16.2).
         if (!policy.syncsWithBookServers) return true
         val book = dao.book(bookId) ?: return true
-        if (book.kind == BookKind.EPISODE || isLocalSource(book.serverId)) {
-            // Folgen und Bücher vom Gerät haben keinen Server, der den Fortschritt kennen müsste.
+        if (book.kind == BookKind.EPISODE || hasNoBookServer(book.serverId)) {
+            // Folgen und Bücher vom Gerät bzw. aus ARD Sounds haben keinen Server, der den Fortschritt kennen müsste.
             dao.markClean(bookId, progress.updatedAt)
             return true
         }

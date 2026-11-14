@@ -27,6 +27,7 @@ import javax.inject.Singleton
 
 internal val KEY_LOCAL_PODCASTS = booleanPreferencesKey("local_podcasts")
 internal val KEY_LOCAL_BOOKS = booleanPreferencesKey("local_books")
+private val KEY_ARD_SOUNDS_BOOKS = booleanPreferencesKey("ard_sounds_books")
 
 internal val Context.spokenSettingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "spoken_settings",
@@ -81,6 +82,16 @@ class SpokenSettings @Inject constructor(
 
     suspend fun setUseLocalBooks(enabled: Boolean) {
         context.spokenSettingsDataStore.edit { it[KEY_LOCAL_BOOKS] = enabled }
+    }
+
+    /**
+     * Hörbücher und Hörspiele aus ARD Sounds (`books_improvements.md` M9, Standard: aus): Seite „ARD Sounds“ in *Bücher* und Abgleich
+     * der Bücher von dort. Aus fragt die App ARD Sounds nicht mehr; Bücher in der Bibliothek bleiben hörbar.
+     */
+    val ardSoundsBooks: Flow<Boolean> = context.spokenSettingsDataStore.data.map { it[KEY_ARD_SOUNDS_BOOKS] ?: false }
+
+    suspend fun setArdSoundsBooks(enabled: Boolean) {
+        context.spokenSettingsDataStore.edit { it[KEY_ARD_SOUNDS_BOOKS] = enabled }
     }
 
     /** Podcast-Dateien aus dem Ordner „Podcasts“ auf diesem Gerät anzeigen (Standard: aus). */

@@ -17,6 +17,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.datasource.local.LocalBookScanner
 import de.kleinabersmart.earloft.core.model.AppUris
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.isArdSoundsBook
 import de.kleinabersmart.earloft.core.model.isLocalSource
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.podcast.PodcastFeedApi
@@ -170,6 +171,9 @@ class BookCovers @Inject constructor(
                 ?: dao.tracks(book.bookId).firstOrNull()?.remoteFileId?.takeIf { it.startsWith("content:") }?.let { localScanner.cover(it) }
         } else if (book.kind == BookKind.EPISODE) {
             null
+        } else if (isArdSoundsBook(book.serverId)) {
+            // Bücher aus ARD Sounds tragen die Bild-Adresse von dort.
+            book.coverUrl?.takeIf { it.startsWith("http") }?.let { podcastApi.image(it) }
         } else {
             servers.server(book.serverId)?.let { api.cover(it, book.remoteId, WIDTH_PX) }
         }

@@ -108,6 +108,31 @@ data class PodcastPreviewRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
+/** Seite „ARD Sounds“ in *Bücher*: Rubriken Hörbuch/Hörspiel und Suche (`books_improvements.md` M9). */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class ArdSoundsRoute(
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
+/** Die Bücher einer Sendung aus ARD Sounds. */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class ArdShowRoute(
+    val showId: String,
+    val title: String,
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
+/** Vorschau eines Buchs aus ARD Sounds; [key] ist seine Kennung dort. */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class ArdBookRoute(
+    val key: String,
+    val title: String,
+    @EncodeDefault val instanceId: String = newInstanceId(),
+) : NavKey
+
 enum class BookGroupKind { SERIES, AUTHOR, NARRATOR, GENRE }
 
 /** Alle Bücher einer Serie, eines Autors, eines Sprechers oder eines Genres. */

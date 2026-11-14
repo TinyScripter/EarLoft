@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.ui.spoken
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.data.podcast.EpisodeQueue
@@ -40,6 +41,7 @@ class SpokenLibraryViewModel @Inject constructor(
     queue: EpisodeQueue,
     private val refresher: SpokenRefresher,
     private val settings: SpokenSettings,
+    ardBooks: ArdBooks,
 ) : ViewModel() {
 
     /** Das Buch, das gerade läuft (nicht: pausiert). */
@@ -147,8 +149,15 @@ class SpokenLibraryViewModel @Inject constructor(
         viewModelScope.launch { settings.setBookFilter(filter) }
     }
 
-    /** `null`, solange noch geladen wird. */
-    val hasServer: StateFlow<Boolean?> = servers.servers.map<_, Boolean?> { it.isNotEmpty() }
+    /** Hörbücher und Hörspiele aus ARD Sounds sind eingeschaltet (`books_improvements.md` M9): Start zeigt den Weg dorthin. */
+    val ardSounds: StateFlow<Boolean> = settings.ardSoundsBooks
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Ein Audiobookshelf-Server oder ARD Sounds als Quelle (bzw. Bücher von dort); `null`, solange noch geladen wird. */
+    val hasServer: StateFlow<Boolean?> = combine(servers.servers, settings.ardSoundsBooks, ardBooks.library) { list, ard, ardLibrary ->
+        list.isNotEmpty() || ard || ardLibrary.isNotEmpty()
+    }
+        .map<_, Boolean?> { it }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**

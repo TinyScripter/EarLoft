@@ -89,6 +89,8 @@ data class SettingsUiState(
     val alwaysShowNavigationBar: Boolean = true,
     val useLocalMedia: Boolean = false,
     val useLocalBooks: Boolean = false,
+    /** Hörbücher und Hörspiele aus ARD Sounds (`books_improvements.md` M9). */
+    val ardSoundsBooks: Boolean = false,
     /** Der Ordner „Audiobooks“ ist freigegeben (Cover und Texte der Buchordner, `books_improvements.md` M7). */
     val localBooksFolderShared: Boolean = false,
     val useLocalPodcasts: Boolean = false,
@@ -270,8 +272,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(playerCoverColors = player, widgetCoverColors = widget)
     }.combine(combine(spokenSettings.useLocalBooks, spokenSettings.useLocalPodcasts, localBooks.folderShared, ::Triple)) { state, (books, podcasts, folder) ->
         state.copy(useLocalBooks = books, useLocalPodcasts = podcasts, localBooksFolderShared = folder)
-    }.combine(audiobookServers.servers) { state, list ->
-        state.copy(audiobookServerCount = list.size)
+    }.combine(combine(audiobookServers.servers, spokenSettings.ardSoundsBooks, ::Pair)) { state, (list, ard) ->
+        state.copy(audiobookServerCount = list.size, ardSoundsBooks = ard)
     }.combine(combine(podcastRepository.feeds, podcastRepository.archivedFeeds, ::Pair)) { state, (feeds, archived) ->
         state.copy(podcastFeedCount = feeds.size, archivedPodcasts = archived, problemPodcasts = feeds.filter { it.hasProblem })
     }.combine(combine(librarySettings.syncIntervalDays, librarySettings.mobileStreamQuality, ::Pair)) { state, (days, quality) ->
@@ -467,6 +469,10 @@ class SettingsViewModel @Inject constructor(
     /** Einlesen bzw. Entfernen der Bücher vom Gerät übernimmt der [SpokenRefresher]. */
     fun setUseLocalBooks(enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setUseLocalBooks(enabled) }
+    }
+
+    fun setArdSoundsBooks(enabled: Boolean) {
+        viewModelScope.launch { spokenSettings.setArdSoundsBooks(enabled) }
     }
 
     /** Hier beginnt die Auswahl des Ordners „Audiobooks“. */

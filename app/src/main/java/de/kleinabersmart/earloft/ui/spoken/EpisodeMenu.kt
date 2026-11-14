@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -14,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -99,6 +101,8 @@ fun EpisodeMenu(
     val queueHead by viewModel.queueHead.collectAsStateWithLifecycle()
     val queueSecond by viewModel.queueSecond.collectAsStateWithLifecycle()
     val trialFeeds by viewModel.trialFeeds.collectAsStateWithLifecycle()
+    val loadedBookId by viewModel.loadedBookId.collectAsStateWithLifecycle()
+    var confirmRemove by remember { mutableStateOf(false) }
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     val id = item.book.id
@@ -201,5 +205,27 @@ fun EpisodeMenu(
                 )
             }
         }
+        // Bücher aus ARD Sounds kamen von Hand in die Bibliothek und gehen auch so wieder (nicht, solange sie im Player sind).
+        if (item.book.isArdSounds && loadedBookId != id) DropdownMenuItem(
+            text = { Text(stringResource(R.string.ard_books_remove)) },
+            onClick = {
+                confirmRemove = true
+                onDismiss()
+            },
+        )
+    }
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text(stringResource(R.string.ard_books_remove_title, item.book.title)) },
+            text = { Text(stringResource(R.string.ard_books_remove_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRemove = false
+                    viewModel.removeFromLibrary(item)
+                }) { Text(stringResource(R.string.ard_books_remove)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
     }
 }

@@ -42,14 +42,16 @@ class BookSyncer @Inject constructor(
     private val progressSync: BookProgressSync,
     private val bookmarks: Bookmarks,
     private val localBooks: LocalBooks,
+    private val ardBooks: ArdBooks,
 ) {
     private val syncMutex = Mutex()
 
-    /** `ok`, wenn alle Server und der Ordner „Audiobooks“ abgeglichen werden konnten. */
+    /** `ok`, wenn alle Server, der Ordner „Audiobooks“ und die Bücher aus ARD Sounds abgeglichen werden konnten. */
     suspend fun syncAll(): BookSyncResult {
         val local = localBooks.sync()
         val results = servers.all().map { syncSafely(it) }
-        return BookSyncResult(results.all { it.ok } && local, results.flatMap { it.newBooks })
+        val ard = ardBooks.refresh()
+        return BookSyncResult(results.all { it.ok } && local && ard, results.flatMap { it.newBooks })
     }
 
     suspend fun syncSafely(server: AbsServer): BookSyncResult =

@@ -21,7 +21,7 @@ import de.kleinabersmart.earloft.core.database.dao.AbsSessionDao
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.AbsSessionEntity
 import de.kleinabersmart.earloft.core.model.BookKind
-import de.kleinabersmart.earloft.core.model.isLocalSource
+import de.kleinabersmart.earloft.core.model.hasNoBookServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsDeviceInfo
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsLocalSession
@@ -76,7 +76,7 @@ class AbsSessionReporter @Inject constructor(
         if (!policy.syncsWithBookServers) return
         val sessionId = mutex.withLock {
             val book = bookDao.book(bookId) ?: return
-            if (book.kind != BookKind.BOOK || isLocalSource(book.serverId)) return
+            if (book.kind != BookKind.BOOK || hasNoBookServer(book.serverId)) return
             val existing = activeSession[bookId]?.let { dao.session(it) }?.takeIf { now - it.updatedAt <= SESSION_GAP_MS }
             val session = existing?.copy(
                 updatedAt = now,
