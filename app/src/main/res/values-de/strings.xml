@@ -522,6 +522,7 @@
     </plurals>
     <string name="spoken_continue">Weiterhören</string>
     <string name="spoken_recent">Zuletzt hinzugefügt</string>
+    <string name="spoken_continue_series">Serie fortsetzen</string>
     <string name="spoken_no_server">Noch kein Audiobookshelf-Server eingerichtet.</string>
     <string name="spoken_no_books">Noch keine Bücher.</string>
     <string name="spoken_login_expired">Die Anmeldung bei „%1$s“ ist abgelaufen. Melde dich neu an, um die Bücher zu sehen.</string>
@@ -835,6 +836,14 @@
     </plurals>
     <string name="book_hide_from_continue">Aus „Weiterhören“ entfernen</string>
     <string name="book_series_volume">%1$s · Band %2$s</string>
+    <string name="series_finished_count">%1$d von %2$d gehört</string>
+    <string name="series_all_finished">Alle %1$d gehört</string>
+    <string name="series_continue_with">Weiter mit Band %1$s</string>
+    <string name="series_start_with">Beginnen mit Band %1$s</string>
+    <string name="series_continue_with_title">Weiter mit „%1$s“</string>
+    <string name="series_start_with_title">Beginnen mit „%1$s“</string>
+    <string name="series_next_volume">Nächster Band</string>
+    <string name="series_next_volume_number">Nächster Band · Band %1$s</string>
     <string name="book_open_series">Serie öffnen</string>
     <string name="book_open_author">Autor öffnen</string>
     <string name="book_open_narrator">Sprecher öffnen</string>

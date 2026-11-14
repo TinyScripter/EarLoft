@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.data.spoken.SpokenEffectsRepository
+import de.kleinabersmart.earloft.core.data.spoken.nextInSeries
 import de.kleinabersmart.earloft.core.model.EffectLayers
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookTimeline
@@ -54,6 +55,24 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     val book: StateFlow<BookWithProgress?> = bookId
         .flatMapLatest { id -> if (id == null) flowOf(null) else books.book(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Ist das laufende Buch zu Ende gehört, der nächste Band seiner Serie mit Nummer (Karte im Player, books_improvements M2);
+     * er startet nie von selbst.
+     */
+    val nextInSeries: StateFlow<Pair<BookWithProgress, Double?>?> = book
+        .map { current -> current?.takeIf { it.book.kind == BookKind.BOOK && it.progress?.finished == true }?.book?.id }
+        .distinctUntilChanged()
+        .flatMapLatest { finishedId ->
+            if (finishedId == null) {
+                flowOf(null)
+            } else {
+                books.books().map { all -> all.firstOrNull { it.book.id == finishedId }?.let { nextInSeries(it, all) } }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun playBook(bookId: Long) = launcher.play(bookId)
 
     /** Podcast-Folgen haben nur den einen Regler über die ganze Länge. */
     val isEpisode: StateFlow<Boolean> = book

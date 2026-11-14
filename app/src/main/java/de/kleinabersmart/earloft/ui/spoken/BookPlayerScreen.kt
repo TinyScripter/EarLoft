@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -53,6 +54,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -153,6 +155,7 @@ private fun BookPlayerContent(
     val bookWithProgress by viewModel.book.collectAsStateWithLifecycle()
     val hasTranscript by viewModel.hasTranscript.collectAsStateWithLifecycle()
     val transcript by viewModel.transcript.collectAsStateWithLifecycle()
+    val nextInSeries by viewModel.nextInSeries.collectAsStateWithLifecycle()
     val entry = state.spoken
     val seek = entry?.seek ?: SeekSteps.DEFAULT
     // Die Position im Buch braucht die Zeitachse; ist sie geladen, einmal neu lesen (auch pausiert).
@@ -405,12 +408,25 @@ private fun BookPlayerContent(
         val chapterLinkLabel = stringResource(R.string.spoken_chapter_link)
         val art: @Composable (Modifier) -> Unit = { artModifier ->
             val link = currentChapter?.url
-            BookArt(
-                entry.bookId,
-                if (link != null) artModifier.clickable(onClickLabel = chapterLinkLabel) { openLink(link) } else artModifier,
-                coverShape,
-                chapterImage = currentChapter?.imageUrl,
-            )
+            // Zu Ende gehört: unten auf dem Cover der nächste Band der Serie (books_improvements M2), startet nur per Tipp.
+            // Quadratisch wie das Cover selbst, damit die Karte auf ihm liegt und nicht daneben.
+            Box(artModifier.aspectRatio(1f)) {
+                BookArt(
+                    entry.bookId,
+                    if (link != null) Modifier.fillMaxSize().clickable(onClickLabel = chapterLinkLabel) { openLink(link) } else Modifier.fillMaxSize(),
+                    coverShape,
+                    chapterImage = currentChapter?.imageUrl,
+                )
+                nextInSeries?.let { (next, volume) ->
+                    NextVolumeCard(
+                        next.book.id,
+                        next.book.title,
+                        volume,
+                        onPlay = { viewModel.playBook(next.book.id) },
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
+                    )
+                }
+            }
         }
 
         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -617,6 +633,33 @@ private enum class SidePane { DESCRIPTION, CHAPTERS, BOOKMARKS, QUEUE }
 
 private const val NOTES_DESCRIPTION = 0
 private const val NOTES_TRANSCRIPT = 1
+
+/** Karte über dem Cover eines zu Ende gehörten Buchs: nächster Band der Serie mit Abspielen. */
+@Composable
+private fun NextVolumeCard(bookId: Long, title: String, volume: Double?, onPlay: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shadowElevation = 4.dp,
+    ) {
+        Row(Modifier.clickable(onClick = onPlay).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            BookArt(bookId, Modifier.size(48.dp), MaterialTheme.shapes.small)
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(
+                    volume?.let { stringResource(R.string.series_next_volume_number, volumeNumber(it)) } ?: stringResource(R.string.series_next_volume),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                )
+                Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            FilledTonalIconButton(onClick = onPlay) {
+                Icon(painterResource(DesignR.drawable.ic_play), contentDescription = stringResource(R.string.spoken_play))
+            }
+        }
+    }
+}
 
 /**
  * Beschreibung bzw. Shownotes; gibt es ein Transkript ([transcript]), als Reiter „Beschreibung“ und „Transkript“ ([tab]).

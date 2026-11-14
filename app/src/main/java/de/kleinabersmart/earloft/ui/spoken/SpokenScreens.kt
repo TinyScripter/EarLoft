@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
@@ -42,7 +43,10 @@ import androidx.compose.ui.semantics.contentDescription
 import de.kleinabersmart.earloft.core.common.sortKey
 import de.kleinabersmart.earloft.core.data.spoken.BookGroup
 import de.kleinabersmart.earloft.core.data.spoken.authorGroups
+import de.kleinabersmart.earloft.core.data.spoken.SeriesProgress
+import de.kleinabersmart.earloft.core.data.spoken.SeriesStep
 import de.kleinabersmart.earloft.core.data.spoken.genreGroups
+import de.kleinabersmart.earloft.core.data.spoken.seriesProgress
 import de.kleinabersmart.earloft.core.data.spoken.narratorGroups
 import de.kleinabersmart.earloft.core.data.spoken.seriesGroups
 import de.kleinabersmart.earloft.core.data.spoken.sortedAuthors
@@ -136,6 +140,7 @@ fun SpokenHomeScreen(
 ) {
     val continueState by viewModel.continueListening.collectAsStateWithLifecycle()
     val recentState by viewModel.recentlyAdded.collectAsStateWithLifecycle()
+    val continueSeries by viewModel.continueSeries.collectAsStateWithLifecycle()
     val hasServer by viewModel.hasServer.collectAsStateWithLifecycle()
     val signInNeeded by viewModel.signInNeeded.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
@@ -143,6 +148,7 @@ fun SpokenHomeScreen(
     val recent = recentState.valueOrNull.orEmpty()
     val rowState = rememberFrontRowState(continueListening.map { it.book.id })
     val recentRowState = rememberFrontRowState(recent.map { it.book.id })
+    val seriesRowState = rememberFrontRowState(continueSeries.map { it.first.book.id })
 
     Column(modifier.fillMaxSize()) {
         when {
@@ -159,6 +165,21 @@ fun SpokenHomeScreen(
                             },
                         ) {
                             BookRow(continueListening, onBookClick, state = rowState, playingId = playingId, onPlay = viewModel::playOrPause)
+                        }
+                    }
+                }
+                // Nächster Band von Serien, in denen zuletzt einer beendet wurde (books_improvements M2).
+                if (continueSeries.isNotEmpty()) {
+                    item(key = "series") {
+                        Shelf(stringResource(R.string.spoken_continue_series)) {
+                            BookRow(
+                                continueSeries.map { it.first },
+                                onBookClick,
+                                state = seriesRowState,
+                                playingId = playingId,
+                                onPlay = viewModel::playOrPause,
+                                volumes = continueSeries.mapNotNull { (item, volume) -> volume?.let { item.book.id to volumeNumber(it) } }.toMap(),
+                            )
                         }
                     }
                 }
@@ -233,7 +254,7 @@ fun SpokenLibraryScreen(
             booksState.valueOrNull.isNullOrEmpty() -> NoBooksHint(signInNeeded, onEditServer, viewModel::syncNow)
             else -> {
                 val all = booksState.valueOrNull.orEmpty()
-                val series = remember(all, seriesSort) { all.seriesGroups().sortedSeries(seriesSort) }
+                val series = remember(all, seriesSort) { all.seriesGroups().sortedSeries(seriesSort).seriesProgress() }
                 val authors = remember(all, authorSort) { all.authorGroups().sortedAuthors(authorSort) }
                 PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
                     BookTab.entries.forEachIndexed { index, tab ->
@@ -272,7 +293,7 @@ fun SpokenLibraryScreen(
                                 resetKey = Triple(bookSort, bookFilter, bookGenre),
                             )
                         }
-                        BookTab.SERIES -> BookGroupList(series, byName = seriesSort == SeriesSort.NAME, resetKey = seriesSort) {
+                        BookTab.SERIES -> SeriesList(series, byName = seriesSort == SeriesSort.NAME, resetKey = seriesSort) {
                             onGroupClick(BookGroupKind.SERIES, it)
                         }
                         BookTab.AUTHORS -> AuthorGrid(authors, byName = authorSort == AuthorSort.NAME, resetKey = authorSort) {
@@ -300,6 +321,8 @@ private fun BookGrid(
     header: (@Composable () -> Unit)? = null,
     volumes: Map<Long, String> = emptyMap(),
     resetKey: Any? = null,
+    /** Beendete Bücher mit vollem Balken (Serienseite). */
+    markFinished: Boolean = false,
 ) {
     val state = rememberLazyGridState()
     var shownKey by rememberSaveable { mutableStateOf(resetKey?.toString()) }
@@ -328,6 +351,7 @@ private fun BookGrid(
                     playing = item.book.id == playingId,
                     contentPadding = GridTilePadding,
                     volume = volumes[item.book.id],
+                    markFinished = markFinished,
                 )
             }
         }
@@ -510,9 +534,12 @@ private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?
     }
 }
 
-/** Serien mit dem Cover des ersten Buchs und der Anzahl; Buchstaben-Gruppen und Schnellscroller nur nach Name ([byName]). */
+/**
+ * Serien mit dem Cover des Bands, mit dem es weitergeht (sonst des ersten), und ihrem Stand: „3 von 7 gehört“, solange noch
+ * keiner beendet ist die Anzahl. Schnellscroller nur nach Name ([byName]).
+ */
 @Composable
-private fun BookGroupList(groups: List<BookGroup>, byName: Boolean, resetKey: Any?, onClick: (String) -> Unit) {
+private fun SeriesList(groups: List<SeriesProgress>, byName: Boolean, resetKey: Any?, onClick: (String) -> Unit) {
     if (groups.isEmpty()) {
         EmptyHint(stringResource(R.string.spoken_no_series))
         return
@@ -524,14 +551,45 @@ private fun BookGroupList(groups: List<BookGroup>, byName: Boolean, resetKey: An
             groupedItems(groups, key = { it.name }) { group ->
                 ListItem(
                     headlineContent = { Text(group.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    supportingContent = { Text(pluralStringResource(R.plurals.book_count, group.books.size, group.books.size)) },
-                    leadingContent = { BookArt(group.books.first().book.id, Modifier.size(48.dp), MaterialTheme.shapes.small) },
+                    supportingContent = { Text(seriesState(group)) },
+                    leadingContent = {
+                        BookArt((group.next ?: group.books.first()).book.id, Modifier.size(48.dp), MaterialTheme.shapes.small)
+                    },
                     modifier = Modifier.clickable { onClick(group.name) },
                 )
             }
         }
         if (byName) LazyListFastScroller(state, labelAt = { index -> letterOf(groups.getOrNull(index)?.name.orEmpty().sortKey()) })
     }
+}
+
+/** Kopf der Serienseite: Stand der Serie und „Weiter mit Band 4“ bzw. „Beginnen mit Band 1“ (spielt ihn). */
+@Composable
+private fun SeriesHeader(series: SeriesProgress, playingId: Long?, onPlay: (Long) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(seriesState(series), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val next = series.next
+        if (next != null && next.book.id != playingId) {
+            val volume = series.nextVolume?.let(::volumeNumber)
+            val start = series.step == SeriesStep.START
+            val label = when {
+                volume != null -> stringResource(if (start) R.string.series_start_with else R.string.series_continue_with, volume)
+                else -> stringResource(if (start) R.string.series_start_with_title else R.string.series_continue_with_title, next.book.title)
+            }
+            FilledTonalButton(onClick = { onPlay(next.book.id) }, modifier = Modifier.fillMaxWidth()) {
+                Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null)
+                Text(label, modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+/** „3 von 7 gehört“, „Alle 7 gehört“ bzw. ohne beendeten Band „7 Bücher“. */
+@Composable
+private fun seriesState(series: SeriesProgress): String = when {
+    series.finished == 0 -> pluralStringResource(R.plurals.book_count, series.total, series.total)
+    series.next == null -> stringResource(R.string.series_all_finished, series.total)
+    else -> stringResource(R.string.series_finished_count, series.finished, series.total)
 }
 
 /** Alle Bücher einer Serie, eines Autors oder eines Sprechers. */
@@ -571,7 +629,17 @@ fun BookGroupScreen(
                         }.toMap()
                     }
                 }
-                BookGrid(group.books, onBookClick, playingId, viewModel::playOrPause, volumes = volumes)
+                // Serien: oben der Stand und der Band, mit dem es weitergeht (books_improvements M2); beendete Bände mit vollem Balken.
+                val series = remember(group, kind) { if (kind == BookGroupKind.SERIES) seriesProgress(name, group.books) else null }
+                BookGrid(
+                    group.books,
+                    onBookClick,
+                    playingId,
+                    viewModel::playOrPause,
+                    volumes = volumes,
+                    header = series?.let { { SeriesHeader(it, playingId, viewModel::playOrPause) } },
+                    markFinished = series != null,
+                )
             }
         }
     }
@@ -607,6 +675,8 @@ internal fun BookRow(
     state: LazyListState = rememberLazyListState(),
     playingId: Long? = null,
     onPlay: ((Long) -> Unit)? = null,
+    /** Band je Buch oben links auf dem Cover (Regal „Serie fortsetzen“). */
+    volumes: Map<Long, String> = emptyMap(),
 ) {
     LazyRow(
         state = state,
@@ -623,6 +693,7 @@ internal fun BookRow(
                 onPlay = onPlay?.let { play -> { play(item.book.id) } },
                 playing = item.book.id == playingId,
                 withTime = item.book.id in sameDay,
+                volume = volumes[item.book.id],
             )
         }
     }
@@ -687,6 +758,8 @@ fun BookCard(
     withTime: Boolean = false,
     volume: String? = null,
     selection: EpisodeSelection? = null,
+    /** Beendet: voller Balken statt keinem (Serienseite). */
+    markFinished: Boolean = false,
 ) {
     // Kontextmenü per Langklick, bei Folgen und Büchern.
     var menu by remember { mutableStateOf(false) }
@@ -724,6 +797,8 @@ fun BookCard(
         Box(Modifier.fillMaxWidth().padding(top = 6.dp).height(PROGRESS_HEIGHT)) {
             if (progress != null && progress.positionMs > 0 && !progress.finished) {
                 LinearProgressIndicator(progress = { progress.fraction }, modifier = Modifier.fillMaxWidth(), drawStopIndicator = {})
+            } else if (markFinished && progress?.finished == true) {
+                LinearProgressIndicator(progress = { 1f }, modifier = Modifier.fillMaxWidth(), drawStopIndicator = {})
             }
         }
         Text(

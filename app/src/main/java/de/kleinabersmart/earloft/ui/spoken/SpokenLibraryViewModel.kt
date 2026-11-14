@@ -8,6 +8,7 @@ import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.data.podcast.EpisodeQueue
 import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
+import de.kleinabersmart.earloft.core.data.spoken.continueSeries
 import de.kleinabersmart.earloft.core.data.spoken.genreGroups
 import de.kleinabersmart.earloft.core.data.spoken.sortedAndFiltered
 import de.kleinabersmart.earloft.core.model.AuthorSort
@@ -60,6 +61,12 @@ class SpokenLibraryViewModel @Inject constructor(
     val recentlyAdded: StateFlow<LoadState<List<BookWithProgress>>> = books.recentlyAdded()
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
+
+    /** Start-Regal „Serie fortsetzen“: je Serie der nächste Band mit seiner Nummer ([continueSeries]). */
+    val continueSeries: StateFlow<List<Pair<BookWithProgress, Double?>>> = books.books()
+        .map { all -> all.continueSeries().map { (book, series) -> book to series.nextVolume } }
+        .catch { emit(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val allBooks: StateFlow<LoadState<List<BookWithProgress>>> = books.books()
         .asLoadState()
