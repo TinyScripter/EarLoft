@@ -814,6 +814,28 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `marking several as played can be undone to the exact state before`() = runTest {
+        val feedId = subscribe()
+        val (a, b, c) = listOf("A", "B", "C").map { idOf(feedId, it) }
+        db.bookDao().upsertProgress(BookProgressEntity(b, 60_000, 600_000, finished = false, speed = 1.5f, updatedAt = 2))
+
+        val undo = repository.setPlayed(listOf(b, c), played = true)
+
+        assertEquals(true, db.bookDao().progress(b)!!.finished)
+        assertEquals(true, db.bookDao().progress(c)!!.finished)
+        assertEquals(null, db.bookDao().progress(a))
+
+        undo()
+
+        val restored = db.bookDao().progress(b)!!
+        assertEquals(60_000, restored.positionMs)
+        assertEquals(false, restored.finished)
+        assertEquals(1.5f, restored.speed)
+        assertTrue("newer than the marking", restored.updatedAt > 2)
+        assertEquals("never started again", null, db.bookDao().progress(c))
+    }
+
+    @Test
     fun `nothing is queued when queueing the next episode is off`() = runTest {
         val feedId = subscribe()
         repository.setContinuous(feedId, false)

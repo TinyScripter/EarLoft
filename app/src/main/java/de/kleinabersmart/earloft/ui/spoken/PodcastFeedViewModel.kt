@@ -157,6 +157,10 @@ class PodcastFeedViewModel @AssistedInject constructor(
     val defaultAutoDownloadCount: StateFlow<Int> = podcastSettings.autoDownloadCount
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PodcastSettings.DEFAULT_AUTO_DOWNLOAD_COUNT)
 
+    /** Wischgesten auf den Folgenzeilen (Einstellungen → Podcasts → Folgenlisten). */
+    val swipeActions: StateFlow<Boolean> = podcastSettings.swipeActions
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** `null` = Vorgabe. Eine größere Anzahl holt die Automatik sofort nach ([EpisodeDownloads]). */
     fun setAutoDownloadCount(count: Int?) {
         viewModelScope.launch { podcasts.setAutoDownloadCount(feedId, count) }

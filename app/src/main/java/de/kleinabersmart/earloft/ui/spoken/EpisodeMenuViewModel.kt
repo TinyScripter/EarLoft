@@ -123,6 +123,58 @@ class EpisodeMenuViewModel @Inject constructor(
         viewModelScope.launch { if (item.isEpisode) downloads.remove(item.book.id) else bookDownloads.remove(item.book.id) }
     }
 
+    // --- Mehrfachauswahl und Wischen (Konzept 12.5): dieselben Aktionen für mehrere Folgen, in der Reihenfolge der Liste.
+
+    /**
+     * „Gehört“ bzw. „ungehört“ für alle [items]. Die im Player geladene Folge hält der Player selbst an (wie beim einzelnen
+     * Menüpunkt); für die übrigen bekommt [onUndo] einen Weg zurück zum vorherigen Stand.
+     */
+    fun setPlayed(items: List<BookWithProgress>, played: Boolean, onUndo: (suspend () -> Unit) -> Unit = {}) {
+        val ids = items.map { it.book.id }.filter { !played || !servicePlayer.markFinished(it, playNext = false) }
+        if (ids.isEmpty()) return
+        viewModelScope.launch { onUndo(podcasts.setPlayed(ids, played)) }
+    }
+
+    fun undo(restore: suspend () -> Unit) {
+        viewModelScope.launch { restore() }
+    }
+
+    /** Ans Ende der Warteschlange, in der Reihenfolge der Auswahl; was schon darin steht, bleibt, wo es ist. */
+    fun append(items: List<BookWithProgress>) {
+        val inQueue = queued.value
+        viewModelScope.launch { items.filter { it.book.id !in inQueue }.forEach { continueListening.append(it.book.id) } }
+    }
+
+    /** Direkt hinter die vorderste Folge, in der Reihenfolge der Auswahl (die vorderste selbst bleibt, wo sie ist). */
+    fun playNext(items: List<BookWithProgress>) {
+        val head = queueHead.value
+        viewModelScope.launch {
+            items.map { it.book.id }.filter { it != head }.asReversed().forEach { continueListening.playNext(it) }
+        }
+    }
+
+    fun removeFromQueue(items: List<BookWithProgress>) {
+        viewModelScope.launch { items.forEach { continueListening.remove(it.book.id) } }
+    }
+
+    fun removeDownloads(items: List<BookWithProgress>) {
+        val present = downloaded.value
+        viewModelScope.launch { items.filter { it.book.id in present }.forEach { downloads.remove(it.book.id) } }
+    }
+
+    /** Lädt alle noch nicht geladenen Folgen (nicht die vom Gerät); [onHint] wie bei [download], höchstens einmal. */
+    fun download(items: List<BookWithProgress>, onHint: (Int) -> Unit) {
+        val present = downloaded.value
+        val missing = items.filter { !it.book.isLocal && it.book.id !in present }
+        viewModelScope.launch {
+            val starts = missing.map { downloads.download(it.book.id) }
+            when {
+                DownloadStart.OFFLINE in starts -> onHint(R.string.podcast_download_offline)
+                DownloadStart.WAITING_FOR_WIFI in starts -> onHint(R.string.podcast_download_waiting_wifi)
+            }
+        }
+    }
+
     /** [onHint] bekommt einen Text, wenn der Download nicht gleich beginnt (offline, wartet auf WLAN). */
     fun download(item: BookWithProgress, onHint: (Int) -> Unit) {
         viewModelScope.launch {

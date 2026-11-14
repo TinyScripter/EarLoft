@@ -119,6 +119,7 @@ data class SettingsUiState(
     val podcastAutoDownloadCount: Int = PodcastSettings.DEFAULT_AUTO_DOWNLOAD_COUNT,
     val podcastAutoDownloadNew: Boolean = false,
     val podcastAutoPlayNext: Boolean = true,
+    val podcastSwipeActions: Boolean = true,
     val bookResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val podcastResume: ResumeRule = ResumeRule(ResumeRule.DEFAULT_AFTER_S, ResumeRule.DEFAULT_REWIND_S),
     val restartChapter: Boolean = false,
@@ -278,8 +279,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(podcastRefreshHours = hours, podcastMobileData = mobile, podcastDeleteHeardDays = deleteHeardDays)
     }.combine(combine(podcastSettings.autoDownloadCount, podcastSettings.autoDownloadNew, ::Pair)) { state, (count, autoNew) ->
         state.copy(podcastAutoDownloadCount = count, podcastAutoDownloadNew = autoNew)
-    }.combine(podcastSettings.autoPlayNext) { state, autoPlay ->
-        state.copy(podcastAutoPlayNext = autoPlay)
+    }.combine(combine(podcastSettings.autoPlayNext, podcastSettings.swipeActions, ::Pair)) { state, (autoPlay, swipe) ->
+        state.copy(podcastAutoPlayNext = autoPlay, podcastSwipeActions = swipe)
     }.combine(combine(spokenSettings.bookResume, spokenSettings.podcastResume, spokenSettings.restartChapter, ::Triple)) { state, (book, podcast, chapter) ->
         state.copy(bookResume = book, podcastResume = podcast, restartChapter = chapter)
     }.combine(combine(spokenSettings.bookSeek, spokenSettings.podcastSeek, ::Pair)) { state, (book, podcast) ->
@@ -336,6 +337,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setPodcastAutoPlayNext(enabled: Boolean) {
         viewModelScope.launch { podcastSettings.setAutoPlayNext(enabled) }
+    }
+
+    fun setPodcastSwipeActions(enabled: Boolean) {
+        viewModelScope.launch { podcastSettings.setSwipeActions(enabled) }
     }
 
     fun setBookResume(rule: ResumeRule) {

@@ -962,6 +962,43 @@
     <string name="feed_menu_play_next">Nächste Folge abspielen</string>
     <string name="feed_menu_queue_next">Nächste Folge in Warteschlange</string>
     <string name="queue_added_at_end">„%1$s“ steht jetzt am Ende der Warteschlange.</string>
+    <string name="queue_removed">„%1$s“ aus der Warteschlange genommen</string>
+    <string name="episode_marked_played">„%1$s“ als gehört markiert</string>
+    <string name="episode_marked_unplayed">„%1$s“ als ungehört markiert</string>
+    <string name="episode_select">Auswählen</string>
+    <string name="episode_select_all">Alle auswählen</string>
+    <string name="episode_selection_end">Auswahl beenden</string>
+    <string name="settings_section_episode_lists">Folgenlisten</string>
+    <string name="settings_podcast_swipe">Wischen auf Folgen</string>
+    <string name="settings_podcast_swipe_summary">Nach rechts: in die Warteschlange bzw. heraus · nach links: als gehört bzw. ungehört markieren</string>
+    <plurals name="episodes_selected">
+        <item quantity="one">%d ausgewählt</item>
+        <item quantity="other">%d ausgewählt</item>
+    </plurals>
+    <plurals name="episodes_marked_played">
+        <item quantity="one">%d Folge als gehört markiert</item>
+        <item quantity="other">%d Folgen als gehört markiert</item>
+    </plurals>
+    <plurals name="episodes_marked_unplayed">
+        <item quantity="one">%d Folge als ungehört markiert</item>
+        <item quantity="other">%d Folgen als ungehört markiert</item>
+    </plurals>
+    <plurals name="episodes_downloads_removed">
+        <item quantity="one">%d Download gelöscht</item>
+        <item quantity="other">%d Downloads gelöscht</item>
+    </plurals>
+    <plurals name="episodes_removed_from_queue">
+        <item quantity="one">%d Folge aus der Warteschlange genommen</item>
+        <item quantity="other">%d Folgen aus der Warteschlange genommen</item>
+    </plurals>
+    <plurals name="episodes_queued">
+        <item quantity="one">%d Folge in die Warteschlange gestellt</item>
+        <item quantity="other">%d Folgen in die Warteschlange gestellt</item>
+    </plurals>
+    <plurals name="episodes_play_next">
+        <item quantity="one">%d Folge kommt als Nächstes</item>
+        <item quantity="other">%d Folgen kommen als Nächstes</item>
+    </plurals>
     <string name="feed_menu_already_queued">„%1$s“ steht schon in der Warteschlange.</string>
     <string name="feed_menu_mark_all_played">Alle als gehört markieren</string>
     <string name="feed_menu_mark_all_title">Alle Folgen als gehört markieren?</string>

@@ -48,13 +48,17 @@ fun EpisodeMenuButton(item: BookWithProgress) {
     }
 }
 
-/** Kontextmenü einer Podcast-Folge oder eines Buchs (Langklick); die erste Zeile nennt den Titel zur Orientierung. */
+/**
+ * Kontextmenü einer Podcast-Folge oder eines Buchs (Langklick); die erste Zeile nennt den Titel zur Orientierung. Mit
+ * [onSelect] beginnt „Auswählen“ die Mehrfachauswahl der Liste mit dieser Folge (Konzept 12.5).
+ */
 @Composable
 fun EpisodeMenu(
     item: BookWithProgress,
     expanded: Boolean,
     onDismiss: () -> Unit,
     withShareAndWatch: Boolean = true,
+    onSelect: (() -> Unit)? = null,
     viewModel: EpisodeMenuViewModel = hiltViewModel(),
 ) {
     val queued by viewModel.queued.collectAsStateWithLifecycle()
@@ -75,6 +79,13 @@ fun EpisodeMenu(
             colors = MenuDefaults.itemColors(disabledTextColor = MaterialTheme.colorScheme.primary),
         )
         HorizontalDivider()
+        if (onSelect != null) DropdownMenuItem(
+            text = { Text(stringResource(R.string.episode_select)) },
+            onClick = {
+                onSelect()
+                onDismiss()
+            },
+        )
         if (item.isEpisode) DropdownMenuItem(
             text = { Text(stringResource(if (inQueue) R.string.episode_queue_remove else R.string.episode_queue_add)) },
             onClick = {

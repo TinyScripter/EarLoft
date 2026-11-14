@@ -79,6 +79,16 @@ class PodcastSettings @Inject constructor(
         context.podcastSettingsDataStore.edit { it[KEY_AUTO_PLAY_NEXT] = enabled }
     }
 
+    /**
+     * Wischen auf Folgenzeilen (Konzept 12.5 „Mehrfachauswahl und Wischen“): nach rechts in die Warteschlange, nach links
+     * als gehört markieren (Standard: an).
+     */
+    val swipeActions: Flow<Boolean> = context.podcastSettingsDataStore.data.map { it[KEY_SWIPE_ACTIONS] ?: true }
+
+    suspend fun setSwipeActions(enabled: Boolean) {
+        context.podcastSettingsDataStore.edit { it[KEY_SWIPE_ACTIONS] = enabled }
+    }
+
     /** Reihenfolge der Abos auf Start und im Reiter „Abos“ (Standard: nach Name). */
     val feedSort: Flow<FeedSort> = context.podcastSettingsDataStore.data.map { prefs ->
         FeedSort.entries.firstOrNull { it.name == prefs[KEY_FEED_SORT] } ?: FeedSort.NAME
@@ -193,5 +203,6 @@ class PodcastSettings @Inject constructor(
         private val KEY_REFRESH_HOURS = intPreferencesKey("refresh_hours")
         private val KEY_MOBILE = booleanPreferencesKey("mobile_data")
         private val KEY_AUTO_PLAY_NEXT = booleanPreferencesKey("auto_play_next")
+        private val KEY_SWIPE_ACTIONS = booleanPreferencesKey("swipe_actions")
     }
 }

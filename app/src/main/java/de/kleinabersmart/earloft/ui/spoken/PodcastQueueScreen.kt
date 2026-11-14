@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.ui.spoken
 import androidx.compose.foundation.background
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -79,8 +80,12 @@ fun PodcastQueueScreen(
     viewModel: PodcastQueueViewModel = hiltViewModel(),
 ) {
     val summary by viewModel.summary.collectAsStateWithLifecycle()
+    val episodes by viewModel.episodes.collectAsStateWithLifecycle()
+    val selection = rememberEpisodeSelection()
     Column(modifier.fillMaxSize()) {
-        TopAppBar(
+        if (selection.active) {
+            EpisodeSelectionBar(selection, episodes.valueOrNull.orEmpty(), inQueue = true)
+        } else TopAppBar(
             title = {
                 QueueTitle(
                     summary?.let { pluralStringResource(R.plurals.podcast_queue_summary, it.count, it.count, formatDuration(it.remainingMs)) },
@@ -98,7 +103,7 @@ fun PodcastQueueScreen(
                 )
             },
         )
-        PodcastQueueList(onEpisodeClick = onEpisodeClick, modifier = Modifier.navigationBarsPadding(), viewModel = viewModel)
+        PodcastQueueList(onEpisodeClick = onEpisodeClick, modifier = Modifier.navigationBarsPadding(), viewModel = viewModel, selection = selection)
     }
 }
 
@@ -113,6 +118,7 @@ fun PodcastQueueList(
     contentPadding: PaddingValues = PaddingValues(),
     transparent: Boolean = false,
     viewModel: PodcastQueueViewModel = hiltViewModel(),
+    selection: EpisodeSelection? = null,
 ) {
     val episodes by viewModel.episodes.collectAsStateWithLifecycle()
     val currentId by viewModel.currentBookId.collectAsStateWithLifecycle()
@@ -128,12 +134,15 @@ fun PodcastQueueList(
         modifier = modifier,
         contentPadding = contentPadding,
         transparent = transparent,
+        selection = selection,
     )
 }
 
 /**
  * Warteschlange von Folgen oder Büchern (beide „Weiterhören“) mit Ziehgriff, ✕ und Tipp. Die lokale Kopie wird beim
  * Ziehen sofort umsortiert und erst am Ende des Ziehens über [onReorder] gespeichert (neue Reihenfolge, bewegter Eintrag).
+ * Mit [selection] zeigt ein Langklick das Menü der Folge mit „Auswählen“ (Konzept 12.5); während der Auswahl schaltet ein
+ * Tipp die Zeile dazu oder weg, Ziehgriff und ✕ entfallen.
  */
 @Composable
 internal fun SpokenQueueList(
@@ -148,8 +157,10 @@ internal fun SpokenQueueList(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
     transparent: Boolean = false,
+    selection: EpisodeSelection? = null,
 ) {
     val listState = rememberLazyListState()
+    val selecting = selection?.active == true
     val rows = remember { mutableStateListOf<BookWithProgress>() }
     val reorder = rememberReorderState(listState)
     LaunchedEffect(entries) {
@@ -177,9 +188,10 @@ internal fun SpokenQueueList(
                 inheritedSpeed = inheritedSpeed(item),
                 // Gezogen braucht die Zeile einen Hintergrund, sonst scheinen die anderen durch.
                 transparent = transparent && !reorder.isLifted(id),
-                onClick = { onClick(id) },
+                onClick = { if (selecting) selection.toggle(id) else onClick(id) },
                 onRemove = { onRemove(id) },
-                dragHandle = {
+                selection = selection,
+                dragHandle = if (selecting) null else { {
                     Icon(
                         painterResource(DesignR.drawable.ic_drag_handle),
                         contentDescription = stringResource(R.string.action_reorder_queue_item),
@@ -195,7 +207,7 @@ internal fun SpokenQueueList(
                                 onDragEnd = { moved -> if (moved) onReorder(rows.map { it.book.id }, id) },
                             ),
                     )
-                },
+                } },
                 modifier = Modifier
                     .reorderableItem(this, reorder, id)
                     .reorderActions(rows.indexOf(item), rows.size) { from, to ->
@@ -295,10 +307,15 @@ private fun QueueRow(
     onClick: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
+    selection: EpisodeSelection? = null,
     dragHandle: (@Composable () -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
+    val selecting = selection?.active == true
+    val selected = selection != null && item.book.id in selection
+    var menu by remember { mutableStateOf(false) }
     val background = when {
+        selected -> colors.tertiaryContainer
         current -> colors.secondaryContainer
         transparent -> Color.Transparent
         else -> colors.surface
@@ -307,11 +324,23 @@ private fun QueueRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .background(background)
-            .clickable(onClick = onClick)
+            .then(
+                if (selection == null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier.combinedClickable(
+                        onClick = onClick,
+                        onLongClick = { if (selecting) selection.toggle(item.book.id) else menu = true },
+                    )
+                },
+            )
             .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
     ) {
+        if (selection != null) {
+            EpisodeMenu(item, expanded = menu, onDismiss = { menu = false }, onSelect = { selection.toggle(item.book.id) })
+        }
         dragHandle?.invoke()
-        BookArt(item.book.id, Modifier.padding(start = 4.dp).size(48.dp), MaterialTheme.shapes.small)
+        SelectableArt(item.book.id, selected, Modifier.padding(start = 4.dp).size(48.dp))
         Column(Modifier.weight(1f).padding(start = 16.dp, end = 4.dp)) {
             CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant) {
                 if (item.isEpisode) EpisodeFacts(item, withTime) else BookFacts(item)
@@ -325,11 +354,13 @@ private fun QueueRow(
             )
             CompositionLocalProvider(LocalContentColor provides colors.onSurfaceVariant) { EpisodeProgress(item, inheritedSpeed) }
         }
-        IconButton(onClick = onRemove) {
-            Icon(
-                painterResource(DesignR.drawable.ic_close),
-                contentDescription = stringResource(R.string.action_remove_from_queue),
-            )
+        if (!selecting) {
+            IconButton(onClick = onRemove) {
+                Icon(
+                    painterResource(DesignR.drawable.ic_close),
+                    contentDescription = stringResource(R.string.action_remove_from_queue),
+                )
+            }
         }
     }
 }

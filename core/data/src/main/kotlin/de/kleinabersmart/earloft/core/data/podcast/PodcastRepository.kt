@@ -284,6 +284,23 @@ class PodcastRepository @Inject constructor(
         bookDao.upsertProgress(playedProgress(book, bookDao.progress(bookId), played, System.currentTimeMillis()))
     }
 
+    /**
+     * Wie [setPlayed] für mehrere Folgen in einem Zug (Mehrfachauswahl und Wischen, Konzept 12.5). Das Ergebnis stellt den
+     * Stand davor wieder her (Position, Tempo, „gehört“) für „Rückgängig“.
+     */
+    suspend fun setPlayed(bookIds: Collection<Long>, played: Boolean): suspend () -> Unit {
+        val now = System.currentTimeMillis()
+        val before = bookIds.distinct().associateWith { bookDao.progress(it) }
+        val rows = before.mapNotNull { (id, old) -> bookDao.book(id)?.let { playedProgress(it, old, played, now) } }
+        if (rows.isNotEmpty()) bookDao.upsertAllProgress(rows)
+        return {
+            // Als neueste Änderung, sonst überschriebe der gesicherte Stand (`user.db`) die Wiederherstellung.
+            val restoredAt = System.currentTimeMillis()
+            before.values.filterNotNull().map { it.copy(updatedAt = restoredAt) }.takeIf { it.isNotEmpty() }?.let { bookDao.upsertAllProgress(it) }
+            before.filterValues { it == null }.keys.forEach { dao.deleteProgress(it) }
+        }
+    }
+
     /** „Alle als gehört markieren“: alle noch offenen Folgen des Abos in einem Zug; gibt ihre Anzahl zurück. */
     suspend fun setAllPlayed(feedId: String): Int {
         val finished = dao.finishedEpisodeIds(feedId).toSet()

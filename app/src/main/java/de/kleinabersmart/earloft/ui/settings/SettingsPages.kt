@@ -733,6 +733,18 @@ fun PodcastsSettingsScreen(
             }
         }
 
+        group("episode-lists", R.string.settings_section_episode_lists) {
+            row("podcast-swipe") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_podcast_swipe),
+                    summary = stringResource(R.string.settings_podcast_swipe_summary),
+                    icon = DesignR.drawable.ic_list,
+                    checked = state.podcastSwipeActions,
+                    onCheckedChange = viewModel::setPodcastSwipeActions,
+                )
+            }
+        }
+
         group("downloads", R.string.nav_downloads) {
             row("podcast-mobile") {
                 SwitchRow(

@@ -575,6 +575,8 @@ private const val ROW_SLIDE_MS = 350
 /**
  * Cover mit Fortschrittsbalken, darunter Titel und Autor; mit [onPlay] sitzt ein Play- (bei [playing] Pause-)Knopf unten rechts
  * auf dem Cover, unten links die Download-Markierung ([BookDownloadBadge]), oben links der Band ([volume], auf Serienseiten).
+ * Mit [selection] bietet das Langklick-Menü „Auswählen“ (Konzept 12.5); während der Auswahl schaltet ein Tipp die Kachel
+ * dazu oder weg.
  */
 @Composable
 fun BookCard(
@@ -587,19 +589,30 @@ fun BookCard(
     /** Uhrzeit beim Datum der Folge ([episodesSharingDay]). */
     withTime: Boolean = false,
     volume: String? = null,
+    selection: EpisodeSelection? = null,
 ) {
     // Kontextmenü per Langklick, bei Folgen und Büchern.
     var menu by remember { mutableStateOf(false) }
     val episode = item.isEpisode
-    Column(modifier.combinedClickable(onClick = onClick, onLongClick = { menu = true }).padding(contentPadding)) {
-        EpisodeMenu(item, expanded = menu, onDismiss = { menu = false })
+    val selecting = selection?.active == true
+    val selected = selection != null && item.book.id in selection
+    Column(
+        modifier
+            .combinedClickable(
+                onClick = { if (selecting) selection.toggle(item.book.id) else onClick() },
+                onLongClick = { if (selecting) selection.toggle(item.book.id) else menu = true },
+            )
+            .padding(contentPadding),
+    ) {
+        EpisodeMenu(item, expanded = menu, onDismiss = { menu = false }, onSelect = selection?.let { { it.toggle(item.book.id) } })
         Box {
             BookArt(item.book.id, Modifier.fillMaxWidth())
+            SelectedMark(selected, RoundedCornerShape(8.dp), Modifier.matchParentSize())
             BookDownloadBadge(item.book.id, Modifier.align(Alignment.BottomStart).padding(6.dp))
             if (volume != null) {
                 CoverPill(volume, stringResource(R.string.book_volume, volume), Modifier.align(Alignment.TopStart).padding(6.dp))
             }
-            if (onPlay != null) {
+            if (onPlay != null && !selecting) {
                 PlayPauseButton(
                     playing,
                     onPlay,

@@ -13,6 +13,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -84,6 +85,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected as selectedSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -297,6 +299,9 @@ fun PodcastLibraryScreen(
     val newEpisodeCounts by viewModel.newEpisodeCounts.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { PodcastTab.entries.size }
     val scope = rememberCoroutineScope()
+    // Mehrfachauswahl im Reiter „Folgen“; sie endet, wenn man den Reiter verlässt.
+    val selection = rememberEpisodeSelection()
+    LaunchedEffect(pagerState.currentPage) { if (PodcastTab.entries[pagerState.currentPage] != PodcastTab.EPISODES) selection.clear() }
     val empty: @Composable () -> Unit = {
         EmptyAreaHint(SpokenMode.PODCASTS, stringResource(R.string.podcast_none), stringResource(R.string.podcast_add), onAddPodcast)
     }
@@ -307,7 +312,10 @@ fun PodcastLibraryScreen(
     }
 
     Column(modifier.fillMaxSize()) {
-        PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
+        // Während der Auswahl steht ihre Leiste an der Stelle der Reiter, und der Pager bleibt stehen.
+        if (selection.active) {
+            EpisodeSelectionBar(selection, unheard.valueOrNull.orEmpty().flatMap { it.episodes }, windowInsets = WindowInsets(0))
+        } else PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
             PodcastTab.entries.forEachIndexed { index, tab ->
                 Tab(
                     selected = pagerState.currentPage == index,
@@ -316,7 +324,12 @@ fun PodcastLibraryScreen(
                 )
             }
         }
-        HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth(), key = { it }) { page ->
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            userScrollEnabled = !selection.active,
+            key = { it },
+        ) { page ->
             when (PodcastTab.entries[page]) {
                 // Ohne Abos zeigen Folgen und Abos dasselbe wie der Start: Hinzufügen und Ausblenden.
                 PodcastTab.EPISODES -> if (feeds.valueOrNull?.isEmpty() == true) empty() else UnheardEpisodes(
@@ -326,6 +339,7 @@ fun PodcastLibraryScreen(
                     onEpisodeClick,
                     playingId,
                     viewModel::playOrPause,
+                    selection,
                 )
                 PodcastTab.FEEDS -> FeedGrid(feeds, newEpisodeCounts, onFeedClick, onFeedSettings, onAdd = onAddPodcast, empty = empty)
                 PodcastTab.STATS -> PodcastStatsScreen(onFeedClick)
@@ -343,9 +357,10 @@ private fun UnheardEpisodes(
     onEpisodeClick: (Long) -> Unit,
     playingId: Long?,
     onPlay: (Long) -> Unit,
+    selection: EpisodeSelection,
 ) {
     LoadableList(state, stringResource(if (hasFeeds) R.string.podcast_all_heard else R.string.podcast_none)) { unheard ->
-        UnheardList(unheard, onFeedClick, onEpisodeClick, playingId, onPlay)
+        UnheardList(unheard, onFeedClick, onEpisodeClick, playingId, onPlay, selection)
     }
 }
 
@@ -356,6 +371,7 @@ private fun UnheardList(
     onEpisodeClick: (Long) -> Unit,
     playingId: Long?,
     onPlay: (Long) -> Unit,
+    selection: EpisodeSelection,
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
         unheard.forEach { (feed, episodes) ->
@@ -377,6 +393,7 @@ private fun UnheardList(
                                 onPlay = { onPlay(item.book.id) },
                                 playing = item.book.id == playingId,
                                 withTime = item.book.id in sameDay,
+                                selection = selection,
                             )
                         }
                     }
@@ -459,10 +476,14 @@ fun PodcastScreen(
     var switchingSource by rememberSaveable { mutableStateOf(false) }
     var editingCredentials by rememberSaveable { mutableStateOf(false) }
     val credentialsUser by viewModel.credentialsUser.collectAsStateWithLifecycle()
+    val swipe by viewModel.swipeActions.collectAsStateWithLifecycle()
+    val selection = rememberEpisodeSelection()
 
     // Breit (Tablet, von Start aus ohne Liste daneben): nicht über die ganze Breite, sonst stehen Knöpfe weit vom Titel.
     Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
-        TopAppBar(
+        if (selection.active) {
+            EpisodeSelectionBar(selection, shownEpisodes.valueOrNull.orEmpty())
+        } else TopAppBar(
             title = {},
             navigationIcon = { BackButton(onBack) },
             // Der Aktualisieren-Knopf steht ganz rechts wie in den anderen Bildschirmen, die Suche links davon.
@@ -579,6 +600,8 @@ fun PodcastScreen(
                         onPlay = { viewModel.playOrPause(item.book.id) },
                         onDownload = { viewModel.download(item.book.id) },
                         onRemoveDownload = { viewModel.removeDownload(item.book.id) },
+                        selection = selection,
+                        swipe = swipe,
                     )
                 }
             }
@@ -705,6 +728,8 @@ fun PodcastSearchScreen(
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(query) { viewModel.search(query) }
+    val swipe by viewModel.swipeActions.collectAsStateWithLifecycle()
+    val selection = rememberEpisodeSelection()
 
     val trimmed = query.trim()
     // Beim Tippen bleiben die letzten Treffer stehen, bis die neuen da sind; „Nichts gefunden“ erst für den aktuellen Text.
@@ -712,7 +737,8 @@ fun PodcastSearchScreen(
     val settled = result?.query == trimmed
 
     Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
-        Row(Modifier.statusBarsPadding().padding(end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Während der Auswahl ersetzt die Leiste das Suchfeld; die Treffer bleiben, der Suchtext auch.
+        if (selection.active) EpisodeSelectionBar(selection, hits) else Row(Modifier.statusBarsPadding().padding(end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             BackButton(onBack)
             OutlinedTextField(
                 value = query,
@@ -758,6 +784,8 @@ fun PodcastSearchScreen(
                         onPlay = { viewModel.playOrPause(item.book.id) },
                         onDownload = { viewModel.download(item.book.id) },
                         onRemoveDownload = { viewModel.removeDownload(item.book.id) },
+                        selection = selection,
+                        swipe = swipe,
                     )
                 }
             }
@@ -1089,6 +1117,11 @@ private fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: (
     }
 }
 
+/**
+ * Eine Folge der Abo-Seite bzw. ihrer Suche. Während der Mehrfachauswahl ([selection], Konzept 12.5) schaltet ein Tipp sie
+ * dazu oder weg, die Knöpfe rechts entfallen und eine ausgewählte trägt einen Haken über dem Bild. [swipe]: Wischgesten
+ * ([EpisodeSwipeBox]), nicht während der Auswahl.
+ */
 @Composable
 private fun EpisodeRow(
     item: BookWithProgress,
@@ -1101,12 +1134,16 @@ private fun EpisodeRow(
     onPlay: () -> Unit,
     onDownload: () -> Unit,
     onRemoveDownload: () -> Unit,
+    selection: EpisodeSelection,
+    swipe: Boolean,
 ) {
     val book = item.book
     val progress = item.progress
     val listened = progress != null && progress.positionMs > 0
     var menu by remember { mutableStateOf(false) }
-    Box {
+    val selecting = selection.active
+    val selected = book.id in selection
+    EpisodeSwipeBox(item, enabled = swipe && !selecting) { Box {
         ListItem(
             headlineContent = { Text(book.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
             supportingContent = {
@@ -1133,24 +1170,34 @@ private fun EpisodeRow(
                     }
                 }
             },
-            leadingContent = { BookArt(book.id, Modifier.size(56.dp), MaterialTheme.shapes.small) },
-            trailingContent = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Dateien vom Gerät sind schon da.
-                    if (!book.isLocal) DownloadButton(download, downloadFraction, onDownload, onRemoveDownload)
-                    IconButton(onClick = onPlay) {
-                        if (playing) {
-                            Icon(painterResource(DesignR.drawable.ic_pause), contentDescription = stringResource(R.string.action_pause))
-                        } else {
-                            Icon(painterResource(DesignR.drawable.ic_play), contentDescription = stringResource(R.string.podcast_play_episode))
+            leadingContent = { SelectableArt(book.id, selected, Modifier.size(56.dp)) },
+            trailingContent = if (selecting) {
+                null
+            } else {
+                {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Dateien vom Gerät sind schon da.
+                        if (!book.isLocal) DownloadButton(download, downloadFraction, onDownload, onRemoveDownload)
+                        IconButton(onClick = onPlay) {
+                            if (playing) {
+                                Icon(painterResource(DesignR.drawable.ic_pause), contentDescription = stringResource(R.string.action_pause))
+                            } else {
+                                Icon(painterResource(DesignR.drawable.ic_play), contentDescription = stringResource(R.string.podcast_play_episode))
+                            }
                         }
                     }
                 }
             },
-            modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = { menu = true }),
+            colors = if (selected) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
+            modifier = Modifier
+                .combinedClickable(
+                    onClick = { if (selecting) selection.toggle(book.id) else onClick() },
+                    onLongClick = { if (selecting) selection.toggle(book.id) else menu = true },
+                )
+                .semantics { if (selecting) selectedSemantics = selected },
         )
-        EpisodeMenu(item, expanded = menu, onDismiss = { menu = false })
-    }
+        EpisodeMenu(item, expanded = menu, onDismiss = { menu = false }, onSelect = { selection.toggle(book.id) })
+    } }
 }
 
 /** Quadratisches Podcast-Bild aus dem Feed; bis es geladen ist (oder ohne Bild) bleibt das Symbol sichtbar. */

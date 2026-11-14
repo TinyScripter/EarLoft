@@ -969,6 +969,43 @@
     <string name="feed_menu_play_next">Play next episode</string>
     <string name="feed_menu_queue_next">Add next episode to queue</string>
     <string name="queue_added_at_end">“%1$s” was added to the end of the queue.</string>
+    <string name="queue_removed">“%1$s” removed from the queue</string>
+    <string name="episode_marked_played">“%1$s” marked as played</string>
+    <string name="episode_marked_unplayed">“%1$s” marked as unplayed</string>
+    <string name="episode_select">Select</string>
+    <string name="episode_select_all">Select all</string>
+    <string name="episode_selection_end">End selection</string>
+    <string name="settings_section_episode_lists">Episode lists</string>
+    <string name="settings_podcast_swipe">Swipe on episodes</string>
+    <string name="settings_podcast_swipe_summary">Right: add to or remove from the queue · left: mark as played or unplayed</string>
+    <plurals name="episodes_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <plurals name="episodes_marked_played">
+        <item quantity="one">%d episode marked as played</item>
+        <item quantity="other">%d episodes marked as played</item>
+    </plurals>
+    <plurals name="episodes_marked_unplayed">
+        <item quantity="one">%d episode marked as unplayed</item>
+        <item quantity="other">%d episodes marked as unplayed</item>
+    </plurals>
+    <plurals name="episodes_downloads_removed">
+        <item quantity="one">%d download removed</item>
+        <item quantity="other">%d downloads removed</item>
+    </plurals>
+    <plurals name="episodes_removed_from_queue">
+        <item quantity="one">%d episode removed from the queue</item>
+        <item quantity="other">%d episodes removed from the queue</item>
+    </plurals>
+    <plurals name="episodes_queued">
+        <item quantity="one">%d episode added to the queue</item>
+        <item quantity="other">%d episodes added to the queue</item>
+    </plurals>
+    <plurals name="episodes_play_next">
+        <item quantity="one">%d episode plays next</item>
+        <item quantity="other">%d episodes play next</item>
+    </plurals>
     <string name="feed_menu_already_queued">“%1$s” is already in the queue.</string>
     <string name="feed_menu_mark_all_played">Mark all as played</string>
     <string name="feed_menu_mark_all_title">Mark all episodes as played?</string>
