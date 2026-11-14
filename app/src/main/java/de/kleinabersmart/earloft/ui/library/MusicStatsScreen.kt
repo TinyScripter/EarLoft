@@ -129,7 +129,8 @@ private fun LazyListScope.topList(kind: TopKind, entries: List<MusicTopEntry>, o
     if (entries.isEmpty()) return
     item(key = "top-$kind") { SectionHeader(stringResource(kind.title)) }
     val max = entries.maxOf { it.plays }.coerceAtLeast(1)
-    groupedItems(entries, key = { "$kind-${it.id ?: it.title.lowercase()}" }) { entry ->
+    // Genres haben keine ID; ihr Name bleibt unverändert, denn die Abfrage fasst nur ASCII-Schreibweisen zusammen.
+    groupedItems(entries, key = { "$kind-${it.id ?: it.title}" }) { entry ->
         TopRow(kind, entry, share = entry.plays.toFloat() / max, onClick = { onClick(kind, entry) })
     }
 }

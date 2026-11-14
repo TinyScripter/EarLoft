@@ -194,7 +194,8 @@ fun SearchScreen(
                 }
                 if (results.genres.isNotEmpty()) {
                     item(key = "genres") { SectionHeader(stringResource(R.string.library_genres)) }
-                    groupedItems(results.genres, key = { "genre-${it.name.lowercase()}" }) { genre ->
+                    // Der Name unverändert: Die Abfrage fasst nur ASCII-Schreibweisen zusammen, „Électro“ und „électro“ sind zwei Zeilen.
+                    groupedItems(results.genres, key = { "genre-${it.name}" }) { genre ->
                         GenreListItem(genre = genre, onClick = { onGenreClick(genre.name) })
                     }
                 }
