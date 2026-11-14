@@ -266,6 +266,19 @@ class MigrationTest {
     }
 
     @Test
+    fun `v38 to v39 adds an empty author table`() {
+        helper.createDatabase(DB_NAME, 38).close()
+
+        helper.runMigrationsAndValidate(DB_NAME, 39, true).use { db ->
+            db.execSQL("INSERT INTO spoken_authors (serverId, authorId, name, normName, description) VALUES ('abs', 'au1', 'A', 'a', NULL)")
+            db.query("SELECT COUNT(*) FROM spoken_authors").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun `v37 to v38 puts the books into the one library of their server`() {
         helper.createDatabase(DB_NAME, 37).use { db ->
             db.execSQL(

@@ -98,6 +98,26 @@ fun List<BookGroup>.sortedAuthors(sort: AuthorSort): List<BookGroup> = when (sor
     AuthorSort.BOOK_COUNT -> sortedByDescending { it.books.size }
 }
 
+/** Ein Abschnitt der Autorenseite: die Bände einer Serie oder ([series] `null`) die übrigen Bücher. */
+data class SeriesSection(val series: String?, val books: List<BookWithProgress>)
+
+/**
+ * Die Bücher eines Autors nach Serie (`books_improvements.md` M8): je Serie ein Abschnitt (nach Name, darin nach Band, dann
+ * Titel), dahinter die Bücher ohne Serie in der bisherigen Reihenfolge. Ein Buch steht nur bei seiner ersten Serie. Ohne jede
+ * Serie ein einziger Abschnitt ohne Namen.
+ */
+fun List<BookWithProgress>.seriesSections(): List<SeriesSection> {
+    val first = associateWith { parseSeries(it.book.series).firstOrNull() }
+    val series = filter { first[it] != null }
+        .groupBy { first.getValue(it)!!.name }
+        .map { (name, books) ->
+            SeriesSection(name, books.sortedWith(compareBy({ first[it]?.sequence ?: Double.MAX_VALUE }, { it.book.title.sortKey() })))
+        }
+        .sortedBy { it.series!!.sortKey() }
+    val rest = filter { first[it] == null }
+    return if (rest.isEmpty()) series else series + SeriesSection(null, rest)
+}
+
 /** Nach Serie (ohne Bandnummer, ein Buch kann in mehreren stehen); Bücher darin nach Band, dann Titel. */
 fun List<BookWithProgress>.seriesGroups(): List<BookGroup> =
     flatMap { item -> parseSeries(item.book.series).map { Triple(it.name, it.sequence, item) } }

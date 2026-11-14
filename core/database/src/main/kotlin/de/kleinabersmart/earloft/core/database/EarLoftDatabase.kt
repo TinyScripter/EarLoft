@@ -50,6 +50,7 @@ import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongFtsEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
+import de.kleinabersmart.earloft.core.database.entity.SpokenAuthorEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenLibraryEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.entity.SyncActionEntity
@@ -79,6 +80,7 @@ import java.io.File
         WearSelectionEntity::class,
         SpokenServerEntity::class,
         SpokenLibraryEntity::class,
+        SpokenAuthorEntity::class,
         BookEntity::class,
         BookTrackEntity::class,
         BookChapterEntity::class,
@@ -94,7 +96,7 @@ import java.io.File
         BookmarkEntity::class,
         EpisodePersonEntity::class,
     ],
-    version = 38,
+    version = 39,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -134,6 +136,7 @@ import java.io.File
         AutoMigration(from = 35, to = 36, spec = EarLoftDatabase.ReadPodcasting20::class),
         AutoMigration(from = 36, to = 37),
         AutoMigration(from = 37, to = 38, spec = EarLoftDatabase.SeveralLibraries::class),
+        AutoMigration(from = 38, to = 39),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {

@@ -22,6 +22,7 @@ import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.asLoadState
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -32,7 +33,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SpokenLibraryViewModel @Inject constructor(
-    books: BookRepository,
+    private val books: BookRepository,
     private val servers: AudiobookshelfServers,
     private val launcher: BookLauncher,
     private val playback: PlaybackConnection,
@@ -161,4 +162,7 @@ class SpokenLibraryViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun syncNow() = refresher.refreshAll()
+
+    /** Beschreibung des Autors von Audiobookshelf für die Autorenseite (`books_improvements.md` M8). */
+    fun authorDescription(name: String): Flow<String?> = books.authorDescription(name)
 }

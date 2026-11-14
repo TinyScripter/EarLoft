@@ -37,6 +37,24 @@ class BookListsTest {
     private fun progress(positionMs: Long, finished: Boolean = false, updatedAt: Long = 0) =
         BookProgress(positionMs = positionMs, durationMs = 1_000, finished = finished, updatedAt = updatedAt)
 
+    @Test
+    fun `the author page groups by series, in volume order, then the books without series`() {
+        val books = listOf(
+            book(1, "Allein", "A"),
+            book(2, "Zweiter", "A", series = "Saga #2"),
+            book(3, "Erster", "A", series = "Saga #1, Welt #7"),
+            book(4, "Anfang", "A", series = "Bergreihe #1"),
+            book(5, "Mitte", "A"),
+        )
+
+        val sections = books.seriesSections()
+
+        assertEquals(listOf("Bergreihe", "Saga", null), sections.map { it.series })
+        assertEquals(listOf(listOf(4L), listOf(3L, 2L), listOf(1L, 5L)), sections.map { s -> s.books.map { it.book.id } })
+        assertEquals(listOf(null), listOf(book(1, "Allein", "A")).seriesSections().map { it.series })
+        assertEquals(emptyList<SeriesSection>(), emptyList<BookWithProgress>().seriesSections())
+    }
+
     // Nach Titel, wie die Datenbank sie liefert.
     private val books = listOf(
         book(1, "Altes Buch", "Zora Zeh", addedAt = 10, durationMs = 5_000, year = "1999"),

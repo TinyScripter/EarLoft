@@ -369,7 +369,13 @@ fun EarLoftApp(
             )
         }
         entry<BookGroupRoute>(metadata = detailPane()) { route ->
-            BookGroupScreen(kind = route.kind, name = route.name, onBack = navigator::goBack, onBookClick = openBook)
+            BookGroupScreen(
+                kind = route.kind,
+                name = route.name,
+                onBack = navigator::goBack,
+                onBookClick = openBook,
+                onGroupClick = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
+            )
         }
         entry<AddAudiobookshelfRoute>(metadata = detailPane()) { AudiobookshelfFormScreen(serverId = null, onDone = navigator::goBack) }
         entry<EditAudiobookshelfRoute>(metadata = detailPane()) { route ->

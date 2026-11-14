@@ -1,6 +1,12 @@
 package de.kleinabersmart.earloft.ui.spoken
 
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.lazy.grid.LazyGridItemScope
+import androidx.compose.material3.TextButton
+import de.kleinabersmart.earloft.core.data.spoken.SeriesSection
+import de.kleinabersmart.earloft.core.data.spoken.seriesSections
+import kotlinx.coroutines.flow.flowOf
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -330,6 +336,12 @@ private fun BookGrid(
     resetKey: Any? = null,
     /** Beendete Bücher mit vollem Balken (Serienseite). */
     markFinished: Boolean = false,
+    /**
+     * Statt [books] in Abschnitten je Serie (Autorenseite): Überschrift antippbar ([onSectionClick]), Band auf dem Cover,
+     * beendete mit vollem Balken; die Bücher ohne Serie heißen „Weitere Bücher“.
+     */
+    sections: List<SeriesSection>? = null,
+    onSectionClick: (String) -> Unit = {},
 ) {
     val state = rememberLazyGridState()
     var shownKey by rememberSaveable { mutableStateOf(resetKey?.toString()) }
@@ -349,7 +361,7 @@ private fun BookGrid(
             modifier = Modifier.fillMaxSize(),
         ) {
             if (header != null) item(key = "header", span = { GridItemSpan(maxLineSpan) }) { header() }
-            items(books, key = { it.book.id }) { item ->
+            val card: @Composable LazyGridItemScope.(BookWithProgress, String?, Boolean) -> Unit = { item, volume, finished ->
                 BookCard(
                     item,
                     onClick = { onBookClick(item.book.id) },
@@ -357,14 +369,55 @@ private fun BookGrid(
                     onPlay = { onPlay(item.book.id) },
                     playing = item.book.id == playingId,
                     contentPadding = GridTilePadding,
-                    volume = volumes[item.book.id],
-                    markFinished = markFinished,
+                    volume = volume,
+                    markFinished = finished,
                 )
+            }
+            if (sections == null) {
+                items(books, key = { it.book.id }) { item -> card(item, volumes[item.book.id], markFinished) }
+            } else {
+                sections.forEachIndexed { index, section ->
+                    val series = section.series
+                    // Ohne jede Serie keine Überschrift.
+                    if (series != null || sections.size > 1) {
+                        item(key = "section-$index", span = { GridItemSpan(maxLineSpan) }) {
+                            SeriesSectionTitle(series, onClick = series?.let { { onSectionClick(it) } })
+                        }
+                    }
+                    items(section.books, key = { it.book.id }) { item ->
+                        val volume = series?.let { name -> parseSeries(item.book.series).firstOrNull { it.name == name }?.sequence }
+                        card(item, volume?.let(::volumeNumber), series != null)
+                    }
+                }
             }
         }
         if (scrollLabel != null) {
             val offset = if (header != null) 1 else 0
             LazyGridFastScroller(state, labelAt = { index -> books.getOrNull((index - offset).coerceAtLeast(0))?.let(scrollLabel).orEmpty() })
+        }
+    }
+}
+
+/** Überschrift eines Abschnitts der Autorenseite: der Name der Serie (öffnet sie) bzw. „Weitere Bücher“. */
+@Composable
+private fun SeriesSectionTitle(series: String?, onClick: (() -> Unit)?) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(start = 4.dp, end = 4.dp, top = 12.dp, bottom = 4.dp),
+    ) {
+        Text(
+            series ?: stringResource(R.string.author_more_books),
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (onClick != null) {
+            Icon(painterResource(DesignR.drawable.ic_chevron_right), contentDescription = null, modifier = Modifier.padding(start = 4.dp))
         }
     }
 }
@@ -595,6 +648,66 @@ private fun SeriesHeader(series: SeriesProgress, playingId: Long?, onPlay: (Long
     }
 }
 
+/**
+ * Kopf der Autorenseite: das Autorenbild groß (fehlt es, entfällt es) und die Beschreibung von Audiobookshelf, gekürzt bis
+ * zum Tipp. Auf breiten Fenstern steht die Beschreibung neben dem Bild.
+ */
+@Composable
+private fun AuthorHeader(name: String, description: String?) {
+    var hasImage by remember(name) { mutableStateOf(true) }
+    val image: @Composable (Modifier) -> Unit = { modifier ->
+        if (hasImage) {
+            AsyncImage(
+                model = AppUris.authorImage(name),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.TopCenter,
+                onError = { hasImage = false },
+                modifier = modifier.size(AuthorImageSize).clip(RoundedCornerShape(16.dp)),
+            )
+        }
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {
+        if (maxWidth >= AuthorImageSize * 3) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                image(Modifier)
+                if (description != null) CollapsibleText(description, Modifier.weight(1f))
+            }
+        } else {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                image(Modifier)
+                if (description != null) CollapsibleText(description, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+private val AuthorImageSize = 200.dp
+
+/** Text, der bis zum Tipp auf [CollapsedLines] Zeilen gekürzt ist; „Mehr“ bzw. „Weniger“ darunter, wenn er länger ist. */
+@Composable
+private fun CollapsibleText(text: String, modifier: Modifier = Modifier) {
+    var expanded by rememberSaveable(text) { mutableStateOf(false) }
+    var overflowing by remember(text) { mutableStateOf(false) }
+    Column(modifier) {
+        Text(
+            rememberDescription(text),
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = if (expanded) Int.MAX_VALUE else CollapsedLines,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { if (!expanded) overflowing = it.hasVisualOverflow },
+            modifier = Modifier.clickable(enabled = overflowing || expanded) { expanded = !expanded },
+        )
+        if (overflowing || expanded) {
+            TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(horizontal = 0.dp)) {
+                Text(stringResource(if (expanded) R.string.text_show_less else R.string.text_show_more))
+            }
+        }
+    }
+}
+
+private const val CollapsedLines = 5
+
 /** „3 von 7 gehört“, „Alle 7 gehört“ bzw. ohne beendeten Band „7 Bücher“. */
 @Composable
 private fun seriesState(series: SeriesProgress): String = when {
@@ -611,6 +724,7 @@ fun BookGroupScreen(
     name: String,
     onBack: () -> Unit,
     onBookClick: (Long) -> Unit,
+    onGroupClick: (BookGroupKind, String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SpokenLibraryViewModel = hiltViewModel(),
 ) {
@@ -619,6 +733,9 @@ fun BookGroupScreen(
     val group = remember(booksState, kind, name) {
         booksState.valueOrNull?.groups(kind)?.firstOrNull { it.name == name }
     }
+    val description by remember(kind, name) {
+        if (kind == BookGroupKind.AUTHOR) viewModel.authorDescription(name) else flowOf(null)
+    }.collectAsStateWithLifecycle(null)
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -642,15 +759,29 @@ fun BookGroupScreen(
                 }
                 // Serien: oben der Stand und der Band, mit dem es weitergeht (books_improvements M2); beendete Bände mit vollem Balken.
                 val series = remember(group, kind) { if (kind == BookGroupKind.SERIES) seriesProgress(name, group.books) else null }
-                BookGrid(
-                    group.books,
-                    onBookClick,
-                    playingId,
-                    viewModel::playOrPause,
-                    volumes = volumes,
-                    header = series?.let { { SeriesHeader(it, playingId, viewModel::playOrPause) } },
-                    markFinished = series != null,
-                )
+                if (kind == BookGroupKind.AUTHOR) {
+                    // Autoren: großes Bild und Beschreibung, die Bücher nach Serie (books_improvements M8).
+                    val sections = remember(group) { group.books.seriesSections() }
+                    BookGrid(
+                        group.books,
+                        onBookClick,
+                        playingId,
+                        viewModel::playOrPause,
+                        header = { AuthorHeader(name, description) },
+                        sections = sections,
+                        onSectionClick = { onGroupClick(BookGroupKind.SERIES, it) },
+                    )
+                } else {
+                    BookGrid(
+                        group.books,
+                        onBookClick,
+                        playingId,
+                        viewModel::playOrPause,
+                        volumes = volumes,
+                        header = series?.let { { SeriesHeader(it, playingId, viewModel::playOrPause) } },
+                        markFinished = series != null,
+                    )
+                }
             }
         }
     }

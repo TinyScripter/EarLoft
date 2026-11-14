@@ -24,6 +24,8 @@ data class AbsAuthorDto(
     val name: String = "",
     /** Pfad des Bilds auf dem Server; `null`, wenn der Autor keines hat. */
     val imagePath: String? = null,
+    /** Beschreibung des Autors (gepflegt oder per „Match“ von Audible übernommen). */
+    val description: String? = null,
 )
 
 @Serializable

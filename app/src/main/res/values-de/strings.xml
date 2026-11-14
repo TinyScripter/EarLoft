@@ -499,6 +499,9 @@
     <string name="book_stats_server_loading">Statistik wird vom Server geladen …</string>
     <string name="book_stats_server_failed">Die Statistik des Servers konnte nicht geladen werden.</string>
     <string name="book_stats_today">%1$s heute</string>
+    <string name="author_more_books">Weitere Bücher</string>
+    <string name="text_show_more">Mehr anzeigen</string>
+    <string name="text_show_less">Weniger anzeigen</string>
     <plurals name="book_stats_streak">
         <item quantity="one">%1$d Tag in Folge</item>
         <item quantity="other">%1$d Tage in Folge</item>

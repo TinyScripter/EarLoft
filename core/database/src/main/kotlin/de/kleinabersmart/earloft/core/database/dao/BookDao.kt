@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.BookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.EpisodePersonEntity
+import de.kleinabersmart.earloft.core.database.entity.SpokenAuthorEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenLibraryEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.model.BookCoverRow
@@ -81,6 +82,26 @@ abstract class BookDao {
         insertLibraries(libraries)
     }
 
+    @Query("DELETE FROM spoken_authors WHERE serverId = :serverId")
+    abstract suspend fun deleteAuthors(serverId: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertAuthors(authors: List<SpokenAuthorEntity>)
+
+    /** Die Autoren der abgeglichenen Bibliotheken des Servers. */
+    @Transaction
+    open suspend fun replaceAuthors(serverId: String, authors: List<SpokenAuthorEntity>) {
+        deleteAuthors(serverId)
+        insertAuthors(authors)
+    }
+
+    /** Autoren dieses Namens auf den eingeschalteten Servern (ein Name kann auf mehreren stehen). */
+    @Query(
+        "SELECT * FROM spoken_authors WHERE normName = :normName AND " +
+            "serverId NOT IN (SELECT serverId FROM spoken_servers WHERE enabled = 0) ORDER BY serverId",
+    )
+    abstract fun observeAuthors(normName: String): Flow<List<SpokenAuthorEntity>>
+
     @Query("DELETE FROM spoken_servers WHERE serverId = :serverId")
     abstract suspend fun deleteServerRow(serverId: String)
 
@@ -91,6 +112,7 @@ abstract class BookDao {
     open suspend fun deleteServer(serverId: String) {
         deleteBooksOf(serverId)
         deleteLibraries(serverId)
+        deleteAuthors(serverId)
         deleteServerRow(serverId)
     }
 

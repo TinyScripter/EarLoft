@@ -7,6 +7,7 @@ import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
+import de.kleinabersmart.earloft.core.database.entity.SpokenAuthorEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenLibraryEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.parseGenres
@@ -105,9 +106,29 @@ class BookSyncer @Inject constructor(
         val current = dao.server(server.serverId) ?: entity
         dao.upsertServer(current.copy(libraryId = shown.first().id, syncGeneration = generation, lastFullSyncAt = System.currentTimeMillis()))
         bookmarks.applyRemote(server.serverId, progressSync.pullAll(server).bookmarks)
+        syncAuthors(server, shown.map { it.id })
         loadMissingDetails(server)
         if (fresh.isEmpty()) emptyList()
         else dao.booksOf(server.serverId).filter { it.remoteId in fresh }.map { NewBook(it.bookId, it.title, it.author) }
+    }
+
+    /**
+     * Autoren der gezeigten Bibliotheken mit ihrer Beschreibung für die Autorenseite (`books_improvements.md` M8). Scheitert der
+     * Abruf, bleiben die bisherigen: Die Autoren sind Beiwerk und sollen den Abgleich der Bücher nicht scheitern lassen.
+     */
+    private suspend fun syncAuthors(server: AbsServer, libraryIds: List<String>) {
+        val authors = try {
+            libraryIds.flatMap { api.authors(server, it) }
+        } catch (e: IOException) {
+            Log.w(TAG, "Autoren von ${server.baseUrl} nicht abrufbar", e)
+            return
+        }
+        dao.replaceAuthors(
+            server.serverId,
+            authors.distinctBy { it.id }.map {
+                SpokenAuthorEntity(server.serverId, it.id, it.name, it.name.normalizeForMerge(), it.description.orNullIfBlank())
+            },
+        )
     }
 
     /** Kapitel und Dateien aller Bücher, die sie noch nicht haben (wenige gleichzeitig). */

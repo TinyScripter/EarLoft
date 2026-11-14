@@ -92,6 +92,15 @@ class BookRepository @Inject constructor(
 
     suspend fun bookNow(bookId: Long): Book? = dao.book(bookId)?.toModel()
 
+    /**
+     * Beschreibung des Autors [name] von Audiobookshelf (`books_improvements.md` M8); steht er auf mehreren Servern, die erste
+     * vorhandene. `null`, wenn kein Server eine hat.
+     */
+    fun authorDescription(name: String): Flow<String?> =
+        dao.observeAuthors(name.normalizeForMerge())
+            .map { authors -> authors.firstNotNullOfOrNull { it.description?.takeIf(String::isNotBlank) } }
+            .distinctUntilChanged()
+
     /** Buch oder Folge nach Server bzw. Abo und Kennung dort (das Handy nennt der Uhr nur diese, Wear-Konzept 17). */
     suspend fun idByRemote(serverId: String, remoteId: String): Long? = dao.bookByRemote(serverId, remoteId)?.bookId
 

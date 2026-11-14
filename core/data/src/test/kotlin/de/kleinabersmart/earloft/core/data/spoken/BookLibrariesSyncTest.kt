@@ -156,7 +156,27 @@ class BookLibrariesSyncTest {
         assertEquals(listOf("Audiobücher"), servers.servers.first().single().libraries.map { it.name })
     }
 
-    /** `/ping`, `/api/me`, `/api/libraries`, die Einträge je Bibliothek und je Eintrag die Details (ohne Dateien). */
+    @Test
+    fun `authors of all libraries come with their description, a failed request keeps them`() = runTest {
+        val id = connect()
+        assertTrue(sync(id).ok)
+
+        assertEquals("Schreibt Krimis.", books.authorDescription("anna autor").first())
+        assertEquals("Schreibt Hörspiele.", books.authorDescription("Bert Autor").first())
+        assertEquals(null, books.authorDescription("Ohne Text").first())
+
+        authorsFail = true
+        assertTrue(sync(id).ok)
+        assertEquals("Schreibt Krimis.", books.authorDescription("Anna Autor").first())
+
+        servers.setEnabled(id, false)
+        assertEquals(null, books.authorDescription("Anna Autor").first())
+    }
+
+    @Volatile
+    private var authorsFail = false
+
+    /** `/ping`, `/api/me`, `/api/libraries`, die Einträge und Autoren je Bibliothek und je Eintrag die Details (ohne Dateien). */
     private inner class FakeServer : Dispatcher() {
         override fun dispatch(request: RecordedRequest): MockResponse {
             val url = request.url
@@ -173,6 +193,16 @@ class BookLibrariesSyncTest {
                     val library = path.removePrefix("/api/libraries/").removeSuffix("/items")
                     val entries = items[library].orEmpty()
                     json("""{"results":[${entries.joinToString(",") { item(it.first, it.second, it.third) }}],"total":${entries.size}}""")
+                }
+                path.startsWith("/api/libraries/") && path.endsWith("/authors") -> {
+                    if (authorsFail) return MockResponse.Builder().code(500).build()
+                    when (path.removePrefix("/api/libraries/").removeSuffix("/authors")) {
+                        "lib-a" -> json(
+                            """{"authors":[{"id":"au1","name":"Anna Autor","description":"Schreibt Krimis."},""" +
+                                """{"id":"au3","name":"Ohne Text","description":null}]}""",
+                        )
+                        else -> json("""{"authors":[{"id":"au2","name":"Bert Autor","description":"Schreibt Hörspiele."}]}""")
+                    }
                 }
                 path.startsWith("/api/items/") -> {
                     val itemId = path.removePrefix("/api/items/")

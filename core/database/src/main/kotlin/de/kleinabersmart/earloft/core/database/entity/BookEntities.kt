@@ -53,6 +53,20 @@ data class SpokenLibraryEntity(
     val position: Int,
 )
 
+/**
+ * Ein Autor einer Buch-Bibliothek eines Audiobookshelf-Servers (v39), wie der letzte Abgleich ihn gesehen hat; für die
+ * Autorenseite (`books_improvements.md` M8). Ohne Fremdschlüssel wie [SpokenLibraryEntity]. Die Bücher finden ihn über den Namen
+ * ([normName]), nicht über die Kennung: `books.author` ist der Text des Buchs.
+ */
+@Entity(tableName = "spoken_authors", primaryKeys = ["serverId", "authorId"], indices = [Index("normName")])
+data class SpokenAuthorEntity(
+    val serverId: String,
+    val authorId: String,
+    val name: String,
+    val normName: String,
+    val description: String? = null,
+)
+
 /** Abonnierter Podcast oder Probeabo (Konzept 12.1, 12.10). Seine Folgen sind `books`-Zeilen mit `serverId = feedId`. */
 @Entity(tableName = "podcast_feeds", indices = [Index("url", unique = true)])
 data class PodcastFeedEntity(
