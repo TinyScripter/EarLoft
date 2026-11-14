@@ -71,6 +71,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import java.util.Optional
 import javax.inject.Inject
+import de.kleinabersmart.earloft.core.network.podcast.PODCAST_USER_AGENT
 
 /**
  * Extra am Start-Intent der Sitzungs-Aktivität (Tipp auf Benachrichtigung bzw. auf den Chip der laufenden Musik auf
@@ -137,7 +138,8 @@ class PlaybackService : MediaLibraryService() {
         // gemeinsamen OkHttpClient (Auth) und einen LRU-Cache, dessen Schlüssel die sourceUid ist.
         val streamFactory = CacheDataSource.Factory()
             .setCache(streamCache)
-            .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(okHttpClient))
+            // Eigener User-Agent: Manche Podcast-Hoster lehnen den von OkHttp mit 403 ab (Downloads schicken ihn schon).
+            .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(okHttpClient).setUserAgent(PODCAST_USER_AGENT))
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         val dataSourceFactory = SongDataSource.Factory(
             DefaultDataSource.Factory(this, streamFactory),
