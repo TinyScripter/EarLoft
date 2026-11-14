@@ -90,7 +90,7 @@ import java.io.File
         ArtistSourceEntity::class,
         BookmarkEntity::class,
     ],
-    version = 33,
+    version = 34,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -125,6 +125,7 @@ import java.io.File
         AutoMigration(from = 30, to = 31),
         AutoMigration(from = 31, to = 32),
         AutoMigration(from = 32, to = 33),
+        AutoMigration(from = 33, to = 34),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {

@@ -65,7 +65,7 @@ internal object ExchangeEffects {
 }
 
 /**
- * Eine Folge, zu der das Backup etwas weiß: gehört, angefangen oder mit gehörter Zeit.
+ * Eine Folge, zu der das Backup etwas weiß: gehört, angefangen, mit gehörter Zeit oder gemerkt ([starred], Tabelle `Favorites`).
  * [lastPlayedAt] ist das jüngere von „zuletzt gespielt“ und „Ende erreicht“ (0, wenn unbekannt).
  */
 data class ImportEpisode(
@@ -77,6 +77,7 @@ data class ImportEpisode(
     val played: Boolean,
     val listenedMs: Long,
     val lastPlayedAt: Long,
+    val starred: Boolean = false,
 )
 
 data class ImportData(val feeds: List<ImportFeed>, val episodes: List<ImportEpisode>)
@@ -141,12 +142,15 @@ object DatabaseReader {
         }
     }
 
-    private fun readEpisodes(db: SQLiteDatabase): List<ImportEpisode> =
-        db.rawQuery(
+    private fun readEpisodes(db: SQLiteDatabase): List<ImportEpisode> {
+        // Ältere Dateien haben keine Tabelle `Favorites`.
+        val favorites = db.rawQuery("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'Favorites'", null).use { it.moveToFirst() }
+        val starred = if (favorites) "EXISTS (SELECT 1 FROM Favorites s WHERE s.feeditem = i.id)" else "0"
+        return db.rawQuery(
             "SELECT f.download_url, i.item_identifier, i.title, i.read, m.duration, m.position, m.played_duration, " +
-                "m.playback_completion_date, m.last_played_time " +
+                "m.playback_completion_date, m.last_played_time, $starred AS starred " +
                 "FROM FeedItems i JOIN Feeds f ON f.id = i.feed LEFT JOIN FeedMedia m ON m.feeditem = i.id " +
-                "WHERE i.read = 1 OR m.position > 0 OR m.played_duration > 0",
+                "WHERE i.read = 1 OR m.position > 0 OR m.played_duration > 0 OR $starred",
             null,
         ).use { c ->
             buildList {
@@ -164,9 +168,11 @@ object DatabaseReader {
                             positionMs = c.getLong(5),
                             listenedMs = c.getLong(6),
                             lastPlayedAt = maxOf(c.getLong(7), c.getLong(8)),
+                            starred = c.getInt(9) == 1,
                         ),
                     )
                 }
             }
         }
+    }
 }

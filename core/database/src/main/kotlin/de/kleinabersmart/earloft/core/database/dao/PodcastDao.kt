@@ -35,6 +35,11 @@ data class TrialEpisodeRow(
 /** Folgen aktiver Abos: alles außer Probeabos und archivierten Abos (Feeds ohne Zeile zählen als abonniert). */
 private const val NOT_TRIAL = "serverId NOT IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0 OR archived = 1)"
 
+/** Spalten der Folgenlisten, **ohne Beschreibung** (leer, siehe [PodcastDao.observeEpisodes]). */
+private const val EPISODE_COLUMNS =
+    "bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, '' AS description, durationMs, " +
+        "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration, coverUrl, chaptersUrl, starredAt"
+
 /**
  * Podcast-Abos; ihre Folgen sind `books`-Zeilen mit `kind = 'EPISODE'` und `serverId = feedId` (Konzept 12.1).
  * Probeabos aus der Vorschau (`subscribed = 0`, Konzept 12.10) und archivierte Abos (`archived = 1`) fehlen in allen
@@ -172,17 +177,50 @@ abstract class PodcastDao {
      * und bei über tausend Folgen sind die Texte mehrere MB, die bei jeder Änderung mehrfach neu geladen würden (OOM).
      */
     @Query(
-        "SELECT bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, '' AS description, durationMs, " +
-            "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration, coverUrl, chaptersUrl " +
-            "FROM books WHERE kind = 'EPISODE' AND $NOT_TRIAL ORDER BY addedAt DESC",
+        "SELECT $EPISODE_COLUMNS FROM books WHERE kind = 'EPISODE' AND $NOT_TRIAL ORDER BY addedAt DESC",
     )
     abstract fun observeEpisodes(): Flow<List<BookEntity>>
 
+    /** Gemerkte Folgen der aktiven Abos, zuletzt gemerkte zuerst, ohne Beschreibung wie [observeEpisodes]. */
+    @Query(
+        "SELECT $EPISODE_COLUMNS FROM books WHERE kind = 'EPISODE' AND starredAt IS NOT NULL AND $NOT_TRIAL " +
+            "ORDER BY starredAt DESC, bookId DESC",
+    )
+    abstract fun observeStarredEpisodes(): Flow<List<BookEntity>>
+
+    /** Merkt die Folgen ([starredAt] = jetzt) bzw. nimmt den Stern weg (`null`); schon gemerkte behalten ihren Zeitpunkt. */
+    @Query("UPDATE books SET starredAt = :starredAt WHERE kind = 'EPISODE' AND bookId IN (:bookIds) AND (:starredAt IS NULL OR starredAt IS NULL)")
+    abstract suspend fun setStarred(bookIds: List<Long>, starredAt: Long?): Int
+
+    /** Gemerkte Folgen samt Schlüssel (Backup). */
+    @Query("SELECT serverId, remoteId, starredAt FROM books WHERE kind = 'EPISODE' AND starredAt IS NOT NULL")
+    abstract suspend fun keyedStarredEpisodes(): List<KeyedStarredEpisode>
+
+    /** Aus der Sicherung: merkt die Folge, wenn sie da und noch nicht gemerkt ist; `0`, wenn es sie (noch) nicht gibt. */
+    @Query(
+        "UPDATE books SET starredAt = CASE WHEN starredAt IS NULL THEN :starredAt ELSE starredAt END " +
+            "WHERE kind = 'EPISODE' AND serverId = :serverId AND remoteId = :remoteId",
+    )
+    abstract suspend fun restoreStar(serverId: String, remoteId: String, starredAt: Long): Int
+
+    /**
+     * Verlauf: gehörte Folgen nach dem letzten Hören, neueste zuerst (`listening_stats`, eigene und importierte zusammen),
+     * auch solche, die es nicht mehr gibt – dann ohne [HistoryRow.bookId]. Ohne Zeitpunkt (manche Importe) fehlen sie.
+     */
+    @Query(
+        "SELECT s.groupKey AS groupKey, s.itemKey AS itemKey, MAX(s.groupTitle) AS groupTitle, MAX(s.itemTitle) AS itemTitle, " +
+            "SUM(s.listenedMs) AS listenedMs, MAX(s.lastListenedAt) AS lastListenedAt, f.feedId AS feedId, b.bookId AS bookId, " +
+            "COALESCE(b.coverUrl, f.imageUrl) AS imageUrl, b.durationMs AS durationMs " +
+            "FROM listening_stats s LEFT JOIN podcast_feeds f ON f.url = s.groupKey AND f.subscribed = 1 " +
+            "LEFT JOIN books b ON b.kind = 'EPISODE' AND b.serverId = f.feedId AND b.remoteId = s.itemKey " +
+            "WHERE s.kind = 'EPISODE' AND s.lastListenedAt > 0 GROUP BY s.groupKey, s.itemKey " +
+            "ORDER BY lastListenedAt DESC LIMIT :limit",
+    )
+    abstract fun observeHistory(limit: Int): Flow<List<HistoryRow>>
+
     /** Wie [observeEpisodes], nur die Folgen der Probeabos (für die Warteschlange). */
     @Query(
-        "SELECT bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, '' AS description, durationMs, " +
-            "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration, coverUrl, chaptersUrl " +
-            "FROM books WHERE kind = 'EPISODE' AND serverId IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0) " +
+        "SELECT $EPISODE_COLUMNS FROM books WHERE kind = 'EPISODE' AND serverId IN (SELECT feedId FROM podcast_feeds WHERE subscribed = 0) " +
             "ORDER BY addedAt DESC",
     )
     abstract fun observeTrialEpisodes(): Flow<List<BookEntity>>
@@ -309,7 +347,7 @@ abstract class PodcastDao {
         "SELECT t.bookId FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
             "WHERE b.kind = 'EPISODE' AND b.serverId = :feedId AND t.trackIndex = 0 AND t.autoDownload = 1 " +
             "AND t.downloadState IN ('QUEUED', 'DONE') " +
-            "AND t.bookId NOT IN (SELECT bookId FROM book_progress WHERE positionMs > 0 OR finished = 1) " +
+            "AND t.bookId NOT IN (SELECT bookId FROM book_progress WHERE positionMs > 0 OR finished = 1) AND b.starredAt IS NULL " +
             "AND b.addedAt < (SELECT MAX(n.addedAt) FROM books n JOIN book_tracks d ON d.bookId = n.bookId " +
             "WHERE n.serverId = :feedId AND n.kind = 'EPISODE' AND d.trackIndex = 0 AND d.downloadState = 'DONE')",
     )
@@ -409,23 +447,23 @@ abstract class PodcastDao {
     @Query(
         "SELECT t.bookId AS bookId, p.updatedAt AS finishedAt, t.filePath AS filePath FROM book_tracks t " +
             "JOIN books b ON b.bookId = t.bookId JOIN book_progress p ON p.bookId = t.bookId " +
-            "WHERE b.kind = 'EPISODE' AND t.downloadState = 'DONE' AND p.finished = 1",
+            "WHERE b.kind = 'EPISODE' AND t.downloadState = 'DONE' AND p.finished = 1 AND b.starredAt IS NULL",
     )
     abstract fun observeFinishedDownloads(): Flow<List<FinishedDownloadRow>>
 
-    /** Fertig geladene Folgen eines Podcasts, die zu Ende gehört sind. */
+    /** Fertig geladene Folgen eines Podcasts, die zu Ende gehört sind; gemerkte behalten ihren Download. */
     @Query(
         "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId JOIN book_progress p ON p.bookId = t.bookId " +
-            "WHERE b.serverId = :feedId AND t.downloadState = 'DONE' AND p.finished = 1",
+            "WHERE b.serverId = :feedId AND t.downloadState = 'DONE' AND p.finished = 1 AND b.starredAt IS NULL",
     )
     abstract suspend fun finishedDownloads(feedId: String): List<BookTrackEntity>
 
     /**
-     * Folgen, die der letzte Abgleich nicht mehr gesehen hat, fallen weg – außer angefangenen und geladenen: wer eine
-     * Folge schon hört oder für unterwegs geladen hat, behält sie auch dann, wenn der Feed nur die neuesten führt.
+     * Folgen, die der letzte Abgleich nicht mehr gesehen hat, fallen weg – außer angefangenen, gemerkten und geladenen: wer
+     * eine Folge schon hört, gemerkt oder für unterwegs geladen hat, behält sie auch dann, wenn der Feed nur die neuesten führt.
      */
     @Query(
-        "DELETE FROM books WHERE serverId = :feedId AND seenInGeneration < :generation " +
+        "DELETE FROM books WHERE serverId = :feedId AND seenInGeneration < :generation AND starredAt IS NULL " +
             "AND bookId NOT IN (SELECT bookId FROM book_progress WHERE positionMs > 0) " +
             "AND bookId NOT IN (SELECT bookId FROM book_tracks WHERE downloadState IN ('QUEUED', 'RUNNING', 'DONE'))",
     )
@@ -434,3 +472,23 @@ abstract class PodcastDao {
 
 /** Download einer Folge mit dem Schlüssel ihrer Folge (Feed, guid). */
 data class KeyedEpisodeDownload(val serverId: String, val remoteId: String, val downloadState: TrackDownload)
+
+/** Gemerkte Folge mit ihrem Schlüssel (Feed, guid). */
+data class KeyedStarredEpisode(val serverId: String, val remoteId: String, val starredAt: Long)
+
+/**
+ * Eine gehörte Folge im Verlauf: Feed-Adresse und guid wie in der Statistik; [feedId] und [bookId] fehlen, wenn es das Abo
+ * bzw. die Folge nicht mehr gibt.
+ */
+data class HistoryRow(
+    val groupKey: String,
+    val itemKey: String,
+    val groupTitle: String,
+    val itemTitle: String,
+    val listenedMs: Long,
+    val lastListenedAt: Long,
+    val feedId: String?,
+    val bookId: Long?,
+    val imageUrl: String?,
+    val durationMs: Long?,
+)

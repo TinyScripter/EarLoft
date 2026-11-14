@@ -126,6 +126,7 @@ import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.earloft.ui.valueOrNull
 import de.kleinabersmart.earloft.ui.library.BackButton
+import de.kleinabersmart.earloft.ui.library.TabLabel
 import de.kleinabersmart.earloft.ui.settings.SwitchRow
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import kotlinx.coroutines.launch
@@ -278,30 +279,42 @@ fun FeedCard(
 
 private enum class PodcastTab(@StringRes val label: Int) {
     EPISODES(R.string.podcast_episodes),
+    STARRED(R.string.podcast_tab_starred),
     FEEDS(R.string.podcast_tab_feeds),
     STATS(R.string.podcast_tab_stats),
 }
 
-/** Bibliothek im Modus „Podcasts“: Reiter Folgen (ungehörte je Abo), Abos (Raster mit schwebendem „+“) und Statistik. */
+/**
+ * Bibliothek im Modus „Podcasts“: Reiter Folgen (ungehörte je Abo), Gemerkt, Abos (Raster mit schwebendem „+“) und
+ * Statistik (darin der Weg zum Verlauf, [onOpenHistory]).
+ */
 @Composable
 fun PodcastLibraryScreen(
     onFeedClick: (String) -> Unit,
     onFeedSettings: (String) -> Unit,
     onEpisodeClick: (Long) -> Unit,
     onAddPodcast: () -> Unit,
+    onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PodcastViewModel = hiltViewModel(),
+    starredViewModel: PodcastStarredHistoryViewModel = hiltViewModel(),
 ) {
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
     val unheard by viewModel.unheard.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val feedSort by viewModel.feedSort.collectAsStateWithLifecycle()
     val newEpisodeCounts by viewModel.newEpisodeCounts.collectAsStateWithLifecycle()
+    val starred by starredViewModel.starred.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { PodcastTab.entries.size }
     val scope = rememberCoroutineScope()
-    // Mehrfachauswahl im Reiter „Folgen“; sie endet, wenn man den Reiter verlässt.
+    // Mehrfachauswahl in den Reitern „Folgen“ und „Gemerkt“; sie endet, wenn man den Reiter verlässt.
     val selection = rememberEpisodeSelection()
-    LaunchedEffect(pagerState.currentPage) { if (PodcastTab.entries[pagerState.currentPage] != PodcastTab.EPISODES) selection.clear() }
+    // Nur bei einem Wechsel, nicht beim ersten Aufbau: Nach dem Drehen bleibt die Auswahl.
+    var selectionPage by rememberSaveable { mutableStateOf(pagerState.currentPage) }
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != selectionPage) selection.clear()
+        selectionPage = pagerState.currentPage
+    }
     val empty: @Composable () -> Unit = {
         EmptyAreaHint(SpokenMode.PODCASTS, stringResource(R.string.podcast_none), stringResource(R.string.podcast_add), onAddPodcast)
     }
@@ -314,14 +327,19 @@ fun PodcastLibraryScreen(
     Column(modifier.fillMaxSize()) {
         // Während der Auswahl steht ihre Leiste an der Stelle der Reiter, und der Pager bleibt stehen.
         if (selection.active) {
-            EpisodeSelectionBar(selection, unheard.valueOrNull.orEmpty().flatMap { it.episodes }, windowInsets = WindowInsets(0))
+            val shown = if (PodcastTab.entries[pagerState.currentPage] == PodcastTab.STARRED) {
+                starred.valueOrNull.orEmpty()
+            } else {
+                unheard.valueOrNull.orEmpty().flatMap { it.episodes }
+            }
+            EpisodeSelectionBar(selection, shown, windowInsets = WindowInsets(0))
         } else PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
             PodcastTab.entries.forEachIndexed { index, tab ->
+                // Vier Reiter: wie in der Musik-Bibliothek kleinere Schrift statt Umbruch („Subscriptions“).
                 Tab(
                     selected = pagerState.currentPage == index,
                     onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                    text = { Text(stringResource(tab.label)) },
-                )
+                ) { TabLabel(stringResource(tab.label)) }
             }
         }
         HorizontalPager(
@@ -341,8 +359,9 @@ fun PodcastLibraryScreen(
                     viewModel::playOrPause,
                     selection,
                 )
+                PodcastTab.STARRED -> if (feeds.valueOrNull?.isEmpty() == true) empty() else StarredEpisodes(onEpisodeClick, selection, starredViewModel)
                 PodcastTab.FEEDS -> FeedGrid(feeds, newEpisodeCounts, onFeedClick, onFeedSettings, onAdd = onAddPodcast, empty = empty)
-                PodcastTab.STATS -> PodcastStatsScreen(onFeedClick)
+                PodcastTab.STATS -> PodcastStatsScreen(onFeedClick, onEpisodeClick, onOpenHistory)
             }
         }
     }
@@ -580,7 +599,13 @@ fun PodcastScreen(
                     item(key = "empty") { EmptyHint(stringResource(R.string.podcast_no_episodes)) }
                 } else if (episodes is LoadState.Ready) {
                     // Die Chips bleiben stehen, auch wenn der Filter nichts übrig lässt, damit man ihn lösen kann.
-                    item(key = "filter") { EpisodeFilterChips(current.episodeFilter, viewModel::setEpisodeFilter) }
+                    item(key = "filter") {
+                        EpisodeFilterChips(
+                            current.episodeFilter,
+                            viewModel::setEpisodeFilter,
+                            withStarred = episodes.valueOrNull.orEmpty().any { it.book.starred },
+                        )
+                    }
                     if (shownEpisodes is LoadState.Ready && list.isEmpty()) {
                         item(key = "filter-empty") { EmptyHint(stringResource(R.string.library_filter_empty)) }
                     }
@@ -664,15 +689,18 @@ private val FeedSort.label: Int
         FeedSort.MOST_NEW -> R.string.feed_sort_most_new
     }
 
-/** Filter der Folgenliste eines Abos: genau einer ist gewählt. Lässt sich seitlich wischen, wenn die Breite nicht reicht. */
+/**
+ * Filter der Folgenliste eines Abos: genau einer ist gewählt. Lässt sich seitlich wischen, wenn die Breite nicht reicht.
+ * „Gemerkt“ steht nur da, wenn das Abo gemerkte Folgen hat ([withStarred]) oder er gewählt ist (wie „Favoriten“ der Musik).
+ */
 @Composable
-private fun EpisodeFilterChips(selected: EpisodeFilter, onSelect: (EpisodeFilter) -> Unit) {
+private fun EpisodeFilterChips(selected: EpisodeFilter, onSelect: (EpisodeFilter) -> Unit, withStarred: Boolean) {
     val scroll = rememberScrollState()
     Row(
         Modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        EpisodeFilter.entries.forEach { filter ->
+        EpisodeFilter.entries.filter { it != EpisodeFilter.STARRED || withStarred || selected == it }.forEach { filter ->
             FilterChip(selected = filter == selected, onClick = { onSelect(filter) }, label = { Text(stringResource(filter.label)) })
         }
     }
@@ -684,6 +712,7 @@ private val EpisodeFilter.label: Int
         EpisodeFilter.UNHEARD -> R.string.episode_filter_unheard
         EpisodeFilter.STARTED -> R.string.episode_filter_started
         EpisodeFilter.DOWNLOADED -> R.string.episode_filter_downloaded
+        EpisodeFilter.STARRED -> R.string.episode_filter_starred
     }
 
 /** Zahl der neuen Folgen ([FeedStats.newEpisodes]) oben rechts auf dem Bild eines Abos; ab 100 „99+“. */
@@ -1120,10 +1149,10 @@ private fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: (
 /**
  * Eine Folge der Abo-Seite bzw. ihrer Suche. Während der Mehrfachauswahl ([selection], Konzept 12.5) schaltet ein Tipp sie
  * dazu oder weg, die Knöpfe rechts entfallen und eine ausgewählte trägt einen Haken über dem Bild. [swipe]: Wischgesten
- * ([EpisodeSwipeBox]), nicht während der Auswahl.
+ * ([EpisodeSwipeBox]), nicht während der Auswahl. [podcast]: in Listen aus mehreren Abos („Gemerkt“) der Name darunter.
  */
 @Composable
-private fun EpisodeRow(
+internal fun EpisodeRow(
     item: BookWithProgress,
     withTime: Boolean,
     withNotes: Boolean,
@@ -1136,6 +1165,7 @@ private fun EpisodeRow(
     onRemoveDownload: () -> Unit,
     selection: EpisodeSelection,
     swipe: Boolean,
+    podcast: String? = null,
 ) {
     val book = item.book
     val progress = item.progress
@@ -1148,6 +1178,7 @@ private fun EpisodeRow(
             headlineContent = { Text(book.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
             supportingContent = {
                 Column {
+                    if (!podcast.isNullOrBlank()) Text(podcast, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (withNotes) {
                         val notes = remember(book.description, book.title) { firstDescriptionLine(book.description, book.title) }
                         if (notes.isNotEmpty()) Text(notes, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1156,7 +1187,13 @@ private fun EpisodeRow(
                         book.addedAt.takeIf { it > 0 }?.let { formatEpisodeDay(it, withTime) },
                         book.durationMs.takeIf { it > 0 }?.let(::formatDuration),
                     ).joinToString(" · ")
-                    if (facts.isNotEmpty()) Text(facts)
+                    // Gemerkte Folgen mit einem kleinen Stern vor Datum und Dauer.
+                    if (facts.isNotEmpty() || book.starred) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (book.starred) StarredMark(Modifier.padding(end = 4.dp))
+                            Text(facts)
+                        }
+                    }
                     if (progress != null && listened) {
                         if (progress.finished) {
                             Text(stringResource(R.string.spoken_finished))

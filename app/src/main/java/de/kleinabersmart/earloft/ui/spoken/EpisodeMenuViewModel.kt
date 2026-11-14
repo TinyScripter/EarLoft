@@ -63,8 +63,18 @@ class EpisodeMenuViewModel @Inject constructor(
         .map { it.getOrNull(1)?.book?.id }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Probeabos aus der Vorschau: Ihre Folgen lassen sich nicht merken (das Abo verschwindet mit dem Verlassen der Seite). */
+    val trialFeeds: StateFlow<Set<String>> = podcasts.trialFeedIds
+        .map { it.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     fun playNext(bookId: Long) {
         viewModelScope.launch { continueListening.playNext(bookId) }
+    }
+
+    /** Merken (Stern) bzw. nicht mehr merken, auch für mehrere Folgen der Mehrfachauswahl. */
+    fun setStarred(items: List<BookWithProgress>, starred: Boolean) {
+        viewModelScope.launch { podcasts.setStarred(items.filter { it.isEpisode }.map { it.book.id }, starred) }
     }
 
     fun setQueued(bookId: Long, queued: Boolean) {

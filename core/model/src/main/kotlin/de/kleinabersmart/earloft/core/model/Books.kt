@@ -49,9 +49,13 @@ data class Book(
     val publishedYear: String? = null,
     val publisher: String? = null,
     val language: String? = null,
+    /** Folgen: seit wann gemerkt (Stern); `null` = nicht gemerkt. */
+    val starredAt: Long? = null,
 ) {
     /** Liegt auf diesem Gerät: kein Server, kein Download, kein Cast. */
     val isLocal: Boolean get() = isLocalSource(serverId)
+
+    val starred: Boolean get() = starredAt != null
 }
 
 /** Eine Serie eines Buchs, mit Band, falls der Server ihn mitliefert. */

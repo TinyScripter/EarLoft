@@ -228,6 +228,25 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `v33 to v34 keeps episodes unstarred`() {
+        helper.createDatabase(DB_NAME, 33).use { db ->
+            db.execSQL(
+                "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
+                    "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
+                    "VALUES (7, 'f', 'EPISODE', 'guid-7', 'Folge', 'folge', '', '', '', '', 60000, 0, 1, 1, 2)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 34, true).use { db ->
+            db.query("SELECT title, starredAt FROM books WHERE bookId = 7").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Folge", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }
@@ -355,6 +374,27 @@ class UserMigrationTest {
                 assertTrue(cursor.moveToFirst())
                 assertEquals(1, cursor.getInt(0))
                 assertTrue(cursor.isNull(1))
+            }
+        }
+    }
+
+    @Test
+    fun `v15 to v16 keeps podcasts and adds empty episode stars`() {
+        helper.createDatabase(DB_NAME, 15).use { db ->
+            db.execSQL(
+                "INSERT INTO podcasts (feedId, url, title, author, imageUrl, autoDownload, newestFirst, continuous, notifyNew) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'Lage', '', NULL, 1, 0, 1, 1)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 16, true).use { db ->
+            db.query("SELECT title FROM podcasts WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Lage", cursor.getString(0))
+            }
+            db.query("SELECT COUNT(*) FROM episode_stars").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
             }
         }
     }

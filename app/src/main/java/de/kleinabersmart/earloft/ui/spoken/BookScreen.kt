@@ -134,7 +134,9 @@ fun BookScreen(
                 }
             },
             // Folgen und Bücher einzeln auf die Uhr (Wear-Konzept 16.1/16.2); ⋮ mit gespielt/ungespielt, Warteschlange usw.
+            // Folgen zuerst mit dem Stern („Gemerkt“).
             actions = {
+                item?.let { EpisodeStarButton(it) }
                 if (book != null) {
                     if (book.kind == BookKind.BOOK || !book.isLocal) ShareButton(ShareTarget.Book(book.id))
                     WatchToggleButton(WatchTarget.Spoken(book.id))

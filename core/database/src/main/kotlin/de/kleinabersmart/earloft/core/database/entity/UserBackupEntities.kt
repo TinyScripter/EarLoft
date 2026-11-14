@@ -149,6 +149,14 @@ data class UserEpisodeDownloadEntity(
     val wanted: Boolean,
 )
 
+/** Eine gemerkte Podcast-Folge (`books.starredAt`, seit Version 16), über Feed und guid. */
+@Entity(tableName = "episode_stars", primaryKeys = ["serverId", "remoteId"])
+data class UserEpisodeStarEntity(
+    val serverId: String,
+    val remoteId: String,
+    val starredAt: Long,
+)
+
 /**
  * Ein Song über seine Metadaten statt der `songId` (siehe `KeyedSong`): Album-Künstler, Album, CD, Titelnummer und Titel,
  * normalisiert wie beim Zusammenführen.

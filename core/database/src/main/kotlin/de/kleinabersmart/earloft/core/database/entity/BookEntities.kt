@@ -124,6 +124,12 @@ data class BookEntity(
      * mit den Dateien kommen. Bestimmt, welche Quelle sie ersetzen darf.
      */
     val chapterSource: ChapterSource? = null,
+    /**
+     * Folgen: gemerkt (Stern, Schema v34), seit wann; `null` = nicht gemerkt. Gehört dem Nutzer, nicht der Quelle: Der
+     * Abgleich lässt den Wert stehen ([de.kleinabersmart.earloft.core.database.dao.BookDao.upsertBook]), und gemerkte
+     * Folgen bleiben, auch wenn der Feed sie nicht mehr führt.
+     */
+    val starredAt: Long? = null,
 )
 
 @Entity(

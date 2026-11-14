@@ -756,6 +756,9 @@
     <string name="episode_mark_played_play_next">Als abgespielt markieren und nächste spielen</string>
     <string name="episode_reset_position">Wiedergabeposition zurücksetzen</string>
     <string name="episode_play_next">Als Nächstes spielen</string>
+    <string name="episode_star">Merken</string>
+    <string name="episode_unstar">Nicht mehr merken</string>
+    <string name="episode_starred">Gemerkt</string>
     <string name="book_volume">Band %1$s</string>
     <string name="book_filter_not_started">Nicht begonnen</string>
     <string name="book_remaining">noch %1$s</string>
@@ -765,6 +768,7 @@
     <string name="episode_filter_unheard">Ungehört</string>
     <string name="episode_filter_started">Angefangen</string>
     <string name="episode_filter_downloaded">Geladen</string>
+    <string name="episode_filter_starred">Gemerkt</string>
     <string name="episode_sort_newest">Neueste zuerst</string>
     <string name="episode_sort_oldest">Älteste zuerst</string>
     <string name="feed_sort_newest_episode">Neueste Folge</string>
@@ -815,6 +819,12 @@
     <string name="podcast_feed_unencrypted">Unverschlüsselt (HTTP): Feed und Adresse sind im Netz lesbar.</string>
     <string name="podcast_tab_feeds">Abos</string>
     <string name="podcast_tab_stats">Statistik</string>
+    <string name="podcast_tab_starred">Gemerkt</string>
+    <string name="podcast_starred_empty">Keine gemerkten Folgen. Merke dir eine Folge auf ihrer Seite oder in ihrem Menü (lange drücken), um sie hier wiederzufinden; gemerkte Folgen bleiben, auch wenn der Feed sie nicht mehr führt.</string>
+    <string name="podcast_history">Zuletzt gehört</string>
+    <string name="podcast_history_all">Alle zeigen</string>
+    <string name="podcast_history_empty">Noch nichts gehört.</string>
+    <string name="podcast_history_gone">nicht mehr im Feed</string>
     <string name="podcast_stats_empty">Noch nichts gehört. Deine Hörzeit erscheint hier, sobald du eine Folge abspielst oder unter Einstellungen → Podcasts eine Datenbank importierst.</string>
     <string name="podcast_stats_hours">%1$d h</string>
     <string name="podcast_stats_minutes">%1$d min</string>
@@ -998,6 +1008,14 @@
     <plurals name="episodes_play_next">
         <item quantity="one">%d Folge kommt als Nächstes</item>
         <item quantity="other">%d Folgen kommen als Nächstes</item>
+    </plurals>
+    <plurals name="episodes_starred">
+        <item quantity="one">%d Folge gemerkt</item>
+        <item quantity="other">%d Folgen gemerkt</item>
+    </plurals>
+    <plurals name="episodes_unstarred">
+        <item quantity="one">%d Folge nicht mehr gemerkt</item>
+        <item quantity="other">%d Folgen nicht mehr gemerkt</item>
     </plurals>
     <string name="feed_menu_already_queued">„%1$s“ steht schon in der Warteschlange.</string>
     <string name="feed_menu_mark_all_played">Alle als gehört markieren</string>

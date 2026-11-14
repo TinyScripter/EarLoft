@@ -1,7 +1,10 @@
 package de.kleinabersmart.earloft.core.model
 
-/** Welche Folgen die Seite eines Abos zeigt (je Abo gespeichert). [UNHEARD]: nicht zu Ende gehört, angefangene inbegriffen. */
-enum class EpisodeFilter { ALL, UNHEARD, STARTED, DOWNLOADED }
+/**
+ * Welche Folgen die Seite eines Abos zeigt (je Abo gespeichert). [UNHEARD]: nicht zu Ende gehört, angefangene inbegriffen;
+ * [STARRED]: gemerkte.
+ */
+enum class EpisodeFilter { ALL, UNHEARD, STARTED, DOWNLOADED, STARRED }
 
 /**
  * Was von selbst in „Weiterhören“ kommt (je Abo): [ALL_NEW] die neuen Folgen der letzten Tage, [NEWEST_ONLY] nur die neueste
@@ -48,6 +51,7 @@ fun List<BookWithProgress>.filterEpisodes(filter: EpisodeFilter, oldestFirst: Bo
         EpisodeFilter.UNHEARD -> filter { it.progress.isUnheard }
         EpisodeFilter.STARTED -> filter { it.progress.isStarted }
         EpisodeFilter.DOWNLOADED -> filter { it.book.id in downloaded }
+        EpisodeFilter.STARRED -> filter { it.book.starred }
     }
     return if (oldestFirst) shown.asReversed() else shown
 }

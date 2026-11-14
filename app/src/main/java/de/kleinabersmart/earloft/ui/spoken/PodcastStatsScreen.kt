@@ -35,6 +35,7 @@ import de.kleinabersmart.earloft.ui.components.ListGroup
 import de.kleinabersmart.earloft.ui.components.SectionHeader
 import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
+import de.kleinabersmart.earloft.ui.valueOrNull
 import java.time.Month
 import java.time.format.TextStyle
 
@@ -60,14 +61,21 @@ internal fun YearChips(years: List<Int>, selected: Int?, onSelect: (Int?) -> Uni
     }
 }
 
-/** Reiter „Statistik“ der Podcast-Bibliothek: gehörte Zeit insgesamt, je Podcast und im Verlauf der letzten Monate. */
+/**
+ * Reiter „Statistik“ der Podcast-Bibliothek: gehörte Zeit insgesamt, je Podcast und im Verlauf der letzten Monate; unter
+ * „Gesamt“ darunter die zuletzt gehörten Folgen mit dem Weg zum ganzen Verlauf ([onOpenHistory]).
+ */
 @Composable
 fun PodcastStatsScreen(
     onFeedClick: (String) -> Unit,
+    onEpisodeClick: (Long) -> Unit,
+    onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PodcastStatsViewModel = hiltViewModel(),
+    historyViewModel: PodcastStarredHistoryViewModel = hiltViewModel(),
 ) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
+    val history by historyViewModel.history.collectAsStateWithLifecycle()
     val current = stats ?: return
     if (current.year == null && current.totalMs == 0L && current.finishedEpisodes == 0) {
         Box(modifier.fillMaxSize()) { EmptyHint(stringResource(R.string.podcast_stats_empty), Modifier.padding(16.dp)) }
@@ -113,6 +121,7 @@ fun PodcastStatsScreen(
                 EmptyHint(stringResource(R.string.podcast_stats_history_empty), Modifier.padding(horizontal = 16.dp))
             }
         }
+        if (current.year == null) recentHistory(history.valueOrNull.orEmpty(), onEpisodeClick, onFeedClick, onOpenHistory)
         item(key = "end") { Box(Modifier.height(16.dp)) }
     }
 }

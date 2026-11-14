@@ -763,6 +763,9 @@
     <string name="episode_mark_played_play_next">Mark as played and play next</string>
     <string name="episode_reset_position">Reset playback position</string>
     <string name="episode_play_next">Play next</string>
+    <string name="episode_star">Star</string>
+    <string name="episode_unstar">Remove star</string>
+    <string name="episode_starred">Starred</string>
     <string name="book_volume">Book %1$s</string>
     <string name="book_filter_not_started">Not started</string>
     <string name="book_remaining">%1$s left</string>
@@ -772,6 +775,7 @@
     <string name="episode_filter_unheard">Unheard</string>
     <string name="episode_filter_started">Started</string>
     <string name="episode_filter_downloaded">Downloaded</string>
+    <string name="episode_filter_starred">Starred</string>
     <string name="episode_sort_newest">Newest first</string>
     <string name="episode_sort_oldest">Oldest first</string>
     <string name="feed_sort_newest_episode">Newest episode</string>
@@ -822,6 +826,12 @@
     <string name="podcast_feed_unencrypted">Unencrypted (HTTP): the feed and its address can be read on the network.</string>
     <string name="podcast_tab_feeds">Subscriptions</string>
     <string name="podcast_tab_stats">Statistics</string>
+    <string name="podcast_tab_starred">Starred</string>
+    <string name="podcast_starred_empty">No starred episodes. Star an episode on its page or in its menu (long press) to find it here again; starred episodes stay even when the feed drops them.</string>
+    <string name="podcast_history">Recently played</string>
+    <string name="podcast_history_all">Show all</string>
+    <string name="podcast_history_empty">Nothing played yet.</string>
+    <string name="podcast_history_gone">no longer in the feed</string>
     <string name="podcast_stats_empty">Nothing listened to yet. Your listening time appears here as soon as you play an episode or import a database under Settings → Podcasts.</string>
     <string name="podcast_stats_hours">%1$d h</string>
     <string name="podcast_stats_minutes">%1$d min</string>
@@ -1005,6 +1015,14 @@
     <plurals name="episodes_play_next">
         <item quantity="one">%d episode plays next</item>
         <item quantity="other">%d episodes play next</item>
+    </plurals>
+    <plurals name="episodes_starred">
+        <item quantity="one">%d episode starred</item>
+        <item quantity="other">%d episodes starred</item>
+    </plurals>
+    <plurals name="episodes_unstarred">
+        <item quantity="one">Star removed from %d episode</item>
+        <item quantity="other">Star removed from %d episodes</item>
     </plurals>
     <string name="feed_menu_already_queued">“%1$s” is already in the queue.</string>
     <string name="feed_menu_mark_all_played">Mark all as played</string>

@@ -147,6 +147,10 @@ data object BookQueueRoute : NavKey
 @Serializable
 data object PodcastQueueSearchRoute : NavKey
 
+/** Verlauf der gehörten Folgen (aus dem Reiter „Statistik“ der Podcasts). */
+@Serializable
+data object PodcastHistoryRoute : NavKey
+
 @Serializable
 data object SettingsRoute : NavKey
 

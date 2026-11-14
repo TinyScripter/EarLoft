@@ -107,6 +107,22 @@ data class FeedEpisodes(val feed: PodcastFeed, val episodes: List<BookWithProgre
 /** Ein Podcast mit seinen fertig geladenen Folgen (Anzahl, belegte Bytes). */
 data class FeedDownload(val feed: PodcastFeed, val episodes: Int, val bytes: Long)
 
+/**
+ * Eine gehörte Folge im Verlauf; Titel wie zuletzt gehört. [feedId] und [bookId] fehlen, wenn es das Abo bzw. die Folge nicht
+ * mehr gibt; [listenedMs] ist die Inhaltszeit.
+ */
+data class EpisodeHistoryEntry(
+    val title: String,
+    val podcast: String,
+    val lastListenedAt: Long,
+    val listenedMs: Long,
+    val feedId: String?,
+    val bookId: Long?,
+    val imageUrl: String?,
+    val durationMs: Long,
+    val finished: Boolean,
+)
+
 /** Podcast-Abos und ihre Folgen (Konzept 12.1): abonnieren, abgleichen, Kapitel nachladen. */
 @Singleton
 class PodcastRepository @Inject constructor(
@@ -168,7 +184,7 @@ class PodcastRepository @Inject constructor(
         combine(dao.observeEpisodesOf(feedId), bookDao.observeAllProgress(), dao.observeFeed(feedId)) { episodes, progress, feed ->
             val byBook = progress.associateBy { it.bookId }
             episodes
-                .keepNewest({ feedId }, { feed?.keepEpisodes ?: 0 }) { byBook[it.bookId].isUntouched }
+                .keepNewest({ feedId }, { feed?.keepEpisodes ?: 0 }) { byBook[it.bookId].isUntouched && it.starredAt == null }
                 .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
         }
 
@@ -277,6 +293,42 @@ class PodcastRepository @Inject constructor(
 
     /** Ids aller fertig geladenen Folgen. */
     fun downloadedIds(): Flow<Set<Long>> = dao.observeDownloadedIds().map { it.toSet() }
+
+    /** Gemerkte Folgen der Abos (Reiter „Gemerkt“), zuletzt gemerkte zuerst, ohne Beschreibung. */
+    fun starredEpisodes(): Flow<List<BookWithProgress>> =
+        combine(dao.observeStarredEpisodes(), bookDao.observeAllProgress()) { episodes, progress ->
+            val byBook = progress.associateBy { it.bookId }
+            episodes.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
+        }
+
+    /**
+     * Merkt die Folgen bzw. nimmt den Stern weg. Gemerkte Folgen bleiben, auch wenn der Feed sie nicht mehr führt, und ihr
+     * Download wird nicht aufgeräumt; schon gemerkte behalten ihren Zeitpunkt. @return Zahl der geänderten Folgen.
+     */
+    suspend fun setStarred(bookIds: Collection<Long>, starred: Boolean): Int =
+        bookIds.distinct().chunked(MAX_ARGS).sumOf { dao.setStarred(it, if (starred) System.currentTimeMillis() else null) }
+
+    /**
+     * Verlauf der gehörten Folgen ([limit] zuletzt gehörte), aus der Statistik: auch Folgen, die nicht mehr im Feed stehen,
+     * und solche beendeter Abos; die Folge selbst nur, solange es sie gibt.
+     */
+    fun history(limit: Int = HISTORY_LIMIT): Flow<List<EpisodeHistoryEntry>> =
+        combine(dao.observeHistory(limit), bookDao.observeAllProgress()) { rows, progress ->
+            val byBook = progress.associateBy { it.bookId }
+            rows.map { row ->
+                EpisodeHistoryEntry(
+                    title = row.itemTitle,
+                    podcast = row.groupTitle,
+                    lastListenedAt = row.lastListenedAt,
+                    listenedMs = row.listenedMs,
+                    feedId = row.feedId,
+                    bookId = row.bookId,
+                    imageUrl = row.imageUrl,
+                    durationMs = row.durationMs ?: 0,
+                    finished = row.bookId?.let { byBook[it]?.finished } == true,
+                )
+            }
+        }.distinctUntilChanged()
 
     /** Markiert die Folge als gespielt (Position ans Ende) oder als ungespielt (Position 0). Nur lokal, es gibt keinen Server. */
     suspend fun setPlayed(bookId: Long, played: Boolean) {
@@ -877,6 +929,12 @@ class PodcastRepository @Inject constructor(
 
         /** Wie bei den Büchern (`BookRepository.recentlyAdded`). */
         const val RECENT_LIMIT = 12
+
+        /** Länge des Verlaufs: genug zum Wiederfinden, ohne jede je gehörte Folge zu laden. */
+        const val HISTORY_LIMIT = 200
+
+        /** SQLite-Grenze für Parameter je Abfrage, mit Abstand. */
+        const val MAX_ARGS = 500
     }
 }
 
@@ -932,7 +990,7 @@ private val BookProgressEntity?.isUntouched: Boolean get() = this == null || (!f
 private fun List<BookEntity>.visibleIn(feeds: List<PodcastFeedEntity>, byBook: Map<Long, BookProgressEntity>): List<BookEntity> {
     val keep = feeds.filter { it.keepEpisodes > 0 }.associate { it.feedId to it.keepEpisodes }
     if (keep.isEmpty()) return this
-    return keepNewest({ it.serverId }, { keep[it] ?: 0 }) { byBook[it.bookId].isUntouched }
+    return keepNewest({ it.serverId }, { keep[it] ?: 0 }) { byBook[it.bookId].isUntouched && it.starredAt == null }
 }
 
 /**

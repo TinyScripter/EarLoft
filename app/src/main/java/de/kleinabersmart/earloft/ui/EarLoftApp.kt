@@ -56,6 +56,8 @@ import de.kleinabersmart.earloft.navigation.PodcastInfoRoute
 import de.kleinabersmart.earloft.navigation.BookQueueRoute
 import de.kleinabersmart.earloft.navigation.PodcastQueueRoute
 import de.kleinabersmart.earloft.navigation.PodcastQueueSearchRoute
+import de.kleinabersmart.earloft.navigation.PodcastHistoryRoute
+import de.kleinabersmart.earloft.ui.spoken.PodcastHistoryScreen
 import de.kleinabersmart.earloft.navigation.PodcastRoute
 import de.kleinabersmart.earloft.navigation.PodcastSearchRoute
 import de.kleinabersmart.earloft.navigation.PodcastSettingsRoute
@@ -298,6 +300,7 @@ fun EarLoftApp(
                         onFeedSettings = openPodcastSettings,
                         onEpisodeClick = openBook,
                         onAddPodcast = openAddPodcast,
+                        onOpenHistory = { navigator.navigate(PodcastHistoryRoute) },
                     )
                 },
                 books = {
@@ -374,6 +377,9 @@ fun EarLoftApp(
         }
         entry<FavoritesRoute>(metadata = detailPane()) {
             FavoritesScreen(onBack = navigator::goBack, onAlbumClick = openAlbum, onArtistClick = openArtist)
+        }
+        entry<PodcastHistoryRoute>(metadata = detailPane()) {
+            PodcastHistoryScreen(onBack = navigator::goBack, onEpisodeClick = openBook, onFeedClick = openPodcast)
         }
         entry<PlaylistRoute>(metadata = detailPane()) { route ->
             PlaylistScreen(playlistId = route.playlistId, onBack = navigator::goBack)

@@ -6,6 +6,9 @@ import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
+import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.filterEpisodes
 import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.ChapterSource
@@ -326,6 +329,87 @@ class PodcastRepositoryTest {
         assertEquals(1, stats.newEpisodes)
         assertEquals(300L, stats.lastPlayedAt)
         assertEquals(Instant.parse("2025-10-30T06:00:00Z").toEpochMilli(), stats.newestEpisodeAt)
+    }
+
+    @Test
+    fun `starred episodes keep their star across refreshes and stay when the feed drops them`() = runTest {
+        val feedId = subscribe()
+        val (b, c) = listOf("B", "C").map { idOf(feedId, it) }
+        db.podcastDao().setStarred(listOf(b), 100)
+        db.podcastDao().setStarred(listOf(c), 200)
+        assertEquals(listOf("C", "B"), repository.starredEpisodes().first().map { it.book.title })
+        // Schon gemerkte behalten ihren Zeitpunkt.
+        assertEquals(0, db.podcastDao().setStarred(listOf(b), 300))
+
+        repository.setStarred(listOf(c), starred = false)
+        served = feed("A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        repository.refresh(feedId)
+
+        // B steht nicht mehr im Feed, bleibt aber samt Stern; C ging mit dem Feed.
+        assertEquals(listOf("A", "B"), repository.episodes(feedId).first().map { it.book.title })
+        assertEquals(100L, db.bookDao().book(b)!!.starredAt)
+        assertEquals(null, db.bookDao().book(c))
+        assertEquals(listOf("B"), repository.starredEpisodes().first().map { it.book.title })
+        assertEquals(1, repository.setStarred(listOf(b, b), starred = false))
+        assertEquals(emptyList<String>(), repository.starredEpisodes().first().map { it.book.title })
+    }
+
+    @Test
+    fun `heard downloads of starred episodes are not cleaned up`() = runTest {
+        val feedId = subscribe()
+        val dao = db.podcastDao()
+        val (a, b) = listOf("A", "B").map { idOf(feedId, it) }
+        listOf(a, b).forEach { id ->
+            dao.queueDownload(id)
+            dao.markDownloadRunning(id)
+            dao.markDownloadDone(id, "/tmp/$id.mp3", 1)
+            listen(id, positionMs = 600_000, updatedAt = 100, finished = true)
+        }
+        repository.setStarred(listOf(b), starred = true)
+
+        assertEquals(listOf(a), dao.observeFinishedDownloads().first().map { it.bookId })
+        assertEquals(listOf(a), dao.finishedDownloads(feedId).map { it.bookId })
+    }
+
+    @Test
+    fun `keeping the newest episodes still shows starred ones`() = runTest {
+        val feedId = subscribe()
+        repository.setStarred(listOf(idOf(feedId, "C")), starred = true)
+
+        repository.setKeepEpisodes(feedId, 1)
+
+        assertEquals(listOf("A", "C"), repository.episodes(feedId).first().map { it.book.title })
+        assertEquals(listOf("A", "C"), repository.unheardByFeed().first().single().episodes.map { it.book.title })
+        val episodes = repository.episodes(feedId).first()
+        assertEquals(listOf("C"), episodes.filterEpisodes(EpisodeFilter.STARRED, oldestFirst = false, downloaded = emptySet()).map { it.book.title })
+    }
+
+    @Test
+    fun `history lists heard episodes newest first, also ones that are gone`() = runTest {
+        val feedId = subscribe()
+        val a = idOf(feedId, "A")
+        listen(a, positionMs = 600_000, updatedAt = 300, finished = true)
+        fun stat(source: String, item: String, title: String, ms: Long, at: Long, group: String = "https://example.com/feed.xml") =
+            ListeningStatEntity(source = source, kind = BookKind.EPISODE, groupKey = group, groupTitle = "Test-Podcast", itemKey = item, itemTitle = title, listenedMs = ms, lastListenedAt = at)
+        db.statsDao().upsertAll(
+            listOf(
+                stat(ListeningStatEntity.SOURCE_APP, "guid-A", "A", 60_000, 300),
+                stat(ListeningStatEntity.SOURCE_IMPORTED, "guid-A", "A", 30_000, 100),
+                stat(ListeningStatEntity.SOURCE_APP, "guid-old", "Alt", 10_000, 200),
+                stat(ListeningStatEntity.SOURCE_IMPORTED, "x", "Fremd", 5_000, 400, group = "https://example.com/gone.xml"),
+                // Ohne Zeitpunkt steht es nicht im Verlauf.
+                stat(ListeningStatEntity.SOURCE_IMPORTED, "guid-B", "B", 5_000, 0),
+            ),
+        )
+
+        val history = repository.history().first()
+
+        assertEquals(listOf("Fremd", "A", "Alt"), history.map { it.title })
+        val (gone, heard, old) = history
+        assertEquals(Triple(null, null, false), Triple(gone.feedId, gone.bookId, gone.finished))
+        assertEquals(Triple(feedId, a, true), Triple(heard.feedId, heard.bookId, heard.finished))
+        assertEquals(90_000L, heard.listenedMs)
+        assertEquals(feedId to null, old.feedId to old.bookId)
     }
 
     @Test

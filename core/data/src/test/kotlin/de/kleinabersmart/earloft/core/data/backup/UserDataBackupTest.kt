@@ -323,6 +323,40 @@ class UserDataBackupTest {
         assertTrue(user.userDataDao().progress().isEmpty())
     }
 
+    @Test
+    fun `starred episodes are saved, wait for their episode on a new device and go with their subscription`() = runTest {
+        fillMain()
+        val first = book(main, "feed-1", "guid-1")
+        val second = book(main, "feed-1", "guid-2")
+        main.podcastDao().setStarred(listOf(first), 100)
+        main.podcastDao().setStarred(listOf(second), 200)
+        val backup = backupFor(main)
+        backup.mirror()
+        assertEquals(mapOf("guid-1" to 100L, "guid-2" to 200L), user.userDataDao().episodeStars().associate { it.remoteId to it.starredAt })
+
+        // Nicht mehr gemerkt: fällt aus der Sicherung (nur Teil `books` gelesen).
+        main.podcastDao().setStarred(listOf(second), null)
+        backup.mirror(setOf("books"))
+        assertEquals(listOf("guid-1"), user.userDataDao().episodeStars().map { it.remoteId })
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val restoring = backupFor(newDevice)
+            val saved = user.userDataDao().episodeStars()
+            // Noch ohne Folge: wartet.
+            assertEquals(saved, restoring.applyEpisodeStars(saved))
+            val again = book(newDevice, "feed-1", "guid-1")
+            assertTrue(restoring.applyEpisodeStars(saved).isEmpty())
+            assertEquals(100L, newDevice.bookDao().book(again)!!.starredAt)
+        } finally {
+            newDevice.close()
+        }
+
+        main.podcastDao().deleteFeed("feed-1")
+        backup.mirror()
+        assertTrue(user.userDataDao().episodeStars().isEmpty())
+    }
+
     private fun bookmark(
         bookId: Long,
         positionMs: Long,

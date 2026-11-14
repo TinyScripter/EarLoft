@@ -1,11 +1,15 @@
 package de.kleinabersmart.earloft.ui.spoken
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.SnackbarDuration
@@ -49,6 +53,35 @@ fun EpisodeMenuButton(item: BookWithProgress) {
 }
 
 /**
+ * Stern einer Folge (Konzept 12.5, „Gemerkt“) im Kopf der Folgenseite und des Players; für Bücher und Folgen von
+ * Probeabos nichts.
+ */
+@Composable
+fun EpisodeStarButton(item: BookWithProgress, viewModel: EpisodeMenuViewModel = hiltViewModel()) {
+    val trialFeeds by viewModel.trialFeeds.collectAsStateWithLifecycle()
+    if (!item.isEpisode || item.book.serverId in trialFeeds) return
+    val starred = item.book.starred
+    IconButton(onClick = { viewModel.setStarred(listOf(item), !starred) }) {
+        Icon(
+            painterResource(if (starred) DesignR.drawable.ic_star else DesignR.drawable.ic_star_border),
+            contentDescription = stringResource(if (starred) R.string.episode_unstar else R.string.episode_star),
+            tint = if (starred) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+        )
+    }
+}
+
+/** Kleiner Stern in einer Folgenzeile: Die Folge ist gemerkt. */
+@Composable
+fun StarredMark(modifier: Modifier = Modifier) {
+    Icon(
+        painterResource(DesignR.drawable.ic_star),
+        contentDescription = stringResource(R.string.episode_starred),
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = modifier.size(16.dp),
+    )
+}
+
+/**
  * Kontextmenü einer Podcast-Folge oder eines Buchs (Langklick); die erste Zeile nennt den Titel zur Orientierung. Mit
  * [onSelect] beginnt „Auswählen“ die Mehrfachauswahl der Liste mit dieser Folge (Konzept 12.5).
  */
@@ -65,6 +98,7 @@ fun EpisodeMenu(
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
     val queueHead by viewModel.queueHead.collectAsStateWithLifecycle()
     val queueSecond by viewModel.queueSecond.collectAsStateWithLifecycle()
+    val trialFeeds by viewModel.trialFeeds.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     val id = item.book.id
@@ -100,6 +134,13 @@ fun EpisodeMenu(
             text = { Text(stringResource(R.string.episode_play_next)) },
             onClick = {
                 viewModel.playNext(id)
+                onDismiss()
+            },
+        )
+        if (item.isEpisode && item.book.serverId !in trialFeeds) DropdownMenuItem(
+            text = { Text(stringResource(if (item.book.starred) R.string.episode_unstar else R.string.episode_star)) },
+            onClick = {
+                viewModel.setStarred(listOf(item), !item.book.starred)
                 onDismiss()
             },
         )

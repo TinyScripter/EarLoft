@@ -87,7 +87,7 @@ fun rememberEpisodeSelection(): EpisodeSelection =
 
 /**
  * Leiste statt der Kopfzeile, solange ausgewählt ist: ✕ beendet die Auswahl (wie „Zurück“), daneben die Anzahl; rechts
- * „Alle auswählen“, „Gehört“ und „Laden“, im ⋮ „Download löschen“, Warteschlange und „Als Nächstes“. [shown] sind die Folgen
+ * „Alle auswählen“, „Gehört“ und „Laden“, im ⋮ „Download löschen“, Warteschlange, „Als Nächstes“ und „Merken“. [shown] sind die Folgen
  * der Liste in ihrer Reihenfolge; die Aktionen gelten für die ausgewählten darunter, in dieser Reihenfolge. [inQueue]: Die
  * Liste ist die Warteschlange (dort „Entfernen“ statt „Zur Warteschlange“). Nach einer Aktion endet die Auswahl.
  */
@@ -104,6 +104,7 @@ fun EpisodeSelectionBar(
 ) {
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
     val queued by viewModel.queued.collectAsStateWithLifecycle()
+    val trialFeeds by viewModel.trialFeeds.collectAsStateWithLifecycle()
     // Abonniert, damit „Als Nächstes“ die vorderste Folge kennt.
     viewModel.queueHead.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
@@ -194,6 +195,19 @@ fun EpisodeSelectionBar(
                             done(quantity(resources, R.plurals.episodes_play_next, count))
                         },
                     )
+                    // Sind alle gemerkt: nicht mehr merken; Folgen von Probeabos lassen sich nicht merken.
+                    val starrable = selected.filter { it.book.serverId !in trialFeeds }
+                    if (starrable.isNotEmpty()) {
+                        val allStarred = starrable.all { it.book.starred }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(if (allStarred) R.string.episode_unstar else R.string.episode_star)) },
+                            onClick = {
+                                menu = false
+                                viewModel.setStarred(starrable, !allStarred)
+                                done(quantity(resources, if (allStarred) R.plurals.episodes_unstarred else R.plurals.episodes_starred, starrable.size))
+                            },
+                        )
+                    }
                 }
             }
         },

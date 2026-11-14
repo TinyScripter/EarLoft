@@ -16,7 +16,8 @@ import javax.inject.Singleton
 
 /**
  * Was ein Backup-Import getan hat: neu angelegte Podcasts (auch archivierte), übernommene Fortschritte, Fortschritte, die in der App neuer
- * waren ([progressKept]) oder deren Folge nicht (mehr) im Feed steht ([progressMissing]), und die Zahl der Statistik-Einträge.
+ * waren ([progressKept]) oder deren Folge nicht (mehr) im Feed steht ([progressMissing]), die Zahl der Statistik-Einträge und der
+ * neu gemerkten Folgen.
  */
 data class DatabaseImportResult(
     val feedsAdded: Int,
@@ -24,6 +25,7 @@ data class DatabaseImportResult(
     val progressKept: Int,
     val progressMissing: Int,
     val statsImported: Int,
+    val starred: Int = 0,
 )
 
 /**
@@ -33,6 +35,7 @@ data class DatabaseImportResult(
  *   wie es ist). Steht eine Sendung aus ARD Sounds als `ardsounds:` darin, ist sie ein Abo: So schreibt der Export sie ohne
  *   RSS-Bridge (und ältere Exporte immer) als archiviert, weil andere Apps sie nicht abonnieren können.
  * - Fortschritt wird über Feed-Adresse und guid zugeordnet und nur übernommen, wenn er neuer ist als der in der App.
+ * - Gemerkte Folgen (`Favorites`) werden ebenso zugeordnet und gemerkt; ein Stern der App bleibt, keiner wird entfernt.
  * - Die gehörte Zeit wandert für **alle** Folgen (auch archivierter Abos und nicht mehr im Feed stehender Folgen) in die
  *   Statistik ([ListeningStatEntity]); ein erneuter Import ersetzt seine eigenen Zeilen.
  */
@@ -69,13 +72,15 @@ class DatabaseImporter @Inject constructor(
         var applied = 0
         var kept = 0
         var missing = 0
+        val stars = mutableListOf<Long>()
         val stats = mutableListOf<ListeningStatEntity>()
 
         for (episode in backup.episodes) {
             val feedUrl = key(episode.feedUrl) ?: episode.feedUrl
+            val feed = feedByUrl[feedUrl]
+            val book = feed?.let { f -> booksByFeed.getOrPut(f.feedId) { bookDao.booksOf(f.feedId).associateBy { it.remoteId } }[episode.guid] }
+            if (episode.starred && book != null) stars += book.bookId
             if (episode.played || episode.positionMs > 0) {
-                val feed = feedByUrl[feedUrl]
-                val book = feed?.let { f -> booksByFeed.getOrPut(f.feedId) { bookDao.booksOf(f.feedId).associateBy { it.remoteId } }[episode.guid] }
                 if (book == null) {
                     missing++
                 } else if (applyProgress(book, episode)) {
@@ -98,7 +103,8 @@ class DatabaseImporter @Inject constructor(
             }
         }
         statsDao.upsertAll(stats)
-        return DatabaseImportResult(added.size, applied, kept, missing, stats.size)
+        val starred = repository.setStarred(stars, starred = true)
+        return DatabaseImportResult(added.size, applied, kept, missing, stats.size, starred)
     }
 
     /** `false`, wenn die App einen neueren Stand hat und er bleibt. */

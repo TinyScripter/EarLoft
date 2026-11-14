@@ -21,8 +21,8 @@ import javax.inject.Singleton
 data class DatabaseExportResult(val feeds: Int, val episodes: Int)
 
 /**
- * Schreibt Abos (samt Tempo, Effekten, Intro und Ende, [ExchangeEffects]), Hörfortschritt und gehörte Zeit in eine SQLite-Datei mit genau den Tabellen, die [DatabaseReader] liest
- * (`Feeds`, `FeedItems`, `FeedMedia`; dazu leere Hilfstabellen im selben Format). Der Export ist das Gegenstück zum Import.
+ * Schreibt Abos (samt Tempo, Effekten, Intro und Ende, [ExchangeEffects]), Hörfortschritt, gehörte Zeit und gemerkte Folgen in eine SQLite-Datei mit genau den Tabellen, die [DatabaseReader] liest
+ * (`Feeds`, `FeedItems`, `FeedMedia`, `Favorites`; dazu leere Hilfstabellen im selben Format). Der Export ist das Gegenstück zum Import.
  *
  * - Podcasts vom Gerät fehlen (kein Feed). Archivierte Abos gehen als archiviert mit, samt Folgen und Fortschritt.
  * - Sendungen aus ARD Sounds stehen wie im OPML-Export als Feed der RSS-Bridge darin, damit auch andere Apps sie abonnieren
@@ -86,6 +86,7 @@ class DatabaseExporter @Inject constructor(
         val positionMs: Long,
         val listenedMs: Long,
         val lastPlayedAt: Long,
+        val starred: Boolean = false,
     )
 
     private suspend fun buildFeeds(rssBridge: String?): List<OutFeed> {
@@ -124,6 +125,7 @@ class DatabaseExporter @Inject constructor(
                     positionMs = p.openPosition(),
                     listenedMs = listened.totalMs(),
                     lastPlayedAt = maxOf(p?.updatedAt ?: 0, listened.lastAt()),
+                    starred = book.starredAt != null,
                 )
             }
         }
@@ -214,6 +216,17 @@ class DatabaseExporter @Inject constructor(
                         put("last_played_time", episode.lastPlayedAt)
                     },
                 )
+                if (episode.starred) {
+                    db.insertOrThrow(
+                        "Favorites",
+                        null,
+                        ContentValues().apply {
+                            put("id", itemId)
+                            put("feeditem", itemId)
+                            put("feed", feedId)
+                        },
+                    )
+                }
             }
         }
     }

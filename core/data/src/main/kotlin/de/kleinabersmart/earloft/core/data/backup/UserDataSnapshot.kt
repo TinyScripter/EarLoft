@@ -8,6 +8,7 @@ import de.kleinabersmart.earloft.core.database.dao.KeyedPlayEvent
 import de.kleinabersmart.earloft.core.database.dao.KeyedPlaylistEntry
 import de.kleinabersmart.earloft.core.database.dao.KeyedProgress
 import de.kleinabersmart.earloft.core.database.dao.KeyedSong
+import de.kleinabersmart.earloft.core.database.dao.KeyedStarredEpisode
 import de.kleinabersmart.earloft.core.database.dao.RowChanges
 import de.kleinabersmart.earloft.core.database.dao.UserDataChanges
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
@@ -23,6 +24,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
+import de.kleinabersmart.earloft.core.database.entity.UserEpisodeStarEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserListeningDayEntity
 import de.kleinabersmart.earloft.core.database.entity.UserListeningStatEntity
@@ -54,12 +56,13 @@ data class UserDataSnapshot(
     val episodeDownloads: Map<BookKey, UserEpisodeDownloadEntity> = emptyMap(),
     val collectionFavorites: Map<CollectionKey, UserCollectionFavoriteEntity> = emptyMap(),
     val bookmarks: Map<BookmarkKey, UserBookmarkEntity> = emptyMap(),
+    val episodeStars: Map<BookKey, UserEpisodeStarEntity> = emptyMap(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty() && spokenServers.isEmpty() && podcasts.isEmpty() && listeningStats.isEmpty() &&
             listeningDays.isEmpty() && progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() &&
             playEvents.isEmpty() && wearSelections.isEmpty() && episodeDownloads.isEmpty() && collectionFavorites.isEmpty() &&
-            bookmarks.isEmpty()
+            bookmarks.isEmpty() && episodeStars.isEmpty()
 
     /** Einträge der gesicherten Playlists, in ihrer Reihenfolge. */
     fun entriesOf(playlistKey: String): List<UserSongKey> =
@@ -100,6 +103,7 @@ data class UserDataSnapshot(
             episodeDownloads = other.episodeDownloads + episodeDownloads,
             collectionFavorites = newest(collectionFavorites, other.collectionFavorites) { it.changedAt },
             bookmarks = newest(bookmarks, other.bookmarks) { it.updatedAt },
+            episodeStars = other.episodeStars + episodeStars,
         )
     }
 
@@ -119,6 +123,7 @@ data class UserDataSnapshot(
         episodeDownloads = rowChanges(previous.episodeDownloads, episodeDownloads),
         collectionFavorites = rowChanges(previous.collectionFavorites, collectionFavorites),
         bookmarks = rowChanges(previous.bookmarks, bookmarks),
+        episodeStars = rowChanges(previous.episodeStars, episodeStars),
     )
 
     companion object {
@@ -138,6 +143,7 @@ data class UserDataSnapshot(
             episodeDownloads: List<UserEpisodeDownloadEntity> = emptyList(),
             collectionFavorites: List<UserCollectionFavoriteEntity> = emptyList(),
             bookmarks: List<UserBookmarkEntity> = emptyList(),
+            episodeStars: List<UserEpisodeStarEntity> = emptyList(),
         ) = UserDataSnapshot(
             servers = servers.associateBy { it.sourceId },
             spokenServers = spokenServers.associateBy { it.serverId },
@@ -153,6 +159,7 @@ data class UserDataSnapshot(
             episodeDownloads = episodeDownloads.associateBy { BookKey(it.serverId, it.remoteId) },
             collectionFavorites = collectionFavorites.associateBy { it.key },
             bookmarks = bookmarks.associateBy { it.key },
+            episodeStars = episodeStars.associateBy { BookKey(it.serverId, it.remoteId) },
         )
 
         /**
@@ -160,8 +167,8 @@ data class UserDataSnapshot(
          * Fortschritt (bei Audiobookshelf nur der noch nicht gemeldete), die Lesezeichen (ohne gelöschte; bei Audiobookshelf
          * nur die, die der Server nicht vollständig kennt: noch nicht oder nicht im jetzigen Stand gemeldet oder mit Notiz,
          * die er nicht speichert), lokale Playlists (mit `backupKey`), Favoriten von
-         * Songs, Alben und Künstlern ohne Server, der Hörverlauf, die Auswahl für die Uhr (schon mit Schlüsseln, siehe `UserDataBackup`) und die
-         * Downloads der Folgen gesicherter Abos.
+         * Songs, Alben und Künstlern ohne Server, der Hörverlauf, die Auswahl für die Uhr (schon mit Schlüsseln, siehe `UserDataBackup`), die
+         * Downloads der Folgen gesicherter Abos und die gemerkten Folgen.
          */
         fun ofMain(
             sources: List<SourceEntity>,
@@ -178,6 +185,7 @@ data class UserDataSnapshot(
             episodeDownloads: List<KeyedEpisodeDownload> = emptyList(),
             collectionFavorites: List<KeyedCollectionFavorite> = emptyList(),
             bookmarks: List<KeyedBookmark> = emptyList(),
+            episodeStars: List<KeyedStarredEpisode> = emptyList(),
         ) = ofUser(
             servers = sources.filter { it.type.isServer }.map { it.toUser() },
             spokenServers = spokenServers.map { it.toUser() },
@@ -186,6 +194,8 @@ data class UserDataSnapshot(
             episodeDownloads = feeds.filterNot { it.feedId.startsWith(LOCAL_PODCAST_PREFIX) }.map { it.feedId }.toSet().let { kept ->
                 episodeDownloads.filter { it.serverId in kept }.map { it.toUser() }
             },
+            // Wie der Fortschritt auch die Folgen vom Gerät (über den Pfad); der Scan legt sie wieder an.
+            episodeStars = episodeStars.map { UserEpisodeStarEntity(it.serverId, it.remoteId, it.starredAt) },
             listeningStats = listeningStats.map { it.toUser() },
             listeningDays = listeningDays.map { it.toUser() },
             progress = spokenServers.map { it.serverId }.toSet().let { abs ->
@@ -254,6 +264,7 @@ suspend fun UserDataDao.snapshot() = UserDataSnapshot.ofUser(
     episodeDownloads = episodeDownloads(),
     collectionFavorites = collectionFavorites(),
     bookmarks = bookmarks(),
+    episodeStars = episodeStars(),
 )
 
 /** [mine], wo es mindestens so neu ist wie [other], sonst [other]. */

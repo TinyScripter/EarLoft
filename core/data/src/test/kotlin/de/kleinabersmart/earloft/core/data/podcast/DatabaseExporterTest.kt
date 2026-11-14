@@ -97,6 +97,24 @@ class DatabaseExporterTest {
     }
 
     @Test
+    fun `starred episodes go out as favorites and come back starred`() = runTest {
+        val feedId = db.podcastDao().feedByUrl(FEED_URL)!!.feedId
+        val starred = db.bookDao().booksOf(feedId).first { it.remoteId == "guid-B" }
+        db.podcastDao().setStarred(listOf(starred.bookId), 500)
+        val file = folder.newFile("stars.db")
+        exporter.export(file, rssBridge = null)
+
+        // Gelesen wird die gemerkte Folge auch ohne Fortschritt.
+        val read = DatabaseReader.read(file)
+        assertEquals(listOf("guid-B" to true), read.episodes.map { it.guid to it.starred })
+
+        db.podcastDao().setStarred(listOf(starred.bookId), null)
+        val result = importer.import(read)
+        assertEquals(1, result.starred)
+        assertEquals(true, db.bookDao().book(starred.bookId)!!.starredAt != null)
+    }
+
+    @Test
     fun `shows from ARD Sounds go out as feeds of the RSS bridge and come back as subscriptions`() = runTest {
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard", url = ARD_URL, title = "Kalk & Welk"))
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard-alt", url = ARD_ARCHIVED_URL, title = "Satire Deluxe", archived = true))

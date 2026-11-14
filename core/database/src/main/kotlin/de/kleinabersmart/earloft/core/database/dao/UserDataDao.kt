@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
 import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
+import de.kleinabersmart.earloft.core.database.entity.UserEpisodeStarEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.UserPlaylistEntryEntity
 import de.kleinabersmart.earloft.core.database.entity.UserFavoriteEntity
@@ -65,6 +66,9 @@ abstract class UserDataDao {
 
     @Query("SELECT * FROM episode_downloads")
     abstract suspend fun episodeDownloads(): List<UserEpisodeDownloadEntity>
+
+    @Query("SELECT * FROM episode_stars")
+    abstract suspend fun episodeStars(): List<UserEpisodeStarEntity>
 
     @Upsert
     protected abstract suspend fun upsertServers(rows: List<UserServerEntity>)
@@ -158,6 +162,16 @@ abstract class UserDataDao {
     @Delete
     protected abstract suspend fun deleteEpisodeDownloads(rows: List<UserEpisodeDownloadEntity>)
 
+    @Upsert
+    protected abstract suspend fun upsertEpisodeStars(rows: List<UserEpisodeStarEntity>)
+
+    @Delete
+    protected abstract suspend fun deleteEpisodeStars(rows: List<UserEpisodeStarEntity>)
+
+    /** Wie [deleteProgressKeys] für die gemerkten Folgen. */
+    @Query("DELETE FROM episode_stars WHERE serverId = :serverId AND remoteId IN (:remoteIds)")
+    abstract suspend fun deleteEpisodeStarKeys(serverId: String, remoteIds: List<String>)
+
     @Query("DELETE FROM book_progress WHERE serverId IN (:serverIds)")
     protected abstract suspend fun deleteProgressOf(serverIds: List<String>)
 
@@ -167,10 +181,13 @@ abstract class UserDataDao {
     @Query("DELETE FROM episode_downloads WHERE serverId IN (:serverIds)")
     protected abstract suspend fun deleteEpisodeDownloadsOf(serverIds: List<String>)
 
+    @Query("DELETE FROM episode_stars WHERE serverId IN (:serverIds)")
+    protected abstract suspend fun deleteEpisodeStarsOf(serverIds: List<String>)
+
     /**
      * Schreibt alle Änderungen in einem Zug; [UserDataChanges.isEmpty] spart den Aufruf. Mit einem Abo oder
      * Audiobookshelf-Server fallen auch sein Fortschritt und seine Lesezeichen weg, auch die noch nicht angewendeten; mit
-     * einem Abo auch seine Downloads.
+     * einem Abo auch seine Downloads und gemerkten Folgen.
      */
     @Transaction
     open suspend fun apply(changes: UserDataChanges) {
@@ -203,12 +220,17 @@ abstract class UserDataDao {
             if (wearSelections.deletes.isNotEmpty()) deleteWearSelections(wearSelections.deletes)
             if (episodeDownloads.upserts.isNotEmpty()) upsertEpisodeDownloads(episodeDownloads.upserts)
             if (episodeDownloads.deletes.isNotEmpty()) deleteEpisodeDownloads(episodeDownloads.deletes)
+            if (episodeStars.upserts.isNotEmpty()) upsertEpisodeStars(episodeStars.upserts)
+            if (episodeStars.deletes.isNotEmpty()) deleteEpisodeStars(episodeStars.deletes)
             val removedServers = podcasts.deletes.map { it.feedId } + spokenServers.deletes.map { it.serverId }
             removedServers.chunked(MAX_ARGS).forEach {
                 deleteProgressOf(it)
                 deleteBookmarksOf(it)
             }
-            podcasts.deletes.map { it.feedId }.chunked(MAX_ARGS).forEach { deleteEpisodeDownloadsOf(it) }
+            podcasts.deletes.map { it.feedId }.chunked(MAX_ARGS).forEach {
+                deleteEpisodeDownloadsOf(it)
+                deleteEpisodeStarsOf(it)
+            }
         }
     }
 
@@ -239,10 +261,11 @@ data class UserDataChanges(
     val playEvents: RowChanges<UserPlayEventEntity> = RowChanges(),
     val wearSelections: RowChanges<UserWearSelectionEntity> = RowChanges(),
     val episodeDownloads: RowChanges<UserEpisodeDownloadEntity> = RowChanges(),
+    val episodeStars: RowChanges<UserEpisodeStarEntity> = RowChanges(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty && spokenServers.isEmpty && podcasts.isEmpty && listeningStats.isEmpty && listeningDays.isEmpty &&
             progress.isEmpty && bookmarks.isEmpty && playlists.isEmpty && playlistEntries.isEmpty && favorites.isEmpty && collectionFavorites.isEmpty &&
             playEvents.isEmpty &&
-            wearSelections.isEmpty && episodeDownloads.isEmpty
+            wearSelections.isEmpty && episodeDownloads.isEmpty && episodeStars.isEmpty
 }

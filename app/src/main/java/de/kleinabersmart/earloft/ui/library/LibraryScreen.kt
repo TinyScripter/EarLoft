@@ -359,11 +359,12 @@ private fun PlaylistList(
 }
 
 /**
- * Beschriftung eines der sechs Reiter. Mit weniger Rand als `Tab(text = …)` (16 dp je Seite), damit „Playlists“ auch auf
- * schmalen Handys in eine Zeile passt; reicht es trotzdem nicht, wird die Schrift kleiner statt umzubrechen.
+ * Beschriftung eines der sechs Reiter (auch der Podcast-Bibliothek). Mit weniger Rand als `Tab(text = …)` (16 dp je Seite),
+ * damit „Playlists“ auch auf schmalen Handys in eine Zeile passt; reicht es trotzdem nicht, wird die Schrift kleiner statt
+ * umzubrechen.
  */
 @Composable
-private fun TabLabel(text: String) {
+internal fun TabLabel(text: String) {
     Box(Modifier.height(48.dp).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
         Text(
             text,
