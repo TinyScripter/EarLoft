@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import de.kleinabersmart.earloft.core.database.entity.UserArdBookEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
@@ -69,6 +70,9 @@ abstract class UserDataDao {
 
     @Query("SELECT * FROM episode_stars")
     abstract suspend fun episodeStars(): List<UserEpisodeStarEntity>
+
+    @Query("SELECT * FROM ard_books")
+    abstract suspend fun ardBooks(): List<UserArdBookEntity>
 
     @Upsert
     protected abstract suspend fun upsertServers(rows: List<UserServerEntity>)
@@ -168,6 +172,12 @@ abstract class UserDataDao {
     @Delete
     protected abstract suspend fun deleteEpisodeStars(rows: List<UserEpisodeStarEntity>)
 
+    @Upsert
+    protected abstract suspend fun upsertArdBooks(rows: List<UserArdBookEntity>)
+
+    @Delete
+    protected abstract suspend fun deleteArdBooks(rows: List<UserArdBookEntity>)
+
     /** Wie [deleteProgressKeys] für die gemerkten Folgen. */
     @Query("DELETE FROM episode_stars WHERE serverId = :serverId AND remoteId IN (:remoteIds)")
     abstract suspend fun deleteEpisodeStarKeys(serverId: String, remoteIds: List<String>)
@@ -222,6 +232,8 @@ abstract class UserDataDao {
             if (episodeDownloads.deletes.isNotEmpty()) deleteEpisodeDownloads(episodeDownloads.deletes)
             if (episodeStars.upserts.isNotEmpty()) upsertEpisodeStars(episodeStars.upserts)
             if (episodeStars.deletes.isNotEmpty()) deleteEpisodeStars(episodeStars.deletes)
+            if (ardBooks.upserts.isNotEmpty()) upsertArdBooks(ardBooks.upserts)
+            if (ardBooks.deletes.isNotEmpty()) deleteArdBooks(ardBooks.deletes)
             val removedServers = podcasts.deletes.map { it.feedId } + spokenServers.deletes.map { it.serverId }
             removedServers.chunked(MAX_ARGS).forEach {
                 deleteProgressOf(it)
@@ -262,10 +274,11 @@ data class UserDataChanges(
     val wearSelections: RowChanges<UserWearSelectionEntity> = RowChanges(),
     val episodeDownloads: RowChanges<UserEpisodeDownloadEntity> = RowChanges(),
     val episodeStars: RowChanges<UserEpisodeStarEntity> = RowChanges(),
+    val ardBooks: RowChanges<UserArdBookEntity> = RowChanges(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty && spokenServers.isEmpty && podcasts.isEmpty && listeningStats.isEmpty && listeningDays.isEmpty &&
             progress.isEmpty && bookmarks.isEmpty && playlists.isEmpty && playlistEntries.isEmpty && favorites.isEmpty && collectionFavorites.isEmpty &&
             playEvents.isEmpty &&
-            wearSelections.isEmpty && episodeDownloads.isEmpty && episodeStars.isEmpty
+            wearSelections.isEmpty && episodeDownloads.isEmpty && episodeStars.isEmpty && ardBooks.isEmpty
 }

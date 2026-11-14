@@ -105,6 +105,7 @@ class FullBackupTest {
             music = MusicBackup(main.backupDao(), main.playlistDao(), main.syncDao()),
             restoreNotice = notice,
             registry = { registry },
+            ardBooks = { error("nicht gebraucht") },
             scope = scope,
         ).also { it.start() }
         val backup = FullBackup(

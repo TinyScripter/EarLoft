@@ -74,6 +74,7 @@ class PodcastSourceSwitchTest {
             music = MusicBackup(db.backupDao(), db.playlistDao(), db.syncDao()),
             restoreNotice = RestoreNotice(context, { error("nicht gebraucht") }, { error("nicht gebraucht") }),
             registry = Lazy<DataSourceRegistry> { error("nicht gebraucht") },
+            ardBooks = { error("nicht gebraucht") },
             scope = TestScope(),
         )
         val renamer = object : BookKeyRenamer {

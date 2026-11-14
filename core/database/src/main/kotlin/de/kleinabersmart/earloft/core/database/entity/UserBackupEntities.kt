@@ -160,6 +160,16 @@ data class UserEpisodeStarEntity(
 )
 
 /**
+ * Ein Buch aus ARD Sounds in der Bibliothek (`books` mit `serverId = ardsounds`, seit Version 18), über die Kennung bei ARD Sounds.
+ * Das Buch selbst holt die App auf einem neuen Gerät wieder von dort; Fortschritt und Lesezeichen kommen über ihre eigenen Zeilen.
+ */
+@Entity(tableName = "ard_books")
+data class UserArdBookEntity(
+    @PrimaryKey val remoteId: String,
+    val addedAt: Long,
+)
+
+/**
  * Ein Song über seine Metadaten statt der `songId` (siehe `KeyedSong`): Album-Künstler, Album, CD, Titelnummer und Titel,
  * normalisiert wie beim Zusammenführen.
  */

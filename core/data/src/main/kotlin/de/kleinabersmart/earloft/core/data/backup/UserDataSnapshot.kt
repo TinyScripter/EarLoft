@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.backup
 
+import de.kleinabersmart.earloft.core.database.dao.KeyedBook
 import de.kleinabersmart.earloft.core.database.dao.KeyedBookmark
 import de.kleinabersmart.earloft.core.database.dao.KeyedCollectionFavorite
 import de.kleinabersmart.earloft.core.database.dao.KeyedEpisodeDownload
@@ -20,6 +21,7 @@ import de.kleinabersmart.earloft.core.database.entity.PlaylistEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
+import de.kleinabersmart.earloft.core.database.entity.UserArdBookEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
@@ -57,12 +59,14 @@ data class UserDataSnapshot(
     val collectionFavorites: Map<CollectionKey, UserCollectionFavoriteEntity> = emptyMap(),
     val bookmarks: Map<BookmarkKey, UserBookmarkEntity> = emptyMap(),
     val episodeStars: Map<BookKey, UserEpisodeStarEntity> = emptyMap(),
+    /** Bücher aus ARD Sounds in der Bibliothek, nach ihrer Kennung bei ARD Sounds. */
+    val ardBooks: Map<String, UserArdBookEntity> = emptyMap(),
 ) {
     val isEmpty: Boolean
         get() = servers.isEmpty() && spokenServers.isEmpty() && podcasts.isEmpty() && listeningStats.isEmpty() &&
             listeningDays.isEmpty() && progress.isEmpty() && playlists.isEmpty() && favorites.isEmpty() &&
             playEvents.isEmpty() && wearSelections.isEmpty() && episodeDownloads.isEmpty() && collectionFavorites.isEmpty() &&
-            bookmarks.isEmpty() && episodeStars.isEmpty()
+            bookmarks.isEmpty() && episodeStars.isEmpty() && ardBooks.isEmpty()
 
     /** Einträge der gesicherten Playlists, in ihrer Reihenfolge. */
     fun entriesOf(playlistKey: String): List<UserSongKey> =
@@ -104,6 +108,7 @@ data class UserDataSnapshot(
             collectionFavorites = newest(collectionFavorites, other.collectionFavorites) { it.changedAt },
             bookmarks = newest(bookmarks, other.bookmarks) { it.updatedAt },
             episodeStars = other.episodeStars + episodeStars,
+            ardBooks = other.ardBooks + ardBooks,
         )
     }
 
@@ -124,6 +129,7 @@ data class UserDataSnapshot(
         collectionFavorites = rowChanges(previous.collectionFavorites, collectionFavorites),
         bookmarks = rowChanges(previous.bookmarks, bookmarks),
         episodeStars = rowChanges(previous.episodeStars, episodeStars),
+        ardBooks = rowChanges(previous.ardBooks, ardBooks),
     )
 
     companion object {
@@ -144,6 +150,7 @@ data class UserDataSnapshot(
             collectionFavorites: List<UserCollectionFavoriteEntity> = emptyList(),
             bookmarks: List<UserBookmarkEntity> = emptyList(),
             episodeStars: List<UserEpisodeStarEntity> = emptyList(),
+            ardBooks: List<UserArdBookEntity> = emptyList(),
         ) = UserDataSnapshot(
             servers = servers.associateBy { it.sourceId },
             spokenServers = spokenServers.associateBy { it.serverId },
@@ -160,6 +167,7 @@ data class UserDataSnapshot(
             collectionFavorites = collectionFavorites.associateBy { it.key },
             bookmarks = bookmarks.associateBy { it.key },
             episodeStars = episodeStars.associateBy { BookKey(it.serverId, it.remoteId) },
+            ardBooks = ardBooks.associateBy { it.remoteId },
         )
 
         /**
@@ -168,7 +176,7 @@ data class UserDataSnapshot(
          * nur die, die der Server nicht vollständig kennt: noch nicht oder nicht im jetzigen Stand gemeldet oder mit Notiz,
          * die er nicht speichert), lokale Playlists (mit `backupKey`), Favoriten von
          * Songs, Alben und Künstlern ohne Server, der Hörverlauf, die Auswahl für die Uhr (schon mit Schlüsseln, siehe `UserDataBackup`), die
-         * Downloads der Folgen gesicherter Abos und die gemerkten Folgen.
+         * Downloads der Folgen gesicherter Abos, die gemerkten Folgen und die Bücher aus ARD Sounds in der Bibliothek.
          */
         fun ofMain(
             sources: List<SourceEntity>,
@@ -186,6 +194,7 @@ data class UserDataSnapshot(
             collectionFavorites: List<KeyedCollectionFavorite> = emptyList(),
             bookmarks: List<KeyedBookmark> = emptyList(),
             episodeStars: List<KeyedStarredEpisode> = emptyList(),
+            ardBooks: List<KeyedBook> = emptyList(),
         ) = ofUser(
             servers = sources.filter { it.type.isServer }.map { it.toUser() },
             spokenServers = spokenServers.map { it.toUser() },
@@ -196,6 +205,7 @@ data class UserDataSnapshot(
             },
             // Wie der Fortschritt auch die Folgen vom Gerät (über den Pfad); der Scan legt sie wieder an.
             episodeStars = episodeStars.map { UserEpisodeStarEntity(it.serverId, it.remoteId, it.starredAt) },
+            ardBooks = ardBooks.map { UserArdBookEntity(it.remoteId, it.addedAt) },
             listeningStats = listeningStats.map { it.toUser() },
             listeningDays = listeningDays.map { it.toUser() },
             progress = spokenServers.map { it.serverId }.toSet().let { abs ->
@@ -265,6 +275,7 @@ suspend fun UserDataDao.snapshot() = UserDataSnapshot.ofUser(
     collectionFavorites = collectionFavorites(),
     bookmarks = bookmarks(),
     episodeStars = episodeStars(),
+    ardBooks = ardBooks(),
 )
 
 /** [mine], wo es mindestens so neu ist wie [other], sonst [other]. */

@@ -5,6 +5,11 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import dagger.Lazy
 import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
+import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
+import de.kleinabersmart.earloft.core.data.spoken.testArdBooks
+import de.kleinabersmart.earloft.core.model.ARD_BOOK_SERVER_ID
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.UserDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
@@ -51,7 +56,7 @@ class UserDataBackupTest {
     }
 
     /** Ein Gerät: Hauptdatenbank [db] und dieselbe [user]-Datenbank (die beim Gerätewechsel mitkommt). */
-    private fun backupFor(db: EarLoftDatabase) = UserDataBackup(
+    private fun backupFor(db: EarLoftDatabase, ard: ArdBooks? = null) = UserDataBackup(
         context = context,
         database = db,
         userDao = user.userDataDao(),
@@ -62,8 +67,18 @@ class UserDataBackupTest {
         music = MusicBackup(db.backupDao(), db.playlistDao(), db.syncDao()),
         restoreNotice = RestoreNotice(context, { error("nicht gebraucht") }, { error("nicht gebraucht") }),
         registry = Lazy<DataSourceRegistry> { error("nicht gebraucht") },
+        ardBooks = { ard ?: error("nicht gebraucht") },
         scope = TestScope(),
     )
+
+    private fun ardAnswer() = MockResponse.Builder().body(
+        """{"data":{"items":{"nodes":[{"id":"1","coreId":"urn:ard:publication:1","title":"Goldstrand (1/1)","groupId":"urn:ard:show:gs",
+         "episodeNumber":1,"maxGroupNumber":1,"duration":1000,"publishDate":"2026-11-01T10:00:00+01:00",
+         "group":{"type":"MULTIPART","title":"Katerina Poladjan: Goldstrand","count":1},
+         "audios":[{"url":"https://a.example/1.mp3","downloadUrl":null,"allowDownload":false,"mimeType":"audio/mp3"}],
+         "programSet":{"id":"1","coreId":"urn:ard:show:gs","title":"Katerina Poladjan: Goldstrand","publicationService":{"title":"MDR KULTUR"},
+                       "editorialCategoryId":"42914713","editorialCategoriesList":[{"id":"42914713"}]}}]}}}""",
+    ).build()
 
     private suspend fun fillMain() {
         main.sourceDao().upsert(
@@ -210,6 +225,79 @@ class UserDataBackupTest {
         assertEquals(5_000L, main.statsDao().all().single().listenedMs)
         // Der Tag aus der Sicherung fehlte und kommt dazu; der neue bleibt.
         assertEquals(setOf(20_000L, 20_001L), main.statsDao().allDays().map { it.day }.toSet())
+    }
+
+    @Test
+    fun `books from ARD Sounds are saved with progress and come back on a new device`() = runTest {
+        val ardKey = "group:urn:ard:show:gs"
+        val bookId = book(main, ARD_BOOK_SERVER_ID, ardKey, BookKind.BOOK)
+        main.bookDao().updateBook(main.bookDao().book(bookId)!!.copy(addedAt = 4_242))
+        main.bookDao().upsertProgress(progress(bookId, 500, updatedAt = 50))
+        backupFor(main).mirror()
+
+        val dao = user.userDataDao()
+        assertEquals(listOf(ardKey to 4_242L), dao.ardBooks().map { it.remoteId to it.addedAt })
+        assertEquals(500L, dao.progress().single().positionMs)
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        val server = MockWebServer().apply { start() }
+        try {
+            server.enqueue(ardAnswer())
+            val backup = backupFor(newDevice, testArdBooks(context, newDevice, server.url("/graphql")))
+            val saved = dao.snapshot()
+            // Das Buch fehlt noch: Es wartet samt Fortschritt.
+            assertEquals(1, backup.applyArdBooks(saved.ardBooks.values).size)
+            assertEquals(1, backup.applyProgress(saved.progress.values).size)
+
+            assertTrue(backup.fetchArdBooks(saved.ardBooks.values))
+
+            assertTrue(backup.applyArdBooks(saved.ardBooks.values).isEmpty())
+            assertTrue(backup.applyProgress(saved.progress.values).isEmpty())
+            val restored = newDevice.bookDao().keyedBooksOf(ARD_BOOK_SERVER_ID).single()
+            assertEquals(ardKey, restored.remoteId)
+            assertEquals(4_242L, restored.addedAt)
+            val restoredId = newDevice.bookDao().bookByRemote(ARD_BOOK_SERVER_ID, ardKey)!!.bookId
+            assertEquals(500L, newDevice.bookDao().progressOf(listOf(restoredId)).single().positionMs)
+        } finally {
+            newDevice.close()
+            server.close()
+        }
+    }
+
+    @Test
+    fun `without a connection the ARD book is not fetched and stays to be restored`() = runTest {
+        val dao = user.userDataDao()
+        book(main, ARD_BOOK_SERVER_ID, "group:urn:ard:show:gs", BookKind.BOOK)
+        backupFor(main).mirror()
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        val server = MockWebServer().apply { start() }
+        val url = server.url("/graphql")
+        server.close()
+        try {
+            val backup = backupFor(newDevice, testArdBooks(context, newDevice, url))
+            val saved = dao.snapshot()
+
+            assertFalse(backup.fetchArdBooks(saved.ardBooks.values))
+
+            assertEquals(1, backup.applyArdBooks(saved.ardBooks.values).size)
+            assertTrue(newDevice.bookDao().keyedBooksOf(ARD_BOOK_SERVER_ID).isEmpty())
+        } finally {
+            newDevice.close()
+        }
+    }
+
+    @Test
+    fun `removing an ARD book here also removes it from the backup`() = runTest {
+        val ardKey = "group:urn:ard:show:gs"
+        val bookId = book(main, ARD_BOOK_SERVER_ID, ardKey, BookKind.BOOK)
+        val backup = backupFor(main)
+        backup.mirror()
+
+        main.bookDao().deleteBook(bookId)
+        backup.mirror()
+
+        assertTrue(user.userDataDao().ardBooks().isEmpty())
     }
 
     private suspend fun book(db: EarLoftDatabase, serverId: String, remoteId: String, kind: BookKind = BookKind.EPISODE) =

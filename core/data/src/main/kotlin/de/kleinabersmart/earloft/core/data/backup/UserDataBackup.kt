@@ -8,12 +8,14 @@ import dagger.Lazy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
+import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.dao.SourceDao
 import de.kleinabersmart.earloft.core.database.dao.StatsDao
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
+import de.kleinabersmart.earloft.core.database.entity.UserArdBookEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.UserEpisodeDownloadEntity
@@ -35,7 +37,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import de.kleinabersmart.earloft.core.model.ARD_BOOK_SERVER_ID
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
@@ -52,6 +56,8 @@ import javax.inject.Singleton
  *   Solange sein Buch fehlt, bleibt er in `user.db` stehen; mit seinem Abo oder Server fällt er weg.
  * - **Lesezeichen** ebenso; sie kommen dazu, wenn ihr Buch an derselben Stelle noch keins hat.
  * - **Gemerkte Folgen** ebenso; eine schon gemerkte behält ihren Zeitpunkt.
+ * - **Bücher aus ARD Sounds** gibt kein Scan und kein Server zurück: Sie holt [restoreArdBooks] von ARD Sounds, mit dem alten Zeitpunkt
+ *   des Hinzufügens; ohne Verbindung beim nächsten Start. Danach gelten ihr Fortschritt und ihre Lesezeichen wie bei den übrigen.
  * - **Musik** ([MusicBackup]) ebenso, sobald ihre Songs, Alben und Playlists wieder da sind: lokale Playlists (werden beim
  *   Zurückspielen leer angelegt), Favoriten von Songs ohne Server, Hörverlauf und die Auswahl für die Uhr.
  * - **Downloads der Folgen** ebenso, nach dem Fortschritt: Was auf dem alten Gerät geladen war, kommt wieder, solange es
@@ -77,6 +83,7 @@ class UserDataBackup @Inject constructor(
     private val restoreNotice: RestoreNotice,
     /** Erst gebraucht, wenn wirklich etwas zurückgespielt wurde. */
     private val registry: Lazy<DataSourceRegistry>,
+    private val ardBooks: Lazy<ArdBooks>,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val started = AtomicBoolean(false)
@@ -133,6 +140,7 @@ class UserDataBackup @Inject constructor(
             } finally {
                 firstApplied.complete(Unit)
             }
+            launch { restoreArdBooks() }
             launch { applyWhenLibraryChanges() }
             // Was sich geändert hat, sammelt sich hier, auch während gerade gespiegelt wird oder gewartet (`conflate`).
             val changed = ConcurrentHashMap.newKeySet<String>()
@@ -235,6 +243,7 @@ class UserDataBackup @Inject constructor(
             applyAndWait(merged, pendingOf(merged))
             result
         }
+        scope.launch { restoreArdBooks() }
         // Den Hinweis auf fehlende Passwörter meldet `FullBackup` mit seinem Ergebnis.
         if (result.musicServers > 0) registry.get().reload()
         Log.i(TAG, "Sicherung eingespielt: $result")
@@ -436,11 +445,19 @@ class UserDataBackup @Inject constructor(
         return unresolved
     }
 
+    /** Liefert die gesicherten Bücher aus ARD Sounds, die es hier (noch) nicht gibt; geholt werden sie von [restoreArdBooks]. */
+    internal suspend fun applyArdBooks(saved: Collection<UserArdBookEntity>): List<UserArdBookEntity> {
+        if (saved.isEmpty()) return emptyList()
+        val here = bookDao.keyedBooksOf(ARD_BOOK_SERVER_ID).mapTo(HashSet()) { it.remoteId }
+        return saved.filter { it.remoteId !in here }
+    }
+
     /** Wendet von [saved] an, was davon in [pending] steht; liefert, was (noch) kein Buch, keinen Song usw. hat. */
     internal suspend fun applySaved(saved: UserDataSnapshot, pending: Pending): Pending {
         val progress = applyProgress(pending.progress)
         val bookmarks = applyBookmarks(pending.bookmarks)
         val episodeStars = applyEpisodeStars(pending.episodeStars)
+        val ardBooks = applyArdBooks(pending.ardBooks)
         // Nach dem Fortschritt: Gehörte Folgen kommen nicht wieder.
         val episodeDownloads = applyEpisodeDownloads(pending.episodeDownloads)
         // Danach: Mehr als auf dem alten Gerät geladen war, lädt die Automatik für zurückgespielte Abos nicht.
@@ -455,6 +472,7 @@ class UserDataBackup @Inject constructor(
                 bookmarks = bookmarks,
                 episodeDownloads = episodeDownloads,
                 episodeStars = episodeStars,
+                ardBooks = ardBooks,
                 restoredFeeds = restoredFeeds,
                 playlists = music.applyPlaylists(saved, pending.playlists),
                 favorites = music.applyFavorites(pending.favorites),
@@ -478,6 +496,40 @@ class UserDataBackup @Inject constructor(
             )
         }
         return rest
+    }
+
+    /**
+     * Holt die gesicherten Bücher aus ARD Sounds, die es hier noch nicht gibt. Danach wendet [applyWhenLibraryChanges] ihren Fortschritt
+     * an. Ohne Verbindung noch zweimal später, dann beim nächsten Start; eins, das ARD Sounds nicht mehr führt, bleibt gesichert.
+     */
+    private suspend fun restoreArdBooks() {
+        var wait = ARD_RETRY_MS
+        repeat(ARD_ATTEMPTS) { attempt ->
+            val missing = waiting?.pending?.ardBooks.orEmpty()
+            if (missing.isEmpty()) return
+            if (attempt > 0) {
+                delay(wait)
+                wait *= 10
+            }
+            if (fetchArdBooks(missing)) return
+        }
+    }
+
+    /** Holt die Bücher [rows] von ARD Sounds; `false`, wenn die Verbindung fehlte (der Rest bleibt dann ungeholt). */
+    internal suspend fun fetchArdBooks(rows: Collection<UserArdBookEntity>): Boolean {
+        for (row in rows) {
+            try {
+                ardBooks.get().add(row.remoteId, addedAt = row.addedAt)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                Log.w(TAG, "Buch aus ARD Sounds nicht zurückgeholt: ${row.remoteId}", e)
+                return false
+            } catch (e: Exception) {
+                Log.e(TAG, "Buch aus ARD Sounds nicht zurückgeholt: ${row.remoteId}", e)
+            }
+        }
+        return true
     }
 
     /** Wendet nach und nach an, was wartet, sobald Scan oder Abgleich Bücher, Songs und Playlists anlegen. */
@@ -527,6 +579,7 @@ class UserDataBackup @Inject constructor(
         val waitingDownloads = stillWaiting?.episodeDownloads.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
         val waitingBookmarks = stillWaiting?.bookmarks.orEmpty().map { it.key }.toSet()
         val waitingStars = stillWaiting?.episodeStars.orEmpty().map { BookKey(it.serverId, it.remoteId) }.toSet()
+        val waitingArdBooks = stillWaiting?.ardBooks.orEmpty().map { it.remoteId }.toSet()
         val changes = current.changesSince(previous).let { changes ->
             val progressDeletes = changes.progress.deletes.filter {
                 BookKey(it.serverId, it.remoteId) !in waitingProgress && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
@@ -540,12 +593,15 @@ class UserDataBackup @Inject constructor(
             val starDeletes = changes.episodeStars.deletes.filter {
                 BookKey(it.serverId, it.remoteId) !in waitingStars && bookDao.bookRefs(it.serverId, listOf(it.remoteId)).isNotEmpty()
             }
+            // Ein Buch aus ARD Sounds, das noch nicht zurückgeholt ist, bleibt gesichert, sonst fiele es vor dem Holen weg.
+            val ardBookDeletes = changes.ardBooks.deletes.filter { it.remoteId !in waitingArdBooks }
             val songs = music.resolve((changes.favorites.deletes.map { it.song } + changes.playEvents.deletes.map { it.song }).toSet())
             changes.copy(
                 progress = changes.progress.copy(deletes = progressDeletes),
                 bookmarks = changes.bookmarks.copy(deletes = bookmarkDeletes),
                 episodeDownloads = changes.episodeDownloads.copy(deletes = downloadDeletes),
                 episodeStars = changes.episodeStars.copy(deletes = starDeletes),
+                ardBooks = changes.ardBooks.copy(deletes = ardBookDeletes),
                 favorites = changes.favorites.copy(deletes = changes.favorites.deletes.filter { it.song in songs }),
                 collectionFavorites = changes.collectionFavorites.copy(
                     deletes = changes.collectionFavorites.deletes.filter { music.collectionState(it) != null },
@@ -572,6 +628,7 @@ class UserDataBackup @Inject constructor(
         // Welche Downloads gesichert werden, hängt an den gesicherten Abos.
         val downloads = read("book_tracks", "podcast_feeds")
         val stars = read("books")
+        val ards = read("books")
         val musicData = if (read(*MUSIC_TABLES)) music.read() else null
         val fresh = UserDataSnapshot.ofMain(
             sources = if (servers) sourceDao.getServers() else emptyList(),
@@ -589,6 +646,7 @@ class UserDataBackup @Inject constructor(
             collectionFavorites = musicData?.collectionFavorites.orEmpty(),
             bookmarks = if (bookmarks) bookDao.keyedBookmarks() else emptyList(),
             episodeStars = if (stars) podcastDao.keyedStarredEpisodes() else emptyList(),
+            ardBooks = if (ards) bookDao.keyedBooksOf(ARD_BOOK_SERVER_ID) else emptyList(),
         )
         if (base == null) return fresh
         return UserDataSnapshot(
@@ -607,6 +665,7 @@ class UserDataBackup @Inject constructor(
             collectionFavorites = if (musicData != null) fresh.collectionFavorites else base.collectionFavorites,
             bookmarks = if (bookmarks) fresh.bookmarks else base.bookmarks,
             episodeStars = if (stars) fresh.episodeStars else base.episodeStars,
+            ardBooks = if (ards) fresh.ardBooks else base.ardBooks,
         )
     }
 
@@ -619,6 +678,8 @@ class UserDataBackup @Inject constructor(
         const val FULL_READ_INTERVAL_MS = 30 * 60_000L
         val MUSIC_TABLES = arrayOf("songs", "albums", "artists", "playlists", "playlist_entries", "play_events", "wear_selections")
         const val APPLY_INTERVAL_MS = 5_000L
+        const val ARD_ATTEMPTS = 3
+        const val ARD_RETRY_MS = 30_000L
         const val MAX_ARGS = 500
         val MIRRORED_TABLES = arrayOf(
             "sources", "spoken_servers", "podcast_feeds", "listening_stats", "listening_days", "book_progress", "bookmarks",
@@ -648,12 +709,13 @@ internal data class Pending(
     val wearSelections: List<UserWearSelectionEntity> = emptyList(),
     val episodeDownloads: List<UserEpisodeDownloadEntity> = emptyList(),
     val episodeStars: List<UserEpisodeStarEntity> = emptyList(),
+    val ardBooks: List<UserArdBookEntity> = emptyList(),
     /** Zurückgespielte Abos, deren Folgen noch nicht da sind (siehe `PodcastDao.excludeAllFromAutomatic`). */
     val restoredFeeds: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = progress.isEmpty() && bookmarks.isEmpty() && playlists.isEmpty() && favorites.isEmpty() && collectionFavorites.isEmpty() && playEvents.isEmpty() &&
-            wearSelections.isEmpty() && episodeDownloads.isEmpty() && episodeStars.isEmpty() && restoredFeeds.isEmpty()
+            wearSelections.isEmpty() && episodeDownloads.isEmpty() && episodeStars.isEmpty() && ardBooks.isEmpty() && restoredFeeds.isEmpty()
 
     companion object {
         fun of(saved: UserDataSnapshot) = Pending(
@@ -666,6 +728,7 @@ internal data class Pending(
             wearSelections = saved.wearSelections.values.toList(),
             episodeDownloads = saved.episodeDownloads.values.toList(),
             episodeStars = saved.episodeStars.values.toList(),
+            ardBooks = saved.ardBooks.values.toList(),
         )
     }
 }

@@ -58,12 +58,13 @@ class ArdBooks @Inject constructor(
 
     /**
      * Nimmt das Buch [key] in die Bibliothek auf (oder aktualisiert es) und gibt seine `bookId` zurück. [known] spart den Abruf, wenn
-     * die Vorschau es schon geladen hat. `null`, wenn ARD Sounds es nicht (mehr) führt. @throws IOException ohne Verbindung.
+     * die Vorschau es schon geladen hat; [addedAt] stammt aus einer Sicherung. `null`, wenn ARD Sounds es nicht (mehr) führt.
+     * @throws IOException ohne Verbindung.
      */
-    suspend fun add(key: String, known: ArdBook? = null): Long? = mutex.withLock {
+    suspend fun add(key: String, known: ArdBook? = null, addedAt: Long? = null): Long? = mutex.withLock {
         dao.bookByRemote(ARD_BOOK_SERVER_ID, key)?.let { return@withLock it.bookId }
         val book = known ?: api.book(key) ?: return@withLock null
-        store(book, existing = null)
+        store(book, existing = null, addedAt = addedAt)
     }
 
     /** Entfernt das Buch aus der Bibliothek, samt Fortschritt und Lesezeichen; die Hörzeit bleibt in der Statistik. */
@@ -103,7 +104,7 @@ class ArdBooks @Inject constructor(
         if ((existing.availableUntil ?: Long.MAX_VALUE) > now) dao.updateBook(existing.copy(availableUntil = now))
     }
 
-    private suspend fun store(book: ArdBook, existing: BookEntity?): Long {
+    private suspend fun store(book: ArdBook, existing: BookEntity?, addedAt: Long? = null): Long {
         val oldTracks = existing?.let { dao.tracks(it.bookId) }.orEmpty()
         val tracks = mutableListOf<BookTrackEntity>()
         var start = 0L
@@ -127,7 +128,7 @@ class ArdBooks @Inject constructor(
             narrator = book.narrator,
             description = book.description,
             durationMs = durationMs,
-            addedAt = existing?.addedAt ?: System.currentTimeMillis(),
+            addedAt = existing?.addedAt ?: addedAt ?: System.currentTimeMillis(),
             // Die Dateien kommen mit dem Buch; der Abgleich der Server soll sie nicht nachladen wollen.
             detailsLoaded = true,
             coverUrl = book.imageUrl,

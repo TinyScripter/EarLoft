@@ -548,6 +548,27 @@ class UserMigrationTest {
         }
     }
 
+    @Test
+    fun `v17 to v18 keeps progress and adds empty ARD books`() {
+        helper.createDatabase(DB_NAME, 17).use { db ->
+            db.execSQL(
+                "INSERT INTO book_progress (serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty) " +
+                    "VALUES ('ardsounds', 'group:x', 5000, 9000, 0, NULL, 10, 0)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 18, true).use { db ->
+            db.query("SELECT positionMs FROM book_progress WHERE remoteId = 'group:x'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(5000, cursor.getInt(0))
+            }
+            db.query("SELECT COUNT(*) FROM ard_books").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "user-migration-test"
     }

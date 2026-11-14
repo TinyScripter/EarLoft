@@ -9,6 +9,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
 import de.kleinabersmart.earloft.core.database.dao.UserDataDao
+import de.kleinabersmart.earloft.core.database.entity.UserArdBookEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.UserBookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.UserCollectionFavoriteEntity
@@ -34,7 +35,8 @@ import java.io.File
  * Versionen: 1 Server, Abos, Statistik; 2 Fortschritt; 3 lokale Playlists, Favoriten, Hörverlauf, Auswahl für die Uhr;
  * 5 archivierte Abos; 6 ohne Cast-Adresse je Server; 7 OpenID je Audiobookshelf-Server; 8 Downloads der Folgen; 9 Favoriten
  * von Alben und Künstlern; 10 „aus Weiterhören genommen“ am Fortschritt; 11 Tempo und Effekte je Abo und Buch, Tempo nullbar; 12 gesparte Zeit je Tag;
- * 13 Folgenliste und „Weiterhören“ je Abo; 14 Lesezeichen; 15 Bereithalten je Abo; 16 gemerkte Folgen.
+ * 13 Folgenliste und „Weiterhören“ je Abo; 14 Lesezeichen; 15 Bereithalten je Abo; 16 gemerkte Folgen; 17 abgewählte Buch-Bibliotheken;
+ * 18 Bücher aus ARD Sounds.
  */
 @Database(
     entities = [
@@ -53,6 +55,7 @@ import java.io.File
         UserCollectionFavoriteEntity::class,
         UserBookmarkEntity::class,
         UserEpisodeStarEntity::class,
+        UserArdBookEntity::class,
     ],
     version = UserDatabase.VERSION,
     exportSchema = true,
@@ -73,6 +76,7 @@ import java.io.File
         AutoMigration(from = 14, to = 15),
         AutoMigration(from = 15, to = 16),
         AutoMigration(from = 16, to = 17),
+        AutoMigration(from = 17, to = 18),
     ],
 )
 abstract class UserDatabase : RoomDatabase() {
@@ -93,7 +97,7 @@ abstract class UserDatabase : RoomDatabase() {
         const val NAME = "user.db"
 
         /** Schemaversion; die Komplett-Sicherung lehnt Dateien einer neueren ab. */
-        const val VERSION = 17
+        const val VERSION = 18
 
         /**
          * Eine Kopie außerhalb der App-Datenbanken (Komplett-Sicherung, `FullBackup`): ältere Fassungen werden beim Öffnen

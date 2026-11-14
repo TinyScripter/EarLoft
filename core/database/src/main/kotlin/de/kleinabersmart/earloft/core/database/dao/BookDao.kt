@@ -141,6 +141,10 @@ abstract class BookDao {
     @Query("SELECT bookId, serverId, remoteId FROM books WHERE serverId = :serverId")
     abstract fun observeBookRefsOf(serverId: String): Flow<List<BookRef>>
 
+    /** Die Bücher einer Quelle mit dem Zeitpunkt, seit dem sie in der Bibliothek sind (Backup). */
+    @Query("SELECT remoteId, addedAt FROM books WHERE serverId = :serverId")
+    abstract suspend fun keyedBooksOf(serverId: String): List<KeyedBook>
+
     /** Ein Buch samt Dateien, Kapiteln, Fortschritt und Lesezeichen (Kaskade); die Statistik bleibt. */
     @Query("DELETE FROM books WHERE bookId = :bookId")
     abstract suspend fun deleteBook(bookId: Long)
@@ -584,6 +588,9 @@ data class BookDownloadRow(
 
 /** Ein Buch mit dem Schlüssel, der auf einem neuen Gerät gleich bleibt (Review K9). */
 data class BookRef(val bookId: Long, val serverId: String, val remoteId: String)
+
+/** Ein Buch einer Quelle mit seinem Schlüssel und dem Zeitpunkt, seit dem es in der Bibliothek ist. */
+data class KeyedBook(val remoteId: String, val addedAt: Long)
 
 /** Fortschritt mit dem Schlüssel seines Buchs. */
 data class KeyedProgress(
