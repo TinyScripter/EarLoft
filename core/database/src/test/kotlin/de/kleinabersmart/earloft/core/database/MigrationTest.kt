@@ -265,6 +265,37 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `v35 to v36 keeps episodes without podcasting 2 0 details and reads feeds again`() {
+        helper.createDatabase(DB_NAME, 35).use { db ->
+            db.execSQL(
+                "INSERT INTO podcast_feeds (feedId, url, title, author, description, lastRefreshAt, syncGeneration, autoDownload, etag) " +
+                    "VALUES ('f', 'https://example.com/feed.xml', 'P', '', '', 5, 2, 0, 'x')",
+            )
+            db.execSQL(
+                "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
+                    "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
+                    "VALUES (7, 'f', 'EPISODE', 'guid-7', 'Folge', 'folge', '', '', '', '', 60000, 0, 1, 1, 2)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 36, true).use { db ->
+            db.query("SELECT title, season, episodeType, transcriptUrl FROM books WHERE bookId = 7").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Folge", cursor.getString(0))
+                assertTrue(cursor.isNull(1) && cursor.isNull(2) && cursor.isNull(3))
+            }
+            db.query("SELECT etag, podcastGuid, fundingUrl FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertTrue(cursor.isNull(0) && cursor.isNull(1) && cursor.isNull(2))
+            }
+            db.query("SELECT COUNT(*) FROM episode_persons").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test"
     }

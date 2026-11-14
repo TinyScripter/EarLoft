@@ -6,6 +6,8 @@ import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
+import de.kleinabersmart.earloft.core.database.entity.EpisodePersonEntity
+import de.kleinabersmart.earloft.core.model.EpisodePerson
 import de.kleinabersmart.earloft.core.model.Book
 import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.model.AuthorHit
@@ -84,6 +86,9 @@ class BookRepository @Inject constructor(
         }
 
     fun chapters(bookId: Long): Flow<List<BookChapter>> = dao.observeChapters(bookId).map { list -> list.map { it.toModel() } }
+
+    /** Mitwirkende einer Folge aus dem Feed (`podcast:person`), in dessen Reihenfolge. */
+    fun persons(bookId: Long): Flow<List<EpisodePerson>> = dao.observePersons(bookId).map { list -> list.map { it.toModel() } }
 
     suspend fun bookNow(bookId: Long): Book? = dao.book(bookId)?.toModel()
 
@@ -183,7 +188,13 @@ internal fun BookEntity.toModel() = Book(
     publisher = publisher,
     language = language,
     starredAt = starredAt,
+    season = season,
+    episodeNumber = episodeNumber,
+    episodeType = episodeType,
+    transcriptUrl = transcriptUrl,
 )
+
+internal fun EpisodePersonEntity.toModel() = EpisodePerson(name, role, personGroup, imageUrl, url)
 
 internal fun BookChapterEntity.toModel() = BookChapter(chapterIndex, title, startMs, endMs, imageUrl, url)
 

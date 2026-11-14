@@ -38,7 +38,8 @@ private const val NOT_TRIAL = "serverId NOT IN (SELECT feedId FROM podcast_feeds
 /** Spalten der Folgenlisten, **ohne Beschreibung** (leer, siehe [PodcastDao.observeEpisodes]). */
 private const val EPISODE_COLUMNS =
     "bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, '' AS description, durationMs, " +
-        "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration, coverUrl, chaptersUrl, starredAt"
+        "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration, coverUrl, chaptersUrl, starredAt, season, episodeNumber, " +
+        "episodeType, transcriptUrl"
 
 /**
  * Podcast-Abos; ihre Folgen sind `books`-Zeilen mit `kind = 'EPISODE'` und `serverId = feedId` (Konzept 12.1).
@@ -327,12 +328,15 @@ abstract class PodcastDao {
 
     /**
      * Die neuesten ungehörten Folgen eines Podcasts, die noch nie geladen wurden (nicht: entfernte oder fehlgeschlagene) –
-     * nur neue: neuer als die neueste zu Ende gehörte. Den Rückstand dahinter lädt nur, wer ihn von Hand anfordert.
+     * nur neue: neuer als die neueste zu Ende gehörte. Den Rückstand dahinter lädt nur, wer ihn von Hand anfordert. Trailer
+     * lädt sie nicht, sobald das Abo echte Folgen hat (wie sie in den Listen fehlen).
      */
     @Query(
         "UPDATE book_tracks SET downloadState = 'QUEUED', autoDownload = 1 WHERE trackIndex = 0 AND downloadState = 'NONE' AND bookId IN (" +
             "SELECT bookId FROM books WHERE kind = 'EPISODE' AND serverId = :feedId " +
             "AND bookId NOT IN (SELECT bookId FROM book_progress WHERE finished = 1) " +
+            "AND NOT (COALESCE(episodeType, '') = 'TRAILER' AND EXISTS (SELECT 1 FROM books x WHERE x.kind = 'EPISODE' AND x.serverId = :feedId " +
+            "AND COALESCE(x.episodeType, '') != 'TRAILER')) " +
             "AND addedAt > (SELECT COALESCE(MAX(h.addedAt), -1) FROM books h JOIN book_progress p ON p.bookId = h.bookId " +
             "WHERE h.serverId = :feedId AND p.finished = 1) " +
             "ORDER BY addedAt DESC, bookId DESC LIMIT :count)",

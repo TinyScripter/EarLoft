@@ -156,7 +156,8 @@ class PodcastSourceSwitch @Inject constructor(
      * `true`, wenn das Abo umgezogen ist.
      */
     suspend fun follow(feedId: String, newUrl: String): Boolean {
-        val oldUrl = podcastDao.feed(feedId)?.url ?: return false
+        val old = podcastDao.feed(feedId) ?: return false
+        val oldUrl = old.url
         if (oldUrl == newUrl || !refusedMoves.add(feedId to newUrl)) return false
         val ready = when (val check = check(feedId, newUrl)) {
             is SourceCheck.Ready -> check
@@ -170,6 +171,11 @@ class PodcastSourceSwitch @Inject constructor(
         val downgrade = oldUrl.startsWith("https://", ignoreCase = true) && !target.startsWith("https://", ignoreCase = true)
         if (downgrade || fetched.feed.newFeedUrl == oldUrl || fetched.movedTo == oldUrl) {
             Log.i(TAG, "Kein Umzug nach ${hostOf(target)}: unverschlüsselt oder zurück auf die alte Adresse")
+            return false
+        }
+        // Nennen beide Feeds ihre Kennung (`podcast:guid`), müssen sie gleich sein: sonst liegt dort ein anderer Podcast.
+        if (!samePodcast(old.podcastGuid, fetched.feed.podcastGuid)) {
+            Log.i(TAG, "Kein Umzug nach ${hostOf(target)}: anderer Podcast (podcast:guid)")
             return false
         }
         if (!switch(ready)) return false
@@ -186,6 +192,10 @@ class PodcastSourceSwitch @Inject constructor(
         const val TEMP_PREFIX = "\u0000switch:"
     }
 }
+
+/** Ob zwei Feeds derselbe Podcast sein können: Fehlt eine Kennung (`podcast:guid`), entscheidet sie nichts. */
+internal fun samePodcast(oldGuid: String?, newGuid: String?): Boolean =
+    oldGuid == null || newGuid == null || oldGuid.equals(newGuid, ignoreCase = true)
 
 /** Eine Folge des Abos vor dem Wechsel: Kennung, Audio-Adresse, Titel und Datum (Erscheinen bzw. erstes Auftauchen). */
 internal data class KnownEpisode(val bookId: Long, val guid: String, val audioUrl: String?, val title: String, val publishedAt: Long)

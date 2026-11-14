@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.BookmarkEntity
+import de.kleinabersmart.earloft.core.database.entity.EpisodePersonEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.database.model.BookCoverRow
 import de.kleinabersmart.earloft.core.database.model.BookPeopleRow
@@ -186,6 +187,28 @@ abstract class BookDao {
 
     @Query("SELECT * FROM book_chapters WHERE bookId = :bookId ORDER BY chapterIndex")
     abstract fun observeChapters(bookId: Long): Flow<List<BookChapterEntity>>
+
+    @Query("SELECT * FROM episode_persons WHERE bookId = :bookId ORDER BY personIndex")
+    abstract fun observePersons(bookId: Long): Flow<List<EpisodePersonEntity>>
+
+    /** Mitwirkende aller Folgen eines Abos, für den Abgleich (eine Abfrage statt einer je Folge). */
+    @Query(
+        "SELECT p.* FROM episode_persons p JOIN books b ON b.bookId = p.bookId " +
+            "WHERE b.serverId = :serverId ORDER BY p.bookId, p.personIndex",
+    )
+    abstract suspend fun personsOf(serverId: String): List<EpisodePersonEntity>
+
+    @Query("DELETE FROM episode_persons WHERE bookId = :bookId")
+    abstract suspend fun deletePersons(bookId: Long)
+
+    @Insert
+    abstract suspend fun insertPersons(persons: List<EpisodePersonEntity>)
+
+    @Transaction
+    open suspend fun replacePersons(bookId: Long, persons: List<EpisodePersonEntity>) {
+        deletePersons(bookId)
+        if (persons.isNotEmpty()) insertPersons(persons)
+    }
 
     @Query("DELETE FROM book_tracks WHERE bookId = :bookId")
     abstract suspend fun deleteTracks(bookId: Long)

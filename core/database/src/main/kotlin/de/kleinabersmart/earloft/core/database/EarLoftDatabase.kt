@@ -35,6 +35,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
+import de.kleinabersmart.earloft.core.database.entity.EpisodePersonEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningDayEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.database.entity.LyricsEntity
@@ -89,8 +90,9 @@ import java.io.File
         AlbumSourceEntity::class,
         ArtistSourceEntity::class,
         BookmarkEntity::class,
+        EpisodePersonEntity::class,
     ],
-    version = 35,
+    version = 36,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -127,6 +129,7 @@ import java.io.File
         AutoMigration(from = 32, to = 33),
         AutoMigration(from = 33, to = 34),
         AutoMigration(from = 34, to = 35, spec = EarLoftDatabase.DecodeTitles::class),
+        AutoMigration(from = 35, to = 36, spec = EarLoftDatabase.ReadPodcasting20::class),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {
@@ -195,6 +198,16 @@ abstract class EarLoftDatabase : RoomDatabase() {
      * („&amp;“ im Titel). Ohne Validatoren liest der nächste Abgleich jeden Feed einmal ganz und schreibt sie neu.
      */
     class DecodeTitles : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            db.execSQL("UPDATE podcast_feeds SET etag = NULL, lastModified = NULL")
+        }
+    }
+
+    /**
+     * v35 → v36: Staffel, Nummer, Art, Transkript und Mitwirkende der Folgen, Kennung und Unterstützen-Seite der Abos
+     * (Podcasting 2.0, Konzept 12.5). Ohne Validatoren liest der nächste Abgleich jeden Feed einmal ganz.
+     */
+    class ReadPodcasting20 : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
             db.execSQL("UPDATE podcast_feeds SET etag = NULL, lastModified = NULL")
         }

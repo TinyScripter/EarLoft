@@ -16,6 +16,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
+import de.kleinabersmart.earloft.core.data.podcast.PodcastTranscripts
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import kotlinx.coroutines.coroutineScope
@@ -42,6 +43,7 @@ class EpisodeDownloadWorker(
     private val progress = entryPoint.episodeProgress()
     private val podcasts = entryPoint.podcastRepository()
     private val episodeDownloads = entryPoint.episodeDownloads()
+    private val transcripts = entryPoint.podcastTranscripts()
 
     /** Folgen, die einer der parallelen Läufe gerade genommen hat (bis der Downloader sie auf `RUNNING` setzt, stehen sie noch auf `QUEUED`). */
     private val active = HashSet<Long>()
@@ -110,6 +112,8 @@ class EpisodeDownloadWorker(
             // Nennt der Feed keine Kapitel, stehen sie vielleicht in der Datei (Konzept 12.5 „Kapitelquellen“).
             DownloadOutcome.Done -> {
                 podcasts.chaptersFromFile(next.bookId)
+                // Das Transkript gleich mit, damit es offline da ist (Konzept 12.5 „Transkripte“).
+                transcripts.prefetch(next.bookId)
                 episodeDownloads.onDownloaded(next.bookId)
             }
             DownloadOutcome.Cancelled -> Unit
@@ -193,6 +197,7 @@ class EpisodeDownloadWorker(
         fun episodeProgress(): EpisodeDownloadProgress
         fun podcastRepository(): PodcastRepository
         fun episodeDownloads(): EpisodeDownloads
+        fun podcastTranscripts(): PodcastTranscripts
     }
 
     private companion object {

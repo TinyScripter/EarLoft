@@ -26,6 +26,10 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
+import kotlinx.coroutines.flow.MutableStateFlow
+import de.kleinabersmart.earloft.core.data.podcast.PodcastTranscripts
+import de.kleinabersmart.earloft.core.data.podcast.TranscriptResult
 import kotlin.math.abs
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -37,6 +41,7 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     private val continueListening: ContinueListening,
     private val launcher: BookLauncher,
     private val effects: SpokenEffectsRepository,
+    private val transcripts: PodcastTranscripts,
 ) : ViewModel() {
 
     val state: StateFlow<PlayerState> = playback.state
@@ -64,6 +69,43 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
     val effectLayers: StateFlow<EffectLayers?> = bookId
         .flatMapLatest { id -> if (id == null) flowOf(null) else effects.layers(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Die laufende Folge hat ein Transkript (`podcast:transcript`, Konzept 12.5 „Transkripte“). */
+    val hasTranscript: StateFlow<Boolean> = book
+        .map { it?.book?.takeIf { book -> book.kind == BookKind.EPISODE }?.transcriptUrl != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    private val transcriptWanted = MutableStateFlow(false)
+    private val transcriptAttempt = MutableStateFlow(0)
+
+    /**
+     * Transkript der laufenden Folge; `null`, solange es lädt oder noch nicht gezeigt wurde. Geladen wird erst, wenn es
+     * eingeblendet ist ([loadTranscript]), danach für jede neue Folge gleich mit.
+     */
+    val transcript: StateFlow<TranscriptResult?> = combine(
+        book.map { it?.book?.takeIf { book -> book.kind == BookKind.EPISODE }?.let { book -> book.id to book.transcriptUrl } }.distinctUntilChanged(),
+        transcriptWanted,
+        transcriptAttempt,
+    ) { key, wanted, _ -> key to wanted }
+        .transformLatest { (key, wanted) ->
+            when {
+                key?.second == null -> emit(TranscriptResult.None)
+                !wanted -> emit(null)
+                else -> {
+                    emit(null)
+                    emit(transcripts.load(key.first))
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun loadTranscript() {
+        transcriptWanted.value = true
+    }
+
+    fun retryTranscript() {
+        transcriptAttempt.value++
+    }
 
     /** Grundfarbe des Covers für das Farbschema; `null`, solange sie fehlt. */
     val seedColor: StateFlow<Int?> = bookId

@@ -51,6 +51,12 @@ data class Book(
     val language: String? = null,
     /** Folgen: seit wann gemerkt (Stern); `null` = nicht gemerkt. */
     val starredAt: Long? = null,
+    /** Folgen: Staffel, Nummer und Art aus dem Feed (`null` = keine Angabe bzw. normale Folge). */
+    val season: Int? = null,
+    val episodeNumber: Int? = null,
+    val episodeType: EpisodeType? = null,
+    /** Folgen: Adresse des Transkripts (`podcast:transcript`); `null` = keins. */
+    val transcriptUrl: String? = null,
 ) {
     /** Liegt auf diesem Gerät: kein Server, kein Download, kein Cast. */
     val isLocal: Boolean get() = isLocalSource(serverId)
@@ -214,6 +220,9 @@ data class PodcastFeed(
     val failedRefreshes: Int = 0,
     val refreshError: FeedError? = null,
     val failingSince: Long = 0,
+    /** Seite zum Unterstützen (`podcast:funding`) und ihr Text aus dem Feed (kann leer sein). */
+    val fundingUrl: String? = null,
+    val fundingLabel: String = "",
 ) {
     /** Aus dem Ordner „Podcasts“: keine Feed-Adresse, kein Abgleich, kein Download, kein Abo zu beenden. */
     val isLocal: Boolean get() = id.startsWith(LOCAL_PODCAST_PREFIX)

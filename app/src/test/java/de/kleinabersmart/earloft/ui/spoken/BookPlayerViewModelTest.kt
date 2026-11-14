@@ -31,6 +31,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import javax.inject.Inject
+import de.kleinabersmart.earloft.core.data.podcast.PodcastTranscripts
 
 /** Position im ganzen Buch über mehrere Dateien (Review A3). */
 @HiltAndroidTest
@@ -51,9 +52,10 @@ class BookPlayerViewModelTest {
     @Inject lateinit var continueListening: ContinueListening
     @Inject lateinit var launcher: BookLauncher
     @Inject lateinit var effects: SpokenEffectsRepository
+    @Inject lateinit var transcripts: PodcastTranscripts
 
     // Hilt erlaubt kein Injizieren von @HiltViewModel; die Abhängigkeiten kommen aber alle aus dem echten Graphen.
-    private val viewModel by lazy { BookPlayerViewModel(playback, books, covers, continueListening, launcher, effects) }
+    private val viewModel by lazy { BookPlayerViewModel(playback, books, covers, continueListening, launcher, effects, transcripts) }
 
     private var bookId = 0L
 

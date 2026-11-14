@@ -113,6 +113,49 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `podcasting 2 0 details are stored, persons follow the feed and trailers hide behind real episodes`() = runTest {
+        fun podcasting20(guest: String) = """
+            <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:podcast="https://podcastindex.org/namespace/1.0">
+              <channel>
+                <title>P20</title>
+                <podcast:guid>abc</podcast:guid>
+                <podcast:funding url="https://example.com/support">Spenden</podcast:funding>
+                <item>
+                  <title>Eins</title><guid>1</guid><pubDate>Thu, 30 Oct 2025 06:00:00 GMT</pubDate>
+                  <enclosure url="https://example.com/1.mp3"/>
+                  <itunes:season>2</itunes:season><itunes:episode>7</itunes:episode>
+                  <podcast:person role="guest">$guest</podcast:person>
+                  <podcast:transcript url="https://example.com/1.vtt" type="text/vtt"/>
+                </item>
+                <item>
+                  <title>Trailer</title><guid>t</guid><pubDate>Wed, 29 Oct 2025 06:00:00 GMT</pubDate>
+                  <enclosure url="https://example.com/t.mp3"/>
+                  <itunes:episodeType>trailer</itunes:episodeType>
+                </item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        served = podcasting20("Bob")
+        val feedId = subscribe()
+
+        val feed = db.podcastDao().feed(feedId)!!
+        assertEquals("abc", feed.podcastGuid)
+        assertEquals("https://example.com/support", repository.feed(feedId).first()!!.fundingUrl)
+        assertEquals("Spenden", repository.feed(feedId).first()!!.fundingLabel)
+        val episodes = repository.episodes(feedId).first().map { it.book }
+        assertEquals(listOf("Eins"), episodes.map { it.title })
+        val first = episodes.single()
+        assertEquals(2, first.season)
+        assertEquals(7, first.episodeNumber)
+        assertEquals("https://example.com/1.vtt", first.transcriptUrl)
+        assertEquals(listOf("Bob"), db.bookDao().personsOf(feedId).map { it.name })
+
+        served = podcasting20("Carla")
+        repository.refresh(feedId)
+        assertEquals(listOf("Carla"), db.bookDao().personsOf(feedId).map { it.name })
+    }
+
+    @Test
     fun `failed refreshes are counted with their reason until one succeeds`() = runTest {
         val feedId = subscribe()
         servedCode = 404

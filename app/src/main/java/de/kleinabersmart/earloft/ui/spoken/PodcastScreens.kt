@@ -558,6 +558,8 @@ fun PodcastScreen(
                                         Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_settings))
                                     }
                                 }
+                                // Nennt der Feed eine Seite zum Unterstützen (`podcast:funding`), steht sie hier.
+                                current.fundingUrl?.let { FundingButton(it, current.fundingLabel, 40.dp) }
                             }
                         }
                     }
@@ -613,7 +615,7 @@ fun PodcastScreen(
                 // Mehrere Folgen am selben Tag bzw. mit gleichem Titel: Uhrzeit bzw. erste Zeile der Shownotes dazu.
                 val sameDay = episodesSharingDay(list.map { it.book })
                 val sameTitle = episodesSharingTitle(list.map { it.book })
-                groupedItems(list, key = { it.book.id }) { item ->
+                val row: @Composable (BookWithProgress) -> Unit = { item ->
                     EpisodeRow(
                         item,
                         withTime = item.book.id in sameDay,
@@ -628,6 +630,16 @@ fun PodcastScreen(
                         selection = selection,
                         swipe = swipe,
                     )
+                }
+                // Nennt der Feed mehrere Staffeln (`itunes:season`), bekommt jede ihre Kopfzeile und Gruppe.
+                val seasons = seasonRuns(list) { it.book.season }
+                if (seasons == null) {
+                    groupedItems(list, key = { it.book.id }) { row(it) }
+                } else {
+                    seasons.forEachIndexed { index, (season, items) ->
+                        item(key = "season-$index") { SectionHeader(seasonTitle(season)) }
+                        groupedItems(items, key = { it.book.id }) { row(it) }
+                    }
                 }
             }
         }
@@ -1184,6 +1196,7 @@ internal fun EpisodeRow(
                         if (notes.isNotEmpty()) Text(notes, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     val facts = listOfNotNull(
+                        episodeLabel(book, withSeason = false),
                         book.addedAt.takeIf { it > 0 }?.let { formatEpisodeDay(it, withTime) },
                         book.durationMs.takeIf { it > 0 }?.let(::formatDuration),
                     ).joinToString(" · ")

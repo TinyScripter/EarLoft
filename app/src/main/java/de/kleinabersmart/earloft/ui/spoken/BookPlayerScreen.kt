@@ -44,6 +44,13 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -144,6 +151,8 @@ private fun BookPlayerContent(
     val hasNextEpisode by viewModel.hasNextEpisode.collectAsStateWithLifecycle()
     val effectLayers by viewModel.effectLayers.collectAsStateWithLifecycle()
     val bookWithProgress by viewModel.book.collectAsStateWithLifecycle()
+    val hasTranscript by viewModel.hasTranscript.collectAsStateWithLifecycle()
+    val transcript by viewModel.transcript.collectAsStateWithLifecycle()
     val entry = state.spoken
     val seek = entry?.seek ?: SeekSteps.DEFAULT
     // Die Position im Buch braucht die Zeitachse; ist sie geladen, einmal neu lesen (auch pausiert).
@@ -168,6 +177,8 @@ private fun BookPlayerContent(
     var showInfo by remember { mutableStateOf(false) }
     // Breit: Kapitelliste oder Warteschlange ersetzen im rechten Panel die Beschreibung.
     var pane by remember { mutableStateOf(SidePane.DESCRIPTION) }
+    // Hat die Folge ein Transkript, stehen Beschreibung und Transkript als Reiter nebeneinander (Konzept 12.5 „Transkripte“).
+    var notesTab by rememberSaveable { mutableIntStateOf(NOTES_DESCRIPTION) }
 
     if (entry == null) {
         // Das Buch wurde beendet oder entfernt: zurück, statt eine leere Seite zu zeigen.
@@ -259,6 +270,18 @@ private fun BookPlayerContent(
     val onTimestamp: ((Long) -> Unit)? = if (episode) viewModel::seekToBook else null
     val sleepActive = sleepRemaining != null
     val castDeviceName = rememberCastDeviceName(state.isRemote)
+    val transcriptPane: (@Composable (Modifier) -> Unit)? = if (episode && hasTranscript) {
+        { paneModifier ->
+            // Geladen wird erst, wenn das Transkript zu sehen ist.
+            LaunchedEffect(Unit) { viewModel.loadTranscript() }
+            TranscriptPane(transcript, { position.value }, onSeek = viewModel::seekToBook, onRetry = viewModel::retryTranscript, modifier = paneModifier)
+        }
+    } else {
+        null
+    }
+    val notes: @Composable (Modifier) -> Unit = { notesModifier ->
+        NotesPane(description, duration, onTimestamp, transcriptPane, notesTab, { notesTab = it }, notesModifier)
+    }
 
     BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding()) {
         // Wie bei der Musik: breit (Tablet) links Cover und Steuerung, rechts Beschreibung oder Kapitel; Handy quer
@@ -493,7 +516,7 @@ private fun BookPlayerContent(
                                     contentPadding = PaddingValues(vertical = 8.dp),
                                     transparent = true,
                                 )
-                            else -> DescriptionPane(description, Modifier.fillMaxSize(), duration, onTimestamp)
+                            else -> notes(Modifier.fillMaxSize())
                         }
                     }
                 }
@@ -521,8 +544,14 @@ private fun BookPlayerContent(
     }
 
     if (showInfo) {
-        ModalBottomSheet(onDismissRequest = { showInfo = false }) {
-            DescriptionPane(description, Modifier.fillMaxWidth().navigationBarsPadding(), duration, onTimestamp)
+        // Mit Transkript gleich in voller Höhe: Es ist lang, und die Suche braucht Platz über der Tastatur.
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = transcriptPane != null)
+        ModalBottomSheet(onDismissRequest = { showInfo = false }, sheetState = sheetState) {
+            if (transcriptPane != null) {
+                notes(Modifier.fillMaxSize().navigationBarsPadding().imePadding())
+            } else {
+                DescriptionPane(description, Modifier.fillMaxWidth().navigationBarsPadding(), duration, onTimestamp)
+            }
         }
     }
 
@@ -585,6 +614,39 @@ private fun BookPlayerContent(
 
 /** Was breit im rechten Panel steht. */
 private enum class SidePane { DESCRIPTION, CHAPTERS, BOOKMARKS, QUEUE }
+
+private const val NOTES_DESCRIPTION = 0
+private const val NOTES_TRANSCRIPT = 1
+
+/**
+ * Beschreibung bzw. Shownotes; gibt es ein Transkript ([transcript]), als Reiter „Beschreibung“ und „Transkript“ ([tab]).
+ */
+@Composable
+private fun NotesPane(
+    description: String,
+    durationMs: Long,
+    onTimestamp: ((Long) -> Unit)?,
+    transcript: (@Composable (Modifier) -> Unit)?,
+    tab: Int,
+    onTab: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (transcript == null) {
+        DescriptionPane(description, modifier, durationMs, onTimestamp)
+        return
+    }
+    Column(modifier) {
+        PrimaryTabRow(selectedTabIndex = tab, containerColor = Color.Transparent) {
+            Tab(selected = tab == NOTES_DESCRIPTION, onClick = { onTab(NOTES_DESCRIPTION) }, text = { Text(stringResource(R.string.spoken_description)) })
+            Tab(selected = tab == NOTES_TRANSCRIPT, onClick = { onTab(NOTES_TRANSCRIPT) }, text = { Text(stringResource(R.string.spoken_transcript)) })
+        }
+        if (tab == NOTES_TRANSCRIPT) {
+            transcript(Modifier.weight(1f).fillMaxWidth())
+        } else {
+            DescriptionPane(description, Modifier.weight(1f).fillMaxWidth(), durationMs, onTimestamp, title = false)
+        }
+    }
+}
 
 /**
  * Oben das ganze Buch (zum Spulen), darunter nur das Kapitel; jeweils links gespielt, rechts die Restzeit mit „-“.
@@ -944,14 +1006,15 @@ private fun DescriptionPane(
     modifier: Modifier = Modifier,
     durationMs: Long = 0,
     onTimestamp: ((Long) -> Unit)? = null,
+    title: Boolean = true,
 ) {
     Column(modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
-        Text(stringResource(R.string.spoken_description), style = MaterialTheme.typography.titleSmall)
+        if (title) Text(stringResource(R.string.spoken_description), style = MaterialTheme.typography.titleSmall)
         val formatted = rememberDescription(description, durationMs, onTimestamp)
         Text(
             if (description.isBlank()) AnnotatedString(stringResource(R.string.spoken_no_description)) else formatted,
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = if (title) 8.dp else 0.dp),
         )
     }
 }

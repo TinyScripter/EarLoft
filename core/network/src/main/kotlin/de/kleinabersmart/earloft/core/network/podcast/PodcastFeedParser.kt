@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.core.network.podcast
 
+import de.kleinabersmart.earloft.core.model.EpisodePerson
+import de.kleinabersmart.earloft.core.model.EpisodeType
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
 import org.xmlpull.v1.XmlPullParserFactory
@@ -25,6 +27,11 @@ data class ParsedFeed(
     val websiteUrl: String? = null,
     /** Neue Adresse, die der Feed selbst ankündigt (`<itunes:new-feed-url>`), nur http(s). */
     val newFeedUrl: String? = null,
+    /** Stabile Kennung des Podcasts (`<podcast:guid>`), unabhängig von der Adresse; klein geschrieben. */
+    val podcastGuid: String? = null,
+    /** Erste Seite zum Unterstützen (`<podcast:funding url="…">Text</podcast:funding>`), nur http(s); Text kann leer sein. */
+    val fundingUrl: String? = null,
+    val fundingLabel: String = "",
 )
 
 data class ParsedEpisode(
@@ -45,6 +52,16 @@ data class ParsedEpisode(
     val webUrl: String? = null,
     /** Kapitel direkt im Feed (Podlove Simple Chapters), nach Beginn geordnet; leer, wenn der Feed keine nennt. */
     val chapters: List<ParsedChapter> = emptyList(),
+    /** Staffel und Nummer (`itunes:season`/`episode`, sonst `podcast:season`/`episode`), nur ganze Zahlen ab 0. */
+    val season: Int? = null,
+    val episodeNumber: Int? = null,
+    /** `itunes:episodeType`; `null`, wenn der Feed nichts oder Unbekanntes nennt (gilt wie „full“). */
+    val episodeType: EpisodeType? = null,
+    /** Mitwirkende der Folge (`podcast:person`); nennt die Folge keine, die des Podcasts. */
+    val persons: List<EpisodePerson> = emptyList(),
+    /** Das am besten lesbare Transkript (`podcast:transcript`, siehe [pickTranscript]) und sein MIME-Typ. */
+    val transcriptUrl: String? = null,
+    val transcriptType: String? = null,
 )
 
 /**
@@ -73,6 +90,7 @@ object PodcastFeedParser {
 
     private fun parseRss(rss: Node): ParsedFeed {
         val channel = rss.child("channel") ?: throw PodcastFeedException("RSS ohne channel")
+        val feedPersons = channel.persons()
         val episodes = channel.children("item").mapNotNull { item ->
             val enclosure = item.child("enclosure")
             val url = enclosure?.attr("url")?.trim().orEmpty()
@@ -91,7 +109,7 @@ object PodcastFeedParser {
                 webUrl = webPage(item.text("link", NS_NONE))
                     ?: guid?.takeIf { it.attr("isPermaLink")?.trim() != "false" }?.let { webPage(it.text.toString()) },
                 chapters = item.simpleChapters(),
-            )
+            ).withPodcasting20(item, feedPersons)
         }
         return ParsedFeed(
             title = channel.plain("title"),
@@ -102,10 +120,11 @@ object PodcastFeedParser {
             episodes = episodes,
             websiteUrl = webPage(channel.text("link", NS_NONE)),
             newFeedUrl = webAddress(channel.text("new-feed-url", NS_ITUNES)),
-        )
+        ).withPodcasting20(channel)
     }
 
     private fun parseAtom(feed: Node): ParsedFeed {
+        val feedPersons = feed.persons()
         val episodes = feed.children("entry").mapNotNull { entry ->
             val enclosure = entry.children("link").firstOrNull { it.attr("rel") == "enclosure" }
             val url = enclosure?.attr("href")?.trim().orEmpty()
@@ -122,7 +141,7 @@ object PodcastFeedParser {
                 chaptersUrl = entry.podcastChild("chapters")?.attr("url")?.takeIf { it.isNotBlank() },
                 webUrl = entry.alternateLink(),
                 chapters = entry.simpleChapters(),
-            )
+            ).withPodcasting20(entry, feedPersons)
         }
         return ParsedFeed(
             title = feed.plain("title", NS_ATOM),
@@ -133,7 +152,59 @@ object PodcastFeedParser {
             episodes = episodes,
             websiteUrl = feed.alternateLink(),
             newFeedUrl = webAddress(feed.text("new-feed-url", NS_ITUNES)),
+        ).withPodcasting20(feed)
+    }
+
+    /** `podcast:guid` und `podcast:funding` des Kanals bzw. Atom-Feeds (Konzept 12.10). */
+    private fun ParsedFeed.withPodcasting20(channel: Node): ParsedFeed {
+        val funding = channel.podcastChildren("funding").firstOrNull { webAddress(it.attr("url")) != null }
+        return copy(
+            podcastGuid = channel.podcastChild("guid")?.text?.toString()?.trim()?.lowercase()?.takeIf { it.isNotEmpty() },
+            fundingUrl = funding?.let { webAddress(it.attr("url")) },
+            fundingLabel = funding?.let { decodeHtmlEntities(it.text.toString().trim()) }.orEmpty(),
         )
+    }
+
+    /**
+     * Staffel, Nummer, Art, Mitwirkende und Transkript einer Folge (Konzept 12.5 „Podcasting 2.0“). iTunes geht bei Staffel
+     * und Nummer vor, weil es fast alle Feeds führen; `podcast:episode` darf auch „12.5“ sein, das zählt nicht als Nummer.
+     */
+    private fun ParsedEpisode.withPodcasting20(item: Node, feedPersons: List<EpisodePerson>): ParsedEpisode {
+        val transcript = pickTranscript(
+            item.podcastChildren("transcript").mapNotNull { node -> webAddress(node.attr("url"))?.let { it to node.attr("type") } },
+        )
+        return copy(
+            season = wholeNumber(item.text("season", NS_ITUNES)) ?: wholeNumber(item.podcastChild("season")?.text?.toString()),
+            episodeNumber = wholeNumber(item.text("episode", NS_ITUNES)) ?: wholeNumber(item.podcastChild("episode")?.text?.toString()),
+            episodeType = when (item.text("episodeType", NS_ITUNES).lowercase()) {
+                "full" -> EpisodeType.FULL
+                "trailer" -> EpisodeType.TRAILER
+                "bonus" -> EpisodeType.BONUS
+                else -> null
+            },
+            persons = item.persons().ifEmpty { feedPersons },
+            transcriptUrl = transcript?.first,
+            transcriptType = transcript?.second,
+        )
+    }
+
+    /** `<podcast:person role="guest" group="cast" img="…" href="…">Name</podcast:person>`; ohne Namen fällt er weg. */
+    private fun Node.persons(): List<EpisodePerson> =
+        podcastChildren("person").mapNotNull { node ->
+            val name = decodeHtmlEntities(node.text.toString().trim()).takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            EpisodePerson(
+                name = name,
+                role = node.attr("role")?.trim()?.lowercase()?.takeIf { it.isNotEmpty() },
+                group = node.attr("group")?.trim()?.lowercase()?.takeIf { it.isNotEmpty() },
+                imageUrl = webAddress(node.attr("img")),
+                url = webAddress(node.attr("href")),
+            )
+        }.distinct()
+
+    /** „3“ oder „3.0“; Brüche, negative Zahlen und alles andere: `null`. */
+    private fun wholeNumber(raw: String?): Int? {
+        val value = raw?.trim()?.toDoubleOrNull() ?: return null
+        return value.takeIf { it >= 0 && it % 1.0 == 0.0 && it <= Int.MAX_VALUE }?.toInt()
     }
 
     /** Atom: `link` mit `rel="alternate"` (oder ohne `rel`), bevorzugt als HTML. */
@@ -204,8 +275,10 @@ object PodcastFeedParser {
          * `http://podcastindex.org/namespace/1.0`, die GitHub-Dokumentation des Podcastindex), deshalb zählt jede Adresse,
          * die „podcastindex“ enthält.
          */
-        fun podcastChild(name: String): Node? =
-            children.firstOrNull { it.name == name && it.namespace.contains("podcastindex", ignoreCase = true) }
+        fun podcastChild(name: String): Node? = podcastChildren(name).firstOrNull()
+
+        fun podcastChildren(name: String): List<Node> =
+            children.filter { it.name == name && it.namespace.contains("podcastindex", ignoreCase = true) }
 
         fun text(name: String, namespace: String? = null): String = child(name, namespace)?.text?.toString()?.trim().orEmpty()
 

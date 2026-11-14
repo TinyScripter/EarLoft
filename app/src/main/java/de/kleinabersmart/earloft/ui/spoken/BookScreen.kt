@@ -58,6 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import java.text.NumberFormat
 import java.util.Locale
 import de.kleinabersmart.earloft.core.model.BookChapter
+import de.kleinabersmart.earloft.core.model.EpisodePerson
 import de.kleinabersmart.earloft.core.model.BookProgress
 import de.kleinabersmart.earloft.ui.components.GroupMargin
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
@@ -95,6 +96,7 @@ fun BookScreen(
     val item by viewModel.book.collectAsStateWithLifecycle()
     val trialFeedId by viewModel.trialFeedId.collectAsStateWithLifecycle()
     val chapters by viewModel.chapters.collectAsStateWithLifecycle()
+    val persons by viewModel.persons.collectAsStateWithLifecycle()
     val bookmarksViewModel: BookmarksViewModel = hiltViewModel()
     val bookmarks by remember(bookId) { bookmarksViewModel.of(bookId) }.collectAsStateWithLifecycle(emptyList())
     val bookmarkActions = rememberBookmarkActions(bookmarksViewModel)
@@ -182,14 +184,14 @@ fun BookScreen(
                             .padding(bottom = 24.dp),
                     ) { header() }
                     LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                        bookDetailItems(book, chapters, onChapter = viewModel::playFrom)
+                        bookDetailItems(book, chapters, persons, onChapter = viewModel::playFrom)
                         bookmarkItems(bookmarks, bookmarkActions, onJump = viewModel::playFrom)
                     }
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                     item(key = "header") { header() }
-                    bookDetailItems(book, chapters, onChapter = viewModel::playFrom)
+                    bookDetailItems(book, chapters, persons, onChapter = viewModel::playFrom)
                     bookmarkItems(bookmarks, bookmarkActions, onJump = viewModel::playFrom)
                 }
             }
@@ -277,6 +279,8 @@ private fun BookHeader(
         val remaining = progress?.takeIf { isBook && !it.finished && it.positionMs > 0 && book.durationMs > 0 }
             ?.let { stringResource(R.string.book_remaining, formatDuration((book.durationMs - it.positionMs).coerceAtLeast(0))) }
         val facts = listOfNotNull(
+            // Folgen: Art, Staffel und Nummer aus dem Feed („Staffel 2 · Folge 12“).
+            if (isBook) null else episodeLabel(book, withSeason = true),
             book.addedAt.takeIf { book.kind == BookKind.EPISODE && it > 0 }?.let { formatEpisodeDay(it, withTime = true) },
             book.publishedYear.takeIf { isBook },
             book.publisher.takeIf { isBook },
@@ -375,10 +379,10 @@ private fun episodeTransferText(fraction: Float?): String =
     }
 
 /**
- * Beschreibung und Kapitelliste; ein Tipp auf ein Kapitel spielt ab dessen Anfang, bei Folgen ebenso ein Tipp auf eine
- * Zeitmarke in den Shownotes.
+ * Beschreibung, Mitwirkende (Folgen) und Kapitelliste; ein Tipp auf ein Kapitel spielt ab dessen Anfang, bei Folgen ebenso
+ * ein Tipp auf eine Zeitmarke in den Shownotes.
  */
-private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter>, onChapter: (Long) -> Unit) {
+private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter>, persons: List<EpisodePerson>, onChapter: (Long) -> Unit) {
     if (book.description.isNotBlank()) {
         item(key = "description") {
             Text(
@@ -387,6 +391,9 @@ private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
             )
         }
+    }
+    if (persons.isNotEmpty()) {
+        item(key = "persons") { EpisodePersons(persons, Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp)) }
     }
     if (chapters.isNotEmpty()) {
         item(key = "chapters-header") {

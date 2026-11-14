@@ -1,5 +1,7 @@
 package de.kleinabersmart.earloft.core.network.podcast
 
+import de.kleinabersmart.earloft.core.model.EpisodePerson
+import de.kleinabersmart.earloft.core.model.EpisodeType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -333,6 +335,75 @@ class PodcastFeedParserTest {
         assertThrowsFeed("<rss version=\"2.0\"></rss>")
         assertThrowsFeed("<rss><channel>")
         assertThrowsFeed("")
+    }
+
+    @Test
+    fun `podcasting 2 0 and itunes episode details`() {
+        val feed = parse(
+            """
+            <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:podcast="https://podcastindex.org/namespace/1.0">
+              <channel>
+                <title>P</title>
+                <podcast:guid> 917393E3-1B1E-5CEF-ACE4-EDAA54E1F810 </podcast:guid>
+                <podcast:funding url="mailto:x@example.com">Mail</podcast:funding>
+                <podcast:funding url="https://example.com/support">Unterstützt uns &amp;amp; den Podcast</podcast:funding>
+                <podcast:person role="host" img="https://example.com/anna.jpg">Anna</podcast:person>
+                <item>
+                  <title>Staffel 2, Folge 12</title>
+                  <enclosure url="https://example.com/12.mp3"/>
+                  <itunes:season>2</itunes:season>
+                  <itunes:episode>12</itunes:episode>
+                  <itunes:episodeType>Bonus</itunes:episodeType>
+                  <podcast:person role="Guest" href="https://example.com/bob">Bob</podcast:person>
+                  <podcast:person>  </podcast:person>
+                  <podcast:transcript url="https://example.com/12.html" type="text/html"/>
+                  <podcast:transcript url="https://example.com/12.pdf" type="application/pdf"/>
+                  <podcast:transcript url="https://example.com/12.vtt" type="text/vtt"/>
+                </item>
+                <item>
+                  <title>Trailer</title>
+                  <enclosure url="https://example.com/t.mp3"/>
+                  <itunes:episodeType>trailer</itunes:episodeType>
+                  <podcast:season>1</podcast:season>
+                  <podcast:episode>1.5</podcast:episode>
+                  <podcast:transcript url="https://example.com/t.srt"/>
+                </item>
+              </channel>
+            </rss>
+            """,
+        )
+        assertEquals("917393e3-1b1e-5cef-ace4-edaa54e1f810", feed.podcastGuid)
+        assertEquals("https://example.com/support", feed.fundingUrl)
+        assertEquals("Unterstützt uns & den Podcast", feed.fundingLabel)
+
+        val bonus = feed.episodes[0]
+        assertEquals(2, bonus.season)
+        assertEquals(12, bonus.episodeNumber)
+        assertEquals(EpisodeType.BONUS, bonus.episodeType)
+        // Nennt die Folge eigene Mitwirkende, gelten die des Podcasts nicht; ohne Namen fällt einer weg.
+        assertEquals(listOf(EpisodePerson("Bob", role = "guest", url = "https://example.com/bob")), bonus.persons)
+        assertEquals("https://example.com/12.vtt", bonus.transcriptUrl)
+        assertEquals("text/vtt", bonus.transcriptType)
+
+        val trailer = feed.episodes[1]
+        assertEquals(1, trailer.season)
+        assertNull(trailer.episodeNumber)
+        assertEquals(EpisodeType.TRAILER, trailer.episodeType)
+        assertEquals(listOf(EpisodePerson("Anna", role = "host", imageUrl = "https://example.com/anna.jpg")), trailer.persons)
+        // Ohne Typ zählt die Dateiendung.
+        assertEquals("https://example.com/t.srt", trailer.transcriptUrl)
+    }
+
+    @Test
+    fun `without podcasting 2 0 nothing is set`() {
+        val feed = parse("<rss><channel><title>P</title><item><enclosure url=\"https://e.com/1.mp3\"/></item></channel></rss>")
+        assertNull(feed.podcastGuid)
+        assertNull(feed.fundingUrl)
+        val episode = feed.episodes.single()
+        assertNull(episode.season)
+        assertNull(episode.episodeType)
+        assertNull(episode.transcriptUrl)
+        assertTrue(episode.persons.isEmpty())
     }
 
     @Test

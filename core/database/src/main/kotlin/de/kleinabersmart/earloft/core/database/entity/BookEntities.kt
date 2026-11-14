@@ -8,6 +8,7 @@ import androidx.room.PrimaryKey
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.ChapterSource
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
+import de.kleinabersmart.earloft.core.model.EpisodeType
 import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.TrackDownload
@@ -82,6 +83,13 @@ data class PodcastFeedEntity(
     @ColumnInfo(defaultValue = "0") val failedRefreshes: Int = 0,
     val lastError: FeedError? = null,
     @ColumnInfo(defaultValue = "0") val failingSince: Long = 0,
+    /**
+     * Podcasting 2.0 (v36): stabile Kennung des Podcasts (`podcast:guid`, schützt den Feed-Umzug) und die Seite zum
+     * Unterstützen (`podcast:funding`) samt ihrem Text aus dem Feed.
+     */
+    val podcastGuid: String? = null,
+    val fundingUrl: String? = null,
+    val fundingLabel: String? = null,
 )
 
 @Entity(
@@ -130,6 +138,28 @@ data class BookEntity(
      * Folgen bleiben, auch wenn der Feed sie nicht mehr führt.
      */
     val starredAt: Long? = null,
+    /** Folgen (v36): Staffel und Nummer, Art aus dem Feed (`null` = normale Folge) und das Transkript mit MIME-Typ. */
+    val season: Int? = null,
+    val episodeNumber: Int? = null,
+    val episodeType: EpisodeType? = null,
+    val transcriptUrl: String? = null,
+    val transcriptType: String? = null,
+)
+
+/** Mitwirkende einer Folge aus dem Feed (`podcast:person`, v36), in der Reihenfolge des Feeds. */
+@Entity(
+    tableName = "episode_persons",
+    primaryKeys = ["bookId", "personIndex"],
+    foreignKeys = [ForeignKey(entity = BookEntity::class, parentColumns = ["bookId"], childColumns = ["bookId"], onDelete = ForeignKey.CASCADE)],
+)
+data class EpisodePersonEntity(
+    val bookId: Long,
+    val personIndex: Int,
+    val name: String,
+    val role: String? = null,
+    val personGroup: String? = null,
+    val imageUrl: String? = null,
+    val url: String? = null,
 )
 
 @Entity(

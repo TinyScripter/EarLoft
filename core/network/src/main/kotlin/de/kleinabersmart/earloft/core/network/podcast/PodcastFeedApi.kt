@@ -35,6 +35,9 @@ sealed interface FeedFetch {
     ) : FeedFetch
 }
 
+/** Ein geladenes Transkript, noch ungelesen; [contentType] wie der Server ihn nennt. */
+data class TranscriptText(val text: String, val contentType: String?)
+
 /** Ein Kapitel aus der Podcasting-2.0-Kapitelliste oder Podlove; Bild und Webseite nur als absolute http(s)-Adresse. */
 data class ParsedChapter(val startMs: Long, val title: String, val imageUrl: String? = null, val url: String? = null)
 
@@ -87,6 +90,19 @@ class PodcastFeedApi @Inject constructor(
     }
 
     /**
+     * Text eines Transkripts (`podcast:transcript`) samt `Content-Type` der Antwort. Darf aus dem HTTP-Cache kommen; auf dem
+     * Host eines geschützten Feeds meldet [FeedAuthInterceptor] an.
+     */
+    suspend fun transcript(url: String): TranscriptText = withContext(Dispatchers.IO) {
+        val httpUrl = url.toHttpUrlOrNull() ?: throw IOException("Ungültige Transkript-URL")
+        val request = Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).build()
+        client.newCall(request).await().use { response ->
+            if (!response.isSuccessful) throw HttpStatusException(response.code)
+            TranscriptText(response.peekBody(MAX_TRANSCRIPT_BYTES).string(), response.header("Content-Type"))
+        }
+    }
+
+    /**
      * Anfrage für die Audiodatei einer Folge (eigener User-Agent, nie aus dem HTTP-Cache); `null` bei ungültiger Adresse.
      * [auth]: die Zugangsdaten ihres Abos (gelten nur auf dessen Host).
      */
@@ -112,6 +128,7 @@ class PodcastFeedApi @Inject constructor(
         const val MAX_FEED_BYTES = 20L * 1024 * 1024
         const val MAX_CHAPTERS_BYTES = 1L * 1024 * 1024
         const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
+        const val MAX_TRANSCRIPT_BYTES = 5L * 1024 * 1024
     }
 }
 
@@ -129,8 +146,11 @@ internal fun permanentTarget(requested: HttpUrl, response: Response): HttpUrl? {
     return target?.takeIf { it != requested && (it.isHttps || !requested.isHttps) }
 }
 
-/** Manche Verzeichnisse (z. B. podcastindex.org) lehnen den Standard-User-Agent von OkHttp mit 403 ab. */
-internal const val PODCAST_USER_AGENT = "EarLoft/1.0 (Android podcast client)"
+/**
+ * Manche Verzeichnisse (z. B. podcastindex.org) und Audio-Hoster (Buzzsprout über podtrac/op3) lehnen den Standard-User-Agent
+ * von OkHttp mit 403 ab; auch Streams im Player schicken deshalb diesen.
+ */
+const val PODCAST_USER_AGENT = "EarLoft/1.0 (Android podcast client)"
 
 /**
  * Macht aus einer Eingabe eine Feed-Adresse: Leerraum weg, `feed://`/`itpc://`/`pcast://` werden `https://`, ohne

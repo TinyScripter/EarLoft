@@ -11,6 +11,8 @@ import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
+import de.kleinabersmart.earloft.core.database.entity.EpisodePersonEntity
+import de.kleinabersmart.earloft.core.model.EpisodeType
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.data.refresh.NewEpisodes
 import de.kleinabersmart.earloft.core.data.spoken.toModel
@@ -179,11 +181,15 @@ class PodcastRepository @Inject constructor(
     fun downloadStates(feedId: String): Flow<Map<Long, TrackDownload>> =
         dao.observeDownloadStates(feedId).map { rows -> rows.associate { it.bookId to it.state } }
 
-    /** Folgen eines Podcasts, neueste zuerst, mit Fortschritt; ohne die, die „Folgen behalten“ ausblendet ([keepNewest]). */
+    /**
+     * Folgen eines Podcasts, neueste zuerst, mit Fortschritt; ohne die, die „Folgen behalten“ ausblendet ([keepNewest]), und
+     * ohne Trailer, sobald es echte Folgen gibt ([withoutTrailers]).
+     */
     fun episodes(feedId: String): Flow<List<BookWithProgress>> =
         combine(dao.observeEpisodesOf(feedId), bookDao.observeAllProgress(), dao.observeFeed(feedId)) { episodes, progress, feed ->
             val byBook = progress.associateBy { it.bookId }
             episodes
+                .withoutTrailers(byBook)
                 .keepNewest({ feedId }, { feed?.keepEpisodes ?: 0 }) { byBook[it.bookId].isUntouched && it.starredAt == null }
                 .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
         }
@@ -254,16 +260,18 @@ class PodcastRepository @Inject constructor(
         ) { (episodes, trial, feeds), progress, orderIds, hiddenIds ->
             val byBook = progress.associateBy { it.bookId }
             val modes = feeds.associate { it.feedId to it.queueMode }
-            // Die neueste Folge jedes Abos (die Liste ist nach Datum absteigend), für „Nur die neueste“.
+            val visible = episodes.visibleIn(feeds, byBook)
+            // Die neueste Folge jedes Abos (die Liste ist nach Datum absteigend), für „Nur die neueste“; ein Trailer zählt
+            // dabei nicht, wenn es echte Folgen gibt.
             val newest = HashMap<String, Long>()
-            episodes.forEach { newest.putIfAbsent(it.serverId, it.bookId) }
+            visible.forEach { newest.putIfAbsent(it.serverId, it.bookId) }
             val started = episodes
                 .filter { it.bookId !in hiddenIds }
                 .mapNotNull { e -> byBook[e.bookId]?.takeIf { !it.finished && it.positionMs > 0 }?.let { e to it } }
                 .sortedByDescending { (_, p) -> p.updatedAt }
                 .map { (e, p) -> BookWithProgress(e.toModel(), p.toModel()) }
             val since = now() - NEW_DAYS * DAY_MS
-            val fresh = episodes.visibleIn(feeds, byBook)
+            val fresh = visible
                 .filter { e -> e.bookId !in hiddenIds && byBook[e.bookId].isUntouched && e.addedAt >= since }
                 .filter { e ->
                     when (modes[e.serverId]) {
@@ -794,11 +802,15 @@ class PodcastRepository @Inject constructor(
         val image = parsed.imageUrl ?: feed.imageUrl ?: parsed.episodes.firstNotNullOfOrNull { it.imageUrl }
         val now = System.currentTimeMillis()
         val newIds = mutableListOf<Long>()
+        val knownPersons = bookDao.personsOf(feed.feedId).groupBy { it.bookId }
         // Der Feed führt die neueste Folge zuerst; die erste Folge eines doppelten guid gewinnt.
         parsed.episodes.distinctBy { it.guid }.forEach { episode ->
             val existing = known[episode.guid]
             val id = bookDao.upsertBook(episode.toEntity(feed.feedId, title, image, existing, generation, now))
             if (existing == null) newIds += id
+            // Mitwirkende kommen mit jedem Abgleich wieder; geschrieben wird nur, was sich geändert hat.
+            val persons = episode.persons.mapIndexed { index, p -> EpisodePersonEntity(id, index, p.name, p.role, p.group, p.imageUrl, p.url) }
+            if (knownPersons[id].orEmpty() != persons) bookDao.replacePersons(id, persons)
             val track = BookTrackEntity(id, 0, episode.audioUrl, 0, episode.durationMs.takeIf { it > 0 } ?: existing?.durationMs ?: 0, episode.mimeType)
             // Der Download-Stand gehört nicht zum Feed und darf keinen Schreibvorgang auslösen.
             val stored = bookDao.tracks(id).map { it.copy(downloadState = TrackDownload.NONE, filePath = null, fileSize = 0) }
@@ -813,6 +825,9 @@ class PodcastRepository @Inject constructor(
                 description = parsed.description.toDescriptionHtml(),
                 imageUrl = image,
                 websiteUrl = parsed.websiteUrl,
+                podcastGuid = parsed.podcastGuid,
+                fundingUrl = parsed.fundingUrl,
+                fundingLabel = parsed.fundingLabel.takeIf { parsed.fundingUrl != null },
                 etag = fetched.etag,
                 lastModified = fetched.lastModified,
                 lastRefreshAt = now,
@@ -917,6 +932,11 @@ class PodcastRepository @Inject constructor(
         chaptersUrl = chaptersUrl,
         webUrl = webUrl,
         chapterSource = existing?.chapterSource,
+        season = season,
+        episodeNumber = episodeNumber,
+        episodeType = episodeType,
+        transcriptUrl = transcriptUrl,
+        transcriptType = transcriptType,
     )
 
     private fun String.toHttpUrlOrThrow() = normalizeFeedUrl(this) ?: throw IOException("Ungültige Feed-Adresse: $this")
@@ -968,6 +988,8 @@ private fun PodcastFeedEntity.toModel() = PodcastFeed(
     failedRefreshes = failedRefreshes,
     refreshError = lastError,
     failingSince = failingSince,
+    fundingUrl = fundingUrl,
+    fundingLabel = fundingLabel.orEmpty(),
 )
 
 /** Ein gelungener Abgleich beendet die Serie der Fehlschläge. */
@@ -983,14 +1005,25 @@ internal fun feedError(e: IOException): FeedError = when {
     else -> FeedError.UNREACHABLE
 }
 
+/**
+ * Trailer (`itunes:episodeType`) fallen weg, sobald ihr Abo in der Liste echte Folgen hat (Konzept 12.5 „Podcasting 2.0“);
+ * angefangene, gehörte und gemerkte bleiben.
+ */
+internal fun List<BookEntity>.withoutTrailers(byBook: Map<Long, BookProgressEntity>): List<BookEntity> {
+    if (none { it.episodeType == EpisodeType.TRAILER }) return this
+    val withEpisodes = filter { it.episodeType != EpisodeType.TRAILER }.mapTo(HashSet()) { it.serverId }
+    return filter { it.episodeType != EpisodeType.TRAILER || it.serverId !in withEpisodes || !byBook[it.bookId].isUntouched || it.starredAt != null }
+}
+
 /** Nie angefangen und nicht als gehört markiert. */
 private val BookProgressEntity?.isUntouched: Boolean get() = this == null || (!finished && positionMs <= 0)
 
 /** Folgen (neueste zuerst) ohne die, die „Folgen behalten“ ihres Abos ausblendet. */
 private fun List<BookEntity>.visibleIn(feeds: List<PodcastFeedEntity>, byBook: Map<Long, BookProgressEntity>): List<BookEntity> {
     val keep = feeds.filter { it.keepEpisodes > 0 }.associate { it.feedId to it.keepEpisodes }
-    if (keep.isEmpty()) return this
-    return keepNewest({ it.serverId }, { keep[it] ?: 0 }) { byBook[it.bookId].isUntouched && it.starredAt == null }
+    val shown = withoutTrailers(byBook)
+    if (keep.isEmpty()) return shown
+    return shown.keepNewest({ it.serverId }, { keep[it] ?: 0 }) { byBook[it.bookId].isUntouched && it.starredAt == null }
 }
 
 /**

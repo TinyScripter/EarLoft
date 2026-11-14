@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.model.BookChapter
+import de.kleinabersmart.earloft.core.model.EpisodePerson
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.data.spoken.BookDownload
 import de.kleinabersmart.earloft.core.download.BookDownloadProgress
@@ -132,6 +133,11 @@ class BookViewModel @AssistedInject constructor(
     }
 
     val chapters: StateFlow<List<BookChapter>> = books.chapters(bookId)
+        .orOnError(emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Mitwirkende einer Folge aus dem Feed (`podcast:person`); bei Büchern leer. */
+    val persons: StateFlow<List<EpisodePerson>> = books.persons(bookId)
         .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
