@@ -126,6 +126,8 @@ internal class BookPlaybackListener(
         }
         // Innerhalb eines Buchs (nächste Datei) bleibt alles; bei einem anderen Buch gilt dessen Geschwindigkeit.
         if (timelineBookId == bookId) {
+            // Zurück aus Musik ins selbe Buch: Die Musik hat die Effekte abgeschaltet und ihren Beobachter beendet.
+            if (effectsJob?.isActive != true) followEffects(bookId)
             // Der Cast-Empfänger lädt die Warteschlange mit normaler Geschwindigkeit.
             if (handedOver) currentEffects?.speed?.takeUnless { sameSpeed(it, player.playbackParameters.speed) }?.let(player::setPlaybackSpeed)
             updateTimers()
