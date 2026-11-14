@@ -273,6 +273,16 @@ private fun BookHeader(
                 onClick = { onOpenGroup(BookGroupKind.NARRATOR, it) },
             )
         }
+        // Genres von Audiobookshelf, jedes führt zu den Büchern dieses Genres.
+        if (isBook && book.genres.isNotEmpty()) {
+            PeopleLine(
+                names = book.genres,
+                opens = { true },
+                clickLabel = stringResource(R.string.book_open_genre),
+                style = MaterialTheme.typography.bodyMedium,
+                onClick = { onOpenGroup(BookGroupKind.GENRE, it) },
+            )
+        }
         // Folgen: Erscheinen mit Uhrzeit (Nachrichten kommen mehrmals am Tag unter gleichem Titel). Podcast-Feeds nennen
         // nicht immer eine Dauer.
         // Bücher: Jahr, Verlag, Sprache und Dauer; bei angefangenen die Restzeit (Inhaltszeit, ohne Tempo).

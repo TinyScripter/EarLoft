@@ -57,6 +57,8 @@ data class Book(
     val episodeType: EpisodeType? = null,
     /** Folgen: Adresse des Transkripts (`podcast:transcript`); `null` = keins. */
     val transcriptUrl: String? = null,
+    /** Bücher: Genres von Audiobookshelf, einzeln ([parseGenres]). */
+    val genres: List<String> = emptyList(),
 ) {
     /** Liegt auf diesem Gerät: kein Server, kein Download, kein Cast. */
     val isLocal: Boolean get() = isLocalSource(serverId)
@@ -89,6 +91,12 @@ private val SERIES_SEPARATOR = Regex("""(?<=#[\d.]{1,10}),\s*""")
  */
 fun parsePeople(raw: String): List<String> =
     raw.split(',', ';').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+
+/**
+ * Die einzelnen Genres eines Buchs: Audiobookshelf führt eine Liste, aus Metadaten übernommene Einträge stecken aber oft
+ * mehrere in einen („Polizei, Thriller“). Getrennt wie [parsePeople]; „Politik & Regierungen“ bleibt eines.
+ */
+fun parseGenres(raw: List<String>): List<String> = raw.flatMap(::parsePeople).distinct()
 
 /**
  * Ob [name] eine Rolle nennt („Günther Frauenlob - Übersetzer“, „Ruggero Leò - translator“): Audiobookshelf führt

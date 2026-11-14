@@ -192,6 +192,7 @@ internal fun BookEntity.toModel() = Book(
     episodeNumber = episodeNumber,
     episodeType = episodeType,
     transcriptUrl = transcriptUrl,
+    genres = genres?.let { parsePeople(it) }.orEmpty(),
 )
 
 internal fun EpisodePersonEntity.toModel() = EpisodePerson(name, role, personGroup, imageUrl, url)

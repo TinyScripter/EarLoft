@@ -266,6 +266,25 @@ class MigrationTest {
     }
 
     @Test
+    fun `v36 to v37 keeps books without genres`() {
+        helper.createDatabase(DB_NAME, 36).use { db ->
+            db.execSQL(
+                "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
+                    "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
+                    "VALUES (3, 'abs', 'BOOK', 'li_3', 'Buch', 'buch', 'A', '', '', '', 60000, 0, 1, 1, 2)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 37, true).use { db ->
+            db.query("SELECT title, genres FROM books WHERE bookId = 3").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Buch", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+            }
+        }
+    }
+
+    @Test
     fun `v35 to v36 keeps episodes without podcasting 2 0 details and reads feeds again`() {
         helper.createDatabase(DB_NAME, 35).use { db ->
             db.execSQL(

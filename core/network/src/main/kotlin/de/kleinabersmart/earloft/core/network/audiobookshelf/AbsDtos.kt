@@ -67,6 +67,8 @@ data class AbsMetadataDto(
     val publishedYear: String? = null,
     val publisher: String? = null,
     val language: String? = null,
+    /** Kann Einträge mit mehreren Genres enthalten („Polizei, Thriller“). */
+    val genres: List<String> = emptyList(),
 )
 
 @Serializable

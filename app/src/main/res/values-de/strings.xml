@@ -838,6 +838,9 @@
     <string name="book_open_series">Serie öffnen</string>
     <string name="book_open_author">Autor öffnen</string>
     <string name="book_open_narrator">Sprecher öffnen</string>
+    <string name="book_open_genre">Genre öffnen</string>
+    <string name="book_genre">Genre</string>
+    <string name="book_genre_all">Alle Genres</string>
     <string name="episode_delete_download">Download löschen</string>
     <string name="podcast_info">Info</string>
     <string name="podcast_settings">Einstellungen</string>

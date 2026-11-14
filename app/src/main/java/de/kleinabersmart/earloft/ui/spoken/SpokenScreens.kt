@@ -23,6 +23,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
 import de.kleinabersmart.earloft.core.model.BookFilter
 import de.kleinabersmart.earloft.core.model.BookSort
 import de.kleinabersmart.earloft.core.model.AuthorSort
@@ -39,6 +42,7 @@ import androidx.compose.ui.semantics.contentDescription
 import de.kleinabersmart.earloft.core.common.sortKey
 import de.kleinabersmart.earloft.core.data.spoken.BookGroup
 import de.kleinabersmart.earloft.core.data.spoken.authorGroups
+import de.kleinabersmart.earloft.core.data.spoken.genreGroups
 import de.kleinabersmart.earloft.core.data.spoken.narratorGroups
 import de.kleinabersmart.earloft.core.data.spoken.seriesGroups
 import de.kleinabersmart.earloft.core.data.spoken.sortedAuthors
@@ -117,6 +121,7 @@ fun List<BookWithProgress>.groups(kind: BookGroupKind): List<BookGroup> = when (
     BookGroupKind.SERIES -> seriesGroups()
     BookGroupKind.AUTHOR -> authorGroups()
     BookGroupKind.NARRATOR -> narratorGroups()
+    BookGroupKind.GENRE -> genreGroups()
 }
 
 /** Start im Modus „Bücher“: weiterhören und neu hinzugekommene Bücher. */
@@ -201,6 +206,8 @@ fun SpokenLibraryScreen(
     val shownBooks by viewModel.shownBooks.collectAsStateWithLifecycle()
     val bookSort by viewModel.bookSort.collectAsStateWithLifecycle()
     val bookFilter by viewModel.bookFilter.collectAsStateWithLifecycle()
+    val genres by viewModel.genres.collectAsStateWithLifecycle()
+    val bookGenre by viewModel.bookGenre.collectAsStateWithLifecycle()
     val seriesSort by viewModel.seriesSort.collectAsStateWithLifecycle()
     val authorSort by viewModel.authorSort.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { BookTab.entries.size }
@@ -250,7 +257,7 @@ fun SpokenLibraryScreen(
                                 // Die Chips bleiben stehen, auch wenn der Filter nichts übrig lässt, damit man ihn lösen kann.
                                 header = {
                                     Column {
-                                        BookFilterChips(bookFilter, viewModel::setBookFilter)
+                                        BookFilterChips(bookFilter, viewModel::setBookFilter, genres, bookGenre, viewModel::setBookGenre)
                                         if (shown.isEmpty()) {
                                             Text(
                                                 stringResource(R.string.library_filter_empty),
@@ -262,7 +269,7 @@ fun SpokenLibraryScreen(
                                     }
                                 },
                                 // Andere Reihenfolge oder anderer Filter: wieder von oben.
-                                resetKey = bookSort to bookFilter,
+                                resetKey = Triple(bookSort, bookFilter, bookGenre),
                             )
                         }
                         BookTab.SERIES -> BookGroupList(series, byName = seriesSort == SeriesSort.NAME, resetKey = seriesSort) {
@@ -373,16 +380,64 @@ private val BookSort.label: Int
         BookSort.YEAR -> R.string.sort_year
     }
 
-/** Filter des Reiters „Alle“: genau einer ist gewählt; lässt sich seitlich wischen, wenn die Breite nicht reicht. */
+/**
+ * Filter des Reiters „Alle“: genau einer ist gewählt; lässt sich seitlich wischen, wenn die Breite nicht reicht. Führt der
+ * Server Genres ([genres]), steht vorn ein Chip mit Auswahlliste dafür; er wirkt zusätzlich zum Filter.
+ */
 @Composable
-private fun BookFilterChips(selected: BookFilter, onSelect: (BookFilter) -> Unit) {
+private fun BookFilterChips(
+    selected: BookFilter,
+    onSelect: (BookFilter) -> Unit,
+    genres: List<String>,
+    genre: String?,
+    onGenre: (String?) -> Unit,
+) {
     val scroll = rememberScrollState()
     Row(
         Modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (genres.isNotEmpty()) GenreChip(genres, genre, onGenre)
         BookFilter.entries.forEach { filter ->
             FilterChip(selected = filter == selected, onClick = { onSelect(filter) }, label = { Text(stringResource(filter.label)) })
+        }
+    }
+}
+
+/** „Genre ▾“ bzw. das gewählte Genre; die Liste beginnt mit „Alle Genres“. */
+@Composable
+private fun GenreChip(genres: List<String>, genre: String?, onGenre: (String?) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        FilterChip(
+            selected = genre != null,
+            onClick = { open = true },
+            label = { Text(genre ?: stringResource(R.string.book_genre), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            trailingIcon = { Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = null) },
+            modifier = Modifier.widthIn(max = 220.dp),
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.book_genre_all)) },
+                onClick = {
+                    open = false
+                    onGenre(null)
+                },
+            )
+            genres.forEach { name ->
+                DropdownMenuItem(
+                    text = { Text(name) },
+                    trailingIcon = if (name == genre) {
+                        { Icon(painterResource(DesignR.drawable.ic_check), contentDescription = null) }
+                    } else {
+                        null
+                    },
+                    onClick = {
+                        open = false
+                        onGenre(name)
+                    },
+                )
+            }
         }
     }
 }

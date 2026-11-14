@@ -25,8 +25,12 @@ class BookListsTest {
         year: String? = null,
         server: String = "abs",
         progress: BookProgress? = null,
+        genres: List<String> = emptyList(),
     ) = BookWithProgress(
-        Book(id, server, BookKind.BOOK, title, author, series = series, durationMs = durationMs, remoteId = "$id", addedAt = addedAt, publishedYear = year),
+        Book(
+            id, server, BookKind.BOOK, title, author, series = series, durationMs = durationMs, remoteId = "$id", addedAt = addedAt,
+            publishedYear = year, genres = genres,
+        ),
         progress,
     )
 
@@ -61,6 +65,22 @@ class BookListsTest {
         assertEquals(listOf(2L), ids(BookSort.TITLE, BookFilter.STARTED))
         assertEquals(listOf(3L), ids(BookSort.TITLE, BookFilter.FINISHED))
         assertEquals(listOf(1L, 4L), ids(BookSort.TITLE, BookFilter.DOWNLOADED, downloaded = setOf(1L)))
+    }
+
+    @Test
+    fun `a genre narrows every filter and has its own group`() {
+        val withGenres = listOf(
+            book(1, "Krimi eins", "A", genres = listOf("Krimi", "Thriller")),
+            book(2, "Krimi zwei", "A", genres = listOf("Krimi"), progress = progress(10)),
+            book(3, "Fantasy", "B", genres = listOf("Fantasy")),
+            book(4, "Ohne", "B"),
+        )
+        fun ids(filter: BookFilter, genre: String?) = withGenres.sortedAndFiltered(BookSort.TITLE, filter, emptySet(), genre).map { it.book.id }
+        assertEquals(listOf(1L, 2L), ids(BookFilter.ALL, "Krimi"))
+        assertEquals(listOf(2L), ids(BookFilter.STARTED, "Krimi"))
+        assertEquals(listOf(1L, 2L, 3L, 4L), ids(BookFilter.ALL, null))
+        assertEquals(listOf("Fantasy", "Krimi", "Thriller"), withGenres.genreGroups().map { it.name })
+        assertEquals(listOf(1L, 2L), withGenres.genreGroups().first { it.name == "Krimi" }.books.map { it.book.id })
     }
 
     @Test

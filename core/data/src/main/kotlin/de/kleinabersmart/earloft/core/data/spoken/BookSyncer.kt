@@ -8,6 +8,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookChapterEntity
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.parseGenres
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsItemDto
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
@@ -152,6 +153,7 @@ class BookSyncer @Inject constructor(
             publishedYear = metadata.publishedYear.orNullIfBlank(),
             publisher = metadata.publisher.orNullIfBlank(),
             language = metadata.language.orNullIfBlank(),
+            genres = parseGenres(metadata.genres).joinToString(", ").ifEmpty { null },
             durationMs = (media.duration * 1000).roundToLong(),
             remoteUpdatedAt = updatedAt,
             addedAt = addedAt,

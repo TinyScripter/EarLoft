@@ -144,6 +144,8 @@ data class BookEntity(
     val episodeType: EpisodeType? = null,
     val transcriptUrl: String? = null,
     val transcriptType: String? = null,
+    /** Bücher (v37): Genres von Audiobookshelf, einzeln und mit „, “ verbunden; `null` = keine. */
+    val genres: String? = null,
 )
 
 /** Mitwirkende einer Folge aus dem Feed (`podcast:person`, v36), in der Reihenfolge des Feeds. */

@@ -108,9 +108,9 @@ data class PodcastPreviewRoute(
     @EncodeDefault val instanceId: String = newInstanceId(),
 ) : NavKey
 
-enum class BookGroupKind { SERIES, AUTHOR, NARRATOR }
+enum class BookGroupKind { SERIES, AUTHOR, NARRATOR, GENRE }
 
-/** Alle Bücher einer Serie, eines Autors oder eines Sprechers. */
+/** Alle Bücher einer Serie, eines Autors, eines Sprechers oder eines Genres. */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BookGroupRoute(

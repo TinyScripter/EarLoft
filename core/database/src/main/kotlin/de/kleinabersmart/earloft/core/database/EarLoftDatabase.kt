@@ -92,7 +92,7 @@ import java.io.File
         BookmarkEntity::class,
         EpisodePersonEntity::class,
     ],
-    version = 36,
+    version = 37,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -130,6 +130,7 @@ import java.io.File
         AutoMigration(from = 33, to = 34),
         AutoMigration(from = 34, to = 35, spec = EarLoftDatabase.DecodeTitles::class),
         AutoMigration(from = 35, to = 36, spec = EarLoftDatabase.ReadPodcasting20::class),
+        AutoMigration(from = 36, to = 37),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {

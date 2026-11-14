@@ -25,6 +25,9 @@ fun List<BookWithProgress>.authorGroups(): List<BookGroup> = peopleGroups { book
 /** Nach Sprecher wie [authorGroups]; ein Buch mehrerer Sprecher steht bei jedem. */
 fun List<BookWithProgress>.narratorGroups(): List<BookGroup> = peopleGroups { parsePeople(it.narrator) }
 
+/** Nach Genre wie [authorGroups]; ein Buch mehrerer Genres steht bei jedem. */
+fun List<BookWithProgress>.genreGroups(): List<BookGroup> = peopleGroups { it.genres }
+
 private fun List<BookWithProgress>.peopleGroups(names: (Book) -> List<String>): List<BookGroup> =
     flatMap { item -> names(item.book).map { it to item } }
         .groupBy({ it.first }, { it.second })
@@ -46,16 +49,23 @@ internal fun peopleHits(rows: List<Pair<Long, String>>, query: String, limit: In
 }
 
 /**
- * Die Bücher (nach Titel) nach [filter] und in der Reihenfolge [sort]; [downloaded]: fertig geladene. „Zuletzt gehört“ nimmt
- * die letzte Änderung des Fortschritts, nie gestartete stehen hinten; ohne Jahr bzw. Dauer ebenso.
+ * Die Bücher (nach Titel) nach [filter] und in der Reihenfolge [sort]; [downloaded]: fertig geladene; mit [genre] nur die
+ * Bücher dieses Genres. „Zuletzt gehört“ nimmt die letzte Änderung des Fortschritts, nie gestartete stehen hinten; ohne Jahr
+ * bzw. Dauer ebenso.
  */
-fun List<BookWithProgress>.sortedAndFiltered(sort: BookSort, filter: BookFilter, downloaded: Set<Long>): List<BookWithProgress> {
+fun List<BookWithProgress>.sortedAndFiltered(
+    sort: BookSort,
+    filter: BookFilter,
+    downloaded: Set<Long>,
+    genre: String? = null,
+): List<BookWithProgress> {
+    val inGenre = if (genre == null) this else filter { genre in it.book.genres }
     val shown = when (filter) {
-        BookFilter.ALL -> this
-        BookFilter.NOT_STARTED -> filter { it.progress.let { p -> p == null || (!p.finished && p.positionMs <= 0) } }
-        BookFilter.STARTED -> filter { it.progress.let { p -> p != null && !p.finished && p.positionMs > 0 } }
-        BookFilter.FINISHED -> filter { it.progress?.finished == true }
-        BookFilter.DOWNLOADED -> filter { it.book.isLocal || it.book.id in downloaded }
+        BookFilter.ALL -> inGenre
+        BookFilter.NOT_STARTED -> inGenre.filter { it.progress.let { p -> p == null || (!p.finished && p.positionMs <= 0) } }
+        BookFilter.STARTED -> inGenre.filter { it.progress.let { p -> p != null && !p.finished && p.positionMs > 0 } }
+        BookFilter.FINISHED -> inGenre.filter { it.progress?.finished == true }
+        BookFilter.DOWNLOADED -> inGenre.filter { it.book.isLocal || it.book.id in downloaded }
     }
     return when (sort) {
         BookSort.TITLE -> shown

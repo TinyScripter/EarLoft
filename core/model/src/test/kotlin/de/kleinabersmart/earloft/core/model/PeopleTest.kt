@@ -32,6 +32,15 @@ class PeopleTest {
     }
 
     @Test
+    fun `genres stored together by the server are split`() {
+        assertEquals(
+            listOf("Polizei", "Thriller", "Politik & Regierungen", "Comedy & Humor"),
+            parseGenres(listOf("Polizei, Thriller", "Politik & Regierungen, Comedy & Humor", "Thriller")),
+        )
+        assertEquals(emptyList<String>(), parseGenres(listOf(" ")))
+    }
+
+    @Test
     fun `tiles show the authors without translators in front`() {
         assertEquals("Jo Nesbø", bookAuthorLine("Günther Frauenlob — Translator, Jo Nesbø"))
         assertEquals("Line Holm, Jussi Adler-Olsen", bookAuthorLine("Line Holm; Jussi Adler-Olsen"))
