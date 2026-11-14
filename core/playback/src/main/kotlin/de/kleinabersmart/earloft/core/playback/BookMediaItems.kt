@@ -9,6 +9,7 @@ import androidx.media3.common.util.UnstableApi
 import de.kleinabersmart.earloft.core.data.spoken.PreparedBook
 import de.kleinabersmart.earloft.core.model.authorLine
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.BookTrack
 
 /**
  * Hörbücher in der Warteschlange (Konzept 12.4): ein `MediaItem` je Datei, `mediaId = book:<bookId>/<trackIndex>`.
@@ -34,6 +35,9 @@ val MediaItem.bookId: Long? get() = BookIds.bookId(mediaId)
 val MediaItem.bookTrackIndex: Int? get() = BookIds.trackIndex(mediaId)
 
 val MediaItem.isSpoken: Boolean get() = bookId != null
+
+/** Eine Datei eines Buchs, die nicht geladen und an der Quelle nicht mehr abrufbar ist ([BookTrack.unavailable]); der Player überspringt sie. */
+val MediaItem.isUnavailablePart: Boolean get() = mediaMetadata.extras?.getBoolean(EXTRA_UNAVAILABLE) == true
 
 /** Podcast-Folge (sonst Buch); nur bei [isSpoken] aussagekräftig. */
 val MediaItem.isEpisode: Boolean get() = mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE
@@ -61,6 +65,7 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> =
                     .setExtras(
                         Bundle().apply {
                             putLong(EXTRA_BOOK_ID, book.id)
+                            if (timeline.tracks[index].unavailable) putBoolean(EXTRA_UNAVAILABLE, true)
                             castUrls.getOrNull(index)?.let { putString(EXTRA_CAST_URL, it) }
                             timeline.tracks[index].mimeType?.let { putString(EXTRA_CAST_MIME, it) }
                             absServerId?.let { putString(EXTRA_CAST_ABS_SERVER, it) }
@@ -84,6 +89,7 @@ internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = nu
 }
 
 internal const val EXTRA_BOOK_ID = "de.kleinabersmart.earloft.BOOK_ID"
+private const val EXTRA_UNAVAILABLE = "de.kleinabersmart.earloft.UNAVAILABLE"
 private const val EXTRA_CAST_URL = "de.kleinabersmart.earloft.CAST_URL"
 private const val EXTRA_CAST_MIME = "de.kleinabersmart.earloft.CAST_MIME"
 private const val EXTRA_CAST_ABS_SERVER = "de.kleinabersmart.earloft.CAST_ABS_SERVER"

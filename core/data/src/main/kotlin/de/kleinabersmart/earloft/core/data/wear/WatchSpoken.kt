@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookProgressSync
 import de.kleinabersmart.earloft.core.data.spoken.BookSyncer
+import de.kleinabersmart.earloft.core.data.spoken.isUnavailable
 import de.kleinabersmart.earloft.core.data.spoken.toModel
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.BookDao
@@ -81,6 +82,8 @@ data class WatchBookTrackContent(
     val startMs: Long,
     val durationMs: Long,
     val mimeType: String?,
+    /** Am Handy nicht geladen und an der Quelle nicht mehr abrufbar: Die Uhr lädt sie nicht und überspringt sie. */
+    val unavailable: Boolean = false,
 )
 
 data class WatchSpokenContent(
@@ -204,7 +207,9 @@ class WatchSpoken @Inject constructor(
             author = book.author,
             narrator = book.narrator,
             durationMs = book.durationMs,
-            tracks = tracks.map { WatchBookTrackContent(it.trackIndex, it.remoteFileId.takeUnless { local }, it.startMs, it.durationMs, it.mimeType) },
+            tracks = tracks.map {
+                WatchBookTrackContent(it.trackIndex, it.remoteFileId.takeUnless { local }, it.startMs, it.durationMs, it.mimeType, it.isUnavailable)
+            },
             progress = bookDao.progress(book.bookId)?.toModel(),
             chapters = bookDao.chapters(book.bookId).map { it.toModel() },
         )

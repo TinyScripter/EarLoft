@@ -54,7 +54,7 @@ object WearPodcastManifestBuilder {
                 author = book.author,
                 narrator = book.narrator,
                 durationMs = book.durationMs,
-                tracks = book.tracks.map { WearBookTrackDto(it.index, it.fileId, it.startMs, it.durationMs, it.mimeType) },
+                tracks = book.tracks.map { WearBookTrackDto(it.index, it.fileId, it.startMs, it.durationMs, it.mimeType, it.unavailable) },
                 progress = book.progress?.toDto(),
                 chapters = book.chapters.toDto(),
             )

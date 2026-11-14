@@ -152,7 +152,9 @@ class WatchStorageRepository @Inject constructor(
 
     /** Download-Stand von Folge bzw. Buch [bookId] auf der Uhr; die gerade ladende Datei zählt anteilig. */
     fun spokenDownload(bookId: Long): Flow<SpokenDownload> =
-        combine(bookDao.observeTracks(bookId), watchState.spokenFileProgress) { tracks, current ->
+        combine(bookDao.observeTracks(bookId), watchState.spokenFileProgress) { all, current ->
+            // Was nicht mehr abrufbar ist und nie geladen wurde, kommt nicht mehr: Das Buch ist ohne es fertig.
+            val tracks = all.filter { it.unavailableSince == null || it.downloadState == TrackDownload.DONE }
             SpokenDownload(
                 progress = spokenProgress(tracks, current?.takeIf { it.bookId == bookId }),
                 // Erst, wenn nichts mehr wartet: Bis dahin versucht es der Auftrag noch (auch über das Handy).

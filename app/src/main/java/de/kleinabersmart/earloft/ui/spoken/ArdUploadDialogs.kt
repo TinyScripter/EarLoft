@@ -14,6 +14,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.R
@@ -70,6 +71,9 @@ private fun Choosing(state: UploadState.Choosing, title: String, onConfirm: (Upl
             Column {
                 Text(stringResource(R.string.ard_upload_message, title))
                 if (state.bytes > 0) Text(stringResource(R.string.ard_upload_size, formatBytes(state.bytes)), modifier = Modifier.padding(top = 8.dp))
+                if (state.missingParts > 0) {
+                    Text(pluralStringResource(R.plurals.ard_upload_missing_parts, state.missingParts, state.missingParts), modifier = Modifier.padding(top = 8.dp))
+                }
                 if (single != null) {
                     Text(
                         stringResource(R.string.ard_upload_target, single.serverName, single.libraryName),

@@ -85,7 +85,9 @@ class BookRepository @Inject constructor(
             book?.let { BookWithProgress(it.toModel(), progress?.toModel()) }
         }
 
-    fun chapters(bookId: Long): Flow<List<BookChapter>> = dao.observeChapters(bookId).map { list -> list.map { it.toModel() } }
+    fun chapters(bookId: Long): Flow<List<BookChapter>> =
+        combine(dao.observeChapters(bookId), dao.observeTracks(bookId)) { chapters, tracks -> chaptersOf(chapters, tracks) }
+            .distinctUntilChanged()
 
     /** Mitwirkende einer Folge aus dem Feed (`podcast:person`), in dessen Reihenfolge. */
     fun persons(bookId: Long): Flow<List<EpisodePerson>> = dao.observePersons(bookId).map { list -> list.map { it.toModel() } }
@@ -130,9 +132,9 @@ class BookRepository @Inject constructor(
     suspend fun timeline(bookId: Long): BookTimeline? {
         val book = dao.book(bookId) ?: return null
         syncer.ensureDetails(bookId)
-        val tracks = dao.tracks(bookId).map { it.toModel() }
-        if (tracks.isEmpty()) return null
-        return BookTimeline(book.durationMs, tracks, dao.chapters(bookId).map { it.toModel() })
+        val files = dao.tracks(bookId)
+        if (files.isEmpty()) return null
+        return BookTimeline(book.durationMs, files.map { it.toModel() }, chaptersOf(dao.chapters(bookId), files))
     }
 
     /** Dateien des Buchs mit ihren Server-IDs, für die Medien-URLs. */
@@ -221,6 +223,20 @@ internal fun BookTrackEntity.toModel() = BookTrack(
     durationMs,
     mimeType,
     localPath = filePath.takeIf { downloadState == TrackDownload.DONE },
+    unavailable = isUnavailable,
 )
+
+/** Nicht geladen und an der Quelle nicht mehr abrufbar. */
+internal val BookTrackEntity.isUnavailable: Boolean get() = unavailableSince != null && downloadState != TrackDownload.DONE
+
+/** Die Kapitel, die in einer nicht mehr abrufbaren Datei ([isUnavailable]) beginnen, als [BookChapter.unavailable]. */
+internal fun chaptersOf(chapters: List<BookChapterEntity>, tracks: List<BookTrackEntity>): List<BookChapter> {
+    val gone = tracks.filter { it.isUnavailable }
+    return chapters.map { chapter ->
+        chapter.toModel().let { model ->
+            if (gone.any { chapter.startMs >= it.startMs && chapter.startMs < it.startMs + it.durationMs }) model.copy(unavailable = true) else model
+        }
+    }
+}
 
 internal fun BookProgressEntity.toModel() = BookProgress(positionMs, durationMs, finished, speed, updatedAt, dirty, hidden, skipSilence, volumeBoostDb)

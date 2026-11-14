@@ -129,8 +129,12 @@ class PodcastMirror @Inject constructor(
         }
     }
 
-    /** Gleiche Dateiliste: geladene Dateien bleiben. Sonst neu (alte Dateien räumt der Download-Auftrag als verwaist weg). */
+    /**
+     * Gleiche Dateiliste: geladene Dateien bleiben, nur was nicht mehr abrufbar ist, ändert sich. Sonst neu (alte Dateien räumt der
+     * Download-Auftrag als verwaist weg).
+     */
     private suspend fun applyTracks(bookId: Long, dto: WearBookDto) {
+        val now = System.currentTimeMillis()
         val tracks = dto.tracks.map { track ->
             BookTrackEntity(
                 bookId = bookId,
@@ -140,10 +144,15 @@ class PodcastMirror @Inject constructor(
                 startMs = track.startMs,
                 durationMs = track.durationMs,
                 mimeType = track.mimeType,
+                unavailableSince = now.takeIf { track.unavailable },
             )
         }
         val existing = bookDao.tracks(bookId)
-        if (existing.map { it.trackIndex to it.remoteFileId } == tracks.map { it.trackIndex to it.remoteFileId }) return
+        if (existing.map { it.trackIndex to it.remoteFileId } == tracks.map { it.trackIndex to it.remoteFileId }) {
+            existing.zip(tracks).filter { (old, new) -> (old.unavailableSince != null) != (new.unavailableSince != null) }
+                .forEach { (old, new) -> bookDao.setTrackUnavailable(bookId, old.trackIndex, new.unavailableSince) }
+            return
+        }
         bookDao.deleteTracks(bookId)
         bookDao.insertTracks(tracks)
     }

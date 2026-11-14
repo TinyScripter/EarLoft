@@ -1204,6 +1204,7 @@
     <string name="ard_books_in_library">In your library</string>
     <string name="ard_books_read_by">read by %1$s</string>
     <string name="ard_books_available_until">Available until %1$s</string>
+    <string name="ard_books_part_gone">No longer available in ARD Sounds · skipped</string>
     <string name="ard_books_available_until_downloaded">Available until %1$s · downloaded, stays playable</string>
     <string name="ard_books_expired">No longer available in ARD Sounds</string>
     <string name="ard_books_expired_downloaded">No longer in ARD Sounds · downloaded, stays playable</string>
@@ -1226,6 +1227,10 @@
     <string name="ard_upload_target">Server “%1$s”, library “%2$s”</string>
     <string name="ard_upload_choose">Choose where to upload:</string>
     <string name="ard_upload_hint">If the book is not downloaded yet, it is downloaded first.</string>
+    <plurals name="ard_upload_missing_parts">
+        <item quantity="one">%1$d part is no longer available in ARD Sounds and was never downloaded: it will be missing on the server.</item>
+        <item quantity="other">%1$d parts are no longer available in ARD Sounds and were never downloaded: they will be missing on the server.</item>
+    </plurals>
     <string name="ard_upload_action">Upload</string>
     <string name="ard_upload_downloading">Downloading the book first …</string>
     <string name="ard_upload_uploading">Uploading … %1$s of %2$s</string>

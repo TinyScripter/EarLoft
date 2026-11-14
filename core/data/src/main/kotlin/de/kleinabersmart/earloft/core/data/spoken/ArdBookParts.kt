@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.spoken
 
+import de.kleinabersmart.earloft.core.database.dao.KeyedBookPart
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdPart
@@ -79,6 +80,34 @@ internal fun ardAvailableUntil(parts: List<ArdBookPart>, whenAllLoaded: Long?): 
     return if (pending.isEmpty()) whenAllLoaded else pending.mapNotNull { it.until }.minOrNull()
 }
 
+/**
+ * Die Teile eines Buchs für die Sicherung (`UserArdBookEntity.parts`), in ihrer Reihenfolge: je Zeile Adresse, Länge, MIME-Typ,
+ * seit wann nicht mehr abrufbar und Kapitelname, durch Tabulatoren getrennt.
+ */
+internal fun encodeArdParts(parts: List<KeyedBookPart>): String =
+    parts.sortedBy { it.trackIndex }.joinToString("\n") { part ->
+        listOf(part.remoteFileId, part.durationMs.toString(), part.mimeType.orEmpty(), part.unavailableSince?.toString().orEmpty(), part.title.orEmpty())
+            .joinToString("\t") { it.replace(SEPARATORS, " ") }
+    }
+
+/**
+ * Die gesicherten Teile ([encodeArdParts]) als bekannte Teile eines Buchs, von dem noch nichts geladen ist. Leer ohne Sicherung
+ * der Teile oder wenn eine Zeile nicht lesbar ist (dann nimmt das Buch die Teile, wie ARD Sounds sie anbietet).
+ */
+internal fun decodeArdParts(text: String?): List<ArdBookPart> {
+    if (text.isNullOrBlank()) return emptyList()
+    var start = 0L
+    return text.split('\n').mapIndexed { index, line ->
+        val fields = line.split('\t')
+        val url = fields.getOrNull(0)?.takeIf { it.isNotEmpty() } ?: return emptyList()
+        val duration = fields.getOrNull(1)?.toLongOrNull() ?: return emptyList()
+        val since = fields.getOrNull(3)?.toLongOrNull()
+        val track = BookTrackEntity(0, index, url, start, duration, fields.getOrNull(2)?.ifEmpty { null }, unavailableSince = since)
+        start += duration
+        ArdBookPart(track, fields.getOrNull(4).orEmpty(), since)
+    }
+}
+
 private fun sameAudio(part: ArdBookPart, offered: ArdPart): Boolean =
     part.title.trim().equals(offered.title.trim(), ignoreCase = true) &&
         (part.track.durationMs <= 0 || abs(part.track.durationMs - offered.durationMs) <= SAME_LENGTH_TOLERANCE_MS)
@@ -87,3 +116,5 @@ private fun sameAudio(part: ArdBookPart, offered: ArdPart): Boolean =
 private val KEEP_FILE = setOf(TrackDownload.DONE, TrackDownload.QUEUED, TrackDownload.RUNNING)
 
 private const val SAME_LENGTH_TOLERANCE_MS = 2_000L
+
+private val SEPARATORS = Regex("[\t\r\n]")

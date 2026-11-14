@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.ui.spoken
 
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,6 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemColors
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -444,11 +447,13 @@ private fun LazyListScope.bookDetailItems(book: Book, chapters: List<BookChapter
         groupedItems(chapters, key = { it.index }) { chapter ->
             ListItem(
                 headlineContent = { Text(chapterTitle(chapter)) },
+                supportingContent = if (chapter.unavailable) ({ Text(stringResource(R.string.ard_books_part_gone)) }) else null,
                 leadingContent = if (withImages) ({ ChapterImage(chapter.imageUrl) }) else null,
                 trailingContent = {
                     ChapterTrailing(chapter.url) { Text(formatDuration(chapter.durationMs), style = MaterialTheme.typography.bodySmall) }
                 },
-                modifier = Modifier.clickable { onChapter(chapter.startMs) },
+                colors = unavailableChapterColors(chapter),
+                modifier = Modifier.clickable(enabled = !chapter.unavailable) { onChapter(chapter.startMs) },
             )
         }
     }
@@ -507,6 +512,21 @@ internal fun languageName(language: String): String {
     } ?: return trimmed
     return locale.getDisplayLanguage(Locale.getDefault()).replaceFirstChar { it.titlecase(Locale.getDefault()) }
 }
+
+/** Ein Kapitel in einer nicht mehr abrufbaren Datei ([BookChapter.unavailable]) erscheint ausgegraut. */
+@Composable
+internal fun unavailableChapterColors(chapter: BookChapter, containerColor: Color = Color.Transparent): ListItemColors {
+    if (!chapter.unavailable) return ListItemDefaults.colors(containerColor = containerColor)
+    val dimmed = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
+    return ListItemDefaults.colors(
+        containerColor = containerColor,
+        headlineColor = dimmed,
+        supportingColor = dimmed,
+        trailingIconColor = dimmed,
+    )
+}
+
+private const val DISABLED_ALPHA = 0.38f
 
 @Composable
 internal fun chapterTitle(chapter: BookChapter): String =

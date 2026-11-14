@@ -232,6 +232,8 @@ data class WearBookTrackDto(
     val startMs: Long = 0,
     val durationMs: Long = 0,
     val mimeType: String? = null,
+    /** Am Handy nicht geladen und an der Quelle nicht mehr abrufbar (ein abgelaufener Teil aus ARD Sounds): nicht laden, überspringen. */
+    val unavailable: Boolean = false,
 )
 
 /** Ein Abo; [feedId] und [url] sind die des Handys, damit Fortschritt und Statistik auf beiden Geräten passen. */

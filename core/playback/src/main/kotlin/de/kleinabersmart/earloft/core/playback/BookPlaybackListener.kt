@@ -100,6 +100,9 @@ internal class BookPlaybackListener(
     /** Die Warteschlange ging gerade an den Cast-Empfänger ([awaitsRemoteQueue]); der lädt sie mit normaler Geschwindigkeit. */
     private var handingOver = false
 
+    /** Das Item vor dem letzten Wechsel: Kam der Player von einem späteren (rückwärts gesprungen), überspringt [skipUnavailable] nach hinten. */
+    private var lastItemIndex = C.INDEX_UNSET
+
     init {
         scope.launch { settings.bookResume.collect { bookRule = it } }
         scope.launch { settings.podcastResume.collect { podcastRule = it } }
@@ -108,6 +111,9 @@ internal class BookPlaybackListener(
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         syncMeter()
+        val previousIndex = lastItemIndex
+        lastItemIndex = player.currentMediaItemIndex
+        if (mediaItem?.isUnavailablePart == true && !player.awaitsRemoteQueue && skipUnavailable(previousIndex)) return
         val bookId = mediaItem?.bookId
         val handedOver = handingOver
         handingOver = false
@@ -151,6 +157,24 @@ internal class BookPlaybackListener(
                 player.currentMediaItem?.takeIf { it.bookId == bookId }?.let { rewindAfterPause(it, bookId) }
             }
         }
+    }
+
+    /**
+     * Springt über eine nicht mehr abrufbare Datei eines Buchs hinweg ([isUnavailablePart]): in der Richtung, aus der der Player
+     * kam (vom späteren Item her rückwärts, sonst vorwärts), sonst in der anderen. `false`, wenn es kein abspielbares Item gibt;
+     * dann hält der Player an.
+     */
+    private fun skipUnavailable(previousIndex: Int): Boolean {
+        val index = player.currentMediaItemIndex
+        val forward = (index + 1 until player.mediaItemCount).firstOrNull { !player.getMediaItemAt(it).isUnavailablePart }
+        val backward = (index - 1 downTo 0).firstOrNull { !player.getMediaItemAt(it).isUnavailablePart }
+        val target = if (previousIndex != C.INDEX_UNSET && previousIndex > index) backward ?: forward else forward ?: backward
+        if (target == null) {
+            player.pause()
+            return false
+        }
+        player.seekTo(target, 0)
+        return true
     }
 
     /**

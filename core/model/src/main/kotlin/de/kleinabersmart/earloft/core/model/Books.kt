@@ -155,6 +155,8 @@ data class BookChapter(
     /** Bild und Webseite des Kapitels (Kapitelliste oder Podlove einer Folge). */
     val imageUrl: String? = null,
     val url: String? = null,
+    /** Liegt in einer Datei, die nicht mehr abrufbar ist ([BookTrack.unavailable]). */
+    val unavailable: Boolean = false,
 ) {
     val durationMs: Long get() = endMs - startMs
 }
@@ -179,6 +181,8 @@ data class BookTrack(
     val mimeType: String? = null,
     /** Heruntergeladene Datei; nur gesetzt, wenn der Download fertig ist. */
     val localPath: String? = null,
+    /** Nicht geladen und an der Quelle nicht mehr abrufbar (ein abgelaufener Teil eines Buchs aus ARD Sounds); die Wiedergabe überspringt sie. */
+    val unavailable: Boolean = false,
 )
 
 data class BookProgress(

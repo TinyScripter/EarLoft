@@ -184,6 +184,32 @@ class ArdBookUploaderTest {
     }
 
     @Test
+    fun `a part that is gone and never downloaded is left out, positions move up`() = runTest {
+        val id = dao.insertBook(
+            BookEntity(
+                serverId = ARD_BOOK_SERVER_ID, kind = BookKind.BOOK, remoteId = "group:krieg", title = "Der Krieg der Welten",
+                normTitle = "Der Krieg der Welten".normalizeForMerge(), author = "H. G. Wells", durationMs = 60_000, detailsLoaded = true,
+            ),
+        )
+        dao.insertTracks(
+            listOf(
+                BookTrackEntity(id, 0, "https://ard.example/1.mp3", 0, 30_000, "audio/mpeg", unavailableSince = 5),
+                BookTrackEntity(id, 1, "https://ard.example/2.mp3", 30_000, 30_000, "audio/mpeg", TrackDownload.DONE, audio.absolutePath),
+            ),
+        )
+        dao.insertChapters(listOf(BookChapterEntity(id, 0, "Ankunft", 0, 30_000), BookChapterEntity(id, 1, "Flucht", 30_000, 60_000)))
+        dao.upsertProgress(BookProgressEntity(id, 45_000, 60_000, updatedAt = 5))
+        dao.insertBookmark(BookmarkEntity(bookId = id, positionMs = 12_000, title = "Im ersten Teil", note = "", createdAt = 1, updatedAt = 1))
+
+        assertEquals(1, uploader.missingParts(id))
+        val newBookId = (uploader.upload(id, target()) as UploadResult.Done).newBookId!!
+
+        assertTrue(uploads.single(), "file=Der Krieg der Welten.mp3" in uploads.single())
+        assertEquals(15_000L, dao.progress(newBookId)!!.positionMs)
+        assertEquals(listOf(0L), dao.bookmarksOf(listOf(newBookId)).map { it.positionMs })
+    }
+
+    @Test
     fun `a book already on the server is not uploaded again`() = runTest {
         items["li_old"] = "Der Krieg der Welten"
         val bookId = ardBook()

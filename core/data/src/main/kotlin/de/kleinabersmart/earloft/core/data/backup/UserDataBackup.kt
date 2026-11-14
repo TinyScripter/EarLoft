@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
 import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
+import de.kleinabersmart.earloft.core.data.spoken.decodeArdParts
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
@@ -519,7 +520,7 @@ class UserDataBackup @Inject constructor(
     internal suspend fun fetchArdBooks(rows: Collection<UserArdBookEntity>): Boolean {
         for (row in rows) {
             try {
-                ardBooks.get().add(row.remoteId, addedAt = row.addedAt)
+                ardBooks.get().add(row.remoteId, addedAt = row.addedAt, saved = decodeArdParts(row.parts))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
@@ -628,7 +629,8 @@ class UserDataBackup @Inject constructor(
         // Welche Downloads gesichert werden, hängt an den gesicherten Abos.
         val downloads = read("book_tracks", "podcast_feeds")
         val stars = read("books")
-        val ards = read("books")
+        // Die Teile der Bücher aus ARD Sounds ändern sich beim Abgleich.
+        val ards = read("books", "book_tracks")
         val musicData = if (read(*MUSIC_TABLES)) music.read() else null
         val fresh = UserDataSnapshot.ofMain(
             sources = if (servers) sourceDao.getServers() else emptyList(),
@@ -647,6 +649,7 @@ class UserDataBackup @Inject constructor(
             bookmarks = if (bookmarks) bookDao.keyedBookmarks() else emptyList(),
             episodeStars = if (stars) podcastDao.keyedStarredEpisodes() else emptyList(),
             ardBooks = if (ards) bookDao.keyedBooksOf(ARD_BOOK_SERVER_ID) else emptyList(),
+            ardParts = if (ards) bookDao.keyedPartsOf(ARD_BOOK_SERVER_ID) else emptyList(),
         )
         if (base == null) return fresh
         return UserDataSnapshot(

@@ -1197,6 +1197,7 @@
     <string name="ard_books_in_library">In der Bibliothek</string>
     <string name="ard_books_read_by">gelesen von %1$s</string>
     <string name="ard_books_available_until">Verfügbar bis %1$s</string>
+    <string name="ard_books_part_gone">Bei ARD Sounds nicht mehr abrufbar · wird übersprungen</string>
     <string name="ard_books_available_until_downloaded">Verfügbar bis %1$s · geladen, bleibt hörbar</string>
     <string name="ard_books_expired">Nicht mehr in ARD Sounds verfügbar</string>
     <string name="ard_books_expired_downloaded">Nicht mehr in ARD Sounds · geladen, bleibt hörbar</string>
@@ -1219,6 +1220,10 @@
     <string name="ard_upload_target">Server „%1$s“, Bibliothek „%2$s“</string>
     <string name="ard_upload_choose">Wohin soll es hochgeladen werden?</string>
     <string name="ard_upload_hint">Ist das Buch noch nicht geladen, wird es zuerst heruntergeladen.</string>
+    <plurals name="ard_upload_missing_parts">
+        <item quantity="one">%1$d Teil ist bei ARD Sounds nicht mehr abrufbar und wurde nie geladen: Er fehlt auf dem Server.</item>
+        <item quantity="other">%1$d Teile sind bei ARD Sounds nicht mehr abrufbar und wurden nie geladen: Sie fehlen auf dem Server.</item>
+    </plurals>
     <string name="ard_upload_action">Hochladen</string>
     <string name="ard_upload_downloading">Lädt zuerst das Buch herunter …</string>
     <string name="ard_upload_uploading">Lädt hoch … %1$s von %2$s</string>

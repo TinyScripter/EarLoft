@@ -121,18 +121,32 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
     /** Das Buch [key] mit allen veröffentlichten Teilen; `null`, wenn es keine (mehr) gibt. */
     suspend fun book(key: String): ArdBook? {
         val parsed = ArdBookKey.parse(key) ?: return null
-        val items = when (parsed) {
-            is ArdBookKey.Group -> fetchItems(buildJsonObject { put("groupId", buildJsonObject { put("equalTo", parsed.groupId) }) })
-            is ArdBookKey.Item -> fetchItems(buildJsonObject { put("coreId", buildJsonObject { put("equalTo", parsed.coreId) }) })
-            is ArdBookKey.Title -> fetchItems(
-                buildJsonObject {
-                    put("programSetId", buildJsonObject { put("equalTo", JsonPrimitive(parsed.programSetId)) })
-                    put("title", buildJsonObject { put("startsWith", parsed.title) })
-                },
-            )
-        }
-        val parts = items.filter { ardBookKey(it.toKeyInput()) == key }
+        val parts = itemsOf(parsed).filter { ardBookKey(it.toKeyInput()) == key }
         return toBook(key, parts)
+    }
+
+    /**
+     * Der neue Schlüssel des Buchs [key], wenn ARD Sounds seine Titel inzwischen anders zuordnet ([book] findet es dann nicht mehr):
+     * Ein einzelner Titel oder eine nummerierte Reihe ohne Gruppe gehört jetzt zu einer Gruppe. `null`, wenn es die Titel nicht mehr
+     * gibt oder sie sich auf mehrere Bücher verteilen.
+     */
+    suspend fun movedKey(key: String): String? {
+        val parsed = ArdBookKey.parse(key) ?: return null
+        if (parsed is ArdBookKey.Group) return null
+        val items = itemsOf(parsed).filter { parsed !is ArdBookKey.Title || numberedTitle(it.title.orEmpty())?.book == parsed.title }
+        return items.map { ardBookKey(it.toKeyInput()) }.distinct().singleOrNull()?.takeIf { it != key }
+    }
+
+    /** Die Titel, die zum Schlüssel [parsed] passen (ohne zu prüfen, ob sie noch zu diesem Buch gehören). */
+    private suspend fun itemsOf(parsed: ArdBookKey): List<ItemNode> = when (parsed) {
+        is ArdBookKey.Group -> fetchItems(buildJsonObject { put("groupId", buildJsonObject { put("equalTo", parsed.groupId) }) })
+        is ArdBookKey.Item -> fetchItems(buildJsonObject { put("coreId", buildJsonObject { put("equalTo", parsed.coreId) }) })
+        is ArdBookKey.Title -> fetchItems(
+            buildJsonObject {
+                put("programSetId", buildJsonObject { put("equalTo", JsonPrimitive(parsed.programSetId)) })
+                put("title", buildJsonObject { put("startsWith", parsed.title) })
+            },
+        )
     }
 
     private suspend fun fetchItems(filter: JsonObject): List<ItemNode> {

@@ -206,6 +206,45 @@ class ArdBooksTest {
     }
 
     @Test
+    fun `a single title that ARD Sounds later puts into a group keeps everything under the new key`() = runTest {
+        server.enqueue(itemsAnswer(single("solo", "Solo")))
+        val bookId = ardBooks.add("item:solo")!!
+        dao.upsertProgress(BookProgressEntity(bookId, positionMs = 500_000, durationMs = 1_000_000, updatedAt = 1))
+
+        // Der Titel gehört jetzt als zweiter Teil zu einer Reihe: unter seinem alten Schlüssel gibt es kein Buch mehr.
+        server.enqueue(itemsAnswer(grouped("solo", 2)))
+        server.enqueue(itemsAnswer(grouped("solo", 2)))
+        server.enqueue(itemsAnswer(grouped("eins", 1), grouped("solo", 2)))
+        assertTrue(ardBooks.refresh().ok)
+
+        val book = dao.book(bookId)!!
+        assertEquals("group:$GROUP", book.remoteId)
+        assertNull(book.availableUntil)
+        assertEquals(500_000L, dao.progress(bookId)!!.positionMs)
+        // Angefangen: Der bekannte Teil bleibt vorn, der neue kommt dazu.
+        assertEquals(listOf("https://a.example/solo.mp3", "https://a.example/eins.mp3"), dao.tracks(bookId).map { it.remoteFileId })
+        assertEquals(1, dao.booksOf(ARD_BOOK_SERVER_ID).size)
+    }
+
+    @Test
+    fun `a restored book keeps the parts it had on the old device`() = runTest {
+        val saved = decodeArdParts(
+            listOf(1, 2, 3).joinToString("\n") { "https://a.example/$it.mp3\t1000000\taudio/mp3\t\tTeil $it" },
+        )
+
+        // Teil 1 ist inzwischen abgelaufen.
+        server.enqueue(answer(part(2), part(3)))
+        val bookId = ardBooks.add(KEY, addedAt = 7, saved = saved)!!
+
+        val tracks = dao.tracks(bookId)
+        assertEquals(listOf("https://a.example/1.mp3", "https://a.example/2.mp3", "https://a.example/3.mp3"), tracks.map { it.remoteFileId })
+        assertEquals(listOf(0L, 1_000_000L, 2_000_000L), tracks.map { it.startMs })
+        assertNotNull(tracks[0].unavailableSince)
+        assertEquals(listOf("Teil 1", "Teil 2", "Teil 3"), dao.chapters(bookId).map { it.title })
+        assertEquals(7L, dao.book(bookId)!!.addedAt)
+    }
+
+    @Test
     fun `remove deletes the book`() = runTest {
         server.enqueue(answer(part(1)))
         val bookId = ardBooks.add(KEY)!!
@@ -285,6 +324,15 @@ class ArdBooksTest {
                        "editorialCategoryId":"42914713","editorialCategoriesList":[{"id":"42914713"}]}}
     """.trimIndent()
 
+    /** Teil [number] der Reihe [GROUP] der Sendung [SHOW]. */
+    private fun grouped(coreId: String, number: Int) = """
+        {"id":"$coreId","coreId":"$coreId","title":"Reihe ($number/2)","groupId":"$GROUP","episodeNumber":$number,"maxGroupNumber":2,
+         "duration":1000,"publishDate":"2026-11-0${number}T10:00:00+01:00","group":{"type":"MULTIPART","title":"Reihe","count":2},
+         "audios":[{"url":"https://a.example/$coreId.mp3","downloadUrl":null,"allowDownload":false,"mimeType":"audio/mp3"}],
+         "programSet":{"id":"1","coreId":"$SHOW","title":"Reihe","publicationService":{"title":"MDR KULTUR"},
+                       "editorialCategoryId":"42914713","editorialCategoriesList":[{"id":"42914713"}]}}
+    """.trimIndent()
+
     private fun answer(vararg parts: String) = MockResponse.Builder().body("""{"data":{"items":{"nodes":[${parts.joinToString(",")}]}}}""").build()
 
     private fun part(number: Int, availableTo: String? = null) = """
@@ -300,5 +348,6 @@ class ArdBooksTest {
     private companion object {
         const val KEY = "group:urn:ard:show:gs"
         const val SHOW = "urn:ard:show:reihe"
+        const val GROUP = "urn:ard:show:neu"
     }
 }

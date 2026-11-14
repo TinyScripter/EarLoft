@@ -69,14 +69,19 @@ class ArdBooks @Inject constructor(
 
     /**
      * Nimmt das Buch [key] in die Bibliothek auf (oder aktualisiert es) und gibt seine `bookId` zurück. [known] spart den Abruf, wenn
-     * die Vorschau es schon geladen hat; [addedAt] stammt aus einer Sicherung. `null`, wenn ARD Sounds es nicht (mehr) führt.
-     * @throws IOException ohne Verbindung.
+     * die Vorschau es schon geladen hat; [addedAt] und [saved] (die Teile auf dem alten Gerät, [decodeArdParts]) stammen aus einer
+     * Sicherung. `null`, wenn ARD Sounds es nicht (mehr) führt. @throws IOException ohne Verbindung.
      */
-    suspend fun add(key: String, known: ArdBook? = null, addedAt: Long? = null): Long? = mutex.withLock {
+    internal suspend fun add(key: String, known: ArdBook? = null, addedAt: Long? = null, saved: List<ArdBookPart>): Long? = mutex.withLock {
         dao.bookByRemote(ARD_BOOK_SERVER_ID, key)?.let { return@withLock it.bookId }
         val book = known ?: api.book(key) ?: return@withLock null
-        store(book, existing = null, addedAt = addedAt)
+        // ARD Sounds hat die Teile anders zugeordnet: Das Buch heißt jetzt anders und ist womöglich schon da.
+        dao.bookByRemote(ARD_BOOK_SERVER_ID, book.key)?.let { return@withLock it.bookId }
+        store(book, existing = null, addedAt = addedAt, saved = saved)
     }
+
+    /** Wie das andere [add], ohne Sicherung. */
+    suspend fun add(key: String, known: ArdBook? = null): Long? = add(key, known, addedAt = null, saved = emptyList())
 
     /**
      * Abonniert die Sendung [showId]: Was von jetzt an dort erscheint, kommt in die Bibliothek (beim [refresh]); die Bücher, die es
@@ -103,11 +108,18 @@ class ArdBooks @Inject constructor(
         var ok = true
         for (existing in dao.booksOf(ARD_BOOK_SERVER_ID)) {
             try {
-                val book = api.book(existing.remoteId)
+                // Ordnet ARD Sounds die Titel anders zu, heißt das Buch jetzt anders; es behält dabei alles.
+                val book = api.book(existing.remoteId) ?: api.movedKey(existing.remoteId)?.let { api.book(it) }
                 mutex.withLock {
                     // Inzwischen entfernt: nicht wieder anlegen.
                     val current = dao.book(existing.bookId) ?: return@withLock
-                    if (book == null) markGone(current) else store(book, current)
+                    when {
+                        book == null -> markGone(current)
+                        // Unter dem neuen Schlüssel steht es schon in der Bibliothek: dieses bleibt, wie es ist.
+                        book.key != current.remoteId && dao.bookByRemote(ARD_BOOK_SERVER_ID, book.key) != null ->
+                            Log.i(TAG, "${current.title} gibt es bei ARD Sounds jetzt als ${book.key}, das schon in der Bibliothek ist")
+                        else -> store(book, current)
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -158,7 +170,7 @@ class ArdBooks @Inject constructor(
     }
 
     /**
-     * Ein Buch ohne veröffentlichte Teile: Es bleibt mit allen Teilen, die nicht geladenen gelten ab jetzt als nicht mehr abrufbar
+     * Ein Buch ohne veröffentlichte Teile (auch nicht unter einem neuen Schlüssel): Es bleibt mit allen Teilen, die nicht geladenen gelten ab jetzt als nicht mehr abrufbar
      * und das Buch als abgelaufen.
      */
     private suspend fun markGone(existing: BookEntity) {
@@ -172,14 +184,15 @@ class ArdBooks @Inject constructor(
     /**
      * Speichert das Buch. Ein angefangenes Buch (Fortschritt, Lesezeichen oder Downloads) behält seine Teile an ihrem Platz und
      * bekommt neue hinten dazu ([mergeArdParts]): Teile laufen bei ARD Sounds einzeln ab, und sonst verschöben sich Position,
-     * Lesezeichen, Kapitel und die Zuordnung der geladenen Dateien. Ein noch nicht angefangenes nimmt die Teile, wie sie sind.
+     * Lesezeichen, Kapitel und die Zuordnung der geladenen Dateien. Ebenso eins aus einer Sicherung mit den Teilen des alten Geräts
+     * ([saved]). Ein noch nicht angefangenes nimmt die Teile, wie sie sind.
      */
-    private suspend fun store(book: ArdBook, existing: BookEntity?, addedAt: Long? = null): Long {
+    private suspend fun store(book: ArdBook, existing: BookEntity?, addedAt: Long? = null, saved: List<ArdBookPart> = emptyList()): Long {
         val known = existing?.let { knownParts(it.bookId) }.orEmpty()
-        val parts = if (existing != null && known.isNotEmpty() && isStarted(existing.bookId, known)) {
-            mergeArdParts(known, book.parts, System.currentTimeMillis())
-        } else {
-            freshArdParts(book.parts)
+        val parts = when {
+            existing != null && known.isNotEmpty() && isStarted(existing.bookId, known) -> mergeArdParts(known, book.parts, System.currentTimeMillis())
+            existing == null && saved.isNotEmpty() -> mergeArdParts(saved, book.parts, System.currentTimeMillis())
+            else -> freshArdParts(book.parts)
         }
         val entity = BookEntity(
             bookId = existing?.bookId ?: 0,

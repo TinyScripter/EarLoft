@@ -162,11 +162,14 @@ data class UserEpisodeStarEntity(
 /**
  * Ein Buch aus ARD Sounds in der Bibliothek (`books` mit `serverId = ardsounds`, seit Version 18), über die Kennung bei ARD Sounds.
  * Das Buch selbst holt die App auf einem neuen Gerät wieder von dort; Fortschritt und Lesezeichen kommen über ihre eigenen Zeilen.
+ * [parts] (seit Version 19) sind seine Teile in ihrer Reihenfolge, auch die, die ARD Sounds nicht mehr führt: Ohne sie verschöben
+ * sich Position und Lesezeichen auf dem neuen Gerät, sobald ein Teil abgelaufen ist (Format: `ArdBookParts.kt` in `:core:data`).
  */
 @Entity(tableName = "ard_books")
 data class UserArdBookEntity(
     @PrimaryKey val remoteId: String,
     val addedAt: Long,
+    val parts: String? = null,
 )
 
 /**

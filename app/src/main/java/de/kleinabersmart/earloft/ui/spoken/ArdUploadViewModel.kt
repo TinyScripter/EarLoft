@@ -40,7 +40,8 @@ sealed interface UploadState {
     data object NoTarget : UploadState
 
     /** Frage: wohin? Bei einem Ziel nur die Bestätigung. [bytes]: Größe des Pakets, 0 = noch nicht geladen. */
-    data class Choosing(val targets: List<UploadTarget>, val bytes: Long) : UploadState
+    /** [missingParts]: Teile, die ARD Sounds nicht mehr führt und die nie geladen wurden; sie fehlen auf dem Server. */
+    data class Choosing(val targets: List<UploadTarget>, val bytes: Long, val missingParts: Int = 0) : UploadState
 
     /** Das Buch wird erst geladen, [doneBytes] von [totalBytes] (`null` = unbekannt). */
     data class Downloading(val doneBytes: Long, val totalBytes: Long?) : UploadState
@@ -90,7 +91,7 @@ class ArdUploadViewModel @AssistedInject constructor(
         _state.value = UploadState.Loading
         job = viewModelScope.launch {
             val targets = uploader.targets()
-            _state.value = if (targets.isEmpty()) UploadState.NoTarget else UploadState.Choosing(targets, uploader.uploadBytes(bookId))
+            _state.value = if (targets.isEmpty()) UploadState.NoTarget else UploadState.Choosing(targets, uploader.uploadBytes(bookId), uploader.missingParts(bookId))
         }
     }
 

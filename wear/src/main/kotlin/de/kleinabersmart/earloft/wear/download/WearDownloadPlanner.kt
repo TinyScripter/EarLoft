@@ -121,11 +121,12 @@ class WearDownloadPlanner @Inject constructor(
     /**
      * Nicht beendete Bücher mit noch nie geladenen Dateien in der Reihenfolge von „Weiterhören“, mit der geschätzten Größe
      * dieser Dateien. Ein Buch mit fehlgeschlagener Datei wartet, bis das Handy es neu ins Manifest aufnimmt (wie bei Folgen).
+     * Dateien, die nicht mehr abrufbar sind, zählen nicht: Sie werden nie geladen.
      */
     private suspend fun booksToLoad(order: List<Long>): List<Pair<Long, Long>> = order.mapNotNull { bookId ->
         val book = bookDao.book(bookId)?.takeIf { it.kind == BookKind.BOOK } ?: return@mapNotNull null
         if (bookDao.progress(book.bookId)?.finished == true) return@mapNotNull null
-        val tracks = bookDao.tracks(bookId)
+        val tracks = bookDao.tracks(bookId).filter { it.unavailableSince == null }
         val missing = tracks.filter { it.downloadState == TrackDownload.NONE }
         if (missing.isEmpty() || tracks.any { it.downloadState == TrackDownload.FAILED }) return@mapNotNull null
         bookId to missing.sumOf { estimateEpisodeBytes(it.durationMs) }

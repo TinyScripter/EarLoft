@@ -145,6 +145,16 @@ abstract class BookDao {
     @Query("SELECT remoteId, addedAt FROM books WHERE serverId = :serverId")
     abstract suspend fun keyedBooksOf(serverId: String): List<KeyedBook>
 
+    /** Die Dateien aller Bücher von [serverId] mit dem Namen ihres Kapitels, je Buch in ihrer Reihenfolge. */
+    @Query(
+        "SELECT b.remoteId AS remoteId, t.trackIndex AS trackIndex, t.remoteFileId AS remoteFileId, t.durationMs AS durationMs, " +
+            "t.mimeType AS mimeType, t.unavailableSince AS unavailableSince, c.title AS title " +
+            "FROM books b JOIN book_tracks t ON t.bookId = b.bookId " +
+            "LEFT JOIN book_chapters c ON c.bookId = t.bookId AND c.chapterIndex = t.trackIndex " +
+            "WHERE b.serverId = :serverId ORDER BY b.remoteId, t.trackIndex",
+    )
+    abstract suspend fun keyedPartsOf(serverId: String): List<KeyedBookPart>
+
     /** Ein Buch samt Dateien, Kapiteln, Fortschritt und Lesezeichen (Kaskade); die Statistik bleibt. */
     @Query("DELETE FROM books WHERE bookId = :bookId")
     abstract suspend fun deleteBook(bookId: Long)
@@ -275,6 +285,10 @@ abstract class BookDao {
 
     @Query("DELETE FROM book_tracks WHERE bookId = :bookId")
     abstract suspend fun deleteTracks(bookId: Long)
+
+    /** Markiert eine Datei als nicht mehr abrufbar ([since]) bzw. wieder abrufbar (`null`); ihr Download-Stand bleibt. */
+    @Query("UPDATE book_tracks SET unavailableSince = :since WHERE bookId = :bookId AND trackIndex = :trackIndex")
+    abstract suspend fun setTrackUnavailable(bookId: Long, trackIndex: Int, since: Long?)
 
     @Query("DELETE FROM book_chapters WHERE bookId = :bookId")
     abstract suspend fun deleteChapters(bookId: Long)
@@ -600,6 +614,17 @@ data class BookRef(val bookId: Long, val serverId: String, val remoteId: String)
 
 /** Ein Buch einer Quelle mit seinem Schlüssel und dem Zeitpunkt, seit dem es in der Bibliothek ist. */
 data class KeyedBook(val remoteId: String, val addedAt: Long)
+
+/** Eine Datei eines Buchs mit dem Schlüssel des Buchs und dem Namen ihres Kapitels (für die Sicherung der Bücher aus ARD Sounds). */
+data class KeyedBookPart(
+    val remoteId: String,
+    val trackIndex: Int,
+    val remoteFileId: String,
+    val durationMs: Long,
+    val mimeType: String?,
+    val unavailableSince: Long?,
+    val title: String?,
+)
 
 /** Fortschritt mit dem Schlüssel seines Buchs. */
 data class KeyedProgress(

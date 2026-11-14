@@ -7,6 +7,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
+import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.model.isArdSoundsBook
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
@@ -107,8 +108,11 @@ class ArdBookUploader @Inject constructor(
     /** Wie viele Bytes der Upload von [bookId] umfasst (die Dateien des Buchs); 0, wenn nicht alle geladen sind. */
     suspend fun uploadBytes(bookId: Long): Long {
         val files = downloadedFiles(bookId) ?: return 0
-        return files.sumOf { it.length() }
+        return files.sumOf { it.second.length() }
     }
+
+    /** Wie viele Teile von [bookId] fehlen werden: nicht geladen und bei ARD Sounds nicht mehr abrufbar. */
+    suspend fun missingParts(bookId: Long): Int = dao.tracks(bookId).count { it.isUnavailable }
 
     /**
      * Lädt [bookId] nach [target] hoch; [onProgress] bekommt gesendete Bytes und Gesamtgröße. Danach wird gewartet (bis etwa eine
@@ -153,23 +157,25 @@ class ArdBookUploader @Inject constructor(
             work.deleteRecursively()
         }
         val uploaded = awaitOnServer(book, target, known)
-        if (uploaded != null) adopt(book, uploaded)
+        if (uploaded != null) adopt(book, uploaded, missing = dao.tracks(bookId).filter { it.isUnavailable })
         return UploadResult.Done(uploaded?.bookId)
     }
 
-    /** Die Dateien des Buchs in Reihenfolge, wenn alle geladen sind, sonst `null`. */
-    private suspend fun downloadedFiles(bookId: Long): List<File>? {
-        val tracks = dao.tracks(bookId)
+    /**
+     * Die Dateien des Buchs in Reihenfolge mit ihrer Spur, wenn alle geladen sind, sonst `null`. Teile, die ARD Sounds nicht mehr
+     * führt und die nie geladen wurden, fehlen (ohne sie ließe sich ein solches Buch nie hochladen).
+     */
+    private suspend fun downloadedFiles(bookId: Long): List<Pair<Int, File>>? {
+        val tracks = dao.tracks(bookId).filterNot { it.isUnavailable }
         if (tracks.isEmpty() || tracks.any { it.downloadState != TrackDownload.DONE }) return null
-        val files = tracks.map { track -> track.filePath?.let(::File)?.takeIf { it.isFile } ?: return null }
-        return files
+        return tracks.map { track -> track.trackIndex to (track.filePath?.let(::File)?.takeIf { it.isFile } ?: return null) }
     }
 
-    private suspend fun packageFor(book: BookEntity, audio: List<File>, work: File): List<AbsUploadFile> {
-        val chapters = dao.chapters(book.bookId)
+    private suspend fun packageFor(book: BookEntity, audio: List<Pair<Int, File>>, work: File): List<AbsUploadFile> {
+        val titles = dao.chapters(book.bookId).associate { it.chapterIndex to it.title }
         val width = audio.size.toString().length.coerceAtLeast(2)
-        val parts = audio.mapIndexed { index, file ->
-            val name = if (audio.size == 1) book.title else chapters.getOrNull(index)?.title ?: "Teil ${index + 1}"
+        val parts = audio.mapIndexed { index, (trackIndex, file) ->
+            val name = if (audio.size == 1) book.title else titles[trackIndex] ?: "Teil ${index + 1}"
             val numbered = if (audio.size == 1) name else "${(index + 1).toString().padStart(width, '0')} - $name"
             AbsUploadFile(file, "${safe(numbered)}.${file.extension.ifEmpty { "mp3" }}", mimeOf(file.extension))
         }
@@ -203,14 +209,20 @@ class ArdBookUploader @Inject constructor(
         return null
     }
 
-    /** Übernimmt Fortschritt, Tempo und Effekte und Lesezeichen von [old] auf das Buch [new] auf dem Server. */
-    private suspend fun adopt(old: BookEntity, new: BookEntity) {
+    /**
+     * Übernimmt Fortschritt, Tempo und Effekte und Lesezeichen von [old] auf das Buch [new] auf dem Server. Die Teile in [missing]
+     * fehlen dort: Was danach kommt, rückt um sie vor.
+     */
+    private suspend fun adopt(old: BookEntity, new: BookEntity, missing: List<BookTrackEntity>) {
         val progress = dao.progress(old.bookId)
         if (progress != null) {
-            progressSync.record(new.bookId, progress.positionMs, new.durationMs.takeIf { it > 0 } ?: progress.durationMs, progress.finished, force = true, hidden = progress.hidden)
+            val position = positionWithout(progress.positionMs, missing)
+            progressSync.record(new.bookId, position, new.durationMs.takeIf { it > 0 } ?: progress.durationMs, progress.finished, force = true, hidden = progress.hidden)
             dao.setEffects(new.bookId, progress.speed, progress.skipSilence, progress.volumeBoostDb)
         }
-        dao.bookmarksOf(listOf(old.bookId)).filter { !it.deleted }.forEach { bookmarks.add(new.bookId, it.positionMs, it.title, it.note) }
+        dao.bookmarksOf(listOf(old.bookId)).filter { !it.deleted }.forEach {
+            bookmarks.add(new.bookId, positionWithout(it.positionMs, missing), it.title, it.note)
+        }
     }
 
     private fun sameAuthor(a: String, b: String): Boolean = a.normalizeForMerge() == b.normalizeForMerge()
@@ -233,4 +245,19 @@ class ArdBookUploader @Inject constructor(
         const val ATTEMPTS = 12
         const val RETRY_MS = 5_000L
     }
+}
+
+/**
+ * [positionMs] im Buch ohne die Teile [missing]: Was nach einem fehlenden Teil liegt, rückt um dessen Länge vor; eine Stelle in einem
+ * fehlenden Teil wird zum Anfang des nächsten.
+ */
+internal fun positionWithout(positionMs: Long, missing: List<BookTrackEntity>): Long {
+    val shift = missing.sumOf { track ->
+        when {
+            positionMs >= track.startMs + track.durationMs -> track.durationMs
+            positionMs > track.startMs -> positionMs - track.startMs
+            else -> 0L
+        }
+    }
+    return (positionMs - shift).coerceAtLeast(0)
 }

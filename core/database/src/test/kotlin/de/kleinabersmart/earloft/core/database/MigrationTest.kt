@@ -285,6 +285,29 @@ class MigrationTest {
     }
 
     @Test
+    fun `v40 to v41 keeps book files available`() {
+        helper.createDatabase(DB_NAME, 40).use { db ->
+            db.execSQL(
+                "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
+                    "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
+                    "VALUES (3, 'ardsounds', 'BOOK', 'group:x', 'Buch', 'buch', 'A', '', '', '', 60000, 0, 1, 1, 2)",
+            )
+            db.execSQL(
+                "INSERT INTO book_tracks (bookId, trackIndex, remoteFileId, startMs, durationMs, downloadState, fileSize, autoDownload) " +
+                    "VALUES (3, 0, 'https://a.example/1.mp3', 0, 60000, 'DONE', 42, 0)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 41, true).use { db ->
+            db.query("SELECT downloadState, unavailableSince FROM book_tracks WHERE bookId = 3").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("DONE", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+            }
+        }
+    }
+
+    @Test
     fun `v38 to v39 adds an empty author table`() {
         helper.createDatabase(DB_NAME, 38).close()
 
@@ -565,6 +588,21 @@ class UserMigrationTest {
             db.query("SELECT COUNT(*) FROM ard_books").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
+    fun `v18 to v19 keeps ARD books without saved parts`() {
+        helper.createDatabase(DB_NAME, 18).use { db ->
+            db.execSQL("INSERT INTO ard_books (remoteId, addedAt) VALUES ('group:x', 7)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 19, true).use { db ->
+            db.query("SELECT addedAt, parts FROM ard_books WHERE remoteId = 'group:x'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(7, cursor.getInt(0))
+                assertTrue(cursor.isNull(1))
             }
         }
     }

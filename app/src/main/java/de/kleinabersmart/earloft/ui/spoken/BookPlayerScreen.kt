@@ -996,14 +996,16 @@ private fun ChapterList(
         itemsIndexed(timeline.chapters, key = { _, chapter -> chapter.index }) { _, chapter ->
             ListItem(
                 headlineContent = { Text(chapterTitle(chapter), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                supportingContent = if (chapter.unavailable) ({ Text(stringResource(R.string.ard_books_part_gone)) }) else null,
                 leadingContent = if (withImages) ({ ChapterImage(chapter.imageUrl) }) else null,
                 trailingContent = {
                     ChapterTrailing(chapter.url) { Text(formatClock(chapter.startMs), style = MaterialTheme.typography.bodySmall) }
                 },
-                colors = ListItemDefaults.colors(
+                colors = unavailableChapterColors(
+                    chapter,
                     containerColor = if (chapter.index == currentIndex) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
                 ),
-                modifier = Modifier.clickable { onChapter(chapter.startMs) },
+                modifier = Modifier.clickable(enabled = !chapter.unavailable) { onChapter(chapter.startMs) },
             )
         }
     }

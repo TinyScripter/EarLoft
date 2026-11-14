@@ -1,6 +1,8 @@
 package de.kleinabersmart.earloft.core.data.backup
 
+import de.kleinabersmart.earloft.core.data.spoken.encodeArdParts
 import de.kleinabersmart.earloft.core.database.dao.KeyedBook
+import de.kleinabersmart.earloft.core.database.dao.KeyedBookPart
 import de.kleinabersmart.earloft.core.database.dao.KeyedBookmark
 import de.kleinabersmart.earloft.core.database.dao.KeyedCollectionFavorite
 import de.kleinabersmart.earloft.core.database.dao.KeyedEpisodeDownload
@@ -176,7 +178,8 @@ data class UserDataSnapshot(
          * nur die, die der Server nicht vollständig kennt: noch nicht oder nicht im jetzigen Stand gemeldet oder mit Notiz,
          * die er nicht speichert), lokale Playlists (mit `backupKey`), Favoriten von
          * Songs, Alben und Künstlern ohne Server, der Hörverlauf, die Auswahl für die Uhr (schon mit Schlüsseln, siehe `UserDataBackup`), die
-         * Downloads der Folgen gesicherter Abos, die gemerkten Folgen und die Bücher aus ARD Sounds in der Bibliothek.
+         * Downloads der Folgen gesicherter Abos, die gemerkten Folgen und die Bücher aus ARD Sounds in der Bibliothek samt ihren Teilen
+         * ([ardParts], je Buch).
          */
         fun ofMain(
             sources: List<SourceEntity>,
@@ -195,6 +198,7 @@ data class UserDataSnapshot(
             bookmarks: List<KeyedBookmark> = emptyList(),
             episodeStars: List<KeyedStarredEpisode> = emptyList(),
             ardBooks: List<KeyedBook> = emptyList(),
+            ardParts: List<KeyedBookPart> = emptyList(),
         ) = ofUser(
             servers = sources.filter { it.type.isServer }.map { it.toUser() },
             spokenServers = spokenServers.map { it.toUser() },
@@ -205,7 +209,9 @@ data class UserDataSnapshot(
             },
             // Wie der Fortschritt auch die Folgen vom Gerät (über den Pfad); der Scan legt sie wieder an.
             episodeStars = episodeStars.map { UserEpisodeStarEntity(it.serverId, it.remoteId, it.starredAt) },
-            ardBooks = ardBooks.map { UserArdBookEntity(it.remoteId, it.addedAt) },
+            ardBooks = ardParts.groupBy { it.remoteId }.let { parts ->
+                ardBooks.map { UserArdBookEntity(it.remoteId, it.addedAt, parts[it.remoteId]?.let(::encodeArdParts)) }
+            },
             listeningStats = listeningStats.map { it.toUser() },
             listeningDays = listeningDays.map { it.toUser() },
             progress = spokenServers.map { it.serverId }.toSet().let { abs ->
