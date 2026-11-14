@@ -170,6 +170,8 @@
     <string name="settings_directory_apple_country">Country for Apple Podcasts</string>
     <string name="settings_section_refresh">Updating</string>
     <string name="settings_section_online">Online services</string>
+    <string name="settings_section_skip">Skipping</string>
+    <string name="settings_section_resume">Resuming</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_refresh_music">Sync music now</string>
     <string name="settings_refresh_audiobooks">Sync books now</string>
@@ -237,6 +239,9 @@
     <string name="settings_local_media_summary">Off: the library only shows music from servers.</string>
     <string name="settings_local_books">Use books on this device</string>
     <string name="settings_local_books_summary">From the “Audiobooks” folder: m4b and MP3 files with their chapters, and folders of MP3 files (one chapter per file). Off: the books disappear along with their progress.</string>
+    <string name="settings_local_books_folder">Covers and texts from book folders</string>
+    <string name="settings_local_books_folder_summary">Allows reading the “Audiobooks” folder: cover.jpg, desc.txt (description), reader.txt (narrator) and metadata.opf next to the audio files. Without it, only tags and folder names (Author/Series/1 – Title) count.</string>
+    <string name="settings_local_books_folder_wrong">Please choose the “Audiobooks” folder.</string>
     <string name="settings_local_podcasts">Use podcasts on this device</string>
     <string name="settings_local_podcasts_summary">From the “Podcasts” folder: each subfolder is a podcast; loose files are grouped by their album tag. Off: the episodes disappear along with their progress.</string>
     <string name="settings_about">About</string>
@@ -501,14 +506,14 @@
     <string name="spoken_tab_all">All</string>
     <string name="spoken_tab_series">Series</string>
     <string name="spoken_tab_authors">Authors</string>
+    <string name="author_more_books">More books</string>
+    <string name="text_show_more">Show more</string>
+    <string name="text_show_less">Show less</string>
     <string name="spoken_tab_stats">Statistics</string>
     <string name="book_stats_server_title">Audiobookshelf</string>
     <string name="book_stats_server_loading">Loading statistics from the server …</string>
     <string name="book_stats_server_failed">The server\'s statistics could not be loaded.</string>
     <string name="book_stats_today">%1$s today</string>
-    <string name="author_more_books">More books</string>
-    <string name="text_show_more">Show more</string>
-    <string name="text_show_less">Show less</string>
     <plurals name="book_stats_streak">
         <item quantity="one">%1$d day in a row</item>
         <item quantity="other">%1$d days in a row</item>

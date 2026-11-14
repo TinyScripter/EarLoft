@@ -11,6 +11,10 @@ import de.kleinabersmart.earloft.core.datasource.local.LocalBookDetails
 import de.kleinabersmart.earloft.core.datasource.local.LocalBookScanner
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
+import de.kleinabersmart.earloft.core.model.parseGenres
+import android.net.Uri
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -67,6 +71,35 @@ class LocalBooks @Inject constructor(
     /** Ausgeschaltet: die Bücher verschwinden samt Fortschritt (wie die lokale Musik). */
     suspend fun remove() = mutex.withLock { dao.deleteBooksOf(LOCAL_BOOK_SERVER_ID) }
 
+    private val folderSharedState by lazy { MutableStateFlow(scanner.folders.isShared()) }
+
+    /**
+     * Der Ordner „Audiobooks“ ist freigegeben: Cover, `desc.txt`, `reader.txt` und `metadata.opf` der Buchordner zählen mit
+     * (`books_improvements.md` M7).
+     */
+    val folderShared: StateFlow<Boolean> get() = folderSharedState
+
+    /** Hier beginnt die Ordnerauswahl. */
+    val folderPickerStart: Uri get() = scanner.folders.initialUri
+
+    /**
+     * Übernimmt die gewählte Freigabe und liest die Bücher neu (geänderte Begleitdateien ändern den Fingerabdruck). `false`,
+     * wenn sie nicht „Audiobooks“ ist.
+     */
+    suspend fun shareFolder(tree: Uri): Boolean {
+        val shared = scanner.folders.share(tree)
+        folderSharedState.value = scanner.folders.isShared()
+        if (shared) sync()
+        return shared
+    }
+
+    /** Nimmt die Freigabe zurück; die Bücher verlieren beim neuen Einlesen, was aus den Begleitdateien kam. */
+    suspend fun unshareFolder() {
+        scanner.folders.unshare()
+        folderSharedState.value = false
+        sync()
+    }
+
     private suspend fun store(book: LocalBook, details: LocalBookDetails, generation: Long) {
         val bookId = dao.upsertBook(
             BookEntity(
@@ -83,6 +116,14 @@ class LocalBooks @Inject constructor(
                 seenInGeneration = generation,
                 subtitle = details.subtitle,
                 publishedYear = details.year?.toString(),
+                description = details.description.orEmpty(),
+                series = details.series.orEmpty(),
+                publisher = details.publisher,
+                language = details.language,
+                isbn = details.isbn,
+                genres = parseGenres(details.genres).joinToString(", ").ifEmpty { null },
+                // Cover aus dem Buchordner (Ordnerfreigabe), sonst das eingebettete der ersten Datei (`BookCovers`).
+                coverUrl = details.coverUri,
             ),
         )
         val tracks = details.tracks.mapIndexed { index, track ->
@@ -92,7 +133,7 @@ class LocalBooks @Inject constructor(
             BookChapterEntity(bookId, index, chapter.title, chapter.startMs, chapter.endMs)
         }
         dao.replaceDetails(bookId, tracks, chapters)
-        // Das Cover steckt in der Datei; hat sie sich geändert, gilt das zwischengespeicherte nicht mehr.
+        // Das Cover steckt in der Datei oder im Ordner; hat sich etwas geändert, gilt das zwischengespeicherte nicht mehr.
         covers.invalidate(bookId)
     }
 

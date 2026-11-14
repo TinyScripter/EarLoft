@@ -17,6 +17,9 @@ internal data class SpokenTags(
     val description: String? = null,
     val subtitle: String? = null,
     val chapters: List<LocalBookChapter> = emptyList(),
+    /** Serie und Band wie Audiobookshelf sie liest (`SERIES`/`SERIES-PART`, ID3 `MVNM`/`MVIN`). */
+    val series: String? = null,
+    val seriesPart: String? = null,
 ) {
     /** Das Jahr am Anfang von [date] („2024“, „2024-05-01“). */
     val year: Int? get() = date?.let { YEAR.find(it.trim())?.value?.toIntOrNull() }
@@ -65,6 +68,9 @@ internal data class SpokenTags(
                 date = DATE_FRAMES.firstNotNullOfOrNull { frames[it] } ?: v23Date(frames) ?: descriptions["DATE"],
                 description = (DESCRIPTION_FRAMES.firstNotNullOfOrNull { frames[it] } ?: descriptions["DESCRIPTION"])?.takeIf { it.isNotBlank() },
                 subtitle = (frames["TIT3"] ?: descriptions["SUBTITLE"])?.trim()?.takeIf { it.isNotEmpty() },
+                series = (descriptions["SERIES"] ?: frames["MVNM"])?.trim()?.takeIf { it.isNotEmpty() },
+                // „2/7“ bei MVIN: nur der Band.
+                seriesPart = (descriptions["SERIES-PART"] ?: frames["MVIN"])?.substringBefore('/')?.trim()?.takeIf { it.isNotEmpty() },
                 chapters = chapters.filter { it.endMs - it.startMs >= MIN_CHAPTER_MS }.sortedBy { it.startMs }.plausible(),
             )
         }

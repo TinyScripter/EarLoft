@@ -58,6 +58,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import de.kleinabersmart.earloft.core.data.spoken.LocalBooks
 import java.io.IOException
 import javax.inject.Inject
 
@@ -93,6 +94,7 @@ class SettingsViewModelTest {
     @Inject lateinit var authorImages: AuthorImages
     @Inject lateinit var registry: DataSourceRegistry
     @Inject lateinit var spokenRefresher: SpokenRefresher
+    @Inject lateinit var localBooks: LocalBooks
     @Inject lateinit var podcastRefresher: PodcastRefresher
     @Inject lateinit var podcastRepository: PodcastRepository
     @Inject lateinit var opmlImporter: OpmlImporter
@@ -108,7 +110,7 @@ class SettingsViewModelTest {
         SettingsViewModel(
             serverRepository, refresher, downloadSettings, downloadRepository, syncSettings, replayGainSettings,
             themeSettings, librarySettings, spokenSettings, podcastSettings, artworkSettings, artworkRepository,
-            lyricsSettings, lyricsRepository, authorImages, registry, spokenRefresher, podcastRefresher, podcastRepository, opmlImporter, directorySearch,
+            lyricsSettings, lyricsRepository, authorImages, registry, spokenRefresher, localBooks, podcastRefresher, podcastRepository, opmlImporter, directorySearch,
             databaseImporter, databaseExport, statsRepository, context, applicationScope, audiobookServers, syncer,
         )
     }

@@ -31,6 +31,7 @@ import de.kleinabersmart.earloft.core.data.spoken.AuthorImages
 import de.kleinabersmart.earloft.core.data.spoken.ResumeRule
 import de.kleinabersmart.earloft.core.data.spoken.BookButtons
 import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
+import de.kleinabersmart.earloft.core.data.spoken.LocalBooks
 import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.data.sync.LibrarySettings
@@ -88,6 +89,8 @@ data class SettingsUiState(
     val alwaysShowNavigationBar: Boolean = true,
     val useLocalMedia: Boolean = false,
     val useLocalBooks: Boolean = false,
+    /** Der Ordner „Audiobooks“ ist freigegeben (Cover und Texte der Buchordner, `books_improvements.md` M7). */
+    val localBooksFolderShared: Boolean = false,
     val useLocalPodcasts: Boolean = false,
     val servers: List<ServerItem> = emptyList(),
     /** Bis die Quellen geantwortet haben; so blitzt „Keine Server“ beim Öffnen nicht auf. */
@@ -192,6 +195,7 @@ class SettingsViewModel @Inject constructor(
     private val authorImages: AuthorImages,
     private val registry: DataSourceRegistry,
     private val spokenRefresher: SpokenRefresher,
+    private val localBooks: LocalBooks,
     private val podcastRefresher: PodcastRefresher,
     private val podcastRepository: PodcastRepository,
     private val opmlImporter: OpmlImporter,
@@ -264,8 +268,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(alwaysShowNavigationBar = always, systemColors = systemColors)
     }.combine(combine(themeSettings.playerCoverColors, themeSettings.widgetCoverColors, ::Pair)) { state, (player, widget) ->
         state.copy(playerCoverColors = player, widgetCoverColors = widget)
-    }.combine(combine(spokenSettings.useLocalBooks, spokenSettings.useLocalPodcasts, ::Pair)) { state, (books, podcasts) ->
-        state.copy(useLocalBooks = books, useLocalPodcasts = podcasts)
+    }.combine(combine(spokenSettings.useLocalBooks, spokenSettings.useLocalPodcasts, localBooks.folderShared, ::Triple)) { state, (books, podcasts, folder) ->
+        state.copy(useLocalBooks = books, useLocalPodcasts = podcasts, localBooksFolderShared = folder)
     }.combine(audiobookServers.servers) { state, list ->
         state.copy(audiobookServerCount = list.size)
     }.combine(combine(podcastRepository.feeds, podcastRepository.archivedFeeds, ::Pair)) { state, (feeds, archived) ->
@@ -463,6 +467,23 @@ class SettingsViewModel @Inject constructor(
     /** Einlesen bzw. Entfernen der Bücher vom Gerät übernimmt der [SpokenRefresher]. */
     fun setUseLocalBooks(enabled: Boolean) {
         viewModelScope.launch { spokenSettings.setUseLocalBooks(enabled) }
+    }
+
+    /** Hier beginnt die Auswahl des Ordners „Audiobooks“. */
+    val localBooksFolderStart: Uri get() = localBooks.folderPickerStart
+
+    private val _folderRejected = Channel<Unit>(Channel.CONFLATED)
+
+    /** Die gewählte Freigabe war nicht „Audiobooks“ (einmalig anzuzeigen). */
+    val folderRejected: Flow<Unit> = _folderRejected.receiveAsFlow()
+
+    /** Gewählter Ordner aus der Auswahl; die Bücher werden danach im Hintergrund neu gelesen. */
+    fun shareLocalBooksFolder(tree: Uri) {
+        applicationScope.launch { if (!localBooks.shareFolder(tree)) _folderRejected.trySend(Unit) }
+    }
+
+    fun unshareLocalBooksFolder() {
+        applicationScope.launch { localBooks.unshareFolder() }
     }
 
     /** Einlesen bzw. Entfernen der Podcast-Dateien vom Gerät übernimmt der [SpokenRefresher]. */

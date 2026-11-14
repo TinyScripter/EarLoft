@@ -32,6 +32,17 @@ data class LocalBookDetails(
     /** Untertitel und Erscheinungsjahr aus den Tags der ersten Datei. */
     val subtitle: String? = null,
     val year: Int? = null,
+    /**
+     * Aus den Begleitdateien und Ordnernamen (`books_improvements.md` M7): Beschreibung, Serie im Format von Audiobookshelf
+     * („Name #2“), Verlag, Sprache, ISBN, Genres und das Cover im Ordner (Adresse über die Ordnerfreigabe).
+     */
+    val description: String? = null,
+    val series: String? = null,
+    val publisher: String? = null,
+    val language: String? = null,
+    val isbn: String? = null,
+    val genres: List<String> = emptyList(),
+    val coverUri: String? = null,
 )
 
 /**
@@ -65,6 +76,8 @@ data class LocalPodcast(val name: String, val episodes: List<LocalEpisode>)
 @Singleton
 class LocalBookScanner @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    /** Freigabe des Ordners „Audiobooks“ für die Begleitdateien. */
+    val folders: LocalBookFolders = LocalBookFolders(context),
 ) {
     private val tagReader = LocalTagReader(context)
 
@@ -76,10 +89,17 @@ class LocalBookScanner @Inject constructor(
     suspend fun scan(isUnchanged: suspend (key: String, fingerprint: Long) -> Boolean): List<LocalBook> =
         withContext(Dispatchers.IO) {
             if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} fehlt")
+            val trees = folders.trees()
             LocalBookLayout.group(queryRows()).map { book ->
-                val fingerprint = LocalBookLayout.fingerprint(book)
+                // Begleitdateien nur mit Ordnerfreigabe und nur bei Büchern in einem eigenen Ordner.
+                val sidecars = if (book.folderName != null && trees.isNotEmpty()) {
+                    BookSidecars.pick(folders.list(book.files.first().path.substringBeforeLast('/'), trees))
+                } else {
+                    BookSidecars()
+                }
+                val fingerprint = 31 * LocalBookLayout.fingerprint(book) + sidecars.fingerprint
                 val added = book.files.minOf { it.dateAddedSec } * 1000
-                LocalBook(book.key, fingerprint, added, if (isUnchanged(book.key, fingerprint)) null else read(book))
+                LocalBook(book.key, fingerprint, added, if (isUnchanged(book.key, fingerprint)) null else read(book, sidecars))
             }
         }
 
@@ -123,7 +143,14 @@ class LocalBookScanner @Inject constructor(
         withRetriever(Uri.parse(trackUri)) { it.embeddedPicture }
     }
 
-    private suspend fun read(book: LocalBookFiles): LocalBookDetails {
+    /** Cover aus dem Buchordner ([LocalBookDetails.coverUri]); `null`, wenn es nicht (mehr) lesbar ist. */
+    suspend fun folderCover(uri: String): ByteArray? = withContext(Dispatchers.IO) { folders.read(uri, MAX_IMAGE_BYTES) }
+
+    /**
+     * Liest ein Buch. Rangfolge wie bei Audiobookshelf, jeweils das erste Vorhandene: `metadata.opf` vor `desc.txt` bzw.
+     * `reader.txt` vor den Tags vor den Ordnernamen.
+     */
+    private suspend fun read(book: LocalBookFiles, sidecars: BookSidecars): LocalBookDetails {
         var start = 0L
         val tracks = mutableListOf<LocalBookTrack>()
         val chapters = mutableListOf<LocalBookChapter>()
@@ -136,17 +163,37 @@ class LocalBookScanner @Inject constructor(
             chapters += chaptersOf(file, uri, start, multiFile, tags?.chapters.orEmpty())
             start += file.durationMs
         }
-        val narrator = withRetriever(contentUri(book.files.first().id)) { it.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER) }
+        val composer = withRetriever(contentUri(book.files.first().id)) { it.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER) }
+        val folder = FolderMetadata.parse(book.key)
+        val opf = sidecars.opf?.let(::readText)?.let(OpfMetadata::parse)
+        val description = sidecars.description?.let(::readText)?.trim()?.ifEmpty { null }
+        // Ein Sprecher je Zeile oder mit Komma getrennt.
+        val reader = sidecars.reader?.let(::readText)?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() }?.joinToString(", ")?.ifEmpty { null }
+        val tagSeries = tags?.series?.let { name -> tags.seriesPart?.let { "$name #$it" } ?: name }
         return LocalBookDetails(
-            title = LocalBookLayout.bookTitle(book),
-            author = LocalBookLayout.bookAuthor(book),
-            narrator = narrator?.trim().orEmpty(),
+            title = opf?.title ?: LocalBookLayout.bookTitle(book, folder.title),
+            author = opf?.authors?.joinToString(", ")?.ifEmpty { null } ?: LocalBookLayout.bookAuthor(book).ifEmpty { folder.author.orEmpty() },
+            narrator = opf?.narrators?.joinToString(", ")?.ifEmpty { null } ?: reader ?: composer?.trim()?.ifEmpty { null } ?: folder.narrator.orEmpty(),
             durationMs = start,
             tracks = tracks,
             chapters = chapters,
-            subtitle = tags?.subtitle,
-            year = tags?.year,
+            subtitle = opf?.subtitle ?: tags?.subtitle,
+            year = opf?.year ?: tags?.year ?: folder.year,
+            description = opf?.description ?: description ?: tags?.description,
+            series = opf?.seriesEntry ?: tagSeries ?: folder.seriesEntry,
+            publisher = opf?.publisher,
+            language = opf?.language,
+            isbn = opf?.isbn,
+            genres = opf?.genres.orEmpty(),
+            coverUri = sidecars.cover?.uri,
         )
+    }
+
+    /** Text einer Begleitdatei: UTF-8, sonst (Windows-Editoren) Windows-1252. */
+    private fun readText(file: SideFile): String? {
+        val bytes = folders.read(file.uri, MAX_TEXT_BYTES) ?: return null
+        val utf8 = String(bytes, Charsets.UTF_8)
+        return (if ('\uFFFD' in utf8) String(bytes, charset("windows-1252")) else utf8).removePrefix("\uFEFF")
     }
 
     /**
@@ -249,5 +296,7 @@ class LocalBookScanner @Inject constructor(
 
     private companion object {
         const val TAG = "LocalBookScanner"
+        const val MAX_TEXT_BYTES = 512L * 1024
+        const val MAX_IMAGE_BYTES = 20L * 1024 * 1024
     }
 }

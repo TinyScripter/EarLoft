@@ -714,16 +714,6 @@ fun PodcastsSettingsScreen(
                     EffectRows(state.podcastEffects, "podcast", viewModel::setPodcastEffects)
                 }
             }
-            row("podcast-seek") {
-                Column {
-                    SeekRows(state.podcastSeek, "podcast", viewModel::setPodcastSeek)
-                }
-            }
-            row("podcast-resume") {
-                Column {
-                    ResumeRows(state.podcastResume, DesignR.drawable.ic_playlist_play, "podcast", viewModel::setPodcastResume)
-                }
-            }
             row("sleep-shake") {
                 SwitchRow(
                     title = stringResource(R.string.settings_sleep_shake),
@@ -732,6 +722,23 @@ fun PodcastsSettingsScreen(
                     checked = state.shakeToExtend,
                     onCheckedChange = viewModel::setShakeToExtend,
                 )
+            }
+        }
+
+        // Wie bei den Büchern: Springen und Fortsetzen als eigene Abschnitte, damit „Wiedergabe“ überschaubar bleibt.
+        group("skip", R.string.settings_section_skip) {
+            row("podcast-seek") {
+                Column {
+                    SeekRows(state.podcastSeek, "podcast", viewModel::setPodcastSeek)
+                }
+            }
+        }
+
+        group("resume", R.string.settings_section_resume) {
+            row("podcast-resume") {
+                Column {
+                    ResumeRows(state.podcastResume, DesignR.drawable.ic_playlist_play, "podcast", viewModel::setPodcastResume)
+                }
             }
         }
 
@@ -1026,7 +1033,10 @@ private fun RssBridgeDialog(current: String, onSave: (String) -> Unit, onDismiss
     )
 }
 
-/** Bücher: Quellen (Gerät, Server), Abgleich, Wiedergabe, Downloads, Online-Dienste (Autorenbilder) und Statistik. */
+/**
+ * Bücher: Quellen (Gerät samt Ordnerfreigabe, Server), Abgleich, Wiedergabe, Springen, Fortsetzen, Downloads, Online-Dienste
+ * (Autorenbilder) und Statistik.
+ */
 @Composable
 fun AudiobookSettingsScreen(
     onBack: () -> Unit,
@@ -1043,6 +1053,13 @@ fun AudiobookSettingsScreen(
     val requestAudioPermission = rememberAudioPermissionRequester { granted ->
         if (granted) viewModel.setUseLocalBooks(true)
     }
+    // Freigabe des Ordners „Audiobooks“ für Cover und Texte der Buchordner (books_improvements M7).
+    val pickBookFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+        tree?.let(viewModel::shareLocalBooksFolder)
+    }
+    val snackbars = LocalSnackbars.current
+    val folderRejectedText = stringResource(R.string.settings_local_books_folder_wrong)
+    LaunchedEffect(Unit) { viewModel.folderRejected.collect { snackbars.show(folderRejectedText, SnackbarDuration.Long) } }
 
     SettingsPage(stringResource(R.string.settings_audiobooks), onBack, modifier) {
         group("sources", R.string.settings_section_sources) {
@@ -1057,6 +1074,19 @@ fun AudiobookSettingsScreen(
                     },
                 )
             }
+            if (state.useLocalBooks) {
+                row("local-books-folder") {
+                    SwitchRow(
+                        title = stringResource(R.string.settings_local_books_folder),
+                        summary = stringResource(R.string.settings_local_books_folder_summary),
+                        icon = DesignR.drawable.ic_folder,
+                        checked = state.localBooksFolderShared,
+                        onCheckedChange = { share ->
+                            if (share) pickBookFolder.launch(viewModel.localBooksFolderStart) else viewModel.unshareLocalBooksFolder()
+                        },
+                    )
+                }
+            }
             row("audiobookshelf") { AudiobookshelfSection(onAdd = onAddServer, onEdit = onEditServer) }
         }
 
@@ -1070,6 +1100,19 @@ fun AudiobookSettingsScreen(
                     EffectRows(state.bookEffects, "book", viewModel::setBookEffects)
                 }
             }
+            row("sleep-shake") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_sleep_shake),
+                    summary = stringResource(R.string.settings_sleep_shake_summary),
+                    icon = DesignR.drawable.ic_bedtime,
+                    checked = state.shakeToExtend,
+                    onCheckedChange = viewModel::setShakeToExtend,
+                )
+            }
+        }
+
+        // „Wiedergabe“ wurde mit zehn Zeilen länger als ein Bildschirm: Springen und Fortsetzen stehen deshalb für sich.
+        group("skip", R.string.settings_section_skip) {
             row("book-seek") {
                 Column {
                     SeekRows(state.bookSeek, "book", viewModel::setBookSeek)
@@ -1083,6 +1126,9 @@ fun AudiobookSettingsScreen(
                     onClick = { choosingBookButtons = true },
                 )
             }
+        }
+
+        group("resume", R.string.settings_section_resume) {
             row("book-resume") {
                 Column {
                     ResumeRows(state.bookResume, DesignR.drawable.ic_book, "book", viewModel::setBookResume)
@@ -1095,15 +1141,6 @@ fun AudiobookSettingsScreen(
                     icon = DesignR.drawable.ic_book,
                     checked = state.restartChapter,
                     onCheckedChange = viewModel::setRestartChapter,
-                )
-            }
-            row("sleep-shake") {
-                SwitchRow(
-                    title = stringResource(R.string.settings_sleep_shake),
-                    summary = stringResource(R.string.settings_sleep_shake_summary),
-                    icon = DesignR.drawable.ic_bedtime,
-                    checked = state.shakeToExtend,
-                    onCheckedChange = viewModel::setShakeToExtend,
                 )
             }
         }

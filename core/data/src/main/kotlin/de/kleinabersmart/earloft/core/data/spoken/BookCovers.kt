@@ -164,9 +164,10 @@ class BookCovers @Inject constructor(
         return if (url != null) {
             podcastApi.image(url)
         } else if (isLocalSource(book.serverId)) {
-            // Lokale Bücher und Folgen tragen ihr Cover in der ersten Datei. Auf der Uhr ist das eine Kennung des
-            // Handys, keine Datei: Dort kommt das Bild über [store].
-            dao.tracks(book.bookId).firstOrNull()?.remoteFileId?.takeIf { it.startsWith("content:") }?.let { localScanner.cover(it) }
+            // Lokale Bücher tragen ihr Cover im Ordner (mit Ordnerfreigabe, `books_improvements.md` M7) oder in der ersten
+            // Datei, Folgen nur in der Datei. Auf der Uhr ist das eine Kennung des Handys, keine Datei: Dort kommt das Bild über [store].
+            book.coverUrl?.takeIf { book.kind == BookKind.BOOK && it.startsWith("content:") }?.let { localScanner.folderCover(it) }
+                ?: dao.tracks(book.bookId).firstOrNull()?.remoteFileId?.takeIf { it.startsWith("content:") }?.let { localScanner.cover(it) }
         } else if (book.kind == BookKind.EPISODE) {
             null
         } else {

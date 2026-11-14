@@ -90,6 +90,21 @@ class LocalBookLayoutTest {
     }
 
     @Test
+    fun `without tags the folder title counts, not what MediaStore fills in`() {
+        // MediaStore: Titel = Dateiname, Album = Ordnername.
+        val inFolder = LocalBookFiles(
+            "Audiobooks/A/S/1 – Titel/",
+            "1 – Titel",
+            listOf(row(1, "/storage/emulated/0/Audiobooks/A/S/1 – Titel/01.mp3", title = "01", album = "1 – Titel")),
+        )
+        val inRoot = LocalBookFiles("Audiobooks/Buch.mp3", null, listOf(row(2, "/storage/emulated/0/Audiobooks/Buch.mp3", title = "Buch", album = "Audiobooks")))
+
+        assertEquals("Titel", LocalBookLayout.bookTitle(inFolder, "Titel"))
+        assertEquals("1 – Titel", LocalBookLayout.bookTitle(inFolder))
+        assertEquals("Buch", LocalBookLayout.bookTitle(inRoot))
+    }
+
+    @Test
     fun `fingerprint changes with the files`() {
         val a = LocalBookFiles("k", null, listOf(row(1, "/Audiobooks/a.mp3", modified = 10)))
         val b = LocalBookFiles("k", null, listOf(row(1, "/Audiobooks/a.mp3", modified = 11)))

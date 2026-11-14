@@ -104,19 +104,29 @@ internal object LocalBookLayout {
             .groupingBy { it }.eachCount().entries
             .maxByOrNull { it.value }?.key
 
-    /** Buchtitel: bei einer Datei ihr Titel, bei mehreren das gemeinsame Album, sonst der Ordnername. */
-    fun bookTitle(book: LocalBookFiles): String {
+    /**
+     * Buchtitel: bei einer Datei ihr Titel, bei mehreren das gemeinsame Album, sonst [folderTitle] (der Ordnername ohne Band,
+     * Jahr und Sprecher, siehe [FolderMetadata]).
+     */
+    fun bookTitle(book: LocalBookFiles, folderTitle: String? = book.folderName): String {
+        // Ohne Tags nennt MediaStore den Dateinamen als Titel und den Ordner als Album: Das ist keine Angabe zum Buch.
+        val parent = book.files.first().path.substringBeforeLast('/').substringAfterLast('/')
+        val album = commonValue(book.files.map { it.album })?.takeIf { it != parent }
         val single = book.files.singleOrNull()
         val title = if (single != null) {
-            commonValue(listOf(single.title)) ?: commonValue(listOf(single.album)) ?: single.fileName.substringBeforeLast('.')
+            val baseName = single.fileName.substringBeforeLast('.')
+            commonValue(listOf(single.title))?.takeIf { it != baseName } ?: album ?: folderTitle ?: baseName
         } else {
-            commonValue(book.files.map { it.album }) ?: book.folderName ?: book.files.first().fileName
+            album ?: folderTitle ?: book.files.first().fileName
         }
         return title.replace('_', ' ').trim()
     }
 
-    /** 1: ID3-Kapitel einzelner MP3, Untertitel und Jahr aus den Tags (Etappe 4). */
-    private const val READ_VERSION = 1
+    /**
+     * 1: ID3-Kapitel einzelner MP3, Untertitel und Jahr aus den Tags (Etappe 4). 2: Ordnernamen, Begleitdateien, Serie und
+     * Beschreibung aus den Tags (`books_improvements.md` M7).
+     */
+    private const val READ_VERSION = 2
 
     fun bookAuthor(book: LocalBookFiles): String =
         commonValue(book.files.map { it.albumArtist }) ?: commonValue(book.files.map { it.artist }).orEmpty()
