@@ -170,8 +170,16 @@ class ArdSoundsApi(
         )
     }
 
-    /** Eine GraphQL-Abfrage; auch für die Bücher aus ARD Sounds ([ArdSoundsBooks]). */
-    internal suspend fun <T> query(query: String, variables: JsonObject, serializer: KSerializer<T>): T = withContext(Dispatchers.IO) {
+    /**
+     * Eine GraphQL-Abfrage; auch für die Bücher aus ARD Sounds ([ArdSoundsBooks]). [strict]: Meldet die Antwort neben den Daten
+     * Fehler, gilt sie als gescheitert – Teile der Daten können dann fehlen (für die Bücher hieße das „abgelaufen“).
+     */
+    internal suspend fun <T> query(
+        query: String,
+        variables: JsonObject,
+        serializer: KSerializer<T>,
+        strict: Boolean = false,
+    ): T = withContext(Dispatchers.IO) {
         val body = buildJsonObject {
             put("query", query)
             put("variables", variables)
@@ -189,6 +197,7 @@ class ArdSoundsApi(
             val answer = JSON.decodeFromString(GraphQlResponse.serializer(), text)
             val data = answer.data?.takeIf { it is JsonObject }
                 ?: throw IOException("ARD Sounds: ${answer.errors?.firstOrNull()?.message ?: "Antwort ohne Daten"}")
+            if (strict && !answer.errors.isNullOrEmpty()) throw IOException("ARD Sounds: ${answer.errors.first().message}")
             JSON.decodeFromJsonElement(serializer, data)
         } catch (e: CancellationException) {
             throw e

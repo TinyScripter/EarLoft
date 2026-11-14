@@ -228,6 +228,11 @@ data class BookTrackEntity(
     @ColumnInfo(defaultValue = "0") val fileSize: Long = 0,
     /** Folgen: von der Automatik eingereiht (v32), nicht von Hand; „Nur die neueste“ räumt solche wieder weg. */
     @ColumnInfo(defaultValue = "0") val autoDownload: Boolean = false,
+    /**
+     * Bücher aus ARD Sounds (v41): seit wann ARD Sounds den Teil nicht mehr führt. Er bleibt an seinem Platz, damit Positionen,
+     * Lesezeichen und Downloads stimmen; nicht geladen ist er nicht mehr abrufbar, und Downloads lassen ihn aus.
+     */
+    val unavailableSince: Long? = null,
 )
 
 @Entity(

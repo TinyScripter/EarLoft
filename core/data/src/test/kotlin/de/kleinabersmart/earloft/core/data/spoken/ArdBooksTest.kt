@@ -7,6 +7,7 @@ import de.kleinabersmart.earloft.core.data.refresh.NewShow
 import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.BookDao
+import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.datasource.local.LocalBookScanner
 import de.kleinabersmart.earloft.core.model.ARD_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.model.TrackDownload
@@ -21,12 +22,15 @@ import mockwebserver3.MockWebServer
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.time.OffsetDateTime
 
 @RunWith(RobolectricTestRunner::class)
 class ArdBooksTest {
@@ -116,6 +120,76 @@ class ArdBooksTest {
 
         assertEquals(listOf("https://a.example/1.mp3", "https://a.example/2.mp3"), dao.tracks(bookId).map { it.remoteFileId })
         assertEquals(2, dao.chapters(bookId).size)
+    }
+
+    @Test
+    fun `a part that expired unloaded keeps its place in a started book`() = runTest {
+        server.enqueue(answer(part(1), part(2), part(3, availableTo = "2099-01-01T00:00:00+01:00")))
+        val bookId = ardBooks.add(KEY)!!
+        dao.upsertProgress(BookProgressEntity(bookId, positionMs = 1_500_000, durationMs = 3_000_000, updatedAt = 1))
+
+        // ARD Sounds führt Teil 1 nicht mehr; geladen war er nie.
+        server.enqueue(answer(part(2), part(3, availableTo = "2099-01-01T00:00:00+01:00")))
+        assertTrue(ardBooks.refresh().ok)
+
+        val tracks = dao.tracks(bookId)
+        assertEquals(listOf("https://a.example/1.mp3", "https://a.example/2.mp3", "https://a.example/3.mp3"), tracks.map { it.remoteFileId })
+        assertEquals(listOf(0L, 1_000_000L, 2_000_000L), tracks.map { it.startMs })
+        assertNotNull(tracks[0].unavailableSince)
+        assertNull(tracks[1].unavailableSince)
+        assertEquals(listOf("Teil 1", "Teil 2", "Teil 3"), dao.chapters(bookId).map { it.title })
+        assertEquals(3_000_000L, dao.book(bookId)!!.durationMs)
+        // Ablauf des Buchs: der nächste Teil, der noch nicht geladen ist und abläuft.
+        assertEquals(OffsetDateTime.parse("2099-01-01T00:00:00+01:00").toInstant().toEpochMilli(), dao.book(bookId)!!.availableUntil)
+        // Laden lässt den weggefallenen Teil aus; ohne ihn gilt das Buch als ganz geladen.
+        assertEquals(2, dao.queueBookDownload(bookId))
+        listOf(1, 2).forEach { index ->
+            dao.markBookTrackRunning(bookId, index)
+            dao.markBookTrackDone(bookId, index, "/files/$index.mp3", 42)
+        }
+        val download = dao.observeBookDownloads().first().single { it.bookId == bookId }
+        assertEquals(download.total, download.done)
+    }
+
+    @Test
+    fun `new parts still come after a downloaded part disappeared`() = runTest {
+        server.enqueue(answer(part(1), part(2)))
+        val bookId = ardBooks.add(KEY)!!
+        dao.queueBookDownload(bookId)
+        dao.markBookTrackRunning(bookId, 0)
+        dao.markBookTrackDone(bookId, 0, "/files/1.mp3", 42)
+
+        server.enqueue(answer(part(2), part(3)))
+        ardBooks.refresh()
+
+        val tracks = dao.tracks(bookId)
+        assertEquals(listOf("https://a.example/1.mp3", "https://a.example/2.mp3", "https://a.example/3.mp3"), tracks.map { it.remoteFileId })
+        assertEquals(TrackDownload.DONE, tracks[0].downloadState)
+        assertEquals(3, dao.chapters(bookId).size)
+    }
+
+    @Test
+    fun `a book nobody started takes the parts as they are`() = runTest {
+        server.enqueue(answer(part(1), part(2)))
+        val bookId = ardBooks.add(KEY)!!
+
+        server.enqueue(answer(part(2)))
+        ardBooks.refresh()
+
+        assertEquals(listOf("https://a.example/2.mp3"), dao.tracks(bookId).map { it.remoteFileId })
+        assertTrue(dao.chapters(bookId).isEmpty())
+    }
+
+    @Test
+    fun `an answer with errors next to the data changes nothing`() = runTest {
+        server.enqueue(answer(part(1)))
+        val bookId = ardBooks.add(KEY)!!
+
+        server.enqueue(MockResponse.Builder().body("""{"data":{"items":null},"errors":[{"message":"Timeout"}]}""").build())
+        assertFalse(ardBooks.refresh().ok)
+
+        assertNull(dao.book(bookId)!!.availableUntil)
+        assertNull(dao.tracks(bookId).single().unavailableSince)
     }
 
     @Test
@@ -213,8 +287,9 @@ class ArdBooksTest {
 
     private fun answer(vararg parts: String) = MockResponse.Builder().body("""{"data":{"items":{"nodes":[${parts.joinToString(",")}]}}}""").build()
 
-    private fun part(number: Int) = """
+    private fun part(number: Int, availableTo: String? = null) = """
         {"id":"$number","coreId":"urn:ard:publication:$number","title":"Goldstrand ($number/2)","groupId":"urn:ard:show:gs",
+         "coreDocument":${availableTo?.let { """{"availableTo":"$it"}""" } ?: "null"},
          "episodeNumber":$number,"maxGroupNumber":2,"duration":1000,"publishDate":"2026-11-0${number}T10:00:00+01:00",
          "group":{"type":"MULTIPART","title":"Katerina Poladjan: Goldstrand","count":2},
          "audios":[{"url":"https://a.example/$number.mp3","downloadUrl":null,"allowDownload":false,"mimeType":"audio/mp3"}],

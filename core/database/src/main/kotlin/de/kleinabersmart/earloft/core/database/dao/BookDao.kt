@@ -437,7 +437,10 @@ abstract class BookDao {
 
     // --- Downloads der Bücher (je Datei; Folgen laufen über den PodcastDao) ---
 
-    /** Download-Stand aller Bücher mit Dateien, zusammengezählt über deren Tracks. */
+    /**
+     * Download-Stand aller Bücher mit Dateien, zusammengezählt über deren Tracks. Teile, die ARD Sounds nicht mehr führt, zählen nur
+     * geladen bzw. im Laden mit: Ohne sie gilt ein Buch als ganz geladen, wenn alles Abrufbare da ist.
+     */
     @Query(
         "SELECT t.bookId AS bookId, COUNT(*) AS total, " +
             "SUM(t.downloadState = 'DONE') AS done, " +
@@ -446,12 +449,16 @@ abstract class BookDao {
             "SUM(t.downloadState = 'FAILED') AS failed, " +
             "SUM(t.downloadState = 'REMOVED') AS removed, " +
             "SUM(t.fileSize) AS bytes " +
-            "FROM book_tracks t JOIN books b ON b.bookId = t.bookId WHERE b.kind = 'BOOK' GROUP BY t.bookId",
+            "FROM book_tracks t JOIN books b ON b.bookId = t.bookId WHERE b.kind = 'BOOK' " +
+            "AND (t.unavailableSince IS NULL OR t.downloadState IN ('DONE', 'QUEUED', 'RUNNING')) GROUP BY t.bookId",
     )
     abstract fun observeBookDownloads(): Flow<List<BookDownloadRow>>
 
-    /** Von Hand: auch fehlgeschlagene und entfernte Dateien laden wieder; fertige bleiben. */
-    @Query("UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND downloadState IN ('NONE', 'FAILED', 'REMOVED')")
+    /** Von Hand: auch fehlgeschlagene und entfernte Dateien laden wieder; fertige bleiben, nicht mehr abrufbare fehlen. */
+    @Query(
+        "UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND downloadState IN ('NONE', 'FAILED', 'REMOVED') " +
+            "AND unavailableSince IS NULL",
+    )
     abstract suspend fun queueBookDownload(bookId: Long): Int
 
     /**
@@ -459,8 +466,9 @@ abstract class BookDao {
      * entfernt hat oder eine Datei gescheitert ist – das holt nur „Download“ von Hand zurück.
      */
     @Query(
-        "UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND downloadState = 'NONE' " +
-            "AND NOT EXISTS (SELECT 1 FROM book_tracks r WHERE r.bookId = :bookId AND r.downloadState IN ('REMOVED', 'FAILED'))",
+        "UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND downloadState = 'NONE' AND unavailableSince IS NULL " +
+            "AND NOT EXISTS (SELECT 1 FROM book_tracks r WHERE r.bookId = :bookId AND r.downloadState IN ('REMOVED', 'FAILED') " +
+            "AND r.unavailableSince IS NULL)",
     )
     abstract suspend fun queueBookDownloadAutomatic(bookId: Long): Int
 
@@ -553,7 +561,8 @@ abstract class BookDao {
         "SELECT b.bookId AS bookId, b.kind AS kind, b.serverId AS serverId, b.remoteId AS remoteId, b.title AS title, " +
             "b.author AS author, COUNT(t.trackIndex) AS total, COALESCE(SUM(t.downloadState = 'DONE'), 0) AS done, " +
             "COALESCE(SUM(CASE WHEN t.downloadState = 'DONE' THEN t.fileSize ELSE 0 END), 0) AS doneBytes " +
-            "FROM books b LEFT JOIN book_tracks t ON t.bookId = b.bookId GROUP BY b.bookId ORDER BY b.normTitle",
+            "FROM books b LEFT JOIN book_tracks t ON t.bookId = b.bookId AND (t.unavailableSince IS NULL OR t.downloadState = 'DONE') " +
+            "GROUP BY b.bookId ORDER BY b.normTitle",
     )
     abstract fun observeStoredBooks(): Flow<List<StoredBookRow>>
 }

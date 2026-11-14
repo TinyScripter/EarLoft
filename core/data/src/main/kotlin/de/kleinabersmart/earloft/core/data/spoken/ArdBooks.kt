@@ -37,7 +37,7 @@ data class ArdRefresh(val ok: Boolean, val newBooks: List<NewBook>)
  * Hörbücher und Hörspiele aus ARD Sounds (`books_improvements.md` M9). Ein Buch kommt in die Bibliothek, sobald es abgespielt,
  * geladen oder hinzugefügt wird ([add]) oder zu einer abonnierten Sendung gehört ([subscribe]); es liegt wie die übrigen in `books` (`serverId = `[ARD_BOOK_SERVER_ID], `remoteId` = die
  * Kennung von [ArdSoundsBooks]), je Teil eine Datei mit ihrer Adresse und ein Kapitel. Der Abgleich ([refresh]) nimmt neue Teile
- * auf, lässt geladene stehen, auch wenn ARD Sounds sie nicht mehr führt, und entfernt nie ein Buch.
+ * auf, lässt bei angefangenen Büchern jeden Teil an seinem Platz, auch wenn ARD Sounds ihn nicht mehr führt, und entfernt nie ein Buch.
  */
 @Singleton
 class ArdBooks @Inject constructor(
@@ -157,25 +157,30 @@ class ArdBooks @Inject constructor(
         return taken
     }
 
-    /** Ein Buch ohne veröffentlichte Teile: Es bleibt mit dem, was geladen ist, und gilt ab jetzt als abgelaufen. */
+    /**
+     * Ein Buch ohne veröffentlichte Teile: Es bleibt mit allen Teilen, die nicht geladenen gelten ab jetzt als nicht mehr abrufbar
+     * und das Buch als abgelaufen.
+     */
     private suspend fun markGone(existing: BookEntity) {
         val now = System.currentTimeMillis()
-        if ((existing.availableUntil ?: Long.MAX_VALUE) > now) dao.updateBook(existing.copy(availableUntil = now))
+        val parts = mergeArdParts(knownParts(existing.bookId), offered = emptyList(), now)
+        val until = ardAvailableUntil(parts, whenAllLoaded = existing.availableUntil?.coerceAtMost(now) ?: now)
+        if (until != existing.availableUntil) dao.updateBook(existing.copy(availableUntil = until))
+        saveParts(existing.bookId, parts)
     }
 
+    /**
+     * Speichert das Buch. Ein angefangenes Buch (Fortschritt, Lesezeichen oder Downloads) behält seine Teile an ihrem Platz und
+     * bekommt neue hinten dazu ([mergeArdParts]): Teile laufen bei ARD Sounds einzeln ab, und sonst verschöben sich Position,
+     * Lesezeichen, Kapitel und die Zuordnung der geladenen Dateien. Ein noch nicht angefangenes nimmt die Teile, wie sie sind.
+     */
     private suspend fun store(book: ArdBook, existing: BookEntity?, addedAt: Long? = null): Long {
-        val oldTracks = existing?.let { dao.tracks(it.bookId) }.orEmpty()
-        val tracks = mutableListOf<BookTrackEntity>()
-        var start = 0L
-        book.parts.forEachIndexed { index, part ->
-            tracks += BookTrackEntity(0, index, part.audioUrl, start, part.durationMs, part.mimeType)
-            start += part.durationMs
+        val known = existing?.let { knownParts(it.bookId) }.orEmpty()
+        val parts = if (existing != null && known.isNotEmpty() && isStarted(existing.bookId, known)) {
+            mergeArdParts(known, book.parts, System.currentTimeMillis())
+        } else {
+            freshArdParts(book.parts)
         }
-        // Ein geladener Teil, den ARD Sounds nicht mehr führt, bleibt samt der übrigen Dateien und Kapitel, wie er ist: Was offline
-        // da ist, soll hörbar bleiben, und die Positionen im Buch verschöben sich sonst.
-        val urls = tracks.mapTo(HashSet()) { it.remoteFileId }
-        val keepOld = oldTracks.any { it.downloadState != TrackDownload.NONE && it.remoteFileId !in urls }
-        val durationMs = if (keepOld) existing!!.durationMs else book.durationMs
         val entity = BookEntity(
             bookId = existing?.bookId ?: 0,
             serverId = ARD_BOOK_SERVER_ID,
@@ -186,7 +191,7 @@ class ArdBooks @Inject constructor(
             author = book.author,
             narrator = book.narrator,
             description = book.description,
-            durationMs = durationMs,
+            durationMs = parts.sumOf { it.track.durationMs },
             addedAt = existing?.addedAt ?: addedAt ?: System.currentTimeMillis(),
             // Die Dateien kommen mit dem Buch; der Abgleich der Server soll sie nicht nachladen wollen.
             detailsLoaded = true,
@@ -194,28 +199,51 @@ class ArdBooks @Inject constructor(
             webUrl = book.webUrl,
             publisher = book.publisher.ifEmpty { null },
             genres = book.category?.let(::genreOf),
-            availableUntil = book.availableUntil,
+            availableUntil = ardAvailableUntil(parts, whenAllLoaded = book.availableUntil),
         )
         val bookId = if (existing == null) dao.upsertBook(entity) else existing.bookId.also { if (entity != existing) dao.updateBook(entity) }
-        if (!keepOld) {
-            val chapters = if (book.parts.size < 2) {
-                emptyList()
-            } else {
-                tracks.mapIndexed { index, track ->
-                    BookChapterEntity(bookId, index, book.parts[index].title, track.startMs, track.startMs + track.durationMs)
-                }
-            }
-            val sameTracks = oldTracks.map { it.remoteFileId to it.durationMs } == tracks.map { it.remoteFileId to it.durationMs }
-            val oldChapters = if (sameTracks) dao.chapters(bookId).map { it.title } else null
-            if (!sameTracks || oldChapters != chapters.map { it.title }) dao.replaceDetails(bookId, tracks.map { it.copy(bookId = bookId) }, chapters)
-        }
+        saveParts(bookId, parts)
         if (existing != null && existing.coverUrl != book.imageUrl) covers.invalidate(bookId)
         return bookId
+    }
+
+    /** Die Teile des Buchs in der Bibliothek, mit den Kapitelnamen (bei nur einem Teil gibt es kein Kapitel). */
+    private suspend fun knownParts(bookId: Long): List<ArdBookPart> {
+        val titles = dao.chapters(bookId).associate { it.chapterIndex to it.title }
+        return dao.tracks(bookId).sortedBy { it.trackIndex }.map { ArdBookPart(it, titles[it.trackIndex].orEmpty(), it.unavailableSince) }
+    }
+
+    private suspend fun isStarted(bookId: Long, known: List<ArdBookPart>): Boolean {
+        if (known.any { it.track.downloadState in STARTED_DOWNLOADS }) return true
+        val progress = dao.progress(bookId)
+        if (progress != null && (progress.finished || progress.positionMs > 0)) return true
+        return dao.bookmarksOf(listOf(bookId)).any { !it.deleted }
+    }
+
+    /** Schreibt Dateien und Kapitel (je Teil eines, ab zwei Teilen), wenn sich etwas geändert hat. */
+    private suspend fun saveParts(bookId: Long, parts: List<ArdBookPart>) {
+        val tracks = parts.map { it.track.copy(bookId = bookId) }
+        val chapters = if (parts.size < 2) {
+            emptyList()
+        } else {
+            parts.mapIndexed { index, part ->
+                BookChapterEntity(bookId, index, part.title, part.track.startMs, part.track.startMs + part.track.durationMs)
+            }
+        }
+        // Der Download-Stand zählt nicht: Den behält [BookDao.replaceDetails] für gleich gebliebene Dateien ohnehin.
+        fun layout(list: List<BookTrackEntity>) =
+            list.sortedBy { it.trackIndex }.map { listOf(it.trackIndex, it.remoteFileId, it.startMs, it.durationMs, it.mimeType, it.unavailableSince) }
+        if (layout(dao.tracks(bookId)) != layout(tracks) || dao.chapters(bookId).sortedBy { it.chapterIndex } != chapters) {
+            dao.replaceDetails(bookId, tracks, chapters)
+        }
     }
 
     private companion object {
         const val TAG = "ArdBooks"
         const val MAX_NEW_PER_CHECK = 20
+
+        /** Downloads, die ein Buch als angefangen gelten lassen. */
+        val STARTED_DOWNLOADS = setOf(TrackDownload.DONE, TrackDownload.QUEUED, TrackDownload.RUNNING)
 
         /** Die Rubrik als Genre, wie ARD Sounds sie nennt. */
         fun genreOf(category: ArdCategory): String = when (category) {

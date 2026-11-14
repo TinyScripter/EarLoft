@@ -72,14 +72,15 @@ data class ArdPart(
 
 /**
  * Hörbücher und Hörspiele aus ARD Sounds (`books_improvements.md` M9) über dieselbe GraphQL-Schnittstelle wie die Podcasts
- * ([ArdSoundsApi]). Was ein Buch ist, entscheidet [ardBookKey]; jeder Fehler kommt als `IOException`.
+ * ([ArdSoundsApi]). Was ein Buch ist, entscheidet [ardBookKey]; jeder Fehler kommt als `IOException`, auch eine Antwort, die neben
+ * den Daten Fehler meldet (sonst gälte ein Buch mit fehlenden Daten als nicht mehr abrufbar).
  */
 @Singleton
 class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
 
     /** Die Sendungen einer Rubrik in der Reihenfolge von ARD Sounds. */
     suspend fun shows(category: ArdCategory): List<ArdShow> {
-        val data = api.query(CATEGORY_QUERY, buildJsonObject { put("id", category.id) }, CategoryData.serializer())
+        val data = api.query(CATEGORY_QUERY, buildJsonObject { put("id", category.id) }, CategoryData.serializer(), strict = true)
         return data.editorialCategory?.sections.orEmpty()
             .filter { it.type == "program_sets" }
             .flatMap { it.nodes.orEmpty() }
@@ -103,7 +104,7 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
             put("id", showId)
             put("first", SHOW_ITEM_LIMIT)
         }
-        val items = api.query(SHOW_ITEMS_QUERY, variables, ShowItemsData.serializer()).programSetByCoreId?.items?.nodes.orEmpty()
+        val items = api.query(SHOW_ITEMS_QUERY, variables, ShowItemsData.serializer(), strict = true).programSetByCoreId?.items?.nodes.orEmpty()
         return summaries(items.filterNot(::isTrailer))
     }
 
@@ -113,7 +114,7 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
             put("query", term)
             put("limit", SEARCH_LIMIT)
         }
-        val items = api.query(SEARCH_QUERY, variables, SearchItemsData.serializer()).search?.items?.nodes.orEmpty()
+        val items = api.query(SEARCH_QUERY, variables, SearchItemsData.serializer(), strict = true).search?.items?.nodes.orEmpty()
         return summaries(items.filter { it.category() != null })
     }
 
@@ -139,7 +140,7 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
             put("filter", filter)
             put("first", BOOK_PART_LIMIT)
         }
-        return api.query(BOOK_QUERY, variables, ItemsData.serializer()).items?.nodes.orEmpty()
+        return api.query(BOOK_QUERY, variables, ItemsData.serializer(), strict = true).items?.nodes.orEmpty()
     }
 
     private fun summaries(items: List<ItemNode>): List<ArdBookSummary> =
