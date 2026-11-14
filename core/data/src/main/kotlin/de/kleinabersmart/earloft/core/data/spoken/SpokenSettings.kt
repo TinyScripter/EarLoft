@@ -13,8 +13,10 @@ import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.sync.LocalSourcesDefault
+import de.kleinabersmart.earloft.core.model.AuthorSort
 import de.kleinabersmart.earloft.core.model.BookFilter
 import de.kleinabersmart.earloft.core.model.BookSort
+import de.kleinabersmart.earloft.core.model.SeriesSort
 import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import kotlinx.coroutines.flow.Flow
@@ -241,8 +243,27 @@ class SpokenSettings @Inject constructor(
         context.spokenSettingsDataStore.edit { it[KEY_BOOK_FILTER] = filter.name }
     }
 
+    /** Reihenfolge der Reiter „Serien“ und „Autoren“ (Standard: nach Name). */
+    val seriesSort: Flow<SeriesSort> = context.spokenSettingsDataStore.data.map { prefs ->
+        SeriesSort.entries.firstOrNull { it.name == prefs[KEY_SERIES_SORT] } ?: SeriesSort.NAME
+    }
+
+    suspend fun setSeriesSort(sort: SeriesSort) {
+        context.spokenSettingsDataStore.edit { it[KEY_SERIES_SORT] = sort.name }
+    }
+
+    val authorSort: Flow<AuthorSort> = context.spokenSettingsDataStore.data.map { prefs ->
+        AuthorSort.entries.firstOrNull { it.name == prefs[KEY_AUTHOR_SORT] } ?: AuthorSort.NAME
+    }
+
+    suspend fun setAuthorSort(sort: AuthorSort) {
+        context.spokenSettingsDataStore.edit { it[KEY_AUTHOR_SORT] = sort.name }
+    }
+
     private companion object {
         val KEY_BOOK_SORT = stringPreferencesKey("book_sort")
+        val KEY_SERIES_SORT = stringPreferencesKey("series_sort")
+        val KEY_AUTHOR_SORT = stringPreferencesKey("author_sort")
         val KEY_BOOK_FILTER = stringPreferencesKey("book_filter")
         val KEY_BOOK_MOBILE = booleanPreferencesKey("book_mobile_data")
         val KEY_ASK_MOBILE_STREAM = booleanPreferencesKey("ask_before_mobile_streaming")

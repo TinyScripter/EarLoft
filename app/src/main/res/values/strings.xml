@@ -800,6 +800,7 @@
     <string name="book_remaining">%1$s left</string>
     <string name="sort_author">Author</string>
     <string name="sort_duration">Length</string>
+    <string name="sort_book_count">Most books</string>
     <string name="episode_filter_all">All</string>
     <string name="episode_filter_unheard">Unheard</string>
     <string name="episode_filter_started">Started</string>

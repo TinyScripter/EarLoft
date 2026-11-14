@@ -793,6 +793,7 @@
     <string name="book_remaining">noch %1$s</string>
     <string name="sort_author">Autor</string>
     <string name="sort_duration">Dauer</string>
+    <string name="sort_book_count">Meiste Bücher</string>
     <string name="episode_filter_all">Alle</string>
     <string name="episode_filter_unheard">Ungehört</string>
     <string name="episode_filter_started">Angefangen</string>

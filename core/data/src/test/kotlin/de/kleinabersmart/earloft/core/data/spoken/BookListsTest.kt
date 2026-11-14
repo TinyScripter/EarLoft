@@ -1,6 +1,8 @@
 package de.kleinabersmart.earloft.core.data.spoken
 
+import de.kleinabersmart.earloft.core.model.AuthorSort
 import de.kleinabersmart.earloft.core.model.Book
+import de.kleinabersmart.earloft.core.model.SeriesSort
 import de.kleinabersmart.earloft.core.model.BookFilter
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookProgress
@@ -59,5 +61,23 @@ class BookListsTest {
         assertEquals(listOf(2L), ids(BookSort.TITLE, BookFilter.STARTED))
         assertEquals(listOf(3L), ids(BookSort.TITLE, BookFilter.FINISHED))
         assertEquals(listOf(1L, 4L), ids(BookSort.TITLE, BookFilter.DOWNLOADED, downloaded = setOf(1L)))
+    }
+
+    @Test
+    fun `series by recently played and authors by number of books`() {
+        val more = books + listOf(
+            book(5, "Kurz", "Zora Zeh", series = "Anthologie #1", progress = progress(10, updatedAt = 90)),
+            book(6, "Ohne", "Bert Bau", series = "Bunte Reihe #1"),
+        )
+        val series = more.seriesGroups()
+        assertEquals(listOf("Anthologie", "Bunte Reihe", "Saga"), series.sortedSeries(SeriesSort.NAME).map { it.name })
+        // Saga zuletzt vor 70 (Band eins beendet), Anthologie vor 90; die nie gehörte Reihe bleibt hinten.
+        assertEquals(listOf("Anthologie", "Saga", "Bunte Reihe"), series.sortedSeries(SeriesSort.RECENTLY_PLAYED).map { it.name })
+        val authors = more.authorGroups()
+        assertEquals(listOf("Anna Alt", "Bert Bau", "Zora Zeh"), authors.sortedAuthors(AuthorSort.NAME).map { it.name })
+        // Gleich viele bleiben nach Name.
+        assertEquals(listOf("Anna Alt", "Bert Bau", "Zora Zeh"), authors.sortedAuthors(AuthorSort.BOOK_COUNT).map { it.name })
+        val oneMore = (more + book(7, "Noch eins", "Zora Zeh")).authorGroups()
+        assertEquals(listOf("Zora Zeh", "Anna Alt", "Bert Bau"), oneMore.sortedAuthors(AuthorSort.BOOK_COUNT).map { it.name })
     }
 }

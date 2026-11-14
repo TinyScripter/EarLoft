@@ -3,6 +3,8 @@ package de.kleinabersmart.earloft.core.data.spoken
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
 import de.kleinabersmart.earloft.core.common.sortKey
 import de.kleinabersmart.earloft.core.model.AuthorHit
+import de.kleinabersmart.earloft.core.model.AuthorSort
+import de.kleinabersmart.earloft.core.model.SeriesSort
 import de.kleinabersmart.earloft.core.model.Book
 import de.kleinabersmart.earloft.core.model.BookFilter
 import de.kleinabersmart.earloft.core.model.BookSort
@@ -67,6 +69,21 @@ fun List<BookWithProgress>.sortedAndFiltered(sort: BookSort, filter: BookFilter,
         BookSort.DURATION -> shown.sortedByDescending { it.book.durationMs }
         BookSort.YEAR -> shown.sortedByDescending { it.book.publishedYear?.take(4)?.toIntOrNull() ?: Int.MIN_VALUE }
     }
+}
+
+/**
+ * Serien (nach Name, wie [seriesGroups] sie liefert) in der Reihenfolge [sort]: „Zuletzt gehört“ nach der letzten Änderung des
+ * Fortschritts irgendeines Bands; Serien, von denen nichts angefangen ist, bleiben nach Name dahinter.
+ */
+fun List<BookGroup>.sortedSeries(sort: SeriesSort): List<BookGroup> = when (sort) {
+    SeriesSort.NAME -> this
+    SeriesSort.RECENTLY_PLAYED -> sortedByDescending { group -> group.books.maxOfOrNull { it.progress?.updatedAt ?: Long.MIN_VALUE } }
+}
+
+/** Autoren (nach Name) in der Reihenfolge [sort]; gleich viele Bücher bleiben nach Name. */
+fun List<BookGroup>.sortedAuthors(sort: AuthorSort): List<BookGroup> = when (sort) {
+    AuthorSort.NAME -> this
+    AuthorSort.BOOK_COUNT -> sortedByDescending { it.books.size }
 }
 
 /** Nach Serie (ohne Bandnummer, ein Buch kann in mehreren stehen); Bücher darin nach Band, dann Titel. */

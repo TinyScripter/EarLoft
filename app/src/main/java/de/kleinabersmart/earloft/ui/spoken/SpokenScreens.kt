@@ -25,6 +25,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import de.kleinabersmart.earloft.core.model.BookFilter
 import de.kleinabersmart.earloft.core.model.BookSort
+import de.kleinabersmart.earloft.core.model.AuthorSort
+import de.kleinabersmart.earloft.core.model.SeriesSort
 import de.kleinabersmart.earloft.core.model.authorLine
 import de.kleinabersmart.earloft.core.model.bookAuthors
 import de.kleinabersmart.earloft.core.model.parseSeries
@@ -39,6 +41,8 @@ import de.kleinabersmart.earloft.core.data.spoken.BookGroup
 import de.kleinabersmart.earloft.core.data.spoken.authorGroups
 import de.kleinabersmart.earloft.core.data.spoken.narratorGroups
 import de.kleinabersmart.earloft.core.data.spoken.seriesGroups
+import de.kleinabersmart.earloft.core.data.spoken.sortedAuthors
+import de.kleinabersmart.earloft.core.data.spoken.sortedSeries
 import de.kleinabersmart.earloft.navigation.BookGroupKind
 import de.kleinabersmart.earloft.ui.components.LazyGridFastScroller
 import de.kleinabersmart.earloft.ui.library.BackButton
@@ -197,13 +201,20 @@ fun SpokenLibraryScreen(
     val shownBooks by viewModel.shownBooks.collectAsStateWithLifecycle()
     val bookSort by viewModel.bookSort.collectAsStateWithLifecycle()
     val bookFilter by viewModel.bookFilter.collectAsStateWithLifecycle()
+    val seriesSort by viewModel.seriesSort.collectAsStateWithLifecycle()
+    val authorSort by viewModel.authorSort.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { BookTab.entries.size }
     val scope = rememberCoroutineScope()
 
-    // Wie in der Musik-Bibliothek steht die Sortierung des Reiters „Alle“ im Kopf der App links von der Lupe.
+    // Wie in der Musik-Bibliothek steht die Sortierung des Reiters im Kopf der App links von der Lupe.
     HeaderAction {
-        if (BookTab.entries[pagerState.targetPage] == BookTab.ALL && !booksState.valueOrNull.isNullOrEmpty()) {
-            SortButton(bookSort, BookSort.entries, { stringResource(it.label) }, viewModel::setBookSort)
+        if (!booksState.valueOrNull.isNullOrEmpty()) {
+            when (BookTab.entries[pagerState.targetPage]) {
+                BookTab.ALL -> SortButton(bookSort, BookSort.entries, { stringResource(it.label) }, viewModel::setBookSort)
+                BookTab.SERIES -> SortButton(seriesSort, SeriesSort.entries, { stringResource(it.label) }, viewModel::setSeriesSort)
+                BookTab.AUTHORS -> SortButton(authorSort, AuthorSort.entries, { stringResource(it.label) }, viewModel::setAuthorSort)
+                BookTab.STATS -> Unit
+            }
         }
     }
 
@@ -215,8 +226,8 @@ fun SpokenLibraryScreen(
             booksState.valueOrNull.isNullOrEmpty() -> NoBooksHint(signInNeeded, onEditServer, viewModel::syncNow)
             else -> {
                 val all = booksState.valueOrNull.orEmpty()
-                val series = remember(all) { all.seriesGroups() }
-                val authors = remember(all) { all.authorGroups() }
+                val series = remember(all, seriesSort) { all.seriesGroups().sortedSeries(seriesSort) }
+                val authors = remember(all, authorSort) { all.authorGroups().sortedAuthors(authorSort) }
                 PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
                     BookTab.entries.forEachIndexed { index, tab ->
                         Tab(
@@ -254,8 +265,12 @@ fun SpokenLibraryScreen(
                                 resetKey = bookSort to bookFilter,
                             )
                         }
-                        BookTab.SERIES -> BookGroupList(series) { onGroupClick(BookGroupKind.SERIES, it) }
-                        BookTab.AUTHORS -> AuthorGrid(authors) { onGroupClick(BookGroupKind.AUTHOR, it) }
+                        BookTab.SERIES -> BookGroupList(series, byName = seriesSort == SeriesSort.NAME, resetKey = seriesSort) {
+                            onGroupClick(BookGroupKind.SERIES, it)
+                        }
+                        BookTab.AUTHORS -> AuthorGrid(authors, byName = authorSort == AuthorSort.NAME, resetKey = authorSort) {
+                            onGroupClick(BookGroupKind.AUTHOR, it)
+                        }
                         BookTab.STATS -> BookStatsScreen(onBookClick)
                     }
                 }
@@ -324,6 +339,30 @@ private fun BookSort.scrollLabel(): ((BookWithProgress) -> String)? = when (this
     BookSort.RECENTLY_ADDED, BookSort.RECENTLY_PLAYED, BookSort.DURATION -> null
 }
 
+private val SeriesSort.label: Int
+    get() = when (this) {
+        SeriesSort.NAME -> R.string.sort_name
+        SeriesSort.RECENTLY_PLAYED -> R.string.sort_recently_played
+    }
+
+private val AuthorSort.label: Int
+    get() = when (this) {
+        AuthorSort.NAME -> R.string.sort_name
+        AuthorSort.BOOK_COUNT -> R.string.sort_book_count
+    }
+
+/** Wechselt die Reihenfolge ([resetKey]), beginnt die Liste wieder oben. */
+@Composable
+private fun ResetScroll(resetKey: Any?, scrollToTop: suspend () -> Unit) {
+    var shownKey by rememberSaveable { mutableStateOf(resetKey?.toString()) }
+    LaunchedEffect(resetKey) {
+        if (resetKey?.toString() != shownKey) {
+            shownKey = resetKey?.toString()
+            scrollToTop()
+        }
+    }
+}
+
 private val BookSort.label: Int
     get() = when (this) {
         BookSort.TITLE -> R.string.sort_title
@@ -359,15 +398,16 @@ private val BookFilter.label: Int
 
 /**
  * Autoren als Raster, zwei pro Reihe: Autorenbild (von Audiobookshelf, sonst aus dem Internet, wenn die Option an ist), darunter
- * Name und Anzahl der Bücher. Ohne Bild bleibt das Cover des ersten Buchs.
+ * Name und Anzahl der Bücher. Ohne Bild bleibt das Cover des ersten Buchs. Den Schnellscroller gibt es nur nach Name ([byName]).
  */
 @Composable
-private fun AuthorGrid(authors: List<BookGroup>, onClick: (String) -> Unit) {
+private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?, onClick: (String) -> Unit) {
     if (authors.isEmpty()) {
         EmptyHint(stringResource(R.string.spoken_no_authors))
         return
     }
     val state = rememberLazyGridState()
+    ResetScroll(resetKey) { state.scrollToItem(0) }
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -411,18 +451,19 @@ private fun AuthorGrid(authors: List<BookGroup>, onClick: (String) -> Unit) {
                 }
             }
         }
-        LazyGridFastScroller(state, labelAt = { index -> letterOf(authors.getOrNull(index)?.name.orEmpty().sortKey()) })
+        if (byName) LazyGridFastScroller(state, labelAt = { index -> letterOf(authors.getOrNull(index)?.name.orEmpty().sortKey()) })
     }
 }
 
-/** Serien bzw. Autoren mit dem Cover des ersten Buchs und der Anzahl. */
+/** Serien mit dem Cover des ersten Buchs und der Anzahl; Buchstaben-Gruppen und Schnellscroller nur nach Name ([byName]). */
 @Composable
-private fun BookGroupList(groups: List<BookGroup>, onClick: (String) -> Unit) {
+private fun BookGroupList(groups: List<BookGroup>, byName: Boolean, resetKey: Any?, onClick: (String) -> Unit) {
     if (groups.isEmpty()) {
         EmptyHint(stringResource(R.string.spoken_no_series))
         return
     }
     val state = rememberLazyListState()
+    ResetScroll(resetKey) { state.scrollToItem(0) }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(vertical = 8.dp)) {
             groupedItems(groups, key = { it.name }) { group ->
@@ -434,7 +475,7 @@ private fun BookGroupList(groups: List<BookGroup>, onClick: (String) -> Unit) {
                 )
             }
         }
-        LazyListFastScroller(state, labelAt = { index -> letterOf(groups.getOrNull(index)?.name.orEmpty().sortKey()) })
+        if (byName) LazyListFastScroller(state, labelAt = { index -> letterOf(groups.getOrNull(index)?.name.orEmpty().sortKey()) })
     }
 }
 

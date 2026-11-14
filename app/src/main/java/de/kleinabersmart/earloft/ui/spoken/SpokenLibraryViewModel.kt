@@ -9,7 +9,9 @@ import de.kleinabersmart.earloft.core.data.podcast.EpisodeQueue
 import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.data.spoken.sortedAndFiltered
+import de.kleinabersmart.earloft.core.model.AuthorSort
 import de.kleinabersmart.earloft.core.model.BookFilter
+import de.kleinabersmart.earloft.core.model.SeriesSort
 import de.kleinabersmart.earloft.core.model.BookSort
 import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.model.BookWithProgress
@@ -77,6 +79,20 @@ class SpokenLibraryViewModel @Inject constructor(
     ) { all, sort, filter, downloaded -> all.sortedAndFiltered(sort, filter, downloaded) }
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val seriesSort: StateFlow<SeriesSort> = settings.seriesSort
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SeriesSort.NAME)
+
+    val authorSort: StateFlow<AuthorSort> = settings.authorSort
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AuthorSort.NAME)
+
+    fun setSeriesSort(sort: SeriesSort) {
+        viewModelScope.launch { settings.setSeriesSort(sort) }
+    }
+
+    fun setAuthorSort(sort: AuthorSort) {
+        viewModelScope.launch { settings.setAuthorSort(sort) }
+    }
 
     fun setBookSort(sort: BookSort) {
         viewModelScope.launch { settings.setBookSort(sort) }
