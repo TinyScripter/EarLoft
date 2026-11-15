@@ -28,12 +28,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -112,10 +114,24 @@ private fun PlaylistContent(
     actions: SongActions,
     modifier: Modifier = Modifier,
 ) {
-    // Beim Umsortieren eine Arbeitskopie; erst „Speichern“ übernimmt sie, Zurück verwirft sie.
+    // Beim Umsortieren eine Arbeitskopie; erst „Speichern“ übernimmt sie, Zurück verwirft sie. Modus und Reihenfolge (als
+    // `entryId`s) überleben Drehen und Prozessende (Review D28).
     val order = remember { mutableStateListOf<PlaylistEntry>() }
-    var editing by remember { mutableStateOf(false) }
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var savedOrder by rememberSaveable { mutableStateOf(LongArray(0)) }
     BackHandler(enabled = editing) { editing = false }
+    val entries = (state as? LoadState.Ready)?.value?.entries
+    LaunchedEffect(editing, entries) {
+        if (!editing || entries == null) return@LaunchedEffect
+        if (order.isEmpty()) {
+            // Nach dem Drehen: die gemerkte Reihenfolge; was inzwischen dazukam, dahinter.
+            val byId = entries.associateBy { it.entryId }
+            val kept = savedOrder.toList().mapNotNull { byId[it] }
+            val keptIds = kept.mapTo(HashSet()) { it.entryId }
+            order.addAll(kept + entries.filter { it.entryId !in keptIds })
+        }
+        snapshotFlow { order.map { it.entryId }.toLongArray() }.collect { if (it.isNotEmpty()) savedOrder = it }
+    }
     Column(modifier.fillMaxSize()) {
         if (editing) {
             TopAppBar(
