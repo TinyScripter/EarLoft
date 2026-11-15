@@ -1172,7 +1172,7 @@
     <string name="settings_setup_again_summary">Schritt für Schritt durch die wichtigsten Einstellungen</string>
     <string name="settings_section_backup">Sicherung</string>
     <string name="settings_backup_export">Sicherung erstellen</string>
-    <string name="settings_backup_export_summary">Server, Abos, Playlists, Fortschritt, Statistik und Einstellungen in einer Datei – ohne Passwörter, API-Keys und Anmeldungen</string>
+    <string name="settings_backup_export_summary">Server, Abos, Playlists, Fortschritt, Statistik und Einstellungen in einer Datei – ohne Passwörter, API-Keys und Anmeldungen. Feed-Adressen bleiben, wie sie sind, bei bezahlten Feeds also samt persönlichem Schlüssel.</string>
     <string name="settings_backup_import">Sicherung wiederherstellen</string>
     <string name="settings_backup_import_summary">Ergänzt, was fehlt; die Einstellungen werden ersetzt</string>
     <string name="settings_backup_import_title">Sicherung wiederherstellen?</string>

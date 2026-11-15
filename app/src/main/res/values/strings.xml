@@ -1179,7 +1179,7 @@
     <string name="settings_setup_again_summary">Step by step through the main settings</string>
     <string name="settings_section_backup">Backup</string>
     <string name="settings_backup_export">Create backup</string>
-    <string name="settings_backup_export_summary">Servers, subscriptions, playlists, progress, statistics and settings in one file – without passwords, API keys or sign-ins</string>
+    <string name="settings_backup_export_summary">Servers, subscriptions, playlists, progress, statistics and settings in one file – without passwords, API keys or sign-ins. Feed addresses stay as they are, so a paid feed keeps its personal key.</string>
     <string name="settings_backup_import">Restore backup</string>
     <string name="settings_backup_import_summary">Adds what is missing; the settings are replaced</string>
     <string name="settings_backup_import_title">Restore backup?</string>

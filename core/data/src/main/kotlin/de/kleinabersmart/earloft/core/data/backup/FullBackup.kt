@@ -34,7 +34,8 @@ class FullBackupException(val newerVersion: Boolean, message: String, cause: Thr
 
 /**
  * Komplett-Sicherung als Datei (Einstellungen → Allgemein → Sicherung, Konzept 10 „Sicherheit“): die Nutzerdaten wie in
- * `user.db` und die Einstellungen, **ohne** Passwörter, API-Keys und Tokens – der DataStore `secrets` gehört nie dazu.
+ * `user.db` und die Einstellungen, **ohne** Passwörter, API-Keys und Anmeldungen – der DataStore `secrets` gehört nie dazu.
+ * Feed-Adressen kommen unverändert mit, auch wenn ein Anbieter einen persönlichen Schlüssel hineinschreibt (Review D34).
  * Ein ZIP mit `earloft-backup.json` (Format, Zeitpunkt, Schemaversion), `user.db` (eigene Kopie; ältere Fassungen werden
  * beim Einlesen migriert) und `settings.json` ([SettingsBackup]).
  *
