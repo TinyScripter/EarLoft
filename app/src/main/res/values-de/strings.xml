@@ -607,7 +607,7 @@
     <string name="spoken_mobile_stream_play">Abspielen</string>
     <string name="spoken_mobile_stream_always">Immer erlauben</string>
     <string name="settings_ask_mobile_stream">Vor dem Streamen über mobile Daten fragen</string>
-    <string name="settings_ask_mobile_stream_summary">Bücher und Folgen, die nicht geladen sind, beim Start in der App. „Abspielen“ gilt, bis die App beendet wird. Nicht gefragt wird beim Fortsetzen über die Benachrichtigung, eine Kopfhörertaste, das Widget oder Android Auto und bei der nächsten Folge.</string>
+    <string name="settings_ask_mobile_stream_summary">Bücher und Folgen, die nicht geladen sind, beim Start in der App. „Abspielen“ gilt, bis die App beendet wird. Nicht gefragt wird beim Fortsetzen des Geladenen (im Player, über die Benachrichtigung, eine Kopfhörertaste oder das Widget), bei Starts aus Android Auto oder von der Uhr und wenn die nächste Folge von selbst weiterläuft.</string>
     <string name="spoken_resumed_from_server">Weiter an der Stelle von einem anderen Gerät (%1$s)</string>
     <string name="spoken_abs_add">Audiobookshelf-Server hinzufügen</string>
     <string name="spoken_abs_none">Noch kein Audiobookshelf-Server.</string>
