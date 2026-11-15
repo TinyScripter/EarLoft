@@ -37,7 +37,7 @@ class SeriesProgressTest {
             book(4, "Saga #4"),
         )
         assertEquals(4L, series.next?.book?.id)
-        assertEquals(4.0, series.nextVolume)
+        assertEquals("4", series.nextVolume)
         assertEquals(SeriesStep.NEXT, series.step)
         assertEquals(2, series.finished)
         assertEquals(20L, series.lastFinishedAt)
@@ -84,10 +84,28 @@ class SeriesProgressTest {
             book(4, "Saga #3.5"),
             book(9, "Ohne Nummer"),
         )
-        assertEquals(3L to 3.0, nextInSeries(all[0], all)?.let { it.first.book.id to it.second })
+        assertEquals(3L to "3", nextInSeries(all[0], all)?.let { it.first.book.id to it.second })
         assertEquals(3L, nextInSeries(all[1], all)?.first?.book?.id)
         assertEquals(4L, nextInSeries(all[2], all)?.first?.book?.id)
         assertNull(nextInSeries(all[3], all))
         assertNull(nextInSeries(all[4], all))
+    }
+
+    @Test
+    fun `volumes that are not just a number stay in their series and in order`() {
+        val all = listOf(
+            book(3, "Saga #3"),
+            book(21, "Saga #2a, Welt #1"),
+            book(2, "Saga #2", finished(10)),
+            book(15, "Saga #1,5", finished(5)),
+            book(1, "Saga #1-3"),
+        )
+        val groups = all.seriesGroups()
+        assertEquals(listOf("Saga", "Welt"), groups.map { it.name })
+        assertEquals(listOf(1L, 15L, 2L, 21L, 3L), groups.first().books.map { it.book.id })
+        assertEquals(21L to "2a", nextInSeries(all[2], all)?.let { it.first.book.id to it.second })
+        val saga = groups.first().let { seriesProgress(it.name, it.books) }
+        assertEquals(21L, saga.next?.book?.id)
+        assertEquals("2a", saga.nextVolume)
     }
 }

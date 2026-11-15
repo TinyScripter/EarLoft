@@ -60,7 +60,7 @@ class BookPlayerViewModel @javax.inject.Inject constructor(
      * Ist das laufende Buch zu Ende gehört, der nächste Band seiner Serie mit Nummer (Karte im Player, books_improvements M2);
      * er startet nie von selbst.
      */
-    val nextInSeries: StateFlow<Pair<BookWithProgress, Double?>?> = book
+    val nextInSeries: StateFlow<Pair<BookWithProgress, String?>?> = book
         .map { current -> current?.takeIf { it.book.kind == BookKind.BOOK && it.progress?.finished == true }?.book?.id }
         .distinctUntilChanged()
         .flatMapLatest { finishedId ->

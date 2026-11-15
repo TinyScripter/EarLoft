@@ -87,23 +87,44 @@ data class Book(
     val starred: Boolean get() = starredAt != null
 }
 
-/** Eine Serie eines Buchs, mit Band, falls der Server ihn mitliefert. */
-data class SeriesRef(val name: String, val sequence: Double?)
+/**
+ * Eine Serie eines Buchs, mit Band, falls bekannt: [volume] so, wie er dasteht („2“, „2a“, „1-3“, „1,5“), [sequence] die
+ * Reihenfolge daraus ([volumeSequence]); `null`, wenn der Band nicht mit einer Zahl beginnt.
+ */
+data class SeriesRef(val name: String, val sequence: Double?, val volume: String? = null)
 
 /**
  * Audiobookshelf liefert den Serienamen samt Band („Carl Mørck #10“, mehrere Serien durch „, “ getrennt, nach dem
- * Band). Hier wird beides getrennt; ein „#“ ohne Zahl gehört zum Namen.
+ * Band). Hier wird beides getrennt; alles hinter „ #“ ist der Band (Audiobookshelf erlaubt dort beliebigen Text), ein „#“
+ * ohne etwas dahinter gehört zum Namen.
  */
 fun parseSeries(raw: String): List<SeriesRef> =
     raw.split(SERIES_SEPARATOR)
         .map { it.trim() }
         .filter { it.isNotEmpty() }
         .map { part ->
-            SERIES_PART.find(part)?.let { SeriesRef(it.groupValues[1].trim(), it.groupValues[2].toDouble()) } ?: SeriesRef(part, null)
+            SERIES_PART.find(part)?.let {
+                val volume = it.groupValues[2]
+                SeriesRef(it.groupValues[1].trim(), volumeSequence(volume), volume)
+            } ?: SeriesRef(part, null)
         }
 
-private val SERIES_PART = Regex("""^(.*?)\s+#(\d+(?:\.\d+)?)$""")
-private val SERIES_SEPARATOR = Regex("""(?<=#[\d.]{1,10}),\s*""")
+/**
+ * Reihenfolge eines Bands: die führende Zahl („1,5“ wie „1.5“). Steht danach noch etwas („2a“, „1-3“), kommt er gleich
+ * nach dem Band mit der bloßen Zahl, also „2“, „2a“, „3“. `null` ohne führende Zahl („IV“).
+ */
+fun volumeSequence(volume: String): Double? {
+    val match = VOLUME_NUMBER.find(volume.trim()) ?: return null
+    val number = match.groupValues[1].replace(',', '.').toDouble()
+    return if (match.groupValues[2].isBlank()) number else number + VOLUME_SUFFIX_STEP
+}
+
+private val SERIES_PART = Regex("""^(.*)\s+#\s*(\S.*?)\s*$""")
+
+/** Zwischen zwei Serien steht „, “ nach dem Band; „1,5“ ohne Leerzeichen bleibt ein Band. */
+private val SERIES_SEPARATOR = Regex("""(?<=#[^\s#]{1,20}),\s+""")
+private val VOLUME_NUMBER = Regex("""^(\d+(?:[.,]\d+)?)(.*)$""")
+private const val VOLUME_SUFFIX_STEP = 0.001
 
 /**
  * Die einzelnen Namen eines Autoren- bzw. Sprechereintrags: Audiobookshelf verbindet mehrere mit „, “ (`authorName`,

@@ -636,7 +636,7 @@ private const val NOTES_TRANSCRIPT = 1
 
 /** Karte über dem Cover eines zu Ende gehörten Buchs: nächster Band der Serie mit Abspielen. */
 @Composable
-private fun NextVolumeCard(bookId: Long, title: String, volume: Double?, onPlay: () -> Unit, modifier: Modifier = Modifier) {
+private fun NextVolumeCard(bookId: Long, title: String, volume: String?, onPlay: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,

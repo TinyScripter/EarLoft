@@ -402,7 +402,7 @@ private fun BookGrid(
                         }
                     }
                     items(section.books, key = { it.book.id }) { item ->
-                        val volume = series?.let { name -> parseSeries(item.book.series).firstOrNull { it.name == name }?.sequence }
+                        val volume = series?.let { name -> parseSeries(item.book.series).firstOrNull { it.name == name }?.volume }
                         card(item, volume?.let(::volumeNumber), series != null)
                     }
                 }
@@ -770,7 +770,7 @@ fun BookGroupScreen(
                         emptyMap()
                     } else {
                         group.books.mapNotNull { item ->
-                            parseSeries(item.book.series).firstOrNull { it.name == name }?.sequence?.let { item.book.id to volumeNumber(it) }
+                            parseSeries(item.book.series).firstOrNull { it.name == name }?.volume?.let { item.book.id to volumeNumber(it) }
                         }.toMap()
                     }
                 }

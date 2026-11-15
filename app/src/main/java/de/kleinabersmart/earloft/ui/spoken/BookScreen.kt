@@ -486,20 +486,27 @@ private fun PeopleLine(
 /** „Die Tribute von Panem · Band 2“; ohne Band nur der Name. */
 @Composable
 private fun seriesLabel(series: SeriesRef): String {
-    val sequence = series.sequence ?: return series.name
-    return stringResource(R.string.book_series_volume, series.name, volumeNumber(sequence))
+    val volume = series.volume ?: return series.name
+    return stringResource(R.string.book_series_volume, series.name, volumeNumber(volume))
 }
 
 /** Ob der Untertitel nur eine der Serien samt Band nennt („Carl Mørck 10“, „Carl Mørck, Band 10“). */
 internal fun isSeriesOnly(subtitle: String, series: String): Boolean {
     fun plain(text: String) = text.lowercase().filter { it.isLetterOrDigit() }.replace("band", "").replace("book", "")
     val wanted = plain(subtitle)
-    return parseSeries(series).any { plain("${it.name}${it.sequence?.let(::volumeNumber).orEmpty()}") == wanted }
+    return parseSeries(series).any { plain("${it.name}${it.volume?.let(::volumeNumber).orEmpty()}") == wanted }
 }
 
-/** Band ohne „.0“; „2.5“ bleibt „2,5“ bzw. „2.5“ je nach Sprache. */
-internal fun volumeNumber(sequence: Double): String =
-    if (sequence % 1.0 == 0.0) sequence.toLong().toString() else NumberFormat.getInstance().format(sequence)
+/**
+ * Ein Band zum Anzeigen: eine bloße Zahl ohne „.0“ und führende Nullen, „2.5“ bzw. „2,5“ je nach Sprache; alles andere
+ * („2a“, „1-3“) bleibt, wie es ist.
+ */
+internal fun volumeNumber(volume: String): String {
+    val number = volume.trim().takeIf { it.matches(PLAIN_NUMBER) }?.replace(',', '.')?.toDouble() ?: return volume
+    return if (number % 1.0 == 0.0) number.toLong().toString() else NumberFormat.getInstance().format(number)
+}
+
+private val PLAIN_NUMBER = Regex("""\d+(?:[.,]\d+)?""")
 
 /**
  * Die Sprache eines Buchs in der Sprache der App: Audiobookshelf führt sie meist englisch („German“) oder als Code („de“);

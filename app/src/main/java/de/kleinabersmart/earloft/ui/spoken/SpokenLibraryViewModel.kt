@@ -66,7 +66,7 @@ class SpokenLibraryViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     /** Start-Regal „Serie fortsetzen“: je Serie der nächste Band mit seiner Nummer ([continueSeries]). */
-    val continueSeries: StateFlow<List<Pair<BookWithProgress, Double?>>> = books.books()
+    val continueSeries: StateFlow<List<Pair<BookWithProgress, String?>>> = books.books()
         .map { all -> all.continueSeries().map { (book, series) -> book to series.nextVolume } }
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

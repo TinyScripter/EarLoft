@@ -17,14 +17,14 @@ enum class SeriesStep {
 
 /**
  * Stand einer Serie (`books_improvements.md` M2), rein lokal aus dem Fortschritt: die Bände in Reihenfolge ([seriesGroups]),
- * wie viele beendet sind und mit welchem Band es weitergeht ([next] samt Nummer; `null`, wenn alle beendet sind).
+ * wie viele beendet sind und mit welchem Band es weitergeht ([next] samt Band, wie er dasteht; `null`, wenn alle beendet sind).
  */
 data class SeriesProgress(
     val name: String,
     val books: List<BookWithProgress>,
     val finished: Int,
     val next: BookWithProgress?,
-    val nextVolume: Double?,
+    val nextVolume: String?,
     val step: SeriesStep?,
     /** Zeitpunkt des zuletzt beendeten Bands (für „Serie fortsetzen“); 0 = keiner. */
     val lastFinishedAt: Long,
@@ -37,8 +37,11 @@ private val BookWithProgress.isStarted: Boolean
 
 private val BookWithProgress.isFinished: Boolean get() = progress?.finished == true
 
-/** Band dieses Buchs in der Serie [name]; `null` ohne Nummer. */
+/** Stelle dieses Buchs in der Serie [name] ([de.kleinabersmart.earloft.core.model.volumeSequence]); `null` ohne Nummer. */
 fun BookWithProgress.volumeIn(name: String): Double? = parseSeries(book.series).firstOrNull { it.name == name }?.sequence
+
+/** Band dieses Buchs in der Serie [name], wie er dasteht („2a“); `null` ohne Band. */
+fun BookWithProgress.volumeTextIn(name: String): String? = parseSeries(book.series).firstOrNull { it.name == name }?.volume
 
 /**
  * Stand der Serie [name] aus ihren Bänden [books] (in Reihenfolge). Weiter geht es mit dem zuletzt gehörten angefangenen
@@ -59,7 +62,7 @@ fun seriesProgress(name: String, books: List<BookWithProgress>): SeriesProgress 
         books = books,
         finished = books.count { it.isFinished },
         next = next,
-        nextVolume = next?.volumeIn(name),
+        nextVolume = next?.volumeTextIn(name),
         step = step,
         lastFinishedAt = books.filter { it.isFinished }.maxOfOrNull { it.progress?.updatedAt ?: 0 } ?: 0,
     )
@@ -82,9 +85,9 @@ fun List<BookWithProgress>.continueSeries(limit: Int = 12): List<Pair<BookWithPr
 
 /**
  * Der nächste Band nach dem beendeten Buch [current] (Karte im Player): in einer seiner Serien der erste nicht beendete mit
- * höherer Nummer. `null` ohne Serie, ohne Nummer oder wenn es keinen gibt.
+ * höherer Nummer, samt seinem Band. `null` ohne Serie, ohne Nummer oder wenn es keinen gibt.
  */
-fun nextInSeries(current: BookWithProgress, all: List<BookWithProgress>): Pair<BookWithProgress, Double?>? {
+fun nextInSeries(current: BookWithProgress, all: List<BookWithProgress>): Pair<BookWithProgress, String?>? {
     val groups = all.seriesGroups().associateBy { it.name }
     for (ref in parseSeries(current.book.series)) {
         val sequence = ref.sequence ?: continue
@@ -93,7 +96,7 @@ fun nextInSeries(current: BookWithProgress, all: List<BookWithProgress>): Pair<B
             val volume = item.volumeIn(ref.name)
             item.book.id != current.book.id && volume != null && volume > sequence && !item.isFinished
         } ?: continue
-        return next to next.volumeIn(ref.name)
+        return next to next.volumeTextIn(ref.name)
     }
     return null
 }

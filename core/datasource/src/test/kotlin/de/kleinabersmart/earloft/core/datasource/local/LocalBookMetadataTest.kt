@@ -27,6 +27,11 @@ class LocalBookMetadataTest {
         // Eine Datei direkt in „Audiobooks“ hat keinen Ordner.
         assertEquals(FolderMetadata(), FolderMetadata.parse("Audiobooks/Buch.m4b"))
         assertEquals("S", FolderMetadata.parse("Audiobooks/A/S/Ohne Nummer/").seriesEntry)
+        // Ein Band mit Buchstaben (Zwischenband).
+        assertEquals(
+            FolderMetadata(author = "A", series = "S", sequence = "2a", title = "Titel"),
+            FolderMetadata.parse("Audiobooks/A/S/02a – Titel/"),
+        )
     }
 
     private fun file(name: String, size: Long = 1) = SideFile(name, "content://x/$name", size, 0)

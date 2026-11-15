@@ -124,9 +124,9 @@ internal object LocalBookLayout {
 
     /**
      * 1: ID3-Kapitel einzelner MP3, Untertitel und Jahr aus den Tags (Etappe 4). 2: Ordnernamen, Begleitdateien, Serie und
-     * Beschreibung aus den Tags (`books_improvements.md` M7).
+     * Beschreibung aus den Tags (`books_improvements.md` M7). 3: Bände mit Buchstaben im Ordnernamen („2a – Titel“).
      */
-    private const val READ_VERSION = 2
+    private const val READ_VERSION = 3
 
     fun bookAuthor(book: LocalBookFiles): String =
         commonValue(book.files.map { it.albumArtist }) ?: commonValue(book.files.map { it.artist }).orEmpty()

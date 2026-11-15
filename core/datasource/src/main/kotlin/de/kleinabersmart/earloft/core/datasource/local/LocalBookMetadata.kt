@@ -30,7 +30,7 @@ internal data class FolderMetadata(
         // ICU (Android) verlangt auch die schließende Klammer escaped.
         private val NARRATOR = Regex("""\s*\{([^\{\}]+)\}\s*$""")
         private val SEQUENCE = Regex(
-            """^(?:(?:vol(?:ume)?|band|book|buch|teil|folge|part|nr|no)\.?\s*)?(\d{1,4}(?:[.,]\d+)?)\s*(?:[-–—.:]\s+|\s+[-–—]\s*)(.+)$""",
+            """^(?:(?:vol(?:ume)?|band|book|buch|teil|folge|part|nr|no)\.?\s*)?(\d{1,4}(?:[.,]\d+)?[a-z]?)\s*(?:[-–—.:]\s+|\s+[-–—]\s*)(.+)$""",
             RegexOption.IGNORE_CASE,
         )
         private val YEAR = Regex("""^((?:1[5-9]|20)\d\d)\s*[-–—]\s+(.+)$""")
