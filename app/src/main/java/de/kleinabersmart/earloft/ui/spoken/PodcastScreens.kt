@@ -1160,7 +1160,8 @@ private fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: (
 /**
  * Eine Folge der Abo-Seite bzw. ihrer Suche. Während der Mehrfachauswahl ([selection], Konzept 12.5) schaltet ein Tipp sie
  * dazu oder weg, die Knöpfe rechts entfallen und eine ausgewählte trägt einen Haken über dem Bild. [swipe]: Wischgesten
- * ([EpisodeSwipeBox]), nicht während der Auswahl. [podcast]: in Listen aus mehreren Abos („Gemerkt“) der Name darunter.
+ * ([EpisodeSwipeBox]), nicht während der Auswahl und nicht in einem Pager („Gemerkt“). [podcast]: in Listen aus mehreren Abos
+ * („Gemerkt“) der Name darunter.
  */
 @Composable
 internal fun EpisodeRow(

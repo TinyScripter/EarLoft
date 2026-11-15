@@ -31,7 +31,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.podcast.EpisodeHistoryEntry
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
-import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.download.DownloadStart
 import de.kleinabersmart.earloft.core.download.EpisodeDownloadProgress
 import de.kleinabersmart.earloft.core.download.EpisodeDownloads
@@ -67,7 +66,6 @@ class PodcastStarredHistoryViewModel @Inject constructor(
     downloadProgress: EpisodeDownloadProgress,
     private val launcher: BookLauncher,
     private val playback: PlaybackConnection,
-    podcastSettings: PodcastSettings,
 ) : ViewModel() {
 
     val starred: StateFlow<LoadState<List<BookWithProgress>>> = podcasts.starredEpisodes()
@@ -83,9 +81,6 @@ class PodcastStarredHistoryViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     val progress: StateFlow<Map<Long, Float>> = downloadProgress.fractions
-
-    val swipeActions: StateFlow<Boolean> = podcastSettings.swipeActions
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Die Folge, die gerade läuft (nicht: pausiert). */
     val playingBookId: StateFlow<Long?> = playback.state
@@ -119,7 +114,8 @@ class PodcastStarredHistoryViewModel @Inject constructor(
 
 /**
  * Reiter „Gemerkt“ der Podcast-Bibliothek: alle gemerkten Folgen, zuletzt gemerkte zuerst, wie die Zeilen der Abo-Seite
- * (mit dem Podcast darunter, Wischen und Mehrfachauswahl über [selection]).
+ * (mit dem Podcast darunter und Mehrfachauswahl über [selection]). Ohne Wischen auf den Zeilen: Der Reiter sitzt im Pager der
+ * Bibliothek, und waagerechtes Wischen wechselt dort den Reiter (sonst nahm die Zeile die Geste, Review Abschnitt 5).
  */
 @Composable
 fun StarredEpisodes(
@@ -131,7 +127,6 @@ fun StarredEpisodes(
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.progress.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
-    val swipe by viewModel.swipeActions.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     LaunchedEffect(viewModel) {
@@ -153,7 +148,7 @@ fun StarredEpisodes(
                     onDownload = { viewModel.download(item.book.id) },
                     onRemoveDownload = { viewModel.removeDownload(item.book.id) },
                     selection = selection,
-                    swipe = swipe,
+                    swipe = false,
                     podcast = item.book.author,
                 )
             }
