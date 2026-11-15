@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.notification
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -153,7 +154,7 @@ class AppNewContentNotifier @Inject constructor(
      * „Laden“ laufen im Hintergrund ([NewEpisodeActionReceiver]).
      */
     private fun episodeActions(bookId: Long, download: Boolean): List<NotificationCompat.Action> {
-        val play = Intent(context, MainActivity::class.java)
+        val play = Intent().setComponent(ComponentName(context, PLAY_ALIAS))
             .setAction(ACTION_PLAY_EPISODE)
             .putExtra(NewEpisodeActionReceiver.EXTRA_BOOK_ID, bookId)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -266,6 +267,9 @@ class AppNewContentNotifier @Inject constructor(
     companion object {
         /** „Abspielen“ aus der Benachrichtigung über eine neue Folge; die `bookId` steht in [NewEpisodeActionReceiver.EXTRA_BOOK_ID]. */
         const val ACTION_PLAY_EPISODE = "de.kleinabersmart.earloft.NEW_EPISODE_PLAY"
+
+        /** Nicht exportierter Alias der [MainActivity] (Manifest): Nur über ihn startet „Abspielen“ eine Folge (Review D30). */
+        val PLAY_ALIAS: String = MainActivity::class.java.name.substringBeforeLast('.') + ".NotificationPlay"
 
         fun notificationId(mode: SpokenMode): Int = NOTIFICATION_ID_BASE + mode.ordinal
 

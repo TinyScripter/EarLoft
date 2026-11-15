@@ -118,6 +118,8 @@ class MainActivity : ComponentActivity() {
      */
     private fun playNewEpisode(intent: Intent) {
         if (intent.action != AppNewContentNotifier.ACTION_PLAY_EPISODE) return
+        // Nur aus der eigenen Benachrichtigung: Die MainActivity ist exportiert, der Alias nicht (Review D30).
+        if (intent.component?.className != AppNewContentNotifier.PLAY_ALIAS) return
         val bookId = intent.getLongExtra(NewEpisodeActionReceiver.EXTRA_BOOK_ID, -1).takeIf { it >= 0 } ?: return
         NotificationManagerCompat.from(this).cancel(AppNewContentNotifier.notificationId(SpokenMode.PODCASTS))
         lifecycleScope.launch {

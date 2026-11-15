@@ -64,6 +64,15 @@
         </activity>
 
         <!--
+            „Abspielen“ aus der Benachrichtigung über eine neue Folge: nur über diesen nicht exportierten Weg, sonst könnte jede App
+            die Wiedergabe einer beliebigen Folge starten (Review D30).
+        -->
+        <activity-alias
+            android:name=".NotificationPlay"
+            android:exported="false"
+            android:targetActivity=".MainActivity" />
+
+        <!--
             Geteilte Podcast-Adressen (Konzept 13) öffnen die Vorschau; EarLoft nimmt sich aus dem eigenen Teilen-Menü aus.
             Über diese Weiterleitung, sonst öffnete das Teilen eine zweite MainActivity in einer eigenen Aufgabe.
         -->

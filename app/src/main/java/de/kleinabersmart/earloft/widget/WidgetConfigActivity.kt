@@ -73,7 +73,10 @@ class WidgetConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setResult(RESULT_CANCELED, result())
-        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+        // Die Activity ist exportiert (der Launcher startet sie): Eine fremde oder ungültige Kennung ließ Glance werfen, und der
+        // Absturz nahm die Wiedergabe im selben Prozess mit (Review D29).
+        val provider = AppWidgetManager.getInstance(this).getAppWidgetInfo(appWidgetId)?.provider
+        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID || provider?.packageName != packageName) {
             finish()
             return
         }
