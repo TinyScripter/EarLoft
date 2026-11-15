@@ -150,6 +150,13 @@ private val MIN_COVER = 32.dp
 private val CHAPTER_MIN_HEIGHT = 104.dp
 
 /**
+ * Ab dieser Höhe darf der Titel zwei bzw. drei Zeilen haben (eine Zeile etwa 20 dp; dazu Kapitel, Untertitel und Knöpfe).
+ * Im hochgezogenen Widget ist die Textspalte schmal, weil das Cover die Höhe füllt; mit einer Zeile blieb vom Titel wenig.
+ */
+private val TITLE_TWO_LINES_MIN_HEIGHT = 140.dp
+private val TITLE_THREE_LINES_MIN_HEIGHT = 180.dp
+
+/**
  * [entry]: was das Widget für seine Bereiche zeigt. Steht es nicht im Player (dort läuft ein anderer Bereich), gibt es nur
  * „Abspielen“, und das setzt es erst fort; die übrigen Knöpfe wirkten sonst auf das Laufende. Lief aus [areas] noch nie
  * etwas, startet „Abspielen“ wie eine Medientaste, was zuletzt lief – nur, wenn das Widget für alle Bereiche gilt; sonst
@@ -200,7 +207,11 @@ private fun NowPlayingContent(state: WidgetState, entry: WidgetEntry?, areas: Se
             // Track-Titel
             Text(
                 text = nowPlaying?.title ?: context.getString(R.string.player_nothing_playing),
-                maxLines = 1,
+                maxLines = when {
+                    LocalSize.current.height >= TITLE_THREE_LINES_MIN_HEIGHT -> 3
+                    LocalSize.current.height >= TITLE_TWO_LINES_MIN_HEIGHT -> 2
+                    else -> 1
+                },
                 style = TextStyle(
                     color = GlanceTheme.colors.onSurface,
                     fontSize = 15.sp,
