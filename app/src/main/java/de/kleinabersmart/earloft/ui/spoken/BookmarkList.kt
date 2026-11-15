@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,41 +43,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
-import de.kleinabersmart.earloft.core.data.spoken.Bookmarks
 import de.kleinabersmart.earloft.core.model.BookTimeline
 import de.kleinabersmart.earloft.core.model.Bookmark
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
 import javax.inject.Inject
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
-
-/** Lesezeichen eines Buchs bzw. einer Folge (Konzept 12.6); Player und Buchseite teilen sich das. */
-@HiltViewModel
-class BookmarksViewModel @Inject constructor(private val bookmarks: Bookmarks) : ViewModel() {
-    fun of(bookId: Long): Flow<List<Bookmark>> = bookmarks.of(bookId)
-
-    fun add(bookId: Long, positionMs: Long, title: String) {
-        viewModelScope.launch { bookmarks.add(bookId, positionMs, title) }
-    }
-
-    fun edit(bookmark: Bookmark, title: String, note: String) {
-        viewModelScope.launch { bookmarks.edit(bookmark.id, title, note) }
-    }
-
-    fun delete(bookmark: Bookmark) {
-        viewModelScope.launch { bookmarks.delete(bookmark.id) }
-    }
-
-    fun restore(bookmark: Bookmark) {
-        viewModelScope.launch { bookmarks.restore(bookmark) }
-    }
-}
 
 /** Titel eines neuen Lesezeichens: „Kapitelname · 12:34“, ohne Kapitel nur die Zeit. */
 internal fun bookmarkTitle(resources: Resources, timeline: BookTimeline?, positionMs: Long): String {
@@ -201,10 +174,14 @@ internal fun rememberBookmarkActions(
     val snackbars = LocalSnackbars.current
     val deleted = stringResource(R.string.spoken_bookmark_deleted)
     val undo = stringResource(R.string.spoken_bookmark_undo)
+    // Immer das aktuelle: Nach einem Wechsel des Buchs schrieb der gemerkte Aufruf sonst in den Zustand des vorigen, und
+    // „Rückgängig“ fehlte (Review D36).
+    val currentOnDeleted by rememberUpdatedState(onDeleted)
     return remember(viewModel, snackbars) {
         BookmarkActions(viewModel) { bookmark ->
-            if (onDeleted != null) {
-                onDeleted(bookmark)
+            val ownUndo = currentOnDeleted
+            if (ownUndo != null) {
+                ownUndo(bookmark)
             } else {
                 snackbars.show(deleted, SnackbarDuration.Long, actionLabel = undo, onAction = { viewModel.restore(bookmark) })
             }

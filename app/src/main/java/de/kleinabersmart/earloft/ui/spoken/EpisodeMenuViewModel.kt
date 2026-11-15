@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
+import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.spoken.ArdBooks
@@ -16,6 +17,9 @@ import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.playback.ServicePlayer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -36,7 +40,14 @@ class EpisodeMenuViewModel @Inject constructor(
     private val servicePlayer: ServicePlayer,
     private val launcher: BookLauncher,
     private val ardBooks: ArdBooks,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
+
+    /**
+     * Aktionen laufen im App-Scope auf dem Main-Thread zu Ende: Die Snackbar mit „Rückgängig“ überlebt die Seite, und eine
+     * Aktion über viele Folgen bräche beim Zurück sonst mittendrin ab (Review D13).
+     */
+    private fun act(block: suspend CoroutineScope.() -> Unit): Job = applicationScope.launch(Dispatchers.Main.immediate, block = block)
 
     /** Das Buch bzw. die Folge im Player; ein Buch aus ARD Sounds lässt sich dann nicht entfernen. */
     val loadedBookId: StateFlow<Long?> = playback.state
@@ -47,7 +58,7 @@ class EpisodeMenuViewModel @Inject constructor(
     fun removeFromLibrary(item: BookWithProgress) {
         val id = item.book.id
         if (!item.book.isArdSounds || loadedBookId.value == id) return
-        viewModelScope.launch {
+        act {
             bookDownloads.remove(id)
             ardBooks.remove(id)
         }
@@ -90,16 +101,16 @@ class EpisodeMenuViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     fun playNext(bookId: Long) {
-        viewModelScope.launch { continueListening.playNext(bookId) }
+        act { continueListening.playNext(bookId) }
     }
 
     /** Merken (Stern) bzw. nicht mehr merken, auch für mehrere Folgen der Mehrfachauswahl. */
     fun setStarred(items: List<BookWithProgress>, starred: Boolean) {
-        viewModelScope.launch { podcasts.setStarred(items.filter { it.isEpisode }.map { it.book.id }, starred) }
+        act { podcasts.setStarred(items.filter { it.isEpisode }.map { it.book.id }, starred) }
     }
 
     fun setQueued(bookId: Long, queued: Boolean) {
-        viewModelScope.launch { if (queued) continueListening.append(bookId) else continueListening.remove(bookId) }
+        act { if (queued) continueListening.append(bookId) else continueListening.remove(bookId) }
     }
 
     /**
@@ -110,7 +121,7 @@ class EpisodeMenuViewModel @Inject constructor(
         val id = item.book.id
         // Im Player geladen: Der hält an und schreibt den Stand selbst, sonst überschriebe er ihn beim nächsten Speichern.
         if (played && servicePlayer.markFinished(id, playNext = false)) return
-        viewModelScope.launch {
+        act {
             if (item.isEpisode) {
                 podcasts.setPlayed(id, played)
             } else {
@@ -124,7 +135,7 @@ class EpisodeMenuViewModel @Inject constructor(
     fun setPlayedAndPlayNext(item: BookWithProgress) {
         val id = item.book.id
         if (servicePlayer.markFinished(id, playNext = true)) return
-        viewModelScope.launch {
+        act {
             podcasts.setPlayed(id, true)
             continueListening.next(id)?.let(launcher::play)
         }
@@ -134,7 +145,7 @@ class EpisodeMenuViewModel @Inject constructor(
         val bookId = item.book.id
         // Ein nie gestartetes Buch hat nichts zurückzusetzen. Ein zurückgesetztes geht wie „ungehört“ aus „Weiterhören“.
         if (!item.isEpisode && item.progress == null) return
-        viewModelScope.launch {
+        act {
             if (item.isEpisode) {
                 podcasts.resetPosition(bookId)
             } else {
@@ -147,11 +158,11 @@ class EpisodeMenuViewModel @Inject constructor(
 
     /** „Aus Weiterhören entfernen“ (nur Bücher): Der Stand bleibt; bei Audiobookshelf auf allen Geräten. */
     fun hideFromContinueListening(item: BookWithProgress) {
-        viewModelScope.launch { progressSync.hideFromContinueListening(item.book.id) }
+        act { progressSync.hideFromContinueListening(item.book.id) }
     }
 
     fun removeDownload(item: BookWithProgress) {
-        viewModelScope.launch { if (item.isEpisode) downloads.remove(item.book.id) else bookDownloads.remove(item.book.id) }
+        act { if (item.isEpisode) downloads.remove(item.book.id) else bookDownloads.remove(item.book.id) }
     }
 
     // --- Mehrfachauswahl und Wischen (Konzept 12.5): dieselben Aktionen für mehrere Folgen, in der Reihenfolge der Liste.
@@ -163,38 +174,38 @@ class EpisodeMenuViewModel @Inject constructor(
     fun setPlayed(items: List<BookWithProgress>, played: Boolean, onUndo: (suspend () -> Unit) -> Unit = {}) {
         val ids = items.map { it.book.id }.filter { !played || !servicePlayer.markFinished(it, playNext = false) }
         if (ids.isEmpty()) return
-        viewModelScope.launch { onUndo(podcasts.setPlayed(ids, played)) }
+        act { onUndo(podcasts.setPlayed(ids, played)) }
     }
 
     fun undo(restore: suspend () -> Unit) {
-        viewModelScope.launch { restore() }
+        act { restore() }
     }
 
     /** Ans Ende der Warteschlange, in der Reihenfolge der Auswahl; was schon darin steht, bleibt, wo es ist. */
     fun append(items: List<BookWithProgress>) {
         val inQueue = queued.value
-        viewModelScope.launch { items.filter { it.book.id !in inQueue }.forEach { continueListening.append(it.book.id) } }
+        act { items.filter { it.book.id !in inQueue }.forEach { continueListening.append(it.book.id) } }
     }
 
     /** Direkt hinter die vorderste Folge, in der Reihenfolge der Auswahl (die vorderste selbst bleibt, wo sie ist). */
     fun playNext(items: List<BookWithProgress>) {
-        viewModelScope.launch { continueListening.playNext(items.map { it.book.id }) }
+        act { continueListening.playNext(items.map { it.book.id }) }
     }
 
     fun removeFromQueue(items: List<BookWithProgress>) {
-        viewModelScope.launch { items.forEach { continueListening.remove(it.book.id) } }
+        act { items.forEach { continueListening.remove(it.book.id) } }
     }
 
     fun removeDownloads(items: List<BookWithProgress>) {
         val present = downloaded.value
-        viewModelScope.launch { items.filter { it.book.id in present }.forEach { downloads.remove(it.book.id) } }
+        act { items.filter { it.book.id in present }.forEach { downloads.remove(it.book.id) } }
     }
 
     /** Lädt alle noch nicht geladenen Folgen (nicht die vom Gerät); [onHint] wie bei [download], höchstens einmal. */
     fun download(items: List<BookWithProgress>, onHint: (Int) -> Unit) {
         val present = downloaded.value
         val missing = items.filter { !it.book.isLocal && it.book.id !in present }
-        viewModelScope.launch {
+        act {
             val starts = missing.map { downloads.download(it.book.id) }
             when {
                 DownloadStart.OFFLINE in starts -> onHint(R.string.podcast_download_offline)
@@ -205,7 +216,7 @@ class EpisodeMenuViewModel @Inject constructor(
 
     /** [onHint] bekommt einen Text, wenn der Download nicht gleich beginnt (offline, wartet auf WLAN). */
     fun download(item: BookWithProgress, onHint: (Int) -> Unit) {
-        viewModelScope.launch {
+        act {
             val start = if (item.isEpisode) downloads.download(item.book.id) else bookDownloads.download(item.book.id)
             when (start) {
                 DownloadStart.OFFLINE -> onHint(R.string.podcast_download_offline)
