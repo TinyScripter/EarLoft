@@ -46,7 +46,8 @@ internal object ExchangeEffects {
         else -> code > SILENCE_DEFAULT
     }
 
-    fun boostOf(code: Int): Int? = boostSteps.firstOrNull { it.first == code }?.second
+    /** Stufe 0 ist ausdrücklich „unverändert“ (0 dB), nicht die Vorgabe des Bereichs; 1 und 2 sowie Unbekanntes gelten als Vorgabe. */
+    fun boostOf(code: Int): Int? = if (code == VOLUME_UNCHANGED) 0 else boostSteps.firstOrNull { it.first == code }?.second
 
     fun speedCode(speed: Float?): Double = speed?.toDouble() ?: SPEED_DEFAULT
 

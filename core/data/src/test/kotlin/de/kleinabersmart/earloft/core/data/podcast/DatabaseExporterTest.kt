@@ -3,7 +3,9 @@ package de.kleinabersmart.earloft.core.data.podcast
 import androidx.room.Room
 import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
 import androidx.test.core.app.ApplicationProvider
+import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
+import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.network.podcast.PodcastFeedApi
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsApi
@@ -31,6 +33,7 @@ class DatabaseExporterTest {
     private lateinit var db: EarLoftDatabase
     private lateinit var importer: DatabaseImporter
     private lateinit var exporter: DatabaseExporter
+    private lateinit var settings: SpokenSettings
 
     @Before
     fun setUp() = runTest {
@@ -47,7 +50,10 @@ class DatabaseExporterTest {
             .build()
         val repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db))
         importer = DatabaseImporter(repository, db.podcastDao(), db.bookDao(), db.statsDao())
-        exporter = DatabaseExporter(db.podcastDao(), db.bookDao(), db.statsDao())
+        settings = SpokenSettings(ApplicationProvider.getApplicationContext())
+        // Der DataStore bleibt zwischen den Tests derselben JVM erhalten.
+        settings.setPodcastEffects(SpokenEffects())
+        exporter = DatabaseExporter(db.podcastDao(), db.bookDao(), db.statsDao(), settings)
         repository.subscribe(FEED_URL)
     }
 
@@ -78,7 +84,7 @@ class DatabaseExporterTest {
         // Das archivierte Abo (der Test-Feed liefert dieselben zwei Folgen) mit seiner Hörzeit ohne Folge in der App.
         assertEquals(DatabaseExportResult(feeds = 2, episodes = 6), result)
         val read = DatabaseReader.read(file)
-        assertEquals(listOf(ImportFeed(FEED_URL, "Test-Podcast", true), ImportFeed(OLD_URL, "Test-Podcast", false)), read.feeds.sortedBy { !it.active })
+        assertEquals(listOf(ImportFeed(FEED_URL, "Test-Podcast", true, volumeBoostDb = 0), ImportFeed(OLD_URL, "Test-Podcast", false, volumeBoostDb = 0)), read.feeds.sortedBy { !it.active })
         // Gelesen wird nur, was Fortschritt oder Hörzeit hat.
         assertEquals(listOf("old-1"), read.episodes.filter { it.feedUrl == OLD_URL }.map { it.guid })
         val byGuid = read.episodes.filter { it.feedUrl != OLD_URL }.associateBy { it.guid }
@@ -138,7 +144,7 @@ class DatabaseExporterTest {
 
         exporter.export(file, rssBridge = null)
 
-        assertEquals(ImportFeed(ARD_URL, "Kalk & Welk", active = false), DatabaseReader.read(file).feeds.single { it.url == ARD_URL })
+        assertEquals(ImportFeed(ARD_URL, "Kalk & Welk", active = false, volumeBoostDb = 0), DatabaseReader.read(file).feeds.single { it.url == ARD_URL })
         db.clearAllTables()
         importer.import(DatabaseReader.read(file))
         assertEquals(false, db.podcastDao().feedByUrl(ARD_URL)!!.archived)
@@ -161,6 +167,30 @@ class DatabaseExporterTest {
         with(db.podcastDao().feedByUrl(FEED_URL)!!) {
             assertEquals(listOf<Any?>(1.5f, true, 6, 30, 45), listOf(speed, skipSilence, volumeBoostDb, skipIntroS, skipOutroS))
         }
+    }
+
+    @Test
+    fun `an explicit boost of 0 dB is read as 0 and not as the default of the area`() = runTest {
+        val feedId = db.podcastDao().feedByUrl(FEED_URL)!!.feedId
+        db.podcastDao().setEffects(feedId, speed = null, skipSilence = null, volumeBoostDb = 0)
+        val file = folder.newFile("export.db")
+
+        exporter.export(file, rssBridge = null)
+
+        assertEquals(0, DatabaseReader.read(file).feeds.single().volumeBoostDb)
+        db.clearAllTables()
+        importer.import(DatabaseReader.read(file))
+        assertEquals(0, db.podcastDao().feedByUrl(FEED_URL)!!.volumeBoostDb)
+    }
+
+    @Test
+    fun `a subscription without its own boost goes out with the boost of the area`() = runTest {
+        settings.setPodcastEffects(SpokenEffects(volumeBoostDb = 6))
+        val file = folder.newFile("export.db")
+
+        exporter.export(file, rssBridge = null)
+
+        assertEquals(6, DatabaseReader.read(file).feeds.single().volumeBoostDb)
     }
 
     @Test

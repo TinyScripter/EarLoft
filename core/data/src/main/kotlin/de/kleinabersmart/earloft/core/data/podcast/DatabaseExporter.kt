@@ -6,6 +6,7 @@ import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.dao.StatsDao
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
+import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsBridgeUrl
@@ -35,6 +36,7 @@ class DatabaseExporter @Inject constructor(
     private val podcastDao: PodcastDao,
     private val bookDao: BookDao,
     private val statsDao: StatsDao,
+    private val settings: SpokenSettings,
 ) {
     /** Schreibt nach [file] (eine vorhandene Datei wird ersetzt); [rssBridge]: Instanz für Sendungen aus ARD Sounds, `null` = keine. */
     suspend fun export(file: File, rssBridge: String?): DatabaseExportResult {
@@ -91,6 +93,8 @@ class DatabaseExporter @Inject constructor(
 
     private suspend fun buildFeeds(rssBridge: String?): List<OutFeed> {
         val progress = bookDao.observeAllProgress().first().associateBy { it.bookId }
+        // Das Austauschformat kennt keine Vorgabe der Lautstärke (Stufe 0 gilt dort ausdrücklich); es geht mit, was man hört.
+        val areaBoostDb = settings.podcastEffects.first().volumeBoostDb
         val stats = statsDao.all().filter { it.kind == BookKind.EPISODE }.groupBy { it.groupKey to it.itemKey }.toMutableMap()
 
         val result = LinkedHashMap<String, OutFeed>()
@@ -102,7 +106,7 @@ class DatabaseExporter @Inject constructor(
                 active = !feed.archived && (feed.hasRssFeed || bridgeUrl != null),
                 speed = feed.speed,
                 skipSilence = feed.skipSilence,
-                volumeBoostDb = feed.volumeBoostDb,
+                volumeBoostDb = feed.volumeBoostDb ?: areaBoostDb,
                 skipIntroS = feed.skipIntroS,
                 skipOutroS = feed.skipOutroS,
             )
