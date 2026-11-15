@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.BookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
 import de.kleinabersmart.earloft.core.model.filterEpisodes
@@ -395,6 +396,21 @@ class PodcastRepositoryTest {
         assertEquals(listOf("B"), repository.starredEpisodes().first().map { it.book.title })
         assertEquals(1, repository.setStarred(listOf(b, b), starred = false))
         assertEquals(emptyList<String>(), repository.starredEpisodes().first().map { it.book.title })
+    }
+
+    @Test
+    fun `episodes with a bookmark stay when the feed drops them, deleted bookmarks do not count`() = runTest {
+        val feedId = subscribe()
+        val (b, c) = listOf("B", "C").map { idOf(feedId, it) }
+        val bookmark = BookmarkEntity(bookId = b, positionMs = 5_000, title = "Stelle", createdAt = 1, updatedAt = 1)
+        db.bookDao().insertBookmark(bookmark)
+        db.bookDao().insertBookmark(bookmark.copy(bookId = c, deleted = true))
+
+        served = feed("A" to "Thu, 30 Oct 2025 06:00:00 GMT")
+        repository.refresh(feedId)
+
+        assertEquals(listOf("A", "B"), repository.episodes(feedId).first().map { it.book.title })
+        assertEquals(null, db.bookDao().book(c))
     }
 
     @Test
