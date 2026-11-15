@@ -96,7 +96,7 @@ class BookProgressSync @Inject constructor(
     suspend fun hideFromContinueListening(bookId: Long) {
         val progress = dao.progress(bookId) ?: return
         if (progress.hidden) return
-        dao.upsertProgress(progress.copy(hidden = true, updatedAt = System.currentTimeMillis(), dirty = true))
+        dao.upsertProgress(progress.hiddenAt(System.currentTimeMillis()))
         push(bookId)
     }
 
@@ -108,7 +108,7 @@ class BookProgressSync @Inject constructor(
         val now = System.currentTimeMillis()
         val shown = bookIds.mapNotNull { dao.progress(it) }.filter { !it.hidden }
         if (shown.isEmpty()) return
-        shown.forEach { dao.upsertProgress(it.copy(hidden = true, updatedAt = now, dirty = true)) }
+        shown.forEach { dao.upsertProgress(it.hiddenAt(now)) }
         BookProgressWorker.schedule(context)
     }
 
@@ -203,6 +203,17 @@ class BookProgressSync @Inject constructor(
         }
         return true
     }
+
+    /**
+     * Aus „Weiterhören“ genommen. Ein beendetes Buch ohne `finishedAt` (aus einer Sicherung, oder eine Zeile, die es nicht
+     * gesetzt hat) behält dabei das bisherige `updatedAt` als Zeitpunkt des Endes: sonst rückte das Löschen seiner Downloads.
+     */
+    private fun BookProgressEntity.hiddenAt(now: Long) = copy(
+        hidden = true,
+        updatedAt = now,
+        dirty = true,
+        finishedAt = finishedAt ?: updatedAt.takeIf { finished },
+    )
 
     private fun BookProgressEntity.toUpdate() = AbsProgressUpdate(
         currentTime = positionMs / 1000.0,

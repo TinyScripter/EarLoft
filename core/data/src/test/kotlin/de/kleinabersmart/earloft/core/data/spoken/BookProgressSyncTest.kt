@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.data.repository.PlaybackPolicy
 import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
+import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
@@ -112,6 +113,35 @@ class BookProgressSyncTest {
         assertEquals(finishedAt, stored.finishedAt)
         assertEquals(true, stored.updatedAt > finishedAt)
         assertEquals(listOf(finishedAt), db.bookDao().observeFinishedBookDownloads().first().map { it.finishedAt })
+    }
+
+    @Test
+    fun `hiding a book finished without a recorded time keeps its last change as the time it was finished`() = runBlocking {
+        // So kommt ein beendetes Buch aus einer alten Zeile oder einer fremden Quelle: ohne `finishedAt`.
+        db.bookDao().upsertProgress(BookProgressEntity(bookId, 3_600_000, 3_600_000, finished = true, updatedAt = 1_000))
+        val other = db.bookDao().upsertBook(
+            BookEntity(
+                serverId = LOCAL_BOOK_SERVER_ID, kind = BookKind.BOOK, remoteId = "zwei", title = "Zwei", normTitle = "zwei",
+                author = "Autor", durationMs = 3_600_000, detailsLoaded = true,
+            ),
+        )
+        db.bookDao().upsertProgress(BookProgressEntity(other, 3_600_000, 3_600_000, finished = true, updatedAt = 2_000))
+
+        sync.hideFromContinueListening(bookId)
+        sync.hideFromContinueListening(listOf(other))
+
+        assertEquals(1_000L, db.bookDao().progress(bookId)!!.finishedAt)
+        assertEquals(2_000L, db.bookDao().progress(other)!!.finishedAt)
+        assertEquals(true, db.bookDao().progress(bookId)!!.updatedAt > 1_000)
+    }
+
+    @Test
+    fun `hiding a book that is not finished sets no time it was finished`() = runBlocking {
+        sync.record(bookId, 60_000, 3_600_000, finished = false)
+
+        sync.hideFromContinueListening(bookId)
+
+        assertNull(db.bookDao().progress(bookId)!!.finishedAt)
     }
 
     @Test

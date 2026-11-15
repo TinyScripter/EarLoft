@@ -96,7 +96,7 @@ import java.io.File
         BookmarkEntity::class,
         EpisodePersonEntity::class,
     ],
-    version = 42,
+    version = 43,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -140,6 +140,7 @@ import java.io.File
         AutoMigration(from = 39, to = 40),
         AutoMigration(from = 40, to = 41),
         AutoMigration(from = 41, to = 42),
+        AutoMigration(from = 42, to = 43, spec = EarLoftDatabase.FillFinishedAt::class),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {
@@ -233,6 +234,16 @@ abstract class EarLoftDatabase : RoomDatabase() {
                 "UPDATE books SET libraryId = (SELECT s.libraryId FROM spoken_servers s WHERE s.serverId = books.serverId) " +
                     "WHERE kind = 'BOOK'",
             )
+        }
+    }
+
+    /**
+     * v42 → v43 (ohne Schemaänderung): Vor v42 beendete Bücher bekommen ihr `finishedAt` aus dem bisherigen `updatedAt`. Sonst
+     * rückte „Aus Weiterhören entfernen“ bei ihnen den Zeitpunkt weiter, ab dem ihre Downloads gelöscht werden.
+     */
+    class FillFinishedAt : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            db.execSQL("UPDATE book_progress SET finishedAt = updatedAt WHERE finished = 1 AND finishedAt IS NULL")
         }
     }
 

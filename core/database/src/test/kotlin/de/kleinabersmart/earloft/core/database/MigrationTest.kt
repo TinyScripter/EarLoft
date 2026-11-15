@@ -308,6 +308,35 @@ class MigrationTest {
     }
 
     @Test
+    fun `v42 to v43 gives books finished before the time of their last change`() {
+        helper.createDatabase(DB_NAME, 42).use { db ->
+            for (id in 3..5) {
+                db.execSQL(
+                    "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
+                        "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
+                        "VALUES ($id, 'abs', 'BOOK', 'li_$id', 'Buch', 'buch', 'A', '', '', '', 60000, 0, 1, 1, 2)",
+                )
+            }
+            // 3: vor v42 beendet, 4: schon mit Zeitpunkt, 5: nicht beendet.
+            db.execSQL(
+                "INSERT INTO book_progress (bookId, positionMs, durationMs, finished, updatedAt, dirty, hidden, finishedAt) VALUES " +
+                    "(3, 60000, 60000, 1, 100, 0, 0, NULL), (4, 60000, 60000, 1, 300, 0, 1, 200), (5, 1000, 60000, 0, 400, 0, 0, NULL)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 43, true).use { db ->
+            db.query("SELECT bookId, finishedAt FROM book_progress ORDER BY bookId").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(100, cursor.getLong(1))
+                assertTrue(cursor.moveToNext())
+                assertEquals(200, cursor.getLong(1))
+                assertTrue(cursor.moveToNext())
+                assertTrue(cursor.isNull(1))
+            }
+        }
+    }
+
+    @Test
     fun `v38 to v39 adds an empty author table`() {
         helper.createDatabase(DB_NAME, 38).close()
 

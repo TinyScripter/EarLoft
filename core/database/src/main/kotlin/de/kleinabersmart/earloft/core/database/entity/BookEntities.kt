@@ -278,8 +278,9 @@ data class BookProgressEntity(
     val skipSilence: Boolean? = null,
     val volumeBoostDb: Int? = null,
     /**
-     * Wann das Buch beendet wurde (Schema v42); `null` = nicht beendet oder vor v42, dann gilt [updatedAt]. Anders als dieses
-     * rückt es nicht weiter, wenn ein beendetes Buch nur aus „Weiterhören“ genommen oder abgeglichen wird.
+     * Wann das Buch beendet wurde (Schema v42; vorher beendete Bücher hat v43 aus [updatedAt] nachgefüllt); `null` = nicht
+     * beendet. Anders als [updatedAt] rückt es nicht weiter, wenn ein beendetes Buch nur aus „Weiterhören“ genommen oder
+     * abgeglichen wird.
      */
     val finishedAt: Long? = null,
 )

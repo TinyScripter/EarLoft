@@ -394,6 +394,8 @@ fun UserBookProgressEntity.toMain(bookId: Long) = BookProgressEntity(
     hidden = hidden,
     skipSilence = skipSilence,
     volumeBoostDb = volumeBoostDb,
+    // Die Sicherung kennt den Zeitpunkt des Endes nicht; der letzte Stand ist die beste Näherung (wie die Migration auf v43).
+    finishedAt = updatedAt.takeIf { finished },
 )
 
 /** [dirty]: noch beim Server anzulegen (siehe `UserDataBackup.applyBookmarks`). */
