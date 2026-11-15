@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name" translatable="false">EarLoft</string>
 
     <string name="nav_home">Home</string>
@@ -201,7 +201,7 @@
     <string name="settings_db_import">Import database</string>
     <string name="settings_db_import_summary">Missing subscriptions, listening progress and listening time from a database file (.db)</string>
     <string name="settings_db_import_started">Reading database …</string>
-    <string name="settings_db_import_imported">%1$s added, progress applied to %2$s (%3$d not applied), listening time for %4$s recorded.</string>
+    <string name="settings_db_import_imported" tools:ignore="PluralsCandidate">%1$s added, progress applied to %2$s (%3$d not applied), listening time for %4$s recorded.</string>
     <string name="settings_db_import_failed">The file could not be read as a database export.</string>
     <string name="settings_db_export">Export database</string>
     <string name="settings_db_export_summary">Subscriptions, listening progress and listening time as a database file (.db)</string>
@@ -380,7 +380,10 @@
     <string name="downloads_remove_all">Remove all downloads</string>
     <string name="downloads_remove_all_title">Remove all downloads?</string>
     <string name="downloads_remove_all_text">All downloaded files will be deleted. The library is kept.</string>
-    <string name="downloads_album_summary">%1$d of %2$d songs · %3$s</string>
+    <plurals name="downloads_album_summary">
+        <item quantity="one">%1$d of %2$d song · %3$s</item>
+        <item quantity="other">%1$d of %2$d songs · %3$s</item>
+    </plurals>
     <string name="settings_music_mobile">Also use mobile data</string>
     <string name="settings_music_mobile_summary">Off: music is only downloaded on Wi-Fi.</string>
     <string name="settings_auto_download_favorites">Download favorites automatically</string>
@@ -435,11 +438,11 @@
     <string name="track_info_from_download">Download on this device</string>
     <string name="track_info_from_download_of">Download (from %1$s)</string>
     <string name="track_info_from_stream">Stream from %1$s</string>
-    <string name="track_info_transcoded">%1$s, converted to %2$s %3$d kbit/s</string>
+    <string name="track_info_transcoded" tools:ignore="PluralsCandidate">%1$s, converted to %2$s %3$d kbit/s</string>
     <string name="track_info_source_device">On this device</string>
     <string name="track_info_source_downloaded">%1$s (downloaded)</string>
     <string name="track_info_played_source">Playing from this source</string>
-    <string name="track_info_kbps">%1$d kbit/s</string>
+    <string name="track_info_kbps" tools:ignore="PluralsCandidate">%1$d kbit/s</string>
     <string name="track_info_gain">ReplayGain %1$s dB</string>
     <string name="track_info_album_gain">" (album %1$s dB)"</string>
     <string name="playlist_delete">Delete</string>
@@ -462,7 +465,7 @@
         <item quantity="one">On the watch: %1$d track</item>
         <item quantity="other">On the watch: all %1$d tracks</item>
     </plurals>
-    <string name="watch_status_failed">On the watch: %1$d of %2$d, %3$d failed</string>
+    <string name="watch_status_failed" tools:ignore="PluralsCandidate">On the watch: %1$d of %2$d, %3$d failed</string>
     <string name="watch_status_full">Watch storage full</string>
     <string name="settings_watch">Watch</string>
     <string name="settings_watch_open_summary">Selection, quality, storage</string>
@@ -491,7 +494,7 @@
     <string name="watch_status_limit">Limit: %s</string>
     <string name="watch_status_none">No report from the watch yet</string>
     <string name="watch_status_error">Last error: %s</string>
-    <string name="watch_selection_progress">%1$s · %2$d of %3$d loaded</string>
+    <string name="watch_selection_progress" tools:ignore="PluralsCandidate">%1$s · %2$d of %3$d loaded</string>
     <plurals name="watch_status_missing">
         <item quantity="one">Watch storage full – %d track missing</item>
         <item quantity="other">Watch storage full – %d tracks missing</item>
@@ -569,7 +572,6 @@
     <string name="spoken_finished">Finished</string>
     <string name="spoken_previous_chapter">Previous chapter</string>
     <string name="spoken_next_chapter">Next chapter</string>
-    <string name="spoken_speed">Speed</string>
     <string name="spoken_speed_value">%1$s×</string>
     <string name="playback_skip_silence">Shorten silence</string>
     <string name="playback_skip_silence_summary">Shortens pauses in speech. Remaining times become estimates.</string>
@@ -772,7 +774,10 @@
     <string name="book_download_delete_message">This frees %1$s. The book stays in your library and can still be streamed.</string>
     <string name="book_download_delete_confirm">Delete</string>
     <string name="book_download_failed">Download failed</string>
-    <string name="book_download_partial">Partly downloaded: %1$d of %2$d files</string>
+    <plurals name="book_download_partial">
+        <item quantity="one">Partly downloaded: %1$d of %2$d file</item>
+        <item quantity="other">Partly downloaded: %1$d of %2$d files</item>
+    </plurals>
     <string name="downloads_section_music">Music</string>
     <string name="downloads_section_books">Books</string>
     <string name="downloads_section_podcasts">Podcasts</string>
@@ -853,8 +858,8 @@
     </plurals>
     <string name="book_hide_from_continue">Remove from Continue listening</string>
     <string name="book_series_volume">%1$s · Book %2$s</string>
-    <string name="series_finished_count">%1$d of %2$d finished</string>
-    <string name="series_all_finished">All %1$d finished</string>
+    <string name="series_finished_count" tools:ignore="PluralsCandidate">%1$d of %2$d finished</string>
+    <string name="series_all_finished" tools:ignore="PluralsCandidate">All %1$d finished</string>
     <string name="series_continue_with">Continue with book %1$s</string>
     <string name="series_start_with">Start with book %1$s</string>
     <string name="series_continue_with_title">Continue with “%1$s”</string>

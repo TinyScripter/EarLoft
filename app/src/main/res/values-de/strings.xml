@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <string name="nav_home">Start</string>
     <string name="nav_library">Bibliothek</string>
@@ -373,7 +373,10 @@
     <string name="downloads_remove_all">Alle Downloads entfernen</string>
     <string name="downloads_remove_all_title">Alle Downloads entfernen?</string>
     <string name="downloads_remove_all_text">Alle heruntergeladenen Dateien werden gelöscht. Die Bibliothek bleibt erhalten.</string>
-    <string name="downloads_album_summary">%1$d von %2$d Songs · %3$s</string>
+    <plurals name="downloads_album_summary">
+        <item quantity="one">%1$d von %2$d Song · %3$s</item>
+        <item quantity="other">%1$d von %2$d Songs · %3$s</item>
+    </plurals>
     <string name="settings_music_mobile">Auch über Mobilfunk laden</string>
     <string name="settings_music_mobile_summary">Aus: Musik wird nur im WLAN heruntergeladen.</string>
     <string name="settings_auto_download_favorites">Favoriten automatisch herunterladen</string>
@@ -509,7 +512,7 @@
     <string name="book_stats_server_loading">Statistik wird vom Server geladen …</string>
     <string name="book_stats_server_failed">Die Statistik des Servers konnte nicht geladen werden.</string>
     <string name="book_stats_today">%1$s heute</string>
-    <plurals name="book_stats_streak">
+    <plurals name="book_stats_streak" tools:ignore="Typos">
         <item quantity="one">%1$d Tag in Folge</item>
         <item quantity="other">%1$d Tage in Folge</item>
     </plurals>
@@ -562,7 +565,6 @@
     <string name="spoken_finished">Beendet</string>
     <string name="spoken_previous_chapter">Voriges Kapitel</string>
     <string name="spoken_next_chapter">Nächstes Kapitel</string>
-    <string name="spoken_speed">Geschwindigkeit</string>
     <string name="spoken_speed_value">%1$s×</string>
     <string name="playback_skip_silence">Stille kürzen</string>
     <string name="playback_skip_silence_summary">Kürzt Pausen beim Sprechen. Restzeiten sind dann nur noch ungefähr.</string>
@@ -765,7 +767,10 @@
     <string name="book_download_delete_message">Das gibt %1$s frei. Das Buch bleibt in der Bibliothek und lässt sich weiter streamen.</string>
     <string name="book_download_delete_confirm">Löschen</string>
     <string name="book_download_failed">Download fehlgeschlagen</string>
-    <string name="book_download_partial">Teilweise geladen: %1$d von %2$d Dateien</string>
+    <plurals name="book_download_partial">
+        <item quantity="one">Teilweise geladen: %1$d von %2$d Datei</item>
+        <item quantity="other">Teilweise geladen: %1$d von %2$d Dateien</item>
+    </plurals>
     <string name="downloads_section_music">Musik</string>
     <string name="downloads_section_books">Bücher</string>
     <string name="downloads_section_podcasts">Podcasts</string>
@@ -814,7 +819,7 @@
     <string name="episode_sort_oldest">Älteste zuerst</string>
     <string name="feed_sort_newest_episode">Neueste Folge</string>
     <string name="feed_sort_most_new">Meiste neue Folgen</string>
-    <plurals name="feed_new">
+    <plurals name="feed_new" tools:ignore="Typos">
         <item quantity="one">%1$d neue Folge seit dem letzten Hören</item>
         <item quantity="other">%1$d neue Folgen seit dem letzten Hören</item>
     </plurals>

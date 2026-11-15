@@ -70,6 +70,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -310,7 +311,7 @@ fun PodcastLibraryScreen(
     // Mehrfachauswahl in den Reitern „Folgen“ und „Gemerkt“; sie endet, wenn man den Reiter verlässt.
     val selection = rememberEpisodeSelection()
     // Nur bei einem Wechsel, nicht beim ersten Aufbau: Nach dem Drehen bleibt die Auswahl.
-    var selectionPage by rememberSaveable { mutableStateOf(pagerState.currentPage) }
+    var selectionPage by rememberSaveable { mutableIntStateOf(pagerState.currentPage) }
     LaunchedEffect(pagerState.currentPage) {
         if (pagerState.currentPage != selectionPage) selection.clear()
         selectionPage = pagerState.currentPage

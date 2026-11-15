@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.runtime.toMutableStateList
 
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -31,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -114,26 +113,26 @@ private fun PlaylistContent(
     modifier: Modifier = Modifier,
 ) {
     // Beim Umsortieren eine Arbeitskopie; erst „Speichern“ übernimmt sie, Zurück verwirft sie.
-    var order by remember { mutableStateOf<SnapshotStateList<PlaylistEntry>?>(null) }
-    val editing = order
-    BackHandler(enabled = editing != null) { order = null }
+    val order = remember { mutableStateListOf<PlaylistEntry>() }
+    var editing by remember { mutableStateOf(false) }
+    BackHandler(enabled = editing) { editing = false }
     Column(modifier.fillMaxSize()) {
-        if (editing != null) {
+        if (editing) {
             TopAppBar(
                 title = { Text(stringResource(R.string.playlist_reorder)) },
                 navigationIcon = {
-                    IconButton(onClick = { order = null }) {
+                    IconButton(onClick = { editing = false }) {
                         Icon(painterResource(DesignR.drawable.ic_close), contentDescription = stringResource(R.string.action_cancel))
                     }
                 },
                 actions = {
                     TextButton(onClick = {
-                        onReorder(editing.map { it.entryId })
-                        order = null
+                        onReorder(order.map { it.entryId })
+                        editing = false
                     }) { Text(stringResource(R.string.playlist_save)) }
                 },
             )
-            PlaylistOrderList(editing)
+            PlaylistOrderList(order)
             return@Column
         }
         TopAppBar(
@@ -154,7 +153,11 @@ private fun PlaylistContent(
                         playlist = state.value.playlist,
                         onRename = onRename,
                         onDelete = onDelete,
-                        onReorder = if (entries.size > 1) ({ order = entries.toMutableStateList() }) else null,
+                        onReorder = if (entries.size > 1) ({
+                            order.clear()
+                            order.addAll(entries)
+                            editing = true
+                        }) else null,
                     )
                 }
             },

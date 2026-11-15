@@ -319,8 +319,9 @@ private fun DownloadedAlbumRow(album: DownloadedAlbum, onClick: () -> Unit, onRe
             Column {
                 Text(album.album.artist, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    stringResource(
-                        R.string.downloads_album_summary,
+                    pluralStringResource(
+                        R.plurals.downloads_album_summary,
+                        album.album.songCount,
                         album.downloadedSongs,
                         album.album.songCount,
                         formatBytes(album.sizeBytes),
@@ -409,7 +410,7 @@ private fun DownloadedBookRow(item: DownloadedBook, transfer: BookTransfer?, onC
                     TrackDownload.DONE -> Text(formatBytes(item.download.bytes), style = MaterialTheme.typography.bodySmall)
                     TrackDownload.FAILED -> Text(
                         if (item.download.partial) {
-                            stringResource(R.string.book_download_partial, item.download.doneFiles, item.download.totalFiles)
+                            pluralStringResource(R.plurals.book_download_partial, item.download.totalFiles, item.download.doneFiles, item.download.totalFiles)
                         } else {
                             stringResource(R.string.book_download_failed)
                         },

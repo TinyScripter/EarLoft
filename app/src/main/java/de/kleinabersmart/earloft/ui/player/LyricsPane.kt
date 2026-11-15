@@ -44,11 +44,11 @@ import de.kleinabersmart.earloft.core.model.Lyrics
 @Composable
 fun LyricsPane(
     lyrics: Lyrics?,
-    fromLrclib: Boolean = false,
     positionMs: () -> Long,
     onSeek: (Long) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    fromLrclib: Boolean = false,
 ) {
     when (lyrics) {
         null -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
