@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.datasource.RawTrack
 import de.kleinabersmart.earloft.core.model.LyricLine
 import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.model.LyricsKind
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -46,11 +47,16 @@ class LyricsRepositoryTest {
     /** Wird vor [lrclibResponses] der Reihe nach beantwortet. */
     private val lrclibFirst = java.util.concurrent.ConcurrentLinkedQueue<MockResponse>()
 
+    /** Läuft, während LRCLIB eine Anfrage bekommt (die Abfrage ist dann unterwegs). */
+    @Volatile
+    private var onLrclibRequest: (() -> Unit)? = null
+
     @Before
     fun setUp() = runTest {
         lrclib.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 lrclibRequests += request
+                onLrclibRequest?.invoke()
                 lrclibFirst.poll()?.let { return it }
                 return lrclibResponses[request.url.encodedPath] ?: MockResponse.Builder().code(404).build()
             }
@@ -215,6 +221,33 @@ class LyricsRepositoryTest {
 
         lrclibResponses["/api/get"] = json("not json")
         assertEquals(Lyrics.Unavailable, lyrics.lyrics(id))
+    }
+
+    @Test
+    fun `a plain server text is not stored while LRCLIB was unreachable`() = runTest {
+        lyrics.setOnlineLyrics(true)
+        nd.lyrics["a"] = Lyrics.Plain("Vom Server")
+        lrclibResponses["/api/get"] = MockResponse.Builder().code(503).build()
+        val id = songId("a")
+
+        assertEquals(Lyrics.Plain("Vom Server"), lyrics.lyrics(id))
+        assertNull(db.lyricsDao().get(id))
+
+        lrclibResponses["/api/get"] = entry(synced = "[00:01.00] Online")
+        assertEquals(SongLyrics(Lyrics.Synced(listOf(LyricLine(1_000, "Online"))), fromLrclib = true), lyrics.songLyrics(id))
+    }
+
+    @Test
+    fun `a LRCLIB answer arriving after switching off is neither shown nor stored`() = runTest {
+        lyrics.setOnlineLyrics(true)
+        lrclibResponses["/api/get"] = entry(synced = "[00:01.00] Online")
+        onLrclibRequest = { runBlocking { lyrics.setOnlineLyrics(false) } }
+        val id = songId("a")
+
+        assertEquals(SongLyrics(Lyrics.None), lyrics.songLyrics(id))
+
+        assertEquals("", db.lyricsDao().get(id)!!.origin)
+        assertEquals(LyricsKind.NONE, db.lyricsDao().get(id)!!.kind)
     }
 
     @Test

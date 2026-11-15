@@ -12,6 +12,8 @@ import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.model.LyricsCodec
 import de.kleinabersmart.earloft.core.model.LyricsKind
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -24,7 +26,8 @@ data class SongLyrics(val lyrics: Lyrics, val fromLrclib: Boolean = false)
  * Songtexte: zuerst eingebettete Texte lokaler Dateien, dann die Server-Quellen eines Songs (Konzept 6.3), zuletzt, wenn
  * eingeschaltet, LRCLIB – auch für einen Song, zu dem die Server nur einen statischen Text haben. Gefundene Texte bleiben
  * gespeichert; „kein Text“ wird nur [NO_LYRICS_TTL_MS] gemerkt, damit ein später ergänzter Text auftaucht. Ist keine
- * Quelle erreichbar, wird nichts gespeichert.
+ * Quelle erreichbar, wird nichts gespeichert, und ein statischer Text bleibt ungespeichert, solange eine Quelle nicht
+ * geantwortet hat (sie könnte einen synchronisierten haben).
  */
 @Singleton
 class LyricsRepository @Inject constructor(
@@ -34,6 +37,9 @@ class LyricsRepository @Inject constructor(
     private val settings: LyricsSettings,
     private val lrclib: LrclibClient,
 ) {
+    /** Speichern und Umschalten der Einstellung schließen sich aus: Eine laufende Abfrage überlebt das Ausschalten nicht. */
+    private val storeLock = Mutex()
+
     suspend fun lyrics(songId: Long): Lyrics = songLyrics(songId).lyrics
 
     /** Wie [lyrics], dazu ob der Text von LRCLIB stammt (die Anzeige nennt dann die Quelle). */
@@ -81,6 +87,8 @@ class LyricsRepository @Inject constructor(
             }
         }
 
+        val serverBest = best
+        val serverOrigin = origin
         if (online && best !is Lyrics.Synced) {
             val found = try {
                 onlineLyrics(song)
@@ -96,14 +104,23 @@ class LyricsRepository @Inject constructor(
             }
         }
 
-        if (best == Lyrics.None) {
-            if (failed) return SongLyrics(Lyrics.Unavailable)
-            lyricsDao.upsert(LyricsEntity(songId, LyricsKind.NONE, "", origin = "", fetchedAt = System.currentTimeMillis()))
-            return SongLyrics(Lyrics.None)
+        return storeLock.withLock {
+            // Während der Abfrage ausgeschaltet: Der Text von LRCLIB wird weder gespeichert noch angezeigt.
+            if (origin == LRCLIB && !settings.onlineLyrics.first()) {
+                best = serverBest
+                origin = serverOrigin
+            }
+            if (best == Lyrics.None) {
+                if (failed) return@withLock SongLyrics(Lyrics.Unavailable)
+                lyricsDao.upsert(LyricsEntity(songId, LyricsKind.NONE, "", origin = "", fetchedAt = System.currentTimeMillis()))
+                return@withLock SongLyrics(Lyrics.None)
+            }
+            // Eine Quelle hat nicht geantwortet: Ein statischer Text kommt ohne Speichern, die nächste Abfrage versucht es neu.
+            if (failed && best !is Lyrics.Synced) return@withLock SongLyrics(best, fromLrclib = origin == LRCLIB)
+            val (kind, content) = LyricsCodec.encode(best)
+            lyricsDao.upsert(LyricsEntity(songId, kind, content, origin, System.currentTimeMillis()))
+            SongLyrics(best, fromLrclib = origin == LRCLIB)
         }
-        val (kind, content) = LyricsCodec.encode(best)
-        lyricsDao.upsert(LyricsEntity(songId, kind, content, origin, System.currentTimeMillis()))
-        return SongLyrics(best, fromLrclib = origin == LRCLIB)
     }
 
     /**
@@ -111,8 +128,10 @@ class LyricsRepository @Inject constructor(
      * ergänzen kann; beim Ausschalten die von LRCLIB, die Server und Dateien dann wieder allein liefern.
      */
     suspend fun setOnlineLyrics(enabled: Boolean) {
-        settings.setOnlineLyrics(enabled)
-        if (enabled) lyricsDao.deleteUnsyncedExcept(EMBEDDED) else lyricsDao.deleteByOrigin(LRCLIB)
+        storeLock.withLock {
+            settings.setOnlineLyrics(enabled)
+            if (enabled) lyricsDao.deleteUnsyncedExcept(EMBEDDED) else lyricsDao.deleteByOrigin(LRCLIB)
+        }
     }
 
     /** Gefragt wird mit dem angezeigten Interpreten („A feat. B“) und, falls anders, dem ersten allein. */
