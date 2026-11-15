@@ -7,6 +7,9 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.network.podcast.FeedAuth
+import de.kleinabersmart.earloft.core.network.podcast.FeedAuthRegistry
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -21,13 +24,14 @@ class ShareRepositoryTest {
 
     private lateinit var db: EarLoftDatabase
     private lateinit var repository: ShareRepository
+    private val feedAuth = FeedAuthRegistry()
 
     @Before
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), EarLoftDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = ShareRepository(db.libraryDao(), db.podcastDao(), db.bookDao(), db.sourceDao())
+        repository = ShareRepository(db.libraryDao(), db.podcastDao(), db.bookDao(), db.sourceDao(), feedAuth)
     }
 
     @After
@@ -57,6 +61,18 @@ class ShareRepositoryTest {
     fun `a private feed address with its token is left out, the website stays`() = runTest {
         feed("a", "https://www.patreon.com/rss/show?auth=geheim", website = "https://example.com/")
         assertEquals("Podcast a\nhttps://example.com/", repository.content(ShareTarget.Feed("a"))?.text)
+    }
+
+    @Test
+    fun `a protected feed shares neither its address nor audio on its host`() = runTest {
+        feed("a", "https://members.example.com/feed.xml", website = "https://example.com/")
+        val onHost = episode("a", "Eins", null, "https://members.example.com/1.mp3")
+        val onCdn = episode("a", "Zwei", null, "https://cdn.example.com/2.mp3")
+        feedAuth.replaceAll(mapOf("a" to FeedAuth("https://members.example.com/feed.xml".toHttpUrl(), "user", "pass")))
+
+        assertEquals("Podcast a\nhttps://example.com/", repository.content(ShareTarget.Feed("a"))?.text)
+        assertEquals("Eins\nPodcast a", repository.content(ShareTarget.Book(onHost))?.text)
+        assertEquals("Zwei\nPodcast a\nhttps://cdn.example.com/2.mp3", repository.content(ShareTarget.Book(onCdn))?.text)
     }
 
     @Test

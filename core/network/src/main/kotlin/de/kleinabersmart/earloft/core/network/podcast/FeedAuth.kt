@@ -42,6 +42,9 @@ class FeedAuthRegistry @Inject constructor() {
     fun forUrl(url: HttpUrl): FeedAuth? =
         byFeed.values.filter { it.appliesTo(url) }.maxByOrNull { sharedDirectories(it.scope, url) }
 
+    /** Hosts der geschützten Feeds: Was dort liegt, ist nicht öffentlich (Teilen, Review D33). */
+    fun hosts(): Set<String> = byFeed.values.mapTo(HashSet()) { it.scope.host }
+
     // Ohne die letzte Stelle: Sie ist die Datei, nicht der Ordner.
     private fun sharedDirectories(a: HttpUrl, b: HttpUrl): Int =
         a.pathSegments.dropLast(1).zip(b.pathSegments.dropLast(1)).takeWhile { (x, y) -> x == y }.size

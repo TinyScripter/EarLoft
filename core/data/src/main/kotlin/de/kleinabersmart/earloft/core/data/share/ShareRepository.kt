@@ -8,6 +8,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.isArdSoundsBook
+import de.kleinabersmart.earloft.core.network.podcast.FeedAuthRegistry
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsPageUrl
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsShowId
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -38,6 +39,7 @@ class ShareRepository @Inject constructor(
     private val podcastDao: PodcastDao,
     private val bookDao: BookDao,
     private val sourceDao: SourceDao,
+    private val feedAuth: FeedAuthRegistry,
 ) {
     suspend fun content(target: ShareTarget): ShareContent? = when (target) {
         is ShareTarget.Song -> libraryDao.getSongEntity(target.songId)?.let { song ->
@@ -94,10 +96,13 @@ class ShareRepository @Inject constructor(
         return arrayOf(website?.takeUnless { it == feed.url }, rss)
     }
 
-    /** Hosts der eingerichteten Musik- und Audiobookshelf-Server. */
+    /**
+     * Hosts der eingerichteten Musik- und Audiobookshelf-Server und der geschützten Feeds: Deren Feed- und Audio-Adressen
+     * nützen anderen ohne Passwort nichts und verraten, wo der Nutzer zahlt bzw. was er privat abonniert.
+     */
     private suspend fun ownHosts(): Set<String> =
         (sourceDao.getServers().mapNotNull { it.baseUrl } + bookDao.servers().map { it.baseUrl })
-            .mapNotNullTo(HashSet()) { it.toHttpUrlOrNull()?.host?.lowercase() }
+            .mapNotNullTo(HashSet()) { it.toHttpUrlOrNull()?.host?.lowercase() } + feedAuth.hosts()
 
     /** Podcasts vom Gerät (`local:`) haben keine öffentliche Adresse. */
     private fun isShareable(feed: PodcastFeedEntity) = ardSoundsShowId(feed.url) != null || ShareLinks.sourceUrl(feed.url) != null
