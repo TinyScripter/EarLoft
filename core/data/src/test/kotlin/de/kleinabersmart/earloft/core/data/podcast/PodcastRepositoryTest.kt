@@ -570,6 +570,71 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `a missing or empty chapter list is not fetched again before every start`() = runTest {
+        fun rss(chaptersUrl: String) = """<rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0">
+            <channel><title>Lage</title><item><title>LdN</title><guid>ldn</guid>
+            <enclosure url="https://example.com/ldn.m4a" type="audio/mp4"/>
+            <podcast:chapters url="$chaptersUrl" type="application/json+chapters"/>
+            </item></channel></rss>"""
+        served = rss("https://example.com/ldn.json")
+        val feedId = subscribe()
+        val id = idOf(feedId, "LdN")
+        fun fetches() = requested.count { it.endsWith(".json") }
+        var clock = 1_000_000L
+
+        // 404: bis zum nächsten Versuch nach Stunden nicht mehr gefragt.
+        servedCode = 404
+        repository.ensureChapters(id) { clock }
+        repository.ensureChapters(id) { clock }
+        assertEquals(1, fetches())
+        clock += 60 * 60 * 1000L
+        repository.ensureChapters(id) { clock }
+        assertEquals(1, fetches())
+
+        // Leere Liste: ebenso; nach sechs Stunden wieder, dann mit Kapiteln.
+        servedCode = 200
+        clock += 6 * 60 * 60 * 1000L
+        served = """{"version":"1.2.0","chapters":[]}"""
+        repository.ensureChapters(id) { clock }
+        repository.ensureChapters(id) { clock }
+        assertEquals(2, fetches())
+        clock += 6 * 60 * 60 * 1000L
+        served = """{"version":"1.2.0","chapters":[{"startTime":0,"title":"Begrüßung"}]}"""
+        repository.ensureChapters(id) { clock }
+        assertEquals(3, fetches())
+        assertEquals(ChapterSource.JSON, db.bookDao().chapterSource(id))
+    }
+
+    @Test
+    fun `an unreachable chapter list is tried again after minutes and a new address at once`() = runTest {
+        fun rss(chaptersUrl: String) = """<rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0">
+            <channel><title>Lage</title><item><title>LdN</title><guid>ldn</guid>
+            <enclosure url="https://example.com/ldn.m4a" type="audio/mp4"/>
+            <podcast:chapters url="$chaptersUrl" type="application/json+chapters"/>
+            </item></channel></rss>"""
+        served = rss("https://example.com/ldn.json")
+        val feedId = subscribe()
+        val id = idOf(feedId, "LdN")
+        fun fetches() = requested.count { it.endsWith(".json") }
+        var clock = 1_000_000L
+
+        served = null
+        repository.ensureChapters(id) { clock }
+        repository.ensureChapters(id) { clock }
+        assertEquals(1, fetches())
+        clock += 10 * 60 * 1000L
+        repository.ensureChapters(id) { clock }
+        assertEquals(2, fetches())
+
+        // Der Feed nennt eine neue Adresse: sofort.
+        served = rss("https://example.com/ldn-v2.json")
+        repository.refresh(feedId)
+        served = null
+        repository.ensureChapters(id) { clock }
+        assertEquals(3, fetches())
+    }
+
+    @Test
     fun `queueing a finished episode marks it unheard and it shows in the queue`() = runTest {
         val feedId = subscribe()
         val c = idOf(feedId, "C")

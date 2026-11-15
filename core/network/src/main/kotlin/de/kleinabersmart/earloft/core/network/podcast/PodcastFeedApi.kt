@@ -83,7 +83,7 @@ class PodcastFeedApi @Inject constructor(
         val httpUrl = url.toHttpUrlOrNull() ?: throw IOException("Ungültige Kapitel-URL")
         val request = Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).cacheControl(CacheControl.FORCE_NETWORK).build()
         val text = client.newCall(request).await().use { response ->
-            if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+            if (!response.isSuccessful) throw HttpStatusException(response.code)
             response.peekBody(MAX_CHAPTERS_BYTES).string()
         }
         parseChapters(text)

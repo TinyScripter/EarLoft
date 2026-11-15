@@ -47,6 +47,7 @@ import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
 import de.kleinabersmart.earloft.core.network.podcast.splitCredentials
 import de.kleinabersmart.earloft.core.network.podcast.directory.feedKey
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -58,10 +59,13 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.HttpUrl
 import java.io.File
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.net.ssl.SSLException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -846,27 +850,47 @@ class PodcastRepository @Inject constructor(
      * Vor dem Abspielen (Konzept 12.5 „Kapitelquellen“): lädt die Kapitelliste (JSON) der Folge, falls der Feed eine anbietet
      * und sie noch nicht geladen ist – sie geht Kapiteln aus dem Feed und aus der Datei vor. Hat die Folge danach gar keine
      * Quelle, kommen sie aus der geladenen Datei ([chaptersFromFile]). Fehler sind unkritisch.
+     *
+     * Der Start wartet darauf höchstens [CHAPTERS_TIMEOUT_MS]. Eine leere oder abgelehnte Liste (404 …) wird erst nach
+     * [CHAPTERS_ANSWERED_RETRY_MS] wieder gefragt, eine nicht erreichbare nach [CHAPTERS_OFFLINE_RETRY_MS]; eine neue Adresse
+     * im Feed sofort ([chapterMisses]).
      */
-    suspend fun ensureChapters(bookId: Long) {
+    suspend fun ensureChapters(bookId: Long, now: () -> Long = System::currentTimeMillis) {
         val book = bookDao.book(bookId) ?: return
         if (book.kind != BookKind.EPISODE) return
         val url = book.chaptersUrl
-        if (url != null && book.chapterSource != ChapterSource.JSON) {
-            val chapters = try {
-                api.chapters(url)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: IOException) {
-                Log.w(TAG, "Kapitel von ${book.title} nicht abrufbar", e)
-                emptyList()
+        val miss = chapterMisses[bookId]?.takeIf { it.url == url }
+        if (url != null && book.chapterSource != ChapterSource.JSON && (miss == null || now() >= miss.retryAtMs)) {
+            // Auf IO: Die Frist läuft in Echtzeit, auch unter der virtuellen Zeit der Tests.
+            val chapters = withContext(Dispatchers.IO) {
+                try {
+                    withTimeoutOrNull(CHAPTERS_TIMEOUT_MS) { api.chapters(url) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: HttpStatusException) {
+                    Log.w(TAG, "Kapitel von ${book.title} abgelehnt", e)
+                    // Ein überlasteter Server (5xx, 429) zählt wie keine Verbindung.
+                    if (e.status >= 500 || e.status == 429) null else emptyList()
+                } catch (e: IOException) {
+                    Log.w(TAG, "Kapitel von ${book.title} nicht abrufbar", e)
+                    null
+                }
             }
-            if (chapters.isNotEmpty()) {
+            if (!chapters.isNullOrEmpty()) {
+                chapterMisses.remove(bookId)
                 storeChapters(bookId, chapters, ChapterSource.JSON, book.durationMs, book.chapterSource)
                 return
             }
+            val retryIn = if (chapters == null) CHAPTERS_OFFLINE_RETRY_MS else CHAPTERS_ANSWERED_RETRY_MS
+            chapterMisses[bookId] = ChapterMiss(url, now() + retryIn)
         }
         if (book.chapterSource == null) chaptersFromFile(bookId)
     }
+
+    /** Eine Kapitelliste, die zuletzt leer, abgelehnt oder nicht erreichbar war; nur im Speicher (je Prozess ein Versuch). */
+    private data class ChapterMiss(val url: String, val retryAtMs: Long)
+
+    private val chapterMisses = ConcurrentHashMap<Long, ChapterMiss>()
 
     /**
      * Kapitel aus der geladenen Datei der Folge (ID3 `CHAP`, MP4), wenn sie noch keine aus einer anderen Quelle hat; nach dem
@@ -960,6 +984,15 @@ class PodcastRepository @Inject constructor(
 
         /** SQLite-Grenze für Parameter je Abfrage, mit Abstand. */
         const val MAX_ARGS = 500
+
+        /** Wie lange der Start einer Folge auf ihre Kapitelliste wartet (wie `BookProgressSync.PULL_TIMEOUT_MS`). */
+        const val CHAPTERS_TIMEOUT_MS = 3_000L
+
+        /** Leer oder abgelehnt: Manche Feeds reichen die Kapitel einige Stunden nach der Folge nach. */
+        const val CHAPTERS_ANSWERED_RETRY_MS = 6 * 60 * 60 * 1000L
+
+        /** Nicht erreichbar oder zu langsam. */
+        const val CHAPTERS_OFFLINE_RETRY_MS = 10 * 60 * 1000L
     }
 }
 
