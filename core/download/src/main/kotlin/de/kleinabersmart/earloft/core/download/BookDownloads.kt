@@ -10,6 +10,7 @@ import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.podcast.HeardDownload
@@ -20,6 +21,7 @@ import de.kleinabersmart.earloft.core.data.spoken.automaticBookDownloads
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.FinishedDownloadRow
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
@@ -35,11 +37,16 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/** Mobilfunk nur, wenn der Nutzer es erlaubt hat und er selbst lädt; die Automatik lädt immer nur im WLAN. */
+internal fun bookDownloadNetwork(mobileAllowed: Boolean, automatic: Boolean): NetworkType =
+    if (mobileAllowed && !automatic) NetworkType.CONNECTED else NetworkType.UNMETERED
 
 /**
  * Downloads von Hörbüchern: von Hand, und mit den Schaltern unter Bücher → Downloads auch automatisch (die ersten aus
@@ -196,23 +203,38 @@ class BookDownloads @Inject constructor(
         }
         if (queued > 0) {
             Log.i(TAG, "Automatik: $queued Dateien von ${bookIds.size} Büchern eingereiht")
-            enqueueWorker()
+            enqueueWorker(automatic = true)
         }
         return complete
     }
 
-    private suspend fun enqueueWorker(policy: ExistingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE) {
-        val mobile = settings.bookMobileData.first()
+    /**
+     * [automatic]: nur von der Automatik eingereiht, die im WLAN anstößt; der Auftrag bleibt dann auf WLAN beschränkt, auch
+     * wenn Mobilfunk erlaubt ist (verlässt man das WLAN, würde er sonst mobil weiterladen).
+     */
+    private suspend fun enqueueWorker(policy: ExistingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE, automatic: Boolean = false) {
+        val network = bookDownloadNetwork(settings.bookMobileData.first(), automatic)
+        // Ein angehängter Auftrag wartet auf den vorigen: Ein auf WLAN wartender Auftrag der Automatik hielte einen von Hand
+        // gestarteten mobilen sonst auf. Der Auftrag arbeitet ohnehin die ganze Warteschlange ab.
+        val chain = if (network == NetworkType.CONNECTED && policy == ExistingWorkPolicy.APPEND_OR_REPLACE && !workerRunning()) {
+            ExistingWorkPolicy.REPLACE
+        } else {
+            policy
+        }
         val request = OneTimeWorkRequestBuilder<BookDownloadWorker>()
             .setConstraints(
                 Constraints.Builder()
-                    .setRequiredNetworkType(if (mobile) NetworkType.CONNECTED else NetworkType.UNMETERED)
+                    .setRequiredNetworkType(network)
                     .setRequiresStorageNotLow(true)
                     .build(),
             )
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, chain, request)
+    }
+
+    private suspend fun workerRunning(): Boolean = withContext(Dispatchers.IO) {
+        WorkManager.getInstance(context).getWorkInfosForUniqueWork(WORK_NAME).get().any { it.state == WorkInfo.State.RUNNING }
     }
 
     private companion object {
