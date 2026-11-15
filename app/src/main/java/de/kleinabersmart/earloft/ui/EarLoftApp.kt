@@ -184,7 +184,8 @@ fun EarLoftApp(
         startRoute = HomeRoute,
         topLevelRoutes = TOP_LEVEL_ROUTES,
     )
-    val navigator = remember(navigationState) { Navigator(navigationState) }
+    // Der Assistent liegt schon im ersten Bild oben; aus einem Effekt käme er erst danach und die Startseite blitzte kurz auf.
+    val navigator = remember(navigationState) { Navigator(navigationState).apply { if (showSetup) showSetup() } }
     LaunchedEffect(openNowPlaying) {
         if (openNowPlaying) {
             navigator.showNowPlaying()
