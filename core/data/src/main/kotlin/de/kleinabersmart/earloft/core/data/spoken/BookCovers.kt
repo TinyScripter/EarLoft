@@ -6,7 +6,9 @@ import android.graphics.BitmapFactory
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.repository.PART_SUFFIX
+import de.kleinabersmart.earloft.core.data.repository.adoptingLegacy
 import de.kleinabersmart.earloft.core.data.repository.decodeScaled
+import de.kleinabersmart.earloft.core.data.repository.hashedName
 import de.kleinabersmart.earloft.core.data.repository.offlineImageDirectory
 import de.kleinabersmart.earloft.core.data.repository.shrinkImage
 import de.kleinabersmart.earloft.core.data.repository.writeAtomically
@@ -204,7 +206,8 @@ class BookCovers @Inject constructor(
     /** Folgen eines Podcasts teilen sich meist ein Bild: die Datei heißt dann nach der Adresse, nicht nach der Folge. */
     private fun ownFile(bookId: Long, episodeUrl: String?): File = episodeUrl?.let(::urlFile) ?: File(directory, "$bookId.img")
 
-    private fun urlFile(url: String) = File(directory, "u${url.hashCode()}.img")
+    /** Bisher hieß die Datei nach `hashCode`; [retainKnown] zieht so alle bekannten einmal um und räumt die übrigen weg. */
+    private fun urlFile(url: String) = File(directory, "u${hashedName(url)}.img").adoptingLegacy(File(directory, "u${url.hashCode()}.img"))
 
     private val directory by lazy { offlineImageDirectory(context, DIRECTORY) }
 

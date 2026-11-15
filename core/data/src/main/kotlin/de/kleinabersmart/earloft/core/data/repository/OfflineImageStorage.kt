@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.security.MessageDigest
 
 /**
  * Verzeichnis für Bilder, die auch offline da sein sollen: nicht im Cache-Verzeichnis (das darf das System räumen) und nicht
@@ -39,5 +40,23 @@ internal fun writeAtomically(target: File, bytes: ByteArray) {
 }
 
 internal const val PART_SUFFIX = ".part"
+
+/**
+ * Dateiname zu [key] (Bild-Adresse, Autorenname): 128 Bit von SHA-256. Mit `hashCode` (32 Bit) teilten sich ab einigen tausend
+ * Adressen schon merklich oft zwei Bilder eine Datei (Review D35).
+ */
+internal fun hashedName(key: String): String =
+    MessageDigest.getInstance("SHA-256").digest(key.toByteArray()).take(16).joinToString("") { byte ->
+        val value = byte.toInt() and 0xff
+        "${HEX[value shr 4]}${HEX[value and 0x0f]}"
+    }
+
+/** Diese Datei; liegt das Bild noch unter dem Namen [legacy] einer älteren Version, zieht es um, statt neu geladen zu werden. */
+internal fun File.adoptingLegacy(legacy: File): File {
+    if (!exists() && legacy.exists()) legacy.renameTo(this)
+    return this
+}
+
+private const val HEX = "0123456789abcdef"
 
 private const val JPEG_QUALITY = 85

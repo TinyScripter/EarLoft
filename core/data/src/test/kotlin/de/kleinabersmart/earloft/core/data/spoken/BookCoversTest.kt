@@ -43,7 +43,12 @@ class BookCoversTest {
     private lateinit var covers: BookCovers
 
     /** Bilder im Netz nach Adresse; alles andere gibt 404. */
-    private val images = mapOf(EPISODE_IMAGE to byteArrayOf(1, 2, 3), FEED_IMAGE to byteArrayOf(7, 8, 9))
+    private val images = mapOf(
+        EPISODE_IMAGE to byteArrayOf(1, 2, 3),
+        FEED_IMAGE to byteArrayOf(7, 8, 9),
+        COLLIDING_A to byteArrayOf(10),
+        COLLIDING_B to byteArrayOf(11),
+    )
 
     /** Angefragte Adressen. */
     private val requested = mutableListOf<String>()
@@ -206,6 +211,30 @@ class BookCoversTest {
         assertArrayEquals(byteArrayOf(7, 8, 9), covers.storedImage(FEED_IMAGE)!!.readBytes())
     }
 
+    @Test
+    fun `addresses with the same hash code keep their own images`() = runTest {
+        assertEquals(COLLIDING_A.hashCode(), COLLIDING_B.hashCode())
+        val a = episode("f1", "g1", coverUrl = COLLIDING_A)
+        val b = episode("f1", "g2", coverUrl = COLLIDING_B)
+
+        assertArrayEquals(byteArrayOf(10), covers.coverBytes(a))
+        assertArrayEquals(byteArrayOf(11), covers.coverBytes(b))
+    }
+
+    @Test
+    fun `an image stored under the old name is taken over, not loaded again`() = runTest {
+        val id = episode("f1", "g1", coverUrl = EPISODE_IMAGE)
+        val legacy = context.noBackupFilesDir.resolve("book_covers/u${EPISODE_IMAGE.hashCode()}.img")
+        legacy.parentFile!!.mkdirs()
+        legacy.writeBytes(byteArrayOf(4, 2))
+
+        assertEquals(0, covers.retainKnown())
+
+        assertFalse(legacy.exists())
+        assertArrayEquals(byteArrayOf(4, 2), covers.coverBytes(id))
+        assertTrue(requested.isEmpty())
+    }
+
     private suspend fun episode(feedId: String, guid: String, coverUrl: String?): Long =
         db.bookDao().upsertBook(book(feedId, guid).copy(kind = BookKind.EPISODE, coverUrl = coverUrl))
 
@@ -224,5 +253,9 @@ class BookCoversTest {
         const val EPISODE_IMAGE = "https://example.org/folge.jpg"
         const val FEED_IMAGE = "https://example.org/abo.jpg"
         const val BROKEN_IMAGE = "https://example.org/kaputt.jpg"
+
+        // "Aa" und "BB" haben denselben `hashCode`.
+        const val COLLIDING_A = "https://example.org/Aa.jpg"
+        const val COLLIDING_B = "https://example.org/BB.jpg"
     }
 }

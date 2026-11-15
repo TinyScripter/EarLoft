@@ -8,6 +8,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
 import de.kleinabersmart.earloft.core.data.repository.ArtworkSettings
 import de.kleinabersmart.earloft.core.data.repository.OnlineArtworkClient
+import de.kleinabersmart.earloft.core.data.repository.adoptingLegacy
+import de.kleinabersmart.earloft.core.data.repository.hashedName
 import de.kleinabersmart.earloft.core.data.repository.offlineImageDirectory
 import de.kleinabersmart.earloft.core.data.repository.shrinkImage
 import de.kleinabersmart.earloft.core.data.repository.writeAtomically
@@ -46,7 +48,7 @@ class AuthorImages @Inject constructor(
         val key = name.normalizeForMerge()
         if (key.isEmpty()) return@withContext null
         val candidates = candidates(name)
-        val serverFile = File(directory(SERVER), fileName(key))
+        val serverFile = file(SERVER, key)
         decode(serverFile)?.let { return@withContext it }
         fromServers(candidates)?.let { bytes ->
             writeAtomically(serverFile, bytes)
@@ -54,9 +56,9 @@ class AuthorImages @Inject constructor(
             serverFile.delete()
         }
         if (!settings.authorImages.first()) return@withContext null
-        val onlineFile = File(directory(ONLINE), fileName(key))
+        val onlineFile = file(ONLINE, key)
         decode(onlineFile)?.let { return@withContext it }
-        val marker = File(directory(ONLINE), fileName(key) + ".none")
+        val marker = file(ONLINE, key, NOT_FOUND_SUFFIX)
         if (marker.exists() && System.currentTimeMillis() - marker.lastModified() < NOT_FOUND_MS) return@withContext null
         val bytes = try {
             candidates.firstNotNullOfOrNull { onlineClient.findAuthorImage(it) }
@@ -127,13 +129,16 @@ class AuthorImages @Inject constructor(
 
     private fun directory(kind: String) = File(root, kind)
 
-    private fun fileName(key: String) = "${key.hashCode()}.img"
+    /** Bisher hieß die Datei nach `hashCode` (Review D35); ein Bild unter dem alten Namen zieht beim ersten Blick um. */
+    private fun file(kind: String, key: String, suffix: String = "") =
+        File(directory(kind), "${hashedName(key)}.img$suffix").adoptingLegacy(File(directory(kind), "${key.hashCode()}.img$suffix"))
 
     private companion object {
         const val TAG = "AuthorImages"
         const val DIRECTORY = "author_images"
         const val SERVER = "server"
         const val ONLINE = "online"
+        const val NOT_FOUND_SUFFIX = ".none"
         const val WIDTH_PX = 600
         const val MAX_STORED_PX = 800
         const val NOT_FOUND_MS = 7 * 24 * 60 * 60 * 1000L
