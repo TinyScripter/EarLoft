@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,10 +82,11 @@ fun PodcastQueueScreen(
 ) {
     val summary by viewModel.summary.collectAsStateWithLifecycle()
     val episodes by viewModel.episodes.collectAsStateWithLifecycle()
+    val currentId by viewModel.currentBookId.collectAsStateWithLifecycle()
     val selection = rememberEpisodeSelection()
     Column(modifier.fillMaxSize()) {
         if (selection.active) {
-            EpisodeSelectionBar(selection, episodes.valueOrNull.orEmpty(), inQueue = true)
+            EpisodeSelectionBar(selection, episodes.valueOrNull.orEmpty(), loaded = episodes is LoadState.Ready, inQueue = true)
         } else TopAppBar(
             title = {
                 QueueTitle(
@@ -98,7 +100,8 @@ fun PodcastQueueScreen(
                 }
                 QueueMoreMenu(
                     clearMessage = stringResource(R.string.podcast_queue_clear_message),
-                    canClear = summary != null,
+                    // Die geladene Folge bleibt; steht nur sie da, gibt es nichts zu leeren.
+                    canClear = episodes.valueOrNull.orEmpty().any { it.book.id != currentId },
                     onClear = viewModel::clear,
                 )
             },
@@ -163,11 +166,14 @@ internal fun SpokenQueueList(
     val selecting = selection?.active == true
     val rows = remember { mutableStateListOf<BookWithProgress>() }
     val reorder = rememberReorderState(listState)
-    LaunchedEffect(entries) {
-        val loaded = entries.valueOrNull
-        if (reorder.draggedKey != null || loaded == null) return@LaunchedEffect
+    val latest by rememberUpdatedState(entries)
+    fun syncRows() {
+        val loaded = latest.valueOrNull ?: return
         rows.clear()
         rows.addAll(loaded)
+    }
+    LaunchedEffect(entries) {
+        if (reorder.draggedKey == null) syncRows()
     }
 
     when (entries) {
@@ -204,7 +210,8 @@ internal fun SpokenQueueList(
                                 index = { rows.indexOfFirst { it.book.id == id } },
                                 onMove = { from, to -> rows.add(to, rows.removeAt(from)) },
                                 // Nur speichern, wenn sich der Platz geändert hat; sonst würde schon ein Antippen die Zeile festlegen.
-                                onDragEnd = { moved -> if (moved) onReorder(rows.map { it.book.id }, id) },
+                                // Ohne Platzwechsel kommt kein neuer Stand nach; was beim Ziehen eintraf, gilt jetzt.
+                                onDragEnd = { moved -> if (moved) onReorder(rows.map { it.book.id }, id) else syncRows() },
                             ),
                     )
                 } },

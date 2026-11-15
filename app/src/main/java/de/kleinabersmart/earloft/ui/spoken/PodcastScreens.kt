@@ -327,12 +327,10 @@ fun PodcastLibraryScreen(
     Column(modifier.fillMaxSize()) {
         // Während der Auswahl steht ihre Leiste an der Stelle der Reiter, und der Pager bleibt stehen.
         if (selection.active) {
-            val shown = if (PodcastTab.entries[pagerState.currentPage] == PodcastTab.STARRED) {
-                starred.valueOrNull.orEmpty()
-            } else {
-                unheard.valueOrNull.orEmpty().flatMap { it.episodes }
-            }
-            EpisodeSelectionBar(selection, shown, windowInsets = WindowInsets(0))
+            val starredTab = PodcastTab.entries[pagerState.currentPage] == PodcastTab.STARRED
+            val shown = if (starredTab) starred.valueOrNull.orEmpty() else unheard.valueOrNull.orEmpty().flatMap { it.episodes }
+            val loaded = (if (starredTab) starred is LoadState.Ready else unheard is LoadState.Ready)
+            EpisodeSelectionBar(selection, shown, loaded = loaded, windowInsets = WindowInsets(0))
         } else PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
             PodcastTab.entries.forEachIndexed { index, tab ->
                 // Vier Reiter: wie in der Musik-Bibliothek kleinere Schrift statt Umbruch („Subscriptions“).
@@ -501,7 +499,7 @@ fun PodcastScreen(
     // Breit (Tablet, von Start aus ohne Liste daneben): nicht über die ganze Breite, sonst stehen Knöpfe weit vom Titel.
     Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         if (selection.active) {
-            EpisodeSelectionBar(selection, shownEpisodes.valueOrNull.orEmpty())
+            EpisodeSelectionBar(selection, shownEpisodes.valueOrNull.orEmpty(), loaded = shownEpisodes is LoadState.Ready)
         } else TopAppBar(
             title = {},
             navigationIcon = { BackButton(onBack) },
@@ -779,7 +777,7 @@ fun PodcastSearchScreen(
 
     Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         // Während der Auswahl ersetzt die Leiste das Suchfeld; die Treffer bleiben, der Suchtext auch.
-        if (selection.active) EpisodeSelectionBar(selection, hits) else Row(Modifier.statusBarsPadding().padding(end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (selection.active) EpisodeSelectionBar(selection, hits, loaded = result != null) else Row(Modifier.statusBarsPadding().padding(end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             BackButton(onBack)
             OutlinedTextField(
                 value = query,

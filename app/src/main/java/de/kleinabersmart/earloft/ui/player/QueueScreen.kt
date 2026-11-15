@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -139,13 +140,16 @@ fun QueueList(
         val rows = remember { mutableStateListOf<QueueRow>() }
         var currentIndex by remember { mutableIntStateOf(state.currentIndex) }
         val reorder = rememberReorderState(listState)
-        LaunchedEffect(state.queue, state.currentIndex) {
-            if (reorder.draggedKey != null) return@LaunchedEffect
-            currentIndex = state.currentIndex
+        val latest by rememberUpdatedState(state)
+        fun syncRows() {
+            currentIndex = latest.currentIndex
             // Schon umsortiert (Ziehen, „Nach oben/unten“): Kennungen behalten, sonst gleitet nichts an seinen Platz.
-            if (rows.map { it.entry } == state.queue) return@LaunchedEffect
+            if (rows.map { it.entry } == latest.queue) return
             rows.clear()
-            state.queue.forEach { rows.add(QueueRow(nextRowId++, it)) }
+            latest.queue.forEach { rows.add(QueueRow(nextRowId++, it)) }
+        }
+        LaunchedEffect(state.queue, state.currentIndex) {
+            if (reorder.draggedKey == null) syncRows()
         }
         val moveRow = { from: Int, to: Int ->
             rows.add(to, rows.removeAt(from))
@@ -174,7 +178,9 @@ fun QueueList(
                                 modifier = Modifier
                                     .size(40.dp)
                                     .padding(8.dp)
-                                    .reorderHandle(reorder, row.id, index = { rows.indexOfFirst { it.id == row.id } }, onMove = moveRow),
+                                    .reorderHandle(reorder, row.id, index = { rows.indexOfFirst { it.id == row.id } }, onMove = moveRow,
+                                    // Ohne Platzwechsel kommt kein neuer Stand nach; was beim Ziehen eintraf, gilt jetzt.
+                                    onDragEnd = { moved -> if (!moved) syncRows() }),
                             )
                             AlbumArt(
                                 albumId = entry.albumId,

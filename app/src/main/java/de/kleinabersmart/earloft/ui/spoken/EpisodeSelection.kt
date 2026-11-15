@@ -89,7 +89,8 @@ fun rememberEpisodeSelection(): EpisodeSelection =
  * Leiste statt der Kopfzeile, solange ausgewählt ist: ✕ beendet die Auswahl (wie „Zurück“), daneben die Anzahl; rechts
  * „Alle auswählen“, „Gehört“ und „Laden“, im ⋮ „Download löschen“, Warteschlange, „Als Nächstes“ und „Merken“. [shown] sind die Folgen
  * der Liste in ihrer Reihenfolge; die Aktionen gelten für die ausgewählten darunter, in dieser Reihenfolge. [inQueue]: Die
- * Liste ist die Warteschlange (dort „Entfernen“ statt „Zur Warteschlange“). Nach einer Aktion endet die Auswahl.
+ * Liste ist die Warteschlange (dort „Entfernen“ statt „Zur Warteschlange“). Nach einer Aktion endet die Auswahl. [loaded]: Die Liste
+ * ist geladen; solange nicht (nach dem Prozessende), bleibt die wiederhergestellte Auswahl stehen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,6 +98,7 @@ fun EpisodeSelectionBar(
     selection: EpisodeSelection,
     shown: List<BookWithProgress>,
     modifier: Modifier = Modifier,
+    loaded: Boolean = true,
     inQueue: Boolean = false,
     /** Unter dem Kopf der App (Reiter „Folgen“) ohne Abstand für die Statusleiste. */
     windowInsets: WindowInsets = TopAppBarDefaults.windowInsets,
@@ -115,7 +117,7 @@ fun EpisodeSelectionBar(
     var menu by remember { mutableStateOf(false) }
 
     BackHandler(enabled = selection.active) { selection.clear() }
-    LaunchedEffect(shown) { selection.retain(shown.map { it.book.id }) }
+    LaunchedEffect(shown, loaded) { if (loaded) selection.retain(shown.map { it.book.id }) }
 
     fun done(text: String) {
         selection.clear()
