@@ -73,7 +73,7 @@ class PodcastRefresher @Inject constructor(
     /**
      * Beim Öffnen der App (höchstens alle [STALE_CHECK_INTERVAL_MS]): Abos abgleichen, deren letzter Abgleich länger als
      * der eingestellte Abstand her ist – nur über ein Netz, das der periodische Auftrag auch nähme. Meldet nur, wenn es
-     * Neues gibt.
+     * Neues gibt. Wie beim Abgleich aller: Scheitern alle, lag es am Netz, und es zählt nicht als Fehler der Abos.
      */
     fun refreshStale() {
         val now = System.currentTimeMillis()
@@ -83,11 +83,9 @@ class PodcastRefresher @Inject constructor(
             val hours = settings.refreshHours.first()
             if (hours == 0 || !networkAllows(mobile = settings.useMobileData.first())) return@launch
             val stale = now - hours * HOUR_MS
-            // Die Folgen eines Abos, das noch nie abgeglichen wurde, sind nicht neu.
-            val fresh = dao.feeds().filter { it.lastRefreshAt < stale }.sumOf { feed ->
-                val added = repository.refresh(feed.feedId)?.newEpisodeIds?.size ?: 0
-                if (feed.lastRefreshAt > 0) added else 0
-            }
+            if (dao.feeds().none { it.lastRefreshAt < stale }) return@launch
+            // Die Folgen eines Abos, das noch nie abgeglichen wurde, zählen dort schon nicht als neu.
+            val fresh = repository.refreshAll { it.lastRefreshAt < stale }.newCount
             if (fresh > 0) events.emit(RefreshEvent.Finished(RefreshKind.PODCASTS, fresh, failed = false))
         }
     }
@@ -137,11 +135,15 @@ class PodcastRefresher @Inject constructor(
         }
     }
 
-    /** Wie die Bedingung des periodischen Auftrags: Internet, und ohne [mobile] nur ein Netz ohne Volumenbegrenzung. */
+    /**
+     * Wie die Bedingung des periodischen Auftrags: Internet, und ohne [mobile] nur ein Netz ohne Volumenbegrenzung. Das Netz
+     * muss geprüft sein: Hinter einem Captive Portal (Hotel-WLAN vor der Anmeldung) käme für jeden Feed die Anmeldeseite.
+     */
     private fun networkAllows(mobile: Boolean): Boolean {
         val manager = context.getSystemService(ConnectivityManager::class.java) ?: return false
         val capabilities = manager.getNetworkCapabilities(manager.activeNetwork) ?: return false
         if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return false
+        if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return false
         return mobile || capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
     }
 

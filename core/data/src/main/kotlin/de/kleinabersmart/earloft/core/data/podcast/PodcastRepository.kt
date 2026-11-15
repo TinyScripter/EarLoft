@@ -706,14 +706,14 @@ class PodcastRepository @Inject constructor(
         dao.episodeIdsOldestFirst(feed.feedId).let { if (feed.newestFirst) it.asReversed() else it }
 
     /**
-     * Gleicht alle Abos ab. Die Folgen eines Abos, das zum ersten Mal abgeglichen wird, zählen nicht als neu
-     * (sonst meldete jedes frische Abo seine ganze Folgenliste).
+     * Gleicht alle Abos ab, mit [which] nur einen Teil (beim Öffnen der App die veralteten). Die Folgen eines Abos, das zum
+     * ersten Mal abgeglichen wird, zählen nicht als neu (sonst meldete jedes frische Abo seine ganze Folgenliste).
      */
-    suspend fun refreshAll(): PodcastRefreshSummary {
+    suspend fun refreshAll(which: (PodcastFeedEntity) -> Boolean = { true }): PodcastRefreshSummary {
         val failures = mutableMapOf<String, FeedError>()
         val news = mutableListOf<NewEpisodes>()
         val moved = mutableListOf<String>()
-        val feeds = dao.feeds().filter { !it.isLocal }
+        val feeds = dao.feeds().filter { !it.isLocal && which(it) }
         feeds.forEach { feed ->
             when (val outcome = mutex.withLock { refreshLocked(feed.feedId) }) {
                 is RefreshOutcome.Failed -> failures[feed.feedId] = outcome.error

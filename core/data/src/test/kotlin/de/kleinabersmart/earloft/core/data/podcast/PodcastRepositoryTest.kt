@@ -1187,6 +1187,28 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `refreshing only the stale feeds does not count a lost connection against them`() = runTest {
+        val stale = subscribe()
+        val current = (repository.subscribe("ardsounds:urn:ard:show:abc") as SubscribeResult.Added).feedId
+        served = null
+        requested.clear()
+
+        val summary = repository.refreshAll { it.feedId == stale }
+
+        assertTrue(summary.allFailed)
+        assertEquals(0, db.podcastDao().feed(stale)!!.failedRefreshes)
+        assertEquals(null, db.podcastDao().feed(stale)!!.lastError)
+        // Nur der Teil wurde gefragt.
+        assertTrue(requested.none { it.contains("api.ardaudiothek.de") })
+        assertNotNull(db.podcastDao().feed(current))
+
+        // Kommt etwas durch, liegt es am Feed: Das zählt.
+        val both = repository.refreshAll()
+        assertEquals(false, both.allFailed)
+        assertEquals(1, db.podcastDao().feed(stale)!!.failedRefreshes)
+    }
+
+    @Test
     fun `a broken ARD Sounds answer fails only its own shows`() = runTest {
         val rss = subscribe()
         val ard = (repository.openPreview("ardsounds:urn:ard:show:abc") as SubscribeResult.Added).feedId
