@@ -174,6 +174,26 @@ class ArdBooksTest {
     }
 
     @Test
+    fun `a part that ARD Sounds gives a new address, name and length stays in its place in a started book`() = runTest {
+        server.enqueue(answer(part(1), part(2)))
+        val bookId = ardBooks.add(KEY)!!
+        dao.upsertProgress(BookProgressEntity(bookId, positionMs = 1_500_000, durationMs = 2_000_000, updatedAt = 1))
+
+        val recut = part(1)
+            .replace("https://a.example/1.mp3", "https://b.example/1-neu.mp3")
+            .replace("Goldstrand (1/2)", "Goldstrand (1/2): Am Strand")
+            .replace("\"duration\":1000", "\"duration\":1300")
+        server.enqueue(answer(recut, part(2)))
+        assertTrue(ardBooks.refresh().ok)
+
+        val tracks = dao.tracks(bookId)
+        assertEquals(listOf("https://b.example/1-neu.mp3", "https://a.example/2.mp3"), tracks.map { it.remoteFileId })
+        assertEquals(listOf(null, null), tracks.map { it.unavailableSince })
+        assertEquals(listOf(0L, 1_000_000L), tracks.map { it.startMs })
+        assertEquals(listOf("Teil 1", "Teil 2"), dao.chapters(bookId).map { it.title })
+    }
+
+    @Test
     fun `a book nobody started takes the parts as they are`() = runTest {
         server.enqueue(answer(part(1), part(2)))
         val bookId = ardBooks.add(KEY)!!

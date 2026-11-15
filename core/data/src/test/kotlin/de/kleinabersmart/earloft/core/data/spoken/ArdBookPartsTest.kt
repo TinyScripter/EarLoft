@@ -25,6 +25,54 @@ class ArdBookPartsTest {
     }
 
     @Test
+    fun `a part with the same title id stays the same part under a new address, name and length`() {
+        val known = listOf(
+            known(0, "1", "Teil 1", itemId = "a"),
+            known(1, "2", "Teil 2", state = TrackDownload.DONE, itemId = "b"),
+        )
+        // ARD Sounds hat beide neu geschnitten und benannt; Name und Länge passen nicht mehr.
+        val offered = listOf(
+            ArdPart("a", "Der Anfang", "https://b.example/1.mp3", "audio/mpeg", 1_300_000, availableUntil = null),
+            ArdPart("b", "Das Ende", "https://b.example/2.mp3", "audio/mpeg", 1_300_000, availableUntil = null),
+        )
+
+        val merged = mergeArdParts(known, offered, NOW)
+
+        assertEquals(2, merged.size)
+        // Der ungeladene nimmt die neue Adresse, der geladene behält seine; Längen und Namen bleiben.
+        assertEquals(listOf("https://b.example/1.mp3", "https://a.example/2.mp3"), merged.map { it.track.remoteFileId })
+        assertEquals(listOf(1_000_000L, 1_000_000L), merged.map { it.track.durationMs })
+        assertEquals(listOf("Teil 1", "Teil 2"), merged.map { it.title })
+        assertEquals(listOf(null, null), merged.map { it.track.unavailableSince })
+    }
+
+    @Test
+    fun `the title id comes before the address`() {
+        // Zwei Teile tauschen ihre Adressen (ARD Sounds hat sie vertauscht ausgeliefert und korrigiert).
+        val known = listOf(known(0, "1", "Teil 1", itemId = "a"), known(1, "2", "Teil 2", itemId = "b"))
+        val offered = listOf(
+            ArdPart("a", "Teil 1", "https://a.example/2.mp3", "audio/mpeg", 1_000_000, availableUntil = 7),
+            ArdPart("b", "Teil 2", "https://a.example/1.mp3", "audio/mpeg", 1_000_000, availableUntil = 9),
+        )
+
+        val merged = mergeArdParts(known, offered, NOW)
+
+        assertEquals(listOf("a", "b"), merged.map { it.track.remoteItemId })
+        assertEquals(listOf("https://a.example/2.mp3", "https://a.example/1.mp3"), merged.map { it.track.remoteFileId })
+        assertEquals(listOf(7L, 9L), merged.map { it.until })
+    }
+
+    @Test
+    fun `a part without a title id is still found by its address, and an id nobody offers any more is gone`() {
+        val known = listOf(known(0, "1", "Teil 1"), known(1, "2", "Teil 2", itemId = "alt"))
+
+        val merged = mergeArdParts(known, listOf(offered("1", "Teil 1"), offered("3", "Teil 3")), NOW)
+
+        assertEquals(listOf("1", "alt", "3"), merged.map { it.track.remoteItemId })
+        assertEquals(listOf(null, NOW, null), merged.map { it.track.unavailableSince })
+    }
+
+    @Test
     fun `a downloaded part keeps its file address and a gone part keeps the time it went`() {
         val known = listOf(
             known(0, "1", "Teil 1", state = TrackDownload.DONE),
@@ -112,8 +160,14 @@ class ArdBookPartsTest {
         assertEquals(1_200_000L, positionWithout(3_200_000, missing))
     }
 
-    private fun known(index: Int, id: String, title: String, state: TrackDownload = TrackDownload.NONE, unavailableSince: Long? = null) =
-        ArdBookPart(track(index, "https://a.example/$id.mp3", state, unavailableSince), title, unavailableSince)
+    private fun known(
+        index: Int,
+        id: String,
+        title: String,
+        state: TrackDownload = TrackDownload.NONE,
+        unavailableSince: Long? = null,
+        itemId: String? = null,
+    ) = ArdBookPart(track(index, "https://a.example/$id.mp3", state, unavailableSince).copy(remoteItemId = itemId), title, unavailableSince)
 
     private fun track(index: Int, url: String = "https://a.example/$index.mp3", state: TrackDownload = TrackDownload.NONE, unavailableSince: Long? = null) =
         BookTrackEntity(1, index, url, index * 1_000_000L, 1_000_000, "audio/mpeg", state, unavailableSince = unavailableSince)

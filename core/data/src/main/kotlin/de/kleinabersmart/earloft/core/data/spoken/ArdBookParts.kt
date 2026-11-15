@@ -24,25 +24,24 @@ internal fun freshArdParts(offered: List<ArdPart>): List<ArdBookPart> {
 /**
  * Führt die Teile eines angefangenen Buchs ([known], nach Spur geordnet) mit denen zusammen, die ARD Sounds gerade anbietet
  * ([offered]), ohne dass sich etwas verschiebt: Jeder bekannte Teil bleibt an seinem Platz. Ein Teil gilt als derselbe bei
- * gleicher Adresse, sonst bei gleichem Namen und (fast) gleicher Länge (neu veröffentlicht). Was ARD Sounds nicht mehr führt, bleibt
- * mit [BookTrackEntity.unavailableSince]; neue Teile kommen hinten dazu. Längen und Kapitelnamen bekannter Teile bleiben (ARD
- * Sounds benennt Teile je nach ihrer Zahl anders), damit Positionen, Lesezeichen und Kapitel stimmen; geladene bzw. ladende Teile
- * behalten auch ihre Adresse. Die Kennung des Titels ([BookTrackEntity.remoteItemId]) kommt immer von ARD Sounds.
+ * gleicher Kennung des Titels ([BookTrackEntity.remoteItemId], [ArdPart.id]; die Adresse kann sich bei ARD Sounds ändern), sonst
+ * bei gleicher Adresse, sonst bei gleichem Namen und (fast) gleicher Länge (neu veröffentlicht). Was ARD Sounds nicht mehr führt,
+ * bleibt mit [BookTrackEntity.unavailableSince]; neue Teile kommen hinten dazu. Längen und Kapitelnamen bekannter Teile bleiben
+ * (ARD Sounds benennt Teile je nach ihrer Zahl anders), damit Positionen, Lesezeichen und Kapitel stimmen; geladene bzw. ladende
+ * Teile behalten auch ihre Adresse. Die Kennung des Titels kommt immer von ARD Sounds.
  */
 internal fun mergeArdParts(known: List<ArdBookPart>, offered: List<ArdPart>, now: Long): List<ArdBookPart> {
     val matchOf = arrayOfNulls<ArdPart>(known.size)
     val taken = BooleanArray(offered.size)
-    known.forEachIndexed { i, part ->
-        val j = offered.indices.firstOrNull { !taken[it] && offered[it].audioUrl == part.track.remoteFileId } ?: return@forEachIndexed
-        matchOf[i] = offered[j]
-        taken[j] = true
-    }
-    known.forEachIndexed { i, part ->
+    fun match(same: (ArdBookPart, ArdPart) -> Boolean) = known.forEachIndexed { i, part ->
         if (matchOf[i] != null) return@forEachIndexed
-        val j = offered.indices.firstOrNull { !taken[it] && sameAudio(part, offered[it]) } ?: return@forEachIndexed
+        val j = offered.indices.firstOrNull { !taken[it] && same(part, offered[it]) } ?: return@forEachIndexed
         matchOf[i] = offered[j]
         taken[j] = true
     }
+    match { part, offer -> part.track.remoteItemId != null && part.track.remoteItemId == offer.id }
+    match { part, offer -> part.track.remoteFileId == offer.audioUrl }
+    match(::sameAudio)
     val merged = known.mapIndexed { i, part ->
         val match = matchOf[i]
         val track = part.track
