@@ -154,6 +154,13 @@ class SleepTimer internal constructor(
         val target = target ?: return false
         if (!_shakeWindow.value) return false
         val plan = plan ?: return false
+        val firedAt = firedAt
+        // Das Fenster nach dem Anhalten schließt ein `delay`, und das zählt Uptime: Im Tiefschlaf blieb es Stunden offen, und
+        // Bewegung in der Tasche am Morgen hätte die Wiedergabe gestartet. Maßgeblich ist die Echtzeit (Review D11).
+        if (firedAt != null && now() - firedAt > SHAKE_AFTER_MS) {
+            closeAfterWindow()
+            return false
+        }
         val fired = firedAt != null
         // Zurückgespult wird nur, was wirklich leiser lief (pausiert blendet „bis zum Ende“ nicht aus).
         val faded = target.volume < 1f
@@ -226,10 +233,16 @@ class SleepTimer internal constructor(
         _shakeWindow.value = true
         afterJob = scope.launch {
             delay(SHAKE_AFTER_MS)
-            _shakeWindow.value = false
-            this@SleepTimer.plan = null
-            firedAt = null
+            closeAfterWindow()
         }
+    }
+
+    private fun closeAfterWindow() {
+        afterJob?.cancel()
+        afterJob = null
+        _shakeWindow.value = false
+        plan = null
+        firedAt = null
     }
 
     private sealed interface Step {

@@ -64,7 +64,10 @@ class SleepTimerTest {
     }
 
     private val target = FakeTarget()
-    private val timer = SleepTimer(now = { scope.currentTime }, scope = scope).apply { attach(target) }
+
+    /** Tiefschlaf: Die Echtzeit läuft weiter, `delay` (Uptime) steht. */
+    private var deepSleepMs = 0L
+    private val timer = SleepTimer(now = { scope.currentTime + deepSleepMs }, scope = scope).apply { attach(target) }
 
     private fun advance(ms: Long) {
         scope.advanceTimeBy(ms)
@@ -313,6 +316,20 @@ class SleepTimerTest {
         assertFalse(timer.shakeWindow.value)
         assertFalse(timer.extend())
         assertEquals(0, target.playCount)
+    }
+
+    @Test
+    fun `nach zwei Minuten Tiefschlaf hilft Schuetteln auch dann nicht, wenn das Fenster noch offen ist`() {
+        timer.start(60_000)
+        advance(60_000)
+        advance(30_000)
+        // Bildschirm aus, das Gerät schläft drei Stunden: Das Fenster zu schließen kam nicht dran.
+        deepSleepMs += 3 * 60 * 60_000L
+        assertTrue(timer.shakeWindow.value)
+        assertFalse(timer.extend())
+        assertFalse(timer.shakeWindow.value)
+        assertEquals(0, target.playCount)
+        assertEquals(0L, target.rewound)
     }
 
     @Test
