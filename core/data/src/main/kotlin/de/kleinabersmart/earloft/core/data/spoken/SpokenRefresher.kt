@@ -25,6 +25,7 @@ import de.kleinabersmart.earloft.core.data.work.ensurePeriodicWork
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -95,9 +96,9 @@ class SpokenRefresher @Inject constructor(
     }
 
     /**
-     * Beim Öffnen der App: Dateien vom Gerät, ausstehenden Fortschritt senden, dann je Server ein Vollabgleich, wenn der
-     * letzte länger als [FULL_SYNC_INTERVAL_MS] her ist, sonst nur den Fortschritt anderer Geräte übernehmen. Ohne [books]
-     * bzw. [podcasts] (Bereich ausgeblendet) bleibt der jeweilige Teil aus.
+     * Beim Öffnen der App: ausstehenden Fortschritt senden, dann je Server ein Vollabgleich, wenn der letzte länger als
+     * [FULL_SYNC_INTERVAL_MS] her ist, sonst nur den Fortschritt anderer Geräte übernehmen; die Dateien vom Gerät nebenher.
+     * Ohne [books] bzw. [podcasts] (Bereich ausgeblendet) bleibt der jeweilige Teil aus.
      */
     fun refreshQuick(books: Boolean = true, podcasts: Boolean = true) {
         if (!books && !podcasts) return
@@ -105,33 +106,36 @@ class SpokenRefresher @Inject constructor(
         val last = lastQuick.get()
         if (now - last < QUICK_INTERVAL_MS || !lastQuick.compareAndSet(last, now)) return
         scope.launch {
-            // Neue Dateien in „Audiobooks“; unveränderte Bücher kosten nur die MediaStore-Abfrage.
-            if (books) localBooks.sync()
-            if (podcasts) localPodcasts.sync()
-            // Ausgeblendete Bücher (Allgemein → Bereiche): kein Kontakt zu Audiobookshelf.
-            if (!books) return@launch
-            progressSync.pushPending()
-            bookmarks.pushPending()
-            var fresh = 0
-            servers.all().forEach { server ->
-                if (now - (dao.server(server.serverId)?.lastFullSyncAt ?: 0) > FULL_SYNC_INTERVAL_MS) {
-                    // Der Vollabgleich übernimmt den Fortschritt des Kontos mit.
-                    fresh += syncer.syncSafely(server).newBooks.size
-                    return@forEach
-                }
-                try {
-                    bookmarks.pull(server.serverId) { progressSync.pullAll(server).bookmarks }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: IOException) {
-                    Log.w(TAG, "Fortschritt von ${server.baseUrl} nicht abrufbar", e)
-                }
-            }
-            // Die Bücher aus ARD Sounds gehören nicht zu einem Server: Sie werden auch ohne Audiobookshelf abgeglichen.
-            val lastArdAt = lastArd.get()
-            if (now - lastArdAt > FULL_SYNC_INTERVAL_MS && lastArd.compareAndSet(lastArdAt, now)) fresh += ardBooks.refresh().newBooks.size
-            if (fresh > 0) events.emit(RefreshEvent.Finished(RefreshKind.BOOKS, fresh, failed = false))
+            // Neue Dateien in „Audiobooks“ nebenher: Mit Ordnerfreigabe fragt der Ordner je Buchordner einmal den Provider, die
+            // Server warten nicht darauf (wie `BookSyncer.syncAll`).
+            alongside({ if (books) localBooks.sync() }, { if (podcasts) localPodcasts.sync() }) { syncServersQuick(books, now) }
         }
+    }
+
+    private suspend fun syncServersQuick(books: Boolean, now: Long) {
+        // Ausgeblendete Bücher (Allgemein → Bereiche): kein Kontakt zu Audiobookshelf.
+        if (!books) return
+        progressSync.pushPending()
+        bookmarks.pushPending()
+        var fresh = 0
+        servers.all().forEach { server ->
+            if (now - (dao.server(server.serverId)?.lastFullSyncAt ?: 0) > FULL_SYNC_INTERVAL_MS) {
+                // Der Vollabgleich übernimmt den Fortschritt des Kontos mit.
+                fresh += syncer.syncSafely(server).newBooks.size
+                return@forEach
+            }
+            try {
+                bookmarks.pull(server.serverId) { progressSync.pullAll(server).bookmarks }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                Log.w(TAG, "Fortschritt von ${server.baseUrl} nicht abrufbar", e)
+            }
+        }
+        // Die Bücher aus ARD Sounds gehören nicht zu einem Server: Sie werden auch ohne Audiobookshelf abgeglichen.
+        val lastArdAt = lastArd.get()
+        if (now - lastArdAt > FULL_SYNC_INTERVAL_MS && lastArd.compareAndSet(lastArdAt, now)) fresh += ardBooks.refresh().newBooks.size
+        if (fresh > 0) events.emit(RefreshEvent.Finished(RefreshKind.BOOKS, fresh, failed = false))
     }
 
     /** Auf Anforderung: meldet Start und Ende (mit Zahl der neuen Bücher) an die Oberfläche. */
@@ -155,6 +159,15 @@ class SpokenRefresher @Inject constructor(
         const val FULL_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000L
         const val QUICK_INTERVAL_MS = 10 * 60 * 1000L
     }
+}
+
+/**
+ * Führt [main] aus, während [side] nebenher läuft, und endet, wenn beides fertig ist. So wartet [main] nicht auf das Langsamere
+ * nebenher (beim Öffnen der App: die Server nicht auf die Dateien vom Gerät, Review F23).
+ */
+internal suspend fun alongside(vararg side: suspend () -> Unit, main: suspend () -> Unit) = coroutineScope {
+    side.forEach { launch { it() } }
+    main()
 }
 
 class BookRefreshWorker(
