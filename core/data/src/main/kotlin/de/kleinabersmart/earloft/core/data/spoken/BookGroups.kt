@@ -36,9 +36,9 @@ fun List<BookWithProgress>.genreGroups(): List<BookGroup> =
         .map { entries ->
             val spellings = entries.groupingBy { it.first }.eachCount()
             val name = spellings.entries.sortedWith(compareBy({ -it.value }, { it.key })).first().key
-            BookGroup(name, entries.map { it.second }.distinct().sortedBy { it.book.title.sortOrder() })
+            BookGroup(name, entries.map { it.second }.distinct().sortedByOrder { it.book.title })
         }
-        .sortedBy { it.name.sortOrder() }
+        .sortedByOrder { it.name }
 
 /** Hat das Buch [genre], in welcher Schreibweise auch immer ([genreGroups])? */
 fun Book.hasGenre(genre: String): Boolean = genres.any { sameGenre(it, genre) }
@@ -51,6 +51,14 @@ private fun String.genreKey(): String = normalizeForMerge().ifEmpty { trim().low
 /** Sortierschlüssel wie `normTitle` der Bücher: ohne Artikel „The“, Groß-/Kleinschreibung, Umlaute und Satzzeichen. */
 private fun String.sortOrder(): String = sortKey().normalizeForMerge()
 
+/**
+ * Wie `sortedBy { text(it).sortOrder() }`, aber jeder Schlüssel nur einmal: [sortOrder] normalisiert (NFKD und zwei reguläre
+ * Ausdrücke), und `sortedBy` rechnete ihn bei jedem Vergleich neu – bei großen Bibliotheken alle 15 s zehntausendfach, sobald
+ * ein Buch läuft und sein Fortschritt die Liste neu meldet (Review D12).
+ */
+private inline fun <T> List<T>.sortedByOrder(crossinline text: (T) -> String): List<T> =
+    map { it to text(it).sortOrder() }.sortedBy { it.second }.map { it.first }
+
 /** Hinter allem, was einen Schlüssel hat (Bücher ohne Autor bzw. Serie). */
 private const val LAST = "￿"
 
@@ -59,8 +67,8 @@ private class AuthorOrder(val author: String, val series: String, val sequence: 
 private fun List<BookWithProgress>.peopleGroups(names: (Book) -> List<String>): List<BookGroup> =
     flatMap { item -> names(item.book).map { it to item } }
         .groupBy({ it.first }, { it.second })
-        .map { (name, books) -> BookGroup(name, books.sortedBy { it.book.title.sortOrder() }) }
-        .sortedBy { it.name.sortOrder() }
+        .map { (name, books) -> BookGroup(name, books.sortedByOrder { it.book.title }) }
+        .sortedByOrder { it.name }
 
 /**
  * Suchtreffer für Autoren bzw. Sprecher aus Büchern, deren Eintrag zu [query] passt ([rows]: `bookId` und der ganze
@@ -72,7 +80,7 @@ internal fun peopleHits(rows: List<Pair<Long, String>>, query: String, limit: In
         .filter { (name, _) -> name.normalizeForMerge().contains(needle) }
         .groupBy({ it.first }, { it.second })
         .map { (name, bookIds) -> AuthorHit(name, bookIds.min(), bookIds.distinct().size) }
-        .sortedBy { it.name.sortOrder() }
+        .sortedByOrder { it.name }
         .take(limit)
 }
 
@@ -143,9 +151,10 @@ fun List<BookWithProgress>.seriesSections(): List<SeriesSection> {
     val series = filter { first[it] != null }
         .groupBy { first.getValue(it)!!.name }
         .map { (name, books) ->
-            SeriesSection(name, books.sortedWith(compareBy({ first[it]?.sequence ?: Double.MAX_VALUE }, { it.book.title.sortOrder() })))
+            val titles = books.associateWith { it.book.title.sortOrder() }
+            SeriesSection(name, books.sortedWith(compareBy({ first[it]?.sequence ?: Double.MAX_VALUE }, { titles.getValue(it) })))
         }
-        .sortedBy { it.series!!.sortOrder() }
+        .sortedByOrder { it.series!! }
     val rest = filter { first[it] == null }
     return if (rest.isEmpty()) series else series + SeriesSection(null, rest)
 }
@@ -155,7 +164,8 @@ fun List<BookWithProgress>.seriesGroups(): List<BookGroup> =
     flatMap { item -> parseSeries(item.book.series).map { Triple(it.name, it.sequence, item) } }
         .groupBy { it.first }
         .map { (name, entries) ->
-            val sorted = entries.sortedWith(compareBy({ it.second ?: Double.MAX_VALUE }, { it.third.book.title.sortOrder() }))
-            BookGroup(name, sorted.map { it.third })
+            val sorted = entries.map { it to it.third.book.title.sortOrder() }
+                .sortedWith(compareBy({ it.first.second ?: Double.MAX_VALUE }, { it.second }))
+            BookGroup(name, sorted.map { it.first.third })
         }
-        .sortedBy { it.name.sortOrder() }
+        .sortedByOrder { it.name }

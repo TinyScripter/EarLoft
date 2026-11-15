@@ -24,11 +24,14 @@ import de.kleinabersmart.earloft.core.model.SpokenServer
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.asLoadState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -70,6 +73,8 @@ class SpokenLibraryViewModel @Inject constructor(
     /** Start-Regal „Serie fortsetzen“: je Serie der nächste Band mit seiner Nummer ([continueSeries]). */
     val continueSeries: StateFlow<List<Pair<BookWithProgress, String?>>> = books.books()
         .map { all -> all.continueSeries().map { (book, series) -> book to series.nextVolume } }
+        // Neu bei jeder Fortschrittszeile (beim Abspielen alle 15 s), nicht auf dem Main-Thread (Review D12).
+        .flowOn(Dispatchers.Default)
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -85,6 +90,8 @@ class SpokenLibraryViewModel @Inject constructor(
 
     /** Alle Genres der Bücher nach Name (Filter des Reiters „Alle“); leer, wenn der Server keine führt. */
     val genres: StateFlow<List<String>> = books.books().map { all -> all.genreGroups().map { it.name } }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
