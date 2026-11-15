@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,10 +28,13 @@ import de.kleinabersmart.earloft.core.data.share.ShareContent
 import de.kleinabersmart.earloft.core.data.share.ShareRepository
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.core.download.EpisodeDownloads
+import de.kleinabersmart.earloft.ui.snackbar.Snackbars
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import javax.inject.Inject
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
@@ -48,28 +52,54 @@ val LocalShareController = staticCompositionLocalOf<ShareController?> { null }
 class ShareViewModel @Inject constructor(
     private val repository: ShareRepository,
     private val downloads: EpisodeDownloads,
+    private val snackbars: Snackbars,
     @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
+    private val copying = Mutex()
+
     suspend fun content(target: ShareTarget): ShareContent? = repository.content(target)
 
     /**
      * Die geladene Folge als Datei zum Teilen: eine Kopie im Cache unter dem Titel der Folge (der Provider sieht nur dort,
-     * und der Empfänger sieht einen lesbaren Namen). Es bleibt höchstens eine Kopie liegen. `null`, wenn die Datei fehlt.
+     * und der Empfänger sieht einen lesbaren Namen). Es bleibt höchstens eine Kopie liegen. `null`, wenn die Datei fehlt,
+     * schon eine Kopie entsteht (ein zweiter Aufruf löschte sie mitten im Schreiben) oder das Kopieren scheitert (Speicher
+     * voll, Datei inzwischen weg; vorher ein Absturz, Review D14).
      */
-    suspend fun media(bookId: Long, title: String): SharedMedia? = withContext(Dispatchers.IO) {
-        val source = downloads.downloadedFile(bookId) ?: return@withContext null
+    suspend fun media(bookId: Long, title: String): SharedMedia? {
+        if (!copying.tryLock()) return null
+        return try {
+            withContext(Dispatchers.IO) { copyForSharing(bookId, title) }
+        } finally {
+            copying.unlock()
+        }
+    }
+
+    private suspend fun copyForSharing(bookId: Long, title: String): SharedMedia? {
+        val source = downloads.downloadedFile(bookId) ?: return null
         val directory = File(context.cacheDir, SHARED_DIR).apply {
             deleteRecursively()
             mkdirs()
         }
         val name = title.replace(UNSAFE_FILE_NAME_CHARS, " ").trim().take(MAX_FILE_NAME).ifBlank { "episode" }
         val copy = File(directory, source.file.extension.let { if (it.isEmpty()) name else "$name.$it" })
-        source.file.copyTo(copy, overwrite = true)
-        SharedMedia(FileProvider.getUriForFile(context, "${context.packageName}.shared", copy), source.mimeType ?: "audio/*")
+        if (source.file.length() > ANNOUNCE_COPY_BYTES) snackbars.show(context.getString(R.string.share_media_preparing))
+        try {
+            source.file.copyTo(copy, overwrite = true)
+        } catch (e: IOException) {
+            Log.w(TAG, "Folge $bookId nicht zum Teilen kopiert", e)
+            copy.delete()
+            snackbars.show(context.getString(R.string.share_media_failed))
+            return null
+        }
+        return SharedMedia(FileProvider.getUriForFile(context, "${context.packageName}.shared", copy), source.mimeType ?: "audio/*")
     }
 
     private companion object {
+        const val TAG = "ShareViewModel"
         const val SHARED_DIR = "shared"
+
+        /** Ab dieser Größe dauert das Kopieren merklich: kurzer Hinweis, dass es weitergeht. */
+        const val ANNOUNCE_COPY_BYTES = 20L * 1024 * 1024
         const val MAX_FILE_NAME = 80
         val UNSAFE_FILE_NAME_CHARS = Regex("[\\\\/:*?\"<>|\\p{Cntrl}]")
     }

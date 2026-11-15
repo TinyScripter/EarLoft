@@ -20,6 +20,8 @@
     <string name="action_more">More options</string>
     <string name="action_share">Share</string>
     <string name="action_share_media">Share media file</string>
+    <string name="share_media_preparing">Preparing the file to share…</string>
+    <string name="share_media_failed">The file could not be prepared for sharing. Is the storage full?</string>
     <string name="action_play">Play</string>
     <string name="action_pause">Pause</string>
     <string name="action_shuffle">Shuffle</string>

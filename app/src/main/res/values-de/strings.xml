@@ -19,6 +19,8 @@
     <string name="action_more">Weitere Optionen</string>
     <string name="action_share">Teilen</string>
     <string name="action_share_media">Mediendatei teilen</string>
+    <string name="share_media_preparing">Datei zum Teilen wird vorbereitet …</string>
+    <string name="share_media_failed">Die Datei ließ sich nicht zum Teilen vorbereiten. Ist der Speicher voll?</string>
     <string name="action_play">Abspielen</string>
     <string name="action_pause">Pause</string>
     <string name="action_shuffle">Zufällig</string>
