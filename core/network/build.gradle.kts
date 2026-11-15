@@ -39,4 +39,8 @@ dependencies {
     // XmlPullParser-Implementierung für die JVM-Tests (android.jar hat nur Stubs).
     testImplementation(libs.kxml2)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // Auf dem Gerät: der XmlPullParser von Android statt kxml2 (Review D24).
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }
