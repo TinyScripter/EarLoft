@@ -11,6 +11,7 @@ import de.kleinabersmart.earloft.core.data.repository.PlaybackPolicy
 import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.dao.BookDao
+import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
 import de.kleinabersmart.earloft.core.datasource.local.LocalBookScanner
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthInterceptor
@@ -126,7 +127,8 @@ class BookLibrariesSyncTest {
         assertEquals(listOf("Krimi", "Roman"), titles())
         sync(id)
         assertEquals(listOf("Krimi", "Roman"), titles())
-        assertEquals(2, dao.booksOf(id).size)
+        // Ausgeblendet, nicht gelöscht: Downloads, Fortschritt und Lesezeichen bleiben.
+        assertEquals(3, dao.booksOf(id).size)
         // Der nächste Abgleich fragt die abgewählte Bibliothek gar nicht ab.
         assertFalse(servers.setLibraryShown(id, "lib-a", shown = false))
         assertEquals(listOf(false), servers.servers.first().single().libraries.filter { it.libraryId == "lib-b" }.map { it.shown })
@@ -145,6 +147,37 @@ class BookLibrariesSyncTest {
 
         assertEquals(listOf("Hörspiel", "Krimi", "Neu", "Roman"), titles())
         assertEquals(listOf("Neu"), result.newBooks.map { it.title })
+    }
+
+    @Test
+    fun `a library chosen again brings back the same books with their progress`() = runTest {
+        val id = connect()
+        sync(id)
+        val before = dao.booksOf(id).single { it.title == "Hörspiel" }
+        dao.upsertProgress(BookProgressEntity(before.bookId, positionMs = 30_000, durationMs = 60_000, updatedAt = 1))
+        servers.setLibraryShown(id, "lib-b", shown = false)
+        sync(id)
+        sync(id)
+
+        servers.setLibraryShown(id, "lib-b", shown = true)
+        sync(id)
+
+        val after = dao.booksOf(id).single { it.title == "Hörspiel" }
+        assertEquals(before.bookId, after.bookId)
+        assertEquals(30_000L, dao.progress(after.bookId)?.positionMs)
+    }
+
+    @Test
+    fun `a deselected library the server no longer has drops its books`() = runTest {
+        val id = connect()
+        sync(id)
+        servers.setLibraryShown(id, "lib-b", shown = false)
+        sync(id)
+        items.remove("lib-b")
+
+        sync(id)
+
+        assertEquals(listOf("Krimi", "Roman"), dao.booksOf(id).map { it.title }.sorted())
     }
 
     @Test

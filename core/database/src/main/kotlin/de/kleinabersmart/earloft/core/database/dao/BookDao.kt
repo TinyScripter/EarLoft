@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * Bücher (und Folgen) der ausgeschalteten Audiobookshelf-Server sind ausgeblendet, ebenso Bücher abgewählter Bibliotheken
- * (bis der nächste Abgleich sie entfernt); Podcast-Feeds stehen nicht in `spoken_servers`.
+ * (sie bleiben gespeichert, bis die Bibliothek wieder gewählt ist); Podcast-Feeds stehen nicht in `spoken_servers`.
  */
 private const val BOOK_VISIBLE = "serverId NOT IN (SELECT serverId FROM spoken_servers WHERE enabled = 0) AND (libraryId IS NULL OR " +
     "NOT EXISTS (SELECT 1 FROM spoken_servers s WHERE s.serverId = books.serverId AND " +
@@ -233,6 +233,16 @@ abstract class BookDao {
     /** Bücher, die der letzte Vollabgleich nicht mehr gesehen hat, sind auf dem Server gelöscht (Mark-and-Sweep). */
     @Query("DELETE FROM books WHERE serverId = :serverId AND seenInGeneration < :generation")
     abstract suspend fun deleteUnseen(serverId: String, generation: Long)
+
+    /**
+     * Wie [deleteUnseen], aber die Bücher der Bibliotheken [keptLibraries] bleiben: Abgewählte werden nicht abgeglichen und
+     * behalten ihre Bücher samt Downloads, Fortschritt und Lesezeichen (ausgeblendet wie bei einem ausgeschalteten Server).
+     */
+    @Query(
+        "DELETE FROM books WHERE serverId = :serverId AND seenInGeneration < :generation AND " +
+            "(libraryId IS NULL OR libraryId NOT IN (:keptLibraries))",
+    )
+    abstract suspend fun deleteUnseenOutside(serverId: String, generation: Long, keptLibraries: List<String>)
 
     /** Uhr: Hörbücher, die nicht mehr im Manifest des Handys stehen (Wear-Konzept 16.2), über alle Server. */
     @Query("DELETE FROM books WHERE kind = 'BOOK' AND seenInGeneration < :generation")

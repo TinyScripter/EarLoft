@@ -82,8 +82,9 @@ class AudiobookshelfServers @Inject constructor(
     }
 
     /**
-     * Wählt eine Buch-Bibliothek ab bzw. wieder an (`books_improvements.md` M3); ihre Bücher verschwinden sofort und fallen
-     * beim nächsten Abgleich weg bzw. kommen mit ihm. Die letzte gezeigte bleibt: `false`, wenn sie abgewählt werden sollte.
+     * Wählt eine Buch-Bibliothek ab bzw. wieder an (`books_improvements.md` M3); ihre Bücher sind sofort aus- bzw. eingeblendet.
+     * Abgewählt bleiben sie samt Downloads, Fortschritt und Lesezeichen gespeichert, werden aber nicht abgeglichen (wie bei einem
+     * ausgeschalteten Server). Die letzte gezeigte bleibt: `false`, wenn sie abgewählt werden sollte.
      */
     suspend fun setLibraryShown(serverId: String, libraryId: String, shown: Boolean): Boolean {
         val entity = bookDao.server(serverId) ?: return false

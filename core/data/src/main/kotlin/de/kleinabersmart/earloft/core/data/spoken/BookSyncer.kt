@@ -67,18 +67,20 @@ class BookSyncer @Inject constructor(
     /**
      * Gibt die Bücher zurück, die es auf dem Server neu gibt (keine beim allerersten Abgleich). Abgeglichen werden alle Buch-
      * Bibliotheken außer den abgewählten (`books_improvements.md` M3); die Bücher einer gerade erst gewählten zählen nicht als neu.
+     * Die Bücher abgewählter Bibliotheken bleiben unberührt stehen; nur die einer Bibliothek, die der Server nicht mehr hat, fallen weg.
      */
     private suspend fun sync(server: AbsServer): List<NewBook> = syncMutex.withLock {
         val entity = dao.server(server.serverId) ?: return@withLock emptyList()
         val libraries = api.libraries(server).filter { it.mediaType == "book" }
         dao.replaceLibraries(server.serverId, libraries.mapIndexed { index, it -> SpokenLibraryEntity(server.serverId, it.id, it.name, index) })
-        val shown = libraries.filter { it.id !in entity.hiddenLibraryIds }
+        val (shown, hidden) = libraries.partition { it.id !in entity.hiddenLibraryIds }
         if (shown.isEmpty()) return@withLock emptyList()
         val generation = entity.syncGeneration + 1
         val firstSync = entity.lastFullSyncAt == 0L
         val stored = if (firstSync) emptyList() else dao.booksOf(server.serverId)
         val known = stored.mapTo(HashSet()) { it.remoteId }
-        val syncedBefore = stored.mapNotNullTo(HashSet()) { it.libraryId }
+        // Nur Bibliotheken, die schon der letzte Abgleich gelesen hat: Die Bücher einer abgewählten stehen noch mit älterer Generation da.
+        val syncedBefore = stored.filter { it.seenInGeneration == entity.syncGeneration }.mapNotNullTo(HashSet()) { it.libraryId }
         val fresh = HashSet<String>()
         for (library in shown) {
             var page = 0
@@ -103,7 +105,8 @@ class BookSyncer @Inject constructor(
         progressSync.pushPending()
         bookmarks.pushPending()
         // Ein abgebrochener Abgleich kommt nie bis hierher und löscht deshalb nichts.
-        dao.deleteUnseen(server.serverId, generation)
+        if (hidden.isEmpty()) dao.deleteUnseen(server.serverId, generation)
+        else dao.deleteUnseenOutside(server.serverId, generation, hidden.map { it.id })
         // Neu gelesen: Schalter und Auswahl können sich während des Abgleichs geändert haben.
         val current = dao.server(server.serverId) ?: entity
         dao.upsertServer(current.copy(libraryId = shown.first().id, syncGeneration = generation, lastFullSyncAt = System.currentTimeMillis()))
