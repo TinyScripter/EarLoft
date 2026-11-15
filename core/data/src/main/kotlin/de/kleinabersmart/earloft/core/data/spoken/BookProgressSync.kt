@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -109,7 +108,7 @@ class BookProgressSync @Inject constructor(
         val shown = bookIds.mapNotNull { dao.progress(it) }.filter { !it.hidden }
         if (shown.isEmpty()) return
         shown.forEach { dao.upsertProgress(it.hiddenAt(now)) }
-        BookProgressWorker.schedule(context)
+        BookProgressWorker.schedule(context, replace = true)
     }
 
     /** `true`, wenn nichts mehr aussteht. */
@@ -247,7 +246,7 @@ class BookProgressWorker(
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, ProgressEntryPoint::class.java)
         val progressDone = entryPoint.progressSync().pushPending()
         val bookmarksDone = entryPoint.bookmarks().pushPending()
-        return if (progressDone && bookmarksDone) Result.success() else Result.retry()
+        return CatchUpWork.result(progressDone && bookmarksDone, runAttemptCount)
     }
 
     @EntryPoint
@@ -260,12 +259,13 @@ class BookProgressWorker(
     companion object {
         private const val WORK_NAME = "book-progress"
 
-        fun schedule(context: Context) {
+        /** Siehe [CatchUpWork.policy]. */
+        fun schedule(context: Context, replace: Boolean = false) {
             val request = OneTimeWorkRequestBuilder<BookProgressWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
-            WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+            WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, CatchUpWork.policy(replace), request)
         }
     }
 }

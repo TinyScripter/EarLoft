@@ -6,7 +6,6 @@ import android.util.Log
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -178,7 +177,7 @@ class AbsSessionWorker(
 
     override suspend fun doWork(): Result {
         val reporter = EntryPointAccessors.fromApplication(applicationContext, SessionEntryPoint::class.java).reporter()
-        return if (reporter.pushPending()) Result.success() else Result.retry()
+        return CatchUpWork.result(reporter.pushPending(), runAttemptCount)
     }
 
     @EntryPoint
@@ -190,12 +189,13 @@ class AbsSessionWorker(
     companion object {
         private const val WORK_NAME = "abs-sessions"
 
+        /** Siehe [CatchUpWork.policy]. */
         fun schedule(context: Context) {
             val request = OneTimeWorkRequestBuilder<AbsSessionWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
-            WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+            WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, CatchUpWork.policy(replace = false), request)
         }
     }
 }
