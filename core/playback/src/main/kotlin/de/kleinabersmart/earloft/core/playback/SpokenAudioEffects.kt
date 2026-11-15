@@ -54,6 +54,8 @@ internal class SpokenAudioEffects(private val player: ExoPlayer) {
         } catch (e: RuntimeException) {
             // Manche Geräte bieten den Effekt nicht an; dann bleibt es leise statt abzubrechen.
             Log.w(TAG, "LoudnessEnhancer nicht verfügbar", e)
+            // Ein halb eingerichteter Effekt (etwa bei setTargetGain) hält sonst seine native Ressource.
+            runCatching { enhancer?.release() }
             enhancer = null
             enhancerSession = C.AUDIO_SESSION_ID_UNSET
         }

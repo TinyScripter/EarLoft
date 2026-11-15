@@ -229,8 +229,6 @@ class MediaPlaybackConnection @Inject constructor(
 
     override fun seekToTrack(trackIndex: Int, positionMs: Long) = withController { seekTo(trackIndex, positionMs) }
 
-    override fun setSpeed(speed: Float) = withController { setPlaybackSpeed(speed) }
-
     override fun playNext(songs: List<Song>) = withController {
         val position = if (mediaItemCount == 0) 0 else currentMediaItemIndex + 1
         addMediaItems(position, songs.map { it.toMediaItem() })

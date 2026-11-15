@@ -99,8 +99,6 @@ interface PlaybackConnection {
     /** Springt in Datei [trackIndex] an die Stelle [positionMs] (Position in der Datei). */
     fun seekToTrack(trackIndex: Int, positionMs: Long)
 
-    fun setSpeed(speed: Float)
-
     fun playNext(songs: List<Song>)
 
     fun addToQueue(songs: List<Song>)
