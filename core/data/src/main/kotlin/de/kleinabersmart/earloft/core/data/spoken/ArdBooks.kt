@@ -83,6 +83,20 @@ class ArdBooks @Inject constructor(
         store(book, existing = null, addedAt = addedAt, saved = saved)
     }
 
+    /**
+     * Holt das gesicherte Buch [key] zurück ([add] mit den Angaben aus der Sicherung). Kennt ARD Sounds es nicht mehr, wird es nur
+     * einmal je [GONE_RECHECK_MS] wieder gefragt und nicht bei jedem Start; ohne Verbindung (@throws IOException) gilt das nicht als
+     * „nicht mehr da“. `null`, wenn es nicht geholt wurde.
+     */
+    internal suspend fun restore(key: String, addedAt: Long?, saved: List<ArdBookPart>): Long? {
+        val now = System.currentTimeMillis()
+        val checked = settings.ardGoneChecks()[key]
+        if (checked != null && now - checked < GONE_RECHECK_MS) return null
+        val bookId = add(key, known = null, addedAt = addedAt, saved = saved)
+        if (bookId == null) settings.setArdGoneCheck(key, now) else if (checked != null) settings.setArdGoneCheck(key, null)
+        return bookId
+    }
+
     /** Wie das andere [add], ohne Sicherung. */
     suspend fun add(key: String, known: ArdBook? = null): Long? = add(key, known, addedAt = null, saved = emptyList())
 

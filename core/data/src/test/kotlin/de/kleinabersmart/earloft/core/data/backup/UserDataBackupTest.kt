@@ -320,8 +320,47 @@ class UserDataBackupTest {
 
             assertEquals(1, backup.applyArdBooks(saved.ardBooks.values).size)
             assertTrue(newDevice.bookDao().keyedBooksOf(ARD_BOOK_SERVER_ID).isEmpty())
+            // Fehlende Verbindung heißt nicht „es gibt das Buch nicht mehr“: Beim nächsten Mal wird wieder gefragt.
+            assertTrue(SpokenSettings(context).ardGoneChecks().isEmpty())
         } finally {
             newDevice.close()
+        }
+    }
+
+    @Test
+    fun `an ARD book that ARD Sounds no longer has is asked for once a week, not at every start`() = runTest {
+        val ardKey = "group:urn:ard:show:gs"
+        book(main, ARD_BOOK_SERVER_ID, ardKey, BookKind.BOOK)
+        backupFor(main).mirror()
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        val server = MockWebServer().apply { start() }
+        try {
+            val settings = SpokenSettings(context)
+            val backup = backupFor(newDevice, testArdBooks(context, newDevice, server.url("/graphql"), settings))
+            val saved = user.userDataDao().snapshot().ardBooks.values
+            server.enqueue(MockResponse.Builder().body("""{"data":{"items":{"nodes":[]}}}""").build())
+
+            assertTrue(backup.fetchArdBooks(saved))
+            val asked = server.requestCount
+            assertTrue(asked > 0)
+            assertTrue(ardKey in settings.ardGoneChecks())
+
+            // Nächster Start: keine Anfrage, das Buch bleibt gesichert.
+            assertTrue(backup.fetchArdBooks(saved))
+            assertEquals(asked, server.requestCount)
+            assertEquals(1, backup.applyArdBooks(saved).size)
+
+            // Nach einer Woche wird wieder gefragt; ist das Buch zurück, kommt es und der Merker verschwindet.
+            settings.setArdGoneCheck(ardKey, 0L)
+            server.enqueue(ardAnswer())
+            assertTrue(backup.fetchArdBooks(saved))
+            assertTrue(server.requestCount > asked)
+            assertTrue(backup.applyArdBooks(saved).isEmpty())
+            assertTrue(settings.ardGoneChecks().isEmpty())
+        } finally {
+            newDevice.close()
+            server.close()
         }
     }
 

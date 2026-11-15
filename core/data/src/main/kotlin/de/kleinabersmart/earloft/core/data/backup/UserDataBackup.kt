@@ -527,7 +527,7 @@ class UserDataBackup @Inject constructor(
     internal suspend fun fetchArdBooks(rows: Collection<UserArdBookEntity>): Boolean {
         for (row in rows) {
             try {
-                ardBooks.get().add(row.remoteId, addedAt = row.addedAt, saved = decodeArdParts(row.parts))
+                ardBooks.get().restore(row.remoteId, row.addedAt, decodeArdParts(row.parts))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
