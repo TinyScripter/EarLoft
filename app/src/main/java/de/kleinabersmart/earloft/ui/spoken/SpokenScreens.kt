@@ -52,6 +52,7 @@ import de.kleinabersmart.earloft.core.data.spoken.authorGroups
 import de.kleinabersmart.earloft.core.data.spoken.SeriesProgress
 import de.kleinabersmart.earloft.core.data.spoken.SeriesStep
 import de.kleinabersmart.earloft.core.data.spoken.genreGroups
+import de.kleinabersmart.earloft.core.data.spoken.sameGenre
 import de.kleinabersmart.earloft.core.data.spoken.seriesProgress
 import de.kleinabersmart.earloft.core.data.spoken.narratorGroups
 import de.kleinabersmart.earloft.core.data.spoken.seriesGroups
@@ -748,7 +749,7 @@ fun BookGroupScreen(
     val booksState by viewModel.allBooks.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
     val group = remember(booksState, kind, name) {
-        booksState.valueOrNull?.groups(kind)?.firstOrNull { it.name == name }
+        booksState.valueOrNull?.groups(kind)?.firstOrNull { if (kind == BookGroupKind.GENRE) sameGenre(it.name, name) else it.name == name }
     }
     val description by remember(kind, name) {
         if (kind == BookGroupKind.AUTHOR) viewModel.authorDescription(name) else flowOf(null)

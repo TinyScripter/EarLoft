@@ -122,6 +122,23 @@ class BookListsTest {
     }
 
     @Test
+    fun `genres in different spellings are one group and one filter`() {
+        val spelled = listOf(
+            book(1, "Eins", "A", genres = listOf("Krimi")),
+            book(2, "Zwei", "A", genres = listOf("krimi", "Sci-Fi")),
+            book(3, "Drei", "B", genres = listOf("Krimi", "KRIMI")),
+            book(4, "Vier", "B", genres = listOf("Sci Fi")),
+        )
+        val groups = spelled.genreGroups()
+        // Die häufigste Schreibweise gibt den Namen; ein Buch steht nur einmal darin.
+        assertEquals(listOf("Krimi", "Sci Fi"), groups.map { it.name })
+        assertEquals(listOf(3L, 1L, 2L), groups.first().books.map { it.book.id })
+        assertEquals(listOf(4L, 2L), groups.last().books.map { it.book.id })
+        val ids = spelled.sortedAndFiltered(BookSort.TITLE, BookFilter.ALL, emptySet(), "krimi").map { it.book.id }
+        assertEquals(listOf(1L, 2L, 3L), ids)
+    }
+
+    @Test
     fun `series by recently played and authors by number of books`() {
         val more = books + listOf(
             book(5, "Kurz", "Zora Zeh", series = "Anthologie #1", progress = progress(10, updatedAt = 90)),

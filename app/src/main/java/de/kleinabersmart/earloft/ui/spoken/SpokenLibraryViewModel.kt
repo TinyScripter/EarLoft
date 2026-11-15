@@ -11,6 +11,8 @@ import de.kleinabersmart.earloft.core.data.spoken.SpokenRefresher
 import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.data.spoken.continueSeries
 import de.kleinabersmart.earloft.core.data.spoken.genreGroups
+import de.kleinabersmart.earloft.core.data.spoken.hasGenre
+import de.kleinabersmart.earloft.core.data.spoken.sameGenre
 import de.kleinabersmart.earloft.core.data.spoken.sortedAndFiltered
 import de.kleinabersmart.earloft.core.model.AuthorSort
 import de.kleinabersmart.earloft.core.model.BookFilter
@@ -87,7 +89,7 @@ class SpokenLibraryViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Gewähltes Genre; eines, das kein Buch mehr hat, gilt als keins. */
-    val bookGenre: StateFlow<String?> = combine(settings.bookGenre, genres) { genre, all -> genre?.takeIf { it in all } }
+    val bookGenre: StateFlow<String?> = combine(settings.bookGenre, genres) { genre, all -> genre?.let { g -> all.firstOrNull { sameGenre(it, g) } } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
@@ -114,7 +116,7 @@ class SpokenLibraryViewModel @Inject constructor(
         settings.bookGenre,
         bookLibrary,
     ) { all, (sort, filter), downloaded, genre, library ->
-        all.sortedAndFiltered(sort, filter, downloaded, genre?.takeIf { g -> all.any { g in it.book.genres } }, library)
+        all.sortedAndFiltered(sort, filter, downloaded, genre?.takeIf { g -> all.any { it.book.hasGenre(g) } }, library)
     }
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

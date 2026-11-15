@@ -25,8 +25,28 @@ fun List<BookWithProgress>.authorGroups(): List<BookGroup> = peopleGroups { book
 /** Nach Sprecher wie [authorGroups]; ein Buch mehrerer Sprecher steht bei jedem. */
 fun List<BookWithProgress>.narratorGroups(): List<BookGroup> = peopleGroups { parsePeople(it.narrator) }
 
-/** Nach Genre wie [authorGroups]; ein Buch mehrerer Genres steht bei jedem. */
-fun List<BookWithProgress>.genreGroups(): List<BookGroup> = peopleGroups { it.genres }
+/**
+ * Nach Genre wie [authorGroups]; ein Buch mehrerer Genres steht bei jedem. Schreibweisen, die sich nur in Groß-/Kleinschreibung,
+ * Umlauten oder Satzzeichen unterscheiden, sind ein Genre; der Name ist die häufigste Schreibweise (bei Gleichstand die kleinste).
+ */
+fun List<BookWithProgress>.genreGroups(): List<BookGroup> =
+    flatMap { item -> item.book.genres.map { it to item } }
+        .groupBy { it.first.genreKey() }
+        .values
+        .map { entries ->
+            val spellings = entries.groupingBy { it.first }.eachCount()
+            val name = spellings.entries.sortedWith(compareBy({ -it.value }, { it.key })).first().key
+            BookGroup(name, entries.map { it.second }.distinct().sortedBy { it.book.title.sortOrder() })
+        }
+        .sortedBy { it.name.sortOrder() }
+
+/** Hat das Buch [genre], in welcher Schreibweise auch immer ([genreGroups])? */
+fun Book.hasGenre(genre: String): Boolean = genres.any { sameGenre(it, genre) }
+
+/** Sind [a] und [b] dasselbe Genre in zwei Schreibweisen? */
+fun sameGenre(a: String, b: String): Boolean = a.genreKey() == b.genreKey()
+
+private fun String.genreKey(): String = normalizeForMerge().ifEmpty { trim().lowercase() }
 
 /** Sortierschlüssel wie `normTitle` der Bücher: ohne Artikel „The“, Groß-/Kleinschreibung, Umlaute und Satzzeichen. */
 private fun String.sortOrder(): String = sortKey().normalizeForMerge()
@@ -69,7 +89,7 @@ fun List<BookWithProgress>.sortedAndFiltered(
     library: String? = null,
 ): List<BookWithProgress> {
     val inLibrary = if (library == null) this else filter { it.book.libraryId == library }
-    val inGenre = if (genre == null) inLibrary else inLibrary.filter { genre in it.book.genres }
+    val inGenre = if (genre == null) inLibrary else inLibrary.filter { it.book.hasGenre(genre) }
     val shown = when (filter) {
         BookFilter.ALL -> inGenre
         BookFilter.NOT_STARTED -> inGenre.filter { it.progress.let { p -> p == null || (!p.finished && p.positionMs <= 0) } }
