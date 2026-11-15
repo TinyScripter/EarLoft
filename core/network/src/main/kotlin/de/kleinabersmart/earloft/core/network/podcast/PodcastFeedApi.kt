@@ -91,14 +91,16 @@ class PodcastFeedApi @Inject constructor(
 
     /**
      * Text eines Transkripts (`podcast:transcript`) samt `Content-Type` der Antwort. Darf aus dem HTTP-Cache kommen; auf dem
-     * Host eines geschützten Feeds meldet [FeedAuthInterceptor] an.
+     * Host eines geschützten Feeds meldet [FeedAuthInterceptor] an. Ein zu großes wird nicht abgeschnitten, sondern abgelehnt.
      */
     suspend fun transcript(url: String): TranscriptText = withContext(Dispatchers.IO) {
         val httpUrl = url.toHttpUrlOrNull() ?: throw IOException("Ungültige Transkript-URL")
         val request = Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).build()
         client.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code)
-            TranscriptText(response.peekBody(MAX_TRANSCRIPT_BYTES).string(), response.header("Content-Type"))
+            val body = response.peekBody(MAX_TRANSCRIPT_BYTES + 1)
+            if (body.contentLength() > MAX_TRANSCRIPT_BYTES) throw IOException("Transkript größer als $MAX_TRANSCRIPT_BYTES Bytes")
+            TranscriptText(body.string(), response.header("Content-Type"))
         }
     }
 

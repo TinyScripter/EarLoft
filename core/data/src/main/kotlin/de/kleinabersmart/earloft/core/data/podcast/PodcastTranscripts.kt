@@ -44,25 +44,32 @@ class PodcastTranscripts @Inject constructor(
         val book = bookDao.book(bookId) ?: return TranscriptResult.None
         val url = book.transcriptUrl ?: return TranscriptResult.None
         val declared = transcriptFormat(book.transcriptType, url)
-        val text = cached(url) ?: try {
-            val fetched = api.transcript(url)
-            store(url, fetched.text)
-            fetched.text
+        cached(url)?.let { text ->
+            val result = parse(text, declared)
+            if (result is TranscriptResult.Ready) return result
+            // Im Cache liegt nur Lesbares; was nicht (mehr) zu lesen ist, fällt weg und wird neu geladen.
+            drop(url)
+        }
+        val text = try {
+            api.transcript(url).text
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
             Log.w(TAG, "Transkript von ${book.title} nicht abrufbar", e)
             return TranscriptResult.Unavailable
         }
-        return parse(text, declared)
+        // Erst lesen, dann speichern: Ein kaputtes Transkript bliebe sonst im Cache, und „Erneut versuchen“ läse es wieder.
+        return parse(text, declared).also { if (it is TranscriptResult.Ready) store(url, text) }
     }
 
     /** Nach dem Download einer Folge: Transkript gleich mitnehmen, damit es offline da ist. Fehler sind unkritisch. */
     suspend fun prefetch(bookId: Long) {
-        val url = bookDao.book(bookId)?.transcriptUrl ?: return
+        val book = bookDao.book(bookId) ?: return
+        val url = book.transcriptUrl ?: return
         if (cached(url) != null) return
         try {
-            store(url, api.transcript(url).text)
+            val text = api.transcript(url).text
+            if (parse(text, transcriptFormat(book.transcriptType, url)) is TranscriptResult.Ready) store(url, text)
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
@@ -92,6 +99,8 @@ class PodcastTranscripts @Inject constructor(
         temp.writeText(text)
         if (!temp.renameTo(file)) temp.delete()
     }
+
+    private suspend fun drop(url: String) = withContext(Dispatchers.IO) { fileFor(url).delete() }
 
     private fun fileFor(url: String): File {
         val hash = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
