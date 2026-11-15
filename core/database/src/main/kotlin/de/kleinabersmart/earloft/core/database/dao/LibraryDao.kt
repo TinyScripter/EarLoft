@@ -473,12 +473,12 @@ abstract class LibraryDao {
 
     /**
      * Die seit [since] am häufigsten gehörten Alben (mindestens [minPlays] gezählte Wiedergaben), bei Gleichstand das zuletzt
-     * gehörte zuerst. `songCount` zählt alle Songs des Albums, nicht die Wiedergaben.
+     * gehörte zuerst. `songCount` zählt die sichtbaren Songs des Albums (wie auf der Albumseite), nicht die Wiedergaben.
      */
     @Query(
         """
         SELECT a.albumId, a.title, a.albumArtistDisplay, a.year,
-               (SELECT COUNT(*) FROM songs cs WHERE cs.albumId = a.albumId) AS songCount
+               (SELECT COUNT(*) FROM songs s WHERE s.albumId = a.albumId AND $SONG_VISIBLE) AS songCount
         FROM albums a
         JOIN songs s ON s.albumId = a.albumId AND $SONG_VISIBLE
         JOIN play_events pe ON pe.songId = s.songId AND pe.playedAt >= :since

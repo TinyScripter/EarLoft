@@ -281,6 +281,24 @@ class LibraryDaoTest {
     }
 
     @Test
+    fun `most played albums do not count songs of a switched off server`() = runTest {
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
+        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val glosoli = libraryDao.insertSong(song(takk, "Glósóli", track = 2))
+        val hidden = libraryDao.insertSong(song(takk, "Hoppípolla", track = 3))
+        libraryDao.insertSongSource(songSource(glosoli, LOCAL, "1"))
+        libraryDao.insertSongSource(songSource(hidden, NAVIDROME, "a"))
+        val playback = db.playbackDao()
+        playback.insertPlayEventIfSongExists(PlayEventEntity(songId = glosoli, playedAt = 1_000, listenedMs = 1))
+
+        val rows = libraryDao.observeMostPlayedAlbumRows(since = 0, minPlays = 1, limit = 10).first()
+
+        assertEquals(1, rows.single().songCount)
+        assertEquals(1, libraryDao.observeAlbumRows().first().single().songCount)
+    }
+
+    @Test
     fun `artist page lists all songs, most played and appearances`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
         val jonsi = libraryDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
