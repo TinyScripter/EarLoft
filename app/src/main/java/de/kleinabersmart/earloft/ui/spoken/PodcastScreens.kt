@@ -494,6 +494,7 @@ fun PodcastScreen(
     var switchingSource by rememberSaveable { mutableStateOf(false) }
     var editingCredentials by rememberSaveable { mutableStateOf(false) }
     val credentialsUser by viewModel.credentialsUser.collectAsStateWithLifecycle()
+    val credentialsAddress by viewModel.credentialsAddress.collectAsStateWithLifecycle()
     val swipe by viewModel.swipeActions.collectAsStateWithLifecycle()
     val selection = rememberEpisodeSelection()
 
@@ -657,7 +658,7 @@ fun PodcastScreen(
     }
     if (editingCredentials && current != null) {
         FeedCredentialsDialog(
-            feedUrl = current.url,
+            feedUrl = credentialsAddress ?: current.url,
             rejected = credentialsUser != null,
             initialUsername = credentialsUser.orEmpty(),
             onConfirm = {
@@ -932,6 +933,7 @@ fun PodcastSettingsScreen(
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val areaEffects by viewModel.areaEffects.collectAsStateWithLifecycle()
     val credentialsUser by viewModel.credentialsUser.collectAsStateWithLifecycle()
+    val credentialsAddress by viewModel.credentialsAddress.collectAsStateWithLifecycle()
     var confirmUnsubscribe by rememberSaveable { mutableStateOf(false) }
     var switchingSource by rememberSaveable { mutableStateOf(false) }
     var editingCredentials by rememberSaveable { mutableStateOf(false) }
@@ -1062,7 +1064,7 @@ fun PodcastSettingsScreen(
 
     if (editingCredentials && current != null) {
         FeedCredentialsDialog(
-            feedUrl = current.url,
+            feedUrl = credentialsAddress ?: current.url,
             rejected = credentialsUser != null && current.refreshError == FeedError.DENIED,
             initialUsername = credentialsUser.orEmpty(),
             onConfirm = {

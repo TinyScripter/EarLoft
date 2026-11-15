@@ -18,8 +18,11 @@ abstract class ServerApiException(
 /** Die Antwort passt nicht zur erwarteten Server-Art (falsche URL, Fehlerseite eines Reverse-Proxys …). */
 open class UnexpectedResponseException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
-/** HTTP-Fehler ohne auswertbare Antwort des Servers. */
-class HttpStatusException(val status: Int) : IOException("HTTP $status") {
+/**
+ * HTTP-Fehler ohne auswertbare Antwort des Servers. [movedTo]: Die Anfrage wurde vorher dauerhaft dorthin weitergeleitet, der Fehler
+ * kam von dort (ein umgezogener geschützter Feed, dessen Zugangsdaten für den neuen Host noch fehlen).
+ */
+class HttpStatusException(val status: Int, val movedTo: String? = null) : IOException("HTTP $status") {
     /** 401: Server, die Fehler per Statuscode melden, lehnen so falsche oder abgelaufene Zugangsdaten ab. */
     val isAuthError: Boolean get() = status == 401
 }

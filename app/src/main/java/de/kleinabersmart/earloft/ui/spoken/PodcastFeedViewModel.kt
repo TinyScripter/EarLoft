@@ -242,6 +242,11 @@ class PodcastFeedViewModel @AssistedInject constructor(
         .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Ist der geschützte Feed auf einen anderen Host umgezogen, dessen Adresse: Der Dialog nennt ihn statt des alten. */
+    val credentialsAddress: StateFlow<String?> = podcasts.credentialsAddress(feedId)
+        .orOnError(null)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     /**
      * Speichert die Zugangsdaten (`null` entfernt sie) und gleicht gleich ab; im App-Scope, damit es auch nach dem Schließen
      * der Seite gespeichert wird. Die Meldung sagt, ob der Feed sie angenommen hat.

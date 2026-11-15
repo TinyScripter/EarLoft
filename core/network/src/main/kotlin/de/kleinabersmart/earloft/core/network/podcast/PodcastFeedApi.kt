@@ -72,7 +72,7 @@ class PodcastFeedApi @Inject constructor(
         client.newCall(request).await().use { response ->
             val movedTo = permanentTarget(url, response)?.toString()
             if (response.code == 304) return@use FeedFetch.NotModified(movedTo)
-            if (!response.isSuccessful) throw HttpStatusException(response.code)
+            if (!response.isSuccessful) throw HttpStatusException(response.code, movedTo)
             // Ein zu großer Feed wird abgeschnitten gelesen und vom Parser als unvollständig abgelehnt.
             val feed = PodcastFeedParser.parse(response.peekBody(MAX_FEED_BYTES).byteStream())
             FeedFetch.Fetched(feed, response.header("ETag"), response.header("Last-Modified"), movedTo)

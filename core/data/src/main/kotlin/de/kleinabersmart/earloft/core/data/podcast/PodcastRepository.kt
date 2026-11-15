@@ -50,6 +50,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
@@ -57,6 +58,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -442,12 +444,21 @@ class PodcastRepository @Inject constructor(
     fun credentials(feedId: String): Flow<FeedAuth?> = credentials.observe(feedId)
 
     /**
-     * Speichert neue Zugangsdaten für das Abo unter seiner jetzigen Adresse (`null` löscht sie) und gleicht es gleich ab.
-     * `null`, wenn der Abgleich danach scheiterte.
+     * Ein geschützter Feed, der dauerhaft auf einen anderen Host umgezogen ist und dort die Anmeldung ablehnte: Abo → neue Adresse.
+     * Die Zugangsdaten gelten richtigerweise nicht auf dem neuen Host; neu eingegebene gehören dorthin (Review D25).
+     */
+    private val deniedMoves = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    /** Die Adresse, für die das Abo Zugangsdaten braucht, wenn es nicht die eigene ist (umgezogen, siehe [deniedMoves]). */
+    fun credentialsAddress(feedId: String): Flow<String?> = deniedMoves.map { it[feedId] }.distinctUntilChanged()
+
+    /**
+     * Speichert neue Zugangsdaten für das Abo unter seiner jetzigen Adresse – bzw. der, auf die es umgezogen ist
+     * ([credentialsAddress]) – (`null` löscht sie) und gleicht es gleich ab. `null`, wenn der Abgleich danach scheiterte.
      */
     suspend fun setCredentials(feedId: String, auth: Credentials?): RefreshResult? {
         val feed = dao.feed(feedId) ?: return null
-        val scope = normalizeFeedUrl(feed.url) ?: return null
+        val scope = normalizeFeedUrl(deniedMoves.value[feedId] ?: feed.url) ?: return null
         credentials.set(feedId, auth?.let { FeedAuth(scope, it.username, it.password) })
         return refresh(feedId)
     }
@@ -778,8 +789,11 @@ class PodcastRepository @Inject constructor(
             throw e
         } catch (e: IOException) {
             Log.w(TAG, "Abgleich von ${feed.title} fehlgeschlagen", e)
+            val moved = (e as? HttpStatusException)?.takeIf { it.status == 401 }?.movedTo
+            deniedMoves.update { if (moved != null) it + (feedId to moved) else it - feedId }
             return RefreshOutcome.Failed(feedError(e))
         }
+        deniedMoves.update { it - feedId }
         val result = when (fetched) {
             is FeedFetch.NotModified -> {
                 dao.upsertFeed(feed.copy(lastRefreshAt = System.currentTimeMillis()).refreshSucceeded())

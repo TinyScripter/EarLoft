@@ -2,7 +2,11 @@ package de.kleinabersmart.earloft.core.data.podcast
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import de.kleinabersmart.earloft.core.data.backup.MusicBackup
+import de.kleinabersmart.earloft.core.data.backup.RestoreNotice
+import de.kleinabersmart.earloft.core.data.backup.UserDataBackup
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
+import de.kleinabersmart.earloft.core.database.UserDatabase
 import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
 import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.network.podcast.FeedAuthInterceptor
@@ -14,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -130,6 +135,51 @@ class FeedCredentialsTest {
         assertNotNull(repository.setCredentials(added.feedId, PodcastRepository.Credentials("anna", "neu")))
         assertNull(db.podcastDao().feed(added.feedId)?.lastError)
         assertEquals("neu", repository.credentials(added.feedId).first()?.password)
+    }
+
+    @Test
+    fun `a protected feed that moved to another host takes new credentials for that host`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val user = Room.inMemoryDatabaseBuilder(context, UserDatabase::class.java).allowMainThreadQueries().build()
+        val old = "http://127.0.0.1:${server.port}/feed.xml"
+        val new = "http://localhost:${server.port}/new.xml"
+        var moved = false
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                moved && request.url.host == "127.0.0.1" -> MockResponse.Builder().code(301).addHeader("Location", new).build()
+                request.headers["Authorization"] != accepted ->
+                    MockResponse.Builder().code(401).addHeader("WWW-Authenticate", "Basic realm=\"feed\"").build()
+                else -> MockResponse.Builder().addHeader("Content-Type", "application/rss+xml").body(FEED).build()
+            }
+        }
+        lateinit var switch: PodcastSourceSwitch
+        val client = OkHttpClient.Builder().addNetworkInterceptor(FeedAuthInterceptor(registry)).build()
+        val repository = PodcastRepository(
+            db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(context),
+            AudioFileChapters(context), { switch }, testFeedCredentials(db, secrets, registry), EpisodeQueue(context, db.bookDao()),
+        )
+        val backup = UserDataBackup(
+            context = context, database = db, userDao = user.userDataDao(), sourceDao = db.sourceDao(), bookDao = db.bookDao(),
+            podcastDao = db.podcastDao(), statsDao = db.statsDao(), music = MusicBackup(db.backupDao(), db.playlistDao(), db.syncDao()),
+            restoreNotice = RestoreNotice(context, { error("nicht gebraucht") }, { error("nicht gebraucht") }),
+            registry = { error("nicht gebraucht") }, ardBooks = { error("nicht gebraucht") }, scope = TestScope(),
+        )
+        switch = PodcastSourceSwitch(db, repository, db.podcastDao(), db.bookDao(), db.statsDao(), backup, emptySet())
+        val feedId = (repository.subscribe(old, PodcastRepository.Credentials("anna", "geheim")) as SubscribeResult.Added).feedId
+
+        // Der Feed zieht dauerhaft auf einen anderen Host um und will dort andere Zugangsdaten.
+        moved = true
+        accepted = Credentials.basic("anna", "neu")
+        assertNull(repository.refresh(feedId))
+        assertEquals(FeedError.DENIED, db.podcastDao().feed(feedId)?.lastError)
+        assertEquals(new, repository.credentialsAddress(feedId).first())
+
+        assertNotNull(repository.setCredentials(feedId, PodcastRepository.Credentials("anna", "neu")))
+
+        assertEquals("localhost", repository.credentials(feedId).first()?.scope?.host)
+        assertEquals(new, db.podcastDao().feed(feedId)?.url)
+        assertNull(repository.credentialsAddress(feedId).first())
+        user.close()
     }
 
     @Test
