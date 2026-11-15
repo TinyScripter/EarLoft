@@ -148,7 +148,6 @@ fun SetupScreen(
         setThemeMode = viewModel::setThemeMode,
         setSystemColors = viewModel::setSystemColors,
         setPlayerCoverColors = viewModel::setPlayerCoverColors,
-        setWidgetCoverColors = viewModel::setWidgetCoverColors,
     )
     SetupContent(
         page, state, absServers, watch, watchSettings, actions, moreActions, onNext, onBack, onSkip, onFinish, modifier,
@@ -368,7 +367,7 @@ fun SetupExitDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 private fun SetupWelcomePreview() {
     EarLoftTheme {
         val actions = SetupActions({}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, { _, _ -> }, {}, {}, {}, {})
-        val moreActions = SetupMoreActions({}, {}, {}, {}, {}, {})
+        val moreActions = SetupMoreActions({}, {}, {}, {}, {})
         SetupContent(
             SetupPage.WELCOME, SettingsUiState(), emptyList(), WatchSetup.NONE, WatchSettings(), actions, moreActions,
             onNext = {}, onBack = {}, onSkip = {}, onFinish = {},

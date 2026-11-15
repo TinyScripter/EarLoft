@@ -221,8 +221,6 @@
     <string name="settings_system_colors_summary">Farben aus dem Hintergrundbild (Material You) statt der App-Farben.</string>
     <string name="settings_player_cover_colors">Coverfarben im Player</string>
     <string name="settings_player_cover_colors_summary">Mini-Player und Player nehmen die Farben des Covers an. Aus: App-Farben.</string>
-    <string name="settings_widget_cover_colors">Coverfarben im Widget</string>
-    <string name="settings_widget_cover_colors_summary">Das 4×1-Widget nimmt die Farben des Covers an. Aus: App-Farben.</string>
     <string name="settings_always_navigation_bar">Navigationsleiste immer anzeigen</string>
     <string name="settings_always_navigation_bar_summary">Betrifft nur die Wiedergabefenster. Aus blendet die Leiste dort aus.</string>
     <string name="theme_system">Systemeinstellung folgen</string>
@@ -412,6 +410,14 @@
     <!-- Widget -->
     <string name="widget_name">Wiedergabe</string>
     <string name="widget_description">Zeigt den aktuellen Titel mit Steuerung.</string>
+    <string name="widget_config_title">Widget einrichten</string>
+    <string name="widget_config_areas">Bereiche</string>
+    <string name="widget_config_areas_hint">Das Widget zeigt, was aus diesen Bereichen läuft. Läuft gerade etwas anderes, zeigt es das zuletzt Gehörte daraus; „Abspielen“ setzt es dann fort.</string>
+    <string name="widget_config_colors">Farben</string>
+    <string name="widget_colors_cover">Farben des Covers</string>
+    <string name="widget_colors_app">App-Farben</string>
+    <string name="widget_colors_system">Systemfarben</string>
+    <string name="widget_config_done">Fertig</string>
     <string name="player_nothing_playing">Nichts wird gespielt</string>
 
     <!-- Playlists -->

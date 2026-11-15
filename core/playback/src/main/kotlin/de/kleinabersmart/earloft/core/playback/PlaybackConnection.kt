@@ -92,6 +92,12 @@ interface PlaybackConnection {
      */
     suspend fun playBook(bookId: Long, startPositionMs: Long? = null): PreparedBook?
 
+    /**
+     * Setzt die gespeicherte Musik-Warteschlange an ihrer Stelle fort und löst damit ein geladenes Buch bzw. eine Folge ab
+     * (Widget nur für Musik); ohne gespeicherte Warteschlange nichts.
+     */
+    fun resumeMusic()
+
     fun skipBack()
 
     fun skipForward()

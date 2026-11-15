@@ -137,6 +137,19 @@
             android:name=".notification.NewEpisodeActionReceiver"
             android:exported="false" />
 
+        <!-- Einstellungen eines Widgets beim Anlegen und über „Widget anpassen“ (Notiz 8.14). -->
+        <activity
+            android:name=".widget.WidgetConfigActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/widget_config_title"
+            android:taskAffinity=""
+            android:theme="@style/Theme.EarLoft">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".widget.NowPlayingWidgetReceiver"
             android:exported="true"

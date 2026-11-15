@@ -223,15 +223,6 @@ fun GeneralSettingsScreen(
                     onCheckedChange = viewModel::setPlayerCoverColors,
                 )
             }
-            row("widget-cover-colors") {
-                SwitchRow(
-                    title = stringResource(R.string.settings_widget_cover_colors),
-                    summary = stringResource(R.string.settings_widget_cover_colors_summary),
-                    icon = DesignR.drawable.ic_music_note,
-                    checked = state.widgetCoverColors,
-                    onCheckedChange = viewModel::setWidgetCoverColors,
-                )
-            }
             row("always-nav") {
                 SwitchRow(
                     title = stringResource(R.string.settings_always_navigation_bar),

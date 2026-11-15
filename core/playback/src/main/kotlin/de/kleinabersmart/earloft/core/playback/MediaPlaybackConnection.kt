@@ -59,6 +59,7 @@ class MediaPlaybackConnection @Inject constructor(
     private val sleepTimer: SleepTimer,
     private val bookPlaybackSource: BookPlaybackSource,
     private val continueListening: ContinueListening,
+    private val queuePersistence: QueuePersistence,
     spokenSettings: SpokenSettings,
 ) : PlaybackConnection {
     private val scope = MainScope()
@@ -221,6 +222,19 @@ class MediaPlaybackConnection @Inject constructor(
             useController { playBook(prepared, startPositionMs) }
         }
         return prepared
+    }
+
+    override fun resumeMusic() {
+        scope.launch {
+            val restored = queuePersistence.restore() ?: return@launch
+            useController {
+                shuffleModeEnabled = restored.shuffle
+                repeatMode = restored.repeatMode
+                setMediaItems(restored.items, restored.startIndex, restored.startPositionMs)
+                prepare()
+                play()
+            }
+        }
     }
 
     override fun skipBack() = withController { seekBack() }

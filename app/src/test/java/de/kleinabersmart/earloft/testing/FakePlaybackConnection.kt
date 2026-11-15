@@ -50,6 +50,7 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
         return null
     }
 
+    override fun resumeMusic() = record(Command.Simple("resumeMusic"))
     override fun skipBack() = record(Command.Simple("skipBack"))
     override fun skipForward() = record(Command.Simple("skipForward"))
     override fun seekToTrack(trackIndex: Int, positionMs: Long) = record(Command.SeekToTrack(trackIndex, positionMs))

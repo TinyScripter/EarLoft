@@ -51,12 +51,11 @@ class ThemeSettings @Inject constructor(
         context.themeSettingsDataStore.edit { it[KEY_PLAYER_COVER_COLORS] = enabled }
     }
 
-    /** Das Widget in den Farben des Covers statt in den App-Farben. Standard: ja. */
+    /**
+     * Früherer Schalter „Coverfarben im Widget“, Standard: ja. Seit jedes Widget eigene Farben hat, nur noch für Widgets,
+     * die vor dieser Version angelegt wurden (`NowPlayingWidgetUpdater`).
+     */
     val widgetCoverColors: Flow<Boolean> = context.themeSettingsDataStore.data.map { it[KEY_WIDGET_COVER_COLORS] ?: true }
-
-    suspend fun setWidgetCoverColors(enabled: Boolean) {
-        context.themeSettingsDataStore.edit { it[KEY_WIDGET_COVER_COLORS] = enabled }
-    }
 
     /** Navigationsleiste auch in den Wiedergabefenstern zeigen. Standard: ja. */
     val alwaysShowNavigationBar: Flow<Boolean> = context.themeSettingsDataStore.data.map { it[KEY_ALWAYS_NAV] ?: true }

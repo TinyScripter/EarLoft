@@ -85,7 +85,6 @@ data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val systemColors: Boolean = false,
     val playerCoverColors: Boolean = true,
-    val widgetCoverColors: Boolean = true,
     val alwaysShowNavigationBar: Boolean = true,
     val useLocalMedia: Boolean = false,
     val useLocalBooks: Boolean = false,
@@ -269,8 +268,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(authorImages = authors, onlineLyrics = lyrics)
     }.combine(combine(themeSettings.alwaysShowNavigationBar, themeSettings.systemColors, ::Pair)) { state, (always, systemColors) ->
         state.copy(alwaysShowNavigationBar = always, systemColors = systemColors)
-    }.combine(combine(themeSettings.playerCoverColors, themeSettings.widgetCoverColors, ::Pair)) { state, (player, widget) ->
-        state.copy(playerCoverColors = player, widgetCoverColors = widget)
+    }.combine(themeSettings.playerCoverColors) { state, player ->
+        state.copy(playerCoverColors = player)
     }.combine(combine(spokenSettings.useLocalBooks, spokenSettings.useLocalPodcasts, localBooks.folderShared, ::Triple)) { state, (books, podcasts, folder) ->
         state.copy(useLocalBooks = books, useLocalPodcasts = podcasts, localBooksFolderShared = folder)
     }.combine(combine(audiobookServers.servers, spokenSettings.ardSoundsBooks, ::Pair)) { state, (list, ard) ->
@@ -453,10 +452,6 @@ class SettingsViewModel @Inject constructor(
 
     fun setPlayerCoverColors(enabled: Boolean) {
         viewModelScope.launch { themeSettings.setPlayerCoverColors(enabled) }
-    }
-
-    fun setWidgetCoverColors(enabled: Boolean) {
-        viewModelScope.launch { themeSettings.setWidgetCoverColors(enabled) }
     }
 
     fun setAlwaysShowNavigationBar(enabled: Boolean) {

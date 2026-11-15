@@ -40,6 +40,8 @@ import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionSendBroadcast
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
+import androidx.glance.currentState
+import androidx.datastore.preferences.core.Preferences
 import androidx.glance.background
 import androidx.glance.color.ColorProviders
 import androidx.glance.material3.ColorProviders as material3ColorProviders
@@ -69,13 +71,18 @@ import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.MainActivity
 import de.kleinabersmart.earloft.R
 import com.materialkolor.dynamicColorScheme
+import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.core.playback.EXTRA_OPEN_NOW_PLAYING
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.designsystem.theme.appColorScheme
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 import de.kleinabersmart.earloft.core.playback.R as PlaybackR
 
-/** Widget 4 × 1: Cover links vollflächig & ungeschnitten; rechts Titel, Künstler und Steuerung zentriert. */
+/**
+ * Widget 4 × 1: Cover links vollflächig & ungeschnitten; rechts Titel, Künstler und Steuerung zentriert. Jedes Widget hat
+ * eigene Bereiche und Farben ([WidgetConfig], beim Anlegen in [WidgetConfigActivity] gewählt, im Glance-Zustand des
+ * Widgets).
+ */
 class NowPlayingWidget : GlanceAppWidget() {
 
     // Die tatsächliche Größe wird gebraucht, damit das Cover genau die Höhe füllt (siehe [NowPlayingContent]).
@@ -86,8 +93,11 @@ class NowPlayingWidget : GlanceAppWidget() {
         updater.onWidgetShown()
         provideContent {
             val state by updater.state.collectAsState()
-            GlanceTheme(colors = widgetColors(state)) {
-                NowPlayingContent(state)
+            // Noch nicht eingestellt (der Updater holt das für alte Widgets nach): alle Bereiche, Coverfarben.
+            val config = currentState<Preferences>().widgetConfig() ?: WidgetConfig()
+            val entry = state.entryFor(config.areas)
+            GlanceTheme(colors = widgetColors(entry, config.colors)) {
+                NowPlayingContent(state, entry, config.areas)
             }
         }
     }
@@ -104,15 +114,15 @@ class NowPlayingWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 /**
- * Nach dem Cover, wenn so eingestellt und es eine Farbe hat; sonst die App-Farben: Systemfarben (Standard von Glance, ab
- * Android 12) oder das Farbschema aus dem Logo.
+ * Nach dem Cover, wenn so eingestellt und es eine Farbe hat; sonst die App-Farben aus dem Logo bzw. die Systemfarben
+ * (Standard von Glance, ab Android 12; davor ebenfalls die App-Farben). Ohne Coverfarbe gelten bei „Cover“ die App-Farben.
  */
 @Composable
-private fun widgetColors(state: WidgetState): ColorProviders {
-    val seedColor = state.seedColor?.takeIf { state.coverColors }
+private fun widgetColors(entry: WidgetEntry?, colors: WidgetColors): ColorProviders {
+    val seedColor = entry?.seedColor?.takeIf { colors == WidgetColors.COVER }
     return when {
         seedColor != null -> remember(seedColor) { albumColorProviders(seedColor) }
-        state.systemColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> GlanceTheme.colors
+        colors == WidgetColors.SYSTEM && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> GlanceTheme.colors
         else -> remember { appColorProviders() }
     }
 }
@@ -139,26 +149,35 @@ private val MIN_COVER = 32.dp
  */
 private val CHAPTER_MIN_HEIGHT = 104.dp
 
+/**
+ * [entry]: was das Widget für seine Bereiche zeigt. Steht es nicht im Player (dort läuft ein anderer Bereich), gibt es nur
+ * „Abspielen“, und das setzt es erst fort; die übrigen Knöpfe wirkten sonst auf das Laufende. Lief aus [areas] noch nie
+ * etwas, startet „Abspielen“ wie eine Medientaste, was zuletzt lief – nur, wenn das Widget für alle Bereiche gilt; sonst
+ * öffnet es die App.
+ */
 @Composable
-private fun NowPlayingContent(state: WidgetState) {
+private fun NowPlayingContent(state: WidgetState, entry: WidgetEntry?, areas: Set<SpokenMode>) {
     val context = LocalContext.current
-    val nowPlaying = state.nowPlaying
-    val isPlaying = nowPlaying?.isPlaying == true
+    val nowPlaying = entry?.nowPlaying
+    val isCurrent = entry != null && state.isCurrent(entry)
+    val isPlaying = isCurrent && nowPlaying?.isPlaying == true
+    // Ohne Steuerung des Laufenden: Musik, Buch bzw. Folge dieses Widgets erst wieder laden.
+    val controls = nowPlaying?.takeIf { isCurrent }
 
     Row(
         modifier = GlanceModifier
             .fillMaxSize()
             .cornerRadius(16.dp)
             .background(GlanceTheme.colors.widgetBackground)
-            .clickable(openAppAction(showNowPlaying = nowPlaying != null))
+            .clickable(openAppAction(showNowPlaying = isCurrent))
             .padding(WIDGET_PADDING),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // 1. Cover: füllt die volle Höhe, die Breite folgt dem Seitenverhältnis (Album quadratisch, Buch hochkant), unverzerrt
         // und ohne Leerraum links. Ohne feste Breite würde ein quadratisches Cover in einem zu breiten Feld mittig stehen.
         val coverHeight = (LocalSize.current.height - WIDGET_PADDING * 2).coerceAtLeast(MIN_COVER)
-        val coverUri = state.coverUri
-        val coverWidth = if (coverUri != null) coverHeight * state.coverAspectRatio else coverHeight
+        val coverUri = entry?.coverUri
+        val coverWidth = if (coverUri != null) coverHeight * entry.coverAspectRatio else coverHeight
         Image(
             provider = coverUri?.let { ImageProvider(it) } ?: ImageProvider(DesignR.drawable.ic_music_note),
             contentDescription = null,
@@ -196,7 +215,7 @@ private fun NowPlayingContent(state: WidgetState) {
 
             // Untertitel: bei Musik der Künstler, bei Büchern und Folgen die Spielzeit (statt Autor bzw. Abo); solange sie
             // nicht feststeht, der Autor.
-            val clock = state.clock?.takeIf { nowPlaying?.isBook == true }
+            val clock = entry?.clock?.takeIf { nowPlaying?.isBook == true }
             if (clock != null) {
                 BookClockLine(clock)
             } else if (nowPlaying != null) {
@@ -210,10 +229,10 @@ private fun NowPlayingContent(state: WidgetState) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (nowPlaying != null) {
+                if (controls != null) {
                     // Bei Büchern und Folgen Spulen statt Titelsprung (wie im Buch-Player und in der Benachrichtigung).
-                    val isBook = nowPlaying.isBook
-                    val back = state.seek.backSeconds
+                    val isBook = controls.isBook
+                    val back = state.seekOf(controls).backSeconds
                     ControlButton(
                         icon = if (isBook) DesignR.drawable.ic_replay else DesignR.drawable.ic_skip_previous,
                         label = if (isBook) {
@@ -231,14 +250,19 @@ private fun NowPlayingContent(state: WidgetState) {
                 ControlButton(
                     icon = if (isPlaying) DesignR.drawable.ic_pause else DesignR.drawable.ic_play,
                     label = context.getString(if (isPlaying) R.string.action_pause else R.string.action_play),
-                    action = if (isPlaying) playerCommand(WidgetPlayerAction.PAUSE) else actionSendBroadcast(playIntent(context)),
+                    action = when {
+                        isPlaying -> playerCommand(WidgetPlayerAction.PAUSE)
+                        nowPlaying != null && !isCurrent -> resumeAction(nowPlaying.bookId)
+                        nowPlaying == null && !areas.containsAll(SpokenMode.entries) -> openAppAction(showNowPlaying = false)
+                        else -> actionSendBroadcast(playIntent(context))
+                    },
                     isPrimary = true
                 )
 
-                if (nowPlaying != null) {
+                if (controls != null) {
                     Spacer(modifier = GlanceModifier.width(12.dp))
-                    val isBook = nowPlaying.isBook
-                    val forward = state.seek.forwardSeconds
+                    val isBook = controls.isBook
+                    val forward = state.seekOf(controls).forwardSeconds
                     ControlButton(
                         icon = if (isBook) DesignR.drawable.ic_forward else DesignR.drawable.ic_skip_next,
                         label = if (isBook) {
@@ -368,6 +392,16 @@ private fun ColorProvider.argb(context: Context, night: Boolean): Int {
 private fun playerCommand(command: String): Action =
     actionRunCallback<WidgetPlayerAction>(actionParametersOf(WidgetPlayerAction.CommandKey to command))
 
+/** Das Buch bzw. die Folge [bookId] an der gespeicherten Stelle, ohne: die gespeicherte Musik-Warteschlange. */
+private fun resumeAction(bookId: Long?): Action =
+    if (bookId == null) {
+        playerCommand(WidgetPlayerAction.RESUME_MUSIC)
+    } else {
+        actionRunCallback<WidgetPlayerAction>(
+            actionParametersOf(WidgetPlayerAction.CommandKey to WidgetPlayerAction.RESUME_BOOK, WidgetPlayerAction.BookIdKey to bookId),
+        )
+    }
+
 @OptIn(UnstableApi::class)
 private fun openAppAction(showNowPlaying: Boolean): Action {
     if (!showNowPlaying) return actionStartActivity<MainActivity>()
@@ -393,11 +427,16 @@ class WidgetPlayerAction : ActionCallback {
             PREVIOUS -> connection.previous()
             SKIP_BACK -> connection.skipBack()
             SKIP_FORWARD -> connection.skipForward()
+            RESUME_MUSIC -> connection.resumeMusic()
+            RESUME_BOOK -> parameters[BookIdKey]?.let { connection.playBook(it) }
         }
     }
 
     companion object {
         val CommandKey = ActionParameters.Key<String>("command")
+        val BookIdKey = ActionParameters.Key<Long>("book_id")
+        const val RESUME_MUSIC = "resume_music"
+        const val RESUME_BOOK = "resume_book"
         const val PAUSE = "pause"
         const val NEXT = "next"
         const val PREVIOUS = "previous"

@@ -28,7 +28,6 @@ internal class SetupMoreActions(
     val setThemeMode: (ThemeMode) -> Unit,
     val setSystemColors: (Boolean) -> Unit,
     val setPlayerCoverColors: (Boolean) -> Unit,
-    val setWidgetCoverColors: (Boolean) -> Unit,
 )
 
 /**
@@ -92,15 +91,6 @@ internal fun LazyListScope.designPage(state: SettingsUiState, actions: SetupMore
                 icon = DesignR.drawable.ic_play,
                 checked = state.playerCoverColors,
                 onCheckedChange = actions.setPlayerCoverColors,
-            )
-        }
-        row("widget-cover-colors") {
-            SwitchRow(
-                title = stringResource(R.string.settings_widget_cover_colors),
-                summary = stringResource(R.string.settings_widget_cover_colors_summary),
-                icon = DesignR.drawable.ic_music_note,
-                checked = state.widgetCoverColors,
-                onCheckedChange = actions.setWidgetCoverColors,
             )
         }
     }
