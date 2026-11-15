@@ -109,14 +109,14 @@ class OfflineImages @Inject constructor(
             }
             bookDao.listedCoverRows(BookKind.EPISODE)
                 .filter { it.coverUrl != null && !isLocalSource(it.serverId) }
-                .forEach { row -> unreachable.attempt(row.serverId) { bookCovers.ensureOwnCached(row.bookId) } }
+                .forEach { row -> unreachable.attempt(row.serverId) { bookCovers.ensureOwnCached(row) } }
             if (!unreachable.none()) complete = false
         }
         if (SpokenMode.BOOKS in areas) {
             val unreachable = Unreachable()
             bookDao.listedCoverRows(BookKind.BOOK)
                 .filterNot { isLocalSource(it.serverId) }
-                .forEach { row -> unreachable.attempt(row.serverId) { bookCovers.ensureOwnCached(row.bookId) } }
+                .forEach { row -> unreachable.attempt(row.serverId) { bookCovers.ensureOwnCached(row) } }
             // Autorenbilder kommen vom selben Server; antwortet er nicht, warteten sonst alle Autoren einzeln darauf.
             if (unreachable.none()) bookDao.listedAuthors().flatMap(::bookAuthors).distinct().forEach { authorImages.image(it) }
             if (!unreachable.none()) complete = false

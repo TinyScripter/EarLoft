@@ -14,6 +14,7 @@ import de.kleinabersmart.earloft.core.data.repository.seedColorOf
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
+import de.kleinabersmart.earloft.core.database.model.BookCoverRow
 import de.kleinabersmart.earloft.core.datasource.local.LocalBookScanner
 import de.kleinabersmart.earloft.core.model.AppUris
 import de.kleinabersmart.earloft.core.model.BookKind
@@ -69,10 +70,22 @@ class BookCovers @Inject constructor(
      * wenn Server oder Netz nicht antworteten; ohne eigenes Bild `true` – dann gibt es nichts zu laden.
      */
     suspend fun ensureOwnCached(bookId: Long): Boolean = withContext(Dispatchers.IO) {
-        val book = dao.book(bookId) ?: return@withContext true
+        loadOwnIfMissing(dao.book(bookId) ?: return@withContext true)
+    }
+
+    /**
+     * Wie das andere [ensureOwnCached], für einen Eintrag der Liste: Liegt die Datei schon da, ohne die ganze Zeile zu lesen (samt
+     * Shownotes; der Lauf für offline prüft so jede Folge jedes Abos, Review D21).
+     */
+    suspend fun ensureOwnCached(row: BookCoverRow): Boolean = withContext(Dispatchers.IO) {
+        if (ownFile(row.bookId, episodeUrl(row.kind, row.serverId, row.coverUrl)).exists()) return@withContext true
+        loadOwnIfMissing(dao.book(row.bookId) ?: return@withContext true)
+    }
+
+    private suspend fun loadOwnIfMissing(book: BookEntity): Boolean {
         val own = ownFile(book)
-        if (own.exists()) return@withContext true
-        try {
+        if (own.exists()) return true
+        return try {
             loadOwn(book)?.let { write(own, it) }
             true
         } catch (e: IOException) {

@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.PodcastFeedEntity
 import de.kleinabersmart.earloft.core.datasource.local.LocalBookScanner
 import de.kleinabersmart.earloft.core.model.AppUris
+import de.kleinabersmart.earloft.core.database.model.BookCoverRow
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
@@ -44,6 +45,9 @@ class BookCoversTest {
     /** Bilder im Netz nach Adresse; alles andere gibt 404. */
     private val images = mapOf(EPISODE_IMAGE to byteArrayOf(1, 2, 3), FEED_IMAGE to byteArrayOf(7, 8, 9))
 
+    /** Angefragte Adressen. */
+    private val requested = mutableListOf<String>()
+
     @Before
     fun setUp() = runTest {
         context = ApplicationProvider.getApplicationContext()
@@ -54,6 +58,7 @@ class BookCoversTest {
             .build()
         val client = OkHttpClient.Builder()
             .addInterceptor { chain ->
+                requested += chain.request().url.toString()
                 val bytes = images[chain.request().url.toString()]
                 val code = when {
                     bytes != null -> 200
@@ -163,6 +168,16 @@ class BookCoversTest {
         assertTrue(covers.ensureOwnCached(gone))
         assertFalse(covers.ensureOwnCached(broken))
         assertTrue(covers.ensureOwnCached(fine))
+        assertArrayEquals(byteArrayOf(1, 2, 3), covers.storedImage(EPISODE_IMAGE)!!.readBytes())
+    }
+
+    @Test
+    fun `episodes sharing an image that is already there are not loaded again`() = runTest {
+        val rows = listOf("g1", "g2", "g3").map { BookCoverRow(episode("f1", it, coverUrl = EPISODE_IMAGE), "f1", BookKind.EPISODE, EPISODE_IMAGE) }
+
+        assertTrue(rows.all { covers.ensureOwnCached(it) })
+
+        assertEquals(listOf(EPISODE_IMAGE), requested)
         assertArrayEquals(byteArrayOf(1, 2, 3), covers.storedImage(EPISODE_IMAGE)!!.readBytes())
     }
 
