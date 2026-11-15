@@ -21,7 +21,9 @@ import de.kleinabersmart.earloft.core.model.TrackDownload
 /**
  * Arbeitet die Warteschlange der Buch-Downloads Datei für Datei ab. Aufbau wie beim [EpisodeDownloadWorker]:
  * Vordergrund-Worker mit Fortschritt, Netzfehler stellen zurück und versuchen es mit Backoff erneut, dann an der
- * Stelle, an der die Teildatei endet.
+ * Stelle, an der die Teildatei endet. Mit [KEY_MANUAL_ONLY] (Auftrag, der auch über Mobilfunk lädt) nimmt er nur die von Hand
+ * eingereihten Dateien und reicht die der Automatik danach an einen Auftrag im WLAN weiter ([BookDownloads.continueOnWifi]);
+ * den beendet WorkManager, sobald das WLAN weg ist.
  */
 class BookDownloadWorker(
     context: Context,
@@ -33,6 +35,7 @@ class BookDownloadWorker(
     private val downloader = entryPoint.bookDownloader()
     private val storage = entryPoint.bookStorage()
     private val progress = entryPoint.bookProgress()
+    private val manualOnly = inputData.getBoolean(KEY_MANUAL_ONLY, false)
 
     override suspend fun doWork(): Result {
         dao.requeueRunningBookDownloads()
@@ -42,7 +45,7 @@ class BookDownloadWorker(
         val budget = RetryBudget(runAttemptCount, MAX_ATTEMPTS)
 
         while (true) {
-            val next = dao.nextQueuedBookTrack() ?: break
+            val next = (if (manualOnly) dao.nextQueuedManualBookTrack() else dao.nextQueuedBookTrack()) ?: break
             val files = dao.tracks(next.bookId)
             val finished = files.filter { it.downloadState == TrackDownload.DONE }
             val filesDone = finished.size
@@ -84,7 +87,11 @@ class BookDownloadWorker(
     private suspend fun finish(): Result {
         storage.deleteOrphans(dao.downloadedBookTracks().mapNotNull { it.filePath })
         // Wartet nichts mehr (auch nicht nach einem Fehler), setzt keiner eine Teildatei fort.
-        if (dao.countPendingBookDownloads() == 0) storage.deleteParts()
+        if (dao.countPendingBookDownloads() == 0) {
+            storage.deleteParts()
+        } else if (manualOnly) {
+            entryPoint.bookDownloads().continueOnWifi()
+        }
         return Result.success()
     }
 
@@ -146,14 +153,18 @@ class BookDownloadWorker(
         fun bookDownloader(): BookDownloader
         fun bookStorage(): BookStorage
         fun bookProgress(): BookDownloadProgress
+        fun bookDownloads(): BookDownloads
     }
 
-    private companion object {
-        const val TAG = "BookDownloadWorker"
+    internal companion object {
+        /** Nur von Hand eingereihte Dateien laden; der Auftrag darf über Mobilfunk laufen. */
+        const val KEY_MANUAL_ONLY = "manual_only"
+
+        private const val TAG = "BookDownloadWorker"
 
         /** Derselbe Kanal wie bei den Musik-Downloads. */
-        const val CHANNEL_ID = "downloads"
-        const val NOTIFICATION_ID = 2003
-        const val MAX_ATTEMPTS = 5
+        private const val CHANNEL_ID = "downloads"
+        private const val NOTIFICATION_ID = 2003
+        private const val MAX_ATTEMPTS = 5
     }
 }

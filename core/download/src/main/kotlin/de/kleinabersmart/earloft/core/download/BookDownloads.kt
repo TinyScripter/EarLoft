@@ -12,6 +12,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.workDataOf
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.podcast.HeardDownload
 import de.kleinabersmart.earloft.core.data.podcast.expiredHeardDownloads
@@ -44,16 +45,21 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Mobilfunk nur, wenn der Nutzer es erlaubt hat und er selbst lädt; die Automatik lädt immer nur im WLAN. */
-internal fun bookDownloadNetwork(mobileAllowed: Boolean, automatic: Boolean): NetworkType =
-    if (mobileAllowed && !automatic) NetworkType.CONNECTED else NetworkType.UNMETERED
+/**
+ * Mobilfunk nur, wenn der Nutzer es erlaubt hat und von Hand eingereihte Dateien warten ([manualWaiting]); die Automatik lädt
+ * immer nur im WLAN. Ein Auftrag mit [NetworkType.CONNECTED] lädt deshalb nur die von Hand eingereihten und übergibt den Rest
+ * an einen Auftrag im WLAN ([BookDownloadWorker]).
+ */
+internal fun bookDownloadNetwork(mobileAllowed: Boolean, manualWaiting: Boolean): NetworkType =
+    if (mobileAllowed && manualWaiting) NetworkType.CONNECTED else NetworkType.UNMETERED
 
 /**
  * Downloads von Hörbüchern: von Hand, und mit den Schaltern unter Bücher → Downloads auch automatisch (die ersten aus
  * „Weiterhören“, der nächste Band einer Serie, bald ablaufende Bücher aus ARD Sounds; nur im WLAN, [automaticBookDownloads]). Beendete Bücher verlieren ihre
  * Dateien nach der eingestellten Frist ([SpokenSettings.bookDeleteFinishedDays], Standard nie), sonst bleiben sie, bis der
  * Nutzer sie löscht. Beim Abspielen ersetzen die Dateien den Stream (`BookPlaybackSource`). Netz: WLAN, mit dem eigenen
- * Schalter „Auch über Mobilfunk laden“ der Bücher ([SpokenSettings.bookMobileData]) jedes Netz.
+ * Schalter „Auch über Mobilfunk laden“ der Bücher ([SpokenSettings.bookMobileData]) jedes Netz für die von Hand eingereihten
+ * Dateien; die der Automatik (`autoDownload`) laden immer nur im WLAN.
  */
 @Singleton
 class BookDownloads @Inject constructor(
@@ -203,20 +209,27 @@ class BookDownloads @Inject constructor(
         }
         if (queued > 0) {
             Log.i(TAG, "Automatik: $queued Dateien von ${bookIds.size} Büchern eingereiht")
-            enqueueWorker(automatic = true)
+            enqueueWorker()
         }
         return complete
     }
 
     /**
-     * [automatic]: nur von der Automatik eingereiht, die im WLAN anstößt; der Auftrag bleibt dann auf WLAN beschränkt, auch
-     * wenn Mobilfunk erlaubt ist (verlässt man das WLAN, würde er sonst mobil weiterladen).
+     * Der Auftrag über Mobilfunk hat alle von Hand eingereihten Dateien geladen; die der Automatik lädt danach einer im WLAN
+     * (angehängt, er beginnt, wenn der laufende fertig ist).
      */
-    private suspend fun enqueueWorker(policy: ExistingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE, automatic: Boolean = false) {
-        val network = bookDownloadNetwork(settings.bookMobileData.first(), automatic)
-        // Ein angehängter Auftrag wartet auf den vorigen: Ein auf WLAN wartender Auftrag der Automatik hielte einen von Hand
-        // gestarteten mobilen sonst auf. Der Auftrag arbeitet ohnehin die ganze Warteschlange ab.
-        val chain = if (network == NetworkType.CONNECTED && policy == ExistingWorkPolicy.APPEND_OR_REPLACE && !workerRunning()) {
+    internal suspend fun continueOnWifi() = enqueueWorker()
+
+    /**
+     * Das Netz richtet sich danach, was wartet ([bookDownloadNetwork]): So bleiben die Dateien der Automatik im WLAN, egal ob
+     * der Auftrag von ihr, von Hand, vom Mobilfunk-Schalter oder beim App-Start kommt.
+     */
+    private suspend fun enqueueWorker(policy: ExistingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE) {
+        val network = bookDownloadNetwork(settings.bookMobileData.first(), dao.countPendingManualBookDownloads() > 0)
+        val mobile = network == NetworkType.CONNECTED
+        // Ein angehängter Auftrag wartet auf den vorigen: Ein Auftrag im WLAN hielte einen von Hand gestarteten mobilen sonst
+        // auf, sobald das WLAN weg ist. Ersetzt wird er auch mitten in einer Datei, die beim nächsten Lauf dort weitermacht.
+        val chain = if (mobile && policy == ExistingWorkPolicy.APPEND_OR_REPLACE && !mobileWorkerRunning()) {
             ExistingWorkPolicy.REPLACE
         } else {
             policy
@@ -228,17 +241,21 @@ class BookDownloads @Inject constructor(
                     .setRequiresStorageNotLow(true)
                     .build(),
             )
+            .setInputData(workDataOf(BookDownloadWorker.KEY_MANUAL_ONLY to mobile))
+            .apply { if (mobile) addTag(TAG_MOBILE) }
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, chain, request)
     }
 
-    private suspend fun workerRunning(): Boolean = withContext(Dispatchers.IO) {
-        WorkManager.getInstance(context).getWorkInfosForUniqueWork(WORK_NAME).get().any { it.state == WorkInfo.State.RUNNING }
+    private suspend fun mobileWorkerRunning(): Boolean = withContext(Dispatchers.IO) {
+        WorkManager.getInstance(context).getWorkInfosForUniqueWork(WORK_NAME).get()
+            .any { it.state == WorkInfo.State.RUNNING && TAG_MOBILE in it.tags }
     }
 
     private companion object {
         const val WORK_NAME = "book-downloads"
+        const val TAG_MOBILE = "book-downloads-mobile"
         const val TAG = "BookDownloads"
         const val AUTOMATIC_SAMPLE_MS = 5_000L
         const val EXPIRY_CHECK_MS = 6 * 60 * 60 * 1000L

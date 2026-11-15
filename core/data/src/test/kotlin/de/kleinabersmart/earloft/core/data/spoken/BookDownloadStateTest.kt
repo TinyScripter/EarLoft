@@ -160,4 +160,39 @@ class BookDownloadStateTest {
         assertEquals(TrackDownload.REMOVED, db.bookDao().observeBookDownloads().first().single().state())
         assertNull(db.bookDao().tracks(book).single().filePath)
     }
+
+    @Test
+    fun `files of the automatic download are not picked up by the download over mobile data`() = runTest {
+        val automatic = addBook(BookKind.BOOK, "a", files = 2)
+        val manual = addBook(BookKind.BOOK, "m", files = 1)
+        assertEquals(2, db.bookDao().queueBookDownloadAutomatic(automatic))
+
+        // Nur die Automatik wartet: Ein Auftrag über Mobilfunk hätte nichts zu tun, der Auftrag bleibt im WLAN.
+        assertEquals(0, db.bookDao().countPendingManualBookDownloads())
+        assertNull(db.bookDao().nextQueuedManualBookTrack())
+        assertEquals(automatic, db.bookDao().nextQueuedBookTrack()!!.bookId)
+
+        db.bookDao().queueBookDownload(manual)
+        assertEquals(1, db.bookDao().countPendingManualBookDownloads())
+        assertEquals(manual, db.bookDao().nextQueuedManualBookTrack()!!.bookId)
+        // Im WLAN kommt zuerst, was der Nutzer selbst angestoßen hat, obwohl das Buch der Automatik vorher eingereiht war.
+        assertEquals(manual, db.bookDao().nextQueuedBookTrack()!!.bookId)
+        assertEquals(3, db.bookDao().countPendingBookDownloads())
+    }
+
+    @Test
+    fun `downloading by hand takes over the files the automatic download already queued`() = runTest {
+        val book = addBook(BookKind.BOOK, "b", files = 3)
+        db.bookDao().queueBookDownloadAutomatic(book)
+        db.bookDao().markBookTrackRunning(book, 0)
+
+        // Die laufende und die wartenden Dateien gelten danach als von Hand und dürfen über Mobilfunk laden.
+        assertEquals(3, db.bookDao().queueBookDownload(book))
+        val tracks = db.bookDao().tracks(book)
+        assertEquals(listOf(TrackDownload.RUNNING, TrackDownload.QUEUED, TrackDownload.QUEUED), tracks.map { it.downloadState })
+        assertTrue(tracks.none { it.autoDownload })
+        assertEquals(3, db.bookDao().countPendingManualBookDownloads())
+        // Nichts mehr zu übernehmen: kein neuer Auftrag.
+        assertEquals(0, db.bookDao().queueBookDownload(book))
+    }
 }

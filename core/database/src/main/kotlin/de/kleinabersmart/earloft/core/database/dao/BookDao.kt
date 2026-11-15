@@ -503,19 +503,24 @@ abstract class BookDao {
     )
     abstract fun observeBookDownloads(): Flow<List<BookDownloadRow>>
 
-    /** Von Hand: auch fehlgeschlagene und entfernte Dateien laden wieder; fertige bleiben, nicht mehr abrufbare fehlen. */
+    /**
+     * Von Hand: auch fehlgeschlagene und entfernte Dateien laden wieder; fertige bleiben, nicht mehr abrufbare fehlen. Was die
+     * Automatik schon eingereiht hat, gilt ab jetzt als von Hand (`autoDownload = 0`) und darf damit über Mobilfunk laden.
+     */
     @Query(
-        "UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND downloadState IN ('NONE', 'FAILED', 'REMOVED') " +
-            "AND unavailableSince IS NULL",
+        "UPDATE book_tracks SET downloadState = CASE WHEN downloadState = 'RUNNING' THEN 'RUNNING' ELSE 'QUEUED' END, autoDownload = 0 " +
+            "WHERE bookId = :bookId AND unavailableSince IS NULL " +
+            "AND (downloadState IN ('NONE', 'FAILED', 'REMOVED') OR (downloadState IN ('QUEUED', 'RUNNING') AND autoDownload = 1))",
     )
     abstract suspend fun queueBookDownload(bookId: Long): Int
 
     /**
      * Automatik (Weiterhören, nächster Band): nur nie geladene Dateien, und nicht, wenn der Nutzer den Download des Buchs
-     * entfernt hat oder eine Datei gescheitert ist – das holt nur „Download“ von Hand zurück.
+     * entfernt hat oder eine Datei gescheitert ist – das holt nur „Download“ von Hand zurück. `autoDownload = 1`: Diese
+     * Dateien laden nur im WLAN, auch wenn Mobilfunk für Bücher erlaubt ist (siehe [nextQueuedManualBookTrack]).
      */
     @Query(
-        "UPDATE book_tracks SET downloadState = 'QUEUED' WHERE bookId = :bookId AND downloadState = 'NONE' AND unavailableSince IS NULL " +
+        "UPDATE book_tracks SET downloadState = 'QUEUED', autoDownload = 1 WHERE bookId = :bookId AND downloadState = 'NONE' AND unavailableSince IS NULL " +
             "AND NOT EXISTS (SELECT 1 FROM book_tracks r WHERE r.bookId = :bookId AND r.downloadState IN ('REMOVED', 'FAILED') " +
             "AND r.unavailableSince IS NULL)",
     )
@@ -529,17 +534,32 @@ abstract class BookDao {
     )
     abstract fun observeFinishedBookDownloads(): Flow<List<FinishedDownloadRow>>
 
+    /** Die nächste wartende Datei, die von Hand eingereihten zuerst. */
     @Query(
         "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
-            "WHERE b.kind = 'BOOK' AND t.downloadState = 'QUEUED' ORDER BY t.bookId, t.trackIndex LIMIT 1",
+            "WHERE b.kind = 'BOOK' AND t.downloadState = 'QUEUED' ORDER BY t.autoDownload, t.bookId, t.trackIndex LIMIT 1",
     )
     abstract suspend fun nextQueuedBookTrack(): BookTrackEntity?
+
+    /** Wie [nextQueuedBookTrack], nur von Hand eingereihte: Die Automatik lädt nicht über Mobilfunk. */
+    @Query(
+        "SELECT t.* FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'BOOK' AND t.downloadState = 'QUEUED' AND t.autoDownload = 0 ORDER BY t.bookId, t.trackIndex LIMIT 1",
+    )
+    abstract suspend fun nextQueuedManualBookTrack(): BookTrackEntity?
 
     @Query(
         "SELECT COUNT(*) FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
             "WHERE b.kind = 'BOOK' AND t.downloadState IN ('QUEUED', 'RUNNING')",
     )
     abstract suspend fun countPendingBookDownloads(): Int
+
+    /** Wartende und laufende Dateien, die der Nutzer selbst eingereiht hat. */
+    @Query(
+        "SELECT COUNT(*) FROM book_tracks t JOIN books b ON b.bookId = t.bookId " +
+            "WHERE b.kind = 'BOOK' AND t.downloadState IN ('QUEUED', 'RUNNING') AND t.autoDownload = 0",
+    )
+    abstract suspend fun countPendingManualBookDownloads(): Int
 
     @Query("UPDATE book_tracks SET downloadState = 'RUNNING' WHERE bookId = :bookId AND trackIndex = :trackIndex AND downloadState = 'QUEUED'")
     abstract suspend fun markBookTrackRunning(bookId: Long, trackIndex: Int): Int
