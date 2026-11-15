@@ -60,10 +60,15 @@ class AbsApi @Inject constructor(
     suspend fun libraries(server: AbsServer): List<AbsLibraryDto> =
         decode<AbsLibrariesResponse>(execute(authorized(server, server.endpoint("api/libraries").build()))).libraries
 
+    /**
+     * Eine Seite der Einträge, nach `addedAt` sortiert: Die Reihenfolge ist fest, neue kommen ans Ende. Der Server rechnet
+     * den Anfang als `page * limit`; mit `limit = 1` ist `page` also genau die Stelle (geprüft an 2.37.2).
+     */
     suspend fun libraryItems(server: AbsServer, libraryId: String, page: Int, limit: Int): AbsItemsPage {
         val url = server.endpoint("api/libraries/$libraryId/items")
             .addQueryParameter("limit", limit.toString())
             .addQueryParameter("page", page.toString())
+            .addQueryParameter("sort", "addedAt")
             .addQueryParameter("minified", "1")
             .build()
         return decode(execute(authorized(server, url)))

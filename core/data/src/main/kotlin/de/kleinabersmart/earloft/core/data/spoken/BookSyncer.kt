@@ -84,22 +84,13 @@ class BookSyncer @Inject constructor(
         val syncedBefore = stored.filter { it.seenInGeneration == entity.syncGeneration }.mapNotNullTo(HashSet()) { it.libraryId }
         val fresh = HashSet<String>()
         for (library in shown) {
-            var page = 0
-            while (true) {
-                val result = api.libraryItems(server, library.id, page, PAGE_SIZE)
-                result.results.forEach {
-                    if (it.isMissing || it.isInvalid) {
-                        // Fehlen die Dateien nur gerade (Freigabe beim Scan nicht eingehängt), bleibt ein bekanntes Buch
-                        // samt Download und Fortschritt stehen; neue kommen erst, wenn sie abspielbar sind.
-                        dao.markSeen(server.serverId, it.id, generation)
-                        return@forEach
-                    }
-                    val entityToStore = it.toEntity(server.serverId, library.id, generation)
-                    if (library.id in syncedBefore && entityToStore.remoteId !in known) fresh += entityToStore.remoteId
-                    dao.upsertBook(entityToStore)
-                }
-                if (result.results.isEmpty() || (page + 1) * PAGE_SIZE >= result.total) break
-                page++
+            val countsAsNew = library.id in syncedBefore
+            // Fällt unterwegs ein Buch weg (Löschen, Scan am Server), einmal von vorn; zweimal in Folge bricht der Abgleich
+            // ab, ohne etwas zu löschen (Review D3, wie R8 bei Jellyfin/Emby).
+            if (!scanLibrary(server, library.id, generation) { if (countsAsNew && it !in known) fresh += it } &&
+                !scanLibrary(server, library.id, generation) { if (countsAsNew && it !in known) fresh += it }
+            ) {
+                throw IOException("${library.name} hat sich während des Abgleichs geändert")
             }
         }
         // Erst ungemeldeten Fortschritt hochladen: Gelöschte Bücher nehmen ihn mit.
@@ -201,6 +192,40 @@ class BookSyncer @Inject constructor(
     }
 
     private fun String?.orNullIfBlank(): String? = this?.trim()?.ifEmpty { null }
+
+    /**
+     * Liest eine Bibliothek seitenweise (nach `addedAt`, neue kommen ans Ende) und schreibt jedes Buch mit [generation].
+     * Nach jeder Seite steht der letzte Eintrag der vorigen noch an seiner Stelle, sonst ist davor etwas weggefallen und der
+     * erste dieser Seite fehlte – `deleteUnseen` löschte ihn samt Download. Gefragt wird nach der Seite: Eine Verschiebung
+     * davor fällt so ebenfalls auf, eine danach gibt höchstens einen unnötigen Neuanfang. Was der abgebrochene Durchgang noch
+     * gesehen hat, gilt als gesehen: Ein gerade gelöschtes Buch fällt so erst beim nächsten Abgleich weg. [onStored] bekommt die
+     * Kennung jedes geschriebenen Buchs. @return `false` bei einer Verschiebung.
+     */
+    private suspend fun scanLibrary(server: AbsServer, libraryId: String, generation: Long, onStored: (String) -> Unit): Boolean {
+        var page = 0
+        var lastId: String? = null
+        while (true) {
+            val result = api.libraryItems(server, libraryId, page, PAGE_SIZE)
+            if (lastId != null && api.libraryItems(server, libraryId, page * PAGE_SIZE - 1, 1).results.firstOrNull()?.id != lastId) {
+                Log.i(TAG, "Bibliothek $libraryId hat sich während des Abgleichs verschoben")
+                return false
+            }
+            result.results.forEach {
+                if (it.isMissing || it.isInvalid) {
+                    // Fehlen die Dateien nur gerade (Freigabe beim Scan nicht eingehängt), bleibt ein bekanntes Buch
+                    // samt Download und Fortschritt stehen; neue kommen erst, wenn sie abspielbar sind.
+                    dao.markSeen(server.serverId, it.id, generation)
+                    return@forEach
+                }
+                val entityToStore = it.toEntity(server.serverId, libraryId, generation)
+                dao.upsertBook(entityToStore)
+                onStored(entityToStore.remoteId)
+            }
+            lastId = result.results.lastOrNull()?.id ?: lastId
+            if (result.results.isEmpty() || (page + 1) * PAGE_SIZE >= result.total) return true
+            page++
+        }
+    }
 
     private companion object {
         const val TAG = "BookSyncer"

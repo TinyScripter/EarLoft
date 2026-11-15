@@ -229,6 +229,55 @@ class BookLibrariesSyncTest {
     @Volatile
     private var authorsFail = false
 
+    /** Nach jeder Antwort mit Einträgen (Bibliothek, `limit`, `page`): z. B. ein Buch am Server löschen. */
+    @Volatile
+    private var afterItems: (library: String, limit: Int, page: Int) -> Unit = { _, _, _ -> }
+
+    private fun manyBooks(count: Int) = (1..count).map { Triple("many_$it", "Buch $it", emptyList<String>()) }
+
+    @Test
+    fun `a book removed on the server between two pages does not make the sync drop the next one`() = runTest {
+        items["lib-a"] = manyBooks(150)
+        items.remove("lib-b")
+        val id = connect()
+        assertTrue(sync(id).ok)
+        val before = dao.booksOf(id).single { it.remoteId == "many_101" }
+
+        // Während des Abgleichs fällt ein Buch der ersten Seite weg: Ohne Prüfung fehlte "many_101" auf Seite 2 und würde gelöscht.
+        var removed = false
+        afterItems = { library, limit, page ->
+            if (library == "lib-a" && limit > 1 && page == 0 && !removed) {
+                removed = true
+                items["lib-a"] = items.getValue("lib-a").filterNot { it.first == "many_5" }
+            }
+        }
+        assertTrue(sync(id).ok)
+
+        assertEquals(before.bookId, dao.booksOf(id).single { it.remoteId == "many_101" }.bookId)
+        // Der abgebrochene Durchgang hat "many_5" noch gesehen: Es fällt erst mit dem nächsten Abgleich weg.
+        assertEquals(150, dao.booksOf(id).size)
+        assertTrue(sync(id).ok)
+        val left = dao.booksOf(id).map { it.remoteId }.toSet()
+        assertEquals(149, left.size)
+        assertFalse("many_5" in left)
+    }
+
+    @Test
+    fun `a library that keeps shifting stops the sync without deleting anything`() = runTest {
+        items["lib-a"] = manyBooks(150)
+        items.remove("lib-b")
+        val id = connect()
+        assertTrue(sync(id).ok)
+
+        // Jede erste Seite verliert ein Buch: auch der zweite Durchgang verschiebt sich.
+        afterItems = { library, limit, page ->
+            if (library == "lib-a" && limit > 1 && page == 0) items["lib-a"] = items.getValue("lib-a").drop(1)
+        }
+        assertFalse(sync(id).ok)
+
+        assertEquals(150, dao.booksOf(id).size)
+    }
+
     /** `/ping`, `/api/me`, `/api/libraries`, die Einträge und Autoren je Bibliothek und je Eintrag die Details (ohne Dateien). */
     private inner class FakeServer : Dispatcher() {
         override fun dispatch(request: RecordedRequest): MockResponse {
@@ -245,7 +294,13 @@ class BookLibrariesSyncTest {
                 path.startsWith("/api/libraries/") && path.endsWith("/items") -> {
                     val library = path.removePrefix("/api/libraries/").removeSuffix("/items")
                     val entries = items[library].orEmpty()
-                    json("""{"results":[${entries.joinToString(",") { item(it.first, it.second, it.third) }}],"total":${entries.size}}""")
+                    // Wie der Server: Anfang = page * limit, limit 0 = alles.
+                    val limit = url.queryParameter("limit")?.toInt() ?: 0
+                    val page = url.queryParameter("page")?.toInt() ?: 0
+                    val shown = if (limit > 0) entries.drop(page * limit).take(limit) else entries
+                    val body = """{"results":[${shown.joinToString(",") { item(it.first, it.second, it.third) }}],"total":${entries.size}}"""
+                    afterItems(library, limit, page)
+                    json(body)
                 }
                 path.startsWith("/api/libraries/") && path.endsWith("/authors") -> {
                     if (authorsFail) return MockResponse.Builder().code(500).build()
