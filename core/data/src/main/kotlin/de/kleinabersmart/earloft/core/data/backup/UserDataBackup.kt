@@ -262,8 +262,10 @@ class UserDataBackup @Inject constructor(
         }
         val spoken = bookDao.servers()
         val spokenIds = saved.spokenServers.values.associate { server ->
+            // Über die Adresse: `libraryId` ist seit den mehreren Bibliotheken nur die erste gezeigte und wechselt mit Auswahl und
+            // Reihenfolge in Audiobookshelf. Bei mehreren Einträgen derselben Adresse (alte Sicherungen) zuerst der mit gleicher.
             val local = spoken.firstOrNull { it.serverId == server.serverId }
-                ?: spoken.firstOrNull { sameUrl(it.baseUrl, server.baseUrl) && it.libraryId == server.libraryId }
+                ?: spoken.filter { sameUrl(it.baseUrl, server.baseUrl) }.let { same -> same.firstOrNull { it.libraryId == server.libraryId } ?: same.firstOrNull() }
             server.serverId to (local?.serverId ?: server.serverId)
         }
         val feedIds = saved.podcasts.values.associate { podcast ->

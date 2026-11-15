@@ -132,8 +132,8 @@ class FullBackupTest {
         SourceEntity(sourceId = sourceId, type = SourceType.SUBSONIC, name = "Navidrome", baseUrl = "https://nav.example", username = "sebi"),
     )
 
-    private suspend fun EarLoftDatabase.addAbs(serverId: String = "abs") =
-        bookDao().upsertServer(SpokenServerEntity(serverId, "ABS", "https://abs.example", libraryId = "lib"))
+    private suspend fun EarLoftDatabase.addAbs(serverId: String = "abs", libraryId: String = "lib") =
+        bookDao().upsertServer(SpokenServerEntity(serverId, "ABS", "https://abs.example", libraryId = libraryId))
 
     private suspend fun EarLoftDatabase.addFeed(feedId: String = "feed-1") =
         podcastDao().upsertFeed(PodcastFeedEntity(feedId, "https://example.org/feed", "Logbuch", notifyNew = false))
@@ -234,6 +234,30 @@ class FullBackupTest {
         assertEquals(listOf("feed-here"), new.main.podcastDao().feeds().map { it.feedId })
         // Der Fortschritt hängt an der hiesigen Kennung des Abos.
         assertEquals(4_000L, new.main.bookDao().progressOf(listOf(episode)).single().positionMs)
+    }
+
+    @Test
+    fun `an audiobookshelf server is recognized by its address even when its first library differs`() = runTest {
+        val old = Device(backgroundScope)
+        old.main.addAbs("abs", libraryId = "lib-books")
+        val book = old.main.bookDao().upsertBook(
+            BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = "li_1", title = "Krimi", normTitle = "krimi", author = "", durationMs = 1_000_000),
+        )
+        // Noch nicht gemeldet: Nur solchen Fortschritt sichert die App (den übrigen hat der Server).
+        old.main.bookDao().upsertProgress(BookProgressEntity(book, positionMs = 7_000, durationMs = 1_000_000, updatedAt = 10, dirty = true))
+        val file = ByteArrayOutputStream().also { old.backup.export(it) }.toByteArray()
+
+        // Hier ist eine andere Bibliothek die erste gezeigte (abgewählt oder in Audiobookshelf umsortiert).
+        val new = Device(backgroundScope)
+        new.main.addAbs("abs-here", libraryId = "lib-plays")
+        val here = new.main.bookDao().upsertBook(
+            BookEntity(serverId = "abs-here", kind = BookKind.BOOK, remoteId = "li_1", title = "Krimi", normTitle = "krimi", author = "", durationMs = 1_000_000),
+        )
+        val result = new.backup.import(ByteArrayInputStream(file))
+
+        assertEquals(BackupCounts(), result.added)
+        assertEquals(listOf("abs-here"), new.main.bookDao().servers().map { it.serverId })
+        assertEquals(7_000L, new.main.bookDao().progressOf(listOf(here)).single().positionMs)
     }
 
     @Test
