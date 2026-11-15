@@ -148,7 +148,7 @@ abstract class BookDao {
     /** Die Dateien aller Bücher von [serverId] mit dem Namen ihres Kapitels, je Buch in ihrer Reihenfolge. */
     @Query(
         "SELECT b.remoteId AS remoteId, t.trackIndex AS trackIndex, t.remoteFileId AS remoteFileId, t.durationMs AS durationMs, " +
-            "t.mimeType AS mimeType, t.unavailableSince AS unavailableSince, c.title AS title " +
+            "t.mimeType AS mimeType, t.unavailableSince AS unavailableSince, c.title AS title, t.remoteItemId AS remoteItemId " +
             "FROM books b JOIN book_tracks t ON t.bookId = b.bookId " +
             "LEFT JOIN book_chapters c ON c.bookId = t.bookId AND c.chapterIndex = t.trackIndex " +
             "WHERE b.serverId = :serverId ORDER BY b.remoteId, t.trackIndex",
@@ -679,6 +679,7 @@ data class KeyedBookPart(
     val mimeType: String?,
     val unavailableSince: Long?,
     val title: String?,
+    val remoteItemId: String? = null,
 )
 
 /** Fortschritt mit dem Schlüssel seines Buchs. */

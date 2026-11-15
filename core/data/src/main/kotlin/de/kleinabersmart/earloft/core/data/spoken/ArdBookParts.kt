@@ -16,7 +16,7 @@ internal data class ArdBookPart(val track: BookTrackEntity, val title: String, v
 internal fun freshArdParts(offered: List<ArdPart>): List<ArdBookPart> {
     var start = 0L
     return offered.mapIndexed { index, part ->
-        ArdBookPart(BookTrackEntity(0, index, part.audioUrl, start, part.durationMs, part.mimeType), part.title, part.availableUntil)
+        ArdBookPart(BookTrackEntity(0, index, part.audioUrl, start, part.durationMs, part.mimeType, remoteItemId = part.id), part.title, part.availableUntil)
             .also { start += part.durationMs }
     }
 }
@@ -27,7 +27,7 @@ internal fun freshArdParts(offered: List<ArdPart>): List<ArdBookPart> {
  * gleicher Adresse, sonst bei gleichem Namen und (fast) gleicher Länge (neu veröffentlicht). Was ARD Sounds nicht mehr führt, bleibt
  * mit [BookTrackEntity.unavailableSince]; neue Teile kommen hinten dazu. Längen und Kapitelnamen bekannter Teile bleiben (ARD
  * Sounds benennt Teile je nach ihrer Zahl anders), damit Positionen, Lesezeichen und Kapitel stimmen; geladene bzw. ladende Teile
- * behalten auch ihre Adresse.
+ * behalten auch ihre Adresse. Die Kennung des Titels ([BookTrackEntity.remoteItemId]) kommt immer von ARD Sounds.
  */
 internal fun mergeArdParts(known: List<ArdBookPart>, offered: List<ArdPart>, now: Long): List<ArdBookPart> {
     val matchOf = arrayOfNulls<ArdPart>(known.size)
@@ -48,13 +48,15 @@ internal fun mergeArdParts(known: List<ArdBookPart>, offered: List<ArdPart>, now
         val track = part.track
         when {
             match == null -> part.copy(track = track.copy(unavailableSince = track.unavailableSince ?: now), until = track.unavailableSince ?: now)
-            track.downloadState in KEEP_FILE -> ArdBookPart(track.copy(unavailableSince = null), part.title.ifEmpty { match.title }, match.availableUntil)
+            track.downloadState in KEEP_FILE ->
+                ArdBookPart(track.copy(unavailableSince = null, remoteItemId = match.id), part.title.ifEmpty { match.title }, match.availableUntil)
             else -> ArdBookPart(
                 track.copy(
                     remoteFileId = match.audioUrl,
                     mimeType = match.mimeType,
                     durationMs = track.durationMs.takeIf { it > 0 } ?: match.durationMs,
                     unavailableSince = null,
+                    remoteItemId = match.id,
                 ),
                 part.title.ifEmpty { match.title },
                 match.availableUntil,
@@ -63,7 +65,7 @@ internal fun mergeArdParts(known: List<ArdBookPart>, offered: List<ArdPart>, now
     }
     val next = (known.maxOfOrNull { it.track.trackIndex } ?: -1) + 1
     val added = offered.filterIndexed { j, _ -> !taken[j] }.mapIndexed { k, part ->
-        ArdBookPart(BookTrackEntity(0, next + k, part.audioUrl, 0, part.durationMs, part.mimeType), part.title, part.availableUntil)
+        ArdBookPart(BookTrackEntity(0, next + k, part.audioUrl, 0, part.durationMs, part.mimeType, remoteItemId = part.id), part.title, part.availableUntil)
     }
     var start = 0L
     return (merged + added).map { part ->
@@ -82,17 +84,24 @@ internal fun ardAvailableUntil(parts: List<ArdBookPart>, whenAllLoaded: Long?): 
 
 /**
  * Die Teile eines Buchs für die Sicherung (`UserArdBookEntity.parts`), in ihrer Reihenfolge: je Zeile Adresse, Länge, MIME-Typ,
- * seit wann nicht mehr abrufbar und Kapitelname, durch Tabulatoren getrennt.
+ * seit wann nicht mehr abrufbar, Kapitelname und Kennung des Titels, durch Tabulatoren getrennt.
  */
 internal fun encodeArdParts(parts: List<KeyedBookPart>): String =
     parts.sortedBy { it.trackIndex }.joinToString("\n") { part ->
-        listOf(part.remoteFileId, part.durationMs.toString(), part.mimeType.orEmpty(), part.unavailableSince?.toString().orEmpty(), part.title.orEmpty())
-            .joinToString("\t") { it.replace(SEPARATORS, " ") }
+        listOf(
+            part.remoteFileId,
+            part.durationMs.toString(),
+            part.mimeType.orEmpty(),
+            part.unavailableSince?.toString().orEmpty(),
+            part.title.orEmpty(),
+            part.remoteItemId.orEmpty(),
+        ).joinToString("\t") { it.replace(SEPARATORS, " ") }
     }
 
 /**
  * Die gesicherten Teile ([encodeArdParts]) als bekannte Teile eines Buchs, von dem noch nichts geladen ist. Leer ohne Sicherung
- * der Teile oder wenn eine Zeile nicht lesbar ist (dann nimmt das Buch die Teile, wie ARD Sounds sie anbietet).
+ * der Teile oder wenn eine Zeile nicht lesbar ist (dann nimmt das Buch die Teile, wie ARD Sounds sie anbietet). Ältere Sicherungen
+ * kennen die Kennung des Titels nicht.
  */
 internal fun decodeArdParts(text: String?): List<ArdBookPart> {
     if (text.isNullOrBlank()) return emptyList()
@@ -102,7 +111,11 @@ internal fun decodeArdParts(text: String?): List<ArdBookPart> {
         val url = fields.getOrNull(0)?.takeIf { it.isNotEmpty() } ?: return emptyList()
         val duration = fields.getOrNull(1)?.toLongOrNull() ?: return emptyList()
         val since = fields.getOrNull(3)?.toLongOrNull()
-        val track = BookTrackEntity(0, index, url, start, duration, fields.getOrNull(2)?.ifEmpty { null }, unavailableSince = since)
+        val track = BookTrackEntity(
+            0, index, url, start, duration, fields.getOrNull(2)?.ifEmpty { null },
+            unavailableSince = since,
+            remoteItemId = fields.getOrNull(5)?.ifEmpty { null },
+        )
         start += duration
         ArdBookPart(track, fields.getOrNull(4).orEmpty(), since)
     }

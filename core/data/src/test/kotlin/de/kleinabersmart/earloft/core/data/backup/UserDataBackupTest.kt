@@ -14,6 +14,7 @@ import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.UserDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
 import de.kleinabersmart.earloft.core.database.entity.BookProgressEntity
+import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.database.entity.BookmarkEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningDayEntity
 import de.kleinabersmart.earloft.core.database.entity.ListeningStatEntity
@@ -77,8 +78,8 @@ class UserDataBackupTest {
         scope = TestScope(),
     )
 
-    private fun ardAnswer() = MockResponse.Builder().body(
-        """{"data":{"items":{"nodes":[{"id":"1","coreId":"urn:ard:publication:1","title":"Goldstrand (1/1)","groupId":"urn:ard:show:gs",
+    private fun ardAnswer(group: String = "urn:ard:show:gs") = MockResponse.Builder().body(
+        """{"data":{"items":{"nodes":[{"id":"1","coreId":"urn:ard:publication:1","title":"Goldstrand (1/1)","groupId":"$group",
          "episodeNumber":1,"maxGroupNumber":1,"duration":1000,"publishDate":"2026-11-01T10:00:00+01:00",
          "group":{"type":"MULTIPART","title":"Katerina Poladjan: Goldstrand","count":1},
          "audios":[{"url":"https://a.example/1.mp3","downloadUrl":null,"allowDownload":false,"mimeType":"audio/mp3"}],
@@ -264,6 +265,39 @@ class UserDataBackupTest {
             assertEquals(4_242L, restored.addedAt)
             val restoredId = newDevice.bookDao().bookByRemote(ARD_BOOK_SERVER_ID, ardKey)!!.bookId
             assertEquals(500L, newDevice.bookDao().progressOf(listOf(restoredId)).single().positionMs)
+        } finally {
+            newDevice.close()
+            server.close()
+        }
+    }
+
+    @Test
+    fun `an ARD book whose group got a new id comes back with its progress`() = runTest {
+        val ardKey = "group:urn:ard:show:gs"
+        val bookId = book(main, ARD_BOOK_SERVER_ID, ardKey, BookKind.BOOK)
+        main.bookDao().insertTracks(
+            listOf(BookTrackEntity(bookId, 0, "https://a.example/1.mp3", 0, 1_000_000, "audio/mpeg", remoteItemId = "urn:ard:publication:1")),
+        )
+        main.bookDao().upsertProgress(progress(bookId, 500, updatedAt = 50))
+        backupFor(main).mirror()
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        val server = MockWebServer().apply { start() }
+        try {
+            // Unter der alten Gruppe nichts; der gesicherte Titel steht jetzt in einer anderen.
+            server.enqueue(MockResponse.Builder().body("""{"data":{"items":{"nodes":[]}}}""").build())
+            server.enqueue(ardAnswer(group = "urn:ard:show:neu"))
+            server.enqueue(ardAnswer(group = "urn:ard:show:neu"))
+            val backup = backupFor(newDevice, testArdBooks(context, newDevice, server.url("/graphql")))
+            val saved = user.userDataDao().snapshot()
+
+            assertTrue(backup.fetchArdBooks(saved.ardBooks.values))
+
+            assertEquals(3, server.requestCount)
+            assertTrue(backup.applyArdBooks(saved.ardBooks.values).isEmpty())
+            assertTrue(backup.applyProgress(saved.progress.values).isEmpty())
+            val restored = newDevice.bookDao().bookByRemote(ARD_BOOK_SERVER_ID, ardKey)!!
+            assertEquals(500L, newDevice.bookDao().progressOf(listOf(restored.bookId)).single().positionMs)
         } finally {
             newDevice.close()
             server.close()

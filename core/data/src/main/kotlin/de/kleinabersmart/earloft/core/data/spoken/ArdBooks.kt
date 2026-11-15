@@ -84,18 +84,29 @@ class ArdBooks @Inject constructor(
     }
 
     /**
-     * Holt das gesicherte Buch [key] zurück ([add] mit den Angaben aus der Sicherung). Kennt ARD Sounds es bestätigt nicht mehr
-     * ([confirmMissing]), wird es nur einmal je [GONE_RECHECK_MS] wieder gefragt und nicht bei jedem Start; ohne Verbindung
-     * (@throws IOException) gilt das nicht als „nicht mehr da“. `null`, wenn es nicht geholt wurde.
+     * Holt das gesicherte Buch [key] zurück ([add] mit den Angaben aus der Sicherung). Ordnet ARD Sounds seine Titel inzwischen anders
+     * zu ([fetch]), kommt es trotzdem unter [key] in die Bibliothek: Darauf beziehen sich Fortschritt und Lesezeichen der Sicherung,
+     * und den neuen Schlüssel bekommt es beim nächsten [refresh] wie jedes andere Buch. Steht es unter dem neuen schon in der
+     * Bibliothek, bleibt es dabei, und es wird nur einmal je [GONE_RECHECK_MS] wieder gefragt. Kennt ARD Sounds es bestätigt nicht
+     * mehr ([confirmMissing]), ebenso und nicht bei jedem Start; ohne Verbindung (@throws IOException) gilt das nicht als „nicht mehr
+     * da“. `null`, wenn es nicht geholt wurde.
      */
     internal suspend fun restore(key: String, addedAt: Long?, saved: List<ArdBookPart>): Long? {
         val now = System.currentTimeMillis()
         val checked = settings.ardGoneChecks()[key]
         if (checked != null && now - checked < GONE_RECHECK_MS) return null
-        val bookId = add(key, known = null, addedAt = addedAt, saved = saved)
+        val here = dao.bookByRemote(ARD_BOOK_SERVER_ID, key)?.bookId
+        val found = if (here == null) fetch(key) { saved.mapNotNull { it.track.remoteItemId } } else null
+        val elsewhere = found?.key?.takeIf { it != key }?.let { moved ->
+            dao.bookByRemote(ARD_BOOK_SERVER_ID, moved)?.also { Log.i(TAG, "$key gibt es bei ARD Sounds jetzt als $moved, das schon in der Bibliothek ist") }
+        }
+        val bookId = here ?: elsewhere?.bookId ?: found?.let { add(key, known = it.copy(key = key), addedAt = addedAt, saved = saved) }
         val missing = settings.ardMissing()
         val gone = bookId == null && confirmMissing(key, missing, now)
-        if (gone) settings.setArdGoneCheck(key, now) else if (bookId != null && checked != null) settings.setArdGoneCheck(key, null)
+        when {
+            gone || elsewhere != null -> settings.setArdGoneCheck(key, now)
+            bookId != null && checked != null -> settings.setArdGoneCheck(key, null)
+        }
         if ((bookId != null || gone) && key in missing) settings.setArdMissing(key, null)
         return bookId
     }
@@ -134,7 +145,7 @@ class ArdBooks @Inject constructor(
             if (existing.isExpired(now) && checked[existing.remoteId]?.let { now - it < GONE_RECHECK_MS } == true) continue
             try {
                 // Ordnet ARD Sounds die Titel anders zu, heißt das Buch jetzt anders; es behält dabei alles.
-                val book = api.book(existing.remoteId) ?: api.movedKey(existing.remoteId)?.let { api.book(it) }
+                val book = fetch(existing.remoteId) { dao.tracks(existing.bookId).mapNotNull { it.remoteItemId } }
                 mutex.withLock {
                     // Inzwischen entfernt: nicht wieder anlegen.
                     val current = dao.book(existing.bookId) ?: return@withLock
@@ -175,6 +186,13 @@ class ArdBooks @Inject constructor(
     }
 
     private fun BookEntity.isExpired(now: Long) = availableUntil?.let { it <= now } == true
+
+    /**
+     * Das Buch [key] bei ARD Sounds, auch wenn es inzwischen anders heißt ([ArdSoundsBooks.movedKey]; [itemIds] sind die Kennungen
+     * seiner Titel, gefragt nur, wenn [key] nichts findet). `null`, wenn ARD Sounds es nicht (mehr) führt.
+     */
+    private suspend fun fetch(key: String, itemIds: suspend () -> List<String>): ArdBook? =
+        api.book(key) ?: api.movedKey(key, itemIds())?.let { api.book(it) }
 
     /**
      * Ob ARD Sounds das Buch [key] wirklich nicht mehr führt. Eine einzelne leere Antwort kann ein Aussetzer sein, und als weg gilt
@@ -290,7 +308,9 @@ class ArdBooks @Inject constructor(
         }
         // Der Download-Stand zählt nicht: Den behält [BookDao.replaceDetails] für gleich gebliebene Dateien ohnehin.
         fun layout(list: List<BookTrackEntity>) =
-            list.sortedBy { it.trackIndex }.map { listOf(it.trackIndex, it.remoteFileId, it.startMs, it.durationMs, it.mimeType, it.unavailableSince) }
+            list.sortedBy { it.trackIndex }.map {
+                listOf(it.trackIndex, it.remoteFileId, it.startMs, it.durationMs, it.mimeType, it.unavailableSince, it.remoteItemId)
+            }
         if (layout(dao.tracks(bookId)) != layout(tracks) || dao.chapters(bookId).sortedBy { it.chapterIndex } != chapters) {
             dao.replaceDetails(bookId, tracks, chapters)
         }

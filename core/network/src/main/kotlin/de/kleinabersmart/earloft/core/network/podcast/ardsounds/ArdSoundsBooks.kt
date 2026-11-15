@@ -3,6 +3,8 @@ package de.kleinabersmart.earloft.core.network.podcast.ardsounds
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.time.OffsetDateTime
@@ -126,14 +128,23 @@ class ArdSoundsBooks @Inject constructor(private val api: ArdSoundsApi) {
     }
 
     /**
-     * Der neue Schlüssel des Buchs [key], wenn ARD Sounds seine Titel inzwischen anders zuordnet ([book] findet es dann nicht mehr):
-     * Ein einzelner Titel oder eine nummerierte Reihe ohne Gruppe gehört jetzt zu einer Gruppe. `null`, wenn es die Titel nicht mehr
-     * gibt oder sie sich auf mehrere Bücher verteilen.
+     * Der neue Schlüssel des Buchs [key], wenn ARD Sounds seine Titel inzwischen anders zuordnet ([book] findet es dann nicht mehr).
+     * Zuerst über die Kennungen seiner Titel ([itemIds], [ArdPart.id]); so fällt auch auf, dass eine Gruppe jetzt anders heißt. Ohne
+     * sie bzw. wenn ARD Sounds keinen davon mehr führt (neu veröffentlicht): Ein einzelner Titel oder eine nummerierte Reihe ohne
+     * Gruppe gehört jetzt zu einer Gruppe. `null`, wenn es die Titel nicht mehr gibt oder sie sich auf mehrere Bücher verteilen.
      */
-    suspend fun movedKey(key: String): String? {
+    suspend fun movedKey(key: String, itemIds: Collection<String> = emptyList()): String? {
         val parsed = ArdBookKey.parse(key) ?: return null
-        if (parsed is ArdBookKey.Group) return null
-        val items = itemsOf(parsed).filter { parsed !is ArdBookKey.Title || numberedTitle(it.title.orEmpty())?.book == parsed.title }
+        val byId = if (itemIds.isEmpty()) {
+            emptyList()
+        } else {
+            val ids = buildJsonArray { itemIds.distinct().take(BOOK_PART_LIMIT).forEach { add(it) } }
+            fetchItems(buildJsonObject { put("coreId", buildJsonObject { put("in", ids) }) })
+        }
+        val items = byId.ifEmpty {
+            if (parsed is ArdBookKey.Group) return null
+            itemsOf(parsed).filter { parsed !is ArdBookKey.Title || numberedTitle(it.title.orEmpty())?.book == parsed.title }
+        }
         return items.map { ardBookKey(it.toKeyInput()) }.distinct().singleOrNull()?.takeIf { it != key }
     }
 

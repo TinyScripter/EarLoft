@@ -200,13 +200,19 @@ class ArdBooksTest {
     /** Die erste leere Antwort liegt länger zurück, als eine Bestätigung mindestens braucht. */
     private suspend fun firstEmptyAnswerLongAgo() = settings.setArdMissing(KEY, System.currentTimeMillis() - 7 * HOUR_MS)
 
+    /** ARD Sounds führt das Buch nicht mehr: nichts unter seinem Schlüssel und keinen seiner Titel. */
+    private fun enqueueGone() {
+        server.enqueue(answer())
+        server.enqueue(answer())
+    }
+
     @Test
     fun `a book without published parts stays and counts as expired once a later answer confirms it`() = runTest {
         server.enqueue(answer(part(1)))
         val bookId = ardBooks.add(KEY)!!
 
         // Eine leere Antwort allein kann ein Aussetzer sein: nur vermerkt.
-        server.enqueue(answer())
+        enqueueGone()
         assertTrue(ardBooks.refresh().ok)
         assertNull(dao.book(bookId)!!.availableUntil)
         assertNull(dao.tracks(bookId).single().unavailableSince)
@@ -214,7 +220,7 @@ class ArdBooksTest {
         assertTrue(settings.ardGoneChecks().isEmpty())
 
         firstEmptyAnswerLongAgo()
-        server.enqueue(answer())
+        enqueueGone()
         ardBooks.refresh()
 
         val book = dao.book(bookId)!!
@@ -229,9 +235,9 @@ class ArdBooksTest {
         server.enqueue(answer(part(1)))
         val bookId = ardBooks.add(KEY)!!
 
-        server.enqueue(answer())
+        enqueueGone()
         ardBooks.refresh()
-        server.enqueue(answer())
+        enqueueGone()
         ardBooks.refresh()
 
         assertNull(dao.book(bookId)!!.availableUntil)
@@ -242,7 +248,7 @@ class ArdBooksTest {
     fun `a book that is back after an empty answer loses the note`() = runTest {
         server.enqueue(answer(part(1)))
         val bookId = ardBooks.add(KEY)!!
-        server.enqueue(answer())
+        enqueueGone()
         ardBooks.refresh()
 
         server.enqueue(answer(part(1), part(2)))
@@ -251,7 +257,7 @@ class ArdBooksTest {
         assertTrue(settings.ardMissing().isEmpty())
         assertEquals(2, dao.tracks(bookId).size)
         // Eine spätere leere Antwort fängt wieder von vorn an.
-        server.enqueue(answer())
+        enqueueGone()
         ardBooks.refresh()
         assertNull(dao.book(bookId)!!.availableUntil)
     }
@@ -261,7 +267,7 @@ class ArdBooksTest {
         server.enqueue(answer(part(1, availableTo = "2020-01-01T00:00:00+01:00")))
         val bookId = ardBooks.add(KEY)!!
 
-        server.enqueue(answer())
+        enqueueGone()
         ardBooks.refresh()
 
         assertNotNull(dao.tracks(bookId).single().unavailableSince)
@@ -273,10 +279,10 @@ class ArdBooksTest {
     fun `an expired book is not asked for again at every refresh`() = runTest {
         server.enqueue(answer(part(1)))
         val bookId = ardBooks.add(KEY)!!
-        server.enqueue(answer())
+        enqueueGone()
         ardBooks.refresh()
         firstEmptyAnswerLongAgo()
-        server.enqueue(answer())
+        enqueueGone()
         ardBooks.refresh()
         assertTrue(dao.book(bookId)!!.availableUntil!! <= System.currentTimeMillis())
         val asked = server.requestCount
@@ -327,6 +333,98 @@ class ArdBooksTest {
         // Angefangen: Der bekannte Teil bleibt vorn, der neue kommt dazu.
         assertEquals(listOf("https://a.example/solo.mp3", "https://a.example/eins.mp3"), dao.tracks(bookId).map { it.remoteFileId })
         assertEquals(1, dao.booksOf(ARD_BOOK_SERVER_ID).size)
+    }
+
+    @Test
+    fun `a group that ARD Sounds gives a new id keeps everything under the new key`() = runTest {
+        server.enqueue(answer(part(1), part(2)))
+        val bookId = ardBooks.add(KEY)!!
+        assertEquals(listOf("urn:ard:publication:1", "urn:ard:publication:2"), dao.tracks(bookId).map { it.remoteItemId })
+        dao.upsertProgress(BookProgressEntity(bookId, positionMs = 1_500_000, durationMs = 2_000_000, updatedAt = 1))
+
+        // Unter der alten Gruppe gibt es nichts mehr; dieselben Titel stehen jetzt in einer anderen.
+        server.enqueue(answer())
+        server.enqueue(answer(part(1, group = MOVED), part(2, group = MOVED)))
+        server.enqueue(answer(part(1, group = MOVED), part(2, group = MOVED), part(3, group = MOVED)))
+        assertTrue(ardBooks.refresh().ok)
+
+        val book = dao.book(bookId)!!
+        assertEquals("group:$MOVED", book.remoteId)
+        assertNull(book.availableUntil)
+        assertEquals(1_500_000L, dao.progress(bookId)!!.positionMs)
+        assertEquals(listOf("https://a.example/1.mp3", "https://a.example/2.mp3", "https://a.example/3.mp3"), dao.tracks(bookId).map { it.remoteFileId })
+        assertTrue(settings.ardMissing().isEmpty())
+        assertEquals(1, dao.booksOf(ARD_BOOK_SERVER_ID).size)
+    }
+
+    @Test
+    fun `a book from before the ids of its titles gets them at the next refresh`() = runTest {
+        server.enqueue(answer(part(1)))
+        val bookId = ardBooks.add(KEY)!!
+        dao.replaceDetails(bookId, dao.tracks(bookId).map { it.copy(remoteItemId = null) }, dao.chapters(bookId))
+
+        server.enqueue(answer(part(1)))
+        ardBooks.refresh()
+
+        assertEquals(listOf("urn:ard:publication:1"), dao.tracks(bookId).map { it.remoteItemId })
+    }
+
+    @Test
+    fun `a group without the ids of its titles is not looked for elsewhere`() = runTest {
+        server.enqueue(answer(part(1)))
+        val bookId = ardBooks.add(KEY)!!
+        dao.replaceDetails(bookId, dao.tracks(bookId).map { it.copy(remoteItemId = null) }, dao.chapters(bookId))
+
+        server.enqueue(answer())
+        assertTrue(ardBooks.refresh().ok)
+
+        assertEquals(2, server.requestCount)
+        assertTrue(KEY in settings.ardMissing())
+    }
+
+    @Test
+    fun `a restored group under a new id comes back under the saved key and moves at the next refresh`() = runTest {
+        val saved = decodeArdParts(
+            listOf(1, 2).joinToString("\n") { "https://a.example/$it.mp3\t1000000\taudio/mp3\t\tTeil $it\turn:ard:publication:$it" },
+        )
+        server.enqueue(answer())
+        server.enqueue(answer(part(1, group = MOVED), part(2, group = MOVED)))
+        server.enqueue(answer(part(1, group = MOVED), part(2, group = MOVED)))
+
+        val bookId = ardBooks.restore(KEY, addedAt = 7, saved = saved)!!
+
+        // Unter dem gesicherten Schlüssel finden Fortschritt und Lesezeichen der Sicherung ihr Buch.
+        assertEquals(KEY, dao.book(bookId)!!.remoteId)
+        assertEquals(7L, dao.book(bookId)!!.addedAt)
+        assertEquals(listOf("urn:ard:publication:1", "urn:ard:publication:2"), dao.tracks(bookId).map { it.remoteItemId })
+        assertTrue(settings.ardMissing().isEmpty())
+        assertTrue(settings.ardGoneChecks().isEmpty())
+
+        server.enqueue(answer())
+        server.enqueue(answer(part(1, group = MOVED), part(2, group = MOVED)))
+        server.enqueue(answer(part(1, group = MOVED), part(2, group = MOVED)))
+        ardBooks.refresh()
+
+        assertEquals("group:$MOVED", dao.book(bookId)!!.remoteId)
+        assertEquals(1, dao.booksOf(ARD_BOOK_SERVER_ID).size)
+    }
+
+    @Test
+    fun `a restored book that is already here under its new key is not added twice and asked for once a week`() = runTest {
+        server.enqueue(answer(part(1, group = MOVED)))
+        val here = ardBooks.add("group:$MOVED")!!
+        val saved = decodeArdParts("https://a.example/1.mp3\t1000000\taudio/mp3\t\tTeil 1\turn:ard:publication:1")
+        server.enqueue(answer())
+        server.enqueue(answer(part(1, group = MOVED)))
+        server.enqueue(answer(part(1, group = MOVED)))
+
+        assertEquals(here, ardBooks.restore(KEY, addedAt = 7, saved = saved))
+
+        assertEquals(1, dao.booksOf(ARD_BOOK_SERVER_ID).size)
+        assertTrue(KEY in settings.ardGoneChecks())
+        val asked = server.requestCount
+        assertNull(ardBooks.restore(KEY, addedAt = 7, saved = saved))
+        assertEquals(asked, server.requestCount)
     }
 
     @Test
@@ -438,8 +536,8 @@ class ArdBooksTest {
 
     private fun answer(vararg parts: String) = MockResponse.Builder().body("""{"data":{"items":{"nodes":[${parts.joinToString(",")}]}}}""").build()
 
-    private fun part(number: Int, availableTo: String? = null) = """
-        {"id":"$number","coreId":"urn:ard:publication:$number","title":"Goldstrand ($number/2)","groupId":"urn:ard:show:gs",
+    private fun part(number: Int, availableTo: String? = null, group: String = "urn:ard:show:gs") = """
+        {"id":"$number","coreId":"urn:ard:publication:$number","title":"Goldstrand ($number/2)","groupId":"$group",
          "coreDocument":${availableTo?.let { """{"availableTo":"$it"}""" } ?: "null"},
          "episodeNumber":$number,"maxGroupNumber":2,"duration":1000,"publishDate":"2026-11-0${number}T10:00:00+01:00",
          "group":{"type":"MULTIPART","title":"Katerina Poladjan: Goldstrand","count":2},
@@ -452,6 +550,7 @@ class ArdBooksTest {
         const val KEY = "group:urn:ard:show:gs"
         const val SHOW = "urn:ard:show:reihe"
         const val GROUP = "urn:ard:show:neu"
+        const val MOVED = "urn:ard:show:umgezogen"
         const val HOUR_MS = 60 * 60 * 1000L
     }
 }

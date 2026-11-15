@@ -233,6 +233,11 @@ data class BookTrackEntity(
      * Lesezeichen und Downloads stimmen; nicht geladen ist er nicht mehr abrufbar, und Downloads lassen ihn aus.
      */
     val unavailableSince: Long? = null,
+    /**
+     * Bücher aus ARD Sounds (v44): die Kennung des Titels bei ARD Sounds. Über sie findet sich das Buch wieder, wenn ARD Sounds
+     * seine Titel einer anderen Gruppe zuordnet (der Schlüssel in [BookEntity.remoteId] führt dann ins Leere).
+     */
+    val remoteItemId: String? = null,
 )
 
 @Entity(

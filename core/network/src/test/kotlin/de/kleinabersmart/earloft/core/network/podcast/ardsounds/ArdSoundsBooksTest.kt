@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.OffsetDateTime
@@ -104,8 +105,73 @@ class ArdSoundsBooksTest {
         assertNull(books.book("item:urn:ard:publication:gone"))
     }
 
-    private fun item(id: String, title: String, number: Int?, allowDownload: Boolean, until: String? = null): String = """
-        {"id":"$id","coreId":"urn:ard:publication:$id","title":"$title","groupId":"urn:ard:show:gs","episodeNumber":${number ?: "null"},
+    @Test
+    fun `a group under a new id is found by the ids of its titles`() = runTest {
+        mockServer.enqueue(
+            MockResponse.Builder().body(
+                """{"data":{"items":{"nodes":[
+                    ${item("p1", "Goldstrand (1/2)", 1, allowDownload = true, groupId = "urn:ard:show:neu")},
+                    ${item("p2", "Goldstrand (2/2)", 2, allowDownload = true, groupId = "urn:ard:show:neu")}
+                ]}}}""",
+            ).build(),
+        )
+
+        assertEquals("group:urn:ard:show:neu", books.movedKey("group:urn:ard:show:gs", listOf("urn:ard:publication:p1", "urn:ard:publication:p2")))
+
+        val request = mockServer.takeRequest().body!!.utf8()
+        assertTrue(request, "\"in\":[\"urn:ard:publication:p1\",\"urn:ard:publication:p2\"]" in request)
+    }
+
+    @Test
+    fun `a group whose titles are still in it or spread over several books has no new key`() = runTest {
+        val ids = listOf("urn:ard:publication:p1", "urn:ard:publication:p2")
+        mockServer.enqueue(
+            MockResponse.Builder().body(
+                """{"data":{"items":{"nodes":[${item("p1", "Goldstrand (1/2)", 1, allowDownload = true)}]}}}""",
+            ).build(),
+        )
+        assertNull(books.movedKey("group:urn:ard:show:gs", ids))
+
+        mockServer.enqueue(
+            MockResponse.Builder().body(
+                """{"data":{"items":{"nodes":[
+                    ${item("p1", "Goldstrand (1/2)", 1, allowDownload = true, groupId = "urn:ard:show:a")},
+                    ${item("p2", "Goldstrand (2/2)", 2, allowDownload = true, groupId = "urn:ard:show:b")}
+                ]}}}""",
+            ).build(),
+        )
+        assertNull(books.movedKey("group:urn:ard:show:gs", ids))
+    }
+
+    @Test
+    fun `a group without known titles is not looked for`() = runTest {
+        assertNull(books.movedKey("group:urn:ard:show:gs"))
+        assertEquals(0, mockServer.requestCount)
+    }
+
+    @Test
+    fun `a numbered series whose titles are published again is found by its title`() = runTest {
+        // Die alten Titel gibt es nicht mehr; die neu veröffentlichten stehen jetzt in einer Gruppe.
+        mockServer.enqueue(MockResponse.Builder().body("""{"data":{"items":{"nodes":[]}}}""").build())
+        mockServer.enqueue(
+            MockResponse.Builder().body(
+                """{"data":{"items":{"nodes":[${item("n1", "Goldstrand (1/2)", 1, allowDownload = true)}]}}}""",
+            ).build(),
+        )
+
+        assertEquals("group:urn:ard:show:gs", books.movedKey("title:1:Goldstrand", listOf("urn:ard:publication:old")))
+        assertEquals(2, mockServer.requestCount)
+    }
+
+    private fun item(
+        id: String,
+        title: String,
+        number: Int?,
+        allowDownload: Boolean,
+        until: String? = null,
+        groupId: String = "urn:ard:show:gs",
+    ): String = """
+        {"id":"$id","coreId":"urn:ard:publication:$id","title":"$title","groupId":"$groupId","episodeNumber":${number ?: "null"},
          "maxGroupNumber":2,"duration":1500,"publishDate":"2026-11-0${number ?: 9}T10:00:00+01:00",
          "group":{"type":"MULTIPART","title":"Katerina Poladjan: Goldstrand","count":2},
          "audios":[{"url":"https://stream.example/$id.mp3","downloadUrl":${if (allowDownload) "\"https://dl.example/$id.mp3\"" else "null"},

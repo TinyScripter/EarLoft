@@ -39,6 +39,8 @@ class ArdBookPartsTest {
             merged.map { it.track.remoteFileId },
         )
         assertEquals(listOf(null, 5L, NOW, null), merged.map { it.track.unavailableSince })
+        // Die Kennung des Titels kommt von ARD Sounds, auch beim geladenen Teil.
+        assertEquals(listOf("1-neu", null, null, "4"), merged.map { it.track.remoteItemId })
         assertEquals(listOf(0, 1, 2, 3), merged.map { it.track.trackIndex })
         assertEquals(listOf("Teil 1", "Teil 2", "Teil 3", "Teil 4"), merged.map { it.title })
     }
@@ -64,7 +66,7 @@ class ArdBookPartsTest {
     fun `saved parts come back in their order, with the gone ones`() {
         val saved = encodeArdParts(
             listOf(
-                KeyedBookPart("k", 1, "https://a.example/2.mp3", 2_000, null, null, "Teil 2"),
+                KeyedBookPart("k", 1, "https://a.example/2.mp3", 2_000, null, null, "Teil 2", remoteItemId = "urn:ard:publication:2"),
                 KeyedBookPart("k", 0, "https://a.example/1.mp3", 1_000, "audio/mpeg", 5, "Teil\t1\n(gekürzt)"),
             ),
         )
@@ -77,6 +79,9 @@ class ArdBookPartsTest {
         assertEquals(listOf("audio/mpeg", null), parts.map { it.track.mimeType })
         assertEquals(listOf(5L, null), parts.map { it.track.unavailableSince })
         assertEquals(listOf("Teil 1 (gekürzt)", "Teil 2"), parts.map { it.title })
+        assertEquals(listOf(null, "urn:ard:publication:2"), parts.map { it.track.remoteItemId })
+        // Eine ältere Sicherung ohne Kennungen der Titel.
+        assertNull(decodeArdParts("https://a.example/1.mp3\t1000\t\t\tTeil 1").single().track.remoteItemId)
         // Ohne Sicherung der Teile oder unlesbar: die Teile, wie ARD Sounds sie anbietet.
         assertTrue(decodeArdParts(null).isEmpty())
         assertTrue(decodeArdParts("https://a.example/1.mp3\tkurz").isEmpty())
