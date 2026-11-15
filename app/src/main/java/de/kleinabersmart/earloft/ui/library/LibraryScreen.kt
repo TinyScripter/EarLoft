@@ -86,6 +86,8 @@ import de.kleinabersmart.earloft.ui.components.SongListItem
 import de.kleinabersmart.earloft.ui.playlists.PlaylistIcon
 import de.kleinabersmart.earloft.ui.playlists.PlaylistNameDialog
 import de.kleinabersmart.earloft.ui.playlists.playlistLocation
+import de.kleinabersmart.earloft.ui.LoadState
+import de.kleinabersmart.earloft.ui.components.LoadingIndicator
 import de.kleinabersmart.earloft.ui.valueOrNull
 import kotlinx.coroutines.launch
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
@@ -229,8 +231,15 @@ fun LibraryScreen(
                 }
                 LibraryTab.GENRES -> LoadableList(
                     genres,
-                    // Musik ohne Genre-Angaben: eigener Hinweis; ganz ohne Musik wie die anderen Reiter.
-                    empty = { if (songs.valueOrNull.isNullOrEmpty()) empty() else EmptyHint(stringResource(R.string.genres_empty)) },
+                    // Musik ohne Genre-Angaben: eigener Hinweis; ganz ohne Musik wie die anderen Reiter. Solange die Songs
+                    // noch laden, ist beides offen (Review D36).
+                    empty = {
+                        when {
+                            songs == LoadState.Loading -> LoadingIndicator()
+                            songs.valueOrNull.isNullOrEmpty() -> empty()
+                            else -> EmptyHint(stringResource(R.string.genres_empty))
+                        }
+                    },
                 ) { genreList ->
                     LoadableList(albums, empty) { all ->
                         val shown = albumsOfGenres.valueOrNull ?: all

@@ -15,6 +15,7 @@ import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.asLoadStateOrMissing
 import de.kleinabersmart.earloft.ui.components.SongActions
+import de.kleinabersmart.earloft.ui.orOnError
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -34,9 +35,11 @@ class ArtistViewModel @AssistedInject constructor(
 
     /** Die meistgehörten Songs; leer, solange keiner gehört wurde. */
     val topSongs: StateFlow<List<Song>> = libraryRepository.topSongsOfArtist(artistId, TOP_SONGS)
+        .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
     val appearsOn: StateFlow<List<Album>> = libraryRepository.appearsOn(artistId)
+        .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
     /** Alle Songs des Künstlers, nach Jahr oder gemischt. */

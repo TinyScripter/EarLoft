@@ -34,6 +34,7 @@ import de.kleinabersmart.earloft.core.model.SongSourceInfo
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.playback.PlayedFrom
 import de.kleinabersmart.earloft.core.playback.PlayingSources
+import de.kleinabersmart.earloft.ui.orOnError
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
@@ -50,7 +51,8 @@ class TrackInfoViewModel @Inject constructor(
     private val playingSources: PlayingSources,
 ) : ViewModel() {
     fun info(songId: Long): Flow<TrackInfo> =
-        combine(flow { emit(libraryRepository.sourcesOf(songId)) }, playingSources.bySong) { sources, played ->
+        // Ohne lesbare Quellen bleibt wenigstens, woher die Wiedergabe den Song nimmt.
+        combine(flow { emit(libraryRepository.sourcesOf(songId)) }.orOnError(emptyList()), playingSources.bySong) { sources, played ->
             TrackInfo(sources, played[songId])
         }
 }
