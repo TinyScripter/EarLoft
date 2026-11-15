@@ -187,6 +187,17 @@ class BookPlaybackSourceTest {
         assertEquals(5_000L, source.prepare(episode)!!.startPositionMs)
     }
 
+    @Test
+    fun `eine Folge ohne Dauer im Feed ueberspringt trotzdem das Intro`() = runTest {
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "feed", url = "https://example.org/feed", title = "Podcast", skipIntroS = 45, skipOutroS = 20))
+        val episode = db.bookDao().upsertBook(
+            BookEntity(serverId = "feed", kind = BookKind.EPISODE, remoteId = "guid", title = "Folge", normTitle = "folge", author = "", durationMs = 0),
+        )
+        db.podcastDao().setTrack(BookTrackEntity(episode, trackIndex = 0, remoteFileId = "https://example.org/folge.mp3", startMs = 0, durationMs = 0))
+
+        assertEquals(45_000L, source.prepare(episode)!!.startPositionMs)
+    }
+
     private companion object {
         const val HOUR_MS = 60 * 60 * 1000L
     }

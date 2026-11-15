@@ -101,7 +101,10 @@ class BookPlaybackSource @Inject constructor(
         val playing = effects.effectsNow(bookId)
         // Intro überspringen (je Abo): nur bei einer Folge, die bei 0 beginnt – nicht nach dem Zurückspulen an den Anfang.
         val fresh = (progress?.takeUnless { it.finished }?.positionMs ?: 0L) == 0L
-        val introMs = playing.skipIntroMs.takeIf { episode && fresh && it > 0 && it < timeline.durationMs - playing.skipOutroMs }
+        // Ohne Dauer im Feed (0) ist das Ende unbekannt; dann gibt es nichts, wogegen der Sprung zu prüfen wäre.
+        val introMs = playing.skipIntroMs.takeIf {
+            episode && fresh && it > 0 && (timeline.durationMs <= 0 || it < timeline.durationMs - playing.skipOutroMs)
+        }
         val startPositionMs = if (introMs != null) {
             introMs
         } else if (forPlayback) {
