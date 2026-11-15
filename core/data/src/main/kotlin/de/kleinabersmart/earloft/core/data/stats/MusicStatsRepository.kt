@@ -11,8 +11,11 @@ import de.kleinabersmart.earloft.core.database.model.TopPlayedRow
 import de.kleinabersmart.earloft.core.model.MusicStats
 import de.kleinabersmart.earloft.core.model.MusicTopEntry
 import de.kleinabersmart.earloft.core.model.WeekdayListening
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -27,7 +30,11 @@ import javax.inject.Singleton
 @Singleton
 class MusicStatsRepository @Inject constructor(private val libraryDao: LibraryDao) {
 
-    /** Mit [year] nur die Wiedergaben dieses Jahres, sonst alle; [MusicStats.months] wie bei [StatsRepository.podcastStats]. */
+    /**
+     * Mit [year] nur die Wiedergaben dieses Jahres, sonst alle; [MusicStats.months] wie bei [StatsRepository.podcastStats]. Gerechnet
+     * wird abseits des Main-Threads und nur, wenn sich der Hörverlauf wirklich geändert hat: Ein Abgleich schreibt die Song-Tabellen
+     * in vielen Schritten (Review D26).
+     */
     fun musicStats(
         year: Int? = null,
         zone: ZoneId = ZoneId.systemDefault(),
@@ -35,7 +42,7 @@ class MusicStatsRepository @Inject constructor(private val libraryDao: LibraryDa
     ): Flow<MusicStats> {
         val (fromMs, toMs) = millisOf(year, zone)
         return combine(
-            libraryDao.observeMusicPlays(),
+            libraryDao.observeMusicPlays().distinctUntilChanged(),
             libraryDao.observeTopArtists(fromMs, toMs, TOP),
             libraryDao.observeTopAlbums(fromMs, toMs, TOP),
             libraryDao.observeTopSongs(fromMs, toMs, TOP),
@@ -59,7 +66,7 @@ class MusicStatsRepository @Inject constructor(private val libraryDao: LibraryDa
                 years = yearsOf(days, year),
                 year = year,
             )
-        }
+        }.distinctUntilChanged().flowOn(Dispatchers.Default)
     }
 
     internal companion object {

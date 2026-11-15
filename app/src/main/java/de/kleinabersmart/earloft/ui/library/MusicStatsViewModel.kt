@@ -7,6 +7,7 @@ import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
 import de.kleinabersmart.earloft.core.data.stats.MusicStatsRepository
 import de.kleinabersmart.earloft.core.model.MusicStats
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import de.kleinabersmart.earloft.ui.orOnError
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,9 +26,9 @@ class MusicStatsViewModel @Inject constructor(
 ) : ViewModel() {
     private val year = MutableStateFlow<Int?>(null)
 
-    /** `null`, solange die Zahlen noch geladen werden. */
+    /** `null`, solange die Zahlen noch geladen werden (oder nicht lesbar waren). */
     val stats: StateFlow<MusicStats?> =
-        year.flatMapLatest { repository.musicStats(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        year.flatMapLatest { repository.musicStats(it).orOnError(null) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Zeigt die Zahlen dieses Jahres; `null` für „Gesamt“. */
     fun selectYear(value: Int?) {
