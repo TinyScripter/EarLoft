@@ -16,6 +16,7 @@ import de.kleinabersmart.earloft.core.network.podcast.FeedAuth
 import de.kleinabersmart.earloft.core.network.podcast.FeedFetch
 import de.kleinabersmart.earloft.core.network.podcast.ParsedEpisode
 import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.util.Collections
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -82,7 +83,7 @@ class PodcastSourceSwitch @Inject constructor(
             is PodcastRepository.SourceFetch.Failed -> return SourceCheck.Failed(fetched.result)
             is PodcastRepository.SourceFetch.Loaded -> fetched
         }
-        if (source.url == feed.url) return SourceCheck.SameSource
+        if (sameAddress(source.url, feed.url)) return SourceCheck.SameSource
         podcastDao.feedByUrl(source.url)?.takeIf { it.feedId != feedId }?.let { return SourceCheck.Taken(it.title) }
         val books = bookDao.booksOf(feedId)
         val known = books.map { book ->
@@ -158,7 +159,7 @@ class PodcastSourceSwitch @Inject constructor(
     suspend fun follow(feedId: String, newUrl: String): Boolean {
         val old = podcastDao.feed(feedId) ?: return false
         val oldUrl = old.url
-        if (oldUrl == newUrl || !refusedMoves.add(feedId to newUrl)) return false
+        if (sameAddress(oldUrl, newUrl) || !refusedMoves.add(feedId to newUrl)) return false
         val ready = when (val check = check(feedId, newUrl)) {
             is SourceCheck.Ready -> check
             else -> {
@@ -192,6 +193,12 @@ class PodcastSourceSwitch @Inject constructor(
         const val TEMP_PREFIX = "\u0000switch:"
     }
 }
+
+/**
+ * Ob zwei Feed-Adressen dieselbe sind, auch bei anderer Schreibweise (Groß-/Kleinschreibung des Hosts, Standardport);
+ * Adressen, die keine URL sind (ARD Sounds), nur bei Gleichheit.
+ */
+internal fun sameAddress(a: String, b: String): Boolean = a == b || a.toHttpUrlOrNull()?.let { it == b.toHttpUrlOrNull() } == true
 
 /** Ob zwei Feeds derselbe Podcast sein können: Fehlt eine Kennung (`podcast:guid`), entscheidet sie nichts. */
 internal fun samePodcast(oldGuid: String?, newGuid: String?): Boolean =

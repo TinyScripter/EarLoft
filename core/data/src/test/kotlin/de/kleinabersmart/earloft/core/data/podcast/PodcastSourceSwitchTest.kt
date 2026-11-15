@@ -48,6 +48,7 @@ class PodcastSourceSwitchTest {
 
     /** Eigene Antworten je Adresse; sonst liefert jeder Host [RSS]. */
     private val bodies = mutableMapOf<String, String>()
+    private val requests = mutableListOf<String>()
 
     @Before
     fun setUp() {
@@ -55,6 +56,7 @@ class PodcastSourceSwitchTest {
         user = Room.inMemoryDatabaseBuilder(context, UserDatabase::class.java).allowMainThreadQueries().build()
         val client = OkHttpClient.Builder()
             .addInterceptor { chain ->
+                requests += chain.request().url.toString()
                 val ard = chain.request().url.host == "api.ardaudiothek.de"
                 Response.Builder()
                     .request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
@@ -178,6 +180,19 @@ class PodcastSourceSwitchTest {
         val other = (repository.subscribe("https://other.example/feed.xml") as SubscribeResult.Added).feedId
         db.openHelper.writableDatabase.execSQL("UPDATE podcast_feeds SET url = '$taken' WHERE feedId = '$other'")
         assertEquals(false, switch.follow(feedId, taken))
+        assertEquals(OLD_URL, db.podcastDao().feed(feedId)!!.url)
+    }
+
+    @Test
+    fun `an announced address that only spells the own address differently is not even fetched`() = runTest {
+        val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
+        val spelled = OLD_FEED_URL.replace("https://bridge.example", "https://BRIDGE.example:443")
+        bodies[OLD_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$spelled")
+        requests.clear()
+
+        repository.refresh(feedId)
+
+        assertEquals(listOf(OLD_URL), requests)
         assertEquals(OLD_URL, db.podcastDao().feed(feedId)!!.url)
     }
 

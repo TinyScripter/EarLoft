@@ -774,7 +774,7 @@ class PodcastRepository @Inject constructor(
         }
         _refreshed.tryEmit(feedId)
         val movedTo = fetched.movedTo ?: (fetched as? FeedFetch.Fetched)?.feed?.newFeedUrl
-        return RefreshOutcome.Done(result, movedTo?.takeIf { it != feed.url })
+        return RefreshOutcome.Done(result, movedTo?.takeIf { !sameAddress(it, feed.url) })
     }
 
     /** Zieht das Abo an die neue Adresse [movedTo] um (Konzept 12.10 „Feed-Umzug“); `true`, wenn es umgezogen ist. */
