@@ -47,11 +47,12 @@ class BookSyncer @Inject constructor(
     private val syncMutex = Mutex()
 
     /** `ok`, wenn alle Server, der Ordner „Audiobooks“ und die Bücher aus ARD Sounds abgeglichen werden konnten. */
-    suspend fun syncAll(): BookSyncResult {
-        val local = localBooks.sync()
+    suspend fun syncAll(): BookSyncResult = coroutineScope {
+        // Mit Ordnerfreigabe fragt der Ordner „Audiobooks“ je Buchordner einmal den Provider; die Server warten nicht darauf.
+        val local = async { localBooks.sync() }
         val results = servers.all().map { syncSafely(it) }
         val ard = ardBooks.refresh()
-        return BookSyncResult(results.all { it.ok } && local && ard.ok, results.flatMap { it.newBooks } + ard.newBooks)
+        BookSyncResult(results.all { it.ok } && local.await() && ard.ok, results.flatMap { it.newBooks } + ard.newBooks)
     }
 
     suspend fun syncSafely(server: AbsServer): BookSyncResult =

@@ -47,7 +47,8 @@ data class LocalBookDetails(
 
 /**
  * Ein Buch aus dem Ordner „Audiobooks“. [key] ist der Pfad ab „Audiobooks/“, [fingerprint] ändert sich mit den Dateien.
- * [details] fehlt, wenn der Aufrufer das Buch als unverändert bezeichnet hat (dann wurde nichts gelesen).
+ * [details] fehlt, wenn der Aufrufer das Buch als unverändert bezeichnet hat (dann wurde nichts gelesen) oder sein Ordner
+ * gerade nicht lesbar war (dann ist auch [fingerprint] ohne Bedeutung, und das Buch bleibt, wie es gespeichert ist).
  */
 data class LocalBook(val key: String, val fingerprint: Long, val addedAtMs: Long, val details: LocalBookDetails?)
 
@@ -91,14 +92,17 @@ class LocalBookScanner @Inject constructor(
             if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} fehlt")
             val trees = folders.trees()
             LocalBookLayout.group(queryRows()).map { book ->
-                // Begleitdateien nur mit Ordnerfreigabe und nur bei Büchern in einem eigenen Ordner.
+                val added = book.files.minOf { it.dateAddedSec } * 1000
+                // Begleitdateien nur mit Ordnerfreigabe und nur bei Büchern in einem eigenen Ordner. Ist der Ordner gerade nicht
+                // lesbar, sprängen Titel, Autor und Serie ohne sie bis zum nächsten Abgleich auf Tags und Ordnernamen.
                 val sidecars = if (book.folderName != null && trees.isNotEmpty()) {
-                    BookSidecars.pick(folders.list(book.files.first().path.substringBeforeLast('/'), trees))
+                    val files = folders.list(book.files.first().path.substringBeforeLast('/'), trees)
+                        ?: return@map LocalBook(book.key, fingerprint = 0, added, details = null)
+                    BookSidecars.pick(files)
                 } else {
                     BookSidecars()
                 }
                 val fingerprint = 31 * LocalBookLayout.fingerprint(book) + sidecars.fingerprint
-                val added = book.files.minOf { it.dateAddedSec } * 1000
                 LocalBook(book.key, fingerprint, added, if (isUnchanged(book.key, fingerprint)) null else read(book, sidecars))
             }
         }

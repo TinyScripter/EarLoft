@@ -57,14 +57,18 @@ class LocalBookFolders @Inject constructor(
         .filter { it.isReadPermission && it.uri.authority == AUTHORITY && DocumentsContract.isTreeUri(it.uri) }
         .map { it.uri }
 
-    /** Die Dateien des Ordners mit dem Pfad [folderPath] (wie MediaStore ihn nennt); leer, wenn keine Freigabe [trees] ihn umfasst. */
-    internal fun list(folderPath: String, trees: List<Uri>): List<SideFile> {
+    /**
+     * Die Dateien des Ordners mit dem Pfad [folderPath] (wie MediaStore ihn nennt); leer, wenn keine Freigabe [trees] ihn umfasst.
+     * `null`, wenn er sich gerade nicht lesen lässt: Das ist nicht dasselbe wie „keine Begleitdateien“.
+     */
+    internal fun list(folderPath: String, trees: List<Uri>): List<SideFile>? {
         val documentId = documentId(folderPath) ?: return emptyList()
         val tree = trees.firstOrNull { covers(DocumentsContract.getTreeDocumentId(it), documentId) } ?: return emptyList()
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, documentId)
         val columns = arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME, Document.COLUMN_SIZE, Document.COLUMN_LAST_MODIFIED, Document.COLUMN_MIME_TYPE)
         return try {
-            resolver.query(children, columns, null, null, null)?.use { cursor ->
+            val cursor = resolver.query(children, columns, null, null, null) ?: return null
+            cursor.use {
                 buildList {
                     while (cursor.moveToNext()) {
                         if (cursor.getString(4) == Document.MIME_TYPE_DIR) continue
@@ -79,11 +83,11 @@ class LocalBookFolders @Inject constructor(
                         )
                     }
                 }
-            }.orEmpty()
+            }
         } catch (e: RuntimeException) {
             // Freigabe zurückgenommen, Ordner verschwunden (SecurityException, IllegalArgumentException, …).
             Log.w(TAG, "Ordner $folderPath nicht lesbar", e)
-            emptyList()
+            null
         }
     }
 
