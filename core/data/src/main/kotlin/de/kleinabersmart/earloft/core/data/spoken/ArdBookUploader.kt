@@ -23,6 +23,7 @@ import java.io.File
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
 
 /** Wohin ein Buch hochgeladen werden kann: Bibliothek und Ordner eines Audiobookshelf-Servers, in denen das Konto hochladen darf. */
 data class UploadTarget(
@@ -123,6 +124,8 @@ class ArdBookUploader @Inject constructor(
         val book = dao.book(bookId)?.takeIf { isArdSoundsBook(it.serverId) } ?: return UploadResult.Failed
         val files = downloadedFiles(bookId) ?: return UploadResult.NotDownloaded
         val server = servers.server(target.serverId) ?: return UploadResult.Failed
+        // Der lokale Stand kann alt sein: Was andere inzwischen hochgeladen haben, darf danach nicht für dieses Buch gehalten werden.
+        syncer.syncSafely(server)
         val onServer = dao.booksOf(target.serverId)
         // Neuere Versionen von Audiobookshelf prüfen nicht, ob der Ordner schon besteht, und mischten die Dateien: vorher selbst prüfen.
         if (onServer.any { it.libraryId == target.libraryId && it.normTitle == book.normTitle && sameAuthor(it.author, book.author) }) {
@@ -156,7 +159,8 @@ class ArdBookUploader @Inject constructor(
         } finally {
             work.deleteRecursively()
         }
-        val uploaded = awaitOnServer(book, target, known)
+        val sentMs = dao.tracks(bookId).filterNot { it.isUnavailable }.sumOf { it.durationMs }
+        val uploaded = awaitOnServer(book, target, known, sentMs)
         if (uploaded != null) adopt(book, uploaded, missing = dao.tracks(bookId).filter { it.isUnavailable })
         return UploadResult.Done(uploaded?.bookId)
     }
@@ -196,15 +200,20 @@ class ArdBookUploader @Inject constructor(
         return parts + extras
     }
 
-    /** Wartet, bis der Server das hochgeladene Buch meldet (er scannt es erst nach dem Upload). */
-    private suspend fun awaitOnServer(book: BookEntity, target: UploadTarget, known: Set<String>): BookEntity? {
+    /**
+     * Wartet, bis der Server das hochgeladene Buch meldet (er scannt es erst nach dem Upload). [sentMs] ist die Länge der
+     * hochgeladenen Teile.
+     */
+    private suspend fun awaitOnServer(book: BookEntity, target: UploadTarget, known: Set<String>, sentMs: Long): BookEntity? {
         val server = servers.server(target.serverId) ?: return null
         repeat(ATTEMPTS) { attempt ->
             if (attempt > 0) delay(RETRY_MS)
             syncer.syncSafely(server)
             val fresh = dao.booksOf(target.serverId).filter { it.remoteId !in known && it.libraryId == target.libraryId }
-            // Der Server macht aus dem Ordnernamen den Titel; Zeichen wie „:“ fallen dort weg, deshalb notfalls das einzige neue Buch.
-            (fresh.firstOrNull { it.normTitle == book.normTitle } ?: fresh.singleOrNull())?.let { return it }
+            // Der Server macht aus dem Ordnernamen den Titel (Audio-Tags gehen vor, Zeichen wie „:“ fallen weg). Notfalls gilt das
+            // einzige neue Buch, aber nur mit passender Dauer: Sonst wäre es das einer anderen Person.
+            (fresh.firstOrNull { it.normTitle == book.normTitle } ?: fresh.singleOrNull { sameLength(it.durationMs, sentMs) })
+                ?.let { return it }
         }
         return null
     }
@@ -225,6 +234,8 @@ class ArdBookUploader @Inject constructor(
         }
     }
 
+    private fun sameLength(a: Long, b: Long): Boolean = abs(a - b) <= maxOf(LENGTH_TOLERANCE_MS, b / LENGTH_TOLERANCE_DIVISOR)
+
     private fun sameAuthor(a: String, b: String): Boolean = a.normalizeForMerge() == b.normalizeForMerge()
 
     private fun safe(name: String): String = name.replace(Regex("""[\\/:*?"<>|]"""), " ").replace(Regex("\\s+"), " ").trim().ifEmpty { "Teil" }
@@ -244,6 +255,8 @@ class ArdBookUploader @Inject constructor(
         const val SERVER_ERROR = 500
         const val ATTEMPTS = 12
         const val RETRY_MS = 5_000L
+        const val LENGTH_TOLERANCE_MS = 10_000L
+        const val LENGTH_TOLERANCE_DIVISOR = 50
     }
 }
 

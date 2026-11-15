@@ -68,6 +68,17 @@ class ArdBookUploaderTest {
     /** Einträge der Bibliothek auf dem Server (Kennung → Titel); ein erfolgreicher Upload legt einen an. */
     private val items = ConcurrentHashMap<String, String>()
 
+    /** Laufzeit je Eintrag in Sekunden; ohne Angabe 60. */
+    private val durations = ConcurrentHashMap<String, Int>()
+
+    /** Titel, unter dem der Server den Upload meldet (Audio-Tags vor Ordnername); `null`: wie hochgeladen. */
+    @Volatile
+    private var reportedTitle: String? = null
+
+    /** Der Server meldet statt des Uploads ein Buch einer anderen Person (Titel „Fremdes Buch“, eine Stunde). */
+    @Volatile
+    private var foreignInstead = false
+
     @Volatile
     private var canUpload = true
 
@@ -231,6 +242,42 @@ class ArdBookUploaderTest {
         assertFalse(items.containsKey("li_new"))
     }
 
+    @Test
+    fun `a book somebody else uploaded in the meantime is not taken for the upload`() = runTest {
+        val bookId = ardBook()
+        // Das Buch der anderen Person kennt die App noch nicht; ohne vorherigen Abgleich gelte es als neu.
+        items["li_foreign"] = "Fremdes Buch"
+        durations["li_foreign"] = 3_600
+        foreignInstead = true
+
+        val result = uploader.upload(bookId, target())
+
+        assertEquals(UploadResult.Done(null), result)
+        assertTrue(dao.booksOf(serverId).none { it.remoteId == "li_foreign" && dao.progress(it.bookId) != null })
+        assertTrue(dao.bookmarksOf(dao.booksOf(serverId).map { it.bookId }).isEmpty())
+    }
+
+    @Test
+    fun `a foreign book that appears during the upload is not taken either`() = runTest {
+        val bookId = ardBook()
+        foreignInstead = true
+
+        val result = uploader.upload(bookId, target())
+
+        assertEquals(UploadResult.Done(null), result)
+        assertTrue(dao.bookmarksOf(dao.booksOf(serverId).map { it.bookId }).isEmpty())
+    }
+
+    @Test
+    fun `a title changed by the audio tags is still found by the length`() = runTest {
+        val bookId = ardBook()
+        reportedTitle = "Krieg der Welten (Hörspiel)"
+
+        val newBookId = (uploader.upload(bookId, target()) as UploadResult.Done).newBookId!!
+
+        assertEquals(30_000L, dao.progress(newBookId)!!.positionMs)
+    }
+
     /** `/ping`, `/api/me`, `/api/libraries` mit Ordner, die Einträge je Bibliothek, Details je Eintrag und `POST /api/upload`. */
     private inner class FakeServer : Dispatcher() {
         override fun dispatch(request: RecordedRequest): MockResponse {
@@ -255,7 +302,12 @@ class ArdBookUploaderTest {
                         val files = Regex("""filename="([^"]+)"""").findAll(body).joinToString(" ") { "file=${it.groupValues[1]}" }
                         uploads += "$fields $files"
                         // Der Server scannt und meldet das Buch danach.
-                        Regex("""name="title"\r\n\r\n([^\r]*)""").find(body)?.let { items["li_new"] = it.groupValues[1] }
+                        if (foreignInstead) {
+                            items["li_foreign"] = "Fremdes Buch"
+                            durations["li_foreign"] = 3_600
+                        } else {
+                            Regex("""name="title"\r\n\r\n([^\r]*)""").find(body)?.let { items["li_new"] = reportedTitle ?: it.groupValues[1] }
+                        }
                     }
                     MockResponse.Builder().code(uploadStatus).build()
                 }
@@ -264,7 +316,7 @@ class ArdBookUploaderTest {
         }
 
         private fun item(id: String, title: String) =
-            """{"id":"$id","addedAt":1,"updatedAt":1,"media":{"metadata":{"title":"$title","authorName":"H. G. Wells"},"duration":60}}"""
+            """{"id":"$id","addedAt":1,"updatedAt":1,"media":{"metadata":{"title":"$title","authorName":"H. G. Wells"},"duration":${durations[id] ?: 60}}}"""
 
         private fun json(body: String) = MockResponse.Builder().addHeader("Content-Type", "application/json").body(body).build()
     }
