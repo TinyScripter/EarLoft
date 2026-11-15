@@ -265,6 +265,7 @@ class SleepTimer internal constructor(
                     if (bookId != null && lastRemaining < CROSS_TOLERANCE_MS) return Step.Remaining(0)
                     bookId = spot.bookId
                     endMs = null
+                    fromMs = null
                 }
                 val position = spot.positionMs
                 var end = endMs ?: spot.endAfter(position)

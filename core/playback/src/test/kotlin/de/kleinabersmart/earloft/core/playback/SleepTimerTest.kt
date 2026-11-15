@@ -169,6 +169,22 @@ class SleepTimerTest {
     }
 
     @Test
+    fun `ein anderes Buch bringt den Anfang seines Kapitels mit statt den des vorigen`() {
+        target.position = 10_000
+        timer.startToEnd()
+        advance(1_000)
+        // Ein anderes Buch, mitten im dritten Kapitel (120 s bis 300 s), ohne die Grenze zu überlaufen.
+        target.bookId = 2
+        target.position = 130_000
+        advance(1_000)
+        assertEquals(169_000L, timer.state.value?.remainingMs)
+        // Zurück ins erste Kapitel dieses Buchs: Dessen Ende gilt, nicht das des dritten.
+        target.position = 50_000
+        advance(1_000)
+        assertEquals(9_000L, timer.state.value?.remainingMs)
+    }
+
+    @Test
     fun `pausiert laeuft bis zum Ende nicht weiter und blendet nicht aus`() {
         target.position = 50_000
         timer.startToEnd()
