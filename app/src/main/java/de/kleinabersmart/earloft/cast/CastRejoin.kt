@@ -8,7 +8,9 @@ import com.google.android.gms.cast.CastDevice
 import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.cast.framework.CastSession
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,11 +20,12 @@ import javax.inject.Singleton
  * spielt aber weiter (am Gerät gesehen, 2026-11-13).
  *
  * Dazu merkt sich [remember] Gerät und Sitzung, solange gecastet wird, und [keepUntil], bis wann der Empfänger mit seiner
- * Warteschlange voraussichtlich noch spielt; ein reguläres Ende ([forget]) löscht beides. Beim Start des Players wählt
- * [select] das Gerät wieder aus, sobald es im Netz auftaucht (höchstens [DISCOVERY_MS]) – aber nur bis zu diesem Zeitpunkt:
- * Das Auswählen startet unsere App auf dem Empfänger und verdrängt dort eine andere, die inzwischen läuft.
- * [CastSessionPlayerFactory] prüft danach mit [isOurs], ob es noch die gemerkte Sitzung ist, und löst sich sonst wieder (eine
- * selbst gestartete wird dabei beendet).
+ * Warteschlange voraussichtlich noch spielt; ein reguläres Ende ([forget]) löscht beides. Beim Start des Players sucht
+ * [select] das Gerät (höchstens [DISCOVERY_MS]), aber nur bis zu diesem Zeitpunkt, und wählt es nur aus, wenn dort noch die
+ * gemerkte Sitzung läuft ([CastReceiverStatus]): Das Auswählen startet unsere App auf dem Empfänger und verdrängt dort eine
+ * andere, die inzwischen läuft; beim Lösen danach endete auch der Empfänger. [CastSessionPlayerFactory] prüft nach dem
+ * Verbinden trotzdem mit [isOurs], ob es die gemerkte Sitzung ist, und löst sich sonst wieder (eine selbst gestartete wird
+ * dabei beendet).
  */
 @Singleton
 internal class CastRejoin @Inject constructor(@param:ApplicationContext private val context: Context) {
@@ -74,7 +77,7 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         return false
     }
 
-    /** Main-Thread. Einmal je Prozess: sucht das gemerkte Gerät und wählt es aus. */
+    /** Main-Thread. Einmal je Prozess: sucht das gemerkte Gerät und wählt es aus, wenn dort noch die gemerkte Sitzung läuft. */
     suspend fun select() {
         if (attempted) return
         attempted = true
@@ -90,38 +93,40 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         val router = MediaRouter.getInstance(context)
         // Läuft schon eine Sitzung oder hat jemand selbst ein Gerät gewählt, bleibt es dabei.
         fun busy() = castContext.sessionManager.currentCastSession != null || router.selectedRoute.matchesSelector(selector)
-        var saved: Saved? = null
-        val callback = object : MediaRouter.Callback() {
-            override fun onRouteAdded(router: MediaRouter, route: MediaRouter.RouteInfo) = check(router, route)
-            override fun onRouteChanged(router: MediaRouter, route: MediaRouter.RouteInfo) = check(router, route)
-
-            fun check(router: MediaRouter, route: MediaRouter.RouteInfo) {
-                if (saved != null || busy()) return
-                if (CastDevice.getFromBundle(route.extras)?.deviceId != deviceId) return
-                if (!route.isEnabled || !route.matchesSelector(selector)) return
-                Log.i(TAG, "Hänge mich wieder an ${route.name}")
-                router.removeCallback(this)
-                forget()
-                saved = Saved(deviceId, sessionId).also { pending = it }
-                router.selectRoute(route)
-            }
-        }
+        fun isSaved(route: MediaRouter.RouteInfo) = CastDevice.getFromBundle(route.extras)?.deviceId == deviceId &&
+            route.isEnabled && route.matchesSelector(selector)
         if (busy()) return
-        router.routes.firstOrNull { CastDevice.getFromBundle(it.extras)?.deviceId == deviceId }?.let { callback.check(router, it) }
-        if (saved == null) {
+        val route = router.routes.firstOrNull(::isSaved) ?: run {
+            val found = CompletableDeferred<MediaRouter.RouteInfo>()
+            val callback = object : MediaRouter.Callback() {
+                override fun onRouteAdded(router: MediaRouter, route: MediaRouter.RouteInfo) = check(route)
+                override fun onRouteChanged(router: MediaRouter, route: MediaRouter.RouteInfo) = check(route)
+                fun check(route: MediaRouter.RouteInfo) {
+                    if (isSaved(route)) found.complete(route)
+                }
+            }
             router.addCallback(selector, callback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY)
             try {
-                delay(DISCOVERY_MS)
+                withTimeoutOrNull(DISCOVERY_MS) { found.await() }
             } finally {
                 router.removeCallback(callback)
             }
         }
-        val selected = saved
-        if (selected == null) {
+        forget()
+        if (route == null) {
             if (!busy()) Log.i(TAG, "Gerät der letzten Sitzung nicht gefunden")
-            forget()
             return
         }
+        val running = CastDevice.getFromBundle(route.extras)?.let { CastReceiverStatus.sessionIds(it) }
+        if (running == null || sessionId !in running) {
+            Log.i(TAG, "Auf ${route.name} läuft die letzte Sitzung nicht mehr (${running ?: "Status unbekannt"}), hänge mich nicht an")
+            return
+        }
+        if (busy()) return
+        Log.i(TAG, "Hänge mich wieder an ${route.name}")
+        val selected = Saved(deviceId, sessionId)
+        pending = selected
+        router.selectRoute(route)
         // Kommt auf das Auswählen keine Sitzung zustande (Route abgelehnt, ohne Rückmeldung), endet der Versuch hier;
         // sonst hielte er jede spätere, selbst gewählte Sitzung für das Anhängen.
         delay(JOIN_MS)
