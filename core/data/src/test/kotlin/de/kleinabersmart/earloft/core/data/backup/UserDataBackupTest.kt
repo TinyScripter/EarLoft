@@ -24,6 +24,12 @@ import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.model.LOCAL_PODCAST_PREFIX
 import de.kleinabersmart.earloft.core.model.SourceType
+import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -258,6 +264,38 @@ class UserDataBackupTest {
             assertEquals(4_242L, restored.addedAt)
             val restoredId = newDevice.bookDao().bookByRemote(ARD_BOOK_SERVER_ID, ardKey)!!.bookId
             assertEquals(500L, newDevice.bookDao().progressOf(listOf(restoredId)).single().positionMs)
+        } finally {
+            newDevice.close()
+            server.close()
+        }
+    }
+
+    @Test
+    fun `ARD books are only fetched once the source is switched on`() = runTest {
+        book(main, ARD_BOOK_SERVER_ID, "group:urn:ard:show:gs", BookKind.BOOK)
+        backupFor(main).mirror()
+
+        val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        val server = MockWebServer().apply { start() }
+        try {
+            server.enqueue(ardAnswer())
+            val settings = SpokenSettings(context)
+            settings.setArdSoundsBooks(false)
+            val backup = backupFor(newDevice, testArdBooks(context, newDevice, server.url("/graphql"), settings))
+            val saved = user.userDataDao().snapshot().ardBooks.values
+
+            withContext(Dispatchers.Default) {
+                val restoring = launch { backup.restoreArdBooks { saved } }
+                delay(300)
+                // Aus: ARD Sounds wird nicht gefragt, das Zurückholen wartet.
+                assertEquals(0, server.requestCount)
+                assertTrue(restoring.isActive)
+
+                settings.setArdSoundsBooks(true)
+                withTimeout(10_000) { restoring.join() }
+            }
+            assertEquals(1, server.requestCount)
+            assertEquals(1, newDevice.bookDao().keyedBooksOf(ARD_BOOK_SERVER_ID).size)
         } finally {
             newDevice.close()
             server.close()

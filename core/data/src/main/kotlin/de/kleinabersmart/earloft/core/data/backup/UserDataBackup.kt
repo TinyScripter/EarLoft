@@ -33,6 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -504,11 +505,15 @@ class UserDataBackup @Inject constructor(
     /**
      * Holt die gesicherten Bücher aus ARD Sounds, die es hier noch nicht gibt. Danach wendet [applyWhenLibraryChanges] ihren Fortschritt
      * an. Ohne Verbindung noch zweimal später, dann beim nächsten Start; eins, das ARD Sounds nicht mehr führt, bleibt gesichert.
+     * Nur bei eingeschaltetem Schalter der Quelle (Standard: aus): Sonst fragte jeder Start ARD Sounds, obwohl der Nutzer die Quelle
+     * nie eingeschaltet hat. Ist sie aus, wartet das Zurückholen, bis sie eingeschaltet wird.
      */
-    private suspend fun restoreArdBooks() {
+    internal suspend fun restoreArdBooks(pendingRows: () -> Collection<UserArdBookEntity> = { waiting?.pending?.ardBooks.orEmpty() }) {
+        if (pendingRows().isEmpty()) return
+        ardBooks.get().enabled.first { it }
         var wait = ARD_RETRY_MS
         repeat(ARD_ATTEMPTS) { attempt ->
-            val missing = waiting?.pending?.ardBooks.orEmpty()
+            val missing = pendingRows()
             if (missing.isEmpty()) return
             if (attempt > 0) {
                 delay(wait)
