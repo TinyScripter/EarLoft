@@ -1,12 +1,13 @@
 # Privacy Policy for EarLoft
 
-**Last updated:** November 12, 2026  
+**Last updated:** November 15, 2026  
 **Application ID:** de.kleinabersmart.earloft (phone and Wear OS watch)
 
 ## Overview
 
 EarLoft is an open-source player for your own collection: music from your Navidrome, Subsonic, Jellyfin or Emby
-server, podcasts from RSS and Atom feeds, audiobooks from your Audiobookshelf server, and audio files on your device.
+server, podcasts from RSS and Atom feeds, audiobooks from your Audiobookshelf server or from ARD Sounds, and audio
+files on your device.
 It is built with privacy as a foundational principle. The developer does not track you, does not collect personal
 data and does not operate any server of their own. There is no account to create.
 
@@ -32,12 +33,20 @@ watch) to the respective service:
   server, which may forward them to services you configured there (for example Last.fm or ListenBrainz).
 * **Podcast feeds:** the feeds you subscribe to and the sites that host their episodes and images, operated by the
   respective publishers.
-* **Podcast directories (optional, off by default):** when you switch on a directory in **Settings → Podcasts** and
-  search, your search terms are sent to it: Apple Podcasts (Apple's search API) and ARD Sounds (ARD's public
-  interface). Shows from ARD Sounds without their own feed are also refreshed through that interface.
+* **Podcast directories (optional, off by default):** when you switch on a directory in **Settings → Podcasts**, it is
+  asked for popular podcasts as soon as you open **Add podcast** (your country and language are sent), and for your
+  search terms when you search: Apple Podcasts (Apple's search API) and ARD Sounds (ARD's public interface). Shows from
+  ARD Sounds without their own feed are also refreshed through that interface.
+* **Audiobooks from ARD Sounds (optional, off by default):** when you switch them on in **Settings → Books**, the
+  books and radio plays you browse, search for, play or download come from ARD's public interface. The books in your
+  library and the shows you follow are checked there regularly, also in the background (about every 12 hours, on
+  Wi-Fi), for new parts, new books and their expiry date. Your search terms and these books are sent to the ARD.
 * **Pictures from the internet (optional, off by default):** artist photos from Deezer (artist names are sent),
   missing album covers from MusicBrainz and the Cover Art Archive (album title and artist are sent), missing author
   pictures from Audnexus (author names are sent).
+* **Lyrics from LRCLIB (optional, off by default):** when you switch on **Settings → Music → Look up lyrics online**,
+  the title, artist and length of the song that is shown are sent to LRCLIB (lrclib.net) to find missing or synced
+  lyrics.
 * **OpenID sign-in for Audiobookshelf (optional):** the sign-in page of your server's identity provider opens in your
   browser. EarLoft only receives the tokens from your Audiobookshelf server.
 * **Chromecast (optional):** when you cast, the Cast device on your network receives the address of the song and
@@ -64,9 +73,11 @@ and feed, Open Library), never to your own servers; the app itself does not cont
 * **Android backup:** if you use Android's backup to your Google account, it contains your settings and what no
   server knows: your servers *without* their passwords, subscriptions, listening progress, local playlists, listening
   statistics and which episodes were downloaded. It never contains the library database, downloaded files, passwords,
-  API keys or tokens.
+  API keys or sign-in tokens. Feed addresses are kept as they are: if a publisher puts a personal key into the address
+  of a paid feed, that address is part of the backup.
 * **Backup file:** **Settings → General → Backup** creates a file with the same content that you keep yourself, again
-  without passwords, API keys or sign-ins. Where you store or share this file is up to you.
+  without passwords, API keys or sign-ins, but with the feed addresses (see above). Where you store or share this file
+  is up to you.
 
 ---
 
