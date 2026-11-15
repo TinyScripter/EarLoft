@@ -21,8 +21,9 @@ class SetupWatchViewModel @Inject constructor(
     private val watchSettings: WatchSettingsRepository,
 ) : ViewModel() {
 
-    val watch: StateFlow<WatchSetup> = connection.setup
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WatchSetup.NONE)
+    /** `null`, solange noch nicht bekannt ist, ob es eine Uhr gibt. */
+    val watch: StateFlow<WatchSetup?> = connection.setup
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), connection.lastSetup)
 
     val settings: StateFlow<WatchSettings> = watchSettings.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WatchSettings())

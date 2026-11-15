@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -80,6 +81,14 @@ internal fun visibleSetupPages(areas: List<SpokenMode>, watch: Boolean): List<Se
         else -> true
     }
 }
+
+/**
+ * Die Seiten wie [visibleSetupPages], die gerade gezeigte [current] immer dabei: Solange Bereiche oder Uhr noch laden, fehlte sie
+ * sonst („Schritt 1“, kein „Zurück“, „Weiter“ an die falsche Stelle, Review D27). [watch] `null`: noch unbekannt.
+ */
+internal fun setupPages(areas: List<SpokenMode>, watch: WatchSetup?, current: SetupPage): List<SetupPage> =
+    visibleSetupPages(areas, watch = watch != null && watch != WatchSetup.NONE)
+        .let { pages -> if (current in pages) pages else (pages + current).sortedBy { it.ordinal } }
 
 /**
  * Eine Seite des Einrichtungsassistenten (Konzept 15). Jede Einstellung darauf wirkt sofort; Beenden verwirft deshalb
@@ -159,7 +168,7 @@ private fun SetupContent(
     page: SetupPage,
     state: SettingsUiState,
     absServers: List<SpokenServer>,
-    watch: WatchSetup,
+    watch: WatchSetup?,
     watchSettings: WatchSettings,
     actions: SetupActions,
     moreActions: SetupMoreActions,
@@ -169,12 +178,14 @@ private fun SetupContent(
     onFinish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val pages = visibleSetupPages(state.areas, watch = watch != WatchSetup.NONE)
-    val index = pages.indexOf(page).coerceAtLeast(0)
+    val pages = setupPages(state.areas, watch, page)
+    val index = pages.indexOf(page)
     val next = pages.getOrNull(index + 1)
     SetupScaffold(
         step = index + 1,
         steps = pages.size,
+        // Bis Bereiche und Uhr bekannt sind, stimmt die Zahl der Schritte noch nicht.
+        stepsKnown = !state.isLoading && watch != null,
         nextLabel = when (page) {
             SetupPage.WELCOME -> R.string.setup_start
             SetupPage.DONE -> R.string.setup_finish
@@ -192,7 +203,7 @@ private fun SetupContent(
             SetupPage.PODCASTS -> podcastsPage(state, actions)
             SetupPage.BOOKS -> booksPage(state, absServers, actions)
             SetupPage.NOTIFICATIONS -> notificationsPage()
-            SetupPage.WATCH -> watchPage(watch, watchSettings, moreActions)
+            SetupPage.WATCH -> watchPage(watch ?: WatchSetup.NONE, watchSettings, moreActions)
             SetupPage.DESIGN -> designPage(state, moreActions)
             SetupPage.DONE -> donePage()
         }
@@ -204,6 +215,7 @@ private fun SetupContent(
 private fun SetupScaffold(
     step: Int,
     steps: Int,
+    stepsKnown: Boolean,
     nextLabel: Int,
     onNext: () -> Unit,
     onBack: (() -> Unit)?,
@@ -221,13 +233,13 @@ private fun SetupScaffold(
                 stringResource(R.string.setup_step, step, steps),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).alpha(if (stepsKnown) 1f else 0f),
             )
             if (onSkip != null) TextButton(onClick = onSkip) { Text(stringResource(R.string.setup_skip)) }
         }
         LinearProgressIndicator(
             progress = { step.toFloat() / steps },
-            modifier = Modifier.readableWidth().padding(horizontal = 24.dp).fillMaxWidth(),
+            modifier = Modifier.readableWidth().padding(horizontal = 24.dp).fillMaxWidth().alpha(if (stepsKnown) 1f else 0f),
         )
         LazyColumn(
             Modifier.weight(1f).readableWidth(),
@@ -369,7 +381,7 @@ private fun SetupWelcomePreview() {
         val actions = SetupActions({}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, { _, _ -> }, {}, {}, {}, {})
         val moreActions = SetupMoreActions({}, {}, {}, {}, {})
         SetupContent(
-            SetupPage.WELCOME, SettingsUiState(), emptyList(), WatchSetup.NONE, WatchSettings(), actions, moreActions,
+            SetupPage.WELCOME, SettingsUiState(isLoading = false), emptyList(), WatchSetup.NONE, WatchSettings(), actions, moreActions,
             onNext = {}, onBack = {}, onSkip = {}, onFinish = {},
         )
     }

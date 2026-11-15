@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,7 +54,15 @@ class WatchConnection @Inject constructor(
             nodeClient.connectedNodesOrEmpty().isNotEmpty() -> WatchSetup.APP_MISSING
             else -> WatchSetup.NONE
         }
-    }
+    }.onEach { lastSetup = it }
+
+    /**
+     * Was [setup] zuletzt ergab, `null` vor der ersten Antwort: Jede Seite des Assistenten fragt neu, beginnt aber mit dem
+     * bekannten Stand statt mit „keine Uhr“ (sonst spränge die Zahl der Schritte, Review D27).
+     */
+    @Volatile
+    var lastSetup: WatchSetup? = null
+        private set
 }
 
 enum class WatchSetup { NONE, APP_MISSING, APP_INSTALLED }
