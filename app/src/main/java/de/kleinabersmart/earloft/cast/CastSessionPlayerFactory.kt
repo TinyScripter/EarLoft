@@ -97,7 +97,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         keepQueueFilled(player)
         rememberRemoteState(player)
         scope.launch(Dispatchers.Main) { rejoin.select() }
-        return DeferredRemotePlayPlayer(player) { state -> watchQueue(state) }
+        return DeferredRemotePlayPlayer(player, onRemoteQueue = { state -> watchQueue(state) }, onClearedToEnd = ::clearPending)
     }
 
     override suspend fun playableSongIds(player: Player, songIds: Collection<Long>): Set<Long> {
@@ -119,6 +119,15 @@ internal class CastSessionPlayerFactory @Inject constructor(
     override fun hasPendingItems(): Boolean = reserve.remaining > 0
 
     override fun appendPending(items: List<MediaItem>) = reserve.append(items)
+
+    /**
+     * Alles hinter dem laufenden Titel ist entfernt (Mix): Auch was noch nicht beim Empfänger war, fällt weg, sonst käme es
+     * vor den neuen Titeln (Review D8). Ein laufendes Nachladen gehört zur alten Warteschlange.
+     */
+    private fun clearPending() {
+        generation++
+        reserve.clearAfter()
+    }
 
     private fun keepQueueFilled(player: Player) {
         player.addListener(object : Player.Listener {

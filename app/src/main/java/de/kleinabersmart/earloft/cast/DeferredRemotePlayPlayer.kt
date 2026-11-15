@@ -23,12 +23,14 @@ import androidx.media3.common.util.UnstableApi
  * Gerät gesehen, 2026-11-13). Bücher von Audiobookshelf brauchen dort 10–12 s, daher die lange Frist [LOAD_TIMEOUT_MS].
  *
  * Jede neue Warteschlange, die beim Casten hinausgeht, meldet [onRemoteQueue] (als Stand fürs Handy, falls der
- * Empfänger sie nicht laden kann).
+ * Empfänger sie nicht laden kann). Entfernt jemand beim Casten alles bis zum Ende (Mix „als Nächstes“), meldet das
+ * [onClearedToEnd]: Was noch in der Reserve der Factory liegt, gilt dann ebenfalls als entfernt.
  */
 @OptIn(UnstableApi::class)
 internal class DeferredRemotePlayPlayer(
     player: Player,
     private val onRemoteQueue: (PlayerTransferState) -> Unit = {},
+    private val onClearedToEnd: () -> Unit = {},
 ) : ForwardingPlayer(player) {
 
     private val handler = Handler(player.applicationLooper)
@@ -82,6 +84,11 @@ internal class DeferredRemotePlayPlayer(
             .setCurrentPosition(if (startPositionMs == C.TIME_UNSET) 0 else startPositionMs)
             .build()
         onRemoteQueue(state)
+    }
+
+    override fun removeMediaItems(fromIndex: Int, toIndex: Int) {
+        if (deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE && toIndex >= mediaItemCount) onClearedToEnd()
+        super.removeMediaItems(fromIndex, toIndex)
     }
 
     /** Leere Listen (alles ging in die Reserve) wären eine leere Cast-Nachricht. */

@@ -24,6 +24,9 @@ class QueueReserve<T> {
 
     fun clear() = reset()
 
+    /** Was noch nachgereicht werden sollte, fällt weg; was vor dem Fenster lag, bleibt. */
+    fun clearAfter() = after.clear()
+
     /** Hängt [items] hinter alles an, was noch aussteht. */
     fun append(items: List<T>) {
         after.addAll(items)

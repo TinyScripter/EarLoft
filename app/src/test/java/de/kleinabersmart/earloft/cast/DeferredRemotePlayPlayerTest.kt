@@ -10,6 +10,7 @@ import androidx.media3.common.util.UnstableApi
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -43,6 +44,8 @@ class DeferredRemotePlayPlayerTest {
             return Futures.immediateVoidFuture()
         }
 
+        override fun handleRemoveMediaItems(fromIndex: Int, toIndex: Int): ListenableFuture<*> = Futures.immediateVoidFuture()
+
         /** Ändert den Zustand und stellt die Ereignisse zu (sie laufen über den Looper). */
         fun update(block: FakePlayer.() -> Unit) {
             // Der Zustand wird erst beim ersten Zugriff gelesen; ohne den hier gäbe es keinen Unterschied zu melden.
@@ -64,6 +67,20 @@ class DeferredRemotePlayPlayerTest {
 
         fake.update { receiverState = Player.STATE_READY }
         assertTrue(fake.wantsPlay)
+    }
+
+    @Test
+    fun `removing everything up to the end while casting drops the reserve as well`() {
+        val fake = FakePlayer()
+        var cleared = 0
+        val player = DeferredRemotePlayPlayer(fake, onClearedToEnd = { cleared++ })
+
+        player.removeMediaItems(0, 1)
+        assertEquals("Lokal gibt es keine Reserve", 0, cleared)
+
+        fake.update { remote = true }
+        player.removeMediaItems(0, 1)
+        assertEquals(1, cleared)
     }
 
     @Test

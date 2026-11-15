@@ -43,6 +43,16 @@ class QueueReserveTest {
     }
 
     @Test
+    fun `clearAfter drops what was still pending and keeps what lay before`() {
+        val reserve = QueueReserve<Int>().apply { reset(before = listOf(0), after = listOf(5, 6)) }
+
+        reserve.clearAfter()
+        reserve.append(listOf(7))
+
+        assertEquals(listOf(0, 1, 7) to 1, reserve.complete(listOf(1), windowIndex = 0))
+    }
+
+    @Test
     fun `complete puts the window between before and after and moves the index`() {
         val reserve = QueueReserve<Int>().apply { reset(before = listOf(0, 1), after = listOf(5, 6)) }
 
