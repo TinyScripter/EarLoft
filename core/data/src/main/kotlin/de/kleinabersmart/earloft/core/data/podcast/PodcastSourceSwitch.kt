@@ -170,7 +170,8 @@ class PodcastSourceSwitch @Inject constructor(
         val target = ready.plan.newUrl
         val fetched = ready.plan.fetched
         val downgrade = oldUrl.startsWith("https://", ignoreCase = true) && !target.startsWith("https://", ignoreCase = true)
-        if (downgrade || fetched.feed.newFeedUrl == oldUrl || fetched.movedTo == oldUrl) {
+        val pointsBack = listOfNotNull(fetched.feed.newFeedUrl, fetched.movedTo).any { sameAddress(it, oldUrl) }
+        if (downgrade || pointsBack) {
             Log.i(TAG, "Kein Umzug nach ${hostOf(target)}: unverschlüsselt oder zurück auf die alte Adresse")
             return false
         }

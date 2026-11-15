@@ -184,6 +184,18 @@ class PodcastSourceSwitchTest {
     }
 
     @Test
+    fun `a move is refused when the new address points back in another spelling`() = runTest {
+        val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
+        val spelledBack = OLD_FEED_URL.replace("https://bridge.example", "https://BRIDGE.example:443")
+        bodies[OLD_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$NEW_FEED_URL")
+        bodies[NEW_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$spelledBack")
+
+        // Sonst zieht das Abo um und beim nächsten Prozess wieder zurück, jedes Mal mit neuen Kennungen und Statistik.
+        assertEquals(false, switch.follow(feedId, NEW_URL))
+        assertEquals(OLD_URL, db.podcastDao().feed(feedId)!!.url)
+    }
+
+    @Test
     fun `an announced address that only spells the own address differently is not even fetched`() = runTest {
         val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
         val spelled = OLD_FEED_URL.replace("https://bridge.example", "https://BRIDGE.example:443")
