@@ -360,6 +360,28 @@ class DownloadRepositoryTest {
     }
 
     @Test
+    fun `switching a server off keeps its automatic album downloads`() = runTest {
+        val homeAlbum = library.album("Home")
+        library.song(homeAlbum, "A", "home" to "a", dateAdded = 1)
+        val officeAlbum = library.album("Office")
+        library.song(officeAlbum, "B", "office" to "b", dateAdded = 2)
+        repository.reconcileAlbumDownloads(repository.autoAlbumIds(newest = 2, mostPlayed = 0).first(), keepFavorites = false)
+
+        library.db.sourceDao().setEnabled("home", false)
+        val albumIds = repository.autoAlbumIds(newest = 2, mostPlayed = 0).first()
+        assertEquals(listOf(officeAlbum), albumIds)
+        repository.reconcileAlbumDownloads(albumIds, keepFavorites = false)
+
+        assertEquals(setOf("home:a", "office:b"), library.db.downloadDao().getAll().map { it.sourceUid }.toSet())
+        assertEquals("auto-albums", library.db.downloadDao().get("home:a")!!.pinnedBy)
+
+        // Wieder eingeschaltet und inzwischen aus der Auswahl gefallen: Dann geht der Download wie sonst auch.
+        library.db.sourceDao().setEnabled("home", true)
+        repository.reconcileAlbumDownloads(listOf(officeAlbum), keepFavorites = false)
+        assertEquals(listOf("office:b"), library.db.downloadDao().getAll().map { it.sourceUid })
+    }
+
+    @Test
     fun `most played albums need enough plays and hand favorites back when they drop out`() = runTest {
         val loved = library.album("Loved")
         val liked = library.song(loved, "A", "home" to "a")

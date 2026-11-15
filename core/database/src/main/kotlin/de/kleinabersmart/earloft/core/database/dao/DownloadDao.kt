@@ -237,11 +237,15 @@ interface DownloadDao {
     )
     fun observeMostPlayedServerAlbumIds(since: Long, minPlays: Int, limit: Int): Flow<List<Long>>
 
-    /** Downloads mit [pinnedBy], deren Song zu keinem der [albumIds] gehört. */
+    /**
+     * Downloads mit [pinnedBy], deren Song zu keinem der [albumIds] gehört. Downloads ausgeschalteter Server fehlen: Deren Alben
+     * fallen nur aus der Auswahl, weil sie ausgeblendet sind, und ausgeschaltet bleibt alles erhalten.
+     */
     @Query(
         """
         SELECT d.* FROM downloads d
         JOIN song_sources ss ON ss.uid = d.sourceUid
+        JOIN sources src ON src.sourceId = ss.sourceId AND src.enabled = 1
         JOIN songs s ON s.songId = ss.songId
         WHERE d.pinnedBy = :pinnedBy AND s.albumId NOT IN (:albumIds)
         """,
