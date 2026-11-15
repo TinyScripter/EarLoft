@@ -612,7 +612,7 @@
     <string name="spoken_mobile_stream_play">Play</string>
     <string name="spoken_mobile_stream_always">Always allow</string>
     <string name="settings_ask_mobile_stream">Ask before streaming over mobile data</string>
-    <string name="settings_ask_mobile_stream_summary">Books and episodes that are not downloaded. “Play” applies until the app is closed.</string>
+    <string name="settings_ask_mobile_stream_summary">Books and episodes that are not downloaded, when started in the app. “Play” applies until the app is closed. Not asked: resuming from the notification, a headset button, the widget or Android Auto, and the next episode.</string>
     <string name="spoken_resumed_from_server">Continuing where you stopped on another device (%1$s)</string>
     <string name="spoken_abs_add">Add Audiobookshelf server</string>
     <string name="spoken_abs_none">No Audiobookshelf server yet.</string>
