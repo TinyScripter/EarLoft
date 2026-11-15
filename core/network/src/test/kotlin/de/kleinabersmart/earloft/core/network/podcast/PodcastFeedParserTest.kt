@@ -164,6 +164,22 @@ class PodcastFeedParserTest {
     }
 
     @Test
+    fun `own entity declarations are refused in UTF-16 and behind a long prolog too`() {
+        val laughs = """<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE rss [<!ENTITY lol "lol">]><rss><channel><title>&lol;</title></channel></rss>"""
+        for (bytes in listOf("﻿$laughs".toByteArray(Charsets.UTF_16BE), laughs.toByteArray(Charsets.UTF_16LE))) {
+            assertNull(bytes.inputStream().rejectingEntityDeclarations())
+        }
+        // 64 KB Kommentar vor der Deklaration: Sie steht hinter dem geprüften Anfang.
+        val padded = "<?xml version=\"1.0\"?><!--${"x".repeat(70_000)}--><!DOCTYPE rss [<!ENTITY lol \"lol\">]><rss/>"
+        assertNull(padded.byteInputStream().rejectingEntityDeclarations())
+
+        // Ein Feed mit Kommentar und schlichtem DOCTYPE, auch in UTF-16, bleibt lesbar.
+        val fine = """<?xml version="1.0" encoding="UTF-16"?><!-- Feed --><!DOCTYPE rss><rss version="2.0"><channel><title>Gut</title></channel></rss>"""
+        assertEquals("Gut", PodcastFeedParser.parse("﻿$fine".toByteArray(Charsets.UTF_16BE).inputStream()).title)
+        assertEquals("Lang", parse("<rss><channel><title>Lang</title><description>${"x".repeat(70_000)}</description></channel></rss>").title)
+    }
+
+    @Test
     fun `rss image falls back to the plain image element`() {
         val feed = parse(
             """
