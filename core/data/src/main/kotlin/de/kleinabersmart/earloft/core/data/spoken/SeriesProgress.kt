@@ -44,6 +44,16 @@ fun BookWithProgress.volumeIn(name: String): Double? = parseSeries(book.series).
 fun BookWithProgress.volumeTextIn(name: String): String? = parseSeries(book.series).firstOrNull { it.name == name }?.volume
 
 /**
+ * Die Nummern der beendeten Bände von [name]: Dasselbe Buch aus einer zweiten Quelle (Server und Ordner auf dem Gerät) trägt
+ * dieselbe Nummer und gilt mit dem beendeten als erledigt, auch wenn es selbst noch nicht angefangen ist.
+ */
+private fun List<BookWithProgress>.finishedVolumes(name: String): Set<Double> =
+    filter { it.isFinished }.mapNotNullTo(HashSet()) { it.volumeIn(name) }
+
+private fun BookWithProgress.isDone(name: String, finishedVolumes: Set<Double>): Boolean =
+    isFinished || volumeIn(name)?.let { it in finishedVolumes } == true
+
+/**
  * Stand der Serie [name] aus ihren Bänden [books] (in Reihenfolge). Weiter geht es mit dem zuletzt gehörten angefangenen
  * Band; ist keiner angefangen, mit dem ersten nicht beendeten nach dem zuletzt beendeten (gibt es dahinter keinen, mit einer
  * Lücke davor); ist nichts gehört, mit dem ersten.
@@ -51,10 +61,13 @@ fun BookWithProgress.volumeTextIn(name: String): String? = parseSeries(book.seri
 fun seriesProgress(name: String, books: List<BookWithProgress>): SeriesProgress {
     val started = books.filter { it.isStarted }.maxByOrNull { it.progress?.updatedAt ?: 0 }
     val lastFinished = books.indexOfLast { it.isFinished }
+    val finishedVolumes = books.finishedVolumes(name)
     val (next, step) = when {
         started != null -> started to SeriesStep.CONTINUE
-        lastFinished >= 0 -> (books.drop(lastFinished + 1).firstOrNull { !it.isFinished } ?: books.firstOrNull { !it.isFinished })
-            .let { it to it?.let { SeriesStep.NEXT } }
+        lastFinished >= 0 -> {
+            val open = { item: BookWithProgress -> !item.isDone(name, finishedVolumes) }
+            (books.drop(lastFinished + 1).firstOrNull(open) ?: books.firstOrNull(open)).let { it to it?.let { SeriesStep.NEXT } }
+        }
         else -> books.firstOrNull() to books.firstOrNull()?.let { SeriesStep.START }
     }
     return SeriesProgress(
@@ -92,9 +105,10 @@ fun nextInSeries(current: BookWithProgress, all: List<BookWithProgress>): Pair<B
     for (ref in parseSeries(current.book.series)) {
         val sequence = ref.sequence ?: continue
         val books = groups[ref.name]?.books ?: continue
+        val finishedVolumes = books.finishedVolumes(ref.name)
         val next = books.firstOrNull { item ->
             val volume = item.volumeIn(ref.name)
-            item.book.id != current.book.id && volume != null && volume > sequence && !item.isFinished
+            item.book.id != current.book.id && volume != null && volume > sequence && !item.isDone(ref.name, finishedVolumes)
         } ?: continue
         return next to next.volumeTextIn(ref.name)
     }

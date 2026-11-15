@@ -92,6 +92,24 @@ class SeriesProgressTest {
     }
 
     @Test
+    fun `the same volume from a second source counts as finished with the finished one`() {
+        val all = listOf(
+            book(1, "Saga #1", finished(10)),
+            // Dasselbe Buch von einem Ordner auf dem Gerät, dort nie angefangen.
+            book(5, "Saga #1"),
+            book(2, "Saga #2", finished(20)),
+            book(6, "Saga #2"),
+            book(3, "Saga #3"),
+        )
+
+        val series = progressOf(*all.toTypedArray())
+
+        assertEquals(3L, series.next?.book?.id)
+        assertEquals(listOf(3L), all.continueSeries().map { it.first.book.id })
+        assertEquals(3L, nextInSeries(all[0], all)?.first?.book?.id)
+    }
+
+    @Test
     fun `volumes that are not just a number stay in their series and in order`() {
         val all = listOf(
             book(3, "Saga #3"),
