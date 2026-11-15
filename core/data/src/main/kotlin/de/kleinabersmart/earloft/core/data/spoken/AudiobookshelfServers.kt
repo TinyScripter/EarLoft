@@ -86,13 +86,14 @@ class AudiobookshelfServers @Inject constructor(
      * Abgewählt bleiben sie samt Downloads, Fortschritt und Lesezeichen gespeichert, werden aber nicht abgeglichen (wie bei einem
      * ausgeschalteten Server). Die letzte gezeigte bleibt: `false`, wenn sie abgewählt werden sollte.
      */
-    suspend fun setLibraryShown(serverId: String, libraryId: String, shown: Boolean): Boolean {
-        val entity = bookDao.server(serverId) ?: return false
+    suspend fun setLibraryShown(serverId: String, libraryId: String, shown: Boolean): Boolean = librariesMutex.withLock {
+        // Lesen und Schreiben unter einem Schloss: Schnelle Klicks auf mehrere Bibliotheken überschrieben sich sonst gegenseitig.
+        val entity = bookDao.server(serverId) ?: return@withLock false
         val hidden = if (shown) entity.hiddenLibraryIds - libraryId else entity.hiddenLibraryIds + libraryId
         val known = bookDao.libraries(serverId).map { it.libraryId }
-        if (known.isNotEmpty() && known.all { it in hidden }) return false
+        if (known.isNotEmpty() && known.all { it in hidden }) return@withLock false
         bookDao.setHiddenLibraries(serverId, hidden.sorted().joinToString(","))
-        return true
+        true
     }
 
     /**
@@ -117,6 +118,7 @@ class AudiobookshelfServers @Inject constructor(
     }
 
     private val mutex = Mutex()
+    private val librariesMutex = Mutex()
 
     @Volatile
     private var loaded = false

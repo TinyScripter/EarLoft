@@ -17,6 +17,9 @@ import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsAuthInterceptor
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
 import de.kleinabersmart.earloft.core.network.podcast.PodcastFeedApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.Dispatcher
@@ -116,6 +119,20 @@ class BookLibrariesSyncTest {
         assertEquals("lib-a", all.getValue("Krimi").book.libraryId)
         assertEquals("lib-b", all.getValue("Hörspiel").book.libraryId)
         assertEquals(listOf("Polizei", "Thriller"), all.getValue("Krimi").book.genres)
+    }
+
+    @Test
+    fun `quick clicks on several libraries do not overwrite each other`() = runTest {
+        val id = connect()
+        sync(id)
+
+        val results = listOf("lib-a", "lib-b").map { library ->
+            async(Dispatchers.Default) { servers.setLibraryShown(id, library, shown = false) }
+        }.awaitAll()
+
+        // Beide gleichzeitig abzuwählen darf nicht gelingen: Eine bleibt, und zwar die, die zuletzt übrig war.
+        assertEquals(listOf(false, true), results.sorted())
+        assertEquals(1, servers.servers.first().single().libraries.count { it.shown })
     }
 
     @Test
