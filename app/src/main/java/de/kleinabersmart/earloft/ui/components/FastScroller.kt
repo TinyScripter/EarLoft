@@ -35,6 +35,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import de.kleinabersmart.earloft.core.common.normalizeForMerge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -54,6 +55,13 @@ fun letterOf(sortText: String): String {
     val first = sortText.trim().firstOrNull() ?: return "#"
     return if (first.isLetter()) first.uppercaseChar().toString() else "#"
 }
+
+/**
+ * Wie [letterOf], aber so, wie die Bücherlisten sortieren (`normalizeForMerge()`): ohne Umlaute und Akzente, Satzzeichen vorn
+ * übergangen. „Ödön“ steht unter O und zeigt „O“.
+ */
+fun foldedLetterOf(sortText: String): String =
+    sortText.normalizeForMerge().firstOrNull()?.takeIf { it.isLetter() }?.uppercaseChar()?.toString() ?: "#"
 
 /** Schnellscroller für eine [androidx.compose.foundation.lazy.LazyColumn]; [labelAt] liefert zum Listenindex den Buchstaben. */
 @Composable

@@ -62,7 +62,7 @@ import de.kleinabersmart.earloft.navigation.BookGroupKind
 import de.kleinabersmart.earloft.ui.components.LazyGridFastScroller
 import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
-import de.kleinabersmart.earloft.ui.components.letterOf
+import de.kleinabersmart.earloft.ui.components.foldedLetterOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
@@ -442,8 +442,8 @@ private fun SeriesSectionTitle(series: String?, onClick: (() -> Unit)?) {
 
 /** Marke für den Schnellscroller je Reihenfolge; ohne sinnvolle Marke (Datum, Dauer) keiner. */
 private fun BookSort.scrollLabel(): ((BookWithProgress) -> String)? = when (this) {
-    BookSort.TITLE -> { item -> letterOf(item.book.title.sortKey()) }
-    BookSort.AUTHOR -> { item -> letterOf(bookAuthors(item.book.author).firstOrNull().orEmpty().sortKey()) }
+    BookSort.TITLE -> { item -> foldedLetterOf(item.book.title.sortKey()) }
+    BookSort.AUTHOR -> { item -> foldedLetterOf(bookAuthors(item.book.author).firstOrNull().orEmpty().sortKey()) }
     BookSort.YEAR -> { item -> item.book.publishedYear?.take(4) ?: "#" }
     BookSort.RECENTLY_ADDED, BookSort.RECENTLY_PLAYED, BookSort.DURATION -> null
 }
@@ -612,7 +612,7 @@ private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?
                 }
             }
         }
-        if (byName) LazyGridFastScroller(state, labelAt = { index -> letterOf(authors.getOrNull(index)?.name.orEmpty().sortKey()) })
+        if (byName) LazyGridFastScroller(state, labelAt = { index -> foldedLetterOf(authors.getOrNull(index)?.name.orEmpty().sortKey()) })
     }
 }
 
@@ -641,7 +641,7 @@ private fun SeriesList(groups: List<SeriesProgress>, byName: Boolean, resetKey: 
                 )
             }
         }
-        if (byName) LazyListFastScroller(state, labelAt = { index -> letterOf(groups.getOrNull(index)?.name.orEmpty().sortKey()) })
+        if (byName) LazyListFastScroller(state, labelAt = { index -> foldedLetterOf(groups.getOrNull(index)?.name.orEmpty().sortKey()) })
     }
 }
 
