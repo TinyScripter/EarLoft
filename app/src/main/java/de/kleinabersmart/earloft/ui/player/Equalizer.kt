@@ -7,17 +7,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.playback.AudioEffectSession
-import kotlinx.coroutines.flow.StateFlow
-import javax.inject.Inject
-
-@HiltViewModel
-class EqualizerViewModel @Inject constructor(session: AudioEffectSession) : ViewModel() {
-    val sessionId: StateFlow<Int?> = session.sessionId
-}
 
 /**
  * Öffnet den Equalizer des Systems bzw. einer Equalizer-App für die Wiedergabe der App (Konzept 7 „Equalizer“). `null`, wenn

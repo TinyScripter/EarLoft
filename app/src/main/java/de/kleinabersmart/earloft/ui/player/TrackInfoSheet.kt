@@ -25,37 +25,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
-import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
 import de.kleinabersmart.earloft.core.model.SongSourceInfo
 import de.kleinabersmart.earloft.core.model.SourceType
 import de.kleinabersmart.earloft.core.playback.PlayedFrom
-import de.kleinabersmart.earloft.core.playback.PlayingSources
-import de.kleinabersmart.earloft.ui.orOnError
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
 import androidx.compose.ui.platform.LocalConfiguration
-import javax.inject.Inject
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
-
-/** Was zu einem Song angezeigt wird: seine Quellen und woher die Wiedergabe ihn gerade nimmt (`null`: noch nicht geladen). */
-data class TrackInfo(val sources: List<SongSourceInfo>, val playedFrom: PlayedFrom?)
-
-@HiltViewModel
-class TrackInfoViewModel @Inject constructor(
-    private val libraryRepository: LibraryRepository,
-    private val playingSources: PlayingSources,
-) : ViewModel() {
-    fun info(songId: Long): Flow<TrackInfo> =
-        // Ohne lesbare Quellen bleibt wenigstens, woher die Wiedergabe den Song nimmt.
-        combine(flow { emit(libraryRepository.sourcesOf(songId)) }.orOnError(emptyList()), playingSources.bySong) { sources, played ->
-            TrackInfo(sources, played[songId])
-        }
-}
 
 /**
  * Titel-Info (Konzept 1 „Klangtreue“): woher der Song gerade spielt (Gerät, Download, Stream) und welche Quellen ihn liefern,
