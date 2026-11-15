@@ -66,8 +66,10 @@ sealed interface UploadResult {
 /**
  * Lädt ein Buch aus ARD Sounds zu Audiobookshelf hoch (`books_improvements.md` M9, Ausnahme von „Serververwaltung bewusst nicht“)
  * und übernimmt danach, was der Nutzer am Buch angelegt hat (Fortschritt, Tempo und Effekte, Lesezeichen; [ArdUploadAdoption]). Das Paket sind die
- * geladenen Teile als `01 - Teil.mp3`, dazu `cover.jpg`, `desc.txt` (Beschreibung) und `reader.txt` (Sprecher), die Audiobookshelf
- * beim Scannen liest.
+ * geladenen Teile als `01 - Teil.mp3`, dazu `cover.jpg`, `metadata.opf` (Titel, Autor, Sprecher, Beschreibung, Sender, Genres),
+ * `desc.txt` (Beschreibung) und `reader.txt` (Sprecher), die Audiobookshelf beim Scannen liest. Die OPF-Datei braucht es, weil die
+ * Tags der Dateien sonst Titel und Autor setzen (etwa „Autorin: Titel (1/9)“ vom Sender): In der Standard-Rangfolge von
+ * Audiobookshelf schlagen sie den Ordnernamen, die OPF-Datei schlägt sie.
  */
 @Singleton
 class ArdBookUploader @Inject constructor(
@@ -185,6 +187,8 @@ class ArdBookUploader @Inject constructor(
             AbsUploadFile(file, "${safe(numbered)}.${file.extension.ifEmpty { "mp3" }}", mimeOf(file.extension))
         }
         val extras = mutableListOf<AbsUploadFile>()
+        val opf = File(work, "metadata.opf").apply { writeText(opfOf(book)) }
+        extras += AbsUploadFile(opf, "metadata.opf", "application/oebps-package+xml")
         covers.cover(book.bookId)?.let { bitmap ->
             val cover = File(work, "cover.jpg")
             cover.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, COVER_QUALITY, it) }
@@ -235,6 +239,34 @@ class ArdBookUploader @Inject constructor(
         const val RETRY_MS = 5_000L
     }
 }
+
+/**
+ * Die Angaben von [book] als OPF 2.0, wie Audiobookshelf sie aus `metadata.opf` liest. ARD Sounds führt keine Sprache; die
+ * Hörbücher dort sind deutsch.
+ */
+internal fun opfOf(book: BookEntity): String {
+    val fields = buildList {
+        add("<dc:title>${xml(book.title)}</dc:title>")
+        if (book.author.isNotBlank()) add("<dc:creator opf:role=\"aut\">${xml(book.author)}</dc:creator>")
+        if (book.narrator.isNotBlank()) add("<dc:creator opf:role=\"nrt\">${xml(book.narrator)}</dc:creator>")
+        if (book.description.isNotBlank()) add("<dc:description>${xml(book.description)}</dc:description>")
+        book.publisher?.takeIf { it.isNotBlank() }?.let { add("<dc:publisher>${xml(it)}</dc:publisher>") }
+        book.publishedYear?.takeIf { it.isNotBlank() }?.let { add("<dc:date>${xml(it)}</dc:date>") }
+        add("<dc:language>${xml(book.language?.takeIf { it.isNotBlank() } ?: "de")}</dc:language>")
+        book.genres?.split(", ")?.filter { it.isNotBlank() }?.forEach { add("<dc:subject>${xml(it)}</dc:subject>") }
+    }
+    return buildString {
+        append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+        append("<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"2.0\">\n")
+        append("  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:opf=\"http://www.idpf.org/2007/opf\">\n")
+        fields.forEach { append("    ").append(it).append('\n') }
+        append("  </metadata>\n</package>\n")
+    }
+}
+
+/** [text] für XML: Zeichen mit Bedeutung maskiert, Steuerzeichen (in XML 1.0 verboten) entfernt. */
+private fun xml(text: String): String =
+    text.filter { it >= ' ' || it == '\t' || it == '\n' || it == '\r' }.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
 /**
  * [positionMs] im Buch ohne die Teile [missing]: Was nach einem fehlenden Teil liegt, rückt um dessen Länge vor; eine Stelle in einem

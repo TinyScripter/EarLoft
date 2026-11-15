@@ -183,7 +183,7 @@ class ArdBookUploaderTest {
         val sent = uploads.single()
         assertTrue(sent, "title=Der Krieg der Welten" in sent && "author=H. G. Wells" in sent && "library=lib" in sent && "folder=folder" in sent)
         assertTrue(sent, "file=Der Krieg der Welten.mp3" in sent)
-        assertTrue(sent, "file=desc.txt" in sent && "file=reader.txt" in sent)
+        assertTrue(sent, "file=metadata.opf" in sent && "file=desc.txt" in sent && "file=reader.txt" in sent)
         val progress = dao.progress(newBookId)!!
         assertEquals(30_000L, progress.positionMs)
         assertEquals(1.5f, progress.speed)
@@ -191,6 +191,32 @@ class ArdBookUploaderTest {
         assertEquals(listOf("Stelle"), dao.bookmarksOf(listOf(newBookId)).map { it.title })
         // Die Fassung aus ARD Sounds bleibt, bis der Aufrufer sie entfernt.
         assertTrue(dao.book(bookId) != null)
+    }
+
+    @Test
+    fun `the opf file names title, author and narrator so the audio tags do not win`() {
+        val opf = opfOf(
+            BookEntity(
+                serverId = ARD_BOOK_SERVER_ID, remoteId = "item", title = "Goldstrand <Hörspiel>", normTitle = "goldstrand",
+                author = "Katerina Poladjan", narrator = "Anna & Ben", description = "Am \"Strand\"\u0007.", durationMs = 1,
+                publisher = "MDR", genres = "Krimi, Hörspiel",
+            ),
+        )
+
+        assertTrue(opf, "<dc:title>Goldstrand &lt;Hörspiel&gt;</dc:title>" in opf)
+        assertTrue(opf, "<dc:creator opf:role=\"aut\">Katerina Poladjan</dc:creator>" in opf)
+        assertTrue(opf, "<dc:creator opf:role=\"nrt\">Anna &amp; Ben</dc:creator>" in opf)
+        assertTrue(opf, "<dc:description>Am &quot;Strand&quot;.</dc:description>" in opf)
+        assertTrue(opf, "<dc:publisher>MDR</dc:publisher>" in opf)
+        assertTrue(opf, "<dc:language>de</dc:language>" in opf)
+        assertTrue(opf, "<dc:subject>Krimi</dc:subject>" in opf && "<dc:subject>Hörspiel</dc:subject>" in opf)
+        assertFalse(opf, "dc:date" in opf)
+        // Wohlgeformt: Ein XML-Parser liest Titel und Autor zurück.
+        val document = javax.xml.parsers.DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+            .newDocumentBuilder().parse(opf.byteInputStream())
+        val dc = "http://purl.org/dc/elements/1.1/"
+        assertEquals("Goldstrand <Hörspiel>", document.getElementsByTagNameNS(dc, "title").item(0).textContent)
+        assertEquals(2, document.getElementsByTagNameNS(dc, "creator").length)
     }
 
     @Test
