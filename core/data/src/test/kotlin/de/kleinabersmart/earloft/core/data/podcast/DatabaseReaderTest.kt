@@ -73,7 +73,8 @@ class DatabaseReaderTest {
         val feeds = DatabaseReader.read(file).feeds
 
         assertEquals(ImportFeed("https://a.example/feed", "Eigen", true, 1.75f, false, 6, 20, 40), feeds[0])
-        assertEquals(ImportFeed("https://b.example/feed", "Vorgabe", true), feeds[1])
+        // Stufe 0 der Lautstärke ist ausdrücklich „unverändert“, nicht die Vorgabe des Bereichs.
+        assertEquals(ImportFeed("https://b.example/feed", "Vorgabe", true, volumeBoostDb = 0), feeds[1])
         // Leiser gibt es in der App nicht: Vorgabe; Stille ab Stufe 2 an.
         assertEquals(ImportFeed("https://c.example/feed", "Leiser", true, skipSilence = true), feeds[2])
     }

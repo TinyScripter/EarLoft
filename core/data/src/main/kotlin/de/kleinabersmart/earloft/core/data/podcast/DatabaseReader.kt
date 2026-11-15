@@ -35,6 +35,9 @@ internal object ExchangeEffects {
     const val SILENCE_ON = 2
     const val VOLUME_UNCHANGED = 0
 
+    /** Fehlt die Spalte ganz, steht nichts fest; ein Code, den [boostOf] als Vorgabe liest. */
+    const val VOLUME_UNKNOWN = 1
+
     /** Stufen 3, 4, 5 und ihre Entsprechung in dB. */
     private val boostSteps = listOf(3 to 3, 4 to 6, 5 to 9)
 
@@ -116,7 +119,7 @@ object DatabaseReader {
             "download_url", "title", "custom_title", "state",
             column("feed_playback_speed", ExchangeEffects.SPEED_DEFAULT.toString()),
             column("feed_skip_silence", ExchangeEffects.SILENCE_DEFAULT.toString()),
-            column("feed_volume_adaption", ExchangeEffects.VOLUME_UNCHANGED.toString()),
+            column("feed_volume_adaption", ExchangeEffects.VOLUME_UNKNOWN.toString()),
             column("feed_skip_intro", "0"),
             column("feed_skip_ending", "0"),
         ).joinToString()
