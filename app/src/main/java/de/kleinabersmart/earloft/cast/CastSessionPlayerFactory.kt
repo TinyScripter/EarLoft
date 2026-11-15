@@ -205,6 +205,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         val listener = object : SessionManagerListener<CastSession> {
             override fun onSessionStarting(session: CastSession) {
                 handOver.resuming = rejoin.isRejoining(session)
+                handOver.checkRejoin = handOver.resuming
                 handOver.rejected = false
                 prepareQueue()
             }
@@ -212,7 +213,11 @@ internal class CastSessionPlayerFactory @Inject constructor(
             override fun onSessionResuming(session: CastSession, sessionId: String) = prepareQueue()
 
             override fun onSessionStarted(session: CastSession, sessionId: String) {
-                if (handOver.resuming && !rejoin.isOurs(sessionId)) {
+                // Nicht `resuming`: Das setzt `transferState` zurück, und das läuft je nach Reihenfolge der Listener schon vorher
+                // (im `onSessionStarted` von RemoteCastPlayer).
+                val checkRejoin = handOver.checkRejoin
+                handOver.checkRejoin = false
+                if (checkRejoin && !rejoin.isOurs(sessionId)) {
                     // Nicht mehr die Sitzung von vorher: Lief beim Empfänger nichts, hat das Auswählen die App dort
                     // gestartet, und sie wird wieder beendet; sonst gehört sie einer anderen App und läuft weiter.
                     val launched = session.applicationConnectionResult?.wasLaunched == true
@@ -227,6 +232,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
             override fun onSessionStartFailed(session: CastSession, error: Int) {
                 rejoin.failed()
                 handOver.resuming = false
+                handOver.checkRejoin = false
             }
 
             override fun onSessionEnding(session: CastSession) = rejoin.forget()
@@ -410,12 +416,14 @@ private fun playingUntil(player: Player): Long? {
  * [state]: was zuletzt an den Empfänger ging (nur wenn nicht leer). [rescue]: nach einem gescheiterten
  * Laden – beim Zurückwechseln aufs Handy wird daraus die Warteschlange wiederhergestellt. [lastRemote]: der letzte
  * Stand des Empfängers mit Warteschlange, falls eine andere App ihn übernimmt. [resuming]: Die App hängt sich nach einem
- * Neustart wieder an ([CastRejoin]) – der Empfänger behält dann seinen Stand. [rejected]: Dabei kam eine andere Sitzung
- * heraus, das Handy behält seinen Stand.
+ * Neustart wieder an ([CastRejoin]) – der Empfänger behält dann seinen Stand. [checkRejoin]: Beim Start der Sitzung ist zu
+ * prüfen, ob es die von vorher ist; anders als [resuming] setzt das `transferState` nicht zurück. [rejected]: Dabei kam eine
+ * andere Sitzung heraus, das Handy behält seinen Stand.
  */
 @OptIn(UnstableApi::class)
 private class HandOver {
     @Volatile var resuming = false
+    @Volatile var checkRejoin = false
     @Volatile var rejected = false
     @Volatile var state: PlayerTransferState? = null
     @Volatile var rescue: PlayerTransferState? = null
