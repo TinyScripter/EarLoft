@@ -14,8 +14,10 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
+import de.kleinabersmart.earloft.core.data.podcast.EpisodeQueue
 import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.data.source.DataSourceRegistry
+import de.kleinabersmart.earloft.core.data.spoken.SPOKEN_SETTINGS_MERGES
 import de.kleinabersmart.earloft.core.data.sync.LibrarySettings
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.UserDatabase
@@ -83,6 +85,8 @@ class FullBackupTest {
         private val dir = folder.newFolder()
         val theme = store(scope, "theme_settings")
         val library = store(scope, "library_settings")
+        val downloads = store(scope, "download_settings")
+        val queue = store(scope, "episode_queue")
         val registry = DataSourceRegistry(
             localDataSource = LocalDataSource(context),
             sourceDao = main.sourceDao(),
@@ -113,7 +117,12 @@ class FullBackupTest {
             userData,
             SettingsBackup(
                 context,
-                setOf(BackedUpSettings("theme_settings", theme), BackedUpSettings("library_settings", library, setOf(LOCAL_MEDIA.name))),
+                setOf(
+                    BackedUpSettings("theme_settings", theme),
+                    BackedUpSettings("library_settings", library, setOf(LOCAL_MEDIA.name)),
+                    BackedUpSettings("download_settings", downloads, merged = mapOf(AUTO_SERVERS.name to SettingsMerge.UNION_IDS)),
+                    BackedUpSettings("episode_queue", queue, merged = EpisodeQueue.BACKUP_MERGES),
+                ),
             ),
             notice,
         )
@@ -193,7 +202,7 @@ class FullBackupTest {
         val result = new.backup.import(ByteArrayInputStream(file.toByteArray()))
 
         assertEquals(BackupCounts(musicServers = 1, audiobookServers = 1, podcasts = 1, playlists = 0), result.added)
-        assertEquals(2, result.settings)
+        assertEquals(4, result.settings)
         assertFalse(result.localSourcesSkipped)
         assertEquals(listOf("nav"), new.main.sourceDao().getServers().map { it.sourceId })
         assertEquals(listOf("abs"), new.main.bookDao().servers().map { it.serverId })
@@ -219,6 +228,7 @@ class FullBackupTest {
         old.main.bookDao().upsertProgress(
             BookProgressEntity(old.main.addEpisode("feed-1", "guid-1"), positionMs = 4_000, durationMs = 1_000_000, updatedAt = 10),
         )
+        old.downloads.edit { it[AUTO_SERVERS] = setOf("nav") }
         val file = ByteArrayOutputStream().also { old.backup.export(it) }.toByteArray()
 
         val new = Device(backgroundScope)
@@ -229,11 +239,34 @@ class FullBackupTest {
         val result = new.backup.import(ByteArrayInputStream(file))
 
         assertEquals(BackupCounts(), result.added)
+        assertEquals(setOf("nav-here"), new.downloads.data.first()[AUTO_SERVERS])
         assertEquals(listOf("nav-here"), new.main.sourceDao().getServers().map { it.sourceId })
         assertEquals(listOf("abs-here"), new.main.bookDao().servers().map { it.serverId })
         assertEquals(listOf("feed-here"), new.main.podcastDao().feeds().map { it.feedId })
         // Der Fortschritt hängt an der hiesigen Kennung des Abos.
         assertEquals(4_000L, new.main.bookDao().progressOf(listOf(episode)).single().positionMs)
+    }
+
+    @Test
+    fun `the queue and other user data in the settings are merged instead of replaced`() = runTest {
+        val old = Device(backgroundScope)
+        old.main.addFeed("feed-1")
+        old.queue.edit { it[ORDER] = listOf("feed-1\u001Fguid-1", "feed-1\u001Fguid-2").joinToString("\u001E") }
+        old.downloads.edit { it[AUTO_SERVERS] = setOf("nav-old") }
+        val file = ByteArrayOutputStream().also { old.backup.export(it) }.toByteArray()
+
+        val new = Device(backgroundScope)
+        new.main.addFeed("feed-here")
+        new.queue.edit { it[ORDER] = listOf("feed-here\u001Fguid-2", "feed-here\u001Fguid-9").joinToString("\u001E") }
+        new.downloads.edit { it[AUTO_SERVERS] = setOf("nav-here") }
+        new.backup.import(ByteArrayInputStream(file))
+
+        // Die hiesige Reihenfolge bleibt vorn; aus der Sicherung kommt nur dazu, was fehlt, unter der hiesigen Kennung des Abos.
+        assertEquals(
+            listOf("feed-here\u001Fguid-2", "feed-here\u001Fguid-9", "feed-here\u001Fguid-1"),
+            new.queue.data.first()[ORDER]!!.split("\u001E"),
+        )
+        assertEquals(setOf("nav-here", "nav-old"), new.downloads.data.first()[AUTO_SERVERS])
     }
 
     @Test
@@ -348,9 +381,39 @@ class FullBackupTest {
         assertEquals(true, store.data.first()[LOCAL_MEDIA])
     }
 
+    @Test
+    fun `subscriptions and known books of ARD Sounds are merged, the notes of this device stay`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = backgroundScope) { folder.newFile("spoken_settings.preferences_pb") }
+        val settings = SettingsBackup(context, setOf(BackedUpSettings("spoken_settings", store, merged = SPOKEN_SETTINGS_MERGES)))
+        val shows = stringSetPreferencesKey("ard_shows")
+        val seen = stringSetPreferencesKey("ard_seen")
+        val gone = stringSetPreferencesKey("ard_gone")
+        store.edit {
+            it[shows] = setOf("show:a\tKrimi", "show:b\tHörspiel alt")
+            it[seen] = setOf("show:a\tbook:1")
+            it[gone] = setOf("book:9\t100")
+        }
+        val saved = settings.read()
+        store.edit {
+            it.clear()
+            it[shows] = setOf("show:b\tHörspiel", "show:c\tDoku")
+            it[seen] = setOf("show:c\tbook:3")
+            it[gone] = setOf("book:8\t200")
+        }
+
+        settings.write(saved)
+
+        val now = store.data.first()
+        assertEquals(setOf("show:a\tKrimi", "show:b\tHörspiel", "show:c\tDoku"), now[shows])
+        assertEquals(setOf("show:a\tbook:1", "show:c\tbook:3"), now[seen])
+        assertEquals(setOf("book:8\t200"), now[gone])
+    }
+
     private companion object {
         val MODE = stringPreferencesKey("mode")
         val SYNC_DAYS = intPreferencesKey("sync_interval_days")
         val LOCAL_MEDIA = booleanPreferencesKey("use_local_media")
+        val AUTO_SERVERS = stringSetPreferencesKey("auto_download_servers")
+        val ORDER = stringPreferencesKey("order_keys")
     }
 }

@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
+import de.kleinabersmart.earloft.core.data.backup.SettingsMerge
 import de.kleinabersmart.earloft.core.data.spoken.BookKeyRenamer
 import de.kleinabersmart.earloft.core.data.spoken.BookKeys
 import de.kleinabersmart.earloft.core.database.dao.BookDao
@@ -200,16 +201,33 @@ class EpisodeQueue @Inject constructor(
     private fun Preferences.readLegacy(key: Preferences.Key<String>): List<Long> =
         this[key].orEmpty().split(',').mapNotNull { it.toLongOrNull() }
 
-    private companion object {
-        val KEY_ORDER = stringPreferencesKey("order_keys")
-        val KEY_HIDDEN = stringPreferencesKey("hidden_keys")
-        val LEGACY_ORDER = stringPreferencesKey("order")
-        val LEGACY_HIDDEN = stringPreferencesKey("hidden")
+    companion object {
+        private val KEY_ORDER = stringPreferencesKey("order_keys")
+        private val KEY_HIDDEN = stringPreferencesKey("hidden_keys")
+        private val LEGACY_ORDER = stringPreferencesKey("order")
+        private val LEGACY_HIDDEN = stringPreferencesKey("hidden")
 
         /** Steuerzeichen, das weder in einer guid (XML) noch in einem Pfad oder einer Server-Kennung vorkommt. */
-        const val ENTRY_SEPARATOR = "\u001E"
-        const val MAX_ARGS = 500
+        private const val ENTRY_SEPARATOR = "\u001E"
+        private const val MAX_ARGS = 500
 
-        fun key(serverId: String, remoteId: String) = BookKeys.encode(serverId, remoteId)
+        private fun key(serverId: String, remoteId: String) = BookKeys.encode(serverId, remoteId)
+
+        /**
+         * Beim Einspielen einer Sicherung: hiesige Reihenfolge und Ausgeblendete zuerst, dahinter die gesicherten, die fehlen, mit
+         * den hiesigen Kennungen ihrer Server und Abos.
+         */
+        internal val BACKUP_MERGES: Map<String, SettingsMerge> = listOf(KEY_ORDER, KEY_HIDDEN).associate { preference ->
+            preference.name to SettingsMerge { current, saved, ids ->
+                fun split(value: Any?) = (value as? String).orEmpty().split(ENTRY_SEPARATOR).filter { it.isNotEmpty() }
+                val here = split(current)
+                val known = here.toSet()
+                val added = split(saved).map { entry ->
+                    val serverId = entry.substringBefore(BookKeys.SEPARATOR)
+                    ids[serverId]?.let { it + entry.removePrefix(serverId) } ?: entry
+                }.filter { it !in known }
+                (here + added).distinct().joinToString(ENTRY_SEPARATOR)
+            }
+        }
     }
 }

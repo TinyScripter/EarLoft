@@ -222,11 +222,12 @@ class UserDataBackup @Inject constructor(
      * folgt wie nach einem Gerätewechsel, auch über einen Neustart hinweg. Neue Server erscheinen danach mit „Passwort neu
      * eingeben“.
      */
-    suspend fun import(saved: UserDataSnapshot): BackupCounts {
+    suspend fun import(saved: UserDataSnapshot): BackupImport {
         // Erst nach dem ersten Anwenden beim Start: Das überschriebe sonst mit seinem älteren Stand, was hier wartet.
         if (started.get()) firstApplied.await() else restoreFinished.await()
-        val result = mutex.withLock {
-            val adjusted = withLocalIds(saved)
+        val (result, ids) = mutex.withLock {
+            val ids = localIdsOf(saved)
+            val adjusted = withLocalIds(saved, ids)
             val musicIds = sourceDao.getServers().map { it.sourceId }.toSet()
             val spokenIds = bookDao.servers().map { it.serverId }.toSet()
             val result = BackupCounts(
@@ -243,40 +244,48 @@ class UserDataBackup @Inject constructor(
             // Der gemerkte Stand stimmt nicht mehr mit `user.db` überein; beim nächsten Spiegeln neu lesen.
             mirrored = null
             applyAndWait(merged, pendingOf(merged))
-            result
+            result to ids
         }
         scope.launch { restoreArdBooks() }
         // Den Hinweis auf fehlende Passwörter meldet `FullBackup` mit seinem Ergebnis.
         if (result.musicServers > 0) registry.get().reload()
         Log.i(TAG, "Sicherung eingespielt: $result")
-        return result
+        return BackupImport(result, ids)
+    }
+
+    /**
+     * Kennungen von Servern und Abos aus [saved], die es hier unter anderer Kennung gibt: gesicherte → hiesige. Musik-Server über
+     * Art, Adresse und Konto, Audiobookshelf über die Adresse, Abos über die Feed-Adresse.
+     */
+    private suspend fun localIdsOf(saved: UserDataSnapshot): Map<String, String> {
+        val music = sourceDao.getServers()
+        val musicIds = saved.servers.values.mapNotNull { server ->
+            music.firstOrNull { it.sourceId != server.sourceId && it.type == server.type && sameUrl(it.baseUrl, server.baseUrl) && it.username == server.username }
+                ?.let { server.sourceId to it.sourceId }
+        }
+        val spoken = bookDao.servers()
+        val spokenIds = saved.spokenServers.values.mapNotNull { server ->
+            // Über die Adresse: `libraryId` ist seit den mehreren Bibliotheken nur die erste gezeigte und wechselt mit Auswahl und
+            // Reihenfolge in Audiobookshelf. Bei mehreren Einträgen derselben Adresse (alte Sicherungen) zuerst der mit gleicher.
+            val local = spoken.firstOrNull { it.serverId == server.serverId }
+                ?: spoken.filter { sameUrl(it.baseUrl, server.baseUrl) }.let { same -> same.firstOrNull { it.libraryId == server.libraryId } ?: same.firstOrNull() }
+            local?.serverId?.takeIf { it != server.serverId }?.let { server.serverId to it }
+        }
+        val feedIds = saved.podcasts.values.mapNotNull { podcast ->
+            (podcastDao.feed(podcast.feedId) ?: podcastDao.feedByUrl(podcast.url))?.feedId?.takeIf { it != podcast.feedId }?.let { podcast.feedId to it }
+        }
+        return (musicIds + spokenIds + feedIds).toMap()
     }
 
     /**
      * Nimmt aus [saved] Server und Abos heraus, die es hier unter anderer Kennung gibt, und hängt ihren Fortschritt, ihre
      * Lesezeichen und ihre Downloads an die hiesige Kennung.
      */
-    private suspend fun withLocalIds(saved: UserDataSnapshot): UserDataSnapshot {
-        val music = sourceDao.getServers()
-        val servers = saved.servers.filterValues { server ->
-            music.none { it.sourceId != server.sourceId && it.type == server.type && sameUrl(it.baseUrl, server.baseUrl) && it.username == server.username }
-        }
-        val spoken = bookDao.servers()
-        val spokenIds = saved.spokenServers.values.associate { server ->
-            // Über die Adresse: `libraryId` ist seit den mehreren Bibliotheken nur die erste gezeigte und wechselt mit Auswahl und
-            // Reihenfolge in Audiobookshelf. Bei mehreren Einträgen derselben Adresse (alte Sicherungen) zuerst der mit gleicher.
-            val local = spoken.firstOrNull { it.serverId == server.serverId }
-                ?: spoken.filter { sameUrl(it.baseUrl, server.baseUrl) }.let { same -> same.firstOrNull { it.libraryId == server.libraryId } ?: same.firstOrNull() }
-            server.serverId to (local?.serverId ?: server.serverId)
-        }
-        val feedIds = saved.podcasts.values.associate { podcast ->
-            podcast.feedId to ((podcastDao.feed(podcast.feedId) ?: podcastDao.feedByUrl(podcast.url))?.feedId ?: podcast.feedId)
-        }
-        val ids = spokenIds + feedIds
+    private fun withLocalIds(saved: UserDataSnapshot, ids: Map<String, String>): UserDataSnapshot {
         return saved.copy(
-            servers = servers,
-            spokenServers = saved.spokenServers.filterKeys { spokenIds[it] == it },
-            podcasts = saved.podcasts.filterKeys { feedIds[it] == it },
+            servers = saved.servers.filterKeys { it !in ids },
+            spokenServers = saved.spokenServers.filterKeys { it !in ids },
+            podcasts = saved.podcasts.filterKeys { it !in ids },
             progress = saved.progress.values
                 .map { it.copy(serverId = ids[it.serverId] ?: it.serverId) }
                 .groupBy { BookKey(it.serverId, it.remoteId) }
@@ -707,6 +716,9 @@ data class BackupCounts(
     val podcasts: Int = 0,
     val playlists: Int = 0,
 )
+
+/** Ausgang von [UserDataBackup.import]: was neu dazukam, und Kennungen der Sicherung, die hier anders heißen (gesicherte → hiesige). */
+data class BackupImport(val counts: BackupCounts, val ids: Map<String, String>)
 
 /** Gesichertes, dessen Buch, Folge, Song, Album oder Playlist es (noch) nicht gibt; Playlists über ihren Schlüssel. */
 internal data class Pending(

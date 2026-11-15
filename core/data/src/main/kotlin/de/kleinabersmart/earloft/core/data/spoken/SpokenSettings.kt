@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import de.kleinabersmart.earloft.core.data.backup.SettingsMerge
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.sync.LocalSourcesDefault
 import de.kleinabersmart.earloft.core.model.AuthorSort
@@ -35,6 +36,23 @@ private val KEY_ARD_GONE = stringSetPreferencesKey("ard_gone")
 private val KEY_ARD_MISSING = stringSetPreferencesKey("ard_missing")
 
 private const val ARD_SEPARATOR = '\t'
+
+/**
+ * Nutzerdaten in den Einstellungen, beim Einspielen einer Sicherung zusammengeführt: Abos (eine Sendung einmal, die hiesige geht vor) und
+ * die bekannten Bücher je Sendung (sonst kämen entfernte als „neu“ zurück); die Merker zu abgelaufenen Büchern gehören zu diesem Gerät.
+ */
+internal val SPOKEN_SETTINGS_MERGES: Map<String, SettingsMerge> = mapOf(
+    KEY_ARD_SHOWS.name to SettingsMerge { current, saved, _ ->
+        @Suppress("UNCHECKED_CAST")
+        val here = (current as? Set<String>).orEmpty()
+        val ids = here.mapTo(HashSet()) { it.substringBefore(ARD_SEPARATOR) }
+        @Suppress("UNCHECKED_CAST")
+        here + (saved as Set<String>).filter { it.substringBefore(ARD_SEPARATOR) !in ids }
+    },
+    KEY_ARD_SEEN.name to SettingsMerge.UNION,
+    KEY_ARD_GONE.name to SettingsMerge.KEEP,
+    KEY_ARD_MISSING.name to SettingsMerge.KEEP,
+)
 
 internal val Context.spokenSettingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "spoken_settings",

@@ -109,9 +109,9 @@ class FullBackup @Inject constructor(
             // Room: Schema passt nicht, keine Migration.
             throw FullBackupException(false, "user.db nicht lesbar", e)
         }
-        val added = userData.import(snapshot)
-        val restored = settingsJson?.let { settings.write(it) } ?: SettingsRestore(0, localSourcesSkipped = false)
-        FullBackupResult(added, restored.stores, restored.localSourcesSkipped).also { restoreNotice.backupRestored(it) }
+        val imported = userData.import(snapshot)
+        val restored = settingsJson?.let { settings.write(it, imported.ids) } ?: SettingsRestore(0, localSourcesSkipped = false)
+        FullBackupResult(imported.counts, restored.stores, restored.localSourcesSkipped).also { restoreNotice.backupRestored(it) }
     }
 
     /** Legt `user.db` nach [db] und liefert Manifest und Einstellungen; Unbekanntes wird übergangen. */

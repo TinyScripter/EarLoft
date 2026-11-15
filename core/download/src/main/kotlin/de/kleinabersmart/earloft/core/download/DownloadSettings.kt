@@ -15,6 +15,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import de.kleinabersmart.earloft.core.data.backup.BackedUpSettings
+import de.kleinabersmart.earloft.core.data.backup.SettingsMerge
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -91,6 +92,7 @@ class DownloadSettings @Inject constructor(
         private val KEY_AUTO_FAVORITES = booleanPreferencesKey("auto_download_favorites")
         private val KEY_AUTO_FAVORITE_ARTISTS = booleanPreferencesKey("auto_download_favorite_artists")
         private val KEY_AUTO_SERVERS = stringSetPreferencesKey("auto_download_servers")
+        internal val AUTO_SERVERS_KEY: String get() = KEY_AUTO_SERVERS.name
         private val KEY_AUTO_NEWEST_ALBUMS = intPreferencesKey("auto_download_newest_albums")
         private val KEY_AUTO_MOST_PLAYED_ALBUMS = intPreferencesKey("auto_download_most_played_albums")
     }
@@ -102,5 +104,10 @@ internal object DownloadSettingsBackupModule {
     /** Gehört in die Komplett-Sicherung (`FullBackup`). */
     @Provides
     @IntoSet
-    fun provideBackedUpSettings(@ApplicationContext context: Context) = BackedUpSettings("download_settings", context.downloadSettingsDataStore)
+    fun provideBackedUpSettings(@ApplicationContext context: Context) = BackedUpSettings(
+        "download_settings",
+        context.downloadSettingsDataStore,
+        // Die Server-Kennungen der Sicherung gelten hier unter Umständen anders.
+        merged = mapOf(DownloadSettings.AUTO_SERVERS_KEY to SettingsMerge.UNION_IDS),
+    )
 }

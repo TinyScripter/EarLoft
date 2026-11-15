@@ -19,12 +19,14 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.ElementsIntoSet
+import de.kleinabersmart.earloft.core.data.podcast.EpisodeQueue
 import de.kleinabersmart.earloft.core.data.podcast.episodeQueueDataStore
 import de.kleinabersmart.earloft.core.data.podcast.podcastSettingsDataStore
 import de.kleinabersmart.earloft.core.data.repository.artworkSettingsDataStore
 import de.kleinabersmart.earloft.core.data.repository.lyricsSettingsDataStore
 import de.kleinabersmart.earloft.core.data.spoken.KEY_LOCAL_BOOKS
 import de.kleinabersmart.earloft.core.data.spoken.KEY_LOCAL_PODCASTS
+import de.kleinabersmart.earloft.core.data.spoken.SPOKEN_SETTINGS_MERGES
 import de.kleinabersmart.earloft.core.data.spoken.spokenSettingsDataStore
 import de.kleinabersmart.earloft.core.data.sync.KEY_LOCAL_MEDIA
 import de.kleinabersmart.earloft.core.data.sync.librarySettingsDataStore
@@ -48,7 +50,35 @@ class BackedUpSettings(
     val store: DataStore<Preferences>,
     /** Schalter für Quellen auf dem Gerät: nur übernommen, wenn die App Audiodateien lesen darf. */
     val needsAudioPermission: Set<String> = emptySet(),
+    /**
+     * Schlüssel mit Nutzerdaten statt Einstellungen (Abos, Warteschlange, Server-Auswahl): Sie werden mit dem hiesigen Wert
+     * zusammengeführt statt ersetzt; fehlen sie in der Sicherung, bleiben sie.
+     */
+    val merged: Map<String, SettingsMerge> = emptyMap(),
 )
+
+/** Wie ein Schlüssel mit Nutzerdaten beim Einspielen zusammengeführt wird ([BackedUpSettings.merged]). */
+fun interface SettingsMerge {
+    /**
+     * Der neue Wert aus dem hiesigen [current] (`null`: keiner) und dem gesicherten [saved] (gleicher Typ); [ids] schreibt Kennungen
+     * von Servern und Abos der Sicherung auf die hiesigen um ([UserDataBackup.import]).
+     */
+    fun merge(current: Any?, saved: Any, ids: Map<String, String>): Any
+
+    companion object {
+        /** Menge: die hiesigen und die gesicherten Einträge. */
+        val UNION = SettingsMerge { current, saved, _ -> current.asStrings() + saved.asStrings() }
+
+        /** Menge von Server-Kennungen: die hiesigen und die gesicherten, umgeschrieben auf die hiesigen Kennungen. */
+        val UNION_IDS = SettingsMerge { current, saved, ids -> current.asStrings() + saved.asStrings().map { ids[it] ?: it } }
+
+        /** Merker dieses Geräts: Der hiesige bleibt; gibt es keinen, gilt der gesicherte. */
+        val KEEP = SettingsMerge { current, saved, _ -> current ?: saved }
+
+        @Suppress("UNCHECKED_CAST")
+        private fun Any?.asStrings(): Set<String> = (this as? Set<String>).orEmpty()
+    }
+}
 
 /** Ausgang von [SettingsBackup.write]. */
 data class SettingsRestore(
@@ -68,8 +98,11 @@ class SettingsBackup @Inject constructor(
         settings.sortedBy { it.name }.forEach { put(it.name, it.store.data.first().toJson()) }
     }
 
-    /** Ersetzt den Inhalt jedes DataStores, den [json] enthält; die übrigen bleiben, wie sie sind. */
-    suspend fun write(json: JSONObject): SettingsRestore {
+    /**
+     * Ersetzt den Inhalt jedes DataStores, den [json] enthält; die übrigen bleiben, wie sie sind. Nutzerdaten darin werden
+     * zusammengeführt ([BackedUpSettings.merged]); [ids]: Kennungen der Sicherung, die hier anders heißen.
+     */
+    suspend fun write(json: JSONObject, ids: Map<String, String> = emptyMap()): SettingsRestore {
         val permitted = AudioPermission.isGranted(context)
         var stores = 0
         var localSkipped = false
@@ -78,14 +111,19 @@ class SettingsBackup @Inject constructor(
             // Ohne Berechtigung bleiben die Schalter der lokalen Quellen, wie sie hier sind (Konzept 6.2).
             val keep = if (permitted) emptySet() else target.needsAudioPermission
             target.store.edit { preferences ->
-                preferences.asMap().keys.filter { it.name !in keep }.forEach { preferences.remove(it) }
+                val current = preferences.asMap().mapKeys { it.key.name }
+                preferences.asMap().keys.filter { it.name !in keep && it.name !in target.merged }.forEach { preferences.remove(it) }
                 saved.keys().forEach { name ->
                     val entry = saved.optJSONObject(name) ?: return@forEach
                     if (name in keep) {
                         if (entry.optBoolean(VALUE)) localSkipped = true
-                    } else {
-                        preferences.put(name, entry)
+                        return@forEach
                     }
+                    val value = valueOf(name, entry) ?: return@forEach
+                    val merge = target.merged[name]
+                    // Ein hiesiger Wert anderen Typs (ältere Fassung) wird ersetzt.
+                    val here = current[name]?.takeIf { it::class == value::class || (it is Set<*> && value is Set<*>) }
+                    preferences.set(name, merge?.merge(here, value, ids) ?: value)
                 }
             }
             stores++
@@ -118,22 +156,33 @@ class SettingsBackup @Inject constructor(
             }
         }
 
-        /** Unbekannte Typen (aus einer neueren Version) und kaputte Werte werden übergangen. */
-        fun MutablePreferences.put(name: String, entry: JSONObject) {
-            try {
-                when (entry.getString(TYPE)) {
-                    "boolean" -> this[booleanPreferencesKey(name)] = entry.getBoolean(VALUE)
-                    "int" -> this[intPreferencesKey(name)] = entry.getInt(VALUE)
-                    "long" -> this[longPreferencesKey(name)] = entry.getLong(VALUE)
-                    "float" -> this[floatPreferencesKey(name)] = entry.getDouble(VALUE).toFloat()
-                    "double" -> this[doublePreferencesKey(name)] = entry.getDouble(VALUE)
-                    "string" -> this[stringPreferencesKey(name)] = entry.getString(VALUE)
-                    "stringSet" -> this[stringSetPreferencesKey(name)] =
-                        entry.getJSONArray(VALUE).let { array -> (0 until array.length()).map(array::getString).toSet() }
-                    else -> Log.w(TAG, "Einstellung $name mit unbekanntem Typ übergangen")
-                }
-            } catch (e: JSONException) {
-                Log.w(TAG, "Einstellung $name übergangen", e)
+        /** Der gesicherte Wert; `null` bei unbekanntem Typ (aus einer neueren Version) oder kaputtem Wert. */
+        fun valueOf(name: String, entry: JSONObject): Any? = try {
+            when (entry.getString(TYPE)) {
+                "boolean" -> entry.getBoolean(VALUE)
+                "int" -> entry.getInt(VALUE)
+                "long" -> entry.getLong(VALUE)
+                "float" -> entry.getDouble(VALUE).toFloat()
+                "double" -> entry.getDouble(VALUE)
+                "string" -> entry.getString(VALUE)
+                "stringSet" -> entry.getJSONArray(VALUE).let { array -> (0 until array.length()).map(array::getString).toSet() }
+                else -> null.also { Log.w(TAG, "Einstellung $name mit unbekanntem Typ übergangen") }
+            }
+        } catch (e: JSONException) {
+            Log.w(TAG, "Einstellung $name übergangen", e)
+            null
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        fun MutablePreferences.set(name: String, value: Any) {
+            when (value) {
+                is Boolean -> this[booleanPreferencesKey(name)] = value
+                is Int -> this[intPreferencesKey(name)] = value
+                is Long -> this[longPreferencesKey(name)] = value
+                is Float -> this[floatPreferencesKey(name)] = value
+                is Double -> this[doublePreferencesKey(name)] = value
+                is String -> this[stringPreferencesKey(name)] = value
+                is Set<*> -> this[stringSetPreferencesKey(name)] = value as Set<String>
             }
         }
     }
@@ -146,9 +195,11 @@ internal object SettingsBackupModule {
     @ElementsIntoSet
     fun provideDataSettings(@ApplicationContext context: Context): Set<BackedUpSettings> = setOf(
         BackedUpSettings("library_settings", context.librarySettingsDataStore, setOf(KEY_LOCAL_MEDIA.name)),
-        BackedUpSettings("spoken_settings", context.spokenSettingsDataStore, setOf(KEY_LOCAL_BOOKS.name, KEY_LOCAL_PODCASTS.name)),
+        BackedUpSettings(
+            "spoken_settings", context.spokenSettingsDataStore, setOf(KEY_LOCAL_BOOKS.name, KEY_LOCAL_PODCASTS.name), SPOKEN_SETTINGS_MERGES,
+        ),
         BackedUpSettings("podcast_settings", context.podcastSettingsDataStore),
-        BackedUpSettings("episode_queue", context.episodeQueueDataStore),
+        BackedUpSettings("episode_queue", context.episodeQueueDataStore, merged = EpisodeQueue.BACKUP_MERGES),
         BackedUpSettings("sync_settings", context.syncSettingsDataStore),
         BackedUpSettings("artwork_settings", context.artworkSettingsDataStore),
         BackedUpSettings("lyrics_settings", context.lyricsSettingsDataStore),
