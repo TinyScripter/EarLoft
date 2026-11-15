@@ -1105,13 +1105,33 @@ class PodcastRepositoryTest {
     }
 
     @Test
-    fun `a new file address starts the download over`() = runTest {
+    fun `a new file address of the same episode keeps its download and only the address changes`() = runTest {
         val feedId = subscribe()
         val a = idOf(feedId, "A")
         val dao = db.podcastDao()
         dao.queueDownload(a)
         dao.markDownloadRunning(a)
         dao.markDownloadDone(a, "/files/old.mp3", 1)
+        // Etwa ein Token, der sich bei jedem Abruf ändert.
+        served = served!!.replace("https://example.com/A.mp3", "https://example.com/A.mp3?token=2")
+
+        repository.refresh(feedId)
+
+        val track = dao.trackOf(a)!!
+        assertEquals("https://example.com/A.mp3?token=2", track.remoteFileId)
+        assertEquals(TrackDownload.DONE, track.downloadState)
+        assertEquals("/files/old.mp3", track.filePath)
+        assertEquals(1, track.fileSize)
+    }
+
+    @Test
+    fun `a failed download starts over with a new file address`() = runTest {
+        val feedId = subscribe()
+        val a = idOf(feedId, "A")
+        val dao = db.podcastDao()
+        dao.queueDownload(a)
+        dao.markDownloadRunning(a)
+        dao.markDownloadFailed(a)
         served = served!!.replace("https://example.com/A.mp3", "https://example.com/A-new.mp3")
 
         repository.refresh(feedId)
@@ -1119,7 +1139,6 @@ class PodcastRepositoryTest {
         val track = dao.trackOf(a)!!
         assertEquals("https://example.com/A-new.mp3", track.remoteFileId)
         assertEquals(TrackDownload.NONE, track.downloadState)
-        assertEquals(null, track.filePath)
     }
 
     @Test

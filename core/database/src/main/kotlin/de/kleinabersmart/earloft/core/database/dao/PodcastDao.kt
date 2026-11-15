@@ -253,17 +253,25 @@ abstract class PodcastDao {
     abstract suspend fun setRemoteId(bookId: Long, remoteId: String)
 
     /**
-     * Die Audiodatei einer Folge (genau ein Titel); Kapitel bleiben unberührt. Bleibt die Adresse gleich, behalten
-     * Download-Zustand und Datei ihren Stand; bei einer neuen Adresse fängt der Download von vorn an.
+     * Die Audiodatei einer Folge (genau ein Titel); Kapitel bleiben unberührt. Download-Zustand und Datei bleiben, auch bei
+     * einer neuen Adresse: Es ist dieselbe Folge (gleiche guid), und viele Feeds wechseln die Adresse ohne neuen Inhalt
+     * (Token in der Adresse, signierte Adressen, neuer Tracking-Präfix). Sonst verschwand ein geladener Download bei jedem
+     * solchen Abgleich, und die Automatik lud ihn neu (Review D4). Nur ein gescheiterter fängt mit der neuen Adresse von
+     * vorn an.
      */
     @Transaction
     open suspend fun setTrack(track: BookTrackEntity) {
         val old = trackOf(track.bookId)
-        if (old != null && old.remoteFileId == track.remoteFileId) {
-            updateTrackMeta(track.bookId, track.durationMs, track.mimeType)
-        } else {
-            deleteTracks(track.bookId)
-            insertTracks(listOf(track))
+        when {
+            old == null -> insertTracks(listOf(track))
+            old.remoteFileId != track.remoteFileId && old.downloadState == TrackDownload.FAILED -> {
+                deleteTracks(track.bookId)
+                insertTracks(listOf(track))
+            }
+            else -> {
+                if (old.remoteFileId != track.remoteFileId) moveTrack(track.bookId, track.remoteFileId)
+                updateTrackMeta(track.bookId, track.durationMs, track.mimeType)
+            }
         }
     }
 
