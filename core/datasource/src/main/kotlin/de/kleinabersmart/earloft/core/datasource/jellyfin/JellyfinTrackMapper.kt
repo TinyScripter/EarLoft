@@ -109,9 +109,15 @@ internal object JellyfinTrackMapper {
     fun playlistInfo(remoteId: String, name: String, itemIds: List<String>): RemotePlaylistInfo =
         RemotePlaylistInfo(remoteId = remoteId, name = name, changedAt = hash(name + "\u0000" + itemIds.joinToString(",")))
 
-    /** Synchronisiert, wenn der Server es so kennzeichnet und Zeitstempel da sind; sonst als Text. */
+    /**
+     * Synchronisiert, wenn der Server es so kennzeichnet und Zeitstempel da sind; sonst als Text. Ein Offset des
+     * Servers (aus `[offset:]`) verschiebt wie bei LRC und Subsonic alle Zeilen: positiv = früher.
+     */
     fun lyrics(dto: JfLyrics): Lyrics {
-        val timed = dto.lyrics.mapNotNull { line -> line.start?.let { LyricLine(it / TICKS_PER_MS, line.text) } }
+        val offsetMs = (dto.metadata?.offset ?: 0L) / TICKS_PER_MS
+        val timed = dto.lyrics.mapNotNull { line ->
+            line.start?.let { LyricLine((it / TICKS_PER_MS - offsetMs).coerceAtLeast(0), line.text) }
+        }
         if (dto.metadata?.isSynced != false && timed.size == dto.lyrics.size && timed.any { it.text.isNotBlank() }) {
             return Lyrics.Synced(timed.sortedBy { it.startMs })
         }

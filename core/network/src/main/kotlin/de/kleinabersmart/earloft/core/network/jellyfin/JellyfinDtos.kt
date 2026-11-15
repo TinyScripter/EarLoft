@@ -157,6 +157,8 @@ data class JfLyrics(
 @Serializable
 data class JfLyricMetadata(
     @SerialName("IsSynced") val isSynced: Boolean? = null,
+    /** Ticks (100 ns), um die der Text gegenüber dem Ton verschoben ist (wie `[offset:]` in LRC, positiv = früher). */
+    @SerialName("Offset") val offset: Long? = null,
 )
 
 @Serializable

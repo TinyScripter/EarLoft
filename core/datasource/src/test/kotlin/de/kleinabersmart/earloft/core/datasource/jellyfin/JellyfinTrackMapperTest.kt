@@ -152,6 +152,20 @@ class JellyfinTrackMapperTest {
     }
 
     @Test
+    fun `lyrics are shifted by the offset of the server`() {
+        val lines = listOf(JfLyricLine("Eins", 5_000_000), JfLyricLine("Zwei", 20_000_000))
+
+        assertEquals(
+            Lyrics.Synced(listOf(LyricLine(0, "Eins"), LyricLine(1_500, "Zwei"))),
+            JellyfinTrackMapper.lyrics(JfLyrics(JfLyricMetadata(isSynced = true, offset = 5_000_000), lines)),
+        )
+        assertEquals(
+            Lyrics.Synced(listOf(LyricLine(750, "Eins"), LyricLine(2_250, "Zwei"))),
+            JellyfinTrackMapper.lyrics(JfLyrics(JfLyricMetadata(isSynced = true, offset = -2_500_000), lines)),
+        )
+    }
+
+    @Test
     fun `playlist change marker follows name and entries`() {
         val base = JellyfinTrackMapper.playlistInfo("p1", "Sommer", listOf("a", "b"))
 
