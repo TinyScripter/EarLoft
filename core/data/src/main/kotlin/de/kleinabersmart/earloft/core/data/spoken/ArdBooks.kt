@@ -45,6 +45,7 @@ class ArdBooks @Inject constructor(
     private val api: ArdSoundsBooks,
     private val settings: SpokenSettings,
     private val covers: BookCovers,
+    private val keyMoves: BookKeyMoves,
 ) {
     private val mutex = Mutex()
 
@@ -146,24 +147,36 @@ class ArdBooks @Inject constructor(
             try {
                 // Ordnet ARD Sounds die Titel anders zu, heißt das Buch jetzt anders; es behält dabei alles.
                 val book = fetch(existing.remoteId) { dao.tracks(existing.bookId).mapNotNull { it.remoteItemId } }
-                mutex.withLock {
+                val moved = mutex.withLock {
                     // Inzwischen entfernt: nicht wieder anlegen.
-                    val current = dao.book(existing.bookId) ?: return@withLock
+                    val current = dao.book(existing.bookId) ?: return@withLock null
                     // Ein Buch, das noch nicht abgelaufen sein sollte, gilt erst nach einer zweiten leeren Antwort als weg.
                     val gone = book == null && (current.isExpired(now) || confirmMissing(current.remoteId, missing, now))
                     // Wieder da oder jetzt weg: Der Vermerk der ersten leeren Antwort hat ausgedient.
                     if ((book != null || gone) && current.remoteId in missing) settings.setArdMissing(current.remoteId, null)
-                    when {
-                        book == null -> if (gone) markGone(current)
+                    val moved = when {
+                        book == null -> {
+                            if (gone) markGone(current)
+                            null
+                        }
                         // Unter dem neuen Schlüssel steht es schon in der Bibliothek: dieses bleibt, wie es ist.
-                        book.key != current.remoteId && dao.bookByRemote(ARD_BOOK_SERVER_ID, book.key) != null ->
+                        book.key != current.remoteId && dao.bookByRemote(ARD_BOOK_SERVER_ID, book.key) != null -> {
                             Log.i(TAG, "${current.title} gibt es bei ARD Sounds jetzt als ${book.key}, das schon in der Bibliothek ist")
-                        else -> store(book, current)
+                            null
+                        }
+                        else -> {
+                            store(book, current)
+                            (current.remoteId to book.key).takeIf { book.key != current.remoteId }
+                        }
                     }
                     // Abgelaufen, auch nach dem Abgleich: Eine Woche lang nicht wieder fragen.
                     val expired = dao.book(existing.bookId)?.isExpired(System.currentTimeMillis()) == true
                     if (expired) settings.setArdGoneCheck(existing.remoteId, now) else if (existing.remoteId in checked) settings.setArdGoneCheck(existing.remoteId, null)
+                    moved
                 }
+                // Außerhalb des Locks: Das Mitziehen nimmt den der Sicherung, und die ruft ihrerseits [restore] auf.
+                // Statistik, Warteschlange und Sicherung kennen das Buch nur unter seinem Schlüssel.
+                moved?.let { keyMoves.moved(ARD_BOOK_SERVER_ID, mapOf(it)) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {

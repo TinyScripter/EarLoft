@@ -44,6 +44,7 @@ class ArdBooksTest {
     private lateinit var server: MockWebServer
     private lateinit var settings: SpokenSettings
     private lateinit var ardBooks: ArdBooks
+    private val moves = mutableListOf<Pair<String, Map<String, String>>>()
 
     @Before
     fun setUp() = runTest {
@@ -61,7 +62,9 @@ class ArdBooksTest {
         val covers = BookCovers(context, dao, db.podcastDao(), testAudiobookshelfServers(dao, secrets, api), api, PodcastFeedApi(client), LocalBookScanner(context))
         settings = SpokenSettings(context)
         settings.setArdSoundsBooks(true)
-        ardBooks = ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(client, server.url("/graphql"))), settings, covers)
+        ardBooks = ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(client, server.url("/graphql"))), settings, covers) { serverId, renames ->
+            moves += serverId to renames
+        }
     }
 
     @After
@@ -375,6 +378,8 @@ class ArdBooksTest {
         assertEquals(listOf("https://a.example/1.mp3", "https://a.example/2.mp3", "https://a.example/3.mp3"), dao.tracks(bookId).map { it.remoteFileId })
         assertTrue(settings.ardMissing().isEmpty())
         assertEquals(1, dao.booksOf(ARD_BOOK_SERVER_ID).size)
+        // Warteschlange, Statistik und Sicherung ziehen mit.
+        assertEquals(listOf(ARD_BOOK_SERVER_ID to mapOf(KEY to "group:$MOVED")), moves)
     }
 
     @Test

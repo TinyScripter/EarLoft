@@ -22,4 +22,7 @@ internal interface BookKeyRenamerModule {
     @Binds
     @IntoSet
     fun episodeQueue(queue: EpisodeQueue): BookKeyRenamer
+
+    @Binds
+    fun keyMoves(follower: BookKeyFollower): BookKeyMoves
 }

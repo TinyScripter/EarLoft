@@ -117,7 +117,7 @@ class ArdBookUploaderTest {
         syncer = BookSyncer(
             dao, servers, api, progressSync, bookmarks,
             LocalBooks(dao, scanner, settings, covers),
-            ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(client)), settings, covers),
+            ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(client)), settings, covers, { _, _ -> }),
         )
         uploader = ArdBookUploader(context, dao, servers, api, syncer, covers, progressSync, bookmarks)
         audio = File(context.cacheDir, "teil.mp3").apply { writeBytes(ByteArray(2048) { it.toByte() }) }

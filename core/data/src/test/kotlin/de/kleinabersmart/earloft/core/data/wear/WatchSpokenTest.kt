@@ -72,7 +72,7 @@ class WatchSpokenTest {
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
         val syncer = BookSyncer(dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, SpokenSettings(context), covers),
-            ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), SpokenSettings(context), covers))
+            ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), SpokenSettings(context), covers, { _, _ -> }))
         val podcasts = PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db))
         spoken = WatchSpoken(db, db.wearDao(), db.podcastDao(), dao, podcasts, syncer, progressSync)
         db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast", imageUrl = "https://example.org/bild.jpg"))

@@ -23,5 +23,5 @@ fun testArdBooks(context: Context, db: EarLoftDatabase, graphql: HttpUrl, settin
     val covers = BookCovers(
         context, db.bookDao(), db.podcastDao(), testAudiobookshelfServers(db.bookDao(), secrets, api), api, PodcastFeedApi(client), LocalBookScanner(context),
     )
-    return ArdBooks(db.bookDao(), ArdSoundsBooks(ArdSoundsApi(client, graphql)), settings, covers)
+    return ArdBooks(db.bookDao(), ArdSoundsBooks(ArdSoundsApi(client, graphql)), settings, covers, { _, _ -> })
 }
