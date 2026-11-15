@@ -28,11 +28,19 @@ fun List<BookWithProgress>.narratorGroups(): List<BookGroup> = peopleGroups { pa
 /** Nach Genre wie [authorGroups]; ein Buch mehrerer Genres steht bei jedem. */
 fun List<BookWithProgress>.genreGroups(): List<BookGroup> = peopleGroups { it.genres }
 
+/** Sortierschlüssel wie `normTitle` der Bücher: ohne Artikel „The“, Groß-/Kleinschreibung, Umlaute und Satzzeichen. */
+private fun String.sortOrder(): String = sortKey().normalizeForMerge()
+
+/** Hinter allem, was einen Schlüssel hat (Bücher ohne Autor bzw. Serie). */
+private const val LAST = "￿"
+
+private class AuthorOrder(val author: String, val series: String, val sequence: Double, val item: BookWithProgress)
+
 private fun List<BookWithProgress>.peopleGroups(names: (Book) -> List<String>): List<BookGroup> =
     flatMap { item -> names(item.book).map { it to item } }
         .groupBy({ it.first }, { it.second })
-        .map { (name, books) -> BookGroup(name, books.sortedBy { it.book.title.sortKey() }) }
-        .sortedBy { it.name.sortKey() }
+        .map { (name, books) -> BookGroup(name, books.sortedBy { it.book.title.sortOrder() }) }
+        .sortedBy { it.name.sortOrder() }
 
 /**
  * Suchtreffer für Autoren bzw. Sprecher aus Büchern, deren Eintrag zu [query] passt ([rows]: `bookId` und der ganze
@@ -44,7 +52,7 @@ internal fun peopleHits(rows: List<Pair<Long, String>>, query: String, limit: In
         .filter { (name, _) -> name.normalizeForMerge().contains(needle) }
         .groupBy({ it.first }, { it.second })
         .map { (name, bookIds) -> AuthorHit(name, bookIds.min(), bookIds.distinct().size) }
-        .sortedBy { it.name.sortKey() }
+        .sortedBy { it.name.sortOrder() }
         .take(limit)
 }
 
@@ -71,11 +79,15 @@ fun List<BookWithProgress>.sortedAndFiltered(
     }
     return when (sort) {
         BookSort.TITLE -> shown
-        BookSort.AUTHOR -> shown.sortedWith(
-            compareBy<BookWithProgress> { bookAuthors(it.book.author).firstOrNull()?.sortKey() ?: "￿" }
-                .thenBy { parseSeries(it.book.series).firstOrNull()?.name?.sortKey() ?: "￿" }
-                .thenBy { parseSeries(it.book.series).firstOrNull()?.sequence ?: Double.MAX_VALUE },
-        )
+        BookSort.AUTHOR -> shown.map { item ->
+            val series = parseSeries(item.book.series).firstOrNull()
+            AuthorOrder(
+                author = bookAuthors(item.book.author).firstOrNull()?.sortOrder() ?: LAST,
+                series = series?.name?.sortOrder() ?: LAST,
+                sequence = series?.sequence ?: Double.MAX_VALUE,
+                item = item,
+            )
+        }.sortedWith(compareBy({ it.author }, { it.series }, { it.sequence })).map { it.item }
         BookSort.RECENTLY_ADDED -> shown.sortedByDescending { it.book.addedAt }
         BookSort.RECENTLY_PLAYED -> shown.sortedByDescending { it.progress?.updatedAt ?: Long.MIN_VALUE }
         BookSort.DURATION -> shown.sortedByDescending { it.book.durationMs }
@@ -111,9 +123,9 @@ fun List<BookWithProgress>.seriesSections(): List<SeriesSection> {
     val series = filter { first[it] != null }
         .groupBy { first.getValue(it)!!.name }
         .map { (name, books) ->
-            SeriesSection(name, books.sortedWith(compareBy({ first[it]?.sequence ?: Double.MAX_VALUE }, { it.book.title.sortKey() })))
+            SeriesSection(name, books.sortedWith(compareBy({ first[it]?.sequence ?: Double.MAX_VALUE }, { it.book.title.sortOrder() })))
         }
-        .sortedBy { it.series!!.sortKey() }
+        .sortedBy { it.series!!.sortOrder() }
     val rest = filter { first[it] == null }
     return if (rest.isEmpty()) series else series + SeriesSection(null, rest)
 }
@@ -123,7 +135,7 @@ fun List<BookWithProgress>.seriesGroups(): List<BookGroup> =
     flatMap { item -> parseSeries(item.book.series).map { Triple(it.name, it.sequence, item) } }
         .groupBy { it.first }
         .map { (name, entries) ->
-            val sorted = entries.sortedWith(compareBy({ it.second ?: Double.MAX_VALUE }, { it.third.book.title.sortKey() }))
+            val sorted = entries.sortedWith(compareBy({ it.second ?: Double.MAX_VALUE }, { it.third.book.title.sortOrder() }))
             BookGroup(name, sorted.map { it.third })
         }
-        .sortedBy { it.name.sortKey() }
+        .sortedBy { it.name.sortOrder() }

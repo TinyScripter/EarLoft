@@ -78,6 +78,26 @@ class BookListsTest {
     }
 
     @Test
+    fun `sorts authors and author groups regardless of case and umlauts`() {
+        val mixed = listOf(
+            book(1, "Z", "Stefan Zweig"),
+            book(2, "B", "honoré de Balzac"),
+            book(3, "O", "Ödön von Horváth"),
+            book(4, "A", "Anna Alt"),
+            book(5, "N", ""),
+        )
+
+        assertEquals(
+            listOf(4L, 2L, 3L, 1L, 5L),
+            mixed.sortedAndFiltered(BookSort.AUTHOR, BookFilter.ALL, emptySet()).map { it.book.id },
+        )
+        assertEquals(
+            listOf("Anna Alt", "honoré de Balzac", "Ödön von Horváth", "Stefan Zweig"),
+            mixed.authorGroups().map { it.name },
+        )
+    }
+
+    @Test
     fun `filters by progress and by what is on the device`() {
         assertEquals(listOf(1L, 4L), ids(BookSort.TITLE, BookFilter.NOT_STARTED))
         assertEquals(listOf(2L), ids(BookSort.TITLE, BookFilter.STARTED))
