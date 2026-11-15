@@ -218,6 +218,34 @@ class SleepTimerTest {
     }
 
     @Test
+    fun `pausiert kurz vor dem Kapitelende hilft Schuetteln nicht und der Sensor ruht`() {
+        target.position = 20_000
+        timer.startToEnd()
+        advance(5_000)
+        assertTrue(timer.shakeWindow.value)
+        target.pause()
+        advance(1_000)
+        assertFalse(timer.shakeWindow.value)
+        assertFalse(timer.extend())
+        assertEquals(0L, target.rewound)
+        // Wieder abgespielt: Das Fenster ist wieder offen.
+        target.play()
+        advance(1_000)
+        assertTrue(timer.shakeWindow.value)
+    }
+
+    @Test
+    fun `Schuetteln vor dem Ausblenden spult nicht zurueck`() {
+        target.position = 100_000
+        timer.start(5 * 60_000L)
+        advance(5 * 60_000L - 40_000)
+        assertEquals(1f, target.volume, 0f)
+        assertTrue(timer.extend())
+        assertEquals(0L, target.rewound)
+        assertEquals(100_000L + 5 * 60_000L - 40_000, target.position)
+    }
+
+    @Test
     fun `Schuetteln beim Ausblenden setzt die Dauer neu und spult das Leise zurueck`() {
         target.position = 100_000
         timer.start(5 * 60_000L)

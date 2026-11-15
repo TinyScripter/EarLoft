@@ -73,8 +73,8 @@ data class SleepTimerState(val remainingMs: Long, val toEnd: Boolean)
  * „Bis zum Ende“ rechnet die Restzeit bei jedem Schritt aus der Position neu: Tempowechsel zählen sofort, und wer in ein
  * anderes Kapitel spult, schläft an dessen Ende ein. Solange pausiert ist, wird nicht ausgeblendet.
  *
- * Schütteln ([extend]) verlängert in den letzten [SHAKE_WINDOW_MS] und bis [SHAKE_AFTER_MS] nach dem Anhalten
- * ([shakeWindow]): um die zuletzt gewählte Dauer bzw. bis zum Ende des nächsten Kapitels.
+ * Schütteln ([extend]) verlängert in den letzten [SHAKE_WINDOW_MS], solange abgespielt wird, und bis [SHAKE_AFTER_MS]
+ * nach dem Anhalten ([shakeWindow]): um die zuletzt gewählte Dauer bzw. bis zum Ende des nächsten Kapitels.
  *
  * Alle Methoden gehören auf den Main-Thread.
  */
@@ -154,7 +154,13 @@ class SleepTimer internal constructor(
         if (!_shakeWindow.value) return false
         val plan = plan ?: return false
         val fired = firedAt != null
-        val heard = if (fired) FADE_MS else (FADE_MS - (_state.value?.remainingMs ?: FADE_MS)).coerceAtLeast(0)
+        // Zurückgespult wird nur, was wirklich leiser lief (pausiert blendet „bis zum Ende“ nicht aus).
+        val faded = target.volume < 1f
+        val heard = when {
+            fired -> FADE_MS
+            faded -> (FADE_MS - (_state.value?.remainingMs ?: FADE_MS)).coerceAtLeast(0)
+            else -> 0L
+        }
         if (heard > 0) target.rewind(heard)
         val next = when (plan) {
             is Plan.Duration -> null
@@ -198,7 +204,8 @@ class SleepTimer internal constructor(
             }
             if (remaining <= plan.slackMs) break
             _state.value = SleepTimerState(remaining, toEnd = plan is Plan.ToEnd)
-            _shakeWindow.value = remaining <= SHAKE_WINDOW_MS
+            // Nur während der Wiedergabe: Pausiert bräuchte der Sensor nur Akku, und jede Bewegung spulte zurück.
+            _shakeWindow.value = remaining <= SHAKE_WINDOW_MS && target.isPlaying
             // Pausiert läuft „bis zum Ende“ nicht weiter; ausgeblendet wird erst, wenn es wieder läuft.
             val fading = remaining <= FADE_MS && (plan is Plan.Duration || target.isPlaying)
             if (fading) {
