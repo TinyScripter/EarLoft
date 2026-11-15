@@ -26,6 +26,15 @@ class PeopleTest {
     }
 
     @Test
+    fun `more roles are known, but a surname alone is no role`() {
+        listOf("Max Muster (Hrsg.)", "Max Muster - Hg.", "Max Muster - Nachwort", "Max Muster [Einleitung]", "translated by Max Muster")
+            .forEach { assertTrue(it, hasContributorRole(it)) }
+        listOf("Hans Sprecher", "Edith Editor", "Jean-Paul Sartre", "Hans Muster (Pseudonym)")
+            .forEach { assertFalse(it, hasContributorRole(it)) }
+        assertEquals(listOf("Hans Sprecher"), bookAuthors("Hans Sprecher, Max Muster (Hrsg.)"))
+    }
+
+    @Test
     fun `a book with only contributors keeps them`() {
         assertEquals(listOf("Anna Muster (Herausgeberin)"), bookAuthors("Anna Muster (Herausgeberin)"))
         assertEquals(emptyList<String>(), bookAuthors(""))

@@ -141,10 +141,20 @@ fun parsePeople(raw: String): List<String> =
 fun parseGenres(raw: List<String>): List<String> = raw.flatMap(::parsePeople).distinct()
 
 /**
- * Ob [name] eine Rolle nennt („Günther Frauenlob - Übersetzer“, „Ruggero Leò - translator“): Audiobookshelf führt
- * Übersetzer, Herausgeber u. Ä. als Autoren mit der Rolle im Namen.
+ * Ob [name] eine Rolle nennt („Günther Frauenlob - Übersetzer“, „Ruggero Leò - translator“, „Anna Muster (Hrsg.)“, „translated
+ * by …“): Audiobookshelf führt Übersetzer, Herausgeber u. Ä. als Autoren mit der Rolle im Namen. Geprüft wird nur, was
+ * hinter „ - “ oder in Klammern steht, damit ein Nachname wie „Sprecher“ keine Rolle ist.
  */
-fun hasContributorRole(name: String): Boolean = CONTRIBUTOR_ROLES.any { name.contains(it, ignoreCase = true) }
+fun hasContributorRole(name: String): Boolean {
+    if (ROLE_PREFIX.containsMatchIn(name.trim())) return true
+    val notes = buildList {
+        name.split(ROLE_DASH, limit = 2).getOrNull(1)?.let(::add)
+        ROLE_BRACKET.findAll(name).forEach { add(it.groupValues[1]) }
+    }
+    return notes.any { note ->
+        note.lowercase().split(NON_LETTERS).any { word -> word in CONTRIBUTOR_WORDS || CONTRIBUTOR_STEMS.any(word::startsWith) }
+    }
+}
 
 /**
  * Die Autoren, unter denen ein Buch in Bibliothek, Suche und Android Auto steht: die Namen aus [author] ohne Rolle
@@ -164,8 +174,15 @@ fun bookAuthorLine(author: String): String = bookAuthors(author).joinToString(",
 /** Autorenzeile in Listen: bei Büchern [bookAuthorLine], bei Folgen der Eintrag des Feeds unverändert. */
 val Book.authorLine: String get() = if (kind == BookKind.BOOK) bookAuthorLine(author) else author
 
-private val CONTRIBUTOR_ROLES =
-    listOf("translator", "übersetz", "narrator", "sprecher", "editor", "herausgeber", "illustrator", "foreword", "vorwort")
+private val ROLE_DASH = Regex("""\s[-–—]\s""")
+private val ROLE_BRACKET = Regex("""[(\[]([^)\]]*)[)\]]""")
+private val ROLE_PREFIX = Regex("""^(translated by|edited by|read by|narrated by|übersetzt von|herausgegeben von|gelesen von)\s""", RegexOption.IGNORE_CASE)
+private val NON_LETTERS = Regex("""[^\p{L}]+""")
+private val CONTRIBUTOR_WORDS = setOf("hrsg", "hg", "ed", "eds")
+private val CONTRIBUTOR_STEMS = listOf(
+    "translat", "übersetz", "narrat", "sprecher", "edit", "herausgeb", "illustrat", "foreword", "vorwort", "afterword", "nachwort",
+    "einleitung", "introduction",
+)
 
 data class BookChapter(
     val index: Int,
