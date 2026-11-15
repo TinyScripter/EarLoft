@@ -56,6 +56,8 @@ class EpisodeDownloadWorker(
     /** Beide Läufe melden aus dem IO-Thread ihres Downloads; [throttle] und die Benachrichtigung nur nacheinander. */
     private val report = Mutex()
 
+    private val budget by lazy { RetryBudget(runAttemptCount, MAX_ATTEMPTS) }
+
     override suspend fun doWork(): Result {
         dao.requeueRunningDownloads()
         if (dao.countPendingDownloads() == 0) return finish()
@@ -100,8 +102,7 @@ class EpisodeDownloadWorker(
         when (outcome) {
             is DownloadOutcome.Retry -> {
                 Log.w(TAG, "Folge ${next.bookId} unterbrochen (Versuch ${runAttemptCount + 1})", outcome.cause)
-                // Ein abgelehnter Zugang ändert sich durch Warten nicht.
-                if (!outcome.isAuthRejection && runAttemptCount + 1 < MAX_ATTEMPTS) {
+                if (!budget.giveUp(outcome)) {
                     dao.requeueDownload(next.bookId)
                     return false
                 }

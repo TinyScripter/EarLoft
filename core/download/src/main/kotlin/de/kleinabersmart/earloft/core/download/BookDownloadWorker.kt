@@ -39,6 +39,7 @@ class BookDownloadWorker(
         if (dao.countPendingBookDownloads() == 0) return finish()
         // Teildateien eines früheren, abgebrochenen Laufs bleiben liegen: der Downloader setzt dort fort.
         startForeground(progress = null)
+        val budget = RetryBudget(runAttemptCount, MAX_ATTEMPTS)
 
         while (true) {
             val next = dao.nextQueuedBookTrack() ?: break
@@ -60,8 +61,7 @@ class BookDownloadWorker(
             when (outcome) {
                 is DownloadOutcome.Retry -> {
                     Log.w(TAG, "Buch ${next.bookId} Datei ${next.trackIndex} unterbrochen (Versuch ${runAttemptCount + 1})", outcome.cause)
-                    // Ein abgelehnter Schlüssel ändert sich durch Warten nicht.
-                    if (!outcome.isAuthRejection && runAttemptCount + 1 < MAX_ATTEMPTS) {
+                    if (!budget.giveUp(outcome)) {
                         dao.requeueBookTrack(next.bookId, next.trackIndex)
                         return Result.retry()
                     }

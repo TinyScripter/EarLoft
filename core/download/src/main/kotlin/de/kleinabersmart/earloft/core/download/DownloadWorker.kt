@@ -22,7 +22,8 @@ import kotlinx.coroutines.CancellationException
 /**
  * Arbeitet die Download-Warteschlange nacheinander ab (Konzept 5.3) und läuft dabei als
  * Vordergrund-Worker mit Fortschrittsbenachrichtigung. Netzfehler stellen den Download zurück und
- * lassen WorkManager es mit Backoff erneut versuchen; nach [MAX_ATTEMPTS] gilt er als fehlgeschlagen.
+ * lassen WorkManager es mit Backoff erneut versuchen; nach [MAX_ATTEMPTS] gilt er als fehlgeschlagen (je Lauf höchstens einer,
+ * [RetryBudget]).
  */
 class DownloadWorker(
     context: Context,
@@ -39,6 +40,7 @@ class DownloadWorker(
         downloadDao.requeueRunning()
         if (downloadDao.countPending() == 0) return finish()
         startForeground(progress = null)
+        val budget = RetryBudget(runAttemptCount, MAX_ATTEMPTS)
 
         while (true) {
             val next = downloadDao.nextQueued() ?: break
@@ -51,7 +53,7 @@ class DownloadWorker(
                 is DownloadOutcome.Retry -> {
                     Log.w(TAG, "Download ${next.sourceUid} unterbrochen (Versuch ${runAttemptCount + 1})", outcome.cause)
                     // Abgelehnte Zugangsdaten ändern sich durch Warten nicht; sonst hielte der Song die Warteschlange auf.
-                    if (!outcome.isAuthRejection && runAttemptCount + 1 < MAX_ATTEMPTS) {
+                    if (!budget.giveUp(outcome)) {
                         downloadDao.requeue(next.sourceUid)
                         return Result.retry()
                     }
