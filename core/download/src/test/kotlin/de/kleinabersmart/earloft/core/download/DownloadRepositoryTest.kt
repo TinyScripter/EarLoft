@@ -406,6 +406,21 @@ class DownloadRepositoryTest {
     }
 
     @Test
+    fun `switching off both album rules hands favorites back and keeps the rest as manual`() = runTest {
+        val albumId = library.album("Takk")
+        val liked = library.song(albumId, "A", "home" to "a")
+        library.song(albumId, "B", "home" to "b")
+        library.db.syncDao().setSongFavorite(liked, true, 1)
+        repository.reconcileAlbumDownloads(listOf(albumId), keepFavorites = true)
+        assertEquals("auto-albums", library.db.downloadDao().get("home:a")!!.pinnedBy)
+
+        repository.reconcileAlbumDownloads(null, keepFavorites = true)
+
+        assertEquals("favorites", library.db.downloadDao().get("home:a")!!.pinnedBy)
+        assertEquals("manual", library.db.downloadDao().get("home:b")!!.pinnedBy)
+    }
+
+    @Test
     fun `automatic album downloads give way to whole servers and stay when switched off`() = runTest {
         val albumId = library.album("Takk")
         library.song(albumId, "A", "home" to "a")

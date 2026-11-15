@@ -155,10 +155,11 @@ class DownloadRepository @Inject constructor(
      * Gleicht die automatisch geladenen neuesten und meistgehörten Alben ab ([albumIds] aus [autoAlbumIds]): Ihre Songs
      * werden eingereiht, Downloads herausgefallener Alben entfernt – Favoriten gehen dabei an die Favoriten-Automatik über,
      * wenn sie eingeschaltet ist ([keepFavorites], mit [favoriteArtists] wie dort). Sind beide aus (`null`), behalten ihre
-     * Downloads (nun als manuell).
+     * Downloads (nun als manuell), nur die der Favoriten gehen auch dann an deren Automatik.
      */
     suspend fun reconcileAlbumDownloads(albumIds: List<Long>?, keepFavorites: Boolean, favoriteArtists: Boolean = false) {
         if (albumIds == null) {
+            if (keepFavorites) downloadDao.repinFavoritesOutsideAlbums(PINNED_AUTO_ALBUMS, PINNED_FAVORITES, emptyList(), favoriteArtists)
             downloadDao.repinAll(PINNED_AUTO_ALBUMS, PINNED_MANUAL)
             return
         }
