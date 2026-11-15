@@ -11,6 +11,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.backup.UserDataBackup
+import de.kleinabersmart.earloft.core.data.podcast.HEARD_UNDO_GRACE_MS
 import de.kleinabersmart.earloft.core.data.podcast.HeardDownload
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
@@ -20,8 +21,10 @@ import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -188,7 +191,14 @@ class EpisodeDownloads @Inject constructor(
         // sobald sie nicht mehr im Player liegt); abgelaufene Fristen räumt der tägliche HeardCleanupWorker auf.
         scope.launch {
             combine(dao.observeFinishedDownloads(), settings.deleteHeardAfterDays, loadedBookId, ::Triple)
-                .collect { (finished, days, loaded) -> removeExpired(finished, days, loaded) }
+                .collectLatest { (finished, days, loaded) ->
+                    removeExpired(finished, days, loaded)
+                    // „Sofort“ wartet, bis „Rückgängig“ nicht mehr geht; holt es die Folge zurück, ändert sich [finished] vorher.
+                    if (days == 0 && finished.isNotEmpty()) {
+                        delay(HEARD_UNDO_GRACE_MS)
+                        removeExpired(finished, days, loaded)
+                    }
+                }
         }
         scope.launch { HeardCleanupWorker.schedule(context) }
         scope.launch {

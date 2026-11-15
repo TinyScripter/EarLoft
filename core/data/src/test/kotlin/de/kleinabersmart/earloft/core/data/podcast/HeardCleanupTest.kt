@@ -18,7 +18,15 @@ class HeardCleanupTest {
 
     @Test
     fun `immediately takes every episode finished after its download`() {
-        assertEquals(listOf(1L, 2L), expiredHeardDownloads(listOf(heard(1, 0), heard(2, 5)), PodcastSettings.DELETE_HEARD_IMMEDIATELY, now))
+        assertEquals(listOf(1L, 2L), expiredHeardDownloads(listOf(heard(1, 1), heard(2, 5)), PodcastSettings.DELETE_HEARD_IMMEDIATELY, now))
+    }
+
+    @Test
+    fun `immediately still waits as long as undo is offered`() {
+        val justNow = HeardDownload(1, finishedAt = now - 10_000, downloadedAt = now - 10 * day)
+
+        assertEquals(emptyList<Long>(), expiredHeardDownloads(listOf(justNow), PodcastSettings.DELETE_HEARD_IMMEDIATELY, now))
+        assertEquals(listOf(1L), expiredHeardDownloads(listOf(justNow), PodcastSettings.DELETE_HEARD_IMMEDIATELY, now + HEARD_UNDO_GRACE_MS))
     }
 
     @Test
