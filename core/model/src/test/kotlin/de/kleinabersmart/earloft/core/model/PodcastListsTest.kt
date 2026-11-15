@@ -38,6 +38,15 @@ class PodcastListsTest {
     }
 
     @Test
+    fun `the downloaded filter also shows episodes from the device`() {
+        val onDevice = episode(6, feed = "local:musik")
+
+        val ids = (listOf(onDevice) + episodes).filterEpisodes(EpisodeFilter.DOWNLOADED, oldestFirst = false, downloaded = setOf(1L)).map { it.book.id }
+
+        assertEquals(listOf(6L, 1L), ids)
+    }
+
+    @Test
     fun `keeping the newest hides only older untouched episodes and counts per feed`() {
         val mixed = listOf(episode(9, "g")) + episodes + listOf(episode(8, "g"))
         val kept = mixed.keepNewest({ it.book.serverId }, { if (it == "f") 2 else 0 }) {

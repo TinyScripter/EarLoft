@@ -50,7 +50,8 @@ fun List<BookWithProgress>.filterEpisodes(filter: EpisodeFilter, oldestFirst: Bo
         EpisodeFilter.ALL -> this
         EpisodeFilter.UNHEARD -> filter { it.progress.isUnheard }
         EpisodeFilter.STARTED -> filter { it.progress.isStarted }
-        EpisodeFilter.DOWNLOADED -> filter { it.book.id in downloaded }
+        // Folgen vom Gerät liegen schon da, ohne Download (wie bei den Büchern).
+        EpisodeFilter.DOWNLOADED -> filter { it.book.isLocal || it.book.id in downloaded }
         EpisodeFilter.STARRED -> filter { it.book.starred }
     }
     return if (oldestFirst) shown.asReversed() else shown
