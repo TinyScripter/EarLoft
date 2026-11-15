@@ -176,13 +176,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         // Nur beim frischen Start: Nach einer Neuerstellung (Drehung, Prozess) steht der Intent noch an der Activity. Was die
         // Oberfläche bis dahin nicht abgeholt hat (etwa während der Frage nach der Berechtigung), kommt aus dem Zustand.
-        if (savedInstanceState == null) {
+        // Aus „Zuletzt verwendet“ stellt das System den Intent des ersten Starts wieder zu (Abspielen, Sprachsuche, geteilter
+        // Link); der Auftrag war aber schon erledigt und soll nicht noch einmal laufen.
+        if (savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0) {
             openNowPlaying = intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)
             playFromSearch(intent)
             playNewEpisode(intent)
             openSharedFeed(intent)
             openNewContent(NewContentTarget.from(intent))
-        } else {
+        } else if (savedInstanceState != null) {
             openNowPlaying = savedInstanceState.getBoolean(STATE_OPEN_NOW_PLAYING)
             sharedFeedUrl = savedInstanceState.getString(STATE_SHARED_FEED)
             newContentTarget = NewContentTarget.from(savedInstanceState.getBundle(STATE_NEW_CONTENT))
