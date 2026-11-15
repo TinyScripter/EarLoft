@@ -13,8 +13,14 @@ import de.kleinabersmart.earloft.core.database.entity.SpokenServerEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsBookmarkDto
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -35,7 +41,7 @@ class BookmarksTest {
 
     private lateinit var db: EarLoftDatabase
     private lateinit var bookmarks: Bookmarks
-    private val requests = mutableListOf<String>()
+    private val requests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
     private var offline = false
     private var bookId = 0L
     private var episodeId = 0L
@@ -142,6 +148,29 @@ class BookmarksTest {
 
         assertTrue(requests.isEmpty())
         assertTrue(db.bookDao().bookmarksOf(listOf(episodeId)).isEmpty())
+    }
+
+    @Test
+    fun `a bookmark set or deleted while the account is fetched is neither lost nor brought back`() = runTest {
+        val old = bookmarks.add(bookId, 30_000, "Alt")!!
+        // Der Stand des Servers von vor den beiden Meldungen: kennt "Alt", aber noch nicht "Neu".
+        val before = listOf(AbsBookmarkDto("item-1", 30.0, "Alt", 1_000))
+        var added: Deferred<Long?>? = null
+        var deleted: Deferred<Unit>? = null
+
+        bookmarks.pull("srv") {
+            added = async(Dispatchers.Default) { bookmarks.add(bookId, 60_000, "Neu", "Meine Notiz") }
+            deleted = async(Dispatchers.Default) { bookmarks.delete(old) }
+            // Der Abruf dauert; ohne Absprache kämen die Meldungen in dieser Zeit durch.
+            withContext(Dispatchers.Default) { withTimeoutOrNull(500) { while (requests.size < 3) delay(10) } }
+            before
+        }
+        added!!.await()
+        deleted!!.await()
+
+        val left = bookmarks.of(bookId).first()
+        assertEquals(listOf("Neu" to "Meine Notiz"), left.map { it.title to it.note })
+        assertTrue(db.bookDao().dirtyBookmarks().isEmpty())
     }
 
     @Test

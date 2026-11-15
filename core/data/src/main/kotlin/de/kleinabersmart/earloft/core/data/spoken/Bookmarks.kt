@@ -21,11 +21,13 @@ import javax.inject.Singleton
 import kotlin.math.roundToLong
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Lesezeichen in Büchern und Folgen (Konzept 12.6): lokal sofort, bei Büchern eines Audiobookshelf-Servers auch dort –
  * gemeldet wie der Fortschritt, offline nachgeholt von [BookProgressWorker], übernommen beim Abgleich
- * ([BookProgressSync.pullAll] → [applyRemote]). Folgen und Bücher vom Gerät bleiben auf dem Gerät. Audiobookshelf kennt
+ * ([BookProgressSync.pullAll] → [pull]). Folgen und Bücher vom Gerät bleiben auf dem Gerät. Audiobookshelf kennt
  * keine Notizen; sie bleiben lokal.
  */
 @Singleton
@@ -36,6 +38,13 @@ class Bookmarks @Inject constructor(
     private val api: AbsApi,
     private val policy: PlaybackPolicy,
 ) {
+    /**
+     * Meldungen ([push]) und Übernahme ([pull]) laufen nacheinander: Sonst arbeitete die Übernahme mit einem Stand des Servers
+     * von vor einer gleichzeitigen Meldung, löschte ein gerade gemeldetes Lesezeichen (samt Notiz) bzw. holte ein gerade
+     * gelöschtes zurück.
+     */
+    private val serverMutex = Mutex()
+
     fun of(bookId: Long): Flow<List<Bookmark>> = dao.observeBookmarks(bookId).map { list -> list.map { it.toModel() } }
 
     /** Alle Lesezeichen, neueste zuerst. */
@@ -89,7 +98,9 @@ class Bookmarks @Inject constructor(
     }
 
     /** `true`, wenn nichts mehr aussteht. */
-    suspend fun push(bookmarkId: Long): Boolean {
+    suspend fun push(bookmarkId: Long): Boolean = serverMutex.withLock { pushLocked(bookmarkId) }
+
+    private suspend fun pushLocked(bookmarkId: Long): Boolean {
         val bookmark = dao.bookmark(bookmarkId) ?: return true
         if (!bookmark.dirty) return true
         // Uhr: keine Verbindung zu Audiobookshelf (Wear-Konzept 16.2).
@@ -127,11 +138,19 @@ class Bookmarks @Inject constructor(
     suspend fun pushPending(): Boolean = dao.dirtyBookmarks().map { push(it.bookmarkId) }.all { it }
 
     /**
-     * Übernimmt die Lesezeichen des Kontos ([remote] aus `/api/me`) für die Bücher von [serverId]: neue kommen hinzu,
-     * Titel gleichen sich an, und was der Server nicht mehr kennt, fällt weg – außer es hat hier noch ungemeldete
-     * Änderungen. Lesezeichen von Büchern, die es hier (noch) nicht gibt, bleiben außen vor.
+     * Holt die Lesezeichen des Kontos mit [fetch] (aus `/api/me`) und übernimmt sie für die Bücher von [serverId]: neue kommen
+     * hinzu, Titel gleichen sich an, und was der Server nicht mehr kennt, fällt weg – außer es hat hier noch ungemeldete
+     * Änderungen. Lesezeichen von Büchern, die es hier (noch) nicht gibt, bleiben außen vor. Abruf und Übernahme laufen nicht
+     * gleichzeitig mit einer Meldung ([serverMutex]); [fetch] darf deshalb selbst keine Lesezeichen melden.
      */
-    suspend fun applyRemote(serverId: String, remote: List<AbsBookmarkDto>) {
+    suspend fun pull(serverId: String, fetch: suspend () -> List<AbsBookmarkDto>) = serverMutex.withLock {
+        applyRemoteLocked(serverId, fetch())
+    }
+
+    /** Wie [pull] mit einem schon geholten Stand. */
+    suspend fun applyRemote(serverId: String, remote: List<AbsBookmarkDto>) = pull(serverId) { remote }
+
+    private suspend fun applyRemoteLocked(serverId: String, remote: List<AbsBookmarkDto>) {
         val books = dao.booksOf(serverId).filter { it.kind == BookKind.BOOK }
         if (books.isEmpty()) return
         val byRemoteId = books.associateBy { it.remoteId }

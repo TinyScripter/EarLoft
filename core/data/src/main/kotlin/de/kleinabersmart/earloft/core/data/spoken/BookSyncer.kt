@@ -110,7 +110,7 @@ class BookSyncer @Inject constructor(
         // Neu gelesen: Schalter und Auswahl können sich während des Abgleichs geändert haben.
         val current = dao.server(server.serverId) ?: entity
         dao.upsertServer(current.copy(libraryId = shown.first().id, syncGeneration = generation, lastFullSyncAt = System.currentTimeMillis()))
-        bookmarks.applyRemote(server.serverId, progressSync.pullAll(server).bookmarks)
+        bookmarks.pull(server.serverId) { progressSync.pullAll(server).bookmarks }
         syncAuthors(server, shown.map { it.id })
         loadMissingDetails(server)
         if (fresh.isEmpty()) emptyList()

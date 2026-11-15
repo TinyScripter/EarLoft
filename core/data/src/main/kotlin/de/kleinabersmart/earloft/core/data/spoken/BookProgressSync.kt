@@ -141,7 +141,7 @@ class BookProgressSync @Inject constructor(
 
     /**
      * Fortschritt des ganzen Kontos übernehmen, wo der Server neuer ist (beim Vollabgleich). Liefert die Antwort, damit
-     * die Lesezeichen aus demselben Abruf übernommen werden können ([Bookmarks.applyRemote]).
+     * die Lesezeichen aus demselben Abruf übernommen werden können ([Bookmarks.pull]).
      */
     suspend fun pullAll(server: AbsServer): AbsMeResponse {
         val me = api.me(server)

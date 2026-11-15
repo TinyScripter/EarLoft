@@ -120,7 +120,7 @@ class SpokenRefresher @Inject constructor(
                     return@forEach
                 }
                 try {
-                    bookmarks.applyRemote(server.serverId, progressSync.pullAll(server).bookmarks)
+                    bookmarks.pull(server.serverId) { progressSync.pullAll(server).bookmarks }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: IOException) {
