@@ -75,7 +75,7 @@ class BookRepository @Inject constructor(
     suspend fun touchProgress(bookId: Long, startPositionMs: Long, durationMs: Long) {
         val old = dao.progress(bookId)
         dao.upsertProgress(
-            old?.copy(positionMs = startPositionMs, finished = false, updatedAt = System.currentTimeMillis(), hidden = false)
+            old?.copy(positionMs = startPositionMs, finished = false, finishedAt = null, updatedAt = System.currentTimeMillis(), hidden = false)
                 ?: BookProgressEntity(bookId, startPositionMs, durationMs, finished = false, updatedAt = System.currentTimeMillis()),
         )
     }

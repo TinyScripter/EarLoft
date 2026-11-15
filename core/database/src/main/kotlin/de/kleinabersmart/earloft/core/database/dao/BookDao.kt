@@ -386,12 +386,15 @@ abstract class BookDao {
     /**
      * Setzt nur Position, Stand und Merker eines vorhandenen Eintrags; Tempo und Effekte bleiben, wie sie gerade stehen
      * (ein Lesen-und-Zurückschreiben mit [upsertProgress] überschriebe eine Änderung dazwischen, [setEffects]).
+     * `finishedAt` merkt sich, wann das Buch beendet wurde: Es bleibt, solange der Stand beendet bleibt (auch wenn `updatedAt`
+     * etwa durch [hidden] oder einen Abgleich weiterrückt), und fällt mit dem Wiederaufnehmen.
      * @return 0, wenn es noch keinen Eintrag gibt.
      */
     @Query(
         """
-        UPDATE book_progress SET positionMs = :positionMs, durationMs = :durationMs, finished = :finished,
-            updatedAt = :updatedAt, dirty = :dirty, hidden = :hidden
+        UPDATE book_progress SET positionMs = :positionMs, durationMs = :durationMs,
+            finishedAt = CASE WHEN :finished = 0 THEN NULL WHEN finished = 1 THEN COALESCE(finishedAt, updatedAt) ELSE :updatedAt END,
+            finished = :finished, updatedAt = :updatedAt, dirty = :dirty, hidden = :hidden
         WHERE bookId = :bookId
         """,
     )
@@ -520,7 +523,7 @@ abstract class BookDao {
 
     /** Dateien beendeter Bücher (eine Zeile je Datei) mit dem Zeitpunkt, zu dem das Buch beendet wurde. */
     @Query(
-        "SELECT t.bookId AS bookId, p.updatedAt AS finishedAt, t.filePath AS filePath FROM book_tracks t " +
+        "SELECT t.bookId AS bookId, COALESCE(p.finishedAt, p.updatedAt) AS finishedAt, t.filePath AS filePath FROM book_tracks t " +
             "JOIN books b ON b.bookId = t.bookId JOIN book_progress p ON p.bookId = t.bookId " +
             "WHERE b.kind = 'BOOK' AND t.downloadState = 'DONE' AND p.finished = 1",
     )

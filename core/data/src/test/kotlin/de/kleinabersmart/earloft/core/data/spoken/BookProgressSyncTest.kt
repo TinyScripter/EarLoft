@@ -9,12 +9,14 @@ import de.kleinabersmart.earloft.core.data.repository.PlaybackPolicy
 import de.kleinabersmart.earloft.core.data.security.SecretStore
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.BookEntity
+import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.After
@@ -91,6 +93,34 @@ class BookProgressSyncTest {
         assertEquals(1.5f, stored.speed)
         assertEquals(true, stored.skipSilence)
         assertEquals(3, stored.volumeBoostDb)
+    }
+
+    @Test
+    fun `the time a book was finished stays when it is only hidden from continue listening`() = runBlocking {
+        sync.record(bookId, 3_600_000, 3_600_000, finished = true)
+        val finishedAt = db.bookDao().progress(bookId)!!.finishedAt!!
+        db.bookDao().insertTracks(listOf(BookTrackEntity(bookId, trackIndex = 0, remoteFileId = "datei", startMs = 0, durationMs = 3_600_000)))
+        db.bookDao().queueBookDownload(bookId)
+        db.bookDao().markBookTrackRunning(bookId, 0)
+        db.bookDao().markBookTrackDone(bookId, 0, "/tmp/datei", 1)
+        Thread.sleep(5)
+
+        sync.hideFromContinueListening(bookId)
+        sync.record(bookId, 3_600_000, 3_600_000, finished = true, hidden = true)
+
+        val stored = db.bookDao().progress(bookId)!!
+        assertEquals(finishedAt, stored.finishedAt)
+        assertEquals(true, stored.updatedAt > finishedAt)
+        assertEquals(listOf(finishedAt), db.bookDao().observeFinishedBookDownloads().first().map { it.finishedAt })
+    }
+
+    @Test
+    fun `resuming a finished book clears the time it was finished`() = runBlocking {
+        sync.record(bookId, 3_600_000, 3_600_000, finished = true)
+
+        sync.record(bookId, 60_000, 3_600_000, finished = false)
+
+        assertNull(db.bookDao().progress(bookId)!!.finishedAt)
     }
 
     @Test

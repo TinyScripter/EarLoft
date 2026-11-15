@@ -277,6 +277,11 @@ data class BookProgressEntity(
     /** Eigene Wiedergabe-Effekte (Schema v25); `null` = die des Abos bzw. Bereichs. */
     val skipSilence: Boolean? = null,
     val volumeBoostDb: Int? = null,
+    /**
+     * Wann das Buch beendet wurde (Schema v42); `null` = nicht beendet oder vor v42, dann gilt [updatedAt]. Anders als dieses
+     * rückt es nicht weiter, wenn ein beendetes Buch nur aus „Weiterhören“ genommen oder abgeglichen wird.
+     */
+    val finishedAt: Long? = null,
 )
 
 /**

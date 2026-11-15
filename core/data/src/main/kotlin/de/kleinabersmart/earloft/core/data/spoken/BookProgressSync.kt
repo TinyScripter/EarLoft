@@ -81,6 +81,7 @@ class BookProgressSync @Inject constructor(
                     updatedAt = System.currentTimeMillis(),
                     dirty = true,
                     hidden = hidden,
+                    finishedAt = System.currentTimeMillis().takeIf { finished },
                 ),
             )
         }
@@ -196,6 +197,7 @@ class BookProgressSync @Inject constructor(
                     updatedAt = remoteModel.updatedAt,
                     dirty = false,
                     hidden = remote.hideFromContinueListening,
+                    finishedAt = remoteModel.updatedAt.takeIf { remoteModel.finished },
                 ),
             )
         }
