@@ -331,6 +331,23 @@ class FullBackupTest {
     }
 
     @Test
+    fun `removed downloads are only kept as far as the automatic could still load them`() = runTest {
+        val device = Device(backgroundScope)
+        device.main.addFeed()
+        // Wie nach einer Wiederherstellung: alle Folgen entfernt; eine geladene, die neueste gehörte bei addedAt 5.
+        for (addedAt in 1L..30L) {
+            val state = if (addedAt == 2L) TrackDownload.DONE else TrackDownload.REMOVED
+            val id = device.main.addEpisodeWithTrack("feed-1", "e$addedAt", addedAt, state)
+            if (addedAt == 5L) device.main.bookDao().upsertProgress(BookProgressEntity(id, 1_000_000, 1_000_000, finished = true, updatedAt = 1))
+        }
+
+        val saved = device.main.podcastDao().keyedEpisodeDownloads()
+
+        assertEquals(listOf("e2"), saved.filter { it.downloadState == TrackDownload.DONE }.map { it.remoteId })
+        assertEquals((11..30).map { "e$it" }.toSet(), saved.filter { it.downloadState == TrackDownload.REMOVED }.map { it.remoteId }.toSet())
+    }
+
+    @Test
     fun `files that are no backup or come from a newer version are refused`() = runTest {
         val device = Device(backgroundScope)
         try {

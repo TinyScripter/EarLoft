@@ -365,12 +365,33 @@ abstract class PodcastDao {
     )
     abstract suspend fun supersededAutomaticDownloads(feedId: String): List<Long>
 
-    /** Downloads der Folgen samt Schlüssel ihrer Folge (Backup): alles außer „nie geladen“. */
+    /**
+     * Downloads der Folgen samt Schlüssel ihrer Folge (Backup): alles außer „nie geladen“. Entfernte nur, soweit die Automatik sie
+     * noch laden könnte ([queueLatestUnheard]: neuer als die zuletzt gehörte), je Abo die neuesten [KEEP_REMOVED]: Nach einer
+     * Wiederherstellung stehen sonst alle Folgen aller Abos als entfernt in der Sicherung (Review D20).
+     */
+    @Transaction
+    open suspend fun keyedEpisodeDownloads(): List<KeyedEpisodeDownload> =
+        keyedDownloadsExceptRemoved() + removedAfterHeard()
+            .groupBy { it.serverId }
+            .flatMap { (_, rows) -> rows.sortedWith(compareByDescending<RemovedEpisodeRow> { it.addedAt }.thenByDescending { it.bookId }).take(KEEP_REMOVED) }
+            .map { KeyedEpisodeDownload(it.serverId, it.remoteId, TrackDownload.REMOVED) }
+
     @Query(
         "SELECT b.serverId AS serverId, b.remoteId AS remoteId, t.downloadState AS downloadState FROM book_tracks t " +
-            "JOIN books b ON b.bookId = t.bookId WHERE b.kind = 'EPISODE' AND t.trackIndex = 0 AND t.downloadState != 'NONE'",
+            "JOIN books b ON b.bookId = t.bookId WHERE b.kind = 'EPISODE' AND t.trackIndex = 0 AND t.downloadState NOT IN ('NONE', 'REMOVED')",
     )
-    abstract suspend fun keyedEpisodeDownloads(): List<KeyedEpisodeDownload>
+    protected abstract suspend fun keyedDownloadsExceptRemoved(): List<KeyedEpisodeDownload>
+
+    /** Entfernte Folgen, die neuer sind als die zuletzt gehörte ihres Abos. */
+    @Query(
+        "SELECT b.bookId AS bookId, b.serverId AS serverId, b.remoteId AS remoteId, b.addedAt AS addedAt FROM book_tracks t " +
+            "JOIN books b ON b.bookId = t.bookId " +
+            "LEFT JOIN (SELECT h.serverId AS feedId, MAX(h.addedAt) AS heardUntil FROM books h JOIN book_progress p ON p.bookId = h.bookId " +
+            "WHERE h.kind = 'EPISODE' AND p.finished = 1 GROUP BY h.serverId) f ON f.feedId = b.serverId " +
+            "WHERE b.kind = 'EPISODE' AND t.trackIndex = 0 AND t.downloadState = 'REMOVED' AND b.addedAt > COALESCE(f.heardUntil, -1)",
+    )
+    protected abstract suspend fun removedAfterHeard(): List<RemovedEpisodeRow>
 
     /** Aus der Sicherung: Folgen, deren Download dort entfernt wurde oder fehlschlug; die Automatik lässt sie aus. */
     @Query("UPDATE book_tracks SET downloadState = 'REMOVED' WHERE trackIndex = 0 AND downloadState = 'NONE' AND bookId IN (:bookIds)")
@@ -486,6 +507,12 @@ abstract class PodcastDao {
 
 /** Download einer Folge mit dem Schlüssel ihrer Folge (Feed, guid). */
 data class KeyedEpisodeDownload(val serverId: String, val remoteId: String, val downloadState: TrackDownload)
+
+/** Folge mit entferntem Download ([PodcastDao.keyedEpisodeDownloads]). */
+data class RemovedEpisodeRow(val bookId: Long, val serverId: String, val remoteId: String, val addedAt: Long)
+
+/** So viele entfernte Folgen je Abo kommen in die Sicherung: doppelt so viele, wie die Automatik höchstens lädt. */
+private const val KEEP_REMOVED = 20
 
 /** Gemerkte Folge mit ihrem Schlüssel (Feed, guid). */
 data class KeyedStarredEpisode(val serverId: String, val remoteId: String, val starredAt: Long)
