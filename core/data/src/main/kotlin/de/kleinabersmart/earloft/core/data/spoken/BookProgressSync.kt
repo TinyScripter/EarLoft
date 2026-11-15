@@ -67,20 +67,23 @@ class BookProgressSync @Inject constructor(
         if (dao.book(bookId) == null) return
         val previous = dao.progress(bookId)
         if (previous?.finished == true && !finished && positionMs > 0) reopened.add(bookId)
-        dao.upsertProgress(
-            BookProgressEntity(
-                bookId = bookId,
-                positionMs = positionMs.coerceAtLeast(0),
-                durationMs = durationMs,
-                finished = finished,
-                speed = previous?.speed,
-                updatedAt = System.currentTimeMillis(),
-                dirty = true,
-                hidden = hidden,
-                skipSilence = previous?.skipSilence,
-                volumeBoostDb = previous?.volumeBoostDb,
-            ),
+        // Nur die Positionsspalten schreiben: Eine Tempoänderung zwischen Lesen und Schreiben ginge sonst verloren.
+        val updated = dao.updatePosition(
+            bookId, positionMs.coerceAtLeast(0), durationMs, finished, System.currentTimeMillis(), dirty = true, hidden = hidden,
         )
+        if (updated == 0) {
+            dao.upsertProgress(
+                BookProgressEntity(
+                    bookId = bookId,
+                    positionMs = positionMs.coerceAtLeast(0),
+                    durationMs = durationMs,
+                    finished = finished,
+                    updatedAt = System.currentTimeMillis(),
+                    dirty = true,
+                    hidden = hidden,
+                ),
+            )
+        }
         val sinceLastPush = System.currentTimeMillis() - (lastPush[bookId] ?: 0)
         if (force || sinceLastPush >= PUSH_INTERVAL_MS) push(bookId)
     }
@@ -177,21 +180,25 @@ class BookProgressSync @Inject constructor(
         val local = dao.progress(book.bookId)
         val remoteModel = remote.toModel()
         if (ProgressConflict.resolve(local?.toModel(), remoteModel) == ProgressDecision.KeepLocal) return false
-        dao.upsertProgress(
-            BookProgressEntity(
-                bookId = book.bookId,
-                positionMs = remoteModel.positionMs,
-                durationMs = remoteModel.durationMs.takeIf { it > 0 } ?: book.durationMs,
-                finished = remoteModel.finished,
-                // Tempo und Effekte kennt Audiobookshelf nicht: sie bleiben lokal.
-                speed = local?.speed,
-                updatedAt = remoteModel.updatedAt,
-                dirty = false,
-                hidden = remote.hideFromContinueListening,
-                skipSilence = local?.skipSilence,
-                volumeBoostDb = local?.volumeBoostDb,
-            ),
+        val durationMs = remoteModel.durationMs.takeIf { it > 0 } ?: book.durationMs
+        // Tempo und Effekte kennt Audiobookshelf nicht: sie bleiben lokal (wie in [record] nur die Positionsspalten schreiben).
+        val updated = dao.updatePosition(
+            book.bookId, remoteModel.positionMs, durationMs, remoteModel.finished, remoteModel.updatedAt,
+            dirty = false, hidden = remote.hideFromContinueListening,
         )
+        if (updated == 0) {
+            dao.upsertProgress(
+                BookProgressEntity(
+                    bookId = book.bookId,
+                    positionMs = remoteModel.positionMs,
+                    durationMs = durationMs,
+                    finished = remoteModel.finished,
+                    updatedAt = remoteModel.updatedAt,
+                    dirty = false,
+                    hidden = remote.hideFromContinueListening,
+                ),
+            )
+        }
         return true
     }
 

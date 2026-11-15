@@ -383,6 +383,28 @@ abstract class BookDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertProgress(progress: BookProgressEntity)
 
+    /**
+     * Setzt nur Position, Stand und Merker eines vorhandenen Eintrags; Tempo und Effekte bleiben, wie sie gerade stehen
+     * (ein Lesen-und-Zurückschreiben mit [upsertProgress] überschriebe eine Änderung dazwischen, [setEffects]).
+     * @return 0, wenn es noch keinen Eintrag gibt.
+     */
+    @Query(
+        """
+        UPDATE book_progress SET positionMs = :positionMs, durationMs = :durationMs, finished = :finished,
+            updatedAt = :updatedAt, dirty = :dirty, hidden = :hidden
+        WHERE bookId = :bookId
+        """,
+    )
+    abstract suspend fun updatePosition(
+        bookId: Long,
+        positionMs: Long,
+        durationMs: Long,
+        finished: Boolean,
+        updatedAt: Long,
+        dirty: Boolean,
+        hidden: Boolean,
+    ): Int
+
     /** Mehrere Stände in einem Zug (eine Änderungsmeldung statt einer je Zeile). */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertAllProgress(progress: List<BookProgressEntity>)

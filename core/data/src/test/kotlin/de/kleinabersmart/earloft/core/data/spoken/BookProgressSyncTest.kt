@@ -1,0 +1,110 @@
+package de.kleinabersmart.earloft.core.data.spoken
+
+import android.content.Context
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.WorkManager
+import de.kleinabersmart.earloft.core.data.repository.PlaybackPolicy
+import de.kleinabersmart.earloft.core.data.security.SecretStore
+import de.kleinabersmart.earloft.core.database.EarLoftDatabase
+import de.kleinabersmart.earloft.core.database.entity.BookEntity
+import de.kleinabersmart.earloft.core.model.BookKind
+import de.kleinabersmart.earloft.core.model.LOCAL_BOOK_SERVER_ID
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
+import okhttp3.OkHttpClient
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+/** Position speichern gegenüber Tempo und Effekten, die gleichzeitig geändert werden (Review F33). */
+@RunWith(RobolectricTestRunner::class)
+class BookProgressSyncTest {
+
+    private lateinit var db: EarLoftDatabase
+    private lateinit var sync: BookProgressSync
+    private var bookId = 0L
+
+    @Before
+    fun setUp() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        try {
+            WorkManager.initialize(context, Configuration.Builder().build())
+        } catch (e: IllegalStateException) {
+            // schon initialisiert
+        }
+        db = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
+        val api = AbsApi(OkHttpClient())
+        val secrets = object : SecretStore {
+            override suspend fun get(key: String): String? = null
+            override suspend fun put(key: String, value: String) = Unit
+            override suspend fun remove(key: String) = Unit
+        }
+        val dao = db.bookDao()
+        sync = BookProgressSync(context, dao, testAudiobookshelfServers(dao, secrets, api), api, PlaybackPolicy())
+        // Ein Buch vom Gerät: kein Server, also kein Netz im Test.
+        bookId = dao.upsertBook(
+            BookEntity(
+                serverId = LOCAL_BOOK_SERVER_ID,
+                kind = BookKind.BOOK,
+                remoteId = "buch",
+                title = "Buch",
+                normTitle = "buch",
+                author = "Autor",
+                durationMs = 3_600_000,
+                detailsLoaded = true,
+            ),
+        )
+    }
+
+    @After
+    fun tearDown() = db.close()
+
+    @Test
+    fun `a new progress starts without own speed and effects`() = runBlocking {
+        sync.record(bookId, 5_000, 3_600_000, finished = false)
+
+        val stored = db.bookDao().progress(bookId)!!
+        assertEquals(5_000L, stored.positionMs)
+        assertNull(stored.speed)
+        assertNull(stored.skipSilence)
+        assertNull(stored.volumeBoostDb)
+    }
+
+    @Test
+    fun `saving the position keeps the own speed and effects`() = runBlocking {
+        sync.record(bookId, 5_000, 3_600_000, finished = false)
+        db.bookDao().setEffects(bookId, 1.5f, true, 3)
+
+        sync.record(bookId, 9_000, 3_600_000, finished = false, hidden = false)
+
+        val stored = db.bookDao().progress(bookId)!!
+        assertEquals(9_000L, stored.positionMs)
+        assertEquals(1.5f, stored.speed)
+        assertEquals(true, stored.skipSilence)
+        assertEquals(3, stored.volumeBoostDb)
+    }
+
+    @Test
+    fun `a speed change made while the position is saved is not lost`() = runBlocking {
+        sync.record(bookId, 1_000, 3_600_000, finished = false)
+
+        repeat(100) { round ->
+            val speed = 1f + (round + 1) / 100f
+            // Mehrere Speicherungen sind gleichzeitig unterwegs, wenn das Tempo geändert wird.
+            val saves = List(8) { n -> async(Dispatchers.IO) { sync.record(bookId, 2_000L + round * 10 + n, 3_600_000, finished = false) } }
+            val change = async(Dispatchers.IO) { db.bookDao().setEffects(bookId, speed, null, null) }
+            (saves + change).awaitAll()
+
+            assertEquals("Runde $round", speed, db.bookDao().progress(bookId)!!.speed)
+        }
+    }
+}
