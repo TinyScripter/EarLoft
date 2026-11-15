@@ -431,7 +431,6 @@ private fun BookPlayerContent(
 
         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             PlayerTopBar(
-                title = stringResource(R.string.player_now_playing),
                 closeLabel = stringResource(R.string.player_close),
                 onClose = onClose,
             ) {

@@ -95,7 +95,6 @@
     <string name="search_in_books">In Büchern suchen</string>
 
     <!-- Player -->
-    <string name="player_now_playing">Wird gespielt</string>
     <string name="player_queue">Warteschlange</string>
     <string name="player_open_queue">Warteschlange öffnen</string>
     <string name="player_close">Player schließen</string>

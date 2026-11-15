@@ -221,7 +221,7 @@ private fun NowPlayingContent(
         }
 
         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            PlayerTopBar(stringResource(R.string.player_now_playing), stringResource(R.string.player_close), onClose) {
+            PlayerTopBar(stringResource(R.string.player_close), onClose) {
                 state.current?.let { ShareButton(ShareTarget.Song(it.songId)) }
             }
             val current = state.current
@@ -336,24 +336,15 @@ private fun NowPlayingContent(
 internal val ShortHeight = 480.dp
 
 /**
- * Kopfzeile aller Wiedergabe-Ansichten (Musik, Bücher, Folgen): Schließen links, Titel mittig, rechts [actions]
- * (Teilen, bei Büchern und Folgen auch die Uhr).
+ * Kopfzeile aller Wiedergabe-Ansichten (Musik, Bücher, Folgen): Schließen links, rechts [actions] (Teilen, bei
+ * Büchern und Folgen auch die Uhr). Ohne Titel – dass etwas läuft, sagt der Player selbst.
  */
 @Composable
-internal fun PlayerTopBar(title: String, closeLabel: String, onClose: () -> Unit, actions: @Composable RowScope.() -> Unit = {}) {
+internal fun PlayerTopBar(closeLabel: String, onClose: () -> Unit, actions: @Composable RowScope.() -> Unit = {}) {
     Box(Modifier.fillMaxWidth().height(48.dp)) {
         IconButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterStart)) {
             Icon(painterResource(DesignR.drawable.ic_expand_more), contentDescription = closeLabel)
         }
-        // Links und rechts Platz für zwei Knöpfe: Der Titel bleibt mittig, egal wie viele es sind.
-        Text(
-            title,
-            style = MaterialTheme.typography.titleSmall,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.align(Alignment.Center).padding(horizontal = 96.dp),
-        )
         Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, content = actions)
     }
 }

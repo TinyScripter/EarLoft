@@ -96,7 +96,6 @@
     <string name="search_in_books">Search books</string>
 
     <!-- Player -->
-    <string name="player_now_playing">Now playing</string>
     <string name="player_queue">Queue</string>
     <string name="player_open_queue">Open queue</string>
     <string name="player_close">Close player</string>
