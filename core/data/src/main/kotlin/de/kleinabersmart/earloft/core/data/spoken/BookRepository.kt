@@ -128,10 +128,11 @@ class BookRepository @Inject constructor(
     /**
      * Zeitachse mit Dateien und Kapiteln; lädt sie vom Server, falls sie noch fehlt oder veraltet ist. Ist der Server
      * nicht erreichbar, gilt die vorhandene (ein geladenes Buch bleibt offline abspielbar). `null` ohne Dateien.
+     * [fetch] `false`: nur die Datenbank lesen, ohne den Server zu fragen (für Aufrufer auf dem Main-Thread).
      */
-    suspend fun timeline(bookId: Long): BookTimeline? {
+    suspend fun timeline(bookId: Long, fetch: Boolean = true): BookTimeline? {
         val book = dao.book(bookId) ?: return null
-        syncer.ensureDetails(bookId)
+        if (fetch) syncer.ensureDetails(bookId)
         val files = dao.tracks(bookId)
         if (files.isEmpty()) return null
         return BookTimeline(book.durationMs, files.map { it.toModel() }, chaptersOf(dao.chapters(bookId), files))

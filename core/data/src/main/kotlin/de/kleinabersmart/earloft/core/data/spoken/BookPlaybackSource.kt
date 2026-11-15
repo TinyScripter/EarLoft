@@ -77,7 +77,8 @@ class BookPlaybackSource @Inject constructor(
         val episode = book.kind == BookKind.EPISODE
         // Kapitel einer Folge kommen aus einer eigenen Liste; fehlt sie oder ist sie offline nicht erreichbar, geht es ohne.
         if (episode && !offline) podcasts.ensureChapters(bookId)
-        val timeline = repository.timeline(bookId) ?: return null
+        // Offline (Wiederherstellen, Cast-Wechsel auf dem Main-Thread): nie den Server fragen, auch wenn die Details veraltet sind.
+        val timeline = repository.timeline(bookId, fetch = !offline) ?: return null
         // Ohne Streams (Uhr, Wear-Konzept 16.1) nur, wenn jede Datei auf dem Gerät liegt; nicht mehr abrufbare überspringt der Player.
         if (!policy.allowStreaming && timeline.tracks.any { track -> !track.unavailable && track.localPath?.let(::File)?.isFile != true }) return null
         // Eine geladene Datei geht vor dem Stream (Folgen und Bücher, auch gemischt, wenn nur ein Teil geladen ist).
