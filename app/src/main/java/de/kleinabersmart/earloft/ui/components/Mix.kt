@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.ui.components
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,7 +22,9 @@ import de.kleinabersmart.earloft.core.data.mix.MixRepository
 import de.kleinabersmart.earloft.core.data.mix.MixSeed
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.ui.snackbar.Snackbars
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
@@ -36,7 +39,11 @@ class MixController(val start: (seed: MixSeed, afterCurrent: Boolean) -> Unit)
 /** `null` (Vorschau, Tests): kein Mix. */
 val LocalMixController = staticCompositionLocalOf<MixController?> { null }
 
-/** Hält den Mix über das Schließen des Menüs hinaus; ein neuer Mix bricht einen noch laufenden ab. */
+/**
+ * Hält den Mix über das Schließen des Menüs hinaus; ein neuer Mix bricht einen noch laufenden ab. Dauert die Zusammenstellung
+ * länger als [BUILDING_HINT_DELAY_MS] (ein Server darf bis zu 4 s antworten), zeigt ein Hinweis, dass etwas passiert; ein
+ * Fehler wird gemeldet statt die App abzuschießen.
+ */
 @HiltViewModel
 class MixViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
@@ -49,18 +56,37 @@ class MixViewModel @Inject constructor(
     fun start(seed: MixSeed, afterCurrent: Boolean) {
         running?.cancel()
         running = viewModelScope.launch {
-            val songs = mixRepository.mix(seed)
-            // Nach dem laufenden Titel: Er selbst ist der Ausgangspunkt und steht im Mix vorn.
-            val upcoming = if (afterCurrent) songs.drop(1) else songs
-            when {
-                upcoming.isEmpty() -> snackbars.show(context.getString(R.string.mix_empty))
-                afterCurrent -> {
-                    playbackConnection.replaceUpcoming(upcoming)
-                    snackbars.show(context.resources.getQuantityString(R.plurals.mix_queued, upcoming.size, upcoming.size))
+            val hint = launch {
+                delay(BUILDING_HINT_DELAY_MS)
+                snackbars.show(context.getString(R.string.mix_building))
+            }
+            try {
+                val songs = mixRepository.mix(seed)
+                hint.cancel()
+                // Nach dem laufenden Titel: Er selbst ist der Ausgangspunkt und steht im Mix vorn.
+                val upcoming = if (afterCurrent) songs.drop(1) else songs
+                when {
+                    upcoming.isEmpty() -> snackbars.show(context.getString(R.string.mix_empty))
+                    afterCurrent -> {
+                        playbackConnection.replaceUpcoming(upcoming)
+                        snackbars.show(context.resources.getQuantityString(R.plurals.mix_queued, upcoming.size, upcoming.size))
+                    }
+                    else -> playbackConnection.play(upcoming)
                 }
-                else -> playbackConnection.play(upcoming)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Mix von $seed fehlgeschlagen", e)
+                snackbars.show(context.getString(R.string.mix_failed))
+            } finally {
+                hint.cancel()
             }
         }
+    }
+
+    private companion object {
+        const val BUILDING_HINT_DELAY_MS = 500L
+        const val TAG = "MixViewModel"
     }
 }
 

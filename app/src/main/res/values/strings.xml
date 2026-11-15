@@ -29,6 +29,8 @@
     <string name="action_start_mix">Start mix</string>
     <string name="action_equalizer">Equalizer</string>
     <string name="mix_empty">No matching songs for a mix</string>
+    <string name="mix_building">Building a mix…</string>
+    <string name="mix_failed">The mix could not be created</string>
     <plurals name="mix_queued">
         <item quantity="one">Up next: a mix of %1$d song</item>
         <item quantity="other">Up next: a mix of %1$d songs</item>
