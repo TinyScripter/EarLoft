@@ -7,6 +7,7 @@ import de.kleinabersmart.earloft.core.datasource.local.AudioFileChapters
 import de.kleinabersmart.earloft.core.model.FeedError
 import de.kleinabersmart.earloft.core.network.podcast.FeedAuthInterceptor
 import de.kleinabersmart.earloft.core.network.podcast.FeedAuthRegistry
+import de.kleinabersmart.earloft.core.network.podcast.OpmlFeed
 import de.kleinabersmart.earloft.core.network.podcast.PodcastFeedApi
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsApi
 import kotlinx.coroutines.CoroutineScope
@@ -101,6 +102,20 @@ class FeedCredentialsTest {
 
         assertEquals(feedUrl, db.podcastDao().feed(added.feedId)?.url)
         assertEquals("geheim", repository.credentials(added.feedId).first()?.password)
+    }
+
+    @Test
+    fun `credentials in an imported address are stored apart and the import refreshes with them`() = runTest {
+        val withUser = server.url("/feed.xml").newBuilder().username("anna").password("geheim").build().toString()
+
+        val result = repository.importOpml(listOf(OpmlFeed("Geschützt", withUser), OpmlFeed("Doppelt", feedUrl)), replace = false)
+
+        assertEquals(1, result.added)
+        val feed = db.podcastDao().feeds().single()
+        assertEquals(feedUrl, feed.url)
+        assertEquals("geheim", repository.credentials(feed.feedId).first()?.password)
+        assertNotNull(repository.refresh(feed.feedId))
+        assertFalse(repository.exportOpml("EarLoft", "2026-11-15", rssBridge = null).contains("geheim"))
     }
 
     @Test

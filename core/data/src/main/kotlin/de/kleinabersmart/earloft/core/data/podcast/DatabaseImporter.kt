@@ -11,6 +11,7 @@ import de.kleinabersmart.earloft.core.network.podcast.OpmlFeed
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ardSoundsShowId
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.parseArdSoundsInput
 import de.kleinabersmart.earloft.core.network.podcast.normalizeFeedUrl
+import de.kleinabersmart.earloft.core.network.podcast.splitCredentials
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,7 +54,8 @@ class DatabaseImporter @Inject constructor(
             .mapNotNull { f -> key(f.url)?.let { url -> WantedFeed(url, f.title.ifBlank { url }, f.active || ardSoundsShowId(f.url) != null, f) } }
             .groupBy { it.url }
             .map { (_, same) -> same.firstOrNull { it.active } ?: same.first() }
-        repository.importOpml(wanted.map { OpmlFeed(it.title, it.url) }, replace = false)
+        // Die Adresse aus der Datei: Zugangsdaten darin löst der Import heraus und speichert sie (Review D6).
+        repository.importOpml(wanted.map { OpmlFeed(it.title, it.source.url) }, replace = false)
         val added = wanted.filter { it.url !in known }.mapNotNull { wish ->
             podcastDao.feedByUrl(wish.url)?.also {
                 if (!wish.active) podcastDao.setArchived(it.feedId, true)
@@ -134,6 +136,9 @@ class DatabaseImporter @Inject constructor(
 
     private data class WantedFeed(val url: String, val title: String, val active: Boolean, val source: ImportFeed)
 
-    /** Abo-Adresse wie in der App: Sendungen aus ARD Sounds (auch über die RSS-Bridge) als `ardsounds:<Kennung>`, sonst der Feed. */
-    private fun key(url: String): String? = parseArdSoundsInput(url) ?: normalizeFeedUrl(url)?.toString()
+    /**
+     * Abo-Adresse wie in der App: Sendungen aus ARD Sounds (auch über die RSS-Bridge) als `ardsounds:<Kennung>`, sonst der Feed
+     * ohne Zugangsdaten.
+     */
+    private fun key(url: String): String? = parseArdSoundsInput(url) ?: normalizeFeedUrl(url)?.splitCredentials()?.first?.toString()
 }

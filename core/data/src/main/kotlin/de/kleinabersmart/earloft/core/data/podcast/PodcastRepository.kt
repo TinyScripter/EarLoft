@@ -640,11 +640,22 @@ class PodcastRepository @Inject constructor(
      * Mit [replace] fallen zuvor alle anderen Abos weg (samt Folgen und Hörfortschritt); Podcasts vom Gerät bleiben, denn
      * eine OPML-Datei kann sie nicht enthalten, ebenso ARD-Sounds-Abos, wenn die Datei keine enthält (ohne RSS-Bridge
      * exportiert sie EarLoft nicht). Eine Datei ohne Abos ersetzt nichts. Feeds der RSS-Bridge für ARD Sounds (und Links von Sendungsseiten) werden
-     * wieder zu Abos `ardsounds:<Kennung>`, die ohne die Bridge auskommen. Die Folgen der neuen Abos kommen erst mit dem
+     * wieder zu Abos `ardsounds:<Kennung>`, die ohne die Bridge auskommen. Zugangsdaten in einer Adresse
+     * (`https://name:passwort@host/feed`) werden wie beim Abonnieren herausgelöst und gespeichert, nicht Teil der Abo-Adresse
+     * (sonst gingen sie in Exporte, Sicherung und an die Uhr, Review D6). Die Folgen der neuen Abos kommen erst mit dem
      * nächsten Abgleich.
      */
     suspend fun importOpml(feeds: List<OpmlFeed>, replace: Boolean): OpmlImportResult = mutex.withLock {
-        val wanted = feeds.map { feed -> parseArdSoundsInput(feed.url)?.let { feed.copy(url = it) } ?: feed }.distinctBy { it.url }
+        val auths = HashMap<String, FeedAuth>()
+        val wanted = feeds.mapNotNull { feed ->
+            when (val address = FeedAddress.of(feed.url)) {
+                is FeedAddress.ArdSounds -> feed.copy(url = address.url)
+                is FeedAddress.Http -> feed.copy(url = address.url.toString()).also { imported ->
+                    address.auth?.let { auths.putIfAbsent(imported.url, it) }
+                }
+                null -> null
+            }
+        }.distinctBy { it.url }
         var removed = 0
         if (replace && wanted.isNotEmpty()) {
             val keep = wanted.mapTo(HashSet()) { it.url }
@@ -661,14 +672,17 @@ class PodcastRepository @Inject constructor(
             // Ein Probeabo oder archiviertes Abo derselben Adresse wird (wieder) zum Abo (die Adresse ist eindeutig).
             // Nur das Probeabo bekommt die Vorgabe für neue Abos; das archivierte behält seine Einstellung.
             val stored = dao.feedByUrl(it.url)
-            if (stored != null) {
+            val feedId = if (stored != null) {
                 if (!stored.subscribed) dao.subscribeTrial(stored.feedId, autoDownload)
                 dao.setArchived(stored.feedId, false)
+                stored.feedId
             } else {
-                dao.upsertFeed(
-                    PodcastFeedEntity(feedId = UUID.randomUUID().toString(), url = it.url, title = it.title, autoDownload = autoDownload),
-                )
+                UUID.randomUUID().toString().also { feedId ->
+                    dao.upsertFeed(PodcastFeedEntity(feedId = feedId, url = it.url, title = it.title, autoDownload = autoDownload))
+                }
             }
+            // Schon gespeicherte Zugangsdaten (eingegeben) gehen vor.
+            auths[it.url]?.let { auth -> if (credentials.forFeed(feedId) == null) credentials.set(feedId, auth) }
         }
         OpmlImportResult(added = fresh.size, skipped = feeds.size - fresh.size, removed = removed)
     }
