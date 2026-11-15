@@ -244,7 +244,8 @@ fun SelectedMark(selected: Boolean, shape: Shape, modifier: Modifier = Modifier)
 /**
  * Wischen auf einer Folgenzeile (Konzept 12.5, abschaltbar unter Einstellungen → Podcasts): nach rechts in die
  * Warteschlange (steht sie schon darin: heraus), nach links „gehört“ (ist sie es schon: „ungehört“). Die Zeile gleitet
- * danach zurück; „Gehört“ lässt sich in der Snackbar rückgängig machen.
+ * danach zurück; „Gehört“ lässt sich in der Snackbar rückgängig machen. Die im Player geladene Folge hielte dabei an, ohne
+ * dass sich das zurücknehmen ließe; für sie fragt die Snackbar erst nach.
  */
 @Composable
 fun EpisodeSwipeBox(
@@ -258,12 +259,14 @@ fun EpisodeSwipeBox(
     }
     val viewModel: EpisodeMenuViewModel = hiltViewModel()
     val queued by viewModel.queued.collectAsStateWithLifecycle()
+    val loadedBookId by viewModel.loadedBookId.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val state = rememberSwipeToDismissBoxState()
     val inQueue = item.book.id in queued
     val played = item.progress?.finished == true
+    val loaded = item.book.id == loadedBookId
     val handle by rememberUpdatedState { direction: SwipeToDismissBoxValue ->
         when (direction) {
             SwipeToDismissBoxValue.StartToEnd -> if (inQueue) {
@@ -273,7 +276,13 @@ fun EpisodeSwipeBox(
                 viewModel.append(listOf(item))
                 snackbars.show(resources.getString(R.string.queue_added_at_end, item.book.title))
             }
-            SwipeToDismissBoxValue.EndToStart -> {
+            SwipeToDismissBoxValue.EndToStart -> if (loaded && !played) {
+                snackbars.show(
+                    resources.getString(R.string.episode_swipe_loaded, item.book.title),
+                    SnackbarDuration.Long,
+                    resources.getString(R.string.episode_mark_played),
+                ) { viewModel.setPlayed(item, true) }
+            } else {
                 val text = resources.getString(if (played) R.string.episode_marked_unplayed else R.string.episode_marked_played, item.book.title)
                 viewModel.setPlayed(listOf(item), !played) { restore ->
                     snackbars.show(text, SnackbarDuration.Long, resources.getString(R.string.spoken_bookmark_undo)) { viewModel.undo(restore) }

@@ -1047,6 +1047,7 @@
     <string name="queue_removed">„%1$s“ aus der Warteschlange genommen</string>
     <string name="episode_marked_played">„%1$s“ als gehört markiert</string>
     <string name="episode_marked_unplayed">„%1$s“ als ungehört markiert</string>
+    <string name="episode_swipe_loaded">„%1$s“ läuft gerade und würde dabei angehalten.</string>
     <string name="episode_select">Auswählen</string>
     <string name="episode_select_all">Alle auswählen</string>
     <string name="episode_selection_end">Auswahl beenden</string>

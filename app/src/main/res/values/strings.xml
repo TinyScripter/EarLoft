@@ -1054,6 +1054,7 @@
     <string name="queue_removed">“%1$s” removed from the queue</string>
     <string name="episode_marked_played">“%1$s” marked as played</string>
     <string name="episode_marked_unplayed">“%1$s” marked as unplayed</string>
+    <string name="episode_swipe_loaded">“%1$s” is playing and would be stopped.</string>
     <string name="episode_select">Select</string>
     <string name="episode_select_all">Select all</string>
     <string name="episode_selection_end">End selection</string>
