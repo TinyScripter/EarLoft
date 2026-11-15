@@ -22,9 +22,11 @@ import de.kleinabersmart.earloft.core.model.SongOfflineState
 import de.kleinabersmart.earloft.core.model.SongOfflineStatus
 import de.kleinabersmart.earloft.core.model.SourceType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -140,14 +142,17 @@ class DownloadRepository @Inject constructor(
 
     /**
      * Die Alben, die die Automatik „neueste“ ([newest]) und „meistgehörte“ ([mostPlayed], wie das Regal auf Start) laden soll,
-     * zusammen; `null`, wenn beide aus sind (0). Der Zeitraum für „meistgehört“ zählt ab jetzt.
+     * zusammen; `null`, wenn beide aus sind (0). Der Zeitraum für „meistgehört“ wird stündlich neu berechnet.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun autoAlbumIds(newest: Int, mostPlayed: Int): Flow<List<Long>?> {
         if (newest <= 0 && mostPlayed <= 0) return flowOf(null)
-        val since = System.currentTimeMillis() - LibraryRepository.MOST_PLAYED_PERIOD_MS
+        val mostPlayedIds = LibraryRepository.windowStarts(LibraryRepository.MOST_PLAYED_PERIOD_MS).flatMapLatest { since ->
+            downloadDao.observeMostPlayedServerAlbumIds(since, LibraryRepository.MOST_PLAYED_MIN_PLAYS, mostPlayed.coerceAtLeast(0))
+        }
         return combine(
             downloadDao.observeNewestServerAlbumIds(newest.coerceAtLeast(0)),
-            downloadDao.observeMostPlayedServerAlbumIds(since, LibraryRepository.MOST_PLAYED_MIN_PLAYS, mostPlayed.coerceAtLeast(0)),
+            mostPlayedIds,
         ) { newestIds, mostPlayedIds -> (newestIds + mostPlayedIds).distinct() }
     }
 

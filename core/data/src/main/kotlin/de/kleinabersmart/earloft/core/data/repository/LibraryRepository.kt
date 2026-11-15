@@ -13,10 +13,16 @@ import de.kleinabersmart.earloft.core.model.Decade
 import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.SearchResults
 import de.kleinabersmart.earloft.core.model.Song
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -97,10 +103,12 @@ class LibraryRepository @Inject constructor(
 
     /**
      * Die in den letzten [periodMs] am häufigsten gehörten Alben; nur Alben mit mindestens [MOST_PLAYED_MIN_PLAYS] Wiedergaben,
-     * damit die Zeile nicht nur „Zuletzt gehört“ wiederholt. Der Zeitraum gilt ab dem Abonnieren.
+     * damit die Zeile nicht nur „Zuletzt gehört“ wiederholt. Der Zeitraum wird stündlich neu berechnet ([windowStarts]).
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun mostPlayedAlbums(periodMs: Long = MOST_PLAYED_PERIOD_MS, limit: Int = 20): Flow<List<Album>> =
-        libraryDao.observeMostPlayedAlbumRows(System.currentTimeMillis() - periodMs, MOST_PLAYED_MIN_PLAYS, limit)
+        windowStarts(periodMs)
+            .flatMapLatest { since -> libraryDao.observeMostPlayedAlbumRows(since, MOST_PLAYED_MIN_PLAYS, limit) }
             .map { rows -> rows.map { it.toAlbum() } }
 
     /** Gespielte Alben, die seit mindestens [notPlayedForMs] nicht mehr liefen; das älteste zuerst. */
@@ -170,5 +178,20 @@ class LibraryRepository @Inject constructor(
         /** „Meistgehört“ (Regal auf Start, automatische Downloads): Zeitraum und Mindestzahl der Wiedergaben je Album. */
         const val MOST_PLAYED_PERIOD_MS = 90L * 24 * 60 * 60 * 1000
         const val MOST_PLAYED_MIN_PLAYS = 3
+
+        /** Wie oft der Beginn eines laufenden Zeitraums ([windowStarts]) neu berechnet wird. */
+        const val WINDOW_REFRESH_MS = 60L * 60 * 1000
+
+        /**
+         * Der Beginn eines Zeitraums von [periodMs] bis jetzt, alle [refreshMs] neu berechnet: Ein Prozess, der
+         * tagelang läuft, lässt so Einträge fallen, die aus dem Zeitraum herausgewachsen sind. Der Takt läuft auf der
+         * echten Uhr, auch unter einem Test-Scheduler: Dessen übersprungene Zeit würde die Abfrage endlos neu starten.
+         */
+        fun windowStarts(periodMs: Long, refreshMs: Long = WINDOW_REFRESH_MS): Flow<Long> = flow {
+            while (true) {
+                emit(System.currentTimeMillis() - periodMs)
+                withContext(Dispatchers.Default) { delay(refreshMs) }
+            }
+        }
     }
 }
