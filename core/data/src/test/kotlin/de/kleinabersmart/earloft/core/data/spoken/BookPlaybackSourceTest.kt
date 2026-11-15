@@ -72,7 +72,8 @@ class BookPlaybackSourceTest {
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
         val syncer = BookSyncer(dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, settings, covers),
-            ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), settings, covers, { _, _ -> }))
+            ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), settings, covers, { _, _ -> }),
+            ArdUploadAdoption(context, dao, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy())))
         source = BookPlaybackSource(
             BookRepository(dao, syncer),
             servers,

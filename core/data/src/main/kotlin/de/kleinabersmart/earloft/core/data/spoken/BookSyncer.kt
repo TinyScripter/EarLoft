@@ -43,6 +43,7 @@ class BookSyncer @Inject constructor(
     private val bookmarks: Bookmarks,
     private val localBooks: LocalBooks,
     private val ardBooks: ArdBooks,
+    private val uploads: ArdUploadAdoption,
 ) {
     private val syncMutex = Mutex()
 
@@ -57,7 +58,10 @@ class BookSyncer @Inject constructor(
 
     suspend fun syncSafely(server: AbsServer): BookSyncResult =
         try {
-            BookSyncResult(ok = true, newBooks = sync(server))
+            val fresh = sync(server)
+            // Ein hochgeladenes Buch aus ARD Sounds, das der Server jetzt meldet, bekommt seinen Stand.
+            uploads.settle(server.serverId)
+            BookSyncResult(ok = true, newBooks = fresh)
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {

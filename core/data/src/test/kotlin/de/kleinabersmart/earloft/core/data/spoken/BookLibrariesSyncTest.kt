@@ -89,6 +89,7 @@ class BookLibrariesSyncTest {
             dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()),
             LocalBooks(dao, scanner, SpokenSettings(context), covers),
             ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), SpokenSettings(context), covers, { _, _ -> }),
+            ArdUploadAdoption(context, dao, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy())),
         )
         books = BookRepository(dao, syncer)
     }

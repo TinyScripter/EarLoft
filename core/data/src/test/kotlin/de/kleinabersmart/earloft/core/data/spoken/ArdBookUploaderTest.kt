@@ -82,6 +82,11 @@ class ArdBookUploaderTest {
     @Volatile
     private var canUpload = true
 
+    /** Der Server scannt den Upload erst später: Er landet hier statt in [items]. */
+    @Volatile
+    private var scanLater = false
+    private val scannedLater = ConcurrentHashMap<String, String>()
+
     @Before
     fun setUp() = runTest {
         server.dispatcher = FakeServer()
@@ -114,12 +119,14 @@ class ArdBookUploaderTest {
         val scanner = LocalBookScanner(context)
         val covers = BookCovers(context, dao, db.podcastDao(), servers, api, PodcastFeedApi(client), scanner)
         val settings = SpokenSettings(context)
+        val adoption = ArdUploadAdoption(context, dao, progressSync, bookmarks)
         syncer = BookSyncer(
             dao, servers, api, progressSync, bookmarks,
             LocalBooks(dao, scanner, settings, covers),
             ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(client)), settings, covers, { _, _ -> }),
+            adoption,
         )
-        uploader = ArdBookUploader(context, dao, servers, api, syncer, covers, progressSync, bookmarks)
+        uploader = ArdBookUploader(context, dao, servers, api, syncer, covers, adoption)
         audio = File(context.cacheDir, "teil.mp3").apply { writeBytes(ByteArray(2048) { it.toByte() }) }
     }
 
@@ -278,6 +285,24 @@ class ArdBookUploaderTest {
         assertEquals(30_000L, dao.progress(newBookId)!!.positionMs)
     }
 
+    @Test
+    fun `a book the server reports only later gets progress and bookmarks at the next sync`() = runTest {
+        val bookId = ardBook()
+        scanLater = true
+
+        // Der Server meldet das Buch während des Wartens nicht (oder der Nutzer bricht ab).
+        assertEquals(UploadResult.Done(null), uploader.upload(bookId, target()))
+        items.putAll(scannedLater)
+        syncer.syncSafely(servers.server(serverId)!!)
+
+        val newBook = dao.booksOf(serverId).single { it.remoteId == "li_new" }
+        assertEquals(30_000L, dao.progress(newBook.bookId)!!.positionMs)
+        assertEquals(listOf("Stelle"), dao.bookmarksOf(listOf(newBook.bookId)).map { it.title })
+        // Nur einmal: Ein weiterer Abgleich legt das Lesezeichen nicht noch einmal an.
+        syncer.syncSafely(servers.server(serverId)!!)
+        assertEquals(1, dao.bookmarksOf(listOf(newBook.bookId)).size)
+    }
+
     /** `/ping`, `/api/me`, `/api/libraries` mit Ordner, die Einträge je Bibliothek, Details je Eintrag und `POST /api/upload`. */
     private inner class FakeServer : Dispatcher() {
         override fun dispatch(request: RecordedRequest): MockResponse {
@@ -306,7 +331,9 @@ class ArdBookUploaderTest {
                             items["li_foreign"] = "Fremdes Buch"
                             durations["li_foreign"] = 3_600
                         } else {
-                            Regex("""name="title"\r\n\r\n([^\r]*)""").find(body)?.let { items["li_new"] = reportedTitle ?: it.groupValues[1] }
+                            Regex("""name="title"\r\n\r\n([^\r]*)""").find(body)?.let {
+                                (if (scanLater) scannedLater else items)["li_new"] = reportedTitle ?: it.groupValues[1]
+                            }
                         }
                     }
                     MockResponse.Builder().code(uploadStatus).build()

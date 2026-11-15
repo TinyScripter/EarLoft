@@ -12,18 +12,19 @@ import de.kleinabersmart.earloft.core.model.TrackDownload
 import de.kleinabersmart.earloft.core.model.isArdSoundsBook
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsException
+import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsUpload
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsUploadExists
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsUploadFile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.abs
 
 /** Wohin ein Buch hochgeladen werden kann: Bibliothek und Ordner eines Audiobookshelf-Servers, in denen das Konto hochladen darf. */
 data class UploadTarget(
@@ -39,7 +40,8 @@ data class UploadTarget(
 sealed interface UploadResult {
     /**
      * Hochgeladen. [newBookId] ist das Buch auf dem Server in dieser App (Fortschritt, Lesezeichen und Tempo sind dorthin
-     * übernommen); `null`, wenn der Server es noch nicht gemeldet hat – es erscheint dann beim nächsten Abgleich.
+     * übernommen); `null`, wenn der Server es noch nicht gemeldet hat – es erscheint dann bei einem späteren Abgleich, der den
+     * Stand übernimmt ([ArdUploadAdoption]).
      */
     data class Done(val newBookId: Long?) : UploadResult
 
@@ -63,7 +65,7 @@ sealed interface UploadResult {
 
 /**
  * Lädt ein Buch aus ARD Sounds zu Audiobookshelf hoch (`books_improvements.md` M9, Ausnahme von „Serververwaltung bewusst nicht“)
- * und übernimmt danach, was der Nutzer am Buch angelegt hat (Fortschritt, Tempo und Effekte, Lesezeichen). Das Paket sind die
+ * und übernimmt danach, was der Nutzer am Buch angelegt hat (Fortschritt, Tempo und Effekte, Lesezeichen; [ArdUploadAdoption]). Das Paket sind die
  * geladenen Teile als `01 - Teil.mp3`, dazu `cover.jpg`, `desc.txt` (Beschreibung) und `reader.txt` (Sprecher), die Audiobookshelf
  * beim Scannen liest.
  */
@@ -75,8 +77,7 @@ class ArdBookUploader @Inject constructor(
     private val api: AbsApi,
     private val syncer: BookSyncer,
     private val covers: BookCovers,
-    private val progressSync: BookProgressSync,
-    private val bookmarks: Bookmarks,
+    private val adoption: ArdUploadAdoption,
 ) {
     /** Gibt es einen eingeschalteten Server? (Der Knopf „In Audiobookshelf hochladen“ erscheint nur dann.) */
     suspend fun hasServer(): Boolean = servers.all().isNotEmpty()
@@ -117,8 +118,9 @@ class ArdBookUploader @Inject constructor(
 
     /**
      * Lädt [bookId] nach [target] hoch; [onProgress] bekommt gesendete Bytes und Gesamtgröße. Danach wird gewartet (bis etwa eine
-     * Minute), dass der Server das Buch meldet, und der Stand übernommen. Das Buch aus ARD Sounds bleibt unberührt: Entfernen und
-     * Wechseln der Seite entscheidet der Aufrufer (es kann gerade im Player liegen).
+     * Minute), dass der Server das Buch meldet, und der Stand übernommen; bricht der Aufrufer das Warten ab oder meldet der Server
+     * nichts, holt das ein späterer Abgleich nach. Das Buch aus ARD Sounds bleibt unberührt: Entfernen und Wechseln der Seite
+     * entscheidet der Aufrufer (es kann gerade im Player liegen).
      */
     suspend fun upload(bookId: Long, target: UploadTarget, onProgress: (sent: Long, total: Long) -> Unit = { _, _ -> }): UploadResult {
         val book = dao.book(bookId)?.takeIf { isArdSoundsBook(it.serverId) } ?: return UploadResult.Failed
@@ -131,7 +133,6 @@ class ArdBookUploader @Inject constructor(
         if (onServer.any { it.libraryId == target.libraryId && it.normTitle == book.normTitle && sameAuthor(it.author, book.author) }) {
             return UploadResult.Exists
         }
-        val known = onServer.mapTo(HashSet()) { it.remoteId }
         val work = File(context.cacheDir, "upload-$bookId").apply { deleteRecursively(); mkdirs() }
         try {
             val parts = withContext(Dispatchers.IO) { packageFor(book, files, work) }
@@ -160,9 +161,9 @@ class ArdBookUploader @Inject constructor(
             work.deleteRecursively()
         }
         val sentMs = dao.tracks(bookId).filterNot { it.isUnavailable }.sumOf { it.durationMs }
-        val uploaded = awaitOnServer(book, target, known, sentMs)
-        if (uploaded != null) adopt(book, uploaded, missing = dao.tracks(bookId).filter { it.isUnavailable })
-        return UploadResult.Done(uploaded?.bookId)
+        // Das Buch liegt auf dem Server: Die Übernahme darf nicht mehr verloren gehen.
+        withContext(NonCancellable) { adoption.remember(book, target.serverId, target.libraryId, sentMs, onServer) }
+        return UploadResult.Done(awaitOnServer(bookId, server))
     }
 
     /**
@@ -201,40 +202,17 @@ class ArdBookUploader @Inject constructor(
     }
 
     /**
-     * Wartet, bis der Server das hochgeladene Buch meldet (er scannt es erst nach dem Upload). [sentMs] ist die Länge der
-     * hochgeladenen Teile.
+     * Wartet, bis der Server das hochgeladene Buch meldet (er scannt es erst nach dem Upload); der Abgleich übernimmt dann den Stand.
+     * Das Buch auf dem Server, `null`, wenn er es noch nicht meldet.
      */
-    private suspend fun awaitOnServer(book: BookEntity, target: UploadTarget, known: Set<String>, sentMs: Long): BookEntity? {
-        val server = servers.server(target.serverId) ?: return null
+    private suspend fun awaitOnServer(bookId: Long, server: AbsServer): Long? {
         repeat(ATTEMPTS) { attempt ->
             if (attempt > 0) delay(RETRY_MS)
             syncer.syncSafely(server)
-            val fresh = dao.booksOf(target.serverId).filter { it.remoteId !in known && it.libraryId == target.libraryId }
-            // Der Server macht aus dem Ordnernamen den Titel (Audio-Tags gehen vor, Zeichen wie „:“ fallen weg). Notfalls gilt das
-            // einzige neue Buch, aber nur mit passender Dauer: Sonst wäre es das einer anderen Person.
-            (fresh.firstOrNull { it.normTitle == book.normTitle } ?: fresh.singleOrNull { sameLength(it.durationMs, sentMs) })
-                ?.let { return it }
+            adoption.adoptedTo(bookId)?.let { return it }
         }
         return null
     }
-
-    /**
-     * Übernimmt Fortschritt, Tempo und Effekte und Lesezeichen von [old] auf das Buch [new] auf dem Server. Die Teile in [missing]
-     * fehlen dort: Was danach kommt, rückt um sie vor.
-     */
-    private suspend fun adopt(old: BookEntity, new: BookEntity, missing: List<BookTrackEntity>) {
-        val progress = dao.progress(old.bookId)
-        if (progress != null) {
-            val position = positionWithout(progress.positionMs, missing)
-            progressSync.record(new.bookId, position, new.durationMs.takeIf { it > 0 } ?: progress.durationMs, progress.finished, force = true, hidden = progress.hidden)
-            dao.setEffects(new.bookId, progress.speed, progress.skipSilence, progress.volumeBoostDb)
-        }
-        dao.bookmarksOf(listOf(old.bookId)).filter { !it.deleted }.forEach {
-            bookmarks.add(new.bookId, positionWithout(it.positionMs, missing), it.title, it.note)
-        }
-    }
-
-    private fun sameLength(a: Long, b: Long): Boolean = abs(a - b) <= maxOf(LENGTH_TOLERANCE_MS, b / LENGTH_TOLERANCE_DIVISOR)
 
     private fun sameAuthor(a: String, b: String): Boolean = a.normalizeForMerge() == b.normalizeForMerge()
 
@@ -255,8 +233,6 @@ class ArdBookUploader @Inject constructor(
         const val SERVER_ERROR = 500
         const val ATTEMPTS = 12
         const val RETRY_MS = 5_000L
-        const val LENGTH_TOLERANCE_MS = 10_000L
-        const val LENGTH_TOLERANCE_DIVISOR = 50
     }
 }
 
