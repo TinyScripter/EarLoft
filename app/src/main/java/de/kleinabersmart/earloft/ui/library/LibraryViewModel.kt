@@ -38,10 +38,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@OptIn(ExperimentalCoroutinesApi::class)
 /** Wo der Chip „Favoriten“ steht; jeder Reiter merkt ihn sich für sich. */
 enum class FavoritesChip { ALBUMS, GENRES, ARTISTS }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
