@@ -48,6 +48,18 @@ class ContinueListening @Inject constructor(
         queue.insertAfter(bookId, anchor)
     }
 
+    /**
+     * Mehrere Folgen „als Nächstes“, in der Reihenfolge von [bookIds]; die vorderste Folge selbst bleibt, wo sie ist. Ist die
+     * Zeile leer, wird die erste der Auswahl die vorderste und die übrigen folgen ihr.
+     */
+    suspend fun playNext(bookIds: List<Long>) {
+        val head = episodes.first().firstOrNull()?.book?.id
+        val rest = bookIds.filter { it != head }
+        if (head == null && rest.isNotEmpty()) playNext(rest.first())
+        // Von hinten, denn jede landet direkt hinter der vordersten.
+        (if (head == null) rest.drop(1) else rest).asReversed().forEach { playNext(it) }
+    }
+
     /** „Warteschlange leeren“: alle Folgen der Zeile außer [keepId] (der geladenen) heraus, wie einzeln entfernt. */
     suspend fun clear(keepId: Long?) {
         queue.removeAll(episodes.first().map { it.book.id }.filter { it != keepId })

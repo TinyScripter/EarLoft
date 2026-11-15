@@ -174,10 +174,7 @@ class EpisodeMenuViewModel @Inject constructor(
 
     /** Direkt hinter die vorderste Folge, in der Reihenfolge der Auswahl (die vorderste selbst bleibt, wo sie ist). */
     fun playNext(items: List<BookWithProgress>) {
-        val head = queueHead.value
-        viewModelScope.launch {
-            items.map { it.book.id }.filter { it != head }.asReversed().forEach { continueListening.playNext(it) }
-        }
+        viewModelScope.launch { continueListening.playNext(items.map { it.book.id }) }
     }
 
     fun removeFromQueue(items: List<BookWithProgress>) {

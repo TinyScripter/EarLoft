@@ -480,6 +480,25 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `play next for several episodes keeps their order, with an empty queue and behind the first one`() = runTest {
+        val feedId = subscribe()
+        val (a, b, c) = listOf("A", "B", "C").map { idOf(feedId, it) }
+        val continueListening = ContinueListening(
+            EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()),
+            repository,
+            PodcastSettings(ApplicationProvider.getApplicationContext()),
+        )
+        assertEquals(emptyList<Long>(), continueListening.episodes.first().map { it.book.id })
+
+        continueListening.playNext(listOf(a, b, c))
+        assertEquals(listOf(a, b, c), continueListening.episodes.first().map { it.book.id })
+
+        // Mit der vordersten (a) in der Auswahl bleibt sie vorn, die anderen folgen in der Reihenfolge der Auswahl.
+        continueListening.playNext(listOf(c, a, b))
+        assertEquals(listOf(a, c, b), continueListening.episodes.first().map { it.book.id })
+    }
+
+    @Test
     fun `moving an episode fixes only it and what stands before it`() = runTest {
         val feedId = subscribe()
         val (a, b, c) = listOf("A", "B", "C").map { idOf(feedId, it) }
