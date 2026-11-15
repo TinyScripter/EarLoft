@@ -35,7 +35,16 @@ class FeedAuthRegistry @Inject constructor() {
         byFeed = auth
     }
 
-    fun forUrl(url: HttpUrl): FeedAuth? = byFeed.values.firstOrNull { it.appliesTo(url) }
+    /**
+     * Die Zugangsdaten für [url]. Liegen mehrere Feeds mit verschiedenen Konten auf demselben Host, passt der, dessen Adresse
+     * der von [url] im Pfad am längsten gleicht (Medien und Bilder liegen meist neben dem Feed); sonst der erste.
+     */
+    fun forUrl(url: HttpUrl): FeedAuth? =
+        byFeed.values.filter { it.appliesTo(url) }.maxByOrNull { sharedDirectories(it.scope, url) }
+
+    // Ohne die letzte Stelle: Sie ist die Datei, nicht der Ordner.
+    private fun sharedDirectories(a: HttpUrl, b: HttpUrl): Int =
+        a.pathSegments.dropLast(1).zip(b.pathSegments.dropLast(1)).takeWhile { (x, y) -> x == y }.size
 }
 
 /**

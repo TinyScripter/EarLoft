@@ -75,6 +75,21 @@ class FeedAuthTest {
     }
 
     @Test
+    fun `two accounts on one host get the one whose feed lies next to the file`() {
+        registry.replaceAll(
+            mapOf(
+                "feed-1" to FeedAuth(feedServer.url("/anna/feed.xml"), "anna", "a"),
+                "feed-2" to FeedAuth(feedServer.url("/bert/feed.xml"), "bert", "b"),
+            ),
+        )
+
+        assertEquals("bert", registry.forUrl(feedServer.url("/bert/media/1.mp3"))?.username)
+        assertEquals("anna", registry.forUrl(feedServer.url("/anna/cover.jpg"))?.username)
+        // Kein Pfad passt: der erste, wie bisher.
+        assertEquals("anna", registry.forUrl(feedServer.url("/media/1.mp3"))?.username)
+    }
+
+    @Test
     fun `an existing authorization stays`() {
         registry.replaceAll(mapOf("feed-1" to FeedAuth(feedServer.url("/"), "anna", "geheim:ö")))
         feedServer.enqueue(MockResponse.Builder().body("ok").build())
