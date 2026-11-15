@@ -48,7 +48,7 @@ class DatabaseExporterTest {
                     .build()
             }
             .build()
-        val repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db))
+        val repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
         importer = DatabaseImporter(repository, db.podcastDao(), db.bookDao(), db.statsDao())
         settings = SpokenSettings(ApplicationProvider.getApplicationContext())
         // Der DataStore bleibt zwischen den Tests derselben JVM erhalten.

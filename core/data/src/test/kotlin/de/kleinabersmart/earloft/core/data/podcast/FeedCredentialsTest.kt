@@ -68,6 +68,7 @@ class FeedCredentialsTest {
             AudioFileChapters(ApplicationProvider.getApplicationContext()),
             { error("kein Quellenwechsel im Test") },
             testFeedCredentials(db, secrets, registry),
+            EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()),
         )
     }
 

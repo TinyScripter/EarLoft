@@ -142,6 +142,7 @@ class PodcastRepository @Inject constructor(
     // Lazy: Der Wechsel der Quelle braucht seinerseits dieses Repository.
     private val sourceSwitch: dagger.Lazy<PodcastSourceSwitch>,
     private val credentials: FeedCredentials,
+    private val queue: EpisodeQueue,
 ) {
     private val mutex = Mutex()
 
@@ -815,7 +816,13 @@ class PodcastRepository @Inject constructor(
      * In einer Transaktion: Eine ARD-Sendung bringt Hunderte Folgen; einzeln geschrieben wurde jede Folge ein eigener Commit und
      * eine eigene Benachrichtigung der Oberfläche (am Emulator 5 s für 352 Folgen, jetzt 0,3 s).
      */
-    private suspend fun apply(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult = database.withTransaction {
+    private suspend fun apply(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched): RefreshResult {
+        // Eingereihte Folgen bleiben, auch wenn der Feed sie nicht mehr führt; die Reihenfolge liegt außerhalb der Datenbank.
+        val queued = queue.queuedRemoteIds(feed.feedId).take(MAX_ARGS)
+        return database.withTransaction { applyInTransaction(feed, fetched, queued) }
+    }
+
+    private suspend fun applyInTransaction(feed: PodcastFeedEntity, fetched: FeedFetch.Fetched, queued: List<String>): RefreshResult {
         val parsed = fetched.feed
         val generation = feed.syncGeneration + 1
         val known = bookDao.booksOf(feed.feedId).associateBy { it.remoteId }
@@ -840,7 +847,7 @@ class PodcastRepository @Inject constructor(
             if (stored != listOf(track)) dao.setTrack(track)
             if (episode.chapters.isNotEmpty()) storeChapters(id, episode.chapters, ChapterSource.FEED, track.durationMs, existing?.chapterSource)
         }
-        dao.deleteUnseenEpisodes(feed.feedId, generation)
+        dao.deleteUnseenEpisodes(feed.feedId, generation, queued)
         dao.upsertFeed(
             feed.copy(
                 title = title,
@@ -857,7 +864,7 @@ class PodcastRepository @Inject constructor(
                 syncGeneration = generation,
             ).refreshSucceeded(),
         )
-        RefreshResult(newIds)
+        return RefreshResult(newIds)
     }
 
     /**

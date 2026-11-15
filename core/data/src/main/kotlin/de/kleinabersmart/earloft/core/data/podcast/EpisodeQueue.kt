@@ -62,6 +62,15 @@ class EpisodeQueue @Inject constructor(
     val hidden: Flow<Set<Long>> =
         combine(prefs, idsByKey) { prefs, ids -> prefs.read(KEY_HIDDEN).mapNotNullTo(HashSet()) { ids[it] } }.distinctUntilChanged()
 
+    /**
+     * Die Kennungen (guid) der Folgen von [feedId] in der festgelegten Reihenfolge: Der Abgleich entfernt sie nicht, auch wenn der
+     * Feed sie nicht mehr führt (Review D23).
+     */
+    suspend fun queuedRemoteIds(feedId: String): List<String> {
+        val prefix = key(feedId, "")
+        return prefs.first().read(KEY_ORDER).filter { it.startsWith(prefix) }.map { it.removePrefix(prefix) }
+    }
+
     /** Stellt die Folge an die erste Stelle. */
     suspend fun moveToFront(bookId: Long) = edit(bookId) { key, order -> listOf(key) + (order - key) }
 

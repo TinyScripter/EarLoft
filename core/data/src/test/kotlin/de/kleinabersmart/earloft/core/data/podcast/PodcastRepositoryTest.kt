@@ -81,7 +81,7 @@ class PodcastRepositoryTest {
                     .build()
             }
             .build()
-        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), settings, AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db))
+        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), settings, AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
     }
 
     @After
@@ -935,6 +935,19 @@ class PodcastRepositoryTest {
         repository.refresh(feedId)
 
         assertEquals(setOf("C", "D"), repository.episodes(feedId).first().map { it.book.title }.toSet())
+    }
+
+    @Test
+    fun `refresh keeps queued episodes the feed no longer lists`() = runTest {
+        val feedId = subscribe()
+        val queued = idOf(feedId, "C")
+        EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()).append(queued)
+        served = feed("D" to "Fri, 31 Oct 2025 06:00:00 GMT")
+
+        repository.refresh(feedId)
+
+        assertEquals(setOf("C", "D"), repository.episodes(feedId).first().map { it.book.title }.toSet())
+        assertEquals("the queue keeps pointing at it", queued, db.bookDao().booksOf(feedId).single { it.title == "C" }.bookId)
     }
 
     @Test
