@@ -10,6 +10,7 @@ import de.kleinabersmart.earloft.core.data.spoken.PreparedBook
 import de.kleinabersmart.earloft.core.model.authorLine
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookTrack
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Hörbücher in der Warteschlange (Konzept 12.4): ein `MediaItem` je Datei, `mediaId = book:<bookId>/<trackIndex>`.
@@ -43,8 +44,11 @@ val MediaItem.isUnavailablePart: Boolean get() = mediaMetadata.extras?.getBoolea
 val MediaItem.isEpisode: Boolean get() = mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE
 
 @OptIn(UnstableApi::class)
-internal fun PreparedBook.toMediaItems(): List<MediaItem> =
-    trackUrls.mapIndexed { index, url ->
+internal fun PreparedBook.toMediaItems(): List<MediaItem> {
+    SpokenCastSources.put(book.id, trackUrls.indices.map { index ->
+        castUrls.getOrNull(index)?.let { SpokenCastSource(it, timeline.tracks[index].mimeType, castCoverUrl, absServerId) }
+    })
+    return trackUrls.mapIndexed { index, url ->
         MediaItem.Builder()
             .setMediaId(BookIds.mediaId(book.id, index))
             .setUri(url)
@@ -66,16 +70,13 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> =
                         Bundle().apply {
                             putLong(EXTRA_BOOK_ID, book.id)
                             if (timeline.tracks[index].unavailable) putBoolean(EXTRA_UNAVAILABLE, true)
-                            castUrls.getOrNull(index)?.let { putString(EXTRA_CAST_URL, it) }
-                            timeline.tracks[index].mimeType?.let { putString(EXTRA_CAST_MIME, it) }
-                            absServerId?.let { putString(EXTRA_CAST_ABS_SERVER, it) }
-                            castCoverUrl?.let { putString(EXTRA_CAST_COVER, it) }
                         },
                     )
                     .build(),
             )
             .build()
     }
+}
 
 /** Ersetzt die Warteschlange durch das Buch und spielt es an der gespeicherten Stelle bzw. bei [startPositionMs]. */
 internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = null, autoPlay: Boolean = true) {
@@ -90,20 +91,28 @@ internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = nu
 
 internal const val EXTRA_BOOK_ID = "de.kleinabersmart.earloft.BOOK_ID"
 private const val EXTRA_UNAVAILABLE = "de.kleinabersmart.earloft.UNAVAILABLE"
-private const val EXTRA_CAST_URL = "de.kleinabersmart.earloft.CAST_URL"
-private const val EXTRA_CAST_MIME = "de.kleinabersmart.earloft.CAST_MIME"
-private const val EXTRA_CAST_ABS_SERVER = "de.kleinabersmart.earloft.CAST_ABS_SERVER"
-private const val EXTRA_CAST_COVER = "de.kleinabersmart.earloft.CAST_COVER"
 
 /**
- * Wo ein Cast-Empfänger die Datei eines Buchs oder einer Folge findet. Die Adressen enthalten keine Zugangsdaten; bei
- * [absServerId] ≠ `null` gehört der Schlüssel dieses Audiobookshelf-Servers als `token` dazu.
+ * Wo ein Cast-Empfänger die Datei eines Buchs oder einer Folge findet. Die Adressen enthalten kein Passwort, bei manchen
+ * privaten Feeds aber einen Token im Pfad; bei [absServerId] ≠ `null` gehört der Schlüssel dieses Audiobookshelf-Servers
+ * als `token` dazu.
  */
 class SpokenCastSource(val url: String, val mimeType: String?, val coverUrl: String?, val absServerId: String?)
 
 val MediaItem.spokenCastSource: SpokenCastSource?
-    get() {
-        val extras = mediaMetadata.extras ?: return null
-        val url = extras.getString(EXTRA_CAST_URL) ?: return null
-        return SpokenCastSource(url, extras.getString(EXTRA_CAST_MIME), extras.getString(EXTRA_CAST_COVER), extras.getString(EXTRA_CAST_ABS_SERVER))
+    get() = bookId?.let { id -> bookTrackIndex?.let { SpokenCastSources.get(id, it) } }
+
+/**
+ * Cast-Quellen je Buch bzw. Folge, nur im Speicher des App-Prozesses (Review D31): Die Metadaten der Items gehen an jeden
+ * Controller, auch an fremde, und die Adresse einer Folge trägt bei manchen privaten Feeds den Token. Gefüllt von
+ * [toMediaItems]; jeder Weg zu Buch-Items (Start, Fortsetzen, Neubau nach einer Cast-Sitzung) geht dort durch.
+ */
+internal object SpokenCastSources {
+    private val byBook = ConcurrentHashMap<Long, List<SpokenCastSource?>>()
+
+    fun put(bookId: Long, sources: List<SpokenCastSource?>) {
+        byBook[bookId] = sources
     }
+
+    fun get(bookId: Long, trackIndex: Int): SpokenCastSource? = byBook[bookId]?.getOrNull(trackIndex)
+}
