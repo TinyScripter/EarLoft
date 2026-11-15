@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -33,6 +34,8 @@ import org.robolectric.RobolectricTestRunner
 import java.security.MessageDigest
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /** Anmeldung per OpenID und Erneuerung der Tokens (Konzept 12.11) gegen einen nachgebauten Audiobookshelf. */
@@ -56,6 +59,10 @@ class AbsOpenIdTest {
 
     @Volatile
     private var challenge: String? = null
+
+    /** Erneuerung angekommen bzw. darf antworten; `null` = sofort. */
+    @Volatile
+    private var refreshGate: Pair<CountDownLatch, CountDownLatch>? = null
 
     @Before
     fun setUp() {
@@ -209,6 +216,26 @@ class AbsOpenIdTest {
     }
 
     @Test
+    fun `a renewal the caller gives up on still stores the rotated tokens`() = runTest {
+        val id = signIn()
+        servers.server(id)
+        registry.register(registry[id]!!.copy(token = jwt("access-1", System.currentTimeMillis() / 1000 + 60)))
+        val arrived = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        refreshGate = arrived to release
+
+        val caller = launch(Dispatchers.IO) { renewal.fresh(id, 30 * 60) }
+        assertTrue(arrived.await(5, TimeUnit.SECONDS))
+        caller.cancel()
+        release.countDown()
+        caller.join()
+
+        assertEquals("refresh-2", secrets.values[AbsSecrets.refresh(id)])
+        assertEquals(jwt("access-2"), secrets.values[AbsSecrets.token(id)])
+        assertEquals(jwt("access-2"), registry[id]!!.token)
+    }
+
+    @Test
     fun `the watch gets an access token that is still valid, never the refresh token`() = runTest {
         val id = signIn()
         servers.server(id)
@@ -294,15 +321,12 @@ class AbsOpenIdTest {
                         tokens(jwt("access-1"), currentRefresh)
                     }
                 }
-                "/auth/refresh" -> synchronized(this) {
-                    refreshCalls.incrementAndGet()
-                    if (request.headers["x-refresh-token"] != currentRefresh) {
-                        MockResponse.Builder().code(401).body("""{"error":"Invalid refresh token"}""").build()
-                    } else {
-                        accessCounter++
-                        currentRefresh = "refresh-$accessCounter"
-                        tokens(jwt("access-$accessCounter"), currentRefresh)
+                "/auth/refresh" -> {
+                    refreshGate?.let { (arrived, release) ->
+                        arrived.countDown()
+                        release.await(5, TimeUnit.SECONDS)
                     }
+                    refresh(request)
                 }
                 "/ping" -> json("""{"success":true}""")
                 else -> when {
@@ -311,6 +335,17 @@ class AbsOpenIdTest {
                     url.encodedPath == "/api/libraries" -> json("""{"libraries":[{"id":"lib","name":"Bücher","mediaType":"book"}]}""")
                     else -> MockResponse.Builder().code(404).build()
                 }
+            }
+        }
+
+        private fun refresh(request: RecordedRequest): MockResponse = synchronized(this) {
+            refreshCalls.incrementAndGet()
+            if (request.headers["x-refresh-token"] != currentRefresh) {
+                MockResponse.Builder().code(401).body("""{"error":"Invalid refresh token"}""").build()
+            } else {
+                accessCounter++
+                currentRefresh = "refresh-$accessCounter"
+                tokens(jwt("access-$accessCounter"), currentRefresh)
             }
         }
 

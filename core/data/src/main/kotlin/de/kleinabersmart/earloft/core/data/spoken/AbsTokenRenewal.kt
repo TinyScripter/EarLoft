@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServer
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsServerRegistry
 import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsTokenRefresher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -84,7 +85,13 @@ class AbsTokenRenewal @Inject constructor(
         retired.remove(serverId)
     }
 
-    private suspend fun refreshLocked(server: AbsServer): String? {
+    /**
+     * Nicht abbrechbar (Review D32): Hat der Server den Refresh-Token einmal rotiert, gilt der alte nur noch kurz. Bräche der
+     * Aufrufer währenddessen ab und die neuen Tokens blieben ungespeichert, kostete das später die Anmeldung.
+     */
+    private suspend fun refreshLocked(server: AbsServer): String? = withContext(NonCancellable) { refreshNow(server) }
+
+    private suspend fun refreshNow(server: AbsServer): String? {
         val refreshToken = secretStore.get(AbsSecrets.refresh(server.serverId)) ?: return null
         val tokens = try {
             withContext(Dispatchers.IO) { authApi.refreshBlocking(server.baseUrl, refreshToken) }
