@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.core.data.backup
 
 import android.app.Application
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
@@ -352,6 +353,40 @@ class FullBackupTest {
         } catch (e: FullBackupException) {
             assertTrue(e.newerVersion)
         }
+    }
+
+    @Test
+    fun `a value this version does not know is refused as a backup of a newer version`() = runTest {
+        val old = Device(backgroundScope)
+        old.main.addNavidrome()
+        val file = ByteArrayOutputStream().also { old.backup.export(it) }.toByteArray()
+        // Gleiches Schema, aber eine Art von Server, die erst eine neuere Version kennt.
+        val changed = ByteArrayOutputStream()
+        ZipOutputStream(changed).use { out ->
+            ZipInputStream(ByteArrayInputStream(file)).use { zip ->
+                generateSequence { zip.nextEntry }.forEach { entry ->
+                    var bytes = zip.readBytes()
+                    if (entry.name == "user.db") {
+                        val db = folder.newFile("changed.db").apply { writeBytes(bytes) }
+                        SQLiteDatabase.openDatabase(db.path, null, SQLiteDatabase.OPEN_READWRITE).use {
+                            it.execSQL("UPDATE servers SET type = 'FUTURE'")
+                        }
+                        bytes = db.readBytes()
+                    }
+                    out.putNextEntry(ZipEntry(entry.name))
+                    out.write(bytes)
+                }
+            }
+        }
+
+        val new = Device(backgroundScope)
+        try {
+            new.backup.import(ByteArrayInputStream(changed.toByteArray()))
+            fail("unbekannter Wert angenommen")
+        } catch (e: FullBackupException) {
+            assertTrue(e.newerVersion)
+        }
+        assertTrue(new.main.sourceDao().getServers().isEmpty())
     }
 
     @Test

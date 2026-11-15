@@ -1,9 +1,9 @@
 package de.kleinabersmart.earloft.core.data.backup
 
 import android.content.Context
-import android.database.SQLException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.database.UserDatabase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONException
@@ -103,10 +103,13 @@ class FullBackup @Inject constructor(
             } finally {
                 database.close()
             }
-        } catch (e: SQLException) {
-            throw FullBackupException(false, "user.db nicht lesbar", e)
-        } catch (e: IllegalStateException) {
-            // Room: Schema passt nicht, keine Migration.
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IllegalArgumentException) {
+            // Room: unbekannter Wert eines Enums bei gleichem Schema, also aus einer neueren Version.
+            throw FullBackupException(true, "user.db mit unbekanntem Wert", e)
+        } catch (e: RuntimeException) {
+            // `SQLException`; Room: Schema passt nicht, keine Migration (`IllegalStateException`); sonst Unlesbares.
             throw FullBackupException(false, "user.db nicht lesbar", e)
         }
         val imported = userData.import(snapshot)
