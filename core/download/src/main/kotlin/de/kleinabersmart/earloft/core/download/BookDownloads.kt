@@ -84,7 +84,7 @@ class BookDownloads @Inject constructor(
     suspend fun download(bookId: Long): DownloadStart {
         val mobileAllowed = settings.bookMobileData.first()
         if (books.timeline(bookId) == null) return DownloadStart.OFFLINE
-        if (dao.queueBookDownload(bookId) > 0) enqueueWorker()
+        if (dao.queueBookDownload(bookId) > 0) enqueueWorker(WorkManager.getInstance(context).manualDownloadPolicy(WORK_NAME))
         return connectionState(mobileAllowed)
     }
 
