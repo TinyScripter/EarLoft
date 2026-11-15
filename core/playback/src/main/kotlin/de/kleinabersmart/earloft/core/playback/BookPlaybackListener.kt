@@ -49,6 +49,8 @@ internal class BookPlaybackListener(
     private val effects: SpokenEffectsRepository,
     /** Stille kürzen und Lautstärke anheben am lokalen Player; bei Musik `(false, 0)`. */
     private val applyAudio: (skipSilence: Boolean, volumeBoostDb: Int) -> Unit = { _, _ -> },
+    /** Von „Stille kürzen“ übersprungene Inhaltszeit in ms seit dem letzten Aufruf ([SkippedSilence.drainMs]). */
+    private val skippedSilenceMs: () -> Long = { 0L },
 ) : Player.Listener {
 
     private var timelineBookId: Long? = null
@@ -389,7 +391,7 @@ internal class BookPlaybackListener(
         if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) {
             newPosition.mediaItem?.bookId?.let { touched += it }
         }
-        if (reason == Player.DISCONTINUITY_REASON_SILENCE_SKIP) countSkippedSilence(oldPosition, newPosition)
+        if (reason == Player.DISCONTINUITY_REASON_SILENCE_SKIP) collectSkippedSilence()
         if (reason != Player.DISCONTINUITY_REASON_REMOVE) {
             if (player.isPlaying) sampleRemoteEnd() else remoteEnd.reset()
         }
@@ -448,11 +450,10 @@ internal class BookPlaybackListener(
      * Gekürzte Stille: Sie zählt als gehörter Inhalt (wie bei höherem Tempo), und was sie an Zeit gespart hat (geteilt
      * durch das Tempo) geht als gesparte Zeit in die Statistik.
      */
-    private fun countSkippedSilence(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo) {
-        val bookId = newPosition.mediaItem?.bookId ?: return
-        if (bookId != meterBookId || oldPosition.mediaItemIndex != newPosition.mediaItemIndex) return
-        val skipped = newPosition.positionMs - oldPosition.positionMs
-        if (skipped <= 0) return
+    private fun collectSkippedSilence() {
+        val skipped = skippedSilenceMs()
+        // Bei Musik ist sie aus; was dennoch käme, gehört keinem Buch.
+        if (skipped <= 0 || meterBookId == null) return
         meter.addContent(skipped)
         savedPending += skipped / player.playbackParameters.speed.coerceAtLeast(MIN_SPEED).toDouble()
     }
@@ -517,6 +518,7 @@ internal class BookPlaybackListener(
      * Sitzung an den Server melden ([force]: sofort statt gedrosselt).
      */
     private fun flushListening(force: Boolean = true) {
+        collectSkippedSilence()
         val bookId = meterBookId ?: return
         val ms = meter.drain()
         if (ms <= 0) return

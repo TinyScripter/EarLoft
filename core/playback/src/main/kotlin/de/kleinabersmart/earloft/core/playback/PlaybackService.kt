@@ -156,17 +156,24 @@ class PlaybackService : MediaLibraryService() {
             playingSources::record,
             streamCache::isFullyCached,
         )
+        // Gesparte Zeit beim Stille-Kürzen zählt die Prozessorkette selbst mit (Statistik, SkippedSilence).
+        val skippedSilence = SkippedSilence()
         val renderersFactory = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
                 context: Context,
                 enableFloatOutput: Boolean,
                 enableAudioOutputPlaybackParams: Boolean,
             ): AudioSink = ReplayGainAudioSink(
-                DefaultAudioSink.Builder(context)
-                    .setEnableFloatOutput(enableFloatOutput)
-                    .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
-                    .setAudioProcessors(arrayOf(replayGain))
-                    .build(),
+                SilenceRateAudioSink(
+                    DefaultAudioSink.Builder(context)
+                        .setEnableFloatOutput(enableFloatOutput)
+                        .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
+                        .setAudioProcessorChain(
+                            CountingAudioProcessorChain(DefaultAudioSink.DefaultAudioProcessorChain(replayGain), skippedSilence),
+                        )
+                        .build(),
+                    skippedSilence,
+                ),
                 replayGain,
             )
         }
@@ -224,6 +231,7 @@ class PlaybackService : MediaLibraryService() {
             effects = spokenEffects,
             // Ein Cast-Empfänger spielt ohne Effekte; der lokale Player behält sie, bis wieder lokal gespielt wird.
             applyAudio = audioEffects::apply,
+            skippedSilenceMs = skippedSilence::drainMs,
         )
         player.addListener(bookListener)
         servicePlayer.attach(player) { bookId, playNext -> markFinished(player, bookId, playNext) }
