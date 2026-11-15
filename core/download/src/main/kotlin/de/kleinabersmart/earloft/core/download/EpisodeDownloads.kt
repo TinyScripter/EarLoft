@@ -41,6 +41,9 @@ import javax.inject.Singleton
 /** Wann ein von Hand angeforderter Download beginnt. */
 enum class DownloadStart { STARTED, WAITING_FOR_WIFI, OFFLINE }
 
+/** Fertig geladene Datei einer Folge; [mimeType] kann fehlen. */
+data class DownloadedEpisodeFile(val file: File, val mimeType: String?)
+
 /**
  * Downloads von Podcast-Folgen: von Hand je Folge, automatisch für die neuesten ungehörten Folgen eines Podcasts mit
  * eingeschaltetem „Neue Folgen automatisch herunterladen“, und Aufräumen. Die Datei ersetzt beim Abspielen den Stream
@@ -78,6 +81,13 @@ class EpisodeDownloads @Inject constructor(
             !mobileAllowed && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) -> DownloadStart.WAITING_FOR_WIFI
             else -> DownloadStart.STARTED
         }
+    }
+
+    /** Die fertig geladene Datei der Folge samt Medientyp (zum Teilen); `null`, solange sie fehlt oder noch lädt. */
+    suspend fun downloadedFile(bookId: Long): DownloadedEpisodeFile? {
+        val track = dao.trackOf(bookId) ?: return null
+        val file = track.filePath?.let(::File)?.takeIf { it.isFile } ?: return null
+        return DownloadedEpisodeFile(file, track.mimeType)
     }
 
     /** Löscht die Datei der Folge (auch einen wartenden oder laufenden Download). Die Automatik lädt sie nicht neu. */

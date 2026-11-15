@@ -149,6 +149,17 @@
                 android:resource="@xml/now_playing_widget_info" />
         </receiver>
 
+        <!-- Geladene Folgen als Datei teilen; Zugriff nur per Einmal-Berechtigung des Teilen-Intents. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.shared"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_file_paths" />
+        </provider>
+
         <!-- Nachrichten der Uhr (Wear-Konzept 4); die Play-Dienste starten den Dienst bei Bedarf. -->
         <service
             android:name=".wear.PhoneWearListenerService"

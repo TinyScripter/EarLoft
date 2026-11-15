@@ -70,6 +70,10 @@ class EpisodeMenuViewModel @Inject constructor(
     ) { episodes, bookIds -> episodes + bookIds }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
+    /** Folgen mit fertig geladener Datei; nur die lassen sich als Datei teilen. */
+    val downloadedEpisodes: StateFlow<Set<Long>> = podcasts.downloadedIds()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     /** Die vorderste Folge der Zeile (die laufende bzw. die, mit der es weitergeht); hinter sie kommt „Als Nächstes“. */
     val queueHead: StateFlow<Long?> = continueListening.episodes
         .map { it.firstOrNull()?.book?.id }

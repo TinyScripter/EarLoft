@@ -31,6 +31,7 @@ import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
+import de.kleinabersmart.earloft.ui.components.ShareMediaMenuItem
 import de.kleinabersmart.earloft.ui.components.ShareMenuItem
 import de.kleinabersmart.earloft.ui.components.WatchMenuItem
 import de.kleinabersmart.earloft.ui.components.WatchTarget
@@ -98,6 +99,7 @@ fun EpisodeMenu(
 ) {
     val queued by viewModel.queued.collectAsStateWithLifecycle()
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
+    val downloadedEpisodes by viewModel.downloadedEpisodes.collectAsStateWithLifecycle()
     val queueHead by viewModel.queueHead.collectAsStateWithLifecycle()
     val queueSecond by viewModel.queueSecond.collectAsStateWithLifecycle()
     val trialFeeds by viewModel.trialFeeds.collectAsStateWithLifecycle()
@@ -185,6 +187,8 @@ fun EpisodeMenu(
             if (!item.isEpisode || !item.book.isLocal) ShareMenuItem(ShareTarget.Book(id), onDismiss, withIcon = false)
             WatchMenuItem(WatchTarget.Spoken(id), onDismiss, withIcon = false)
         }
+        // Die fertig geladene Audiodatei statt des Links; Folgen vom Gerät liegen schon beim Nutzer.
+        if (item.isEpisode && !item.book.isLocal && id in downloadedEpisodes) ShareMediaMenuItem(id, item.book.title, onDismiss)
         // Dateien vom Gerät sind schon da.
         if (!item.book.isLocal) {
             if (id in downloaded) {
