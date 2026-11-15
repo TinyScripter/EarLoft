@@ -52,7 +52,8 @@ internal fun Player.asSleepTimerTarget(spot: () -> SpokenSpot?, rewind: (Long) -
             this@asSleepTimerTarget.volume = value
         }
     override val isPlaying: Boolean get() = this@asSleepTimerTarget.isPlaying
-    override val isSpoken: Boolean get() = currentMediaItem?.isSpoken == true
+    // Während der Übergabe ans Cast-Gerät ist die Warteschlange einige Sekunden leer: kein Ende, „bis zum Ende“ wartet (Review D9).
+    override val isSpoken: Boolean get() = currentMediaItem?.isSpoken == true || awaitsRemoteQueue
     override fun pause() = this@asSleepTimerTarget.pause()
     override fun play() = this@asSleepTimerTarget.play()
     override fun spokenSpot(): SpokenSpot? = spot()

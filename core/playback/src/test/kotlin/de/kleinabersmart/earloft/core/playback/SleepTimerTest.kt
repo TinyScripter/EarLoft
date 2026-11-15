@@ -52,7 +52,10 @@ class SleepTimerTest {
             playCount++
         }
 
-        override fun spokenSpot(): SpokenSpot? = if (spoken) SpokenSpot(bookId, position, speed, ends) else null
+        /** Übergabe ans Cast-Gerät: die Warteschlange ist kurz leer, `isSpoken` bleibt (wie `asSleepTimerTarget`). */
+        var awaitsRemoteQueue = false
+
+        override fun spokenSpot(): SpokenSpot? = if (spoken && !awaitsRemoteQueue) SpokenSpot(bookId, position, speed, ends) else null
 
         override fun rewind(heardMs: Long) {
             rewound += heardMs
@@ -207,6 +210,20 @@ class SleepTimerTest {
         target.spoken = false
         advance(2_000)
         assertNull(timer.state.value)
+        assertEquals(0, target.pauseCount)
+    }
+
+    @Test
+    fun `bis zum Ende wartet die leere Warteschlange bei der Uebergabe ans Cast-Geraet ab`() {
+        target.position = 10_000
+        timer.startToEnd()
+        advance(5_000)
+        target.awaitsRemoteQueue = true
+        advance(7_000)
+        assertTrue(timer.state.value != null)
+        target.awaitsRemoteQueue = false
+        advance(1_000)
+        assertEquals(37_000L, timer.state.value?.remainingMs)
         assertEquals(0, target.pauseCount)
     }
 
