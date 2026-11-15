@@ -104,11 +104,16 @@ class CastMediaCache @Inject constructor(
         )
     }
 
-    /** Wie [prepareBlocking]: Normalerweise sind die Schlüssel beim Start der Sitzung schon geladen. */
+    /**
+     * Wie [prepareBlocking]: Normalerweise sind die Schlüssel beim Start der Sitzung schon geladen. Sonst die gespeicherten,
+     * ohne zu erneuern: Das ginge übers Netz (bei OpenID bis zum Verbindungs-Timeout je Server) und blockierte den Main-Thread
+     * (Review D10). Ein knapp gültiger Token wird ersetzt, sobald [prepareServerKeys] fertig ist.
+     */
     private fun serverKeys(): Map<String, String> = serverKeys ?: run {
-        Log.w(TAG, "Server-Schlüssel nicht vorbereitet, lade blockierend")
-        runBlocking(Dispatchers.IO) { prepareServerKeys() }
-        serverKeys.orEmpty()
+        Log.w(TAG, "Server-Schlüssel nicht vorbereitet, nehme die gespeicherten")
+        val stored = runBlocking(Dispatchers.IO) { audiobookshelf.allIncludingDisabled().associate { it.serverId to it.token } }
+        // Nur, wenn [prepareServerKeys] nicht inzwischen fertig ist.
+        serverKeys ?: stored.also { serverKeys = it }
     }
 
     /** Feeds nennen den Typ oft nicht oder falsch (`audio/x-m4b`); dann entscheidet die Endung. */
