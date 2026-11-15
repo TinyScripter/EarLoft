@@ -241,6 +241,9 @@ class MediaPlaybackConnection @Inject constructor(
     }
 
     override fun replaceUpcoming(songs: List<Song>) = withController {
+        // Der Mix hat seine eigene Reihenfolge (z. B. nie zweimal derselbe Künstler hintereinander). Bei Zufall meinte „hinter dem
+        // laufenden Titel“ die gemischte Reihenfolge, und Media3 mischte den Mix noch einmal: Wie bei `play` endet der Zufall hier.
+        shuffleModeEnabled = false
         if (mediaItemCount == 0) {
             setMediaItems(songs.map { it.toMediaItem() })
             prepare()
