@@ -86,7 +86,7 @@ class BookDownloader @Inject constructor(
 
     private suspend fun finish(track: BookTrackEntity, mimeType: String?): DownloadOutcome {
         val part = storage.partFileFor(track.bookId, track.trackIndex)
-        val target = storage.fileFor(track.bookId, track.trackIndex, mimeType)
+        val target = storage.freeFileFor(track.bookId, track.trackIndex, mimeType, dao.otherTrackFiles(track.bookId, track.trackIndex))
         if (!part.renameTo(target)) {
             // Kurz vor dem Ende entfernt: Die Teildatei ist schon weg, kein Grund für einen neuen Versuch.
             if (!stillRunning(track)) return DownloadOutcome.Cancelled

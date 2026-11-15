@@ -22,6 +22,19 @@ class BookStorage internal constructor(val directory: File) : PartFiles {
     fun fileFor(bookId: Long, trackIndex: Int, mimeType: String?): File =
         File(directory, "${prefix(bookId)}$trackIndex.${DownloadStorage.extensionFor(mimeType)}")
 
+    /**
+     * Wie [fileFor], aber nie ein Pfad aus [taken] (die Dateien der übrigen Spuren des Buchs): Eine geladene Datei behält
+     * ihren Pfad, wenn sie auf dem Server an einen anderen Index rückt; der Download der neuen Datei auf ihrem alten Index
+     * überschriebe sie sonst still (Review D2). Dann `book-<bookId>-<trackIndex>-<n>.<Endung>`.
+     */
+    fun freeFileFor(bookId: Long, trackIndex: Int, mimeType: String?, taken: Collection<String>): File {
+        val used = taken.mapTo(HashSet()) { File(it).name }
+        val extension = DownloadStorage.extensionFor(mimeType)
+        return generateSequence(1) { it + 1 }
+            .map { n -> File(directory, if (n == 1) "${prefix(bookId)}$trackIndex.$extension" else "${prefix(bookId)}$trackIndex-$n.$extension") }
+            .first { it.name !in used }
+    }
+
     /** Ziel während des Ladens; wird erst nach vollständigem Download umbenannt. */
     override fun partFileFor(bookId: Long, trackIndex: Int): File = File(directory, "${prefix(bookId)}$trackIndex$PART_SUFFIX")
 

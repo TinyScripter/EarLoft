@@ -184,7 +184,7 @@ class PhoneFileFetcher @Inject constructor(
                     DownloadOutcome.Failed(MISSING_ON_PHONE)
                 }
                 is FileReceive.Received -> {
-                    val target = bookStorage.fileFor(bookId, index, track.mimeType)
+                    val target = bookStorage.freeFileFor(bookId, index, track.mimeType, bookDao.otherTrackFiles(bookId, index))
                     if (!part.renameTo(target)) throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
                     if (bookDao.markBookTrackDone(bookId, index, target.absolutePath, target.length()) == 0) {
                         target.delete()

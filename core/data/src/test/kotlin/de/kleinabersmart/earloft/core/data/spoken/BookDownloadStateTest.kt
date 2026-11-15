@@ -145,6 +145,27 @@ class BookDownloadStateTest {
     }
 
     @Test
+    fun `a file put in front on the server keeps its path and that path counts as taken for the new first file`() = runTest {
+        val book = addBook(BookKind.BOOK, "b", files = 2)
+        db.bookDao().queueBookDownload(book)
+        db.bookDao().markBookTrackRunning(book, 0)
+        db.bookDao().markBookTrackDone(book, 0, "/x/book-$book-0.m4b", 400)
+        db.bookDao().markBookTrackRunning(book, 1)
+        db.bookDao().markBookTrackDone(book, 1, "/x/book-$book-1.m4b", 400)
+
+        // Auf dem Server kommt eine Datei vor die beiden: Die geladenen rücken auf 1 und 2 und behalten ihre Dateien.
+        db.bookDao().replaceDetails(
+            book,
+            listOf(BookTrackEntity(book, 0, "intro", 0, 100), BookTrackEntity(book, 1, "file0", 100, 500), BookTrackEntity(book, 2, "file1", 600, 500)),
+            emptyList(),
+        )
+
+        assertEquals("/x/book-$book-0.m4b", db.bookDao().tracks(book)[1].filePath)
+        assertEquals(setOf("/x/book-$book-0.m4b", "/x/book-$book-1.m4b"), db.bookDao().otherTrackFiles(book, 0).toSet())
+        assertEquals(listOf("/x/book-$book-1.m4b"), db.bookDao().otherTrackFiles(book, 1))
+    }
+
+    @Test
     fun `removing a book resets its files and the heard cleanup of episodes ignores books`() = runTest {
         val book = addBook(BookKind.BOOK, "b", files = 1)
         db.bookDao().queueBookDownload(book)

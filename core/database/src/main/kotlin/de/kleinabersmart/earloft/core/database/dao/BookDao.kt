@@ -601,6 +601,10 @@ abstract class BookDao {
     )
     abstract suspend fun markBookTrackDone(bookId: Long, trackIndex: Int, path: String, size: Long): Int
 
+    /** Dateipfade der übrigen Spuren des Buchs: Ein neuer Download darf keinen davon überschreiben. */
+    @Query("SELECT filePath FROM book_tracks WHERE bookId = :bookId AND trackIndex != :trackIndex AND filePath IS NOT NULL")
+    abstract suspend fun otherTrackFiles(bookId: Long, trackIndex: Int): List<String>
+
     @Query("UPDATE book_tracks SET downloadState = 'REMOVED', filePath = NULL, fileSize = 0 WHERE bookId = :bookId AND downloadState != 'NONE'")
     abstract suspend fun markBookDownloadRemoved(bookId: Long)
 
