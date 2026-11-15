@@ -53,7 +53,8 @@ private val Context.offlineImagesDataStore: DataStore<Preferences> by preference
  *
  * Ändert sich der Bestand (Alben, Interpreten, Bücher, Folgen, Abos oder deren Bilder, eingeschaltete Bereiche), lädt
  * [OfflineImagesWorker] im WLAN, was fehlt, und räumt Bilder weg, zu denen es nichts mehr gibt. Der Stand des letzten
- * vollständigen Laufs ist gemerkt: Ein Neustart des Prozesses ohne Änderung lädt nichts.
+ * vollständigen Laufs ist gemerkt: Ein Neustart des Prozesses ohne Änderung lädt nichts. Ein Lauf, in dem ein Server oder
+ * Abo nicht antwortete, gilt nicht als vollständig (Review D7): Er wiederholt sich mit Backoff, danach beim nächsten Start.
  */
 @Singleton
 class OfflineImages @Inject constructor(
@@ -74,6 +75,8 @@ class OfflineImages @Inject constructor(
     fun start() {
         if (!started.compareAndSet(false, true)) return
         scope.launch {
+            // Der erste Stand nach dem Prozessstart lässt einen wartenden Lauf (Backoff) stehen; erst eine Änderung ersetzt ihn.
+            var first = true
             combine(
                 libraryDao.observeImageStamp(),
                 bookDao.observeImageStamp(),
@@ -84,16 +87,20 @@ class OfflineImages @Inject constructor(
                 .distinctUntilChanged()
                 // Ein Abgleich schreibt in vielen Schritten; geladen wird erst, wenn er durch ist.
                 .debounce(DEBOUNCE_MS)
-                .collect { stamp -> if (stamp != doneStamp()) OfflineImagesWorker.enqueue(context, stamp) }
+                .collect { stamp ->
+                    if (stamp != doneStamp()) OfflineImagesWorker.enqueue(context, stamp, replace = !first)
+                    first = false
+                }
         }
     }
 
     /**
      * Lädt alle fehlenden Bilder der eingeschalteten Bereiche, neueste Folgen und Bücher zuerst, und räumt verwaiste weg.
      * Antwortet ein Server oder Abo mehrmals nicht, bleibt der Rest von ihm für den nächsten Lauf (statt jedes Mal den
-     * Zeitüberschreitungen nachzuwarten).
+     * Zeitüberschreitungen nachzuwarten). @return `false`, wenn deshalb etwas übersprungen wurde.
      */
-    suspend fun prefetch() {
+    suspend fun prefetch(): Boolean {
+        var complete = true
         val areas = spokenSettings.areas.first()
         if (SpokenMode.PODCASTS in areas) {
             val unreachable = Unreachable()
@@ -103,6 +110,7 @@ class OfflineImages @Inject constructor(
             bookDao.listedCoverRows(BookKind.EPISODE)
                 .filter { it.coverUrl != null && !isLocalSource(it.serverId) }
                 .forEach { row -> unreachable.attempt(row.serverId) { bookCovers.ensureOwnCached(row.bookId) } }
+            if (!unreachable.none()) complete = false
         }
         if (SpokenMode.BOOKS in areas) {
             val unreachable = Unreachable()
@@ -111,6 +119,7 @@ class OfflineImages @Inject constructor(
                 .forEach { row -> unreachable.attempt(row.serverId) { bookCovers.ensureOwnCached(row.bookId) } }
             // Autorenbilder kommen vom selben Server; antwortet er nicht, warteten sonst alle Autoren einzeln darauf.
             if (unreachable.none()) bookDao.listedAuthors().flatMap(::bookAuthors).distinct().forEach { authorImages.image(it) }
+            if (!unreachable.none()) complete = false
         }
         if (SpokenMode.MUSIC in areas) {
             val unreachable = Unreachable()
@@ -120,9 +129,11 @@ class OfflineImages @Inject constructor(
                 unreachable.attempt(source.sourceId) { artwork.keepAlbumCoverOffline(albumId, source, ALBUM_COVER_PX) }
             }
             if (artworkSettings.artistImages.first()) libraryDao.getAllArtistIds().forEach { artwork.artistImage(it) }
+            if (!unreachable.none()) complete = false
         }
         val removed = bookCovers.retainKnown() + artwork.retainAlbumCoverFiles()
         if (removed > 0) Log.i(TAG, "$removed Bilder ohne Eintrag entfernt")
+        return complete
     }
 
     internal suspend fun markDone(stamp: String) {
@@ -163,9 +174,12 @@ class OfflineImagesWorker(
 
     override suspend fun doWork(): Result {
         val offlineImages = EntryPointAccessors.fromApplication(applicationContext, WorkerEntryPoint::class.java).offlineImages()
-        offlineImages.prefetch()
-        inputData.getString(KEY_STAMP)?.let { offlineImages.markDone(it) }
-        return Result.success()
+        if (offlineImages.prefetch()) {
+            inputData.getString(KEY_STAMP)?.let { offlineImages.markDone(it) }
+            return Result.success()
+        }
+        // Unvollständig: nicht als erledigt merken, sonst käme der Rest erst mit dem nächsten geänderten Bestand.
+        return if (runAttemptCount + 1 < MAX_ATTEMPTS) Result.retry() else Result.success()
     }
 
     @EntryPoint
@@ -178,8 +192,14 @@ class OfflineImagesWorker(
         private const val WORK_NAME = "offline-images"
         private const val KEY_STAMP = "stamp"
 
-        /** Ersetzt einen laufenden Lauf: Der neue sieht den neuen Bestand, schon geladene Bilder überspringt er. */
-        fun enqueue(context: Context, stamp: String) {
+        /** Läufe mit Backoff (5 min, verdoppelt) für einen unvollständigen Stand, zusammen gut 2,5 h. */
+        private const val MAX_ATTEMPTS = 5
+
+        /**
+         * Mit [replace] ersetzt der neue Lauf einen laufenden bzw. wartenden: Er sieht den neuen Bestand, schon geladene Bilder
+         * überspringt er.
+         */
+        fun enqueue(context: Context, stamp: String, replace: Boolean) {
             val request = OneTimeWorkRequestBuilder<OfflineImagesWorker>()
                 .setConstraints(
                     Constraints.Builder()
@@ -190,7 +210,7 @@ class OfflineImagesWorker(
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
                 .setInputData(workDataOf(KEY_STAMP to stamp))
                 .build()
-            WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+            WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP, request)
         }
     }
 }
