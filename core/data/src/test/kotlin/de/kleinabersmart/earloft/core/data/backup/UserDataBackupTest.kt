@@ -339,12 +339,21 @@ class UserDataBackupTest {
             val settings = SpokenSettings(context)
             val backup = backupFor(newDevice, testArdBooks(context, newDevice, server.url("/graphql"), settings))
             val saved = user.userDataDao().snapshot().ardBooks.values
-            server.enqueue(MockResponse.Builder().body("""{"data":{"items":{"nodes":[]}}}""").build())
+            val empty = MockResponse.Builder().body("""{"data":{"items":{"nodes":[]}}}""").build()
+            server.enqueue(empty)
 
+            // Eine leere Antwort allein kann ein Aussetzer sein: Beim nächsten Start wird wieder gefragt (Review F6).
+            assertTrue(backup.fetchArdBooks(saved))
+            assertTrue(server.requestCount > 0)
+            assertTrue(settings.ardGoneChecks().isEmpty())
+            assertTrue(ardKey in settings.ardMissing())
+            // Bestätigt sie eine spätere, gilt das Buch als weg.
+            settings.setArdMissing(ardKey, System.currentTimeMillis() - 7 * 60 * 60 * 1000L)
+            server.enqueue(empty)
             assertTrue(backup.fetchArdBooks(saved))
             val asked = server.requestCount
-            assertTrue(asked > 0)
             assertTrue(ardKey in settings.ardGoneChecks())
+            assertTrue(settings.ardMissing().isEmpty())
 
             // Nächster Start: keine Anfrage, das Buch bleibt gesichert.
             assertTrue(backup.fetchArdBooks(saved))

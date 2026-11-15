@@ -32,6 +32,7 @@ private val KEY_ARD_SOUNDS_BOOKS = booleanPreferencesKey("ard_sounds_books")
 private val KEY_ARD_SHOWS = stringSetPreferencesKey("ard_shows")
 private val KEY_ARD_SEEN = stringSetPreferencesKey("ard_seen")
 private val KEY_ARD_GONE = stringSetPreferencesKey("ard_gone")
+private val KEY_ARD_MISSING = stringSetPreferencesKey("ard_missing")
 
 private const val ARD_SEPARATOR = '\t'
 
@@ -122,16 +123,29 @@ class SpokenSettings @Inject constructor(
     }
 
     /** Wann ARD Sounds zuletzt nach einem abgelaufenen Buch gefragt wurde: Kennung des Buchs → Zeitpunkt (Eintrag `Buch<Tab>Zeitpunkt`). */
-    suspend fun ardGoneChecks(): Map<String, Long> =
-        context.spokenSettingsDataStore.data.first()[KEY_ARD_GONE].orEmpty().mapNotNull { entry ->
+    suspend fun ardGoneChecks(): Map<String, Long> = ardTimes(KEY_ARD_GONE)
+
+    /** Merkt [at] als letzte Nachfrage nach dem Buch [key]; `null` vergisst sie. */
+    suspend fun setArdGoneCheck(key: String, at: Long?) = setArdTime(KEY_ARD_GONE, key, at)
+
+    /**
+     * Seit wann ARD Sounds ein Buch nicht mehr liefert, das noch nicht als weg gilt: Kennung des Buchs → Zeitpunkt der ersten leeren
+     * Antwort. Erst eine zweite, spätere bestätigt es (Review F6).
+     */
+    suspend fun ardMissing(): Map<String, Long> = ardTimes(KEY_ARD_MISSING)
+
+    /** Merkt [at] als erste leere Antwort zum Buch [key]; `null` vergisst sie. */
+    suspend fun setArdMissing(key: String, at: Long?) = setArdTime(KEY_ARD_MISSING, key, at)
+
+    private suspend fun ardTimes(preference: Preferences.Key<Set<String>>): Map<String, Long> =
+        context.spokenSettingsDataStore.data.first()[preference].orEmpty().mapNotNull { entry ->
             entry.split(ARD_SEPARATOR, limit = 2).takeIf { it.size == 2 }?.let { (key, at) -> at.toLongOrNull()?.let { key to it } }
         }.toMap()
 
-    /** Merkt [at] als letzte Nachfrage nach dem Buch [key]; `null` vergisst sie. */
-    suspend fun setArdGoneCheck(key: String, at: Long?) {
+    private suspend fun setArdTime(preference: Preferences.Key<Set<String>>, key: String, at: Long?) {
         context.spokenSettingsDataStore.edit { preferences ->
             val prefix = key + ARD_SEPARATOR
-            preferences[KEY_ARD_GONE] = preferences[KEY_ARD_GONE].orEmpty().filterNot { it.startsWith(prefix) }.toSet() +
+            preferences[preference] = preferences[preference].orEmpty().filterNot { it.startsWith(prefix) }.toSet() +
                 listOfNotNull(at?.let { prefix + it })
         }
     }

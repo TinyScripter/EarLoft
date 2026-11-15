@@ -84,16 +84,19 @@ class ArdBooks @Inject constructor(
     }
 
     /**
-     * Holt das gesicherte Buch [key] zurück ([add] mit den Angaben aus der Sicherung). Kennt ARD Sounds es nicht mehr, wird es nur
-     * einmal je [GONE_RECHECK_MS] wieder gefragt und nicht bei jedem Start; ohne Verbindung (@throws IOException) gilt das nicht als
-     * „nicht mehr da“. `null`, wenn es nicht geholt wurde.
+     * Holt das gesicherte Buch [key] zurück ([add] mit den Angaben aus der Sicherung). Kennt ARD Sounds es bestätigt nicht mehr
+     * ([confirmMissing]), wird es nur einmal je [GONE_RECHECK_MS] wieder gefragt und nicht bei jedem Start; ohne Verbindung
+     * (@throws IOException) gilt das nicht als „nicht mehr da“. `null`, wenn es nicht geholt wurde.
      */
     internal suspend fun restore(key: String, addedAt: Long?, saved: List<ArdBookPart>): Long? {
         val now = System.currentTimeMillis()
         val checked = settings.ardGoneChecks()[key]
         if (checked != null && now - checked < GONE_RECHECK_MS) return null
         val bookId = add(key, known = null, addedAt = addedAt, saved = saved)
-        if (bookId == null) settings.setArdGoneCheck(key, now) else if (checked != null) settings.setArdGoneCheck(key, null)
+        val missing = settings.ardMissing()
+        val gone = bookId == null && confirmMissing(key, missing, now)
+        if (gone) settings.setArdGoneCheck(key, now) else if (bookId != null && checked != null) settings.setArdGoneCheck(key, null)
+        if ((bookId != null || gone) && key in missing) settings.setArdMissing(key, null)
         return bookId
     }
 
@@ -125,6 +128,7 @@ class ArdBooks @Inject constructor(
         if (!settings.ardSoundsBooks.first()) return@withLock ArdRefresh(ok = true, newBooks = emptyList())
         var ok = true
         val checked = settings.ardGoneChecks()
+        val missing = settings.ardMissing()
         for (existing in dao.booksOf(ARD_BOOK_SERVER_ID)) {
             val now = System.currentTimeMillis()
             if (existing.isExpired(now) && checked[existing.remoteId]?.let { now - it < GONE_RECHECK_MS } == true) continue
@@ -134,8 +138,12 @@ class ArdBooks @Inject constructor(
                 mutex.withLock {
                     // Inzwischen entfernt: nicht wieder anlegen.
                     val current = dao.book(existing.bookId) ?: return@withLock
+                    // Ein Buch, das noch nicht abgelaufen sein sollte, gilt erst nach einer zweiten leeren Antwort als weg.
+                    val gone = book == null && (current.isExpired(now) || confirmMissing(current.remoteId, missing, now))
+                    // Wieder da oder jetzt weg: Der Vermerk der ersten leeren Antwort hat ausgedient.
+                    if ((book != null || gone) && current.remoteId in missing) settings.setArdMissing(current.remoteId, null)
                     when {
-                        book == null -> markGone(current)
+                        book == null -> if (gone) markGone(current)
                         // Unter dem neuen Schlüssel steht es schon in der Bibliothek: dieses bleibt, wie es ist.
                         book.key != current.remoteId && dao.bookByRemote(ARD_BOOK_SERVER_ID, book.key) != null ->
                             Log.i(TAG, "${current.title} gibt es bei ARD Sounds jetzt als ${book.key}, das schon in der Bibliothek ist")
@@ -167,6 +175,17 @@ class ArdBooks @Inject constructor(
     }
 
     private fun BookEntity.isExpired(now: Long) = availableUntil?.let { it <= now } == true
+
+    /**
+     * Ob ARD Sounds das Buch [key] wirklich nicht mehr führt. Eine einzelne leere Antwort kann ein Aussetzer sein, und als weg gilt
+     * ein Buch danach eine Woche lang ([GONE_RECHECK_MS]): Sie wird nur vermerkt ([missing]); erst eine zweite, frühestens
+     * [CONFIRM_GONE_MS] später, bestätigt es. Den Vermerk räumt der Aufrufer weg, wenn das Buch wieder da oder bestätigt weg ist.
+     */
+    private suspend fun confirmMissing(key: String, missing: Map<String, Long>, now: Long): Boolean {
+        val since = missing[key]
+        if (since == null) settings.setArdMissing(key, now)
+        return since != null && now - since >= CONFIRM_GONE_MS
+    }
 
     /**
      * Nimmt die Bücher einer abonnierten Sendung auf, die der Abgleich noch nicht kannte (höchstens [MAX_NEW_PER_CHECK], den Rest beim
@@ -283,6 +302,9 @@ class ArdBooks @Inject constructor(
 
         /** So lange wird ein abgelaufenes Buch nicht wieder bei ARD Sounds abgefragt (es kommt selten wieder). */
         const val GONE_RECHECK_MS = 7 * 24 * 60 * 60 * 1000L
+
+        /** Frühestens so lange nach der ersten leeren Antwort bestätigt eine zweite, dass ARD Sounds ein Buch nicht mehr führt. */
+        const val CONFIRM_GONE_MS = 6 * 60 * 60 * 1000L
 
         /** Downloads, die ein Buch als angefangen gelten lassen. */
         val STARTED_DOWNLOADS = setOf(TrackDownload.DONE, TrackDownload.QUEUED, TrackDownload.RUNNING)

@@ -68,6 +68,8 @@ class ArdBooksTest {
     fun tearDown() = runTest {
         settings.setArdSoundsBooks(false)
         settings.unsubscribeArd(SHOW)
+        settings.setArdMissing(KEY, null)
+        settings.setArdGoneCheck(KEY, null)
         db.close()
         server.close()
     }
@@ -195,23 +197,85 @@ class ArdBooksTest {
         assertNull(dao.tracks(bookId).single().unavailableSince)
     }
 
+    /** Die erste leere Antwort liegt länger zurück, als eine Bestätigung mindestens braucht. */
+    private suspend fun firstEmptyAnswerLongAgo() = settings.setArdMissing(KEY, System.currentTimeMillis() - 7 * HOUR_MS)
+
     @Test
-    fun `a book without published parts stays and counts as expired`() = runTest {
+    fun `a book without published parts stays and counts as expired once a later answer confirms it`() = runTest {
         server.enqueue(answer(part(1)))
         val bookId = ardBooks.add(KEY)!!
 
+        // Eine leere Antwort allein kann ein Aussetzer sein: nur vermerkt.
+        server.enqueue(answer())
+        assertTrue(ardBooks.refresh().ok)
+        assertNull(dao.book(bookId)!!.availableUntil)
+        assertNull(dao.tracks(bookId).single().unavailableSince)
+        assertTrue(KEY in settings.ardMissing())
+        assertTrue(settings.ardGoneChecks().isEmpty())
+
+        firstEmptyAnswerLongAgo()
         server.enqueue(answer())
         ardBooks.refresh()
 
         val book = dao.book(bookId)!!
         assertTrue(book.availableUntil!! <= System.currentTimeMillis())
         assertEquals(1, dao.tracks(bookId).size)
+        assertNotNull(dao.tracks(bookId).single().unavailableSince)
+        assertTrue(settings.ardMissing().isEmpty())
+    }
+
+    @Test
+    fun `two empty answers right after each other do not confirm anything`() = runTest {
+        server.enqueue(answer(part(1)))
+        val bookId = ardBooks.add(KEY)!!
+
+        server.enqueue(answer())
+        ardBooks.refresh()
+        server.enqueue(answer())
+        ardBooks.refresh()
+
+        assertNull(dao.book(bookId)!!.availableUntil)
+        assertTrue(KEY in settings.ardMissing())
+    }
+
+    @Test
+    fun `a book that is back after an empty answer loses the note`() = runTest {
+        server.enqueue(answer(part(1)))
+        val bookId = ardBooks.add(KEY)!!
+        server.enqueue(answer())
+        ardBooks.refresh()
+
+        server.enqueue(answer(part(1), part(2)))
+        ardBooks.refresh()
+
+        assertTrue(settings.ardMissing().isEmpty())
+        assertEquals(2, dao.tracks(bookId).size)
+        // Eine spätere leere Antwort fängt wieder von vorn an.
+        server.enqueue(answer())
+        ardBooks.refresh()
+        assertNull(dao.book(bookId)!!.availableUntil)
+    }
+
+    @Test
+    fun `a book past its date needs no second answer`() = runTest {
+        server.enqueue(answer(part(1, availableTo = "2020-01-01T00:00:00+01:00")))
+        val bookId = ardBooks.add(KEY)!!
+
+        server.enqueue(answer())
+        ardBooks.refresh()
+
+        assertNotNull(dao.tracks(bookId).single().unavailableSince)
+        assertTrue(KEY in settings.ardGoneChecks())
+        assertTrue(settings.ardMissing().isEmpty())
     }
 
     @Test
     fun `an expired book is not asked for again at every refresh`() = runTest {
         server.enqueue(answer(part(1)))
         val bookId = ardBooks.add(KEY)!!
+        server.enqueue(answer())
+        ardBooks.refresh()
+        firstEmptyAnswerLongAgo()
         server.enqueue(answer())
         ardBooks.refresh()
         assertTrue(dao.book(bookId)!!.availableUntil!! <= System.currentTimeMillis())
@@ -388,5 +452,6 @@ class ArdBooksTest {
         const val KEY = "group:urn:ard:show:gs"
         const val SHOW = "urn:ard:show:reihe"
         const val GROUP = "urn:ard:show:neu"
+        const val HOUR_MS = 60 * 60 * 1000L
     }
 }
