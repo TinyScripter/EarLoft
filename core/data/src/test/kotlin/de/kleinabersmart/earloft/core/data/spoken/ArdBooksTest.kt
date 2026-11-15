@@ -15,6 +15,9 @@ import de.kleinabersmart.earloft.core.network.audiobookshelf.AbsApi
 import de.kleinabersmart.earloft.core.network.podcast.PodcastFeedApi
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsApi
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdSoundsBooks
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
@@ -203,6 +206,42 @@ class ArdBooksTest {
         val book = dao.book(bookId)!!
         assertTrue(book.availableUntil!! <= System.currentTimeMillis())
         assertEquals(1, dao.tracks(bookId).size)
+    }
+
+    @Test
+    fun `an expired book is not asked for again at every refresh`() = runTest {
+        server.enqueue(answer(part(1)))
+        val bookId = ardBooks.add(KEY)!!
+        server.enqueue(answer())
+        ardBooks.refresh()
+        assertTrue(dao.book(bookId)!!.availableUntil!! <= System.currentTimeMillis())
+        val asked = server.requestCount
+
+        assertTrue(ardBooks.refresh().ok)
+        assertTrue(ardBooks.refresh().ok)
+
+        assertEquals(asked, server.requestCount)
+        // Nach einer Woche wieder: Taucht es auf, gilt es nicht mehr als abgelaufen.
+        settings.setArdGoneCheck(KEY, System.currentTimeMillis() - 8 * 24 * 60 * 60 * 1000L)
+        server.enqueue(answer(part(1), part(2)))
+        ardBooks.refresh()
+        assertEquals(asked + 1, server.requestCount)
+        assertNull(dao.book(bookId)!!.availableUntil)
+        assertTrue(settings.ardGoneChecks().isEmpty())
+    }
+
+    @Test
+    fun `two refreshes at once count a new book once`() = runTest {
+        server.enqueue(showAnswer(single("old", "Alt")))
+        ardBooks.subscribe(SHOW, "Reihe")
+        server.enqueue(showAnswer(single("new", "Neu")))
+        server.enqueue(itemsAnswer(single("new", "Neu")))
+        server.enqueue(showAnswer(single("new", "Neu")))
+
+        val results = listOf(async(Dispatchers.Default) { ardBooks.refresh() }, async(Dispatchers.Default) { ardBooks.refresh() }).awaitAll()
+
+        assertEquals(1, results.sumOf { it.newBooks.size })
+        assertEquals(1, dao.booksOf(ARD_BOOK_SERVER_ID).size)
     }
 
     @Test

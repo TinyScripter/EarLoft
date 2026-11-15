@@ -31,6 +31,7 @@ internal val KEY_LOCAL_BOOKS = booleanPreferencesKey("local_books")
 private val KEY_ARD_SOUNDS_BOOKS = booleanPreferencesKey("ard_sounds_books")
 private val KEY_ARD_SHOWS = stringSetPreferencesKey("ard_shows")
 private val KEY_ARD_SEEN = stringSetPreferencesKey("ard_seen")
+private val KEY_ARD_GONE = stringSetPreferencesKey("ard_gone")
 
 private const val ARD_SEPARATOR = '\t'
 
@@ -118,6 +119,21 @@ class SpokenSettings @Inject constructor(
     suspend fun addArdSeen(showId: String, keys: Collection<String>) {
         if (keys.isEmpty()) return
         context.spokenSettingsDataStore.edit { it[KEY_ARD_SEEN] = it[KEY_ARD_SEEN].orEmpty() + keys.map { key -> showId + ARD_SEPARATOR + key } }
+    }
+
+    /** Wann ARD Sounds zuletzt nach einem abgelaufenen Buch gefragt wurde: Kennung des Buchs → Zeitpunkt (Eintrag `Buch<Tab>Zeitpunkt`). */
+    suspend fun ardGoneChecks(): Map<String, Long> =
+        context.spokenSettingsDataStore.data.first()[KEY_ARD_GONE].orEmpty().mapNotNull { entry ->
+            entry.split(ARD_SEPARATOR, limit = 2).takeIf { it.size == 2 }?.let { (key, at) -> at.toLongOrNull()?.let { key to it } }
+        }.toMap()
+
+    /** Merkt [at] als letzte Nachfrage nach dem Buch [key]; `null` vergisst sie. */
+    suspend fun setArdGoneCheck(key: String, at: Long?) {
+        context.spokenSettingsDataStore.edit { preferences ->
+            val prefix = key + ARD_SEPARATOR
+            preferences[KEY_ARD_GONE] = preferences[KEY_ARD_GONE].orEmpty().filterNot { it.startsWith(prefix) }.toSet() +
+                listOfNotNull(at?.let { prefix + it })
+        }
     }
 
     /** Abonniert [showId]; [seen] sind die Bücher, die schon da sind und deshalb nicht als neu gelten. */
