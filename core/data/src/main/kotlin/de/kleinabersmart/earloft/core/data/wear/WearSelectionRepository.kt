@@ -88,7 +88,8 @@ class WearSelectionRepository @Inject constructor(
                 val playlist = refId?.let { playlistDao.getPlaylist(it) } ?: return null
                 playlist.name to playlistDao.getSongIds(refId)
             }
-            WearSelectionKind.FAVORITES -> "" to wearDao.getFavoriteSongIds()
+            // Favorisierte Alben kommen ganz mit (wie beim automatischen Download am Handy), hinter den favorisierten Songs.
+            WearSelectionKind.FAVORITES -> "" to (wearDao.getFavoriteSongIds() + wearDao.getFavoriteAlbumSongIds()).distinct()
         }
         return WearSelectionContent(selection.key, selection.kind, refId, title, songIds)
     }

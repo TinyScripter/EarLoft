@@ -31,8 +31,8 @@ private enum class FavoritesTab(val label: Int) {
 }
 
 /**
- * Favoriten in drei Reitern, die zuletzt favorisierten zuerst. „Auf die Uhr“ gilt nur den Songs (Wear-Konzept 5) und steht
- * deshalb nur bei ihnen.
+ * Favoriten in drei Reitern, die zuletzt favorisierten zuerst. „Auf die Uhr“ gilt den Songs und den ganzen favorisierten Alben
+ * (Wear-Konzept 5) und steht deshalb bei beiden, nicht bei den Künstlern.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,17 +48,17 @@ fun FavoritesScreen(
     val artists by viewModel.artists.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { FavoritesTab.entries.size }
     val scope = rememberCoroutineScope()
-    val onSongs = FavoritesTab.entries[pagerState.targetPage] == FavoritesTab.SONGS
+    val onWatchTab = FavoritesTab.entries[pagerState.targetPage] != FavoritesTab.ARTISTS
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = {
                 Column {
                     Text(stringResource(R.string.favorites_title))
-                    if (onSongs) WatchStatusText(WearSelectionKind.FAVORITES, refId = null)
+                    if (onWatchTab) WatchStatusText(WearSelectionKind.FAVORITES, refId = null)
                 }
             },
             navigationIcon = { BackButton(onBack) },
-            actions = { if (onSongs) WatchToggleButton(WearSelectionKind.FAVORITES, refId = null) },
+            actions = { if (onWatchTab) WatchToggleButton(WearSelectionKind.FAVORITES, refId = null) },
         )
         PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
             FavoritesTab.entries.forEachIndexed { index, tab ->

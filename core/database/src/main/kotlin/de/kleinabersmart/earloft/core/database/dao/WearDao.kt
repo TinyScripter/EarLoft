@@ -111,6 +111,16 @@ interface WearDao {
     @Query("SELECT songId FROM songs WHERE isFavorite ORDER BY favoriteChangedAt DESC")
     suspend fun getFavoriteSongIds(): List<Long>
 
+    /** Die Songs der favorisierten Alben, zuletzt favorisiertes Album zuerst, darin in Albumreihenfolge. */
+    @Query(
+        """
+        SELECT s.songId FROM songs s JOIN albums a ON a.albumId = s.albumId
+        WHERE a.isFavorite
+        ORDER BY a.favoriteChangedAt DESC, a.albumId, s.discNumber, s.trackNumber, s.title
+        """,
+    )
+    suspend fun getFavoriteAlbumSongIds(): List<Long>
+
     /** Max. ~900 IDs pro Aufruf (SQLite-Variablenlimit). */
     @Query(
         """

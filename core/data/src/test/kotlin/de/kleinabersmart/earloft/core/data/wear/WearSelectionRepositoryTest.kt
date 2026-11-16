@@ -126,6 +126,18 @@ class WearSelectionRepositoryTest {
     }
 
     @Test
+    fun `favorite albums come along whole, after the favorite songs and without duplicates`() = runTest {
+        db.syncDao().setSongFavorite(songId("b"), true, changedAt = 1)
+        db.syncDao().setAlbumFavorite(albumId("a"), true, changedAt = 2)
+        db.syncDao().setAlbumFavorite(db.mergeDao().getSong(localSongId("2"))!!.albumId, true, changedAt = 3)
+        repository.setSelected(WearSelectionKind.FAVORITES, null, selected = true)
+
+        val content = repository.load()
+
+        assertEquals(listOf("B", "Sommerlied", "A", "C"), content.selections.single().songIds.map { title(content, it) })
+    }
+
+    @Test
     fun `content follows playlist changes and drops deleted playlists`() = runTest {
         val playlistId = playlists.create("Mix", serverSourceId = null, listOf(songId("a")))
         repository.setSelected(WearSelectionKind.PLAYLIST, playlistId, selected = true)
