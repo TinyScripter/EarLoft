@@ -163,7 +163,7 @@
     <string name="settings_music">Musik</string>
     <string name="settings_music_summary_local">%1$s · lokale Musik</string>
     <string name="settings_audiobooks">Bücher</string>
-    <string name="settings_about_summary">Version, Lizenzen</string>
+    <string name="settings_about_summary">Version, Lizenzen, Datenschutz</string>
     <plurals name="settings_server_count">
         <item quantity="one">%d Server</item>
         <item quantity="other">%d Server</item>
@@ -256,6 +256,8 @@
     <string name="about_more_info">Weitere Informationen und den Quellcode findest du auf GitHub:</string>
     <string name="about_feedback">Bugs und Feature-Wünsche bitte im Issue-Tracker melden:</string>
     <string name="licenses_title">Lizenzen</string>
+    <string name="privacy_title">Datenschutzerklärung</string>
+    <string name="privacy_asset">PRIVACY.de.md</string>
     <string name="server_never_synced">Noch nicht abgeglichen</string>
     <string name="server_last_sync">Abgeglichen %1$s</string>
     <string name="server_synced_just_now">Gerade abgeglichen</string>

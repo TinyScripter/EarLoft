@@ -92,6 +92,7 @@ import de.kleinabersmart.earloft.navigation.FavoritesRoute
 import de.kleinabersmart.earloft.navigation.HomeRoute
 import de.kleinabersmart.earloft.navigation.LibraryRoute
 import de.kleinabersmart.earloft.navigation.LicensesRoute
+import de.kleinabersmart.earloft.navigation.PrivacyRoute
 import de.kleinabersmart.earloft.navigation.LocalSharedTransitionScope
 import de.kleinabersmart.earloft.navigation.ListDetailSceneStrategy
 import de.kleinabersmart.earloft.navigation.ListDetailSceneStrategy.Companion.detailPane
@@ -138,6 +139,7 @@ import de.kleinabersmart.earloft.ui.playlists.PlaylistScreen
 import de.kleinabersmart.earloft.ui.search.SearchScreen
 import de.kleinabersmart.earloft.ui.settings.AboutScreen
 import de.kleinabersmart.earloft.ui.settings.LicensesScreen
+import de.kleinabersmart.earloft.ui.settings.PrivacyScreen
 import de.kleinabersmart.earloft.ui.settings.AudiobookSettingsScreen
 import de.kleinabersmart.earloft.ui.settings.GeneralSettingsScreen
 import de.kleinabersmart.earloft.ui.settings.MusicSettingsScreen
@@ -533,8 +535,15 @@ fun EarLoftApp(
             )
         }
         entry<WatchSettingsRoute>(metadata = detailPane()) { WatchSettingsScreen(onBack = navigator::goBack) }
-        entry<AboutRoute>(metadata = detailPane()) { AboutScreen(onBack = navigator::goBack, onOpenLicenses = { navigator.navigate(LicensesRoute) }) }
+        entry<AboutRoute>(metadata = detailPane()) {
+            AboutScreen(
+                onBack = navigator::goBack,
+                onOpenLicenses = { navigator.navigate(LicensesRoute) },
+                onOpenPrivacy = { navigator.navigate(PrivacyRoute) },
+            )
+        }
         entry<LicensesRoute>(metadata = detailPane()) { LicensesScreen(onBack = navigator::goBack) }
+        entry<PrivacyRoute>(metadata = detailPane()) { PrivacyScreen(onBack = navigator::goBack) }
         entry<AddServerRoute>(metadata = detailPane()) { ServerFormScreen(sourceId = null, onDone = navigator::goBack) }
         entry<EditServerRoute>(metadata = detailPane()) { route ->
             ServerFormScreen(sourceId = route.sourceId, onDone = navigator::goBack)

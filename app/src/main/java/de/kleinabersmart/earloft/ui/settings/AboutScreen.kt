@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -40,15 +42,27 @@ import de.kleinabersmart.earloft.ui.library.BackButton
 
 /** Infoseite über die App mit Links zum Projekt und zum Issue-Tracker. */
 @Composable
-fun AboutScreen(onBack: () -> Unit, onOpenLicenses: () -> Unit, modifier: Modifier = Modifier) {
+fun AboutScreen(onBack: () -> Unit, onOpenLicenses: () -> Unit, onOpenPrivacy: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val versionName = remember(context) { context.versionName() }
-    AboutContent(versionName = versionName, onBack = onBack, onOpenLicenses = onOpenLicenses, modifier = modifier)
+    AboutContent(
+        versionName = versionName,
+        onBack = onBack,
+        onOpenLicenses = onOpenLicenses,
+        onOpenPrivacy = onOpenPrivacy,
+        modifier = modifier,
+    )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun AboutContent(versionName: String?, onBack: () -> Unit, onOpenLicenses: () -> Unit, modifier: Modifier = Modifier) {
+private fun AboutContent(
+    versionName: String?,
+    onBack: () -> Unit,
+    onOpenLicenses: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier.fillMaxSize().readableWidth()) {
         TopAppBar(
             title = { Text(stringResource(R.string.about_title)) },
@@ -84,7 +98,13 @@ private fun AboutContent(versionName: String?, onBack: () -> Unit, onOpenLicense
             )
             LinkBlock(R.string.about_more_info, R.string.about_repository_url)
             LinkBlock(R.string.about_feedback, R.string.about_issues_url)
-            FilledTonalButton(onClick = onOpenLicenses) { Text(stringResource(R.string.settings_licenses)) }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilledTonalButton(onClick = onOpenLicenses) { Text(stringResource(R.string.settings_licenses)) }
+                FilledTonalButton(onClick = onOpenPrivacy) { Text(stringResource(R.string.privacy_title)) }
+            }
         }
     }
 }
@@ -124,6 +144,6 @@ private fun Context.versionName(): String? =
 @Composable
 private fun AboutContentPreview() {
     EarLoftTheme {
-        AboutContent(versionName = "1.0", onBack = {}, onOpenLicenses = {})
+        AboutContent(versionName = "1.0", onBack = {}, onOpenLicenses = {}, onOpenPrivacy = {})
     }
 }

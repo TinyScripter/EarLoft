@@ -211,6 +211,9 @@ data object AboutRoute : NavKey
 @Serializable
 data object LicensesRoute : NavKey
 
+@Serializable
+data object PrivacyRoute : NavKey
+
 /** Seiten des Einrichtungsassistenten (Konzept 15) in ihrer Reihenfolge. */
 enum class SetupPage { WELCOME, AREAS, MUSIC, PODCASTS, BOOKS, NOTIFICATIONS, WATCH, DESIGN, DONE }
 

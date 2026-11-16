@@ -48,6 +48,35 @@ aboutLibraries {
     }
 }
 
+/**
+ * Legt `PRIVACY.md` und `PRIVACY.de.md` aus dem Projektroot als Assets in die App (Über die App → Datenschutzerklärung),
+ * damit es sie nur einmal gibt. Welche Datei angezeigt wird, steht in der String-Ressource `privacy_asset`.
+ */
+abstract class PrivacyPolicyAsset : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val sources: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val out = outputDir.get().asFile.apply { deleteRecursively(); mkdirs() }
+        sources.forEach { it.copyTo(out.resolve(it.name)) }
+    }
+}
+
+val privacyPolicyAsset = tasks.register<PrivacyPolicyAsset>("privacyPolicyAsset") {
+    sources.from(rootProject.layout.projectDirectory.files("PRIVACY.md", "PRIVACY.de.md"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(privacyPolicyAsset, PrivacyPolicyAsset::outputDir)
+    }
+}
+
 android {
     namespace = "de.kleinabersmart.earloft"
 

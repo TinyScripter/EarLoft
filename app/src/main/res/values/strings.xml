@@ -164,7 +164,7 @@
     <string name="settings_music">Music</string>
     <string name="settings_music_summary_local">%1$s · local music</string>
     <string name="settings_audiobooks">Books</string>
-    <string name="settings_about_summary">Version, licenses</string>
+    <string name="settings_about_summary">Version, licenses, privacy</string>
     <plurals name="settings_server_count">
         <item quantity="one">%d server</item>
         <item quantity="other">%d servers</item>
@@ -259,6 +259,9 @@
     <string name="about_feedback">Please report bugs and feature requests in the issue tracker:</string>
     <string name="about_issues_url" translatable="false">https://github.com/TinyScripter/EarLoft/issues</string>
     <string name="licenses_title">Licenses</string>
+    <string name="privacy_title">Privacy policy</string>
+    <!-- Asset der Datenschutzerklärung je Sprache, aus PRIVACY*.md im Projektroot. -->
+    <string name="privacy_asset">PRIVACY.md</string>
     <string name="server_never_synced">Not synced yet</string>
     <string name="server_last_sync">Synced %1$s</string>
     <string name="server_synced_just_now">Just synced</string>
