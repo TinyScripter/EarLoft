@@ -125,8 +125,12 @@ class WearDownloadWorker(
                     }
                     is DownloadOutcome.Failed -> {
                         Log.w(TAG, "Download $uid fehlgeschlagen: ${outcome.reason}")
-                        // Datei weg, Anmeldung abgelehnt o. Ä.: Vielleicht hat das Handy sie.
-                        state.setLastError(outcome.reason)
+                        // Datei weg, Anmeldung abgelehnt o. Ä.: Vielleicht hat das Handy sie. Kennt die Uhr die Quelle gar nicht, trifft
+                        // das alle wartenden Songs von ihr: Sie zählen gleich in die Restzeit über das Handy.
+                        val sourceId = if (outcome.sourceUnavailable) downloadDao.getSongSource(uid)?.sourceId else null
+                        state.markViaPhone(listOf(uid) + sourceId?.let { downloadDao.queuedUidsOfSource(it) }.orEmpty())
+                        // Der Grund steht im Log; die Anzeige bekommt keinen internen Text, sondern was jetzt geschieht.
+                        state.setLastError(applicationContext.getString(R.string.download_error_server_via_phone))
                         if (!viaPhone(next, serverFailed = true)) return Result.retry()
                     }
                     DownloadOutcome.Done -> {

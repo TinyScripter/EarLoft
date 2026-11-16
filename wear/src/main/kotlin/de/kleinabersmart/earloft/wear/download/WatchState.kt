@@ -83,8 +83,22 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
 
     fun hasServerFailedTooOften(sourceUid: String): Boolean = serverFailures.getInt(sourceUid, 0) >= SERVER_ATTEMPTS
 
+    /**
+     * Merkt, dass diese Songs jetzt über das Handy kommen, obwohl der Server (noch) keine Fehlversuche zählt, z. B. weil die Uhr
+     * die Quelle nicht kennt. Nur für die Anzeige der Restzeit; der Server wird weiter zuerst gefragt.
+     */
+    fun markViaPhone(sourceUids: Collection<String>) {
+        if (sourceUids.isEmpty()) return
+        serverFailures.edit().apply { sourceUids.forEach { putBoolean(VIA_PHONE_PREFIX + it, true) } }.apply()
+    }
+
+    fun isMarkedViaPhone(sourceUid: String): Boolean = serverFailures.getBoolean(VIA_PHONE_PREFIX + sourceUid, false)
+
     fun clearServerFailures(sourceUid: String) {
-        if (serverFailures.contains(sourceUid)) serverFailures.edit().remove(sourceUid).apply()
+        val viaPhoneKey = VIA_PHONE_PREFIX + sourceUid
+        if (serverFailures.contains(sourceUid) || serverFailures.contains(viaPhoneKey)) {
+            serverFailures.edit().remove(sourceUid).remove(viaPhoneKey).apply()
+        }
     }
 
     /** Für „Erneut versuchen“: Sonst ginge jeder Song sofort ans Handy, ohne dass der Server noch einmal gefragt wird. */
@@ -121,6 +135,8 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
     companion object {
         /** Fehlversuche je Song, bevor die Uhr die Datei beim Handy holt. */
         const val SERVER_ATTEMPTS = 3
+
+        private const val VIA_PHONE_PREFIX = "via_phone:"
 
         private const val TAG = "WatchState"
         private const val KEY_SETTINGS = "settings"

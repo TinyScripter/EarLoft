@@ -28,8 +28,11 @@ import javax.inject.Inject
 sealed interface DownloadOutcome {
     data object Done : DownloadOutcome
 
-    /** Dauerhaft fehlgeschlagen (z. B. Datei auf dem Server weg, Speicher voll). */
-    data class Failed(val reason: String) : DownloadOutcome
+    /**
+     * Dauerhaft fehlgeschlagen (z. B. Datei auf dem Server weg, Speicher voll). [sourceUnavailable]: Dieses Gerät kennt die
+     * Quelle gar nicht, das trifft alle Titel von ihr.
+     */
+    data class Failed(val reason: String, val sourceUnavailable: Boolean = false) : DownloadOutcome
 
     /** Vorübergehender Fehler (Netz, abgelehnte Anmeldung); der Eintrag steht noch auf `RUNNING`. */
     data class Retry(val cause: Exception) : DownloadOutcome {
@@ -94,7 +97,7 @@ class Downloader @Inject constructor(
     ): DownloadOutcome {
         val songSource = downloadDao.getSongSource(uid) ?: return DownloadOutcome.Cancelled
         val source = sources[songSource.sourceId]
-            ?: return DownloadOutcome.Failed("Quelle ${songSource.sourceId} nicht verfügbar")
+            ?: return DownloadOutcome.Failed("Quelle nicht verfügbar", sourceUnavailable = true)
         val location = profile.transcodeTo
             ?.let { (codec, kbps) -> (source as? RemoteTranscoding)?.transcodedPlayback(songSource.remoteId, codec, kbps) }
             ?: source.resolvePlayback(songSource.remoteId) as? PlaybackLocation.Remote

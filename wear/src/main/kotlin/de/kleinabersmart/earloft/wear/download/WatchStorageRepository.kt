@@ -170,10 +170,10 @@ class WatchStorageRepository @Inject constructor(
     suspend fun downloadedSongs(): List<Song> = libraryRepository.songs(downloadDao.getDoneSongIds())
 
     /**
-     * Geschätzte Bytes, die über das Handy kommen: Songs nur vom Handy und Server-Songs, bei denen der Server zu oft
-     * scheiterte (Wear-Konzept 8.3).
+     * Geschätzte Bytes, die über das Handy kommen: Songs nur vom Handy, Server-Songs, bei denen der Server zu oft
+     * scheiterte, und Songs einer Quelle, die die Uhr nicht kennt (Wear-Konzept 8.3).
      */
     suspend fun phoneBacklogBytes(quality: WearQuality): Long = wearDao.getPendingCandidates()
-        .filter { it.sourceType == SourceType.PHONE || watchState.hasServerFailedTooOften(it.uid) }
+        .filter { it.sourceType == SourceType.PHONE || watchState.hasServerFailedTooOften(it.uid) || watchState.isMarkedViaPhone(it.uid) }
         .sumOf { estimateBytes(it, quality) }
 }

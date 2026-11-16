@@ -129,7 +129,7 @@ private fun StorageContent(
                 line(transformationSpec) {
                     pluralStringResource(R.plurals.storage_failed, overview.failedSongs, overview.failedSongs)
                 }
-                state.lastError?.let { error -> line(transformationSpec) { stringResource(R.string.storage_last_error, error) } }
+                state.lastError?.let { error -> line(transformationSpec, maxLines = LAST_ERROR_MAX_LINES) { stringResource(R.string.storage_last_error, error) } }
                 item {
                     Button(
                         onClick = onRetry,
@@ -140,7 +140,7 @@ private fun StorageContent(
                 }
             } else if (overview.pendingSongs > 0) {
                 // Z. B. „Telefon nicht erreichbar“: Die Titel warten, es ist noch nichts fehlgeschlagen.
-                state.lastError?.let { error -> line(transformationSpec) { stringResource(R.string.storage_last_error, error) } }
+                state.lastError?.let { error -> line(transformationSpec, maxLines = LAST_ERROR_MAX_LINES) { stringResource(R.string.storage_last_error, error) } }
             }
             if (removeFailed) {
                 line(transformationSpec) { stringResource(R.string.storage_clear_no_phone) }
@@ -222,6 +222,9 @@ private fun StorageContent(
     )
 }
 
+/** Eine lange Fehlermeldung schiebt sonst die Restzeit und alles darunter aus dem Bild. */
+private const val LAST_ERROR_MAX_LINES = 3
+
 private val StoredSection.clearRes: Int
     get() = when (this) {
         StoredSection.MUSIC -> R.string.storage_clear_music
@@ -258,6 +261,7 @@ private fun StoredEntry.secondaryText(): String {
 internal fun androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope.line(
     transformationSpec: androidx.wear.compose.material3.lazy.TransformationSpec,
     header: Boolean = false,
+    maxLines: Int = Int.MAX_VALUE,
     text: @Composable () -> String,
 ) = item {
     if (header) {
@@ -273,6 +277,8 @@ internal fun androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope.l
             modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyMedium,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

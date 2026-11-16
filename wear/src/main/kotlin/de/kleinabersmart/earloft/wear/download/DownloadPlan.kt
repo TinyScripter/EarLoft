@@ -76,7 +76,7 @@ fun estimateBytes(candidate: WearCandidateRow, quality: WearQuality): Long = whe
 fun estimatePhoneTransferMinutes(bytes: Long): Int =
     ((bytes + PHONE_BYTES_PER_MINUTE - 1) / PHONE_BYTES_PER_MINUTE).coerceAtLeast(1).toInt()
 
-private const val PHONE_BYTES_PER_MINUTE = 100L * 1024 * 60 // ca. 100 KB/s
+private const val PHONE_BYTES_PER_MINUTE = 100L * 1024 * 60 // ca. 100 KB/s (Pixel Watch 3: 92–102 KB/s, 2026-11-16)
 private const val OPUS_BYTES_PER_MS = 128.0 / 8 // 128 kbit/s = 16 Byte je Millisekunde
 private const val OPUS_OVERHEAD = 1.03
 private const val DEFAULT_KBIT = 320

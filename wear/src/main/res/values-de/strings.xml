@@ -97,6 +97,7 @@
         <item quantity="one">Noch %d Titel</item>
         <item quantity="other">Noch %d Titel</item>
     </plurals>
+    <string name="download_error_server_via_phone">Server nicht erreichbar, Telefon liefert</string>
     <string name="download_error_server_no_phone_copy">Server nicht erreichbar, Telefon hat keine Kopie</string>
     <string name="download_error_phone_no_copy">Telefon hat keine Kopie</string>
     <string name="download_error_phone_unreachable">Telefon nicht erreichbar</string>

@@ -39,6 +39,31 @@ class WatchStateTest {
     }
 
     @Test
+    fun `songs marked for the phone count for the backlog but not as server failures`() {
+        assertFalse(state.isMarkedViaPhone("nd:1"))
+
+        state.markViaPhone(listOf("nd:1", "nd:2"))
+
+        assertTrue(state.isMarkedViaPhone("nd:1"))
+        assertTrue(state.isMarkedViaPhone("nd:2"))
+        assertFalse(state.isMarkedViaPhone("nd:3"))
+        // Der Server wird weiter zuerst gefragt.
+        assertFalse(state.hasServerFailedTooOften("nd:1"))
+    }
+
+    @Test
+    fun `a finished download and retry clear the phone mark`() {
+        state.markViaPhone(listOf("nd:1", "nd:2"))
+
+        state.clearServerFailures("nd:1")
+        assertFalse(state.isMarkedViaPhone("nd:1"))
+        assertTrue(state.isMarkedViaPhone("nd:2"))
+
+        state.clearAllServerFailures()
+        assertFalse(state.isMarkedViaPhone("nd:2"))
+    }
+
+    @Test
     fun `a finished download clears the failures`() {
         repeat(3) { state.recordServerFailure("nd:1") }
 
