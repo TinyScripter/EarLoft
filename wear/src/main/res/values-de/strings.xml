@@ -22,6 +22,7 @@
     <string name="list_music">Musik</string>
     <string name="list_podcasts">Podcasts</string>
     <string name="list_books">Bücher</string>
+    <string name="list_queue">Warteschlange</string>
     <string name="list_albums">Alben</string>
     <string name="list_artists">Künstler</string>
     <string name="list_favorites">Favoriten</string>

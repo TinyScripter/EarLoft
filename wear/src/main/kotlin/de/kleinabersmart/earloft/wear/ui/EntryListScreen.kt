@@ -28,6 +28,7 @@ import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.material3.MaterialTheme
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteBookDto
+import de.kleinabersmart.earloft.core.wearsync.WearRemoteEpisodesRequest
 import de.kleinabersmart.earloft.wear.R
 import kotlinx.coroutines.launch
 
@@ -106,12 +107,17 @@ fun LocalSpokenScreen(
     }
 }
 
-/** Die Abos des Handys; ein Tipp öffnet die Folgen ([onClick] mit Abo und Titel). */
+/** Die Warteschlange und die Abos des Handys; ein Tipp öffnet die Folgen ([onClick] mit Abo und Titel). */
 @Composable
 fun RemotePodcastsScreen(onClick: (feedId: String, title: String) -> Unit, viewModel: RemotePodcastsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val queueTitle = stringResource(R.string.list_queue)
     EntryListContent(stringResource(R.string.list_podcasts), state) { key ->
-        viewModel.feedAt(key)?.let { onClick(it.feedId, it.title) }
+        if (key == RemotePodcastsViewModel.QUEUE_KEY) {
+            onClick(WearRemoteEpisodesRequest.QUEUE_FEED_ID, queueTitle)
+        } else {
+            viewModel.feedAt(key)?.let { onClick(it.feedId, it.title) }
+        }
     }
 }
 
@@ -174,7 +180,7 @@ private fun EntryListContent(title: String, state: EntryListState, onClick: (Lon
                         modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
                         transformation = SurfaceTransformation(transformationSpec),
                         icon = if (cover != null) { { CoverThumbnail(cover) } } else null,
-                        label = { Text(entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                        label = { Text(entry.titleRes?.let { stringResource(it) } ?: entry.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                         secondaryLabel = if (secondary != null) {
                             { Text(secondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                         } else {

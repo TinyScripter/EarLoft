@@ -7,6 +7,7 @@ import com.google.android.gms.wearable.MessageClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.repository.FavoritesRepository
 import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
+import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.repository.PlaylistRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
@@ -49,6 +50,7 @@ class WearRemoteHandler @Inject constructor(
     private val messageClient: MessageClient,
     private val books: BookRepository,
     private val podcasts: PodcastRepository,
+    private val continueListening: ContinueListening,
     private val bookLauncher: BookLauncher,
 ) {
     suspend fun command(command: WearRemoteCommand) {
@@ -111,15 +113,19 @@ class WearRemoteHandler @Inject constructor(
      * [WearRemoteEpisodesResult.MAX_NEWEST].
      */
     suspend fun sendEpisodes(nodeId: String, request: WearRemoteEpisodesRequest) {
-        val feed = podcasts.feed(request.feedId).first()
-        val result = if (feed == null) {
-            WearRemoteEpisodesResult(request.requestId, found = false)
+        val result = if (request.feedId == WearRemoteEpisodesRequest.QUEUE_FEED_ID) {
+            WearRemoteEpisodesResult(request.requestId, episodes = remoteQueue(continueListening.episodes.first()))
         } else {
-            WearRemoteEpisodesResult(
-                requestId = request.requestId,
-                title = feed.title,
-                episodes = remoteEpisodes(podcasts.episodes(request.feedId).first(), WearRemoteEpisodesResult.MAX_NEWEST),
-            )
+            val feed = podcasts.feed(request.feedId).first()
+            if (feed == null) {
+                WearRemoteEpisodesResult(request.requestId, found = false)
+            } else {
+                WearRemoteEpisodesResult(
+                    requestId = request.requestId,
+                    title = feed.title,
+                    episodes = remoteEpisodes(podcasts.episodes(request.feedId).first(), WearRemoteEpisodesResult.MAX_NEWEST),
+                )
+            }
         }
         messageClient.sendPayload(nodeId, WearPaths.REMOTE_EPISODES_RESULT, WearCodec.encodeCompressed(result))
     }
@@ -160,6 +166,12 @@ private fun BookWithProgress.toRemote() = WearRemoteBookDto(book.id, book.title,
 
 /** Hörbücher für den Bibliotheksindex der Uhr (Wear-Konzept 17): angefangene zuerst, dann in der Reihenfolge des Handys. */
 internal fun remoteBooks(books: List<BookWithProgress>): List<WearRemoteBookDto> = books.startedFirst().map { it.toRemote() }
+
+/** Die Warteschlange der Podcasts ([episodes] schon in deren Reihenfolge) für die Uhr; höchstens [MAX_QUEUE] Folgen. */
+internal fun remoteQueue(episodes: List<BookWithProgress>): List<WearRemoteBookDto> =
+    episodes.take(MAX_QUEUE).map { it.toRemote() }
+
+private const val MAX_QUEUE = 50
 
 /**
  * Folgen eines Abos für die Uhr: alle angefangenen (zuletzt gehörte vorn), dann die neuesten [newest] der übrigen.

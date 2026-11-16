@@ -53,6 +53,8 @@ data class ListEntry(
     val albumCount: Int? = null,
     val cover: CoverRef? = null,
     val started: Boolean = false,
+    /** Statt [title]: ein fester Eintrag mit eigenem Namen (z. B. die Warteschlange). */
+    @param:StringRes val titleRes: Int? = null,
 )
 
 sealed interface EntryListState {
@@ -251,7 +253,10 @@ private fun WearRemoteBookDto.toEntry() = ListEntry(
     cover = CoverRef.Phone(WearThumbnailFile.Ref.Book(serverId, remoteId)),
 )
 
-/** Die Abos des Handys (Wear-Konzept 17); [ListEntry.key] ist die Position, [feedAt] liefert das Abo dazu. */
+/**
+ * Die Warteschlange der Podcasts und darunter die Abos des Handys (Wear-Konzept 17); [ListEntry.key] ist die Position,
+ * [feedAt] liefert das Abo dazu, [QUEUE_KEY] die Warteschlange (immer da, auch wenn sie leer ist).
+ */
 @HiltViewModel
 class RemotePodcastsViewModel @Inject constructor(remote: PhoneRemote) : ViewModel() {
     private val podcasts = remote.library.map { it?.podcasts }
@@ -260,16 +265,20 @@ class RemotePodcastsViewModel @Inject constructor(remote: PhoneRemote) : ViewMod
     val state: StateFlow<EntryListState> = podcasts.map { feeds ->
         when {
             feeds == null -> EntryListState.Message(R.string.remote_no_library)
-            feeds.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
             else -> EntryListState.Ready(
-                feeds.mapIndexed { index, feed ->
-                    ListEntry(index.toLong(), feed.title, songCount = 0, artist = feed.author.ifBlank { null }, cover = CoverRef.Phone(WearThumbnailFile.Ref.Feed(feed.feedId)))
-                },
+                listOf(ListEntry(QUEUE_KEY, title = "", songCount = 0, titleRes = R.string.list_queue)) +
+                    feeds.mapIndexed { index, feed ->
+                        ListEntry(index.toLong(), feed.title, songCount = 0, artist = feed.author.ifBlank { null }, cover = CoverRef.Phone(WearThumbnailFile.Ref.Feed(feed.feedId)))
+                    },
             )
         }
     }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 
     fun feedAt(key: Long): WearRemotePodcastDto? = podcasts.value?.getOrNull(key.toInt())
+
+    companion object {
+        const val QUEUE_KEY = -1L
+    }
 }
 
 /** Die Hörbücher des Handys, angefangene zuerst (Wear-Konzept 17). */

@@ -29,4 +29,13 @@ class RemoteSpokenListsTest {
         val episodes = listOf(entry(1), entry(2), entry(3, finished = true), entry(4), entry(9, positionMs = 10))
         assertEquals(listOf(9L, 1L, 2L), remoteEpisodes(episodes, newest = 2).map { it.id })
     }
+
+    @Test
+    fun `Warteschlange - Reihenfolge bleibt, auch angefangene rutschen nicht nach vorn, höchstens 50`() {
+        val queue = listOf(entry(5), entry(3, positionMs = 10, updatedAt = 9), entry(8)) + (100L..160L).map { entry(it) }
+        val remote = remoteQueue(queue)
+        assertEquals(listOf(5L, 3L, 8L), remote.take(3).map { it.id })
+        assertEquals(listOf(false, true, false), remote.take(3).map { it.started })
+        assertEquals(50, remote.size)
+    }
 }

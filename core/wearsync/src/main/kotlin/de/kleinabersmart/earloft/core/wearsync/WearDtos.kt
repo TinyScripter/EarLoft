@@ -456,9 +456,17 @@ data class WearRemoteBookDto(
     val started: Boolean = false,
 )
 
-/** Die Uhr fragt die Folgen eines Abos ab ([WearPaths.REMOTE_EPISODES_REQUEST]). */
+/**
+ * Die Uhr fragt die Folgen eines Abos ab ([WearPaths.REMOTE_EPISODES_REQUEST]). Mit [QUEUE_FEED_ID] statt eines Abos fragt sie die
+ * Warteschlange der Podcasts ab (in deren Reihenfolge); ältere Handys antworten darauf mit `found = false`.
+ */
 @Serializable
-data class WearRemoteEpisodesRequest(val requestId: String, val feedId: String)
+data class WearRemoteEpisodesRequest(val requestId: String, val feedId: String) {
+    companion object {
+        /** Kein echter Feed (Feed-IDs sind Adressen). */
+        const val QUEUE_FEED_ID = "earloft:queue"
+    }
+}
 
 /**
  * Antwort auf [WearRemoteEpisodesRequest]: angefangene Folgen zuerst (zuletzt gehörte vorn), dann die neuesten [MAX_NEWEST];
