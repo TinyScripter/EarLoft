@@ -94,7 +94,7 @@
 
     <!-- Downloads -->
     <string name="download_channel_name">Downloads</string>
-    <string name="download_notification_title">Loading music</string>
+    <string name="download_notification_title">Loading onto the watch</string>
     <plurals name="download_notification_pending">
         <item quantity="one">%d track left</item>
         <item quantity="other">%d tracks left</item>

@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.androidx.wear)
     implementation(libs.androidx.wear.remote.interactions)
+    implementation(libs.androidx.wear.ongoing)
     implementation(libs.androidx.wear.tooling.preview)
     implementation(libs.kotlinx.coroutines.guava)
     // Die Preview-Annotationen (WearPreviewDevices u. a.) liegen hier und werden auch im Release-Quelltext gebraucht.

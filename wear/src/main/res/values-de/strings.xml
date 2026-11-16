@@ -92,7 +92,7 @@
 
     <!-- Downloads -->
     <string name="download_channel_name">Downloads</string>
-    <string name="download_notification_title">Musik wird geladen</string>
+    <string name="download_notification_title">Lädt auf die Uhr</string>
     <plurals name="download_notification_pending">
         <item quantity="one">Noch %d Titel</item>
         <item quantity="other">Noch %d Titel</item>

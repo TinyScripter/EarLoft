@@ -1,7 +1,9 @@
 package de.kleinabersmart.earloft.wear.download
 
 import android.app.Notification
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.util.Log
 import androidx.core.app.NotificationChannelCompat
@@ -9,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
+import androidx.wear.ongoing.OngoingActivity
 import androidx.work.WorkerParameters
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -38,6 +41,7 @@ import de.kleinabersmart.earloft.core.model.isArdSoundsBook
 import de.kleinabersmart.earloft.core.wearsync.WearBookFile
 import de.kleinabersmart.earloft.core.wearsync.WearEpisodeFile
 import de.kleinabersmart.earloft.core.wearsync.WearQuality
+import de.kleinabersmart.earloft.wear.EXTRA_OPEN_STORAGE
 import de.kleinabersmart.earloft.wear.R
 import de.kleinabersmart.earloft.wear.sync.CredentialsRequester
 import kotlinx.coroutines.Dispatchers
@@ -475,15 +479,39 @@ class WearDownloadWorker(
         } else {
             null
         }
-        return NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+        val openStorage = storageIntent()
+        val builder = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_download)
             .setContentTitle(applicationContext.getString(R.string.download_notification_title))
             .setContentText(text)
             .setProgress(100, progress ?: 0, progress == null)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setContentIntent(openStorage)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
-            .build()
+        // Ongoing Activity (WO-V4): Symbol auf dem Zifferblatt und Eintrag unter „Zuletzt“, solange geladen wird; der Tipp
+        // führt zu Speicher & Downloads. Die Statuszeile ist der Text der Benachrichtigung („N wartend“).
+        if (openStorage != null) {
+            OngoingActivity.Builder(applicationContext, NOTIFICATION_ID, builder)
+                .setStaticIcon(R.drawable.ic_download)
+                .setTouchIntent(openStorage)
+                .build()
+                .apply(applicationContext)
+        }
+        return builder.build()
+    }
+
+    /** Öffnet die App bei Speicher & Downloads; eigener Request-Code, sonst überschriebe er den Intent der Wiedergabe. */
+    private fun storageIntent(): PendingIntent? {
+        val intent = applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName) ?: return null
+        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(EXTRA_OPEN_STORAGE, true)
+        return PendingIntent.getActivity(
+            applicationContext,
+            NOTIFICATION_ID,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
     }
 
     @EntryPoint

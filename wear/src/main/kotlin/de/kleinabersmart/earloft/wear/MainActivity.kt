@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.wear
 
+import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -64,8 +65,11 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     @Inject lateinit var listCovers: ListCovers
 
-    /** Der Tipp auf den Chip der laufenden Musik (Zifferblatt) soll direkt die Wiedergabe-Ansicht öffnen. */
-    private var openNowPlaying by mutableStateOf(false)
+    /**
+     * Bildschirm, den der Start-Intent direkt öffnen soll: die Wiedergabe-Ansicht (Chip der laufenden Musik auf dem
+     * Zifferblatt) oder Speicher & Downloads (Symbol der laufenden Downloads, [EXTRA_OPEN_STORAGE]).
+     */
+    private var openRoute by mutableStateOf<NavKey?>(null)
 
     /**
      * Ohne eigene Ambient-Ansicht: Beim Display-Timeout geht die App in den Hintergrund und das Zifferblatt erscheint.
@@ -81,32 +85,44 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         lifecycle.addObserver(AmbientLifecycleObserver(this, ambientCallback))
-        requestLocalNetworkAccess()
+        requestPermissions()
         // Nur beim frischen Start: Nach einer Neuerstellung (Drehung, Prozess) steht der Intent noch an der Activity.
-        if (savedInstanceState == null) openNowPlaying = intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)
+        if (savedInstanceState == null) openRoute = routeOf(intent)
         setContent {
             CompositionLocalProvider(LocalListCovers provides listCovers) {
-                WearApp(openNowPlaying = openNowPlaying, onNowPlayingOpened = { openNowPlaying = false })
+                WearApp(openRoute = openRoute, onRouteOpened = { openRoute = null })
             }
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false)) openNowPlaying = true
+        routeOf(intent)?.let { openRoute = it }
     }
 
-    private val localNetworkRequest = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    private fun routeOf(intent: Intent): NavKey? = when {
+        intent.getBooleanExtra(EXTRA_OPEN_NOW_PLAYING, false) -> NowPlayingRoute()
+        intent.getBooleanExtra(EXTRA_OPEN_STORAGE, false) -> StorageRoute
+        else -> null
+    }
 
-    private fun requestLocalNetworkAccess() {
-        if (Build.VERSION.SDK_INT < 37) return
-        if (ContextCompat.checkSelfPermission(this, LOCAL_NETWORK_PERMISSION) == PackageManager.PERMISSION_GRANTED) return
-        localNetworkRequest.launch(LOCAL_NETWORK_PERMISSION)
+    private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
+
+    /** Heimnetz (Downloads vom Server) und Benachrichtigungen (Symbol der laufenden Downloads); das System fragt nacheinander. */
+    private fun requestPermissions() {
+        val missing = buildList {
+            if (Build.VERSION.SDK_INT >= 37) add(LOCAL_NETWORK_PERMISSION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
+        }.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isNotEmpty()) permissionRequest.launch(missing.toTypedArray())
     }
 }
 
 @Serializable
 data object StartRoute : NavKey
+
+/** Extra am Start-Intent: direkt Speicher & Downloads öffnen (Tipp auf das Symbol der laufenden Downloads). */
+const val EXTRA_OPEN_STORAGE = "de.kleinabersmart.earloft.wear.OPEN_STORAGE"
 
 /**
  * Die Uhr lädt direkt vom Server im Heimnetz. Ab Android 17 geht das nur mit `ACCESS_LOCAL_NETWORK`; ohne sie laufen
@@ -194,21 +210,22 @@ data object SleepTimerCustomRoute : NavKey
 @Serializable
 data class ChaptersRoute(val remote: Boolean = false) : NavKey
 
-/** Öffnet die Wiedergabe-Ansicht höchstens einmal; sonst stapeln sich Kopien, wenn man mehrfach etwas startet. */
-private fun MutableList<NavKey>.openNowPlaying(remote: Boolean = false) {
-    val route = NowPlayingRoute(remote)
+/** Öffnet [route] höchstens einmal; sonst stapeln sich Kopien, wenn man mehrfach etwas startet. */
+private fun MutableList<NavKey>.openOnce(route: NavKey) {
     if (lastOrNull() != route) add(route)
 }
 
+private fun MutableList<NavKey>.openNowPlaying(remote: Boolean = false) = openOnce(NowPlayingRoute(remote))
+
 @Composable
-fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}) {
+fun WearApp(openRoute: NavKey? = null, onRouteOpened: () -> Unit = {}) {
     MaterialTheme {
         AppScaffold {
             val backStack = rememberNavBackStack(StartRoute)
-            LaunchedEffect(openNowPlaying) {
-                if (openNowPlaying) {
-                    backStack.openNowPlaying()
-                    onNowPlayingOpened()
+            LaunchedEffect(openRoute) {
+                if (openRoute != null) {
+                    backStack.openOnce(openRoute)
+                    onRouteOpened()
                 }
             }
             NavDisplay(
