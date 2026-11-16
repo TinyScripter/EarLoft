@@ -20,7 +20,8 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.playbackSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "playback_settings")
+/** Einstellungen der Wiedergabe (ReplayGain, [EndlessMixSettings]); als Ganzes in der Komplett-Sicherung. */
+internal val Context.playbackSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "playback_settings")
 
 @Singleton
 class ReplayGainSettings @Inject constructor(

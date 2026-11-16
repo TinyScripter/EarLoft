@@ -36,6 +36,7 @@ import de.kleinabersmart.earloft.core.datasource.SourceBatch
 import de.kleinabersmart.earloft.core.download.DownloadRepository
 import de.kleinabersmart.earloft.core.download.DownloadSettings
 import de.kleinabersmart.earloft.core.model.SourceType
+import de.kleinabersmart.earloft.core.playback.EndlessMixSettings
 import de.kleinabersmart.earloft.core.playback.ReplayGainSettings
 import de.kleinabersmart.earloft.testing.MainDispatcherRule
 import de.kleinabersmart.earloft.testing.awaitReal
@@ -83,6 +84,7 @@ class SettingsViewModelTest {
     @Inject lateinit var downloadRepository: DownloadRepository
     @Inject lateinit var syncSettings: SyncSettings
     @Inject lateinit var replayGainSettings: ReplayGainSettings
+    @Inject lateinit var endlessMixSettings: EndlessMixSettings
     @Inject lateinit var themeSettings: ThemeSettings
     @Inject lateinit var librarySettings: LibrarySettings
     @Inject lateinit var spokenSettings: SpokenSettings
@@ -108,7 +110,7 @@ class SettingsViewModelTest {
 
     private val viewModel by lazy {
         SettingsViewModel(
-            serverRepository, refresher, downloadSettings, downloadRepository, syncSettings, replayGainSettings,
+            serverRepository, refresher, downloadSettings, downloadRepository, syncSettings, replayGainSettings, endlessMixSettings,
             themeSettings, librarySettings, spokenSettings, podcastSettings, artworkSettings, artworkRepository,
             lyricsSettings, lyricsRepository, authorImages, registry, spokenRefresher, localBooks, podcastRefresher, podcastRepository, opmlImporter, directorySearch,
             databaseImporter, databaseExport, statsRepository, context, applicationScope, audiobookServers, syncer,

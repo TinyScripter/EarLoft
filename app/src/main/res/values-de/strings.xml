@@ -331,6 +331,8 @@
     <string name="favorites_albums_empty">Noch keine Lieblingsalben. Tippe auf einem Album auf das Herz oder nutze das Album-Menü.</string>
     <string name="favorites_artists_empty">Noch keine Lieblingskünstler. Tippe bei einem Künstler auf das Herz oder nutze das Künstler-Menü.</string>
     <string name="library_filter_empty">Nichts passt zu dieser Auswahl.</string>
+    <string name="settings_endless_mix">Endlos weiterspielen</string>
+    <string name="settings_endless_mix_summary">Beginnt der letzte Song der Warteschlange, kommt ein Mix ähnlicher Songs dazu. Nicht bei Zufall oder Wiederholen.</string>
     <string name="settings_scrobble">Wiedergaben an den Server melden</string>
     <string name="settings_scrobble_summary">Gehörte Titel zählen beim Server (und ggf. bei Last.fm oder ListenBrainz) mit.</string>
 

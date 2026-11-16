@@ -410,6 +410,15 @@ fun MusicSettingsScreen(
                     onCheckedChange = viewModel::setScrobble,
                 )
             }
+            row("endless-mix") {
+                SwitchRow(
+                    title = stringResource(R.string.settings_endless_mix),
+                    summary = stringResource(R.string.settings_endless_mix_summary),
+                    icon = DesignR.drawable.ic_auto_awesome,
+                    checked = state.endlessMix,
+                    onCheckedChange = viewModel::setEndlessMix,
+                )
+            }
         }
 
         group("downloads", R.string.nav_downloads) {

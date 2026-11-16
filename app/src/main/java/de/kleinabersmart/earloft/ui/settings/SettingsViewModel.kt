@@ -47,6 +47,7 @@ import de.kleinabersmart.earloft.core.model.ReplayGainMode
 import de.kleinabersmart.earloft.core.model.ServerInfo
 import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.model.SpokenMode
+import de.kleinabersmart.earloft.core.playback.EndlessMixSettings
 import de.kleinabersmart.earloft.core.playback.ReplayGainSettings
 import de.kleinabersmart.earloft.ui.orOnError
 import de.kleinabersmart.earloft.ui.theme.ThemeMode
@@ -112,6 +113,7 @@ data class SettingsUiState(
     val autoDownloadNewestAlbums: Int = 0,
     val autoDownloadMostPlayedAlbums: Int = 0,
     val scrobble: Boolean = true,
+    val endlessMix: Boolean = false,
     val replayGainMode: ReplayGainMode = ReplayGainMode.AUTO,
     val preAmpDb: Float = 0f,
     val artistImages: Boolean = false,
@@ -186,6 +188,7 @@ class SettingsViewModel @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val syncSettings: SyncSettings,
     private val replayGainSettings: ReplayGainSettings,
+    private val endlessMixSettings: EndlessMixSettings,
     private val themeSettings: ThemeSettings,
     private val librarySettings: LibrarySettings,
     private val spokenSettings: SpokenSettings,
@@ -280,8 +283,8 @@ class SettingsViewModel @Inject constructor(
         state.copy(syncIntervalDays = days, mobileStreamQuality = quality)
     }.combine(combine(downloadSettings.autoDownloadNewestAlbums, downloadSettings.autoDownloadMostPlayedAlbums, ::Pair)) { state, (newest, mostPlayed) ->
         state.copy(autoDownloadNewestAlbums = newest, autoDownloadMostPlayedAlbums = mostPlayed)
-    }.combine(downloadSettings.autoDownloadFavoriteArtists) { state, artists ->
-        state.copy(autoDownloadFavoriteArtists = artists)
+    }.combine(combine(downloadSettings.autoDownloadFavoriteArtists, endlessMixSettings.enabled, ::Pair)) { state, (artists, endless) ->
+        state.copy(autoDownloadFavoriteArtists = artists, endlessMix = endless)
     }.combine(
         combine(podcastSettings.refreshHours, podcastSettings.useMobileData, podcastSettings.deleteHeardAfterDays, ::Triple),
     ) { state, (hours, mobile, deleteHeardDays) ->
@@ -669,6 +672,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setScrobble(enabled: Boolean) {
         viewModelScope.launch { syncSettings.setScrobble(enabled) }
+    }
+
+    fun setEndlessMix(enabled: Boolean) {
+        viewModelScope.launch { endlessMixSettings.setEnabled(enabled) }
     }
 
     fun setReplayGainMode(mode: ReplayGainMode) {

@@ -338,6 +338,8 @@
     <string name="favorites_albums_empty">No favorite albums yet. Tap the heart on an album or use the album menu.</string>
     <string name="favorites_artists_empty">No favorite artists yet. Tap the heart on an artist or use the artist menu.</string>
     <string name="library_filter_empty">Nothing matches this selection.</string>
+    <string name="settings_endless_mix">Keep playing</string>
+    <string name="settings_endless_mix_summary">When the last song of the queue starts, a mix of similar songs is added. Not with shuffle or repeat.</string>
     <string name="settings_scrobble">Report plays to the server</string>
     <string name="settings_scrobble_summary">Tracks you listen to are counted by the server (and possibly Last.fm or ListenBrainz).</string>
 

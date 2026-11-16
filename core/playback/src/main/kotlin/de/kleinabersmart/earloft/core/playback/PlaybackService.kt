@@ -54,6 +54,8 @@ import de.kleinabersmart.earloft.core.data.stats.StatsRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.di.LoggingExceptionHandler
+import de.kleinabersmart.earloft.core.data.mix.MixRepository
+import de.kleinabersmart.earloft.core.data.mix.MixSeed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -97,6 +99,8 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var streamCache: SimpleCache
     @Inject lateinit var mobileStreaming: MobileStreaming
     @Inject lateinit var replayGainSettings: ReplayGainSettings
+    @Inject lateinit var endlessMixSettings: EndlessMixSettings
+    @Inject lateinit var mixRepository: MixRepository
     @Inject internal lateinit var libraryRemovals: LibraryRemovals
     @Inject lateinit var sessionPlayerFactory: Optional<SessionPlayerFactory>
     @Inject lateinit var sleepTimer: SleepTimer
@@ -215,6 +219,7 @@ class PlaybackService : MediaLibraryService() {
         }
         player.addListener(playTracker)
         player.addListener(PersistenceListener(player))
+        bindEndlessMix(player, factory)
         bookListener = BookPlaybackListener(
             player, bookRepository, bookProgressSync, spokenSettings, statsRepository, absSessionReporter, mainScope, applicationScope,
             onEpisodeEnded = { endedId -> continueWithNextEpisode(player, endedId) },
@@ -281,6 +286,19 @@ class PlaybackService : MediaLibraryService() {
         session?.let { notifyAreaChanges(it) }
         restoreQueue(player)
         session?.let { notifyContentChanges(it, player) }
+    }
+
+    /** „Endlos weiterspielen“: am Ende der Warteschlange ein Mix ([EndlessMix]), am aktiven Player (auch beim Casten). */
+    private fun bindEndlessMix(player: Player, factory: SessionPlayerFactory?) {
+        var enabled = false
+        val endlessMix = EndlessMix(player, { enabled }, { songId -> mixRepository.mix(MixSeed.Song(songId)) }, factory, mainScope)
+        player.addListener(endlessMix)
+        mainScope.launch {
+            endlessMixSettings.enabled.distinctUntilChanged().collect {
+                enabled = it
+                endlessMix.check()
+            }
+        }
     }
 
     /**
