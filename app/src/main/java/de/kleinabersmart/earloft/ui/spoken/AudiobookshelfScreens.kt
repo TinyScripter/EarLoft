@@ -247,21 +247,13 @@ fun AudiobookshelfFormScreen(
             Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp),
         ) {
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(stringResource(R.string.spoken_abs_name)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
                 label = { Text(stringResource(R.string.spoken_abs_url)) },
                 placeholder = { Text(stringResource(R.string.spoken_abs_url_hint)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = key,
@@ -280,7 +272,16 @@ fun AudiobookshelfFormScreen(
                 },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            // Wie im Musik-Formular zuletzt und freiwillig: Bleibt er leer, heißt der Server wie der Host seiner Adresse.
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.add_server_name)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
             // Unter dem Schlüssel statt unter der Adresse: Der Hinweis erscheint schon beim Tippen von „http://“ und schöbe sonst die

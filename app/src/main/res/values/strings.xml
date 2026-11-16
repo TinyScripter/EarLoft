@@ -627,7 +627,6 @@
     <string name="spoken_abs_add">Add Audiobookshelf server</string>
     <string name="spoken_abs_none">No Audiobookshelf server yet.</string>
     <string name="spoken_abs_key_lost">The saved API key can no longer be read (e.g. after a restore on another device). Tap the server and enter the API key again.</string>
-    <string name="spoken_abs_name">Name</string>
     <string name="spoken_abs_url">Server address</string>
     <string name="spoken_abs_url_hint">https://audiobookshelf.example.org</string>
     <string name="spoken_abs_key">API key</string>
