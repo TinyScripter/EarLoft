@@ -46,7 +46,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -60,8 +63,10 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
@@ -80,6 +85,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
+import kotlin.math.min
+import kotlin.math.sqrt
 
 /**
  * Wiedergabe (Wear-Konzept 11): Das Cover füllt, leicht unscharf, den Kreis innerhalb des Fortschrittsrings; darauf Titel und
@@ -253,14 +260,20 @@ private fun NowPlayingContent(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // Oben und unten gleich viel Platz (je weight 1): So sitzt die Steuerung, und mit ihr Wiedergabe/Pause, genau in der Mitte des Kreises.
-                Column(
-                    modifier = Modifier.weight(1f).padding(horizontal = TEXT_PADDING),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Bottom,
+                val chapterLine = chapterTitle?.takeIf { spoken != null }
+                RoundTextStack(
+                    bottomToCenter = PLAY_BUTTON_SIZE / 2,
+                    // Kinder: [Kapitel,] Titel, Interpret bzw. Hinweis. Ohne Ausgabe ist der Hinweis das Wichtigste, sonst der Titel.
+                    priority = when {
+                        chapterLine == null -> if (state.outputSuppressed) listOf(1, 0) else listOf(0, 1)
+                        state.outputSuppressed -> listOf(2, 1, 0)
+                        else -> listOf(1, 0, 2)
+                    },
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = TEXT_PADDING),
                 ) {
-                    if (spoken != null && chapterTitle != null) {
+                    if (chapterLine != null) {
                         Text(
-                            chapterTitle,
+                            chapterLine,
                             textAlign = TextAlign.Center,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -366,6 +379,58 @@ private fun NowPlayingContent(
 }
 
 /**
+ * Die Zeilen über der Steuerung, von unten nach oben gestapelt; die unterste endet [bottomToCenter] über der Bildschirmmitte.
+ * Auf runden Uhren bekommt jede Zeile nur die Breite, die das Cover auf ihrer Höhe hergibt. Bei großer Schrift oder kleiner
+ * Uhr (WO-V1, WO-V16) entfallen Zeilen, die in die Uhrzeit reichten oder schmaler als [MIN_LINE_WIDTH] würden: [priority]
+ * nennt die Kinder nach Wichtigkeit, das erste bleibt immer. Leere Zeilen (etwa ohne Interpret) nehmen keinen Platz ein.
+ */
+@Composable
+private fun RoundTextStack(
+    bottomToCenter: Dp,
+    priority: List<Int>,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val round = LocalConfiguration.current.isScreenRound
+    val screen = LocalWindowInfo.current.containerSize
+    Layout(content, modifier) { measurables, constraints ->
+        val centerY = screen.height / 2f
+        val textRadius = min(screen.width, screen.height) / 2f - COVER_INSET.toPx()
+        val toCenter = bottomToCenter.toPx()
+        val heights = measurables.map { it.maxIntrinsicHeight(constraints.maxWidth) }
+        // Breite auf dem Abstand d von der Mitte: die Sehne des Cover-Kreises, auf eckigen Uhren die volle Breite.
+        fun widthAt(d: Float): Int {
+            if (!round) return constraints.maxWidth
+            val half = sqrt((textRadius * textRadius - d * d).coerceAtLeast(0f))
+            return (2 * half).toInt().coerceAtMost(constraints.maxWidth)
+        }
+        // Die oberste Zeile ist die schmalste; passt sie, passen alle darunter.
+        fun fits(lines: Collection<Int>): Boolean {
+            val total = lines.sumOf { heights[it] }
+            val topDistance = toCenter + total
+            return total <= constraints.maxHeight &&
+                centerY - topDistance >= TIME_TEXT_RESERVE.toPx() &&
+                widthAt(topDistance) >= MIN_LINE_WIDTH.roundToPx()
+        }
+        val lines = priority.filter { measurables[it].maxIntrinsicWidth(Constraints.Infinity) > 0 }.ifEmpty { priority.take(1) }
+        val shown = mutableSetOf(lines.first())
+        for (index in lines.drop(1)) {
+            if (fits(shown + index)) shown += index
+        }
+        val height = if (constraints.hasBoundedHeight) constraints.maxHeight else shown.sumOf { heights[it] }
+        var stacked = 0
+        val placed = shown.sortedDescending().map { index ->
+            stacked += heights[index]
+            val width = widthAt(toCenter + stacked).coerceAtLeast(MIN_LINE_WIDTH.roundToPx()).coerceAtMost(constraints.maxWidth)
+            measurables[index].measure(Constraints(maxWidth = width)) to height - stacked
+        }
+        layout(constraints.maxWidth, height) {
+            placed.forEach { (placeable, y) -> placeable.placeRelative((constraints.maxWidth - placeable.width) / 2, y) }
+        }
+    }
+}
+
+/**
  * [ProgressRing] mit Ziehen und Bedienhilfe. Der Ring liest die Position erst beim Zeichnen; neu zusammengesetzt wird nur, wenn
  * sich die angesagte Sekunde ändert.
  */
@@ -464,6 +529,15 @@ private const val COVER_DIM = 0.3f
 /** Ab diesem Anteil des Radius beginnt der Verlauf nach Schwarz (am Rand ist es ganz schwarz). */
 private const val COVER_FADE_START = 0.6f
 private val TEXT_PADDING = 12.dp
+
+/** Platz für die Ziffern der Uhrzeit oben; in sp, weil sie mit der Schriftgröße wachsen. */
+private val TIME_TEXT_RESERVE = 20.sp
+
+/**
+ * Schmaler wird eine Zeile über der Steuerung nicht, sonst entfällt sie (etwa die halbe Breite einer kleinen Uhr). Sie gilt
+ * für die oberste Zeile: Eine weitere Zeile darunter soll den Titel nicht bis auf ein paar Buchstaben kürzen.
+ */
+private val MIN_LINE_WIDTH = 96.dp
 private val PLAY_BUTTON_SIZE = 64.dp
 private val SKIP_BUTTON_SIZE = 52.dp
 private val SEEK_ICON_SIZE = 38.dp

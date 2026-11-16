@@ -34,10 +34,11 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
 
-        <!-- Die Uhr-App spielt ohne Handy (Downloads direkt vom Server); eingerichtet wird sie vom Handy aus. -->
+        <!-- Nicht eigenständig: Server, Zugangsdaten und Auswahl kommen nur von der Handy-App (auf der Uhr gibt es keine
+             Anmeldung, WO-P6). Danach spielt und lädt die Uhr auch ohne Handy. -->
         <meta-data
             android:name="com.google.android.wearable.standalone"
-            android:value="true" />
+            android:value="false" />
 
         <activity
             android:name=".MainActivity"
