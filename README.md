@@ -31,15 +31,18 @@ library.
   covers and pictures are kept on the device as well, so the app stays usable without a connection.
 - **Search** across all three areas or only the selected one, ignoring accents ("Bjork" finds "Björk").
 - **Material 3 design** in the colors of the logo or, if you like, of your wallpaper (Material You); album pages take
-  their colors from the cover, and the player and the widget can follow the cover or the app colors (**Settings →
-  General**). Light, dark or following the system, phone and tablet layouts, English and German.
-- **Home screen widget** (4×1) with cover and playback controls, and **Chromecast** (see
-  [Known limitations](#known-limitations)).
+  their colors from the cover, and the player can follow the cover or the app colors (**Settings → General**). Light,
+  dark or following the system, phone and tablet layouts, English and German.
+- **Home screen widgets** (4×1) with cover and playback controls. Each widget gets its own areas and colors when you
+  add it, and shows up to three lines of title when you pull it taller.
+- **Chromecast** (see [Known limitations](#known-limitations)).
+- **Sleep timer** with a duration or to the end of the chapter or episode. For books and podcasts, shake the phone to
+  extend it.
 - **Notifications about new content:** new albums, episodes and books, each area with its own notification (and
   notification channel). Tapping it opens the album, podcast or book directly.
 - **Share** songs, albums, artists, podcasts and books as links to open sources (MusicBrainz, the podcast's
-  website and feed, Open Library), never to your own servers. Feed links shared from other apps open as a podcast
-  preview.
+  website and feed, Open Library), never to your own servers; books and episodes from the current position. Feed links
+  shared from other apps open as a podcast preview.
 - **Backup to a file** (**Settings → General → Backup**): servers, subscriptions, playlists, progress, statistics and
   all settings in one file you keep yourself, to move to a new phone or start over. Passwords, API keys and sign-ins
   are never part of it; you enter them again after restoring. Restoring adds what is missing and replaces the settings.
@@ -47,20 +50,41 @@ library.
 ### Music
 
 - **One library, no duplicates.** A song on your phone *and* on your server shows up once; the app picks the best
-  source (device file, download, then stream).
-- **Gapless playback** and **ReplayGain**, so live albums play without breaks and all albums at a similar volume.
-- **Synchronized lyrics** when your files or server provide them.
-- **Favorites, playlists and play counts sync with your server**, also offline; scrobbling is supported.
+  source (device file, download, then stream). **Track info** in the player shows where a song plays from.
+- **Gapless playback** and **ReplayGain**, so live albums play without breaks and all albums at a similar volume. The
+  system equalizer opens right from the player.
+- **Browse the way you like:** by genre (a song can have several) and by decade; filter and sort the albums, then play
+  or shuffle what is left.
+- **Mixes:** **Start mix** on a song, album, artist or in the player queues similar songs. With **Keep playing**
+  (**Settings → Music**) a mix is added when the last song of the queue starts, so the music never stops.
+- **Favorite songs, albums and artists, playlists and play counts sync with your server**, also offline; scrobbling is
+  supported. Playlists can be reordered, and the queue can be saved as a playlist.
+- **Automatic downloads** of your favorites (favorite albums in full, favorite artists if you want), of the newest and
+  of the most played albums, each with the number of albums you choose.
+- **Statistics** in the library: what you listened to, and how much.
+- **Synchronized lyrics** from your files or your server, or, if you switch it on, from [LRCLIB](https://lrclib.net).
+- **Mobile data friendly:** over mobile data the app can stream a converted Opus file instead of the original
+  (**Settings → Music**), and the next tracks are loaded ahead.
 
 ### Podcasts
 
-- **Find podcasts** in Apple Podcasts and ARD Sounds (Podcast Index will follow), or add any RSS or Atom feed directly.
-  The directories are off until you switch them on, because your search terms are sent to them. Feeds refresh
-  automatically in the background.
+- **Find podcasts** in Apple Podcasts and ARD Sounds, or add any RSS or Atom feed directly. Before you search, **Add
+  podcast** shows popular podcasts by category. The directories are off until you switch them on, because your search
+  terms are sent to them. Shows from ARD Sounds without their own feed can be subscribed directly. Feeds refresh
+  automatically in the background; moved feeds are followed, and feeds that keep failing are listed in the settings.
+- **Protected feeds** ask for username and password; both stay encrypted on your device and are only sent to that
+  feed's server.
 - **Try before you subscribe:** listen to and download podcasts without subscribing. Subscriptions you no longer
   follow can be archived instead of deleted, so you keep their listening statistics.
 - **Continue listening** is an editable queue: the next episode starts when one ends.
-- **Chapters, show notes and downloads** per episode, with automatic downloads of new episodes per podcast.
+- **Everything the feed offers:** chapters (also from Podlove, with images and links), show notes with clickable
+  timestamps, searchable transcripts, seasons, people and funding links.
+- **Episode lists that keep up:** filter and sort, star episodes to find them again, see what you played recently,
+  select several (or all) to download, queue or mark them, and swipe to queue or mark a single one.
+- **Sound per podcast:** speed, shorten silence, boost volume, skip intro and outro, as a default for all podcasts, per
+  podcast or per episode. The statistics show how much time shortening silence saved you.
+- **Downloads** per episode, with a number of new episodes kept ready per podcast, deleting heard ones after a while,
+  and resuming interrupted downloads. The file of a downloaded episode can be shared.
 - **Podcast files on your phone** (folder **Podcasts**) show up as podcasts. Their features are limited, though, so I
   wouldn't listen to podcasts this way.
 - **Import and export** your subscriptions as OPML, or subscriptions, progress and listening time as a database file.
@@ -70,14 +94,25 @@ library.
 
 ### Books
 
-- **From your Audiobookshelf server and from your phone.** Books on your phone (folder **Audiobooks**, m4b with
-  chapters or folders of MP3 files) show up next to the ones from your server.
+- **From your Audiobookshelf server, from ARD Sounds and from your phone.** All libraries of your Audiobookshelf
+  server are synced. Books on your phone (folder **Audiobooks**, m4b with chapters or folders of MP3 files) show up
+  next to the ones from your server; like Audiobookshelf, the app reads folder names and, if you allow it, `cover.jpg`,
+  `desc.txt`, `reader.txt` and `metadata.opf`.
+- **Audiobooks and radio plays from ARD Sounds** (off by default, **Settings → Books → ARD Sounds**): browse, search,
+  play and download them, follow shows under **My series** to get their new books, download books shortly before ARD
+  withdraws them, or upload a book to your Audiobookshelf server to keep it.
 - **Sign in with an API key or with OpenID** (for example through your single sign-on); the access token is renewed
   automatically, also for the watch.
-- **Progress syncs both ways** with your Audiobookshelf server, also after listening offline.
-- **Made for long listening:** speed per book, adjustable jumps (default −10 s / +30 s, also for podcasts), chapters,
-  remaining time, sleep timer. If you stopped within the first 30 s of a chapter, playback resumes at its beginning.
-- **Browse by series and authors**, download books for offline use.
+- **Progress and bookmarks sync both ways** with your Audiobookshelf server, also after listening offline. All
+  bookmarks of your books (or episodes) are on one page, opened from the library.
+- **Made for long listening:** speed, shorter silence and volume boost per book, adjustable jumps (default −10 s /
+  +30 s, also for podcasts), chapters, remaining time, rewinding after a pause. If you stopped within the first 30 s
+  of a chapter, playback resumes at its beginning. In the notification and in Android Auto the buttons can skip or jump
+  between chapters.
+- **Browse by series, authors and genres**, sort and filter; an author page shows the description and the books by
+  series. Translators are not listed as authors.
+- **Automatic downloads** of the books you are listening to and of the next volume of a series, and deleting the
+  downloads of finished books after a while. If you like, the app asks before streaming over mobile data.
 - **Statistics** from your Audiobookshelf server, next to the listening time counted on this device.
 
 ### Your sources
@@ -90,37 +125,42 @@ library.
   (tested with Jellyfin 12.4 and Emby 4.10).
 - **Audiobookshelf (books).** Add your [Audiobookshelf](https://www.audiobookshelf.org) server with an API key or sign
   in with OpenID, if your server offers it.
-- **Podcast feeds.** Any public RSS or Atom feed.
+- **Podcast feeds.** Any public RSS or Atom feed, and feeds protected by username and password.
+- **ARD Sounds (podcasts and books).** Shows, audiobooks and radio plays of the German public broadcasters. ARD Sounds
+  has no official interface for apps, so this may stop working at any time.
 - **Your phone.** Music from the device, books from the **Audiobooks** folder and podcasts from the **Podcasts**
   folder. Each is off until you switch it on in the settings; only then does the app ask for access to your audio
   files.
 
 Servers at home (`http://192.168.x.x`) work too. The app warns you before using an unencrypted connection.
 
-### Artist photos, album covers and author pictures (optional, off by default)
+### Artist photos, album covers, author pictures and lyrics (optional, off by default)
 
-Missing pictures can be filled in from the internet. These options are **off by default** because they send names to
-third parties, and you can switch them on in **Settings → Music**:
+Missing pictures and lyrics can be filled in from the internet. These options are **off by default** because they
+send names to third parties, and you can switch them on in **Settings → Music** (author pictures in **Settings →
+Books**):
 
 - **Artist photos** from [Deezer](https://www.deezer.com) (artist names are sent).
 - **Missing album covers** from [MusicBrainz](https://musicbrainz.org) and the
   [Cover Art Archive](https://coverartarchive.org) (album title and artist are sent).
 - **Missing author pictures** from [Audnexus](https://api.audnex.us) (author names are sent).
+- **Missing or synced lyrics** from [LRCLIB](https://lrclib.net) (song title, artist and length are sent).
 
-Covers embedded in your files or provided by your server are always used first.
+Covers and lyrics embedded in your files or provided by your server are always used first.
 
 ### On your watch (Wear OS)
 
 - **Music, podcasts and books without your phone.** Tap the watch icon on an album, a playlist, the favorites, an
   episode or a book (or choose **Load onto watch**), on the phone or on the watch under **Phone**. The watch downloads
-  them by itself over Wi-Fi directly from your server or the podcast feed, or receives them from the phone (files
-  stored on the phone, or when the server is not reachable).
+  them by itself over Wi-Fi directly from your server, the podcast feed or ARD Sounds, or receives them from the phone
+  (files stored on the phone, or when the server is not reachable). The favorites include your favorite albums.
+  Running downloads show up on the watch face.
 - **Play to Bluetooth headphones**, perfect for running or the gym. The watch speaker is not used. Books and podcasts
   have chapters, a sleep timer and the jump steps set on the phone; progress and listening time go back to the phone
   and from there to Audiobookshelf.
 - **Two areas:** **Watch** lists what is on the watch (music, podcasts, books, storage & downloads); **Phone** shows
-  the phone's music, podcasts and books, to play them on the phone or to load them onto the watch, and controls the
-  phone's playback.
+  the phone's music (including favorite albums and artists), podcasts and books, to play them on the phone or to load
+  them onto the watch, and controls the phone's playback, with the chapters of the book or episode playing there.
 - **Watch quality:** by default songs are converted by the server to Opus 128 kbit/s to save space on the watch;
   you can choose the original files instead. Changing the setting affects new downloads only. Podcasts and books are
   loaded as they are.
@@ -133,21 +173,27 @@ Android Auto support is included and works fine with my car. So far this is the 
 - **Music, podcasts and books**, each area as its own tab next to **Recent**, which shows the latest of every area.
   Areas you switched off in the app are left out.
 - Albums, podcasts and books as a grid with covers; episodes and books show their progress and whether they are
-  downloaded.
-- **Search** across all areas you use, and a favorite button for songs.
+  downloaded. Favorite albums and artists are listed above the favorite songs.
+- **Search** across all areas you use, a favorite button for songs, and chapter buttons for books and episodes if you
+  choose them (**Settings → Books**).
 - Changes on the phone (new songs, a new queue) show up in the car right away.
 
 ## Privacy
 
+The full privacy policy is in [PRIVACY.md](PRIVACY.md) (German: [PRIVACY.de.md](PRIVACY.de.md)) and in the app under
+**Settings → About → Privacy policy**. In short:
+
 - Your library, listening history and settings stay on your device and on your own server.
 - The app contacts only the servers and podcast feeds you add (and the sites that host their episodes and images). The
-  only exceptions are the optional artwork lookups described above and the podcast directories you switch on (your
-  search terms are sent to them).
-- Server passwords, API keys and sign-in tokens are stored encrypted with the Android Keystore. The OpenID sign-in
-  runs in your browser; EarLoft only receives the tokens from your Audiobookshelf server. Android backups contain your
-  settings and what no server knows (your servers without their passwords, subscriptions, progress, local playlists
-  and listening statistics), but never the library database, downloads or credentials. The same goes for the backup
-  file you create yourself.
+  only exceptions are the optional services you switch on yourself: the podcast directories and their popular
+  podcasts (your search terms, country and language are sent), ARD Sounds, and the artwork and lyrics lookups
+  described above.
+- Server passwords, API keys, feed passwords and sign-in tokens are stored encrypted with the Android Keystore. The
+  OpenID sign-in runs in your browser; EarLoft only receives the tokens from your Audiobookshelf server. Android
+  backups contain your settings and what no server knows (your servers without their passwords, subscriptions,
+  progress, local playlists and listening statistics), but never the library database, downloads or credentials. The
+  same goes for the backup file you create yourself. Feed addresses are kept as they are, so a personal key in the
+  address of a paid feed is part of the backup.
 - There are no ads and no analytics.
 
 ## Permissions
@@ -210,7 +256,8 @@ once a release build is published, it will be listed on the
 [Releases page](https://github.com/TinyScripter/EarLoft/releases).
 
 **Requirements:** Android 8.0 or newer (phone), Wear OS 3 or newer (watch). The phone and watch app share one
-application ID (`de.kleinabersmart.earloft`), so install both for the watch features.
+application ID (`de.kleinabersmart.earloft`), so install both for the watch features. The watch app is set up from the
+phone and does not work without it.
 
 ## Getting started
 
@@ -232,7 +279,8 @@ application ID (`de.kleinabersmart.earloft`), so install both for the watch feat
    OpenID** (shown when your server offers it) or enter an API key (created in Audiobookshelf under *Settings → API
    Keys*). If your default browser can't hand the sign-in back to the app, EarLoft tells you which address to add in
    Audiobookshelf under *Settings → Authentication → Allowed Mobile Redirect URIs*. Or just copy books into the
-   **Audiobooks** folder of your phone and switch on **Settings → Books → Use books on this device**.
+   **Audiobooks** folder of your phone and switch on **Settings → Books → Use books on this device**. For audiobooks and
+   radio plays from ARD Sounds, switch on **Settings → Books → ARD Sounds**.
 5. Play something. On an album, playlist, book or episode you can download it (download arrow) or load it onto your
    watch (watch icon). Downloads are listed under **Settings → General → Downloads**; the watch is managed under
    **Settings → Watch** (shown once a watch with EarLoft is paired).
@@ -243,8 +291,9 @@ application ID (`de.kleinabersmart.earloft`), so install both for the watch feat
   server address itself. If a song is on several servers and the Cast device cannot reach the first one, the app
   switches to the next one after about 20 seconds. Long queues are sent in parts. Casting books depends on the server
   accepting a token in the address and has not been tested widely (with an OpenID sign-in not at all).
-- Podcasts: no "download all episodes" for a podcast, and local podcast files have no description unless their tags
-  contain one.
+- Local podcast files have no description unless their tags contain one.
+- ARD Sounds is used through an unofficial interface that may change or stop working. Uploading a book from ARD Sounds
+  to Audiobookshelf runs while the app is open and stops when you close it.
 - Local books and podcasts are picked up when the app is opened or refreshed, not while it is running.
 - Lyrics from `.lrc` files next to your music and a folder view are not supported, because Android does not let apps
   read arbitrary folders without a folder permission. Embedded lyrics and server lyrics work.
@@ -351,6 +400,11 @@ the phone app on the watch too.
 If Gradle cannot find the SDK, create `local.properties` in the project root with `sdk.dir=/path/to/Android/Sdk`
 (Android Studio does this for you).
 
+The podcast directories Podcast Index and fyyd are only offered if your build enables them in `local.properties`
+(`podcastindex.key` and `podcastindex.secret` with your own
+[Podcast Index API key](https://api.podcastindex.org), `fyyd.enabled=true`); otherwise they are missing from the
+settings.
+
 ### Tests
 
 ```bash
@@ -370,6 +424,11 @@ keyPassword=...
 ```
 
 Without this file `release` builds still run, but the APK stays unsigned.
+
+Phone and watch share one version, set in [`gradle.properties`](gradle.properties) (`VERSION_MAJOR`, `VERSION_MINOR`,
+`VERSION_PATCH`, `VERSION_TYPE` = `beta`, `rc` or `release`, `VERSION_BUILD_NUM`). The build derives `versionName`
+(for example `1.5.0-beta01`) and `versionCode` from it; the first digit of the `versionCode` is `1` for the phone and
+`2` for the watch, so both can be published in the same store listing.
 
 ```bash
 ./gradlew :app:assembleRelease :wear:assembleRelease
