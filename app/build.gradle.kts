@@ -1,3 +1,6 @@
+import de.kleinabersmart.earloft.buildlogic.Platform
+import de.kleinabersmart.earloft.buildlogic.appVersion
+
 plugins {
     alias(libs.plugins.earloft.android.application)
     alias(libs.plugins.earloft.android.compose)
@@ -50,8 +53,8 @@ android {
 
     defaultConfig {
         applicationId = "de.kleinabersmart.earloft"
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersion.versionCode(Platform.MOBILE)
+        versionName = appVersion.name
     }
 
     buildTypes {

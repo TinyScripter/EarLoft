@@ -1,4 +1,6 @@
 import de.kleinabersmart.earloft.buildlogic.BuildConfig
+import de.kleinabersmart.earloft.buildlogic.Platform
+import de.kleinabersmart.earloft.buildlogic.appVersion
 
 plugins {
     alias(libs.plugins.earloft.android.application)
@@ -26,8 +28,8 @@ android {
         // Muss mit der Phone-App übereinstimmen (Wearable Data Layer).
         applicationId = "de.kleinabersmart.earloft"
         minSdk = BuildConfig.MIN_SDK_WEAR
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersion.versionCode(Platform.WEAR_OS)
+        versionName = appVersion.name
     }
 
     buildTypes {
