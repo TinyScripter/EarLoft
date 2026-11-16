@@ -29,13 +29,18 @@ import androidx.wear.compose.material3.lazy.transformedHeight
 import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.wear.R
 
+/** Kapitel des Buchs bzw. der Folge, die das Handy spielt (Fernsteuerung); ein Tipp springt am Handy. */
+@Composable
+fun RemoteChaptersScreen(onDone: () -> Unit, viewModel: RemotePlayerViewModel = hiltViewModel()) = ChaptersScreen(onDone, viewModel)
+
 /**
  * Kapitel des laufenden Buchs bzw. der Folge (aus der Wiedergabe-Ansicht): das laufende hervorgehoben und beim Öffnen im
  * Blick; ein Tipp springt an den Beginn des Kapitels, [onDone] führt zurück zur Wiedergabe. Kapitel in einer nicht mehr
- * abrufbaren Datei ([BookChapter.unavailable]) sind ausgegraut; der Player überspringt sie.
+ * abrufbaren Datei ([BookChapter.unavailable]) sind ausgegraut; der Player überspringt sie. [viewModel] ist die Uhr selbst
+ * oder, in der Fernsteuerung, das Handy ([RemotePlayerViewModel]).
  */
 @Composable
-fun ChaptersScreen(onDone: () -> Unit, viewModel: PlayerViewModel = hiltViewModel()) {
+fun ChaptersScreen(onDone: () -> Unit, viewModel: ChaptersModel = hiltViewModel<PlayerViewModel>()) {
     val chapters by viewModel.chapters.collectAsStateWithLifecycle()
     val current by viewModel.currentChapter.collectAsStateWithLifecycle()
     val columnState = rememberTransformingLazyColumnState()

@@ -217,9 +217,12 @@ data class WearBookDto(
     val chapters: List<WearChapterDto> = emptyList(),
 )
 
-/** Ein Kapitel; Beginn und Ende als Position im ganzen Buch bzw. in der Folge. */
+/**
+ * Ein Kapitel; Beginn und Ende als Position im ganzen Buch bzw. in der Folge. [unavailable]: liegt in einer Datei, die nicht mehr
+ * abrufbar ist (nur in der Fernsteuerung gesetzt, [WearRemoteChaptersDto]).
+ */
 @Serializable
-data class WearChapterDto(val title: String, val startMs: Long, val endMs: Long)
+data class WearChapterDto(val title: String, val startMs: Long, val endMs: Long, val unavailable: Boolean = false)
 
 /**
  * Eine Datei des Buchs. [fileId] ist die Kennung bei Audiobookshelf; `null` bei Büchern vom Gerät des Handys (die gibt es
@@ -417,6 +420,14 @@ data class WearRemoteStateDto(
         return if (durationMs > 0) position.coerceAtMost(durationMs) else position
     }
 }
+
+/**
+ * Kapitel des Buchs bzw. der Folge, die das Handy spielt (Handy → Uhr, [WearPaths.REMOTE_CHAPTERS]); geschrieben einmal je Buch,
+ * nicht mit jeder Zustandsmeldung. Das laufende Kapitel rechnet die Uhr aus der fortgerechneten Position
+ * ([WearRemoteStateDto.positionAt]); sie nimmt die Liste nur, wenn [bookId] zu [WearRemoteStateDto.bookId] passt.
+ */
+@Serializable
+data class WearRemoteChaptersDto(val bookId: Long, val chapters: List<WearChapterDto> = emptyList())
 
 /**
  * Alben, Künstler und Playlists, Podcast-Abos und Hörbücher des Handys, damit die Uhr sie anzeigen kann (Handy → Uhr, als

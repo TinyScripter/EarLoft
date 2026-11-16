@@ -48,7 +48,7 @@ class PlayerViewModel @Inject constructor(
     albumColors: AlbumColorRepository,
     bookCovers: BookCovers,
     books: BookRepository,
-) : ViewModel(), NowPlayingModel {
+) : ViewModel(), NowPlayingModel, ChaptersModel {
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
 
@@ -115,21 +115,19 @@ class PlayerViewModel @Inject constructor(
         .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Kapitel des Buchs bzw. der Folge; leer bei Musik und ohne Kapitel. */
-    val chapters: StateFlow<List<BookChapter>> = timeline
+    override val chapters: StateFlow<List<BookChapter>> = timeline
         .map { it?.chapters.orEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Das laufende Kapitel; die Position des Players gilt in der Datei, Kapitel im ganzen Buch. */
-    val currentChapter: StateFlow<BookChapter?> = combine(timeline, playback.state, positionMs) { timeline, state, position ->
+    /** Die Position des Players gilt in der Datei, Kapitel im ganzen Buch. */
+    override val currentChapter: StateFlow<BookChapter?> = combine(timeline, playback.state, positionMs) { timeline, state, position ->
         val entry = state.spoken ?: return@combine null
         timeline?.chapterAt(timeline.toBookPosition(entry.trackIndex, position))
     }
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Springt an [bookPositionMs] (Position im ganzen Buch), z. B. den Beginn eines Kapitels. */
-    fun seekToBook(bookPositionMs: Long) {
+    override fun seekToBook(bookPositionMs: Long) {
         val target = timeline.value?.locate(bookPositionMs) ?: return
         playback.seekToTrack(target.trackIndex, target.offsetMs)
     }

@@ -79,6 +79,9 @@ object WearPaths {
     /** DataItem, Handy → Uhr: Cover des laufenden Albums bzw. Buchs, siehe [WearCodec.encodeCover]. */
     const val REMOTE_COVER = "/earloft/remote/cover"
 
+    /** DataItem, Handy → Uhr: [WearRemoteChaptersDto] (gzip) – Kapitel des laufenden Buchs bzw. der Folge. */
+    const val REMOTE_CHAPTERS = "/earloft/remote/chapters"
+
     /** DataItem mit Asset, Handy → Uhr: [WearRemoteLibraryDto] (gzip) – Alben, Künstler, Playlists, Abos und Bücher des Handys. */
     const val REMOTE_LIBRARY = "/earloft/remote/library"
 

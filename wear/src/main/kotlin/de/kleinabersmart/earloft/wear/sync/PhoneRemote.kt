@@ -8,6 +8,7 @@ import com.google.android.gms.wearable.MessageClient
 import de.kleinabersmart.earloft.core.wearsync.WearCodec
 import de.kleinabersmart.earloft.core.wearsync.WearPaths
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteAction
+import de.kleinabersmart.earloft.core.wearsync.WearRemoteChaptersDto
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteCommand
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteEpisodesRequest
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteEpisodesResult
@@ -61,6 +62,24 @@ class PhoneRemote @Inject constructor(
             albumId to withContext(Dispatchers.Default) { if (jpeg.isEmpty()) null else BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) }
         }
         .distinctUntilChanged { old, new -> old?.first == new?.first && (old?.second == null) == (new?.second == null) }
+
+    /** Kapitel des Buchs bzw. der Folge, die das Handy spielt (oder zuletzt spielte); `null`, solange es keine geschrieben hat. */
+    val chapters: Flow<WearRemoteChaptersDto?> = dataClient.changesAt(WearPaths.REMOTE_CHAPTERS)
+        .subscribed()
+        .map {
+            dataClient.payloadsAt(WearPaths.REMOTE_CHAPTERS).values.firstOrNull()?.let { bytes ->
+                try {
+                    WearCodec.decodeCompressed<WearRemoteChaptersDto>(bytes)
+                } catch (e: SerializationException) {
+                    Log.w(TAG, "Kapitel des Handys nicht lesbar", e)
+                    null
+                } catch (e: java.io.IOException) {
+                    Log.w(TAG, "Kapitel des Handys nicht lesbar", e)
+                    null
+                }
+            }
+        }
+        .distinctUntilChanged()
 
     /** Alben, Künstler, Playlists, Abos und Bücher des Handys; `null`, solange das Handy sie nicht geschrieben hat. */
     val library: Flow<WearRemoteLibraryDto?> = dataClient.changesAt(WearPaths.REMOTE_LIBRARY)

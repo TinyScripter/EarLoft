@@ -52,6 +52,7 @@ import de.kleinabersmart.earloft.wear.ui.RemoteTracksScreen
 import de.kleinabersmart.earloft.wear.ui.NowPlayingScreen
 import de.kleinabersmart.earloft.wear.ui.SelectionScreen
 import de.kleinabersmart.earloft.wear.ui.ChaptersScreen
+import de.kleinabersmart.earloft.wear.ui.RemoteChaptersScreen
 import de.kleinabersmart.earloft.wear.ui.SleepTimerCustomScreen
 import de.kleinabersmart.earloft.wear.ui.SleepTimerScreen
 import de.kleinabersmart.earloft.wear.ui.StartScreen
@@ -189,9 +190,9 @@ data object SleepTimerRoute : NavKey
 @Serializable
 data object SleepTimerCustomRoute : NavKey
 
-/** Kapitel des laufenden Buchs bzw. der Folge (aus der Wiedergabe-Ansicht). */
+/** Kapitel des laufenden Buchs bzw. der Folge (aus der Wiedergabe-Ansicht); mit [remote] die des Handys. */
 @Serializable
-data object ChaptersRoute : NavKey
+data class ChaptersRoute(val remote: Boolean = false) : NavKey
 
 /** Öffnet die Wiedergabe-Ansicht höchstens einmal; sonst stapeln sich Kopien, wenn man mehrfach etwas startet. */
 private fun MutableList<NavKey>.openNowPlaying(remote: Boolean = false) {
@@ -286,11 +287,11 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                     entry<PhoneSpokenRoute> { route -> RemoteSpokenScreen(route.item, onPlayed = { backStack.openNowPlaying(remote = true) }) }
                     entry<NowPlayingRoute> { route ->
                         if (route.remote) {
-                            RemoteNowPlayingScreen()
+                            RemoteNowPlayingScreen(onOpenChapters = { backStack.add(ChaptersRoute(remote = true)) })
                         } else {
                             NowPlayingScreen(
                                 onOpenSleepTimer = { backStack.add(SleepTimerRoute) },
-                                onOpenChapters = { backStack.add(ChaptersRoute) },
+                                onOpenChapters = { backStack.add(ChaptersRoute()) },
                             )
                         }
                     }
@@ -322,7 +323,10 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                         // Zurück zur Wiedergabe: erst die eigene Dauer, dann die Auswahl davor schließen.
                         SleepTimerCustomScreen(onDone = { repeat(2) { backStack.removeLastOrNull() } })
                     }
-                    entry<ChaptersRoute> { ChaptersScreen(onDone = { backStack.removeLastOrNull() }) }
+                    entry<ChaptersRoute> { route ->
+                        val onDone: () -> Unit = { backStack.removeLastOrNull() }
+                        if (route.remote) RemoteChaptersScreen(onDone) else ChaptersScreen(onDone)
+                    }
                     entry<StorageRoute> { StorageScreen() }
                     entry<SelectionRoute> { route -> SelectionScreen(playlistId = route.playlistId, onPlayed = { backStack.openNowPlaying() }) }
                 },

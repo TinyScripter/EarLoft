@@ -107,11 +107,20 @@ fun NowPlayingScreen(
 
 /**
  * Wiedergabe-Ansicht des Handys (Wear-Konzept 15): dieselbe Ansicht, aber Bedienung und Anzeige gehören dem Handy.
- * Einen Sleep-Timer gibt es hier nicht, die Krone ändert die Lautstärke des Handys.
+ * Einen Sleep-Timer gibt es hier nicht, die Krone ändert die Lautstärke des Handys. Kapitel wie auf der Uhr selbst.
  */
 @Composable
-fun RemoteNowPlayingScreen(viewModel: RemotePlayerViewModel = hiltViewModel()) {
-    NowPlayingHost(viewModel, onOpenSleepTimer = {}, sleepTimerAvailable = false)
+fun RemoteNowPlayingScreen(onOpenChapters: () -> Unit = {}, viewModel: RemotePlayerViewModel = hiltViewModel()) {
+    val chapters by viewModel.chapters.collectAsStateWithLifecycle()
+    val chapter by viewModel.currentChapter.collectAsStateWithLifecycle()
+    NowPlayingHost(
+        viewModel,
+        onOpenSleepTimer = {},
+        sleepTimerAvailable = false,
+        chapterTitle = chapter?.title,
+        chaptersAvailable = chapters.isNotEmpty(),
+        onOpenChapters = onOpenChapters,
+    )
 }
 
 @Composable

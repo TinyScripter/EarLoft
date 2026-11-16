@@ -6,11 +6,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
+import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.QueueEntry
 import de.kleinabersmart.earloft.core.playback.SpokenEntry
 import de.kleinabersmart.earloft.core.playback.nextRepeatMode
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteAction
+import de.kleinabersmart.earloft.core.wearsync.WearRemoteChaptersDto
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteStateDto
 import de.kleinabersmart.earloft.wear.sync.PhoneRemote
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -34,7 +37,7 @@ import kotlin.math.roundToInt
  * Play/Pause, Zufall und Wiederholen springen sofort um und gelten, bis das Handy seinen Zustand meldet.
  */
 @HiltViewModel
-class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote) : ViewModel(), NowPlayingModel {
+class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote) : ViewModel(), NowPlayingModel, ChaptersModel {
 
     private val remoteState: StateFlow<WearRemoteStateDto?> =
         // Die Nebenwirkungen hängen am Fluss, nicht an einem eigenen Collector: Ein dauerhafter Collector hielte die Anmeldung
@@ -105,6 +108,21 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
 
     override val seedColor: StateFlow<Int?> = remoteState.map { it?.seedColor }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    override val chapters: StateFlow<List<BookChapter>> = combine(remoteState, remote.chapters, ::chaptersOf)
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Aus der fortgerechneten Position: Der Name wechselt mitten in der Datei, ohne dass das Handy etwas meldet. Neu zusammengesetzt
+     * wird nur beim Wechsel, nicht im 500-ms-Takt der Position.
+     */
+    override val currentChapter: StateFlow<BookChapter?> = combine(chapters, positionMs, ::chapterAt)
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Das Handy wählt Datei und Versatz über seine Zeitachse ([WearRemoteAction.SEEK] in Buchzeit). */
+    override fun seekToBook(bookPositionMs: Long) = seekTo(bookPositionMs)
 
     /** Einen Sleep-Timer gibt es nur auf der Uhr selbst. */
     override val sleepTimerRemainingMs: StateFlow<Long?> = MutableStateFlow(null)
@@ -186,3 +204,18 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
         const val PENDING_MS = 3_000L
     }
 }
+
+/**
+ * Die Kapitel aus [chapters], wenn sie zum Buch bzw. zur Folge gehören, die das Handy laut [state] spielt; bei Musik, ohne
+ * Meldung oder mit den Kapiteln eines vorigen Buchs keine.
+ */
+internal fun chaptersOf(state: WearRemoteStateDto?, chapters: WearRemoteChaptersDto?): List<BookChapter> {
+    if (state == null || !state.hasMedia || !state.isSpoken || chapters == null || chapters.bookId != state.bookId) return emptyList()
+    return chapters.chapters.mapIndexed { index, chapter ->
+        BookChapter(index, chapter.title, chapter.startMs, chapter.endMs, unavailable = chapter.unavailable)
+    }
+}
+
+/** Das Kapitel an [positionMs] (Buchzeit), wie [de.kleinabersmart.earloft.core.model.BookTimeline.chapterAt]. */
+internal fun chapterAt(chapters: List<BookChapter>, positionMs: Long): BookChapter? =
+    chapters.lastOrNull { it.startMs <= positionMs } ?: chapters.firstOrNull()

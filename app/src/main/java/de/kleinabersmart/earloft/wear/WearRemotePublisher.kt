@@ -20,7 +20,9 @@ import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.wearsync.WearCodec
 import de.kleinabersmart.earloft.core.wearsync.WearPaths
+import de.kleinabersmart.earloft.core.wearsync.WearChapterDto
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteAlbumDto
+import de.kleinabersmart.earloft.core.wearsync.WearRemoteChaptersDto
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteArtistDto
 import de.kleinabersmart.earloft.core.wearsync.WearRemotePodcastDto
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteLibraryDto
@@ -90,6 +92,9 @@ class WearRemotePublisher @Inject constructor(
     /** [WearRemoteStateDto.coverKey] des zuletzt geschriebenen Covers; ändert sich nur beim Album- bzw. Buchwechsel. */
     private var publishedCoverKey: Long? = null
 
+    /** Buch, dessen Kapitel zuletzt geschrieben wurden ([WearRemoteChaptersDto]); ändert sich nur beim Buchwechsel. */
+    private var publishedChaptersBookId: Long? = null
+
     /** Zeitachse des laufenden Buchs, damit nicht jede Meldung Dateien und Kapitel neu liest. */
     private var timelineCache: Pair<Long, BookTimeline?>? = null
 
@@ -156,6 +161,14 @@ class WearRemotePublisher @Inject constructor(
         // Nach einer Pause ohne Anmeldung kann die Uhr ein altes Cover haben: bei neuer Anmeldung neu schreiben.
         val coverKey = dto.coverKey
         if (coverKey != null && coverKey != publishedCoverKey) publishCover(dto, coverKey)
+        val bookId = dto.bookId
+        if (dto.isSpoken && bookId != null && bookId != publishedChaptersBookId) publishChapters(bookId)
+    }
+
+    /** Einmal je Buch: Den Kapitelnamen rechnet die Uhr aus der Position, das Handy muss ihn nicht bei jedem Wechsel melden. */
+    private suspend fun publishChapters(bookId: Long) {
+        val dto = remoteChapters(bookId, timeline(bookId))
+        if (dataClient.putPayload(WearPaths.REMOTE_CHAPTERS, WearCodec.encodeCompressed(dto))) publishedChaptersBookId = bookId
     }
 
     private suspend fun musicState(state: PlayerState, positionMs: Long): WearRemoteStateDto {
@@ -260,3 +273,9 @@ class WearRemotePublisher @Inject constructor(
         const val JPEG_QUALITY = 80
     }
 }
+
+/** Kapitel des Buchs [bookId] für die Fernsteuerung (Buchzeiten); ohne Zeitachse oder Kapitel eine leere Liste. */
+internal fun remoteChapters(bookId: Long, timeline: BookTimeline?): WearRemoteChaptersDto = WearRemoteChaptersDto(
+    bookId = bookId,
+    chapters = timeline?.chapters.orEmpty().map { WearChapterDto(it.title, it.startMs, it.endMs, it.unavailable) },
+)

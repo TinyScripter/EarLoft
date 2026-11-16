@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.wear.ui
 
 import android.graphics.Bitmap
+import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import kotlinx.coroutines.flow.StateFlow
 
@@ -47,4 +48,16 @@ interface NowPlayingModel {
 
     /** Die Krone wurde um [pixels] gedreht: ändert die Lautstärke. */
     fun onCrown(pixels: Float)
+}
+
+/** Was die Kapitelliste braucht: Kapitel der Uhr selbst ([PlayerViewModel]) oder des Handys ([RemotePlayerViewModel]). */
+interface ChaptersModel {
+    /** Kapitel des Buchs bzw. der Folge; leer bei Musik und ohne Kapitel. */
+    val chapters: StateFlow<List<BookChapter>>
+
+    /** Das laufende Kapitel. */
+    val currentChapter: StateFlow<BookChapter?>
+
+    /** Springt an [bookPositionMs] (Position im ganzen Buch), z. B. den Beginn eines Kapitels. */
+    fun seekToBook(bookPositionMs: Long)
 }
