@@ -9,11 +9,18 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -606,9 +613,22 @@ fun EarLoftApp(
             // Mit Bottom-Bar ist der untere Rand schon verbraucht; mit Rail hält dies Listen und Mini-Player
             // von der Gestenleiste fern.
             val bottomInsets = if (showNavigation) WindowInsets.navigationBars.only(WindowInsetsSides.Bottom) else WindowInsets(0)
+            // Unter den Seiten liegen Snackbar, Mini-Player und Leiste: Ihre Höhe gilt für die Tastatur als schon verbraucht. Sonst
+            // schiebt `imePadding()` in Formularen um die ganze Tastaturhöhe hoch, und Knöpfe rutschen über freiem Platz aus dem Bild.
+            var belowPages by remember { mutableStateOf(0.dp) }
+            val density = LocalDensity.current
             Column(Modifier.windowInsetsPadding(bottomInsets)) {
                 // Gemeinsame Elemente (der Kopf von Start und Bibliothek) bleiben beim Seitenwechsel stehen.
-                SharedTransitionLayout(Modifier.weight(1f)) {
+                SharedTransitionLayout(
+                    Modifier
+                        .weight(1f)
+                        .onGloballyPositioned { coordinates ->
+                            val bottom = coordinates.positionInRoot().y + coordinates.size.height
+                            val gap = coordinates.findRootCoordinates().size.height - bottom
+                            belowPages = with(density) { gap.coerceAtLeast(0f).toDp() }
+                        }
+                        .consumeWindowInsets(PaddingValues(bottom = belowPages)),
+                ) {
                     CompositionLocalProvider(LocalSharedTransitionScope provides this) {
                         NavDisplay(
                             entries = navigationState.toDecoratedEntries(entryProvider),
