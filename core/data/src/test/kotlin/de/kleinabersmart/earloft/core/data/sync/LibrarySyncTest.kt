@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.datasource.RawArtist
 import de.kleinabersmart.earloft.core.datasource.RawTrack
 import de.kleinabersmart.earloft.core.datasource.SourceBatch
 import de.kleinabersmart.earloft.core.model.DownloadState
+import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -150,6 +151,33 @@ class LibrarySyncTest {
 
         syncer.syncAdding(db, FakeSource("nd", listOf(track("x", "Gong", lastModified = 3, sizeBytes = 120))))
         assertEquals(DownloadState.QUEUED, db.downloadDao().get("nd:x")!!.state)
+    }
+
+    @Test
+    fun `two tracks of one source with the same title stay two songs`() = runTest {
+        val aerosmith = track("8", "Walk This Way", track = 8, album = "Greatest Hits", artist = "Aerosmith")
+        val runDmc = aerosmith.copy(remoteId = "22", trackNumber = 22, artistDisplay = "Run-DMC • Aerosmith", durationMs = 299_000)
+        syncer.syncAdding(db, FakeSource("nd", listOf(aerosmith, runDmc)))
+        assertEquals(2, db.libraryDao().observeSongRows().first().size)
+
+        // Eine zweite Quelle mit nur einer der Fassungen legt sich weiter zu einem der beiden.
+        syncer.syncAdding(db, FakeSource("local", listOf(aerosmith.copy(remoteId = "1"))))
+        assertEquals(2, db.libraryDao().observeSongRows().first().size)
+    }
+
+    @Test
+    fun `a song keeps all genres of its source and follows when they change`() = runTest {
+        val walk = track("x", "Walk This Way").copy(genre = "Hip-Hop", genres = listOf("Hip-Hop", "Rap", "rap "))
+        syncer.syncAdding(db, FakeSource("nd", listOf(walk)))
+
+        val library = db.libraryDao()
+        assertEquals(listOf("Hip-Hop", "Rap"), library.observeGenreRows().first().map { it.name })
+        assertEquals(listOf("Walk This Way"), library.getSongRowsOfGenre(Genre.key("RAP")).map { it.title })
+        assertEquals("Hip-Hop", db.mergeDao().getSong(library.observeSongRows().first().single().songId)!!.genre)
+
+        // Neu getaggt: nur noch Rock.
+        syncer.syncAdding(db, FakeSource("nd", listOf(walk.copy(genre = "Rock", genres = listOf("Rock"), lastModified = 2))))
+        assertEquals(listOf("Rock"), library.observeGenreRows().first().map { it.name })
     }
 
     private fun track(

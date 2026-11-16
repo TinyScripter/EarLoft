@@ -48,10 +48,11 @@ class LibraryRepository @Inject constructor(
 
     fun genres(): Flow<List<Genre>> = libraryDao.observeGenreRows().map { rows -> rows.map { it.toGenre() } }
 
+    /** Alben mit Songs des Genres [genre] (Name in beliebiger Schreibweise). */
     fun albumsOfGenre(genre: String): Flow<List<Album>> =
-        libraryDao.observeAlbumRowsOfGenre(genre).map { rows -> rows.map { it.toAlbum() } }
+        libraryDao.observeAlbumRowsOfGenre(Genre.key(genre)).map { rows -> rows.map { it.toAlbum() } }
 
-    suspend fun songsOfGenre(genre: String): List<Song> = libraryDao.getSongRowsOfGenre(genre).map { it.toSong() }
+    suspend fun songsOfGenre(genre: String): List<Song> = libraryDao.getSongRowsOfGenre(Genre.key(genre)).map { it.toSong() }
 
     /** Alle Songs der [albumIds], Album für Album in deren Reihenfolge, je Album in Albumreihenfolge. */
     suspend fun songsOfAlbums(albumIds: List<Long>): List<Song> {

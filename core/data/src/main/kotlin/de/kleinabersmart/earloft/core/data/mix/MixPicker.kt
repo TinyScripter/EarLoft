@@ -16,7 +16,7 @@ internal data class MixProfile(
 ) {
     companion object {
         fun of(seed: List<MixCandidateRow>, artistIds: Set<Long>? = null): MixProfile {
-            val counts = seed.mapNotNull { it.genre?.genreKey() }.groupingBy { it }.eachCount()
+            val counts = seed.flatMap { it.genreKeys }.groupingBy { it }.eachCount()
             val max = counts.values.maxOrNull() ?: 1
             val years = seed.mapNotNull { it.year }.sorted()
             return MixProfile(
@@ -29,6 +29,10 @@ internal data class MixProfile(
 }
 
 internal fun String.genreKey(): String? = trim().lowercase().takeIf { it.isNotEmpty() }
+
+/** Die Genres des Songs als Schlüssel (klein geschrieben, ohne doppelte). */
+internal val MixCandidateRow.genreKeys: List<String>
+    get() = genres?.split(MixCandidateRow.GENRE_SEPARATOR)?.mapNotNull { it.genreKey() }?.distinct().orEmpty()
 
 /**
  * Stellt aus Kandidaten einen Mix zusammen (rein, ohne Datenbank; Konzept 8 „Mix“). Punkte gibt es für das Genre des
@@ -123,7 +127,8 @@ internal object MixPicker {
         random: Random,
     ): Double {
         var score = 0.0
-        row.genre?.genreKey()?.let { score += GENRE_WEIGHT * (profile.genres[it] ?: 0.0) }
+        // Mehrere Genres: Es zählt das, das am besten passt.
+        row.genreKeys.maxOfOrNull { profile.genres[it] ?: 0.0 }?.let { score += GENRE_WEIGHT * it }
         val year = row.year
         if (profile.year != null && year != null) {
             score += YEAR_WEIGHT * (1.0 - abs(year - profile.year).toDouble() / YEAR_SPAN).coerceAtLeast(0.0)
@@ -143,7 +148,7 @@ internal object MixPicker {
     /** Passt zum Ausgangspunkt: vom Server vorgeschlagen, sonst gleiches Genre; ohne Genres im Profil nahes Jahr oder gleicher Künstler. */
     private fun MixCandidateRow.matches(profile: MixProfile, similarRank: Map<Long, Int>): Boolean {
         if (songId in similarRank) return true
-        if (profile.genres.isNotEmpty()) return genre?.genreKey()?.let { it in profile.genres } == true
+        if (profile.genres.isNotEmpty()) return genreKeys.any { it in profile.genres }
         val year = year
         val artist = artistId
         return (profile.year != null && year != null && abs(year - profile.year) <= YEAR_SPAN) ||

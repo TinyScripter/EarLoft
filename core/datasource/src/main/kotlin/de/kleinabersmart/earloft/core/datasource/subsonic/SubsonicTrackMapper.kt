@@ -59,7 +59,8 @@ internal object SubsonicTrackMapper {
             trackNumber = song.track?.takeIf { it > 0 } ?: 0,
             durationMs = (song.duration ?: 0) * 1000L,
             year = song.year?.takeIf { it > 0 } ?: album?.year?.takeIf { it > 0 },
-            genre = song.genre.orBlankNull(),
+            genre = song.genre.orBlankNull() ?: song.genres.firstNotNullOfOrNull { it.name.orBlankNull() },
+            genres = song.genres.mapNotNull { it.name.orBlankNull() },
             mbidTrack = song.musicBrainzId.orBlankNull(),
             mbidAlbum = album?.musicBrainzId.orBlankNull(),
             rgTrackGainDb = rg?.trackGain,
@@ -86,7 +87,7 @@ internal object SubsonicTrackMapper {
             song.title, song.album, song.artist, song.displayArtist, song.displayAlbumArtist,
             song.artists.joinToString { it.name + "/" + it.musicBrainzId },
             song.albumArtists.joinToString { it.name + "/" + it.musicBrainzId },
-            song.track, song.discNumber, song.duration, song.year, song.genre, song.musicBrainzId,
+            song.track, song.discNumber, song.duration, song.year, song.genre, song.genres.joinToString { it.name }, song.musicBrainzId,
             song.replayGain, song.coverArt, song.contentType, song.bitRate, song.size,
             album?.musicBrainzId, album?.isCompilation, album?.coverArt, album?.year, album?.displayArtist,
         ).joinToString("\u0000")

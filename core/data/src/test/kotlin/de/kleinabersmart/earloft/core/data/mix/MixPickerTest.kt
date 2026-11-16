@@ -39,6 +39,17 @@ class MixPickerTest {
     }
 
     @Test
+    fun `a song with several genres matches through any of them`() {
+        val seed = row(1, genre = "Hip-Hop", year = 1986, artist = 1, album = 1)
+        val both = row(10, genre = "Rap${MixCandidateRow.GENRE_SEPARATOR}hip-hop ", year = 2015, artist = 10, album = 10)
+        val metal = (30L until 40L).map { row(it, genre = "Metal", year = 2015, artist = it, album = it) }
+
+        assertEquals(mapOf("rap" to 1.0, "hip-hop" to 1.0), MixProfile.of(listOf(both)).genres)
+        // Platz für einen Song neben dem Ausgangspunkt: Der passende kommt vor allem Fremden.
+        assertEquals(listOf(1L, 10L), pick(seed, metal + both, size = 2))
+    }
+
+    @Test
     fun `limits songs per album and per artist unless nothing else is left`() {
         val seed = row(1, genre = "Jazz", artist = 1, album = 1)
         val jazzArtists = (10L until 15L).map { row(it, genre = "Jazz", artist = it, album = it) }
@@ -114,7 +125,7 @@ class MixPickerTest {
         songId = id,
         albumId = album,
         artistId = artist,
-        genre = genre,
+        genres = genre,
         year = year,
         isFavorite = false,
         playCount = 0,

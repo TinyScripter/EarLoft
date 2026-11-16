@@ -12,8 +12,10 @@ import de.kleinabersmart.earloft.core.database.entity.ArtistEntity
 import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.SongArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
+import de.kleinabersmart.earloft.core.database.entity.SongGenreEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
+import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.SourceType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -52,8 +54,8 @@ class LibraryDaoTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
         val albumId = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
-        val shared = libraryDao.insertSong(song(albumId, "Svefn-g-englar", track = 1))
-        val localOnly = libraryDao.insertSong(song(albumId, "Starálfur", track = 2))
+        val shared = insertSong(song(albumId, "Svefn-g-englar", track = 1))
+        val localOnly = insertSong(song(albumId, "Starálfur", track = 2))
         libraryDao.insertSongSource(songSource(shared, LOCAL, "1"))
         libraryDao.insertSongSource(songSource(shared, NAVIDROME, "a"))
         libraryDao.insertSongSource(songSource(localOnly, LOCAL, "2"))
@@ -76,7 +78,7 @@ class LibraryDaoTest {
         sourceDao.upsert(SourceEntity(sourceId = PHONE, type = SourceType.PHONE, name = "Handy"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
         val albumId = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
-        val songId = libraryDao.insertSong(song(albumId, "Svefn-g-englar", track = 1))
+        val songId = insertSong(song(albumId, "Svefn-g-englar", track = 1))
         libraryDao.insertSongSource(songSource(songId, LOCAL, "1"))
         libraryDao.insertSongSource(songSource(songId, PHONE, "local:1"))
         libraryDao.insertSongSource(songSource(songId, NAVIDROME, "a"))
@@ -97,7 +99,7 @@ class LibraryDaoTest {
             ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"),
         )
         val albumId = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
-        val songId = libraryDao.insertSong(song(albumId, "Hoppípolla", track = 3))
+        val songId = insertSong(song(albumId, "Hoppípolla", track = 3))
         libraryDao.insertSongSource(songSource(songId, LOCAL, "7"))
         libraryDao.insertSongArtist(SongArtistCrossRef(songId, artistId, position = 0))
         libraryDao.insertAlbumArtist(AlbumArtistCrossRef(albumId, artistId, position = 0))
@@ -113,7 +115,7 @@ class LibraryDaoTest {
     fun `the same remote id cannot be stored twice for one source`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
         val albumId = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
-        val songId = libraryDao.insertSong(song(albumId, "Glósóli", track = 2))
+        val songId = insertSong(song(albumId, "Glósóli", track = 2))
         libraryDao.insertSongSource(songSource(songId, NAVIDROME, "x"))
         libraryDao.insertSongSource(songSource(songId, NAVIDROME, "x").copy(uid = "other"))
     }
@@ -126,7 +128,7 @@ class LibraryDaoTest {
         )
         val albumId = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
         libraryDao.insertAlbumArtist(AlbumArtistCrossRef(albumId, artistId, position = 0))
-        val songId = libraryDao.insertSong(song(albumId, "Hoppípolla", track = 3))
+        val songId = insertSong(song(albumId, "Hoppípolla", track = 3))
         libraryDao.insertSongSource(songSource(songId, LOCAL, "7"))
 
         assertEquals(listOf("Hoppípolla"), libraryDao.searchSongRows("HOPPI*", 10).map { it.title })
@@ -139,8 +141,8 @@ class LibraryDaoTest {
     fun `album rows count songs and queue skips unknown songs`() = runTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
         val albumId = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
-        val first = libraryDao.insertSong(song(albumId, "Glósóli", track = 2))
-        val second = libraryDao.insertSong(song(albumId, "Hoppípolla", track = 3))
+        val first = insertSong(song(albumId, "Glósóli", track = 2))
+        val second = insertSong(song(albumId, "Hoppípolla", track = 3))
         libraryDao.insertSongSource(songSource(first, LOCAL, "1"))
         libraryDao.insertSongSource(songSource(second, LOCAL, "2"))
 
@@ -159,24 +161,25 @@ class LibraryDaoTest {
         val agaetis = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
         val hidden = libraryDao.insertAlbum(album("Kveikur", "Sigur Rós"))
         val songs = listOf(
-            libraryDao.insertSong(song(takk, "Glósóli", track = 2).copy(genre = "Post-Rock")),
-            libraryDao.insertSong(song(takk, "Hoppípolla", track = 3).copy(genre = "post-rock")),
-            libraryDao.insertSong(song(agaetis, "Svefn-g-englar", track = 1).copy(genre = "Post-Rock")),
-            libraryDao.insertSong(song(agaetis, "Starálfur", track = 2).copy(genre = "Ambient")),
-            libraryDao.insertSong(song(agaetis, "Flugufrelsarinn", track = 3).copy(genre = " ")),
+            insertSong(song(takk, "Glósóli", track = 2).copy(genre = "Post-Rock")),
+            insertSong(song(takk, "Hoppípolla", track = 3).copy(genre = "post-rock")),
+            insertSong(song(agaetis, "Svefn-g-englar", track = 1).copy(genre = "Post-Rock")),
+            // Zwei Genres: zählt bei beiden.
+            insertSong(song(agaetis, "Starálfur", track = 2).copy(genre = "Ambient|post-rock")),
+            insertSong(song(agaetis, "Flugufrelsarinn", track = 3).copy(genre = " ")),
         )
         songs.forEachIndexed { index, songId -> libraryDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
         // Nur auf einem ausgeschalteten Server: zählt nicht.
-        val hiddenSong = libraryDao.insertSong(song(hidden, "Brennisteinn", track = 1).copy(genre = "Post-Rock"))
+        val hiddenSong = insertSong(song(hidden, "Brennisteinn", track = 1).copy(genre = "Post-Rock"))
         libraryDao.insertSongSource(songSource(hiddenSong, NAVIDROME, "k"))
 
         val genres = libraryDao.observeGenreRows().first()
         assertEquals(listOf("Ambient", "Post-Rock"), genres.map { it.name })
         assertEquals(2, genres[1].albumCount)
-        assertEquals(3, genres[1].songCount)
+        assertEquals(4, genres[1].songCount)
 
         assertEquals(
-            setOf(takk to "Post-Rock", takk to "post-rock", agaetis to "Post-Rock", agaetis to "Ambient"),
+            setOf(takk to "Post-Rock", takk to "post-rock", agaetis to "Post-Rock", agaetis to "Ambient", agaetis to "post-rock"),
             libraryDao.observeAlbumGenreRows().first().map { it.albumId to it.genre }.toSet(),
         )
 
@@ -185,12 +188,12 @@ class LibraryDaoTest {
             libraryDao.getSongRowsOfAlbums(listOf(agaetis, takk)).sortedBy { it.albumId != takk }.map { it.title },
         )
 
-        val albums = libraryDao.observeAlbumRowsOfGenre("POST-ROCK").first()
+        val albums = libraryDao.observeAlbumRowsOfGenre(Genre.key("POST-ROCK")).first()
         assertEquals(listOf("Takk...", "Ágætis byrjun").sorted(), albums.map { it.title }.sorted())
         // Die Zahl der Songs gilt dem ganzen Album, nicht nur dem Genre.
         assertEquals(3, albums.single { it.albumId == agaetis }.songCount)
         assertEquals(
-            listOf("Glósóli", "Hoppípolla", "Svefn-g-englar").sorted(),
+            listOf("Glósóli", "Hoppípolla", "Svefn-g-englar", "Starálfur").sorted(),
             libraryDao.getSongRowsOfGenre("post-rock").map { it.title }.sorted(),
         )
     }
@@ -205,11 +208,11 @@ class LibraryDaoTest {
         val noYear = libraryDao.insertAlbum(album("Demo", "Sigur Rós").copy(year = 0))
         val hidden = libraryDao.insertAlbum(album("Kveikur", "Sigur Rós").copy(year = 2013))
         listOf(takk, agaetis, von, noYear).forEachIndexed { index, albumId ->
-            val songId = libraryDao.insertSong(song(albumId, "Song $index", track = 1))
+            val songId = insertSong(song(albumId, "Song $index", track = 1))
             libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
         }
         // Nur auf einem ausgeschalteten Server: zählt nicht.
-        val hiddenSong = libraryDao.insertSong(song(hidden, "Brennisteinn", track = 1))
+        val hiddenSong = insertSong(song(hidden, "Brennisteinn", track = 1))
         libraryDao.insertSongSource(songSource(hiddenSong, NAVIDROME, "k"))
 
         val decades = libraryDao.observeDecadeRows().first()
@@ -233,7 +236,7 @@ class LibraryDaoTest {
             Triple(abbeyRoad, "Something", beatles) to 2L,
         ).mapIndexed { index, (song, added) ->
             val (albumId, title, artistId) = song
-            val songId = libraryDao.insertSong(song(albumId, title, track = 1).copy(dateAdded = added))
+            val songId = insertSong(song(albumId, title, track = 1).copy(dateAdded = added))
             libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
             libraryDao.insertSongArtist(SongArtistCrossRef(songId, artistId, 0))
             songId
@@ -265,9 +268,9 @@ class LibraryDaoTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
         val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
         val agaetis = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
-        val glosoli = libraryDao.insertSong(song(takk, "Glósóli", track = 2))
-        val hoppipolla = libraryDao.insertSong(song(takk, "Hoppípolla", track = 3))
-        val svefn = libraryDao.insertSong(song(agaetis, "Svefn-g-englar", track = 1))
+        val glosoli = insertSong(song(takk, "Glósóli", track = 2))
+        val hoppipolla = insertSong(song(takk, "Hoppípolla", track = 3))
+        val svefn = insertSong(song(agaetis, "Svefn-g-englar", track = 1))
         listOf(glosoli, hoppipolla, svefn).forEachIndexed { index, songId -> libraryDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
         val playback = db.playbackDao()
         // Takk: drei Wiedergaben im Zeitraum, eine davor; Ágætis: vier, aber nur zwei im Zeitraum.
@@ -285,8 +288,8 @@ class LibraryDaoTest {
         sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
         val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
-        val glosoli = libraryDao.insertSong(song(takk, "Glósóli", track = 2))
-        val hidden = libraryDao.insertSong(song(takk, "Hoppípolla", track = 3))
+        val glosoli = insertSong(song(takk, "Glósóli", track = 2))
+        val hidden = insertSong(song(takk, "Hoppípolla", track = 3))
         libraryDao.insertSongSource(songSource(glosoli, LOCAL, "1"))
         libraryDao.insertSongSource(songSource(hidden, NAVIDROME, "a"))
         val playback = db.playbackDao()
@@ -307,10 +310,10 @@ class LibraryDaoTest {
         val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
         libraryDao.insertAlbumArtist(AlbumArtistCrossRef(go, jonsi, 0))
         libraryDao.insertAlbumArtist(AlbumArtistCrossRef(takk, sigur, 0))
-        val boyLilikoi = libraryDao.insertSong(song(go, "Boy Lilikoi", track = 2))
-        val goDo = libraryDao.insertSong(song(go, "Go Do", track = 1))
-        val glosoli = libraryDao.insertSong(song(takk, "Glósóli", track = 2))
-        val hoppipolla = libraryDao.insertSong(song(takk, "Hoppípolla", track = 3))
+        val boyLilikoi = insertSong(song(go, "Boy Lilikoi", track = 2))
+        val goDo = insertSong(song(go, "Go Do", track = 1))
+        val glosoli = insertSong(song(takk, "Glósóli", track = 2))
+        val hoppipolla = insertSong(song(takk, "Hoppípolla", track = 3))
         listOf(boyLilikoi, goDo, glosoli, hoppipolla).forEachIndexed { index, songId ->
             libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
         }
@@ -345,11 +348,11 @@ class LibraryDaoTest {
         val old = libraryDao.insertAlbum(album("Old", "Someone").copy(year = 1970))
         libraryDao.insertAlbumArtist(AlbumArtistCrossRef(go, jonsi, 0))
         libraryDao.insertAlbumArtist(AlbumArtistCrossRef(takk, sigur, 0))
-        val goDo = libraryDao.insertSong(song(go, "Go Do", track = 1).copy(genre = "Post-Rock"))
-        val glosoli = libraryDao.insertSong(song(takk, "Glósóli", track = 2).copy(genre = "post-rock"))
-        val hoppipolla = libraryDao.insertSong(song(takk, "Hoppípolla", track = 3).copy(genre = "Ambient"))
-        val oldSong = libraryDao.insertSong(song(old, "Old Song", track = 1).copy(genre = "Jazz", year = 2008))
-        val hidden = libraryDao.insertSong(song(old, "Hidden", track = 2).copy(genre = "Post-Rock"))
+        val goDo = insertSong(song(go, "Go Do", track = 1).copy(genre = "Post-Rock"))
+        val glosoli = insertSong(song(takk, "Glósóli", track = 2).copy(genre = "post-rock"))
+        val hoppipolla = insertSong(song(takk, "Hoppípolla", track = 3).copy(genre = "Ambient"))
+        val oldSong = insertSong(song(old, "Old Song", track = 1).copy(genre = "Jazz", year = 2008))
+        val hidden = insertSong(song(old, "Hidden", track = 2).copy(genre = "Post-Rock"))
         listOf(goDo, glosoli, hoppipolla, oldSong).forEachIndexed { index, songId ->
             libraryDao.insertSongSource(songSource(songId, LOCAL, "$index"))
         }
@@ -368,8 +371,9 @@ class LibraryDaoTest {
 
         suspend fun ids(genres: List<String>, artists: List<Long>, from: Int, to: Int) =
             libraryDao.getMixCandidates(genres, artists, from, to, limit = 10).map { it.songId }.toSet()
-        // Genre ohne Unterschied von Groß/Klein; der Song des ausgeschalteten Servers fehlt.
-        assertEquals(setOf(goDo, glosoli), ids(listOf("POST-ROCK"), emptyList(), 1, 0))
+        // Genre als Schlüssel (Schreibweisen zusammen); der Song des ausgeschalteten Servers fehlt.
+        assertEquals(setOf(goDo, glosoli), ids(listOf(Genre.key("POST-ROCK")), emptyList(), 1, 0))
+        assertEquals("Post-Rock", seed.getValue(goDo).genres)
         assertEquals(setOf(glosoli, hoppipolla), ids(emptyList(), listOf(sigur), 1, 0))
         // Das Song-Jahr geht vor: „Old Song“ (2008) passt, obwohl sein Album von 1970 ist.
         assertEquals(setOf(goDo, oldSong), ids(emptyList(), emptyList(), 2007, 2012))
@@ -388,10 +392,10 @@ class LibraryDaoTest {
         val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
         libraryDao.insertAlbumArtist(AlbumArtistCrossRef(go, jonsi, 0))
         libraryDao.insertAlbumArtist(AlbumArtistCrossRef(takk, sigur, 0))
-        val goDo = libraryDao.insertSong(song(go, "Go Do", track = 1).copy(genre = "Post-Rock"))
-        val glosoli = libraryDao.insertSong(song(takk, "Glósóli", track = 2).copy(genre = "post-rock"))
-        val hoppipolla = libraryDao.insertSong(song(takk, "Hoppípolla", track = 3))
-        val hidden = libraryDao.insertSong(song(takk, "Hidden", track = 4).copy(genre = "Jazz"))
+        val goDo = insertSong(song(go, "Go Do", track = 1).copy(genre = "Post-Rock"))
+        val glosoli = insertSong(song(takk, "Glósóli", track = 2).copy(genre = "post-rock"))
+        val hoppipolla = insertSong(song(takk, "Hoppípolla", track = 3))
+        val hidden = insertSong(song(takk, "Hidden", track = 4).copy(genre = "Jazz"))
         listOf(goDo, glosoli, hoppipolla).forEachIndexed { index, songId -> libraryDao.insertSongSource(songSource(songId, LOCAL, "$index")) }
         libraryDao.insertSongSource(songSource(hidden, NAVIDROME, "h"))
         // Hoppípolla: Song-Künstler Jónsi statt Album-Künstler.
@@ -414,6 +418,14 @@ class LibraryDaoTest {
         assertEquals(listOf("Hoppípolla"), libraryDao.observeTopSongs(0, 100, 1).first().map { it.title })
         // Alle Wiedergaben sichtbarer Songs, ohne den ausgeschalteten Server.
         assertEquals(11, libraryDao.observeMusicPlays().first().size)
+    }
+
+    /** Legt den Song an und, wie der Abgleich, seine Genres (`|` trennt mehrere). */
+    private suspend fun insertSong(song: SongEntity): Long {
+        val songId = libraryDao.insertSong(song)
+        val genres = song.genre?.split('|')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+        db.mergeDao().insertSongGenres(genres.mapIndexed { position, genre -> SongGenreEntity(songId, genre, Genre.key(genre), position) })
+        return songId
     }
 
     private fun album(title: String, artist: String) = AlbumEntity(

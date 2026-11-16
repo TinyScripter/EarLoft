@@ -86,6 +86,7 @@ data class SongEntity(
     val trackNumber: Int = 0,
     val durationMs: Long,
     val year: Int? = null,
+    /** Das erste Genre (Uhr, Anzeige); alle stehen in [SongGenreEntity]. */
     val genre: String? = null,
     /** MusicBrainz Recording ID. */
     val mbid: String? = null,
@@ -131,6 +132,31 @@ data class SongSourceEntity(
     val seenInGeneration: Long,
     /** Zeitpunkt, zu dem der Server den Song favorisiert hat; `null` = nicht favorisiert (lokale Quellen immer). */
     @ColumnInfo(defaultValue = "NULL") val starredAt: Long? = null,
+)
+
+/**
+ * Ein Genre eines Songs; ein Song kann mehrere haben (OpenSubsonic `genres`, Jellyfin/Emby `Genres`). [genreKey] ist
+ * `Genre.key`: Schreibweisen, die sich nur in Groß-/Kleinschreibung unterscheiden, sind ein Genre (auch bei Umlauten, die
+ * SQLite mit `NOCASE` nicht gleichsetzt). [position] 0 ist das Genre in [SongEntity.genre].
+ */
+@Entity(
+    tableName = "song_genres",
+    primaryKeys = ["songId", "genreKey"],
+    foreignKeys = [
+        ForeignKey(
+            entity = SongEntity::class,
+            parentColumns = ["songId"],
+            childColumns = ["songId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("genreKey")],
+)
+data class SongGenreEntity(
+    val songId: Long,
+    val genre: String,
+    val genreKey: String,
+    val position: Int,
 )
 
 @Entity(

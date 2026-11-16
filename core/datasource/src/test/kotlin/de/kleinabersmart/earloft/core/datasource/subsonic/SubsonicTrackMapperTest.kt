@@ -5,6 +5,7 @@ import de.kleinabersmart.earloft.core.model.LyricLine
 import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.network.subsonic.dto.AlbumDto
 import de.kleinabersmart.earloft.core.network.subsonic.dto.ArtistRefDto
+import de.kleinabersmart.earloft.core.network.subsonic.dto.ItemGenreDto
 import de.kleinabersmart.earloft.core.network.subsonic.dto.ReplayGainDto
 import de.kleinabersmart.earloft.core.network.subsonic.dto.LyricLineDto
 import de.kleinabersmart.earloft.core.network.subsonic.dto.SongDto
@@ -115,6 +116,20 @@ class SubsonicTrackMapperTest {
         val first = SubsonicTrackMapper.map(song, album, names).lastModified
         assertEquals(first, SubsonicTrackMapper.map(song.copy(), album, names).lastModified)
         assertNotEquals(first, SubsonicTrackMapper.map(song.copy(title = "Mondlicht (Remaster)"), album, names).lastModified)
+        // Ein zusätzliches Genre in der OpenSubsonic-Liste ist eine Änderung.
+        assertNotEquals(first, SubsonicTrackMapper.map(song.copy(genres = listOf(ItemGenreDto("Rap"))), album, names).lastModified)
+    }
+
+    @Test
+    fun `all opensubsonic genres are kept, classic servers name one`() {
+        val both = SubsonicTrackMapper.map(SongDto(id = "x", genre = "Hip-Hop", genres = listOf(ItemGenreDto("Hip-Hop"), ItemGenreDto("Rap"))), null, names)
+        assertEquals("Hip-Hop", both.genre)
+        assertEquals(listOf("Hip-Hop", "Rap"), both.allGenres)
+
+        assertEquals(listOf("Jazz"), SubsonicTrackMapper.map(SongDto(id = "x", genre = "Jazz"), null, names).allGenres)
+        val onlyList = SubsonicTrackMapper.map(SongDto(id = "x", genres = listOf(ItemGenreDto(" "), ItemGenreDto("Rap"))), null, names)
+        assertEquals("Rap", onlyList.genre)
+        assertEquals(listOf("Rap"), onlyList.allGenres)
     }
 
     @Test

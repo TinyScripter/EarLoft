@@ -12,6 +12,7 @@ import de.kleinabersmart.earloft.core.database.entity.ArtistEntity
 import de.kleinabersmart.earloft.core.database.entity.ArtistSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SongArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
+import de.kleinabersmart.earloft.core.database.entity.SongGenreEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 
 /** Lookups und Schreibzugriffe für die Deduplizierung beim Bibliotheks-Abgleich. */
@@ -85,6 +86,12 @@ interface MergeDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSongArtist(crossRef: SongArtistCrossRef)
 
+    @Query("DELETE FROM song_genres WHERE songId = :songId")
+    suspend fun deleteSongGenres(songId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertSongGenres(genres: List<SongGenreEntity>)
+
     // --- Song-Quellen ---
 
     @Query("SELECT * FROM song_sources WHERE uid = :uid")
@@ -92,6 +99,10 @@ interface MergeDao {
 
     @Query("SELECT COUNT(*) FROM song_sources WHERE songId = :songId")
     suspend fun countSourcesOfSong(songId: Long): Int
+
+    /** Der Song hat außer [exceptUid] schon eine Quelle von [sourceId]. */
+    @Query("SELECT EXISTS (SELECT 1 FROM song_sources WHERE songId = :songId AND sourceId = :sourceId AND uid != :exceptUid)")
+    suspend fun hasOtherSourceFrom(songId: Long, sourceId: String, exceptUid: String): Boolean
 
     @Insert
     suspend fun insertSongSource(songSource: SongSourceEntity)

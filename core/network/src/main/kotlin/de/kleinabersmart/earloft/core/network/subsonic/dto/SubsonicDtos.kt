@@ -102,7 +102,9 @@ data class SongDto(
     val track: Int? = null,
     val discNumber: Int? = null,
     val year: Int? = null,
+    /** Klassisches Subsonic: ein Genre; OpenSubsonic nennt alle in [genres]. */
     val genre: String? = null,
+    val genres: List<ItemGenreDto> = emptyList(),
     val coverArt: String? = null,
     val size: Long? = null,
     val contentType: String? = null,
@@ -124,6 +126,10 @@ data class SongDto(
     val albumArtists: List<ArtistRefDto> = emptyList(),
     val displayAlbumArtist: String? = null,
 )
+
+/** Ein Genre eines Songs (OpenSubsonic `ItemGenre`). */
+@Serializable
+data class ItemGenreDto(val name: String = "")
 
 @Serializable
 data class AlbumDto(

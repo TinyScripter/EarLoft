@@ -53,6 +53,7 @@ internal object JellyfinTrackMapper {
             durationMs = (item.runTimeTicks ?: 0L) / TICKS_PER_MS,
             year = item.productionYear?.takeIf { it > 0 },
             genre = item.genres.firstOrNull().orBlankNull(),
+            genres = item.genres.mapNotNull { it.orBlankNull() },
             // Wie bei Subsonic: die Aufnahme (Recording) und die Veröffentlichung (Release).
             mbidTrack = ids[MBID_RECORDING].orBlankNull(),
             mbidAlbum = ids[MBID_ALBUM].orBlankNull(),

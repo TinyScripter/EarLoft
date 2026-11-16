@@ -10,9 +10,11 @@ import de.kleinabersmart.earloft.core.database.entity.AlbumEntity
 import de.kleinabersmart.earloft.core.database.entity.ArtistEntity
 import de.kleinabersmart.earloft.core.database.entity.SongArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
+import de.kleinabersmart.earloft.core.database.entity.SongGenreEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.datasource.RawArtist
 import de.kleinabersmart.earloft.core.datasource.RawTrack
+import de.kleinabersmart.earloft.core.model.Genre
 import javax.inject.Inject
 import kotlin.math.abs
 
@@ -36,7 +38,7 @@ class MergeResolver @Inject constructor(
         val existing = mergeDao.getSongSource(uid)
 
         if (existing == null) {
-            val songId = resolveSong(resolveAlbum(track), track)
+            val songId = resolveSong(resolveAlbum(track), track, sourceId, uid)
             mergeDao.insertSongSource(track.toSongSource(uid, songId, sourceId, generation))
             mergeDao.setAlbumCoverIfMissing(mergeDao.getSong(songId)!!.albumId, uid)
             if (syncsFavorites) {
@@ -63,10 +65,11 @@ class MergeResolver @Inject constructor(
             val song = mergeDao.getSong(existing.songId)!!
             mergeDao.updateSong(track.applyTo(song, albumId))
             linkSongArtists(song.songId, track.artists, replace = true)
+            linkSongGenres(song.songId, track.allGenres, replace = true)
             song.songId
         } else {
             // Der Song wird noch von anderen Quellen geliefert: nur diese Quelle neu zuordnen.
-            resolveSong(albumId, track)
+            resolveSong(albumId, track, sourceId, uid)
         }
         mergeDao.updateSongSource(track.toSongSource(uid, songId, sourceId, generation))
         // Ist die Datei selbst eine andere, wird ein Download neu geladen. Reine Metadaten-Änderungen
@@ -162,14 +165,20 @@ class MergeResolver @Inject constructor(
         return albumId
     }
 
-    private suspend fun resolveSong(albumId: Long, track: RawTrack): Long {
+    /**
+     * Der Song, zu dem der Track der Quelle [sourceId] (Kennung [uid]) gehört, sonst ein neuer. Nach dem Titel allein wird nur ein
+     * Song gefunden, den diese Quelle nicht schon liefert: Zwei Tracks einer Quelle sind zwei Songs, auch mit gleichem Titel
+     * und fast gleicher Länge (z. B. „Walk This Way“ von Aerosmith und von Run-DMC auf demselben Album).
+     */
+    private suspend fun resolveSong(albumId: Long, track: RawTrack, sourceId: String, uid: String): Long {
         track.mbidTrack?.let { mbid -> mergeDao.findSongByMbid(albumId, mbid)?.let { return it.songId } }
 
         val normTitle = track.title.mergeKey()
         val match = mergeDao.findSongByPosition(albumId, track.discNumber, track.trackNumber, normTitle)
             ?.takeUnless { conflicts(it.mbid, track.mbidTrack) }
             ?: mergeDao.findSongsByTitle(albumId, normTitle).firstOrNull {
-                !conflicts(it.mbid, track.mbidTrack) && abs(it.durationMs - track.durationMs) < DURATION_TOLERANCE_MS
+                !conflicts(it.mbid, track.mbidTrack) && abs(it.durationMs - track.durationMs) < DURATION_TOLERANCE_MS &&
+                    !mergeDao.hasOtherSourceFrom(it.songId, sourceId, uid)
             }
         if (match != null) {
             // Wie bei Künstler und Album: Eine Quelle, die die MBID kennt, ergänzt sie für alle.
@@ -179,7 +188,15 @@ class MergeResolver @Inject constructor(
 
         val songId = mergeDao.insertSong(track.applyTo(null, albumId))
         linkSongArtists(songId, track.artists, replace = false)
+        linkSongGenres(songId, track.allGenres, replace = false)
         return songId
+    }
+
+    /** Wie bei den Künstlern: Die Genres des Songs sind die der Quelle, die ihn angelegt bzw. zuletzt geändert hat. */
+    private suspend fun linkSongGenres(songId: Long, genres: List<String>, replace: Boolean) {
+        if (replace) mergeDao.deleteSongGenres(songId)
+        val rows = genres.distinctBy(Genre::key).mapIndexed { position, genre -> SongGenreEntity(songId, genre, Genre.key(genre), position) }
+        if (rows.isNotEmpty()) mergeDao.insertSongGenres(rows)
     }
 
     private suspend fun linkSongArtists(songId: Long, artists: List<RawArtist>, replace: Boolean) {
@@ -207,7 +224,7 @@ class MergeResolver @Inject constructor(
             trackNumber = trackNumber,
             durationMs = durationMs,
             year = year,
-            genre = genre,
+            genre = allGenres.firstOrNull(),
             mbid = mbidTrack ?: base.mbid,
         )
     }

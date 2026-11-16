@@ -213,19 +213,25 @@ data class WearSelectionProgressRow(
 )
 
 /**
- * Was der Mix über einen Song wissen muss: erster Künstler (Song-Künstler, sonst Album-Künstler), Genre, Jahr (Song, sonst
+ * Was der Mix über einen Song wissen muss: erster Künstler (Song-Künstler, sonst Album-Künstler), Genres, Jahr (Song, sonst
  * Album) und Hörverlauf.
  */
 data class MixCandidateRow(
     val songId: Long,
     val albumId: Long,
     val artistId: Long?,
-    val genre: String?,
+    /** Alle Genres des Songs, getrennt durch [GENRE_SEPARATOR]; `null` ohne Genre. */
+    val genres: String?,
     val year: Int?,
     val isFavorite: Boolean,
     val playCount: Int,
     val lastPlayedAt: Long?,
-)
+) {
+    companion object {
+        /** Trennt die Genres in [genres] (`char(31)` in SQL). */
+        const val GENRE_SEPARATOR = '\u001F'
+    }
+}
 
 /** Eine Quelle eines Songs mit ihren Eigenschaften (Titel-Info). */
 data class SongSourceInfoRow(

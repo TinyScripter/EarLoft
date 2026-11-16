@@ -47,10 +47,10 @@ class MixRepository @Inject constructor(
         val similar = similarSongIds(first.songId)
         val candidates = LinkedHashMap<Long, MixCandidateRow>()
         if (similar.isNotEmpty()) libraryDao.getMixRows(similar.take(SQLITE_MAX_VARIABLES)).associateByTo(candidates) { it.songId }
-        val genres = seedRows.mapNotNull { row -> row.genre?.takeIf { it.isNotBlank() } }.distinct().take(MAX_QUERY_GENRES)
+        val genres = seedRows.flatMap { it.genreKeys }.distinct().take(MAX_QUERY_GENRES)
         val year = profile.year
         libraryDao.getMixCandidates(
-            genres = genres,
+            genreKeys = genres,
             artistIds = profile.artistIds.take(MAX_QUERY_ARTISTS),
             fromYear = if (year == null) 1 else year - MixPicker.YEAR_SPAN,
             toYear = if (year == null) 0 else year + MixPicker.YEAR_SPAN,

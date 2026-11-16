@@ -59,14 +59,13 @@ private const val SELECT_ARTIST_ROWS = """
 """
 
 /**
- * Genres der sichtbaren Songs; Schreibweisen, die sich nur in Groß-/Kleinschreibung unterscheiden, sind eins. Ein Song hat
- * genau ein Genre (das erste, das die Quelle nennt).
+ * Genres der sichtbaren Songs (`song_genres`, ein Song kann mehrere haben); Schreibweisen, die sich nur in
+ * Groß-/Kleinschreibung unterscheiden, sind eins (`genreKey`).
  */
 private const val SELECT_GENRE_ROWS = """
-    SELECT MIN(s.genre) AS name, COUNT(DISTINCT s.albumId) AS albumCount, COUNT(*) AS songCount
-    FROM songs s
-    WHERE s.genre IS NOT NULL AND TRIM(s.genre) != '' AND $SONG_VISIBLE
-    GROUP BY s.genre COLLATE NOCASE
+    SELECT MIN(g.genre) AS name, COUNT(DISTINCT s.albumId) AS albumCount, COUNT(*) AS songCount
+    FROM song_genres g JOIN songs s ON s.songId = g.songId AND $SONG_VISIBLE
+    GROUP BY g.genreKey
 """
 
 /** Wiedergaben sichtbarer Songs zwischen `:from` (einschließlich) und `:to` (ausschließlich), samt Song (`s`) und Album (`a`). */
@@ -83,7 +82,8 @@ private const val SELECT_MIX_CANDIDATES = """
                (SELECT sa.artistId FROM song_artists sa WHERE sa.songId = s.songId ORDER BY sa.position LIMIT 1),
                (SELECT aa.artistId FROM album_artists aa WHERE aa.albumId = s.albumId ORDER BY aa.position LIMIT 1)
            ) AS artistId,
-           s.genre, COALESCE(s.year, a.year) AS year, s.isFavorite,
+           (SELECT GROUP_CONCAT(g.genre, char(31)) FROM song_genres g WHERE g.songId = s.songId) AS genres,
+           COALESCE(s.year, a.year) AS year, s.isFavorite,
            (SELECT COUNT(*) FROM play_events pe WHERE pe.songId = s.songId) AS playCount,
            (SELECT MAX(pe.playedAt) FROM play_events pe WHERE pe.songId = s.songId) AS lastPlayedAt
     FROM songs s JOIN albums a ON a.albumId = s.albumId AND $SONG_VISIBLE
@@ -220,26 +220,29 @@ abstract class LibraryDao {
     @Query("$SELECT_GENRE_ROWS ORDER BY name COLLATE NOCASE")
     abstract suspend fun getGenreRows(): List<GenreRow>
 
-    /** Alben mit mindestens einem Song des Genres; `songCount` zählt alle sichtbaren Songs des Albums. */
+    /** Alben mit mindestens einem Song des Genres ([genreKey] = `Genre.key`); `songCount` zählt alle sichtbaren Songs des Albums. */
     @Query(
         """
         $SELECT_ALBUM_ROWS
-        WHERE EXISTS (SELECT 1 FROM songs gs WHERE gs.albumId = a.albumId AND gs.genre = :genre COLLATE NOCASE)
+        WHERE EXISTS (
+            SELECT 1 FROM songs gs JOIN song_genres g ON g.songId = gs.songId
+            WHERE gs.albumId = a.albumId AND g.genreKey = :genreKey
+        )
         GROUP BY a.albumId
         ORDER BY a.sortTitle COLLATE NOCASE
         """,
     )
-    abstract fun observeAlbumRowsOfGenre(genre: String): Flow<List<AlbumRow>>
+    abstract fun observeAlbumRowsOfGenre(genreKey: String): Flow<List<AlbumRow>>
 
-    /** Die Songs des Genres, Album für Album in Albumreihenfolge. */
+    /** Die Songs des Genres ([genreKey] = `Genre.key`), Album für Album in Albumreihenfolge. */
     @Query(
         """
         $SELECT_SONG_ROWS
-        WHERE s.genre = :genre COLLATE NOCASE
+        WHERE EXISTS (SELECT 1 FROM song_genres g WHERE g.songId = s.songId AND g.genreKey = :genreKey)
         ORDER BY a.sortTitle COLLATE NOCASE, a.albumId, s.discNumber, s.trackNumber, s.title
         """,
     )
-    abstract suspend fun getSongRowsOfGenre(genre: String): List<SongRow>
+    abstract suspend fun getSongRowsOfGenre(genreKey: String): List<SongRow>
 
     /** Jahrzehnte (`startYear` = 1970, 1980, …) mit der Zahl ihrer sichtbaren Alben; Alben ohne plausibles Jahr fehlen. */
     @Query(
@@ -254,13 +257,13 @@ abstract class LibraryDao {
     abstract fun observeDecadeRows(): Flow<List<DecadeRow>>
 
     /**
-     * Je Album seine Genres (Schreibweisen wie in den Songs, leere ausgelassen), für die Genre-Auswahl der Bibliothek; Alben
+     * Je Album seine Genres (alle Genres seiner Songs, Schreibweisen wie dort), für die Genre-Auswahl der Bibliothek; Alben
      * ohne Genre fehlen.
      */
     @Query(
         """
-        SELECT DISTINCT s.albumId, s.genre FROM songs s
-        WHERE s.genre IS NOT NULL AND TRIM(s.genre) != '' AND $SONG_VISIBLE
+        SELECT DISTINCT s.albumId, g.genre FROM songs s JOIN song_genres g ON g.songId = s.songId
+        WHERE $SONG_VISIBLE
         """,
     )
     abstract fun observeAlbumGenreRows(): Flow<List<AlbumGenreRow>>
@@ -318,14 +321,14 @@ abstract class LibraryDao {
     abstract suspend fun getMixRows(songIds: List<Long>): List<MixCandidateRow>
 
     /**
-     * Bis zu [limit] zufällige Songs, die zum Ausgangspunkt eines Mixes passen könnten: gleiches Genre (ohne Unterschied von
-     * Groß/Klein), einer der Künstler [artistIds] (als Song- oder Album-Künstler) oder ein Jahr zwischen [fromYear] und
+     * Bis zu [limit] zufällige Songs, die zum Ausgangspunkt eines Mixes passen könnten: eines der Genres [genreKeys]
+     * (`Genre.key`), einer der Künstler [artistIds] (als Song- oder Album-Künstler) oder ein Jahr zwischen [fromYear] und
      * [toYear]. Ohne Jahr `fromYear > toYear` übergeben.
      */
     @Query(
         """
         $SELECT_MIX_CANDIDATES
-        WHERE s.genre COLLATE NOCASE IN (:genres)
+        WHERE EXISTS (SELECT 1 FROM song_genres g WHERE g.songId = s.songId AND g.genreKey IN (:genreKeys))
            OR EXISTS (SELECT 1 FROM song_artists sa WHERE sa.songId = s.songId AND sa.artistId IN (:artistIds))
            OR EXISTS (SELECT 1 FROM album_artists aa WHERE aa.albumId = s.albumId AND aa.artistId IN (:artistIds))
            OR COALESCE(s.year, a.year) BETWEEN :fromYear AND :toYear
@@ -334,7 +337,7 @@ abstract class LibraryDao {
         """,
     )
     abstract suspend fun getMixCandidates(
-        genres: List<String>,
+        genreKeys: List<String>,
         artistIds: List<Long>,
         fromYear: Int,
         toYear: Int,
@@ -391,13 +394,16 @@ abstract class LibraryDao {
     )
     abstract fun observeTopArtists(from: Long, to: Long, limit: Int): Flow<List<TopPlayedRow>>
 
-    /** Wie [observeTopSongs], je Genre (Schreibweisen wie im Reiter „Genres“ zusammengefasst). */
+    /**
+     * Wie [observeTopSongs], je Genre (Schreibweisen wie im Reiter „Genres“ zusammengefasst); eine Wiedergabe zählt bei jedem
+     * Genre des Songs.
+     */
     @Query(
         """
-        SELECT NULL AS id, MIN(s.genre) AS title, NULL AS subtitle, NULL AS albumId, COUNT(*) AS plays, SUM(pe.listenedMs) AS listenedMs
+        SELECT NULL AS id, MIN(g.genre) AS title, NULL AS subtitle, NULL AS albumId, COUNT(*) AS plays, SUM(pe.listenedMs) AS listenedMs
         $FROM_PLAYS_IN_RANGE
-        WHERE s.genre IS NOT NULL AND TRIM(s.genre) != ''
-        GROUP BY s.genre COLLATE NOCASE
+        JOIN song_genres g ON g.songId = s.songId
+        GROUP BY g.genreKey
         ORDER BY plays DESC, MAX(pe.playedAt) DESC
         LIMIT :limit
         """,

@@ -48,6 +48,8 @@ import de.kleinabersmart.earloft.core.database.entity.ServerStatsCacheEntity
 import de.kleinabersmart.earloft.core.database.entity.SongArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongFtsEntity
+import de.kleinabersmart.earloft.core.database.entity.SongGenreEntity
+import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SpokenAuthorEntity
@@ -95,8 +97,9 @@ import java.io.File
         ArtistSourceEntity::class,
         BookmarkEntity::class,
         EpisodePersonEntity::class,
+        SongGenreEntity::class,
     ],
-    version = 44,
+    version = 45,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = EarLoftDatabase.AddSearchIndex::class),
@@ -142,6 +145,7 @@ import java.io.File
         AutoMigration(from = 41, to = 42),
         AutoMigration(from = 42, to = 43, spec = EarLoftDatabase.FillFinishedAt::class),
         AutoMigration(from = 43, to = 44),
+        AutoMigration(from = 44, to = 45, spec = EarLoftDatabase.SeveralGenres::class),
     ],
 )
 abstract class EarLoftDatabase : RoomDatabase() {
@@ -245,6 +249,29 @@ abstract class EarLoftDatabase : RoomDatabase() {
     class FillFinishedAt : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
             db.execSQL("UPDATE book_progress SET finishedAt = updatedAt WHERE finished = 1 AND finishedAt IS NULL")
+        }
+    }
+
+    /**
+     * v44 → v45: mehrere Genres je Song (`song_genres`). Bis zum nächsten Vollabgleich gilt das eine bekannte Genre. Ohne
+     * `lastModified` schreibt der Vollabgleich jeden Server-Song neu (dann mit allen Genres); er ist beim nächsten Öffnen der
+     * App fällig (`lastFullSyncAt` 1 statt 0: 0 hieße erstes Einlesen). Lokale Dateien liefern ohnehin nur ein Genre.
+     */
+    class SeveralGenres : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            db.query("SELECT songId, genre FROM songs WHERE genre IS NOT NULL AND TRIM(genre) != ''").use { cursor ->
+                while (cursor.moveToNext()) {
+                    val genre = cursor.getString(1).trim()
+                    db.execSQL(
+                        "INSERT OR IGNORE INTO song_genres (songId, genre, genreKey, position) VALUES (?, ?, ?, 0)",
+                        arrayOf<Any>(cursor.getLong(0), genre, Genre.key(genre)),
+                    )
+                }
+            }
+            db.execSQL(
+                "UPDATE song_sources SET lastModified = NULL WHERE sourceId IN (SELECT sourceId FROM sources WHERE type != 'LOCAL')",
+            )
+            db.execSQL("UPDATE sources SET lastFullSyncAt = 1 WHERE type != 'LOCAL' AND lastFullSyncAt > 0")
         }
     }
 

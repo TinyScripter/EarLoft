@@ -167,7 +167,10 @@ data class RawTrack(
     val trackNumber: Int = 0,
     val durationMs: Long,
     val year: Int? = null,
+    /** Das erste Genre. */
     val genre: String? = null,
+    /** Alle Genres, wenn die Quelle mehrere nennt (OpenSubsonic, Jellyfin/Emby); sonst leer, dann gilt [genre]. */
+    val genres: List<String> = emptyList(),
     val mbidTrack: String? = null,
     val mbidAlbum: String? = null,
     val rgTrackGainDb: Float? = null,
@@ -182,4 +185,8 @@ data class RawTrack(
     val dateAdded: Long? = null,
     /** Vom Server favorisiert seit (ms); lokale Quellen kennen keine Favoriten. */
     val starredAt: Long? = null,
-)
+) {
+    /** Alle Genres ohne leere, das erste vorn. */
+    val allGenres: List<String>
+        get() = genres.ifEmpty { listOfNotNull(genre) }.map { it.trim() }.filter { it.isNotEmpty() }
+}

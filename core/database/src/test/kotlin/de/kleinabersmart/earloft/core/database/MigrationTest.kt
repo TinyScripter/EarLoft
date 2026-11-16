@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.core.database
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -356,6 +357,55 @@ class MigrationTest {
                 assertEquals("https://a.example/1.mp3", cursor.getString(0))
                 assertEquals("DONE", cursor.getString(1))
                 assertTrue(cursor.isNull(2))
+            }
+        }
+    }
+
+    @Test
+    fun `v44 to v45 keeps the one genre of each song and has the servers synced again`() {
+        helper.createDatabase(DB_NAME, 44).use { db ->
+            db.execSQL(
+                "INSERT INTO sources (sourceId, type, name, priority, syncGeneration, lastFullSyncAt) VALUES " +
+                    "('nav', 'SUBSONIC', 'Navidrome', 2, 5, 1700000000000), ('local', 'LOCAL', 'Gerät', 1, 3, 1700000000000)",
+            )
+            db.execSQL(
+                "INSERT INTO albums (albumId, title, sortTitle, normTitle, albumArtistDisplay, normAlbumArtist, isCompilation) " +
+                    "VALUES (1, 'Album', 'Album', 'album', 'Band', 'band', 0)",
+            )
+            for ((id, genre) in listOf(1 to "'Österreichischer Pop '", 2 to "NULL", 3 to "' '")) {
+                db.execSQL(
+                    "INSERT INTO songs (songId, albumId, title, normTitle, artistDisplay, discNumber, trackNumber, durationMs, genre, " +
+                        "isFavorite, favoriteChangedAt, dateAdded) VALUES ($id, 1, 'Song $id', 'song $id', 'Band', 1, $id, 1000, $genre, 0, 0, 0)",
+                )
+            }
+            db.execSQL(
+                "INSERT INTO song_sources (uid, songId, sourceId, remoteId, lastModified, seenInGeneration) VALUES " +
+                    "('nav:1', 1, 'nav', '1', 42, 5), ('local:1', 1, 'local', '1', 43, 3)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 45, true).use { db ->
+            db.query("SELECT songId, genre, genreKey, position FROM song_genres").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+                assertEquals("Österreichischer Pop", cursor.getString(1))
+                // Wie `Genre.key`, auch für Umlaute (SQLite selbst macht nur A–Z klein).
+                assertEquals("österreichischer pop", cursor.getString(2))
+                assertEquals(0, cursor.getInt(3))
+                assertFalse(cursor.moveToNext())
+            }
+            // Server-Songs schreibt der nächste Vollabgleich neu, und er ist fällig; lokale bleiben.
+            db.query("SELECT uid, lastModified FROM song_sources ORDER BY uid").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(43, cursor.getInt(1))
+                assertTrue(cursor.moveToNext())
+                assertTrue(cursor.isNull(1))
+            }
+            db.query("SELECT sourceId, lastFullSyncAt FROM sources ORDER BY sourceId").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1700000000000, cursor.getLong(1))
+                assertTrue(cursor.moveToNext())
+                assertEquals(1, cursor.getLong(1))
             }
         }
     }
