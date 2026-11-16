@@ -190,7 +190,7 @@ internal fun rememberBookmarkActions(
 }
 
 @Composable
-private fun BookmarkRow(bookmark: Bookmark, onJump: () -> Unit, actions: BookmarkActions, transparent: Boolean) {
+internal fun BookmarkRow(bookmark: Bookmark, onJump: () -> Unit, actions: BookmarkActions, transparent: Boolean) {
     val state = rememberSwipeToDismissBoxState()
     SwipeToDismissBox(
         state = state,

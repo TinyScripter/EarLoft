@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.navigation
 
 import androidx.navigation3.runtime.NavKey
+import de.kleinabersmart.earloft.core.model.BookKind
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
@@ -175,6 +176,10 @@ data object PodcastQueueSearchRoute : NavKey
 /** Verlauf der gehörten Folgen (aus dem Reiter „Statistik“ der Podcasts). */
 @Serializable
 data object PodcastHistoryRoute : NavKey
+
+/** Gesammelte Lesezeichen der Bücher bzw. Folgen (aus dem Kopf der Bibliothek). */
+@Serializable
+data class BookmarksRoute(val kind: BookKind) : NavKey
 
 @Serializable
 data object SettingsRoute : NavKey

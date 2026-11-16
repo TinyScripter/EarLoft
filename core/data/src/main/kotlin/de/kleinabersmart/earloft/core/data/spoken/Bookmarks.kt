@@ -47,8 +47,8 @@ class Bookmarks @Inject constructor(
 
     fun of(bookId: Long): Flow<List<Bookmark>> = dao.observeBookmarks(bookId).map { list -> list.map { it.toModel() } }
 
-    /** Alle Lesezeichen, neueste zuerst. */
-    fun all(): Flow<List<BookmarkEntry>> = dao.observeAllBookmarks().map { list -> list.map { it.toEntry() } }
+    /** Alle Lesezeichen in Büchern bzw. Folgen ([kind]), neueste zuerst. */
+    fun all(kind: BookKind): Flow<List<BookmarkEntry>> = dao.observeAllBookmarks(kind).map { list -> list.map { it.toEntry() } }
 
     /** Setzt ein Lesezeichen bei [positionMs]; `null`, wenn es das Buch nicht mehr gibt. */
     suspend fun add(bookId: Long, positionMs: Long, title: String, note: String = ""): Long? {
@@ -196,9 +196,9 @@ class Bookmarks @Inject constructor(
     }
 }
 
-/** Ein Lesezeichen samt dem Titel seines Buchs bzw. seiner Folge (gesammelte Liste). */
-data class BookmarkEntry(val bookmark: Bookmark, val bookTitle: String, val kind: BookKind)
+/** Ein Lesezeichen samt Titel und Autor (bei Folgen dem Podcast) seines Buchs bzw. seiner Folge (gesammelte Liste). */
+data class BookmarkEntry(val bookmark: Bookmark, val bookTitle: String, val bookAuthor: String, val kind: BookKind)
 
 internal fun BookmarkEntity.toModel() = Bookmark(bookmarkId, bookId, positionMs, title, note, createdAt)
 
-private fun BookmarkWithBook.toEntry() = BookmarkEntry(bookmark.toModel(), bookTitle, kind)
+private fun BookmarkWithBook.toEntry() = BookmarkEntry(bookmark.toModel(), bookTitle, bookAuthor, kind)

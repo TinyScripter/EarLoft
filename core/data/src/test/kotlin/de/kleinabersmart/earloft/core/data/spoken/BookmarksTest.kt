@@ -195,4 +195,16 @@ class BookmarksTest {
         assertTrue(bookmarks.of(bookId).first().isEmpty())
         assertFalse(requests.isEmpty())
     }
+
+    @Test
+    fun `the collected list keeps books and episodes apart and leaves out switched off servers`() = runTest {
+        bookmarks.add(bookId, 30_000, "Im Buch")
+        bookmarks.add(episodeId, 60_000, "In der Folge")
+
+        assertEquals(listOf("Buch" to "Im Buch"), bookmarks.all(BookKind.BOOK).first().map { it.bookTitle to it.bookmark.title })
+        assertEquals(listOf("Folge" to "In der Folge"), bookmarks.all(BookKind.EPISODE).first().map { it.bookTitle to it.bookmark.title })
+
+        db.bookDao().upsertServer(SpokenServerEntity("srv", "Server", "https://abs.example/", enabled = false))
+        assertTrue(bookmarks.all(BookKind.BOOK).first().isEmpty())
+    }
 }

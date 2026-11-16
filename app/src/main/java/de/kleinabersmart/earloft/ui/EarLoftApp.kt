@@ -64,6 +64,9 @@ import de.kleinabersmart.earloft.navigation.BookQueueRoute
 import de.kleinabersmart.earloft.navigation.PodcastQueueRoute
 import de.kleinabersmart.earloft.navigation.PodcastQueueSearchRoute
 import de.kleinabersmart.earloft.navigation.PodcastHistoryRoute
+import de.kleinabersmart.earloft.navigation.BookmarksRoute
+import de.kleinabersmart.earloft.ui.spoken.BookmarksScreen
+import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.ui.spoken.PodcastHistoryScreen
 import de.kleinabersmart.earloft.navigation.PodcastRoute
 import de.kleinabersmart.earloft.navigation.PodcastSearchRoute
@@ -321,12 +324,14 @@ fun EarLoftApp(
                         onEpisodeClick = openBook,
                         onAddPodcast = openAddPodcast,
                         onOpenHistory = { navigator.navigate(PodcastHistoryRoute) },
+                        onOpenBookmarks = { navigator.navigate(BookmarksRoute(BookKind.EPISODE)) },
                     )
                 },
                 books = {
                     SpokenLibraryScreen(
                         onBookClick = openBook,
                         onGroupClick = { kind, name -> navigator.navigate(BookGroupRoute(kind, name)) },
+                        onOpenBookmarks = { navigator.navigate(BookmarksRoute(BookKind.BOOK)) },
                         onSetup = setupAudiobookshelf,
                         onEditServer = editAudiobookshelf,
                     )
@@ -434,6 +439,9 @@ fun EarLoftApp(
         }
         entry<FavoritesRoute>(metadata = detailPane()) {
             FavoritesScreen(onBack = navigator::goBack, onAlbumClick = openAlbum, onArtistClick = openArtist)
+        }
+        entry<BookmarksRoute>(metadata = detailPane()) { route ->
+            BookmarksScreen(kind = route.kind, onBack = navigator::goBack, onBookClick = openBook)
         }
         entry<PodcastHistoryRoute>(metadata = detailPane()) {
             PodcastHistoryScreen(onBack = navigator::goBack, onEpisodeClick = openBook, onFeedClick = openPodcast)

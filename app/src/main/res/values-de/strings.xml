@@ -560,6 +560,7 @@
     <string name="spoken_bookmarks">Lesezeichen</string>
     <string name="spoken_bookmark_add">Lesezeichen hier setzen</string>
     <string name="spoken_bookmarks_empty">Noch keine Lesezeichen. Bei Büchern von Audiobookshelf liegen sie auch auf dem Server.</string>
+    <string name="spoken_bookmarks_all_empty">Keine Lesezeichen. Sie lassen sich im Player setzen.</string>
     <string name="spoken_bookmark_edit">Lesezeichen bearbeiten</string>
     <string name="spoken_bookmark_title">Titel</string>
     <string name="spoken_bookmark_note">Notiz</string>

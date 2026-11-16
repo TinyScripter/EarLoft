@@ -435,12 +435,16 @@ abstract class BookDao {
     @Query("SELECT * FROM bookmarks WHERE bookId = :bookId AND deleted = 0 ORDER BY positionMs, createdAt")
     abstract fun observeBookmarks(bookId: Long): Flow<List<BookmarkEntity>>
 
-    /** Alle Lesezeichen mit ihrem Buch, neueste zuerst (gesammelte Liste). */
+    /**
+     * Alle Lesezeichen in Büchern bzw. Folgen ([kind]) mit ihrem Buch, neueste zuerst (gesammelte Liste); ohne die ausgeblendeter
+     * Server und Bibliotheken.
+     */
     @Query(
-        "SELECT b.title AS bookTitle, b.kind AS kind, m.* FROM bookmarks m JOIN books b ON b.bookId = m.bookId " +
-            "WHERE m.deleted = 0 ORDER BY m.createdAt DESC",
+        "SELECT books.title AS bookTitle, books.author AS bookAuthor, books.kind AS kind, m.* FROM bookmarks m " +
+            "JOIN books ON books.bookId = m.bookId WHERE m.deleted = 0 AND books.kind = :kind AND $BOOK_VISIBLE " +
+            "ORDER BY m.createdAt DESC",
     )
-    abstract fun observeAllBookmarks(): Flow<List<BookmarkWithBook>>
+    abstract fun observeAllBookmarks(kind: BookKind): Flow<List<BookmarkWithBook>>
 
     @Query("SELECT * FROM bookmarks WHERE bookmarkId = :bookmarkId")
     abstract suspend fun bookmark(bookmarkId: Long): BookmarkEntity?
@@ -693,9 +697,10 @@ data class KeyedProgress(
     @Embedded val progress: BookProgressEntity,
 )
 
-/** Lesezeichen mit dem Titel seines Buchs bzw. seiner Folge. */
+/** Lesezeichen mit Titel und Autor (bei Folgen dem Podcast) seines Buchs bzw. seiner Folge. */
 data class BookmarkWithBook(
     val bookTitle: String,
+    val bookAuthor: String,
     val kind: BookKind,
     @Embedded val bookmark: BookmarkEntity,
 )

@@ -42,6 +42,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.ui.res.pluralStringResource
+import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.FeedSort
@@ -287,7 +288,7 @@ private enum class PodcastTab(@StringRes val label: Int) {
 
 /**
  * Bibliothek im Modus „Podcasts“: Reiter Folgen (ungehörte je Abo), Gemerkt, Abos (Raster mit schwebendem „+“) und
- * Statistik (darin der Weg zum Verlauf, [onOpenHistory]).
+ * Statistik (darin der Weg zum Verlauf, [onOpenHistory]); im Kopf der Weg zu den gesammelten Lesezeichen ([onOpenBookmarks]).
  */
 @Composable
 fun PodcastLibraryScreen(
@@ -296,6 +297,7 @@ fun PodcastLibraryScreen(
     onEpisodeClick: (Long) -> Unit,
     onAddPodcast: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenBookmarks: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PodcastViewModel = hiltViewModel(),
     starredViewModel: PodcastStarredHistoryViewModel = hiltViewModel(),
@@ -320,8 +322,9 @@ fun PodcastLibraryScreen(
         EmptyAreaHint(SpokenMode.PODCASTS, stringResource(R.string.podcast_none), stringResource(R.string.podcast_add), onAddPodcast)
     }
 
-    // Wie in der Musik-Bibliothek steht die Sortierung des Reiters „Abos“ im Kopf der App links von der Lupe.
+    // Wie in der Musik-Bibliothek steht die Sortierung des Reiters „Abos“ im Kopf der App links von der Lupe, davor die Lesezeichen.
     HeaderAction {
+        BookmarksHeaderButton(BookKind.EPISODE, onOpenBookmarks)
         if (PodcastTab.entries[pagerState.targetPage] == PodcastTab.FEEDS) FeedSortButton(feedSort, viewModel::setFeedSort)
     }
 

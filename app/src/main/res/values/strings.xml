@@ -567,6 +567,7 @@
     <string name="spoken_bookmarks">Bookmarks</string>
     <string name="spoken_bookmark_add">Add bookmark here</string>
     <string name="spoken_bookmarks_empty">No bookmarks yet. Bookmarks of books on Audiobookshelf are also kept on the server.</string>
+    <string name="spoken_bookmarks_all_empty">No bookmarks. Add them in the player.</string>
     <string name="spoken_bookmark_edit">Edit bookmark</string>
     <string name="spoken_bookmark_title">Title</string>
     <string name="spoken_bookmark_note">Note</string>

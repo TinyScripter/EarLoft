@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
 import de.kleinabersmart.earloft.core.model.BookFilter
+import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.BookSort
 import de.kleinabersmart.earloft.core.model.AuthorSort
 import de.kleinabersmart.earloft.core.model.SeriesSort
@@ -233,12 +234,16 @@ private enum class BookTab(@StringRes val label: Int) {
     STATS(R.string.spoken_tab_stats),
 }
 
-/** Bibliothek im Modus „Bücher“: Alle (Raster), Serien und Autoren (Listen) wie bei der Musik, dazu die Statistik. */
+/**
+ * Bibliothek im Modus „Bücher“: Alle (Raster), Serien und Autoren (Listen) wie bei der Musik, dazu die Statistik; im Kopf der
+ * Weg zu den gesammelten Lesezeichen ([onOpenBookmarks]).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpokenLibraryScreen(
     onBookClick: (Long) -> Unit,
     onGroupClick: (BookGroupKind, String) -> Unit,
+    onOpenBookmarks: () -> Unit,
     onSetup: () -> Unit,
     onEditServer: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -260,8 +265,9 @@ fun SpokenLibraryScreen(
     val pagerState = rememberPagerState { BookTab.entries.size }
     val scope = rememberCoroutineScope()
 
-    // Wie in der Musik-Bibliothek steht die Sortierung des Reiters im Kopf der App links von der Lupe.
+    // Wie in der Musik-Bibliothek steht die Sortierung des Reiters im Kopf der App links von der Lupe, davor die Lesezeichen.
     HeaderAction {
+        BookmarksHeaderButton(BookKind.BOOK, onOpenBookmarks)
         if (!booksState.valueOrNull.isNullOrEmpty()) {
             when (BookTab.entries[pagerState.targetPage]) {
                 BookTab.ALL -> SortButton(bookSort, BookSort.entries, { stringResource(it.label) }, viewModel::setBookSort)
