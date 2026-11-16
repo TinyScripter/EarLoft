@@ -132,6 +132,22 @@ class AutoBrowseTest {
         assertTrue(albums!!.all { it.mediaId!!.startsWith("album:") })
     }
 
+    /**
+     * Favoriten: oben die Ordner der favorisierten Alben und Künstler (nur, wenn es welche gibt), darunter die Songs; die Ordner
+     * enthalten Alben bzw. Künstler (Logcat `AutoBrowseTest`).
+     */
+    @Test
+    fun favoritesListAlbumAndArtistFoldersAboveTheSongs() {
+        val favorites = children("favorites")
+        assertNotNull("Favoriten nicht abrufbar", favorites)
+        android.util.Log.i("AutoBrowseTest", "favorites=${favorites!!.map { it.mediaId }}")
+        val folders = favorites.takeWhile { it.isBrowsable }.map { it.mediaId }
+        assertTrue("Ordner $folders", folders == listOf("favorites:albums", "favorites:artists").filter { it in folders })
+        assertTrue("Ordner zwischen den Songs", favorites.drop(folders.size).none { it.isBrowsable })
+        if ("favorites:albums" in folders) assertTrue(children("favorites:albums")!!.all { it.mediaId!!.startsWith("album:") })
+        if ("favorites:artists" in folders) assertTrue(children("favorites:artists")!!.all { it.mediaId!!.startsWith("artist:") })
+    }
+
     /** „Zuletzt“ liefert, was „Weiterhören“ der Podcasts liefert (so sieht es Android Auto). */
     @Test
     fun homeListsWhatContinueListeningHas() {

@@ -432,6 +432,9 @@ data class WearRemoteLibraryDto(
     val podcasts: List<WearRemotePodcastDto> = emptyList(),
     /** Hörbücher, angefangene zuerst (zuletzt gehörtes vorn), dann nach Titel. */
     val books: List<WearRemoteBookDto> = emptyList(),
+    /** Favorisierte Alben bzw. Künstler (IDs aus [albums] bzw. [artists]), zuletzt favorisierte zuerst; ältere Handys schicken keine. */
+    val favoriteAlbumIds: List<Long> = emptyList(),
+    val favoriteArtistIds: List<Long> = emptyList(),
 )
 
 /** Ein Podcast-Abo des Handys; [feedId] wie am Handy und auf der Uhr. */

@@ -35,6 +35,10 @@ internal object MediaIds {
     const val GENRES = "genres"
     const val PLAYLISTS = "playlists"
     const val FAVORITES = "favorites"
+
+    /** Favorisierte Alben bzw. Künstler, als Ordner oben in [FAVORITES]. */
+    const val FAVORITE_ALBUMS = "favorites:albums"
+    const val FAVORITE_ARTISTS = "favorites:artists"
     const val RECENT = "recent"
     const val LIBRARY = "library"
 
@@ -63,7 +67,7 @@ internal object MediaIds {
     private const val BOOKS_PREFIX = "books:"
     private const val CONTEXT_SEPARATOR = '/'
 
-    private val MUSIC_FOLDERS = setOf(MUSIC, ALBUMS, ARTISTS, GENRES, PLAYLISTS, FAVORITES, RECENT, LIBRARY)
+    private val MUSIC_FOLDERS = setOf(MUSIC, ALBUMS, ARTISTS, GENRES, PLAYLISTS, FAVORITES, FAVORITE_ALBUMS, FAVORITE_ARTISTS, RECENT, LIBRARY)
     private val MUSIC_PREFIXES = listOf(SONG_PREFIX, ALBUM_PREFIX, ARTIST_PREFIX, GENRE_PREFIX, PLAYLIST_PREFIX, SEARCH_PREFIX)
 
     fun song(songId: Long) = "$SONG_PREFIX$songId"

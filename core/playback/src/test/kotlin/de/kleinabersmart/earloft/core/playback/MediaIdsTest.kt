@@ -75,6 +75,8 @@ class MediaIdsTest {
         assertEquals(SpokenMode.MUSIC, MediaIds.areaOf(MediaIds.inContext(MediaIds.album(3), 42)))
         assertEquals(SpokenMode.MUSIC, MediaIds.areaOf(MediaIds.inContext(MediaIds.search("x"), 1)))
         assertEquals(SpokenMode.MUSIC, MediaIds.areaOf(MediaIds.FAVORITES))
+        assertEquals(SpokenMode.MUSIC, MediaIds.areaOf(MediaIds.FAVORITE_ALBUMS))
+        assertEquals(SpokenMode.MUSIC, MediaIds.areaOf(MediaIds.FAVORITE_ARTISTS))
         assertEquals(SpokenMode.PODCASTS, MediaIds.areaOf(MediaIds.feed("abc")))
         assertEquals(SpokenMode.PODCASTS, MediaIds.areaOf(MediaIds.EPISODES_NEW))
         assertEquals(SpokenMode.BOOKS, MediaIds.areaOf(MediaIds.author("Fitzek")))

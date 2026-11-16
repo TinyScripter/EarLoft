@@ -30,9 +30,12 @@ class WearRemoteLibraryTest {
             artists = listOf(WearRemoteArtistDto(7, "Nachtfalter", listOf(1))),
             podcasts = listOf(WearRemotePodcastDto("f1", "Podcast")),
             books = listOf(WearRemoteBookDto(3, "Buch", "Autor", "abs", "item", started = true)),
+            favoriteAlbumIds = listOf(1),
+            favoriteArtistIds = listOf(7),
         )
         assertEquals(library, WearCodec.decodeCompressed<WearRemoteLibraryDto>(WearCodec.encodeCompressed(library)))
         val old = WearCodec.encodeCompressed(WearRemoteLibraryDto(albums = library.albums))
         assertEquals(emptyList<WearRemoteArtistDto>(), WearCodec.decodeCompressed<WearRemoteLibraryDto>(old).artists)
+        assertEquals(emptyList<Long>(), WearCodec.decodeCompressed<WearRemoteLibraryDto>(old).favoriteAlbumIds)
     }
 }

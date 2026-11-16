@@ -27,6 +27,9 @@
     <string name="list_albums">Albums</string>
     <string name="list_artists">Artists</string>
     <string name="list_favorites">Favorites</string>
+    <string name="list_songs">Songs</string>
+    <string name="list_favorite_albums">Favorite albums</string>
+    <string name="list_favorite_artists">Favorite artists</string>
     <string name="list_playlists">Playlists</string>
     <string name="list_empty_watch">Nothing on the watch yet. Choose something on the phone or below under “Phone”.</string>
     <string name="list_empty_phone">Nothing on the phone</string>

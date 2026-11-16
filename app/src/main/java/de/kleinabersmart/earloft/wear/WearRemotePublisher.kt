@@ -133,10 +133,16 @@ class WearRemotePublisher @Inject constructor(
                             },
                         )
                     }
+                    // Zuletzt favorisierte zuerst, wie auf der Favoriten-Seite am Handy.
+                    val collectionFavorites = combine(favorites.favoriteAlbums(), favorites.favoriteArtists()) { albums, artists ->
+                        albums.map { it.id } to artists.map { it.id }
+                    }
                     val spoken = combine(podcasts.feeds, books.books()) { feeds, allBooks ->
                         feeds.map { WearRemotePodcastDto(it.id, it.title, it.author) } to remoteBooks(allBooks)
                     }
-                    combine(music, spoken) { dto, (feeds, bookList) -> dto.copy(podcasts = feeds, books = bookList) }.debounce { if (first) 0L.also { first = false } else LIBRARY_DEBOUNCE_MS }
+                    combine(music, collectionFavorites, spoken) { dto, (favoriteAlbums, favoriteArtists), (feeds, bookList) ->
+                        dto.copy(favoriteAlbumIds = favoriteAlbums, favoriteArtistIds = favoriteArtists, podcasts = feeds, books = bookList)
+                    }.debounce { if (first) 0L.also { first = false } else LIBRARY_DEBOUNCE_MS }
                 }
             }.collect { publishLibrary(it) }
         }

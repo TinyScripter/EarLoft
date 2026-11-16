@@ -36,6 +36,7 @@ import de.kleinabersmart.earloft.wear.ui.LocalListCovers
 import de.kleinabersmart.earloft.wear.ui.LocalArtistsScreen
 import de.kleinabersmart.earloft.wear.ui.LocalSpokenScreen
 import de.kleinabersmart.earloft.wear.ui.MusicScreen
+import de.kleinabersmart.earloft.wear.ui.PhoneFavoritesScreen
 import de.kleinabersmart.earloft.wear.ui.PhoneMusicScreen
 import de.kleinabersmart.earloft.wear.ui.RemoteArtistsScreen
 import de.kleinabersmart.earloft.wear.ui.StartTarget
@@ -132,9 +133,13 @@ data object MusicRoute : NavKey
 @Serializable
 data object PhoneMusicRoute : NavKey
 
-/** Die Künstler der geladenen Alben bzw., mit [remote], alle des Handys. */
+/** Favoriten des Handys mit Alben und Künstlern: Songs, Alben, Künstler. */
 @Serializable
-data class ArtistsRoute(val remote: Boolean) : NavKey
+data object PhoneFavoritesRoute : NavKey
+
+/** Die Künstler der geladenen Alben bzw., mit [remote], alle des Handys (mit [favorites] die favorisierten). */
+@Serializable
+data class ArtistsRoute(val remote: Boolean, val favorites: Boolean = false) : NavKey
 
 /** Die (geladenen bzw., mit [remote], alle) Alben eines Künstlers; [name] steht oben. */
 @Serializable
@@ -144,9 +149,9 @@ data class ArtistRoute(val artistId: Long, val name: String, val remote: Boolean
 @Serializable
 data class SpokenRoute(val kind: BookKind) : NavKey
 
-/** Geladene Alben der Uhr bzw., mit [remote], alle Alben des Handys. */
+/** Geladene Alben der Uhr bzw., mit [remote], alle Alben des Handys (mit [favorites] die favorisierten). */
 @Serializable
-data class AlbumsRoute(val remote: Boolean) : NavKey
+data class AlbumsRoute(val remote: Boolean, val favorites: Boolean = false) : NavKey
 
 /** Playlists der Uhr bzw., mit [remote], alle Playlists des Handys. */
 @Serializable
@@ -245,13 +250,21 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                             onShuffled = { backStack.openNowPlaying(remote = true) },
                             onAlbumsClick = { backStack.add(AlbumsRoute(remote = true)) },
                             onArtistsClick = { backStack.add(ArtistsRoute(remote = true)) },
-                            onFavoritesClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.FAVORITES)) },
+                            onFavoriteSongsClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.FAVORITES)) },
+                            onFavoritesMenuClick = { backStack.add(PhoneFavoritesRoute) },
                             onPlaylistsClick = { backStack.add(PlaylistsRoute(remote = true)) },
+                        )
+                    }
+                    entry<PhoneFavoritesRoute> {
+                        PhoneFavoritesScreen(
+                            onSongsClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.FAVORITES)) },
+                            onAlbumsClick = { backStack.add(AlbumsRoute(remote = true, favorites = true)) },
+                            onArtistsClick = { backStack.add(ArtistsRoute(remote = true, favorites = true)) },
                         )
                     }
                     entry<ArtistsRoute> { route ->
                         val onClick: (Long, String) -> Unit = { id, name -> backStack.add(ArtistRoute(id, name, route.remote)) }
-                        if (route.remote) RemoteArtistsScreen(onClick = onClick) else LocalArtistsScreen(onClick = onClick)
+                        if (route.remote) RemoteArtistsScreen(onClick = onClick, favorites = route.favorites) else LocalArtistsScreen(onClick = onClick)
                     }
                     entry<ArtistRoute> { route ->
                         if (route.remote) {
@@ -283,7 +296,7 @@ fun WearApp(openNowPlaying: Boolean = false, onNowPlayingOpened: () -> Unit = {}
                     }
                     entry<AlbumsRoute> { route ->
                         if (route.remote) {
-                            RemoteAlbumsScreen(onClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.ALBUM, it)) })
+                            RemoteAlbumsScreen(onClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.ALBUM, it)) }, favorites = route.favorites)
                         } else {
                             LocalAlbumsScreen(onClick = { backStack.add(AlbumRoute(it)) })
                         }

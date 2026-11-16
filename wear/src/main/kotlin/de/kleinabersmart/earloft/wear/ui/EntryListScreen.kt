@@ -57,22 +57,32 @@ fun LocalPlaylistsScreen(onClick: (Long) -> Unit, viewModel: LocalPlaylistsViewM
     EntryListContent(stringResource(R.string.list_playlists), state, onClick)
 }
 
-/** Die Alben des Handys; mit [artistId] nur die dieses Künstlers, dann steht [title] (sein Name) oben. */
+/**
+ * Die Alben des Handys; mit [artistId] nur die dieses Künstlers, dann steht [title] (sein Name) oben; mit [favorites] nur die
+ * favorisierten.
+ */
 @Composable
 fun RemoteAlbumsScreen(
     onClick: (Long) -> Unit,
     artistId: Long? = null,
     title: String? = null,
-    viewModel: RemoteAlbumsViewModel = hiltViewModel<RemoteAlbumsViewModel, RemoteAlbumsViewModel.Factory> { it.create(artistId) },
+    favorites: Boolean = false,
+    viewModel: RemoteAlbumsViewModel = hiltViewModel<RemoteAlbumsViewModel, RemoteAlbumsViewModel.Factory> { it.create(artistId, favorites) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    EntryListContent(title ?: stringResource(R.string.list_albums), state, onClick)
+    EntryListContent(title ?: stringResource(if (favorites) R.string.list_favorite_albums else R.string.list_albums), state, onClick)
 }
 
+/** Die Künstler des Handys; mit [favorites] nur die favorisierten. */
 @Composable
-fun RemoteArtistsScreen(onClick: (artistId: Long, name: String) -> Unit, viewModel: RemoteArtistsViewModel = hiltViewModel()) {
+fun RemoteArtistsScreen(
+    onClick: (artistId: Long, name: String) -> Unit,
+    favorites: Boolean = false,
+    viewModel: RemoteArtistsViewModel = hiltViewModel<RemoteArtistsViewModel, RemoteArtistsViewModel.Factory> { it.create(favorites) },
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    EntryListContent(stringResource(R.string.list_artists), state) { id -> onClick(id, state.titleOf(id)) }
+    val title = stringResource(if (favorites) R.string.list_favorite_artists else R.string.list_artists)
+    EntryListContent(title, state) { id -> onClick(id, state.titleOf(id)) }
 }
 
 @Composable

@@ -133,15 +133,20 @@ class LocalPlaylistsViewModel @Inject constructor(storage: WatchStorageRepositor
     }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 }
 
-/** Alle Alben des Handys (Fernsteuerung), mit [artistId] nur die dieses Künstlers; mit Vorschaubild vom Handy. */
+/**
+ * Alle Alben des Handys (Fernsteuerung), mit [artistId] nur die dieses Künstlers, mit [favorites] nur die favorisierten (zuletzt
+ * favorisierte zuerst); mit Vorschaubild vom Handy.
+ */
 @HiltViewModel(assistedFactory = RemoteAlbumsViewModel.Factory::class)
 class RemoteAlbumsViewModel @AssistedInject constructor(
     @Assisted artistId: Long?,
+    @Assisted favorites: Boolean,
     remote: PhoneRemote,
 ) : ViewModel() {
     val state: StateFlow<EntryListState> = remote.library.map { library ->
         val albumIds = artistId?.let { id -> library?.artists?.firstOrNull { it.id == id }?.albumIds?.toSet().orEmpty() }
-        val albums = library?.albums.orEmpty().filter { albumIds == null || it.id in albumIds }
+        val all = library?.albums.orEmpty().filter { albumIds == null || it.id in albumIds }
+        val albums = if (favorites) all.inOrderOf(library?.favoriteAlbumIds.orEmpty()) { it.id } else all
         when {
             library == null -> EntryListState.Message(R.string.remote_no_library)
             albums.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
@@ -153,15 +158,16 @@ class RemoteAlbumsViewModel @AssistedInject constructor(
 
     @AssistedFactory
     interface Factory {
-        fun create(artistId: Long?): RemoteAlbumsViewModel
+        fun create(artistId: Long?, favorites: Boolean): RemoteAlbumsViewModel
     }
 }
 
-/** Die Künstler des Handys; als Bild das Cover ihres ersten Albums. */
-@HiltViewModel
-class RemoteArtistsViewModel @Inject constructor(remote: PhoneRemote) : ViewModel() {
+/** Die Künstler des Handys, mit [favorites] nur die favorisierten (zuletzt favorisierte zuerst); als Bild das Cover ihres ersten Albums. */
+@HiltViewModel(assistedFactory = RemoteArtistsViewModel.Factory::class)
+class RemoteArtistsViewModel @AssistedInject constructor(@Assisted favorites: Boolean, remote: PhoneRemote) : ViewModel() {
     val state: StateFlow<EntryListState> = remote.library.map { library ->
-        val artists = library?.artists.orEmpty().filter { it.albumIds.isNotEmpty() }
+        val all = library?.artists.orEmpty().filter { it.albumIds.isNotEmpty() }
+        val artists = if (favorites) all.inOrderOf(library?.favoriteArtistIds.orEmpty()) { it.id } else all
         when {
             library == null -> EntryListState.Message(R.string.remote_no_library)
             artists.isEmpty() -> EntryListState.Message(R.string.list_empty_phone)
@@ -173,6 +179,17 @@ class RemoteArtistsViewModel @Inject constructor(remote: PhoneRemote) : ViewMode
             )
         }
     }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
+
+    @AssistedFactory
+    interface Factory {
+        fun create(favorites: Boolean): RemoteArtistsViewModel
+    }
+}
+
+/** Die Einträge mit den Kennungen [ids] in deren Reihenfolge; unbekannte Kennungen entfallen. */
+private fun <T> List<T>.inOrderOf(ids: List<Long>, id: (T) -> Long): List<T> {
+    val byId = associateBy(id)
+    return ids.mapNotNull { byId[it] }
 }
 
 /**

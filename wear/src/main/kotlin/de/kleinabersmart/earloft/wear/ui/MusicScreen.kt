@@ -41,25 +41,57 @@ fun MusicScreen(
     )
 }
 
-/** Menü Musik des Handys (Bereich „Telefon“, Wear-Konzept 17): gegliedert wie das der Uhr, aber mit allem, was das Handy hat. */
+/**
+ * Menü Musik des Handys (Bereich „Telefon“, Wear-Konzept 17): gegliedert wie das der Uhr, aber mit allem, was das Handy hat.
+ * „Favoriten“ führt zu den Songs ([onFavoriteSongsClick]) bzw., wenn das Handy auch Alben oder Künstler favorisiert hat, zum
+ * Untermenü ([onFavoritesMenuClick]).
+ */
 @Composable
 fun PhoneMusicScreen(
     onShuffled: () -> Unit,
     onAlbumsClick: () -> Unit,
     onArtistsClick: () -> Unit,
-    onFavoritesClick: () -> Unit,
+    onFavoriteSongsClick: () -> Unit,
+    onFavoritesMenuClick: () -> Unit,
     onPlaylistsClick: () -> Unit,
     viewModel: PhoneMusicViewModel = hiltViewModel(),
 ) {
+    val favorites by viewModel.favorites.collectAsStateWithLifecycle()
     MusicContent(
         canShuffleAll = true,
         favoritesEnabled = true,
         onShuffleAll = { viewModel.shuffleAll(onShuffled) },
         onAlbumsClick = onAlbumsClick,
         onArtistsClick = onArtistsClick,
-        onFavoritesClick = onFavoritesClick,
+        onFavoritesClick = if (favorites.any) onFavoritesMenuClick else onFavoriteSongsClick,
         onPlaylistsClick = onPlaylistsClick,
     )
+}
+
+/** Favoriten des Handys: Songs, dazu Alben und Künstler, soweit es welche gibt. */
+@Composable
+fun PhoneFavoritesScreen(
+    onSongsClick: () -> Unit,
+    onAlbumsClick: () -> Unit,
+    onArtistsClick: () -> Unit,
+    viewModel: PhoneMusicViewModel = hiltViewModel(),
+) {
+    val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    val columnState = rememberTransformingLazyColumnState()
+    val transformationSpec = rememberTransformationSpec()
+    ScreenScaffold(scrollState = columnState) { contentPadding ->
+        TransformingLazyColumn(
+            state = columnState,
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = contentPadding,
+        ) {
+            header(R.string.list_favorites, transformationSpec)
+            action(R.string.list_songs, transformationSpec, onClick = onSongsClick)
+            if (favorites.albums) action(R.string.list_albums, transformationSpec, onClick = onAlbumsClick)
+            if (favorites.artists) action(R.string.list_artists, transformationSpec, onClick = onArtistsClick)
+        }
+    }
 }
 
 @Composable

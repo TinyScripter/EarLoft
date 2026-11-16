@@ -48,9 +48,19 @@ class MusicViewModel @Inject constructor(
     }
 }
 
-/** Das Handy mischt seine ganze Bibliothek. */
+/** Favorisierte Alben bzw. Künstler des Handys: Dann führt „Favoriten“ zu einem Untermenü statt gleich zu den Songs. */
+data class PhoneFavorites(val albums: Boolean = false, val artists: Boolean = false) {
+    val any: Boolean get() = albums || artists
+}
+
+/** Das Handy mischt seine ganze Bibliothek; dazu, welche Favoriten es außer Songs hat. */
 @HiltViewModel
 class PhoneMusicViewModel @Inject constructor(private val remote: PhoneRemote) : ViewModel() {
+    val favorites: StateFlow<PhoneFavorites> = remote.library
+        .map { PhoneFavorites(albums = !it?.favoriteAlbumIds.isNullOrEmpty(), artists = !it?.favoriteArtistIds.isNullOrEmpty()) }
+        .orOnError(PhoneFavorites())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PhoneFavorites())
+
     /** [onStarted] wechselt danach zur Wiedergabe-Ansicht des Handys. */
     fun shuffleAll(onStarted: () -> Unit) {
         viewModelScope.launch {

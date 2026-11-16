@@ -30,12 +30,26 @@ internal class MusicBrowse @Inject constructor(
         parentId == MediaIds.ARTISTS -> libraryRepository.artists().first().map { it.toBrowsableMediaItem() }
         parentId == MediaIds.GENRES -> libraryRepository.genres().first().map { it.toBrowsableMediaItem() }
         parentId == MediaIds.PLAYLISTS -> playlistRepository.playlists().first().map { it.toBrowsableMediaItem() }
+        parentId == MediaIds.FAVORITES -> favoriteFolders() + favoritesRepository.favorites().first().map { it.toBrowsableSongItem(context, parentId) }
+        parentId == MediaIds.FAVORITE_ALBUMS -> favoritesRepository.favoriteAlbums().first().map { it.toBrowsableMediaItem(context) }
+        parentId == MediaIds.FAVORITE_ARTISTS -> favoritesRepository.favoriteArtists().first().map { it.toBrowsableMediaItem() }
         MediaIds.genreName(parentId) != null ->
             libraryRepository.albumsOfGenre(MediaIds.genreName(parentId)!!).first().map { it.toBrowsableMediaItem(context) }
         MediaIds.artistId(parentId) != null ->
             libraryRepository.artist(MediaIds.artistId(parentId)!!).first()?.albums.orEmpty().map { it.toBrowsableMediaItem(context) }
         else -> songsOf(parentId)?.map { it.toBrowsableSongItem(context, parentId) }
     }
+
+    /**
+     * Ordner der favorisierten Alben und Künstler über den Favoriten-Songs, nur wenn es welche gibt. Ein Song der Favoriten
+     * reiht weiter nur die Favoriten-Songs ein ([songsOf]).
+     */
+    private suspend fun favoriteFolders(): List<MediaItem> = listOfNotNull(
+        folderMediaItem(MediaIds.FAVORITE_ALBUMS, context.getString(R.string.albums), MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, gridChildren = true)
+            .takeIf { favoritesRepository.favoriteAlbumIds().first().isNotEmpty() },
+        folderMediaItem(MediaIds.FAVORITE_ARTISTS, context.getString(R.string.artists), MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS)
+            .takeIf { favoritesRepository.favoriteArtistIds().first().isNotEmpty() },
+    )
 
     /** Zuletzt gehörte Alben; ohne Hörverlauf die zuletzt hinzugefügten. */
     suspend fun recentAlbums(limit: Int): List<MediaItem> =
