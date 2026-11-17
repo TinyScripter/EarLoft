@@ -181,6 +181,24 @@ class LibrarySyncTest {
     }
 
     @Test
+    fun `a song with several sources takes its genres from the source with the best quality`() = runTest {
+        val mp3 = track("1", "Hoppípolla").copy(genre = "Rock", genres = listOf("Rock", "Pop"), mimeType = "audio/mpeg", bitRate = 320)
+        val flac = mp3.copy(remoteId = "2", genre = "Post-Rock", genres = listOf("Post-Rock"), mimeType = "audio/flac", bitRate = 900)
+        suspend fun genres() = db.libraryDao().observeGenreRows().first().map { it.name }
+
+        // Erst die schlechtere Quelle, dann die verlustfreie: Deren Genres gelten.
+        syncer.syncAdding(db, FakeSource("nd", listOf(mp3)))
+        assertEquals(listOf("Pop", "Rock"), genres())
+        syncer.syncAdding(db, FakeSource("jf", listOf(flac)))
+        assertEquals(1, db.libraryDao().observeSongRows().first().size)
+        assertEquals(listOf("Post-Rock"), genres())
+
+        // Eine weitere, schlechtere Quelle ändert nichts.
+        syncer.syncAdding(db, FakeSource("em", listOf(mp3.copy(remoteId = "3", genres = listOf("Schlager"), genre = "Schlager", bitRate = 128))))
+        assertEquals(listOf("Post-Rock"), genres())
+    }
+
+    @Test
     fun `a song keeps all genres of its source and follows when they change`() = runTest {
         val walk = track("x", "Walk This Way").copy(genre = "Hip-Hop", genres = listOf("Hip-Hop", "Rap", "rap "))
         syncer.syncAdding(db, FakeSource("nd", listOf(walk)))

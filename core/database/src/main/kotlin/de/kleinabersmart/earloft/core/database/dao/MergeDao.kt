@@ -100,6 +100,9 @@ interface MergeDao {
     @Query("SELECT COUNT(*) FROM song_sources WHERE songId = :songId")
     suspend fun countSourcesOfSong(songId: Long): Int
 
+    @Query("SELECT * FROM song_sources WHERE songId = :songId")
+    suspend fun getSourcesOfSong(songId: Long): List<SongSourceEntity>
+
     /** Der Song hat außer [exceptUid] schon eine Quelle von [sourceId]. */
     @Query("SELECT EXISTS (SELECT 1 FROM song_sources WHERE songId = :songId AND sourceId = :sourceId AND uid != :exceptUid)")
     suspend fun hasOtherSourceFrom(songId: Long, sourceId: String, exceptUid: String): Boolean

@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.core.data.sync
 
 import de.kleinabersmart.earloft.core.common.normalizeForMerge
 import de.kleinabersmart.earloft.core.common.sortKey
+import de.kleinabersmart.earloft.core.data.repository.audioQuality
 import de.kleinabersmart.earloft.core.data.repository.pushFavoriteToServers
 import de.kleinabersmart.earloft.core.database.dao.MergeDao
 import de.kleinabersmart.earloft.core.database.dao.SyncDao
@@ -184,7 +185,12 @@ class MergeResolver @Inject constructor(
             }
         if (match != null) {
             // Wie bei Künstler und Album: Eine Quelle, die die MBID kennt, ergänzt sie für alle.
-            if (match.mbid == null && track.mbidTrack != null) mergeDao.updateSong(match.copy(mbid = track.mbidTrack))
+            var updated = if (match.mbid == null && track.mbidTrack != null) match.copy(mbid = track.mbidTrack) else match
+            if (hasBestQuality(match.songId, track, uid)) {
+                linkSongGenres(match.songId, track.allGenres, replace = true)
+                updated = updated.copy(genre = track.allGenres.first())
+            }
+            if (updated != match) mergeDao.updateSong(updated)
             return match.songId
         }
 
@@ -194,7 +200,21 @@ class MergeResolver @Inject constructor(
         return songId
     }
 
-    /** Wie bei den Künstlern: Die Genres des Songs sind die der Quelle, die ihn angelegt bzw. zuletzt geändert hat. */
+    /**
+     * Hat ein Song mehrere Quellen, kommen seine Genres von der mit der höchsten Qualität (verlustfrei, dann Bitrate;
+     * Review V11): `true`, wenn [track] (Kennung [uid]) Genres hat und besser ist als jede andere Quelle des Songs. Bei
+     * Gleichstand bleiben die bisherigen, sonst wechselten sie mit jedem Abgleich.
+     */
+    private suspend fun hasBestQuality(songId: Long, track: RawTrack, uid: String): Boolean {
+        if (track.allGenres.isEmpty()) return false
+        val incoming = audioQuality(track.mimeType, track.bitRate)
+        return mergeDao.getSourcesOfSong(songId).none { it.uid != uid && audioQuality(it.mimeType, it.bitRate) >= incoming }
+    }
+
+    /**
+     * Die Genres des Songs: die der Quelle, die ihn angelegt bzw. zuletzt geändert hat; bei mehreren Quellen die der besten
+     * ([hasBestQuality]).
+     */
     private suspend fun linkSongGenres(songId: Long, genres: List<String>, replace: Boolean) {
         if (replace) mergeDao.deleteSongGenres(songId)
         val rows = genres.distinctBy(Genre::key).mapIndexed { position, genre -> SongGenreEntity(songId, genre, Genre.key(genre), position) }

@@ -102,17 +102,23 @@ data class ResolvedPlayback(
     val transcodedTo: Pair<String, Int>? = null,
 )
 
+private val LOSSLESS_MIME_TYPES = setOf(
+    "audio/flac", "audio/x-flac", "audio/alac", "audio/x-alac", "audio/wav", "audio/x-wav",
+    "audio/aiff", "audio/x-aiff", "audio/x-ape", "audio/x-wavpack",
+)
+
+internal fun isLossless(mimeType: String?): Boolean = mimeType?.lowercase() in LOSSLESS_MIME_TYPES
+
+/** Qualität einer Datei zum Vergleichen: verlustfrei vor verlustbehaftet, dann die höhere Bitrate (unbekannt = 0). */
+internal fun audioQuality(mimeType: String?, bitRate: Int?): Long =
+    (if (isLossless(mimeType)) 1L shl 32 else 0L) + (bitRate ?: 0).coerceAtLeast(0)
+
 /** Reihenfolge der Quellen eines Songs: lokal, Server-Priorität, verlustfrei, Bitrate. */
 object SourcePreference : Comparator<PlayableSourceRow> {
-    private val LOSSLESS_MIME_TYPES = setOf(
-        "audio/flac", "audio/x-flac", "audio/alac", "audio/x-alac", "audio/wav", "audio/x-wav",
-        "audio/aiff", "audio/x-aiff", "audio/x-ape", "audio/x-wavpack",
-    )
-
     private val comparator =
         compareBy<PlayableSourceRow> { if (it.sourceType == SourceType.LOCAL) 0 else 1 }
             .thenByDescending { it.sourcePriority }
-            .thenByDescending { it.mimeType?.lowercase() in LOSSLESS_MIME_TYPES }
+            .thenByDescending { isLossless(it.mimeType) }
             .thenByDescending { it.bitRate ?: 0 }
 
     override fun compare(a: PlayableSourceRow, b: PlayableSourceRow): Int = comparator.compare(a, b)
