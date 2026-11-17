@@ -100,6 +100,7 @@
         <item quantity="other">%d tracks left</item>
     </plurals>
     <string name="download_error_server_via_phone">Server unreachable, phone delivers</string>
+    <string name="download_error_server_refused_via_phone">Server did not deliver, phone delivers</string>
     <string name="download_error_server_no_phone_copy">Server unreachable, phone has no copy</string>
     <string name="download_error_phone_no_copy">Phone has no copy</string>
     <string name="download_error_phone_unreachable">Phone unreachable</string>

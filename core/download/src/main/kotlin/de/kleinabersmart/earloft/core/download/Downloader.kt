@@ -89,6 +89,15 @@ class Downloader @Inject constructor(
         }
     }
 
+    /**
+     * Ob die Quelle von [uid] hier bekannt ist (ohne Netz). Wenn nicht, endete [download] mit `Failed(sourceUnavailable)`:
+     * Die Uhr fragt dann gleich das Handy, statt erst WLAN anzufordern (Review V4). Ohne Eintrag `true`.
+     */
+    suspend fun knowsSource(uid: String): Boolean {
+        val songSource = downloadDao.getSongSource(uid) ?: return true
+        return sources[songSource.sourceId] != null
+    }
+
     private suspend fun fetch(
         uid: String,
         profile: DownloadProfile,

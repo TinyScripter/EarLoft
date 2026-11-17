@@ -82,12 +82,16 @@ class WearDownloadWorker(
         podcastDao.requeueRunningDownloads()
         bookDao.requeueRunningBookDownloads()
         val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
-        if (pendingCount() == 0 && !coversMissing) return finish()
+        val pending = pendingCount()
+        if (pending == 0 && !coversMissing) return finish()
         if (!hasRoomToStart()) return finish()
-        startForeground()
+        // Nur für fehlende Cover kein Vordergrunddienst samt Download-Symbol: Ein Cover, das es nie gibt, löste es sonst bei
+        // jedem Lauf aus (Review V2).
+        if (pending > 0) startForeground()
 
-        // Songs, die nur das Handy hat, brauchen kein WLAN.
-        if (!drainPhoneQueue()) return Result.retry()
+        // Songs, die nur das Handy hat, brauchen kein WLAN. Ist das Handy nicht erreichbar, warten nur sie; was der Server
+        // liefert, lädt trotzdem (Review V1).
+        val phoneReachable = drainPhoneQueue()
 
         var lease: WifiLease? = null
         try {
@@ -98,6 +102,12 @@ class WearDownloadWorker(
                 if (state.hasServerFailedTooOften(uid)) {
                     // Der Server hat es schon mehrmals nicht geschafft (Wechsel an anderer Stelle, später erneut versucht).
                     if (!viaPhone(next, serverFailed = true)) return Result.retry()
+                    continue
+                }
+                if (!downloader.knowsSource(uid)) {
+                    // Die Uhr kennt den Server nicht (noch keine Zugangsdaten): gleich über das Handy, ohne WLAN (Review V4).
+                    Log.i(TAG, "Quelle von $uid hier unbekannt, über das Handy")
+                    if (!viaPhoneForUnknownSource(next)) return Result.retry()
                     continue
                 }
                 lease = lease ?: entryPoint.wifi().acquire()
@@ -129,13 +139,16 @@ class WearDownloadWorker(
                     }
                     is DownloadOutcome.Failed -> {
                         Log.w(TAG, "Download $uid fehlgeschlagen: ${outcome.reason}")
-                        // Datei weg, Anmeldung abgelehnt o. Ä.: Vielleicht hat das Handy sie. Kennt die Uhr die Quelle gar nicht, trifft
-                        // das alle wartenden Songs von ihr: Sie zählen gleich in die Restzeit über das Handy.
-                        val sourceId = if (outcome.sourceUnavailable) downloadDao.getSongSource(uid)?.sourceId else null
-                        state.markViaPhone(listOf(uid) + sourceId?.let { downloadDao.queuedUidsOfSource(it) }.orEmpty())
-                        // Der Grund steht im Log; die Anzeige bekommt keinen internen Text, sondern was jetzt geschieht.
-                        state.setLastError(applicationContext.getString(R.string.download_error_server_via_phone))
-                        if (!viaPhone(next, serverFailed = true)) return Result.retry()
+                        // Datei weg, Anmeldung abgelehnt o. Ä.: Vielleicht hat das Handy sie.
+                        if (outcome.sourceUnavailable) {
+                            if (!viaPhoneForUnknownSource(next)) return Result.retry()
+                        } else {
+                            state.markViaPhone(listOf(uid))
+                            // Der Grund steht im Log; die Anzeige bekommt keinen internen Text, sondern was jetzt geschieht. Der
+                            // Server war erreichbar, hat die Datei aber nicht geliefert (Review V16).
+                            state.setLastError(applicationContext.getString(R.string.download_error_server_refused_via_phone))
+                            if (!viaPhone(next, serverFailed = true)) return Result.retry()
+                        }
                     }
                     DownloadOutcome.Done -> {
                         state.clearServerFailures(uid)
@@ -222,6 +235,7 @@ class WearDownloadWorker(
             lease?.close()
         }
         cacheCovers()
+        if (!phoneReachable) return Result.retry()
         return finish()
     }
 
@@ -361,6 +375,18 @@ class WearDownloadWorker(
     }
 
     /**
+     * Die Uhr kennt die Quelle von [download] nicht: Das trifft alle wartenden Songs von ihr, sie zählen gleich in die Restzeit
+     * über das Handy. @return wie [viaPhone].
+     */
+    private suspend fun viaPhoneForUnknownSource(download: DownloadEntity): Boolean {
+        val uid = download.sourceUid
+        val sourceId = downloadDao.getSongSource(uid)?.sourceId
+        state.markViaPhone(listOf(uid) + sourceId?.let { downloadDao.queuedUidsOfSource(it) }.orEmpty())
+        state.setLastError(applicationContext.getString(R.string.download_error_server_via_phone))
+        return viaPhone(download, serverFailed = true)
+    }
+
+    /**
      * Holt [download] im Original vom Handy (Wear-Konzept 8.4). [serverFailed]: Der Server hat es nicht geschafft
      * (sonst gibt es nur das Handy), das bestimmt den Fehlertext, wenn auch das Handy nichts hat.
      * @return `false`, wenn das Handy nicht erreichbar war; der Eintrag wartet dann weiter.
@@ -458,6 +484,9 @@ class WearDownloadWorker(
         if (foregroundDenied) return
         try {
             setForeground(foregroundInfo(buildNotification(pendingCount(), progress)))
+        } catch (e: CancellationException) {
+            // Unterklasse von IllegalStateException: Der Worker wurde gestoppt, nicht der Vordergrund verweigert (Review V28).
+            throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true
             Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund (${e.javaClass.simpleName})")
