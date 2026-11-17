@@ -175,17 +175,14 @@ fun AddPodcastScreen(
             val enabled = directories
             when {
                 enabled == null -> Unit
+                // Eingeschaltet wird über das Zahnrad neben der Überschrift, darauf verweist der Hinweis.
                 enabled.isEmpty() -> item(key = "no-directory") {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = GroupMargin + 16.dp)) {
-                        Text(
-                            stringResource(R.string.podcast_directory_none),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        TextButton(onClick = onOpenSettings, modifier = Modifier.padding(top = 4.dp)) {
-                            Text(stringResource(R.string.podcast_directory_open_settings))
-                        }
-                    }
+                    Text(
+                        stringResource(R.string.podcast_directory_none),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = GroupMargin + 16.dp),
+                    )
                 }
                 else -> {
                     item(key = "search") {

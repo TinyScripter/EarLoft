@@ -707,7 +707,7 @@
     <string name="podcast_category_leisure">Freizeit</string>
     <string name="podcast_category_kids">Kinder &amp; Familie</string>
     <string name="podcast_category_religion">Religion &amp; Spiritualität</string>
-    <string name="podcast_directory_none">Kein Verzeichnis eingeschaltet. In den Podcast-Einstellungen legst du fest, in welchen Verzeichnissen gesucht werden darf – die Suchbegriffe gehen an diese Dienste.</string>
+    <string name="podcast_directory_none">Kein Verzeichnis eingeschaltet. Über das Zahnrad neben „In Verzeichnissen suchen“ legst du fest, in welchen Verzeichnissen gesucht werden darf – die Suchbegriffe gehen an diese Dienste.</string>
     <string name="podcast_directory_open_settings">Zu den Einstellungen</string>
     <string name="podcast_directories_choose">Verzeichnisse wählen</string>
     <string name="podcast_directory_searching">Suche läuft …</string>

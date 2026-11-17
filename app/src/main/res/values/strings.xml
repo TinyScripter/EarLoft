@@ -715,7 +715,7 @@
     <string name="podcast_category_leisure">Leisure</string>
     <string name="podcast_category_kids">Kids &amp; Family</string>
     <string name="podcast_category_religion">Religion &amp; Spirituality</string>
-    <string name="podcast_directory_none">No directory is switched on. Choose in the podcast settings which directories the app may search – your search terms are sent to them.</string>
+    <string name="podcast_directory_none">No directory is switched on. Tap the gear next to “Search directories” to choose which directories the app may search – your search terms are sent to them.</string>
     <string name="podcast_directory_open_settings">Open settings</string>
     <string name="podcast_directories_choose">Choose directories</string>
     <string name="podcast_directory_searching">Searching …</string>
