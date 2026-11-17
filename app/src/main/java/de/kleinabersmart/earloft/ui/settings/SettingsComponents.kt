@@ -235,7 +235,8 @@ internal fun ServerRow(
                     !server.enabled -> stringResource(R.string.server_disabled)
                     item.passwordLost -> stringResource(R.string.server_password_lost)
                     item.error != null -> stringResource(R.string.server_sync_failed, syncFailureText(item.error, server.type))
-                    server.lastFullSyncAt == 0L -> stringResource(R.string.server_never_synced)
+                    // 1: Nach einer Migration ist der Vollabgleich fällig (`EarLoftDatabase.SeveralGenres`), kein Zeitpunkt.
+                    server.lastFullSyncAt <= 1L -> stringResource(R.string.server_never_synced)
                     else -> {
                         val ageMs = System.currentTimeMillis() - server.lastFullSyncAt
                         if (ageMs < MINUTE_MS) {
