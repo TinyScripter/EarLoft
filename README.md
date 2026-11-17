@@ -20,6 +20,19 @@ one or two of these areas, but not in all three. Or they want subscription money
 don't support Android Auto or Wear OS, or they can't keep all your media offline on the watch. That's why this app
 exists.
 
+<p>
+  <a href="media/mobile_1.png"><img src="media/mobile_1.png" alt="EarLoft on the phone, screenshot 1" width="170"></a>
+  <a href="media/mobile_2.png"><img src="media/mobile_2.png" alt="EarLoft on the phone, screenshot 2" width="170"></a>
+  <a href="media/mobile_3.png"><img src="media/mobile_3.png" alt="EarLoft on the phone, screenshot 3" width="170"></a>
+  <a href="media/mobile_4.png"><img src="media/mobile_4.png" alt="EarLoft on the phone, screenshot 4" width="170"></a>
+</p>
+<p>
+  <a href="media/wear_1.png"><img src="media/wear_1.png" alt="EarLoft on the watch, screenshot 1" width="120"></a>
+  <a href="media/wear_2.png"><img src="media/wear_2.png" alt="EarLoft on the watch, screenshot 2" width="120"></a>
+</p>
+
+*Click a screenshot to see it in full size.*
+
 ## Features
 
 Three main areas: **Music**, **Podcasts** and **Books**. Each has a home view that shows what's new, and your complete
