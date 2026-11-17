@@ -68,7 +68,7 @@ library.
 
 ### Podcasts
 
-- **Find podcasts** in Apple Podcasts and ARD Sounds, or add any RSS or Atom feed directly. Before you search, **Add
+- **Find podcasts** in Apple Podcasts, Podcast Index and ARD Sounds, or add any RSS or Atom feed directly. Before you search, **Add
   podcast** shows popular podcasts by category. The directories are off until you switch them on, because your search
   terms are sent to them. Shows from ARD Sounds without their own feed can be subscribed directly. Feeds refresh
   automatically in the background; moved feeds are followed, and feeds that keep failing are listed in the settings.
@@ -400,8 +400,8 @@ the phone app on the watch too.
 If Gradle cannot find the SDK, create `local.properties` in the project root with `sdk.dir=/path/to/Android/Sdk`
 (Android Studio does this for you).
 
-The podcast directories Podcast Index and fyyd are only offered if your build enables them in `local.properties`
-(`podcastindex.key` and `podcastindex.secret` with your own
+The release builds come with a Podcast Index key. In your own build, the podcast directories Podcast Index and fyyd
+are only offered if you enable them in `local.properties` (`podcastindex.key` and `podcastindex.secret` with your own
 [Podcast Index API key](https://api.podcastindex.org), `fyyd.enabled=true`); otherwise they are missing from the
 settings.
 

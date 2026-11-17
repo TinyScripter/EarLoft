@@ -1,6 +1,6 @@
 # Privacy Policy for EarLoft
 
-**Last updated:** November 15, 2026  
+**Last updated:** November 17, 2026  
 **Application ID:** de.kleinabersmart.earloft (phone and Wear OS watch)
 
 ## Overview
@@ -35,8 +35,9 @@ watch) to the respective service:
   respective publishers.
 * **Podcast directories (optional, off by default):** when you switch on a directory in **Settings → Podcasts**, it is
   asked for popular podcasts as soon as you open **Add podcast** (your country and language are sent), and for your
-  search terms when you search: Apple Podcasts (Apple's search API) and ARD Sounds (ARD's public interface). Shows from
-  ARD Sounds without their own feed are also refreshed through that interface.
+  search terms when you search: Apple Podcasts (Apple's search API), Podcast Index (the API of podcastindex.org) and
+  ARD Sounds (ARD's public interface). Shows from ARD Sounds without their own feed are also refreshed through that
+  interface.
 * **Audiobooks from ARD Sounds (optional, off by default):** when you switch them on in **Settings → Books**, the
   books and radio plays you browse, search for, play or download come from ARD's public interface. The books in your
   library and the shows you follow are checked there regularly, also in the background (about every 12 hours, on
