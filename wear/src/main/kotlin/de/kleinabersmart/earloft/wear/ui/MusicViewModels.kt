@@ -10,6 +10,8 @@ import de.kleinabersmart.earloft.core.wearsync.WearRemotePlayRequest
 import de.kleinabersmart.earloft.wear.download.SelectionItem
 import de.kleinabersmart.earloft.wear.download.WatchStorageRepository
 import de.kleinabersmart.earloft.wear.sync.PhoneRemote
+import de.kleinabersmart.earloft.wear.sync.PhoneSelections
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -53,12 +55,14 @@ data class PhoneFavorites(val albums: Boolean = false, val artists: Boolean = fa
     val any: Boolean get() = albums || artists
 }
 
+private fun PhoneRemote.favorites(): Flow<PhoneFavorites> = library
+    .map { PhoneFavorites(albums = !it?.favoriteAlbumIds.isNullOrEmpty(), artists = !it?.favoriteArtistIds.isNullOrEmpty()) }
+    .orOnError(PhoneFavorites())
+
 /** Das Handy mischt seine ganze Bibliothek; dazu, welche Favoriten es außer Songs hat. */
 @HiltViewModel
 class PhoneMusicViewModel @Inject constructor(private val remote: PhoneRemote) : ViewModel() {
-    val favorites: StateFlow<PhoneFavorites> = remote.library
-        .map { PhoneFavorites(albums = !it?.favoriteAlbumIds.isNullOrEmpty(), artists = !it?.favoriteArtistIds.isNullOrEmpty()) }
-        .orOnError(PhoneFavorites())
+    val favorites: StateFlow<PhoneFavorites> = remote.favorites()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PhoneFavorites())
 
     /** [onStarted] wechselt danach zur Wiedergabe-Ansicht des Handys. */
@@ -67,4 +71,24 @@ class PhoneMusicViewModel @Inject constructor(private val remote: PhoneRemote) :
             if (remote.play(WearRemotePlayRequest(WearRemoteListKind.ALL, shuffle = true))) onStarted()
         }
     }
+}
+
+/**
+ * Favoriten-Menü des Handys: welche Favoriten es außer Songs hat und der Knopf „Download“ für die Auswahl Favoriten. Die lädt
+ * Lieblingssongs und alle Songs der Lieblingsalben; deshalb steht der Knopf hier und nicht auf der Songs-Seite (Review V17).
+ */
+@HiltViewModel
+class PhoneFavoritesViewModel @Inject constructor(
+    remote: PhoneRemote,
+    storage: WatchStorageRepository,
+    phoneSelections: PhoneSelections,
+) : ViewModel() {
+    val favorites: StateFlow<PhoneFavorites> = remote.favorites()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PhoneFavorites())
+
+    private val selection = SelectionOnWatch(WearSelectionKind.FAVORITES, null, storage, phoneSelections, viewModelScope)
+
+    val onWatch: StateFlow<OnWatchState?> = selection.state
+
+    fun setOnWatch(selected: Boolean) = selection.set(selected)
 }

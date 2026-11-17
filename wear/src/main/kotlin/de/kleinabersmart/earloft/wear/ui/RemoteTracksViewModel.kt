@@ -14,13 +14,8 @@ import de.kleinabersmart.earloft.wear.R
 import de.kleinabersmart.earloft.wear.download.WatchStorageRepository
 import de.kleinabersmart.earloft.wear.sync.PhoneRemote
 import de.kleinabersmart.earloft.wear.sync.PhoneSelections
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -48,26 +43,10 @@ class RemoteTracksViewModel @AssistedInject constructor(
         WearRemoteListKind.FAVORITES -> WearSelectionKind.FAVORITES
         WearRemoteListKind.ALL, WearRemoteListKind.CONTINUE -> null
     }
-    private val selectionKey = selectionKind?.key(refId)
+    private val selection = selectionKind?.let { SelectionOnWatch(it, refId, storage, phoneSelections, viewModelScope) }
 
-    /**
-     * Gewünschter Stand nach einem Tipp, bis das Manifest des Handys ihn bestätigt (oder [PENDING_TIMEOUT_MS] vergeht):
-     * Der Knopf spränge sonst bis zum nächsten Manifest zurück.
-     */
-    private val pending = MutableStateFlow<Boolean?>(null)
-    private val failed = MutableStateFlow(false)
-    private var pendingTimeout: Job? = null
-
-    val onWatch: StateFlow<OnWatchState?> = if (selectionKey == null) {
-        MutableStateFlow(null)
-    } else {
-        combine(storage.selectedKeys(), storage.selections(), pending, failed) { keys, selections, wanted, failedNow ->
-            val confirmed = selectionKey in keys
-            if (wanted == confirmed) pending.value = null
-            val item = selections.firstOrNull { it.key == selectionKey }
-            onWatchState(confirmed, wanted, item?.progress, failedNow, downloadFailed = (item?.failedCount ?: 0) > 0)
-        }.orOnError(null).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-    }
+    /** Knopf „Download“; `null` für Listen, die sich nicht auf die Uhr holen lassen. */
+    val onWatch: StateFlow<OnWatchState?> = selection?.state ?: MutableStateFlow(null)
 
     init {
         viewModelScope.launch {
@@ -103,29 +82,11 @@ class RemoteTracksViewModel @AssistedInject constructor(
 
     /** Holt die Liste auf die Uhr bzw. nimmt sie herunter; das Handy wählt aus und schickt ein neues Manifest. */
     fun setOnWatch(selected: Boolean) {
-        val selection = selectionKind ?: return
-        viewModelScope.launch {
-            failed.value = false
-            pending.value = selected
-            if (!phoneSelections.setSelected(selection, refId, selected)) {
-                pending.value = null
-                failed.value = true
-                return@launch
-            }
-            pendingTimeout?.cancel()
-            pendingTimeout = launch {
-                delay(PENDING_TIMEOUT_MS)
-                pending.value = null
-            }
-        }
+        selection?.set(selected)
     }
 
     @AssistedFactory
     interface Factory {
         fun create(kind: WearRemoteListKind, refId: Long?): RemoteTracksViewModel
-    }
-
-    private companion object {
-        const val PENDING_TIMEOUT_MS = 20_000L
     }
 }

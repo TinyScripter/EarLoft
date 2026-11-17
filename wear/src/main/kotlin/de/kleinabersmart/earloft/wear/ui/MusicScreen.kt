@@ -3,8 +3,12 @@ package de.kleinabersmart.earloft.wear.ui
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
@@ -68,15 +72,29 @@ fun PhoneMusicScreen(
     )
 }
 
-/** Favoriten des Handys: Songs, dazu Alben und Künstler, soweit es welche gibt. */
+/**
+ * Favoriten des Handys: Songs, dazu Alben und Künstler, soweit es welche gibt, und „Download“ für alle Favoriten (Songs und
+ * Lieblingsalben, wie die Auswahl am Handy; Review V17).
+ */
 @Composable
 fun PhoneFavoritesScreen(
     onSongsClick: () -> Unit,
     onAlbumsClick: () -> Unit,
     onArtistsClick: () -> Unit,
-    viewModel: PhoneMusicViewModel = hiltViewModel(),
+    viewModel: PhoneFavoritesViewModel = hiltViewModel(),
 ) {
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    val onWatch by viewModel.onWatch.collectAsStateWithLifecycle()
+    var confirmRemove by remember { mutableStateOf(false) }
+    RemoveConfirmDialog(
+        visible = confirmRemove,
+        name = stringResource(R.string.list_favorites),
+        onConfirm = {
+            confirmRemove = false
+            viewModel.setOnWatch(false)
+        },
+        onDismiss = { confirmRemove = false },
+    )
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(scrollState = columnState) { contentPadding ->
@@ -90,6 +108,7 @@ fun PhoneFavoritesScreen(
             action(R.string.list_songs, transformationSpec, onClick = onSongsClick)
             if (favorites.albums) action(R.string.list_albums, transformationSpec, onClick = onAlbumsClick)
             if (favorites.artists) action(R.string.list_artists, transformationSpec, onClick = onArtistsClick)
+            onWatch?.let { onWatchButton(it, { viewModel.setOnWatch(true) }, { confirmRemove = true }, transformationSpec) }
         }
     }
 }

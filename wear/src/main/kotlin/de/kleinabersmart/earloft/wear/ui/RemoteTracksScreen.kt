@@ -11,17 +11,19 @@ import kotlinx.coroutines.launch
 
 /**
  * Album, Playlist oder Favoriten des Handys: am Handy abspielen oder mit „Auf der Uhr“ herunterladen (Wear-Konzept 17).
- * [onPlayed] wechselt nach dem Start zur Wiedergabe-Ansicht des Handys.
+ * [onPlayed] wechselt nach dem Start zur Wiedergabe-Ansicht des Handys. [selectable] `false`: ohne Knopf „Download“ – die
+ * Favoriten-Songs aus dem Favoriten-Menü, dessen Knopf auch die Lieblingsalben lädt (Review V17).
  */
 @Composable
 fun RemoteTracksScreen(
     kind: WearRemoteListKind,
     refId: Long?,
     onPlayed: () -> Unit,
+    selectable: Boolean = true,
     viewModel: RemoteTracksViewModel = hiltViewModel<RemoteTracksViewModel, RemoteTracksViewModel.Factory> { it.create(kind, refId) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val onWatch by viewModel.onWatch.collectAsStateWithLifecycle()
+    val onWatch = if (selectable) viewModel.onWatch.collectAsStateWithLifecycle().value else null
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     // Das Handy liefert für Favoriten keinen Namen.
     val shown = (state as? TrackListState.Ready)

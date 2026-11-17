@@ -197,7 +197,7 @@ data class PhoneSpokenRoute(val item: WearRemoteBookDto) : NavKey
 
 /** Eine Titelliste des Handys: Album, Playlist oder Favoriten ([refId] fehlt bei Favoriten). */
 @Serializable
-data class RemoteTracksRoute(val kind: WearRemoteListKind, val refId: Long? = null) : NavKey
+data class RemoteTracksRoute(val kind: WearRemoteListKind, val refId: Long? = null, val selectable: Boolean = true) : NavKey
 
 /** Sleep-Timer wählen (aus der Wiedergabe-Ansicht). */
 @Serializable
@@ -276,7 +276,8 @@ fun WearApp(openRoute: NavKey? = null, onRouteOpened: () -> Unit = {}) {
                     }
                     entry<PhoneFavoritesRoute> {
                         PhoneFavoritesScreen(
-                            onSongsClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.FAVORITES)) },
+                            // „Download“ steht im Menü selbst: Es lädt Songs und Lieblingsalben, die Songs-Seite zeigt nur die Songs.
+                            onSongsClick = { backStack.add(RemoteTracksRoute(WearRemoteListKind.FAVORITES, selectable = false)) },
                             onAlbumsClick = { backStack.add(AlbumsRoute(remote = true, favorites = true)) },
                             onArtistsClick = { backStack.add(ArtistsRoute(remote = true, favorites = true)) },
                         )
@@ -329,7 +330,7 @@ fun WearApp(openRoute: NavKey? = null, onRouteOpened: () -> Unit = {}) {
                     }
                     entry<AlbumRoute> { route -> AlbumScreen(albumId = route.albumId, onPlayed = { backStack.openNowPlaying() }) }
                     entry<RemoteTracksRoute> { route ->
-                        RemoteTracksScreen(route.kind, route.refId, onPlayed = { backStack.openNowPlaying(remote = true) })
+                        RemoteTracksScreen(route.kind, route.refId, onPlayed = { backStack.openNowPlaying(remote = true) }, selectable = route.selectable)
                     }
                     entry<SleepTimerRoute> {
                         SleepTimerScreen(
