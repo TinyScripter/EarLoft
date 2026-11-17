@@ -166,19 +166,21 @@ class MergeResolver @Inject constructor(
     }
 
     /**
-     * Der Song, zu dem der Track der Quelle [sourceId] (Kennung [uid]) gehört, sonst ein neuer. Nach dem Titel allein wird nur ein
-     * Song gefunden, den diese Quelle nicht schon liefert: Zwei Tracks einer Quelle sind zwei Songs, auch mit gleichem Titel
-     * und fast gleicher Länge (z. B. „Walk This Way“ von Aerosmith und von Run-DMC auf demselben Album).
+     * Der Song, zu dem der Track der Quelle [sourceId] (Kennung [uid]) gehört, sonst ein neuer. Gefunden wird nur ein Song, den
+     * diese Quelle nicht schon liefert: Zwei Tracks einer Quelle sind zwei Songs, auch mit gleichem Titel und fast gleicher Länge
+     * (z. B. „Walk This Way“ von Aerosmith und von Run-DMC auf demselben Album), mit derselben MBID (eine Aufnahme zweimal auf
+     * einer Deluxe-Ausgabe) oder an derselben Stelle (zwei „Interlude“ ohne Tracknummer, Review V10).
      */
     private suspend fun resolveSong(albumId: Long, track: RawTrack, sourceId: String, uid: String): Long {
-        track.mbidTrack?.let { mbid -> mergeDao.findSongByMbid(albumId, mbid)?.let { return it.songId } }
+        suspend fun SongEntity.isFree() = !mergeDao.hasOtherSourceFrom(songId, sourceId, uid)
+
+        track.mbidTrack?.let { mbid -> mergeDao.findSongByMbid(albumId, mbid)?.takeIf { it.isFree() }?.let { return it.songId } }
 
         val normTitle = track.title.mergeKey()
         val match = mergeDao.findSongByPosition(albumId, track.discNumber, track.trackNumber, normTitle)
-            ?.takeUnless { conflicts(it.mbid, track.mbidTrack) }
+            ?.takeIf { !conflicts(it.mbid, track.mbidTrack) && it.isFree() }
             ?: mergeDao.findSongsByTitle(albumId, normTitle).firstOrNull {
-                !conflicts(it.mbid, track.mbidTrack) && abs(it.durationMs - track.durationMs) < DURATION_TOLERANCE_MS &&
-                    !mergeDao.hasOtherSourceFrom(it.songId, sourceId, uid)
+                !conflicts(it.mbid, track.mbidTrack) && abs(it.durationMs - track.durationMs) < DURATION_TOLERANCE_MS && it.isFree()
             }
         if (match != null) {
             // Wie bei Künstler und Album: Eine Quelle, die die MBID kennt, ergänzt sie für alle.

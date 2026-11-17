@@ -166,6 +166,21 @@ class LibrarySyncTest {
     }
 
     @Test
+    fun `two tracks of one source with the same recording id or the same position stay two songs`() = runTest {
+        // Dieselbe Aufnahme auf CD 1 und als Bonus; zwei „Interlude“ ohne Tracknummer.
+        val original = track("1", "Hey Jude", track = 3, mbidTrack = "rec-1")
+        val bonus = original.copy(remoteId = "2", discNumber = 2, trackNumber = 9)
+        val interlude = track("3", "Interlude", track = 0)
+        val interlude2 = interlude.copy(remoteId = "4", durationMs = 60_000)
+        syncer.syncAdding(db, FakeSource("nd", listOf(original, bonus, interlude, interlude2)))
+        assertEquals(4, db.libraryDao().observeSongRows().first().size)
+
+        // Eine zweite Quelle mit denselben Tracks legt sich je Track zu einem der Songs, ohne neue.
+        syncer.syncAdding(db, FakeSource("local", listOf(original, bonus, interlude, interlude2).map { it.copy(remoteId = "l" + it.remoteId) }))
+        assertEquals(4, db.libraryDao().observeSongRows().first().size)
+    }
+
+    @Test
     fun `a song keeps all genres of its source and follows when they change`() = runTest {
         val walk = track("x", "Walk This Way").copy(genre = "Hip-Hop", genres = listOf("Hip-Hop", "Rap", "rap "))
         syncer.syncAdding(db, FakeSource("nd", listOf(walk)))
