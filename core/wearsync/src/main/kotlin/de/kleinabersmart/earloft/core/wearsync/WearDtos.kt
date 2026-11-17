@@ -446,6 +446,11 @@ data class WearRemoteLibraryDto(
     /** Favorisierte Alben bzw. Künstler (IDs aus [albums] bzw. [artists]), zuletzt favorisierte zuerst; ältere Handys schicken keine. */
     val favoriteAlbumIds: List<Long> = emptyList(),
     val favoriteArtistIds: List<Long> = emptyList(),
+    /**
+     * Das Handy liefert die Podcast-Warteschlange ([WearRemoteEpisodesRequest.QUEUE_FEED_ID]); ältere Handys kennen sie nicht
+     * und antworten „nicht gefunden“ (Review V18).
+     */
+    val hasPodcastQueue: Boolean = false,
 )
 
 /** Ein Podcast-Abo des Handys; [feedId] wie am Handy und auf der Uhr. */

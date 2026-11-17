@@ -255,18 +255,20 @@ private fun WearRemoteBookDto.toEntry() = ListEntry(
 
 /**
  * Die Warteschlange der Podcasts und darunter die Abos des Handys (Wear-Konzept 17); [ListEntry.key] ist die Position,
- * [feedAt] liefert das Abo dazu, [QUEUE_KEY] die Warteschlange (immer da, auch wenn sie leer ist).
+ * [feedAt] liefert das Abo dazu, [QUEUE_KEY] die Warteschlange (immer da, auch wenn sie leer ist; nicht bei älteren Handys,
+ * die sie nicht liefern).
  */
 @HiltViewModel
 class RemotePodcastsViewModel @Inject constructor(remote: PhoneRemote) : ViewModel() {
-    private val podcasts = remote.library.map { it?.podcasts }
+    private val library = remote.library
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), null)
 
-    val state: StateFlow<EntryListState> = podcasts.map { feeds ->
+    val state: StateFlow<EntryListState> = library.map { library ->
+        val feeds = library?.podcasts
         when {
             feeds == null -> EntryListState.Message(R.string.remote_no_library)
             else -> EntryListState.Ready(
-                listOf(ListEntry(QUEUE_KEY, title = "", songCount = 0, titleRes = R.string.list_queue)) +
+                listOfNotNull(ListEntry(QUEUE_KEY, title = "", songCount = 0, titleRes = R.string.list_queue).takeIf { library.hasPodcastQueue }) +
                     feeds.mapIndexed { index, feed ->
                         ListEntry(index.toLong(), feed.title, songCount = 0, artist = feed.author.ifBlank { null }, cover = CoverRef.Phone(WearThumbnailFile.Ref.Feed(feed.feedId)))
                     },
@@ -274,7 +276,7 @@ class RemotePodcastsViewModel @Inject constructor(remote: PhoneRemote) : ViewMod
         }
     }.orOnError(LoadFailed).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_SUBSCRIPTION_MS), EntryListState.Loading)
 
-    fun feedAt(key: Long): WearRemotePodcastDto? = podcasts.value?.getOrNull(key.toInt())
+    fun feedAt(key: Long): WearRemotePodcastDto? = library.value?.podcasts?.getOrNull(key.toInt())
 
     companion object {
         const val QUEUE_KEY = -1L

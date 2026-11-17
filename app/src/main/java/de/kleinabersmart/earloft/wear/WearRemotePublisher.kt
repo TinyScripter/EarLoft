@@ -3,6 +3,7 @@ package de.kleinabersmart.earloft.wear
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.AudioManager
+import android.os.SystemClock
 import android.util.Log
 import com.google.android.gms.wearable.DataClient
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -92,11 +93,15 @@ class WearRemotePublisher @Inject constructor(
     /** [WearRemoteStateDto.coverKey] des zuletzt geschriebenen Covers; ändert sich nur beim Album- bzw. Buchwechsel. */
     private var publishedCoverKey: Long? = null
 
-    /** Buch, dessen Kapitel zuletzt geschrieben wurden ([WearRemoteChaptersDto]); ändert sich nur beim Buchwechsel. */
-    private var publishedChaptersBookId: Long? = null
+    /** Zuletzt geschriebene Kapitel ([WearRemoteChaptersDto]); neu geschrieben wird nur, wenn sie sich ändern. */
+    private var publishedChapters: WearRemoteChaptersDto? = null
 
-    /** Zeitachse des laufenden Buchs, damit nicht jede Meldung Dateien und Kapitel neu liest. */
-    private var timelineCache: Pair<Long, BookTimeline?>? = null
+    /**
+     * Zeitachse des laufenden Buchs mit dem Zeitpunkt des Lesens (`elapsedRealtime`), damit nicht jede Meldung Dateien und
+     * Kapitel neu liest. Nach [TIMELINE_MAX_AGE_MS] wird sie neu gelesen: Kapitel können später kommen (Folge beim Hören
+     * geladen, Kapitel-Liste erst im zweiten Anlauf), die Uhr behielte sonst die alten (Review V5).
+     */
+    private var timelineCache: Triple<Long, BookTimeline?, Long>? = null
 
     /** Zuletzt geschriebener Bibliotheksindex; `null` = noch beim Data Layer nachsehen. */
     private var publishedLibraryHash: String? = null
@@ -146,7 +151,13 @@ class WearRemotePublisher @Inject constructor(
                         feeds.map { WearRemotePodcastDto(it.id, it.title, it.author) } to remoteBooks(allBooks)
                     }
                     combine(music, collectionFavorites, spoken) { dto, (favoriteAlbums, favoriteArtists), (feeds, bookList) ->
-                        dto.copy(favoriteAlbumIds = favoriteAlbums, favoriteArtistIds = favoriteArtists, podcasts = feeds, books = bookList)
+                        dto.copy(
+                            favoriteAlbumIds = favoriteAlbums,
+                            favoriteArtistIds = favoriteArtists,
+                            podcasts = feeds,
+                            books = bookList,
+                            hasPodcastQueue = true,
+                        )
                     }.debounce { if (first) 0L.also { first = false } else LIBRARY_DEBOUNCE_MS }
                 }
             }.collect { publishLibrary(it) }
@@ -162,13 +173,17 @@ class WearRemotePublisher @Inject constructor(
         val coverKey = dto.coverKey
         if (coverKey != null && coverKey != publishedCoverKey) publishCover(dto, coverKey)
         val bookId = dto.bookId
-        if (dto.isSpoken && bookId != null && bookId != publishedChaptersBookId) publishChapters(bookId)
+        if (dto.isSpoken && bookId != null) publishChapters(bookId)
     }
 
-    /** Einmal je Buch: Den Kapitelnamen rechnet die Uhr aus der Position, das Handy muss ihn nicht bei jedem Wechsel melden. */
+    /**
+     * Einmal je Buch und bei geänderten Kapiteln: Den Kapitelnamen rechnet die Uhr aus der Position, das Handy muss ihn nicht
+     * bei jedem Wechsel melden.
+     */
     private suspend fun publishChapters(bookId: Long) {
         val dto = remoteChapters(bookId, timeline(bookId))
-        if (dataClient.putPayload(WearPaths.REMOTE_CHAPTERS, WearCodec.encodeCompressed(dto))) publishedChaptersBookId = bookId
+        if (dto == publishedChapters) return
+        if (dataClient.putPayload(WearPaths.REMOTE_CHAPTERS, WearCodec.encodeCompressed(dto))) publishedChapters = dto
     }
 
     private suspend fun musicState(state: PlayerState, positionMs: Long): WearRemoteStateDto {
@@ -217,8 +232,9 @@ class WearRemotePublisher @Inject constructor(
     }
 
     private suspend fun timeline(bookId: Long): BookTimeline? {
-        timelineCache?.takeIf { it.first == bookId }?.let { return it.second }
-        return books.timeline(bookId).also { timelineCache = bookId to it }
+        val now = SystemClock.elapsedRealtime()
+        timelineCache?.takeIf { (cachedId, _, readAt) -> cachedId == bookId && now - readAt < TIMELINE_MAX_AGE_MS }?.let { return it.second }
+        return books.timeline(bookId).also { timelineCache = Triple(bookId, it, now) }
     }
 
     private suspend fun publishCover(dto: WearRemoteStateDto, coverKey: Long) {
@@ -267,6 +283,7 @@ class WearRemotePublisher @Inject constructor(
         const val TAG = "WearRemotePublisher"
         const val STATE_DEBOUNCE_MS = 250L
         const val LIBRARY_DEBOUNCE_MS = 3_000L
+        const val TIMELINE_MAX_AGE_MS = 60_000L
 
         /** Die Uhr zeigt das Cover im Kreis von rund 400 px; 300 px bleiben mit JPEG deutlich unter der 100-KB-Grenze. */
         const val COVER_SIZE_PX = 300
