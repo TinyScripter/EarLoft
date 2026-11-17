@@ -29,10 +29,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -134,13 +137,17 @@ internal fun LazyListScope.bookmarkItems(bookmarks: List<Bookmark>, actions: Boo
     }
 }
 
-/** Bearbeiten (Dialog) und Löschen mit Rückgängig; der Dialog muss einmal je Bildschirm gezeigt werden ([Dialog]). */
+/**
+ * Bearbeiten (Dialog) und Löschen mit Rückgängig; der Dialog muss einmal je Bildschirm gezeigt werden ([Dialog]). Welches
+ * Lesezeichen bearbeitet wird, liegt in [editingState] (gesichert): Drehen schließt den Dialog nicht (Review V25).
+ */
 @androidx.compose.runtime.Stable
 internal class BookmarkActions(
     private val viewModel: BookmarksViewModel,
+    private val editingState: MutableState<Bookmark?>,
     private val onDeleted: (Bookmark) -> Unit,
 ) {
-    var editing by mutableStateOf<Bookmark?>(null)
+    var editing by editingState
 
     fun delete(bookmark: Bookmark) {
         viewModel.delete(bookmark)
@@ -177,8 +184,9 @@ internal fun rememberBookmarkActions(
     // Immer das aktuelle: Nach einem Wechsel des Buchs schrieb der gemerkte Aufruf sonst in den Zustand des vorigen, und
     // „Rückgängig“ fehlte (Review D36).
     val currentOnDeleted by rememberUpdatedState(onDeleted)
-    return remember(viewModel, snackbars) {
-        BookmarkActions(viewModel) { bookmark ->
+    val editing = rememberSaveable(stateSaver = BookmarkSaver) { mutableStateOf(null) }
+    return remember(viewModel, snackbars, editing) {
+        BookmarkActions(viewModel, editing) { bookmark ->
             val ownUndo = currentOnDeleted
             if (ownUndo != null) {
                 ownUndo(bookmark)
@@ -188,6 +196,20 @@ internal fun rememberBookmarkActions(
         }
     }
 }
+
+/** Ein Lesezeichen im gesicherten Zustand (Bearbeiten-Dialog über Drehen und Prozessende); `null` = keines. */
+private val BookmarkSaver: Saver<Bookmark?, Any> = listSaver(
+    save = { bookmark ->
+        if (bookmark == null) emptyList() else listOf(bookmark.id, bookmark.bookId, bookmark.positionMs, bookmark.title, bookmark.note, bookmark.createdAt)
+    },
+    restore = { values ->
+        if (values.size < 6) {
+            null
+        } else {
+            Bookmark(values[0] as Long, values[1] as Long, values[2] as Long, values[3] as String, values[4] as String, values[5] as Long)
+        }
+    },
+)
 
 @Composable
 internal fun BookmarkRow(bookmark: Bookmark, onJump: () -> Unit, actions: BookmarkActions, transparent: Boolean) {

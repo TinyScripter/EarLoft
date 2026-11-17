@@ -33,7 +33,6 @@ import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.earloft.ui.components.group
 import de.kleinabersmart.earloft.ui.components.readableWidth
 import de.kleinabersmart.earloft.ui.library.BackButton
-import kotlinx.coroutines.flow.map
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
@@ -50,8 +49,7 @@ fun BookmarksScreen(
     modifier: Modifier = Modifier,
     viewModel: BookmarksViewModel = hiltViewModel(),
 ) {
-    val state by remember(kind) { viewModel.all(kind).map<_, LoadState<List<BookmarkedBook>>> { LoadState.Ready(it.byBook()) } }
-        .collectAsStateWithLifecycle(LoadState.Loading)
+    val state by remember(kind) { viewModel.books(kind) }.collectAsStateWithLifecycle(LoadState.Loading)
     val actions = rememberBookmarkActions(viewModel)
     Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         TopAppBar(title = { Text(stringResource(R.string.spoken_bookmarks)) }, navigationIcon = { BackButton(onBack) })
@@ -87,7 +85,7 @@ fun BookmarksScreen(
 /** Symbol im Kopf der Bibliothek zu den gesammelten Lesezeichen; nur, solange es im Bereich welche gibt. */
 @Composable
 internal fun BookmarksHeaderButton(kind: BookKind, onOpen: () -> Unit, viewModel: BookmarksViewModel = hiltViewModel()) {
-    val any by remember(kind) { viewModel.all(kind).map { it.isNotEmpty() } }.collectAsStateWithLifecycle(false)
+    val any by remember(kind) { viewModel.any(kind) }.collectAsStateWithLifecycle(false)
     if (!any) return
     IconButton(onClick = onOpen) {
         Icon(painterResource(DesignR.drawable.ic_bookmark), contentDescription = stringResource(R.string.spoken_bookmarks))
