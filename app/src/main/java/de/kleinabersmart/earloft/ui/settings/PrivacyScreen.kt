@@ -19,6 +19,9 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.style.TextDecoration
@@ -68,12 +71,14 @@ private fun PrivacyContent(blocks: List<PolicyBlock>, onBack: () -> Unit, modifi
                         Text(
                             policyText(block.text, linkStyles),
                             style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(top = 8.dp),
+                            // TalkBack springt von Überschrift zu Überschrift (Review V26).
+                            modifier = Modifier.padding(top = 8.dp).semantics { heading() },
                         )
                     }
                     is PolicyBlock.Paragraph -> Text(policyText(block.text, linkStyles), style = MaterialTheme.typography.bodyMedium)
                     is PolicyBlock.Bullet -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("•", style = MaterialTheme.typography.bodyMedium)
+                        // Nur Schmuck: kein eigenes Element für TalkBack.
+                        Text("•", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clearAndSetSemantics {})
                         Text(policyText(block.text, linkStyles), style = MaterialTheme.typography.bodyMedium)
                     }
                     PolicyBlock.Divider -> HorizontalDivider()
