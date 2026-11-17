@@ -9,7 +9,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -644,7 +643,9 @@ fun EarLoftApp(
                             val gap = coordinates.findRootCoordinates().size.height - bottom
                             belowPages = with(density) { gap.coerceAtLeast(0f).toDp() }
                         }
-                        .consumeWindowInsets(PaddingValues(bottom = belowPages)),
+                        // Als `WindowInsets`: Die werden mit dem schon Verbrauchten vereinigt. `PaddingValues` zählte die
+                        // Navigationsleiste ein zweites Mal (sie steckt in `belowPages` und ist oben schon verbraucht, Review V12).
+                        .consumeWindowInsets(WindowInsets(bottom = belowPages)),
                 ) {
                     CompositionLocalProvider(LocalSharedTransitionScope provides this) {
                         NavDisplay(
