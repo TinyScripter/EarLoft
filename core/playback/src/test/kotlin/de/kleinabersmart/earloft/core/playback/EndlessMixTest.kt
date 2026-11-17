@@ -10,6 +10,7 @@ import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import de.kleinabersmart.earloft.core.model.Song
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertEquals
@@ -82,6 +83,32 @@ class EndlessMixTest {
         player.update(current = 1)
 
         assertEquals(listOf(2L), seeds)
+    }
+
+    @Test
+    fun `a slow mix for an earlier song does not keep the new last song from its mix`() {
+        val slow = CompletableDeferred<Unit>()
+        EndlessMix(
+            player,
+            isEnabled = { enabled },
+            mix = { seed ->
+                seeds += seed
+                if (seed == 3L) slow.await()
+                listOf(7L, 8).map(::song)
+            },
+            factory = null,
+            scope = CoroutineScope(Dispatchers.Unconfined),
+        ).also(player::addListener)
+        player.update(listOf(1, 2, 3), current = 0)
+        player.update(current = 2)
+
+        // Während der Mix zu 3 noch sucht, kommt eine neue Warteschlange mit nur einem Song.
+        player.update(listOf(5), current = 0)
+        slow.complete(Unit)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(listOf(3L, 5), seeds)
+        assertEquals(listOf(5L, 7, 8), player.songIds())
     }
 
     private fun song(id: Long) = Song(id, "Song $id", "Künstler", albumId = 1, albumTitle = "Album", durationMs = 1000, discNumber = 1, trackNumber = id.toInt(), isFavorite = false)

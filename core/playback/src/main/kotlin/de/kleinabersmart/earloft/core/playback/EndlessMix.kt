@@ -64,11 +64,17 @@ internal class EndlessMix(
         }
     }
 
-    /** Auch beim Einschalten der Einstellung: Läuft gerade der letzte Song, kommt der Mix sofort. */
+    /**
+     * Auch beim Einschalten der Einstellung: Läuft gerade der letzte Song, kommt der Mix sofort. Sucht noch ein Mix zu einem
+     * anderen Song (langsamer Server, inzwischen neue Warteschlange), wird er verworfen: Sonst endete der neue letzte Song ohne Mix.
+     */
     fun check() {
-        if (job?.isActive == true) return
-        val seed = seedAtEnd() ?: return
-        if (seed == lastSeed) return
+        val seed = seedAtEnd()
+        if (job?.isActive == true) {
+            if (seed == lastSeed) return
+            job?.cancel()
+        }
+        if (seed == null || seed == lastSeed) return
         lastSeed = seed
         val queued = (0 until player.mediaItemCount).mapNotNullTo(HashSet()) { player.getMediaItemAt(it).songId }
         job = scope.launch {
