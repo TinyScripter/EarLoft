@@ -86,8 +86,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         lifecycle.addObserver(AmbientLifecycleObserver(this, ambientCallback))
         requestPermissions()
-        // Nur beim frischen Start: Nach einer Neuerstellung (Drehung, Prozess) steht der Intent noch an der Activity.
-        if (savedInstanceState == null) openRoute = routeOf(intent)
+        // Nur beim frischen Start: Nach einer Neuerstellung (Drehung, Prozess) steht der Intent noch an der Activity. Ein Start aus
+        // dem Verlauf stellt den alten Intent (z. B. vom Download-Symbol) erneut zu, er gilt nicht noch einmal (Review V19).
+        if (savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0) openRoute = routeOf(intent)
         setContent {
             CompositionLocalProvider(LocalListCovers provides listCovers) {
                 WearApp(openRoute = openRoute, onRouteOpened = { openRoute = null })
