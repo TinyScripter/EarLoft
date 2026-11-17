@@ -44,7 +44,7 @@ class AddPodcastViewModelTest {
     @Inject lateinit var podcastDao: PodcastDao
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
-    private val viewModel by lazy { AddPodcastViewModel(podcasts, directorySearch, opmlImporter, applicationScope) }
+    private val viewModel by lazy { AddPodcastViewModel(podcasts, directorySearch, settings, opmlImporter, applicationScope) }
 
     @Before
     fun setUp() {
@@ -80,6 +80,15 @@ class AddPodcastViewModelTest {
         settings.setDirectory(PodcastDirectory.APPLE, true)
 
         assertEquals(listOf(PodcastDirectory.APPLE), awaitReal { viewModel.directories.first { !it.isNullOrEmpty() } })
+    }
+
+    @Test
+    fun `directories can be switched on and off right on the page`() = runTest {
+        viewModel.setDirectory(PodcastDirectory.APPLE, true)
+        assertEquals(listOf(PodcastDirectory.APPLE), awaitReal { viewModel.directories.first { !it.isNullOrEmpty() } })
+
+        viewModel.setDirectory(PodcastDirectory.APPLE, false)
+        assertEquals(emptyList<PodcastDirectory>(), awaitReal { viewModel.directories.first { it?.isEmpty() == true } })
     }
 
     @Test

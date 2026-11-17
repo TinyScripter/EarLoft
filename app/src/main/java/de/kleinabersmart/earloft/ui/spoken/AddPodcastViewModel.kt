@@ -13,6 +13,7 @@ import de.kleinabersmart.earloft.core.data.podcast.TrialPodcastPages
 import de.kleinabersmart.earloft.core.data.podcast.OpmlImportResult
 import de.kleinabersmart.earloft.core.data.podcast.PodcastDirectorySearch
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
+import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
 import de.kleinabersmart.earloft.core.data.podcast.SubscribeResult
 import de.kleinabersmart.earloft.core.network.podcast.directory.DirectoryPodcast
 import de.kleinabersmart.earloft.core.network.podcast.directory.PodcastCategory
@@ -101,6 +102,7 @@ sealed interface DiscoverState {
 class AddPodcastViewModel @Inject constructor(
     private val podcasts: PodcastRepository,
     private val directorySearch: PodcastDirectorySearch,
+    private val podcastSettings: PodcastSettings,
     private val opmlImporter: OpmlImporter,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
@@ -133,6 +135,20 @@ class AddPodcastViewModel @Inject constructor(
     /** Eingeschaltete Verzeichnisse; `null`, solange die Einstellung noch nicht gelesen ist. */
     val directories: StateFlow<List<PodcastDirectory>?> = directorySearch.enabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Verzeichnisse dieses Builds, für den Dialog neben „In Verzeichnissen suchen“. */
+    val availableDirectories: List<PodcastDirectory> get() = directorySearch.available
+
+    /**
+     * Schaltet [directory] ein oder aus (dieselbe Einstellung wie Einstellungen → Podcasts). Treffer einer Suche gelten für
+     * die bisherigen Verzeichnisse und werden deshalb neu gesucht; „Entdecken“ lädt die Seite selbst neu.
+     */
+    fun setDirectory(directory: PodcastDirectory, enabled: Boolean) {
+        viewModelScope.launch {
+            podcastSettings.setDirectory(directory, enabled)
+            (_search.value as? DirectorySearchState.Done)?.let { search(it.term) }
+        }
+    }
 
     /** Abos nach [feedKey], um Treffer als schon abonniert zu kennzeichnen. */
     val subscribed: StateFlow<Map<String, String>> = podcasts.subscribedByKey

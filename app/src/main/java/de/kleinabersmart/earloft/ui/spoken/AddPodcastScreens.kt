@@ -27,6 +27,10 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -56,6 +60,11 @@ import de.kleinabersmart.earloft.core.network.podcast.directory.PodcastDirectory
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.background
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
@@ -99,10 +108,13 @@ fun AddPodcastScreen(
     var opmlToImport by rememberSaveable { mutableStateOf<Uri?>(null) }
     /** Treffer (nach [feedKey]), für den gerade gewählt wird, ob das Abo über den Feed oder über ARD Sounds läuft. */
     var choosingSource by rememberSaveable { mutableStateOf<String?>(null) }
+    var choosingDirectories by rememberSaveable { mutableStateOf(false) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { opmlToImport = it }
     val focus = LocalFocusManager.current
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(add) {
         val state = add
@@ -136,7 +148,7 @@ fun AddPodcastScreen(
             title = { Text(stringResource(R.string.podcast_add), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
         )
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "direct") { SectionHeader(stringResource(R.string.podcast_add_direct)) }
             item(key = "url") {
                 FeedUrlForm(url, onUrlChange = { url = it }, state = add, onSubscribe = { viewModel.subscribe(url) })
@@ -152,7 +164,14 @@ fun AddPodcastScreen(
                 }
             }
 
-            item(key = "search-header") { SectionHeader(stringResource(R.string.podcast_add_search)) }
+            item(key = "search-header") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SectionHeader(stringResource(R.string.podcast_add_search), Modifier.weight(1f))
+                    IconButton(onClick = { choosingDirectories = true }, modifier = Modifier.padding(end = GroupMargin)) {
+                        Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_directories_choose))
+                    }
+                }
+            }
             val enabled = directories
             when {
                 enabled == null -> Unit
@@ -195,7 +214,10 @@ fun AddPodcastScreen(
                                 country,
                                 discover,
                                 subscribed,
-                                onCategory = { viewModel.discover(it, directories) },
+                                onCategory = {
+                                    viewModel.discover(it, directories)
+                                    scope.launch { listState.showDiscoverStart() }
+                                },
                                 onHit = openHit,
                             )
                         }
@@ -241,6 +263,18 @@ fun AddPodcastScreen(
             onDismiss = { opmlToImport = null },
         )
     }
+    if (choosingDirectories) {
+        DirectoriesDialog(
+            available = viewModel.availableDirectories,
+            enabled = directories.orEmpty(),
+            onToggle = viewModel::setDirectory,
+            onOpenSettings = {
+                choosingDirectories = false
+                onOpenSettings()
+            },
+            onDismiss = { choosingDirectories = false },
+        )
+    }
     choosingSource?.let { key ->
         // Eine neue Suche ersetzt die Treffer; ist der gewählte weg, bleibt der Dialog zu.
         val shown = (search as? DirectorySearchState.Done)?.hits ?: (discover as? DiscoverState.Done)?.hits
@@ -272,9 +306,22 @@ fun AddPodcastScreen(
 private fun DirectoryPodcast.isSubscribed(subscribed: Map<String, String>): Boolean =
     feedKey(feedUrl) in subscribed || ardSoundsUrl?.let { feedKey(it) in subscribed } == true
 
+private const val DiscoverHeaderKey = "discover-header"
+
+/**
+ * Nach einem Kategoriewechsel beginnt die Liste wieder direkt unter den Chips, wenn sie schon darunter gescrollt war;
+ * sonst stünde man mitten in der neuen Liste (oder hinter ihrem Ende).
+ */
+private suspend fun LazyListState.showDiscoverStart() {
+    val header = layoutInfo.visibleItemsInfo.firstOrNull { it.key == DiscoverHeaderKey } ?: return
+    val pastHeader = firstVisibleItemIndex > header.index || (firstVisibleItemIndex == header.index && firstVisibleItemScrollOffset > 0)
+    if (pastHeader) scrollToItem(header.index)
+}
+
 /**
  * „Entdecken“ unter dem leeren Suchfeld (Konzept 12.10): Überschrift „Beliebt in <Land>“ (mit Apple, sonst „Gerade
- * gefragt“ aus Podcast Index), Kategorien als Chips und die Treffer wie bei der Suche.
+ * gefragt“ aus Podcast Index), Kategorien als Chips und die Treffer wie bei der Suche. Überschrift und Chips bleiben
+ * beim Scrollen oben stehen, damit sich die Kategorie jederzeit wechseln lässt.
  */
 private fun LazyListScope.discoverSection(
     directories: List<PodcastDirectory>,
@@ -284,32 +331,37 @@ private fun LazyListScope.discoverSection(
     onCategory: (PodcastCategory?) -> Unit,
     onHit: (DirectoryPodcast) -> Unit,
 ) {
-    item(key = "discover-header") {
+    stickyHeader(key = DiscoverHeaderKey) {
         val title = if (PodcastDirectory.APPLE in directories && country != null) {
             stringResource(R.string.podcast_discover_popular, Locale.Builder().setRegion(country).build().displayCountry)
         } else {
             stringResource(R.string.podcast_discover_trending)
         }
-        SectionHeader(title)
-    }
-    item(key = "discover-categories") {
-        val scroll = rememberScrollState()
-        val selected = state?.category
-        Row(
-            Modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = GroupMargin + 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            FilterChip(selected = selected == null, onClick = { onCategory(null) }, label = { Text(stringResource(R.string.podcast_category_all)) })
-            PodcastCategory.entries.forEach { category ->
-                FilterChip(selected = selected == category, onClick = { onCategory(category) }, label = { Text(stringResource(category.label)) })
+        // Eigener Hintergrund, damit die Treffer darunter durchlaufen statt durchzuscheinen.
+        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(bottom = 8.dp)) {
+            SectionHeader(title)
+            val scroll = rememberScrollState()
+            val selected = state?.category
+            Row(
+                Modifier.keepHorizontalScroll(scroll).horizontalScroll(scroll).padding(horizontal = GroupMargin + 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(selected = selected == null, onClick = { onCategory(null) }, label = { Text(stringResource(R.string.podcast_category_all)) })
+                PodcastCategory.entries.forEach { category ->
+                    FilterChip(selected = selected == category, onClick = { onCategory(category) }, label = { Text(stringResource(category.label)) })
+                }
             }
         }
     }
     when (state) {
+        // So hoch wie die Liste: Nach einem Kategoriewechsel bleiben die Chips oben stehen, statt dass die kurze Liste
+        // beim Laden zurück an den Seitenanfang springt.
         null, is DiscoverState.Loading -> item(key = "discover-loading") {
-            Row(Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text(stringResource(R.string.podcast_discover_loading), modifier = Modifier.padding(start = 12.dp))
+            Box(Modifier.fillParentMaxHeight()) {
+                Row(Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text(stringResource(R.string.podcast_discover_loading), modifier = Modifier.padding(start = 12.dp))
+                }
             }
         }
         is DiscoverState.Done -> {
@@ -373,6 +425,50 @@ private fun ReactivateDialog(title: String, onReactivate: () -> Unit, onDismiss:
  * Auswahl, woher ein Treffer kommt, den ARD Sounds und sein RSS-Feed beide liefern (Konzept 12.10): der Feed (wie in
  * anderen Apps, mit den Verzeichnissen, die ihn kennen) oder ARD Sounds (eigene Bilder und Folgenliste).
  */
+/**
+ * Verzeichnisse direkt auf der Seite ein- und ausschalten, ohne Umweg über die Einstellungen (dieselbe Einstellung wie
+ * Einstellungen → Podcasts → Verzeichnisse). Das Land für Apple gibt es nur dort.
+ */
+@Composable
+private fun DirectoriesDialog(
+    available: List<PodcastDirectory>,
+    enabled: List<PodcastDirectory>,
+    onToggle: (PodcastDirectory, Boolean) -> Unit,
+    onOpenSettings: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_section_directories)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                available.forEach { directory ->
+                    val checked = directory in enabled
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .toggleable(value = checked, role = Role.Switch, onValueChange = { onToggle(directory, it) })
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 16.dp)) {
+                            Text(stringResource(directory.label), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                stringResource(directory.summary),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = checked, onCheckedChange = null)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.spoken_close)) } },
+        dismissButton = { TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.podcast_directory_open_settings)) } },
+    )
+}
+
 @Composable
 private fun SourceDialog(hit: DirectoryPodcast, onChoose: (String) -> Unit, onDismiss: () -> Unit) {
     val resources = LocalResources.current
