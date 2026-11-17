@@ -24,10 +24,17 @@ import de.kleinabersmart.earloft.core.wearsync.changesAt
 import de.kleinabersmart.earloft.core.wearsync.payloadsAt
 import de.kleinabersmart.earloft.core.wearsync.sendAndAwait
 import de.kleinabersmart.earloft.core.wearsync.sendPayload
+import de.kleinabersmart.earloft.core.data.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -43,7 +50,20 @@ class PhoneRemote @Inject constructor(
     private val dataClient: DataClient,
     private val messageClient: MessageClient,
     private val phoneConnection: PhoneConnection,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) {
+    /**
+     * Die Anmeldung beim Handy, einmal für alle beobachteten Flüsse ([subscribed]): läuft, solange einer gesammelt wird, und
+     * meldet sich beim ersten sofort an. Je Fluss eine eigene Schleife hieße je Ansicht mehrere Nachrichten alle
+     * [WearRemoteSubscription.RENEW_MS] (Review V20).
+     */
+    private val subscription: Flow<Unit> = flow<Unit> {
+        while (true) {
+            sendToPhone(WearPaths.REMOTE_SUBSCRIBE, ByteArray(0))
+            delay(WearRemoteSubscription.RENEW_MS)
+        }
+    }.shareIn(applicationScope, SharingStarted.WhileSubscribed())
+
     /** Was das Handy spielt; `null`, solange es nichts gemeldet hat. */
     val state: Flow<WearRemoteStateDto?> = dataClient.changesAt(WearPaths.REMOTE_STATE)
         .subscribed()
@@ -81,7 +101,10 @@ class PhoneRemote @Inject constructor(
         }
         .distinctUntilChanged()
 
-    /** Alben, Künstler, Playlists, Abos und Bücher des Handys; `null`, solange das Handy sie nicht geschrieben hat. */
+    /**
+     * Alben, Künstler, Playlists, Abos und Bücher des Handys; `null`, solange das Handy sie nicht geschrieben hat. Lesen,
+     * Entpacken und Dekodieren (bei großen Bibliotheken einige hundert KB) laufen abseits des Main-Threads (Review V6).
+     */
     val library: Flow<WearRemoteLibraryDto?> = dataClient.changesAt(WearPaths.REMOTE_LIBRARY)
         .subscribed()
         .map {
@@ -91,9 +114,13 @@ class PhoneRemote @Inject constructor(
                 } catch (e: SerializationException) {
                     Log.w(TAG, "Bibliotheksindex nicht lesbar", e)
                     null
+                } catch (e: java.io.IOException) {
+                    Log.w(TAG, "Bibliotheksindex nicht lesbar", e)
+                    null
                 }
             }
         }
+        .flowOn(Dispatchers.Default)
 
     /**
      * Meldet die Uhr beim Handy an, solange [this] gesammelt wird. Das Handy schreibt Zustand, Cover und Bibliotheksindex nur
@@ -101,12 +128,7 @@ class PhoneRemote @Inject constructor(
      * [WearRemoteSubscription.TTL_MS] und wird alle [WearRemoteSubscription.RENEW_MS] erneuert.
      */
     private fun <T> Flow<T>.subscribed(): Flow<T> = channelFlow {
-        launch {
-            while (true) {
-                sendToPhone(WearPaths.REMOTE_SUBSCRIBE, ByteArray(0))
-                delay(WearRemoteSubscription.RENEW_MS)
-            }
-        }
+        launch { subscription.collect() }
         collect { send(it) }
     }
 
