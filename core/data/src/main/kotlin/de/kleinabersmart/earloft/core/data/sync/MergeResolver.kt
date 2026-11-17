@@ -78,7 +78,9 @@ class MergeResolver @Inject constructor(
         if (existing.sizeBytes != track.sizeBytes || existing.mimeType != track.mimeType) mergeDao.requeueDownload(uid)
         mergeDao.setAlbumCoverIfMissing(albumId, uid)
         if (syncsFavorites) {
-            mergeFavorite(songId, uid, track.starredAt, existing.starredAt, isNewSource = false)
+            // Zu einem anderen Song gewechselt (aufgeteilt oder neu getaggt): Für diesen ist die Quelle neu, ihr Stern kommt mit
+            // (Review V13). Sonst bliebe er auf dem Server stehen, während der Song in der App kein Favorit ist.
+            mergeFavorite(songId, uid, track.starredAt, existing.starredAt, isNewSource = songId != existing.songId)
             collections.record(sourceId, track, songId, generation)
         }
         return songId

@@ -125,6 +125,20 @@ class FavoritesSyncTest {
         assertEquals(listOf("office:x"), db.syncDao().getActions().map { it.targetKey })
     }
 
+    @Test
+    fun `a source that splits off to its own song takes its star along`() = runTest {
+        syncer.syncAdding(db, source("nd", track("a", starredAt = 1_000)))
+        syncer.syncAdding(db, source("office", track("x", starredAt = 1_000)))
+        assertTrue(song().isFavorite)
+
+        // Auf „nd“ neu getaggt: Der Track ist jetzt ein anderer Song, sein Stern auf dem Server bleibt.
+        syncer.syncAdding(db, source("nd", track("a", starredAt = 1_000).copy(title = "Hoppípolla (Live)", lastModified = 2)))
+
+        val songs = db.libraryDao().observeSongRows().first()
+        assertEquals(2, songs.size)
+        assertTrue(songs.all { it.isFavorite })
+    }
+
     private suspend fun song() = db.libraryDao().observeSongRows().first().single()
 
     private fun track(remoteId: String, starredAt: Long? = null) = RawTrack(
