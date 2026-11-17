@@ -47,12 +47,27 @@ internal class EndlessMix(
 ) : Player.Listener {
     private var job: Job? = null
 
-    /** Der Song, zu dem zuletzt ein Mix gesucht wurde: Ein leerer Mix wird nicht bei jedem Ereignis neu gesucht. */
+    /**
+     * Der Song, zu dem zuletzt ein Mix gesucht wurde: Ein leerer Mix wird nicht bei jedem Ereignis neu gesucht. Auch der Song,
+     * hinter dem die Warteschlange geleert wurde: bis zum nächsten Song kein Mix (Review V8).
+     */
     private var lastSeed: Long? = null
+
+    /** Stand beim letzten Ereignis: Anzahl der Titel und ob einer nach dem laufenden kam. */
+    private var lastCount = 0
+    private var hadNext = false
 
     override fun onEvents(player: Player, events: Player.Events) {
         // Ein anderer Song (auch eine neue Warteschlange): Ein vorher leerer Mix darf es wieder versuchen.
-        if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) lastSeed = null
+        if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+            lastSeed = null
+        } else if (events.contains(Player.EVENT_TIMELINE_CHANGED) && clearedBehindCurrent()) {
+            // „Warteschlange leeren“ bzw. den Rest entfernt: Der Nutzer will hier aufhören, nicht gleich 50 neue Titel.
+            lastSeed = player.currentMediaItem?.songId
+            job?.cancel()
+        }
+        lastCount = player.mediaItemCount
+        hadNext = player.hasNextMediaItem()
         if (events.containsAny(
                 Player.EVENT_MEDIA_ITEM_TRANSITION,
                 Player.EVENT_TIMELINE_CHANGED,
@@ -89,6 +104,10 @@ internal class EndlessMix(
             if (items.size > maxSize) factory?.appendPending(items.drop(maxSize))
         }
     }
+
+    /** Gleicher Song, aber weniger Titel und keiner mehr danach, wo vorher einer war. */
+    private fun clearedBehindCurrent(): Boolean =
+        hadNext && player.mediaItemCount < lastCount && !player.hasNextMediaItem() && factory?.hasPendingItems() != true
 
     /** Der laufende Song, wenn er der letzte ist und ein Mix angehängt werden soll; sonst `null`. */
     private fun seedAtEnd(): Long? {

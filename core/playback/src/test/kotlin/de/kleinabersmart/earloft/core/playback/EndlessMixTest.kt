@@ -86,6 +86,23 @@ class EndlessMixTest {
     }
 
     @Test
+    fun `clearing the queue behind the current song pauses the mix until the next song`() {
+        endlessMix()
+        player.update(listOf(3, 4, 5), current = 1)
+        player.update(current = 0)
+
+        // „Warteschlange leeren“: nur der laufende Song bleibt.
+        player.update(listOf(3), current = 0)
+        assertEquals(emptyList<Long>(), seeds)
+        assertEquals(listOf(3L), player.songIds())
+
+        // Der nächste Song (hier neu angehängt und angesprungen) bekommt wieder seinen Mix.
+        player.update(listOf(3, 6), current = 1)
+        assertEquals(listOf(6L), seeds)
+        assertEquals(listOf(3L, 6, 1, 2, 7, 8), player.songIds())
+    }
+
+    @Test
     fun `a slow mix for an earlier song does not keep the new last song from its mix`() {
         val slow = CompletableDeferred<Unit>()
         EndlessMix(
