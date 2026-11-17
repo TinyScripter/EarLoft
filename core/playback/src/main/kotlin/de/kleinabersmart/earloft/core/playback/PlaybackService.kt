@@ -3,6 +3,8 @@ package de.kleinabersmart.earloft.core.playback
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -288,10 +290,19 @@ class PlaybackService : MediaLibraryService() {
         session?.let { notifyContentChanges(it, player) }
     }
 
-    /** „Endlos weiterspielen“: am Ende der Warteschlange ein Mix ([EndlessMix]), am aktiven Player (auch beim Casten). */
+    /**
+     * „Endlos weiterspielen“: am Ende der Warteschlange ein Mix ([EndlessMix]), am aktiven Player (auch beim Casten). Ohne Netz
+     * nur aus Geladenem und Lokalem, sonst endete die Wiedergabe am ersten nicht spielbaren Titel (Review V9).
+     */
     private fun bindEndlessMix(player: Player, factory: SessionPlayerFactory?) {
         var enabled = false
-        val endlessMix = EndlessMix(player, { enabled }, { songId -> mixRepository.mix(MixSeed.Song(songId)) }, factory, mainScope)
+        val endlessMix = EndlessMix(
+            player,
+            { enabled },
+            { songId -> mixRepository.mix(MixSeed.Song(songId), offlineOnly = !hasInternet()) },
+            factory,
+            mainScope,
+        )
         player.addListener(endlessMix)
         mainScope.launch {
             endlessMixSettings.enabled.distinctUntilChanged().collect {
@@ -299,6 +310,14 @@ class PlaybackService : MediaLibraryService() {
                 endlessMix.check()
             }
         }
+    }
+
+    /** Ein Netz mit geprüftem Internetzugang (nicht nur verbunden, z. B. WLAN ohne Anmeldung am Portal). */
+    private fun hasInternet(): Boolean {
+        val manager = getSystemService(ConnectivityManager::class.java) ?: return false
+        val capabilities = manager.getNetworkCapabilities(manager.activeNetwork) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
     /**

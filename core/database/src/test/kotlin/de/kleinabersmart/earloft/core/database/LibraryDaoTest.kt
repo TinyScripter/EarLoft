@@ -9,12 +9,14 @@ import de.kleinabersmart.earloft.core.database.dao.SourceDao
 import de.kleinabersmart.earloft.core.database.entity.AlbumArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.AlbumEntity
 import de.kleinabersmart.earloft.core.database.entity.ArtistEntity
+import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.SongArtistCrossRef
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongGenreEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
+import de.kleinabersmart.earloft.core.model.DownloadState
 import de.kleinabersmart.earloft.core.model.Genre
 import de.kleinabersmart.earloft.core.model.SourceType
 import kotlinx.coroutines.flow.first
@@ -380,6 +382,27 @@ class LibraryDaoTest {
         assertEquals(4, libraryDao.getRandomMixCandidates(10).size)
 
         assertEquals(listOf(goDo), libraryDao.getSongIdsByRemoteId(LOCAL, listOf("0", "x")).map { it.songId })
+    }
+
+    @Test
+    fun `offline mix candidates are local files and finished downloads only`() = runTest {
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
+        val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
+        val local = insertSong(song(takk, "Glósóli", track = 2))
+        val downloaded = insertSong(song(takk, "Hoppípolla", track = 3))
+        val queued = insertSong(song(takk, "Með blóðnasir", track = 4))
+        val streamOnly = insertSong(song(takk, "Sæglopur", track = 5))
+        libraryDao.insertSongSource(songSource(local, LOCAL, "1"))
+        listOf(downloaded, queued, streamOnly).forEach { libraryDao.insertSongSource(songSource(it, NAVIDROME, "$it")) }
+        db.downloadDao().insertIfAbsent(
+            listOf(
+                DownloadEntity("$NAVIDROME:$downloaded", downloaded, DownloadState.DONE, filePath = "/dl/a"),
+                DownloadEntity("$NAVIDROME:$queued", queued, DownloadState.QUEUED),
+            ),
+        )
+
+        assertEquals(setOf(local, downloaded), libraryDao.getOfflineMixCandidates(10).map { it.songId }.toSet())
     }
 
     @Test

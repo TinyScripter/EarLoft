@@ -348,6 +348,21 @@ abstract class LibraryDao {
     @Query("$SELECT_MIX_CANDIDATES ORDER BY RANDOM() LIMIT :limit")
     abstract suspend fun getRandomMixCandidates(limit: Int): List<MixCandidateRow>
 
+    /**
+     * Bis zu [limit] zufällige sichtbare Songs, die ohne Netz spielen: lokale Datei oder fertiger Download („Weiterspielen“
+     * ohne Netz, Review V9).
+     */
+    @Query(
+        """
+        $SELECT_MIX_CANDIDATES
+        WHERE $SONG_LOCAL
+           OR EXISTS (SELECT 1 FROM downloads d WHERE d.songId = s.songId AND d.state = 'DONE')
+        ORDER BY RANDOM()
+        LIMIT :limit
+        """,
+    )
+    abstract suspend fun getOfflineMixCandidates(limit: Int): List<MixCandidateRow>
+
     // --- Statistik ---
 
     /** Alle gezählten Wiedergaben sichtbarer Songs (Musik-Statistik). */
