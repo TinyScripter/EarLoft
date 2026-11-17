@@ -5,6 +5,7 @@ import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.spoken.SeekSteps
 import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.playback.PlayerState
@@ -15,6 +16,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearRemoteAction
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteChaptersDto
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteStateDto
 import de.kleinabersmart.earloft.wear.sync.PhoneRemote
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -37,7 +39,10 @@ import kotlin.math.roundToInt
  * Play/Pause, Zufall und Wiederholen springen sofort um und gelten, bis das Handy seinen Zustand meldet.
  */
 @HiltViewModel
-class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote) : ViewModel(), NowPlayingModel, ChaptersModel {
+class RemotePlayerViewModel @Inject constructor(
+    private val remote: PhoneRemote,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
+) : ViewModel(), NowPlayingModel, ChaptersModel {
 
     private val remoteState: StateFlow<WearRemoteStateDto?> =
         // Die Nebenwirkungen hängen am Fluss, nicht an einem eigenen Collector: Ein dauerhafter Collector hielte die Anmeldung
@@ -181,8 +186,12 @@ class RemotePlayerViewModel @Inject constructor(private val remote: PhoneRemote)
         }
     }
 
+    /**
+     * Im App-Scope: Die Kapitelliste schließt sich direkt nach dem Tipp, ihr ViewModel wäre vor dem Senden schon weg
+     * (Review V3).
+     */
     private fun send(action: WearRemoteAction, value: Long = 0) {
-        viewModelScope.launch { remote.send(action, value) }
+        applicationScope.launch { remote.send(action, value) }
     }
 
     /** Setzt vorläufige Werte; meldet das Handy nichts zurück (nicht erreichbar), verfallen sie nach kurzer Zeit. */
