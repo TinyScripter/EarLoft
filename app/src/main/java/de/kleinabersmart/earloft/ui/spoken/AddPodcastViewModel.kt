@@ -141,12 +141,13 @@ class AddPodcastViewModel @Inject constructor(
 
     /**
      * Schaltet [directory] ein oder aus (dieselbe Einstellung wie Einstellungen → Podcasts). Treffer einer Suche gelten für
-     * die bisherigen Verzeichnisse und werden deshalb neu gesucht; „Entdecken“ lädt die Seite selbst neu.
+     * die bisherigen Verzeichnisse und werden deshalb neu gesucht, auch eine noch laufende (Review V21); „Entdecken“ lädt die
+     * Seite selbst neu.
      */
     fun setDirectory(directory: PodcastDirectory, enabled: Boolean) {
         viewModelScope.launch {
             podcastSettings.setDirectory(directory, enabled)
-            (_search.value as? DirectorySearchState.Done)?.let { search(it.term) }
+            if (_search.value != DirectorySearchState.Idle) lastTerm?.let(::search)
         }
     }
 
@@ -160,10 +161,14 @@ class AddPodcastViewModel @Inject constructor(
 
     private var searchJob: Job? = null
 
+    /** Begriff der letzten Suche, auch während sie läuft. */
+    private var lastTerm: String? = null
+
     /** Sucht [term] in den eingeschalteten Verzeichnissen; eine laufende Suche wird abgebrochen. */
     fun search(term: String) {
         val trimmed = term.trim()
         if (trimmed.isEmpty()) return
+        lastTerm = trimmed
         searchJob?.cancel()
         _search.value = DirectorySearchState.Searching
         searchJob = viewModelScope.launch {
@@ -224,8 +229,9 @@ class AddPodcastViewModel @Inject constructor(
     /** Ergebnis eines OPML-Imports, einmalig anzuzeigen; `null` = Datei nicht lesbar. */
     val opmlResults: Flow<OpmlImportResult?> = _opmlResults.receiveAsFlow()
 
+    /** Im App-Scope wie in den Einstellungen: Zurück während des Imports bräche sonst mitten im Löschen bzw. Anlegen ab (Review V27). */
     fun importOpml(uri: Uri, replace: Boolean) {
-        viewModelScope.launch { _opmlResults.send(opmlImporter.import(uri, replace)) }
+        viewModelScope.launch { _opmlResults.send(applicationScope.async { opmlImporter.import(uri, replace) }.await()) }
     }
 }
 
