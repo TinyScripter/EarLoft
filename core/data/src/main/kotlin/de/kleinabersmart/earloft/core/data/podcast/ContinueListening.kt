@@ -9,7 +9,7 @@ import javax.inject.Singleton
 /**
  * Die Zeile „Weiterhören“ und damit die Warteschlange der Podcasts (Konzept 12.4):
  * - Wird eine Folge gestartet, steht sie sofort ganz vorn; ist der Podcast so eingestellt, folgt direkt dahinter seine
- *   nächste ungehörte Folge.
+ *   nächste ungehörte Folge, außer sie wurde von Hand aus der Zeile genommen.
  * - Ist eine Folge zu Ende, startet die nächste der Zeile, wenn das in den Einstellungen an ist.
  */
 @Singleton
@@ -26,7 +26,8 @@ class ContinueListening @Inject constructor(
         // Eine zu Ende gehörte Folge beginnt von vorn und gilt wieder als offen.
         podcasts.reopenIfFinished(bookId)
         queue.moveToFront(bookId)
-        podcasts.autoNextAfter(bookId)?.let { queue.insertSecond(it) }
+        // Eine von Hand aus der Zeile genommene Folge kommt nicht von selbst zurück, nur durch Abspielen oder Einfügen.
+        podcasts.autoNextAfter(bookId)?.takeIf { it !in queue.hidden.first() }?.let { queue.insertSecond(it) }
     }
 
     /** Die Folge, die nach [endedId] von selbst startet: die nächste der Zeile; `null`, wenn das aus ist oder nichts folgt. */

@@ -689,6 +689,27 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `a removed episode is not queued again by itself when the one before it starts`() = runTest {
+        val feedId = subscribe()
+        val (b, c) = listOf("B", "C").map { idOf(feedId, it) }
+        val queue = EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())
+        val continueListening = ContinueListening(queue, repository, PodcastSettings(ApplicationProvider.getApplicationContext()))
+        continueListening.started(c)
+        assertEquals(listOf(c, b), continueListening.episodes.first().map { it.book.id })
+
+        continueListening.remove(b)
+        continueListening.started(c)
+
+        assertEquals(listOf(c), continueListening.episodes.first().map { it.book.id })
+        assertEquals(setOf(b), queue.hidden.first())
+
+        // Von Hand gespielt steht sie wieder in der Zeile.
+        continueListening.started(b)
+        assertTrue(continueListening.episodes.first().any { it.book.id == b })
+        assertEquals(emptySet<Long>(), queue.hidden.first())
+    }
+
+    @Test
     fun `a preview stores a trial feed that is missing from all subscription lists`() = runTest {
         val feedId = (repository.openPreview("https://example.com/feed.xml") as SubscribeResult.Added).feedId
         listen(idOf(feedId, "B"), positionMs = 60_000, updatedAt = 100)
