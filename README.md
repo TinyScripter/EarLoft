@@ -265,8 +265,7 @@ work (feed refresh, sync, downloads) after a reboot.
 ## Installation
 
 EarLoft is not yet available in an app store. Build it yourself (see [Building from source](#building-from-source));
-once a release build is published, it will be listed on the
-[Releases page](https://github.com/TinyScripter/EarLoft/releases).
+or download it from the [Releases page](https://github.com/TinyScripter/EarLoft/releases).
 
 **Requirements:** Android 8.0 or newer (phone), Wear OS 3 or newer (watch). The phone and watch app share one
 application ID (`de.kleinabersmart.earloft`), so install both for the watch features. The watch app is set up from the
