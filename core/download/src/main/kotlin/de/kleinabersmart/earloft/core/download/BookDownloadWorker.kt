@@ -17,6 +17,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import kotlinx.coroutines.CancellationException
 
 /**
  * Arbeitet die Warteschlange der Buch-Downloads Datei für Datei ab. Aufbau wie beim [EpisodeDownloadWorker]:
@@ -108,6 +109,9 @@ class BookDownloadWorker(
         if (foregroundDenied) return
         try {
             setForeground(foregroundInfo(buildNotification(dao.countPendingBookDownloads(), progress)))
+        } catch (e: CancellationException) {
+            // Unterklasse von IllegalStateException: Der Worker wurde gestoppt, nicht der Vordergrund verweigert (Review V28).
+            throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true
             Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund (${e.javaClass.simpleName})")

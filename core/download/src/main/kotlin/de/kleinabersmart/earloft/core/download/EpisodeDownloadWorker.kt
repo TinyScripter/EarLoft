@@ -19,6 +19,7 @@ import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.podcast.PodcastTranscripts
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.entity.BookTrackEntity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -151,6 +152,9 @@ class EpisodeDownloadWorker(
         if (foregroundDenied) return
         try {
             setForeground(foregroundInfo(buildNotification(dao.countPendingDownloads(), progress)))
+        } catch (e: CancellationException) {
+            // Unterklasse von IllegalStateException: Der Worker wurde gestoppt, nicht der Vordergrund verweigert (Review V28).
+            throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true
             Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund (${e.javaClass.simpleName})")

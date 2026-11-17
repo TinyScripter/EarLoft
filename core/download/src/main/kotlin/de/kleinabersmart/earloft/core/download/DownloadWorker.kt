@@ -104,6 +104,9 @@ class DownloadWorker(
         if (foregroundDenied) return
         try {
             setForeground(foregroundInfo(buildNotification(downloadDao.countPending(), progress)))
+        } catch (e: CancellationException) {
+            // Unterklasse von IllegalStateException: Der Worker wurde gestoppt, nicht der Vordergrund verweigert (Review V28).
+            throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true
             Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund (${e.javaClass.simpleName})")
