@@ -42,13 +42,14 @@ internal class MusicBrowse @Inject constructor(
 
     /**
      * Ordner der favorisierten Alben und Künstler über den Favoriten-Songs, nur wenn es welche gibt. Ein Song der Favoriten
-     * reiht weiter nur die Favoriten-Songs ein ([songsOf]).
+     * reiht weiter nur die Favoriten-Songs ein ([songsOf]). Gezählt wird wie im Ordner selbst, also ohne Alben und Künstler
+     * ausgeschalteter Server: Sonst öffnete sich ein leerer Ordner (Review V15).
      */
     private suspend fun favoriteFolders(): List<MediaItem> = listOfNotNull(
         folderMediaItem(MediaIds.FAVORITE_ALBUMS, context.getString(R.string.albums), MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, gridChildren = true)
-            .takeIf { favoritesRepository.favoriteAlbumIds().first().isNotEmpty() },
+            .takeIf { favoritesRepository.favoriteAlbums().first().isNotEmpty() },
         folderMediaItem(MediaIds.FAVORITE_ARTISTS, context.getString(R.string.artists), MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS)
-            .takeIf { favoritesRepository.favoriteArtistIds().first().isNotEmpty() },
+            .takeIf { favoritesRepository.favoriteArtists().first().isNotEmpty() },
     )
 
     /** Zuletzt gehörte Alben; ohne Hörverlauf die zuletzt hinzugefügten. */
