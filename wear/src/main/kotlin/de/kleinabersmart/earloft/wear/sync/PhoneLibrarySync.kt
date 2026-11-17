@@ -56,6 +56,7 @@ class PhoneLibrarySync @Inject constructor(
     private val episodeQueue: EpisodeQueue,
     private val state: WatchState,
     private val planner: WearDownloadPlanner,
+    private val phoneConnection: PhoneConnection,
 ) {
     private val mutex = Mutex()
 
@@ -82,9 +83,10 @@ class PhoneLibrarySync @Inject constructor(
         val podcastsHash = dataClient.hashesAt(WearPaths.PODCASTS).values.firstOrNull()
         val manifestHash = dataClient.hashesAt(WearPaths.MANIFEST).values.firstOrNull()
         val stamp = "$appVersionStamp:${servers?.value?.let(WearCodec::hash)}:$manifestHash:$podcastsHash"
+        val phoneBack = phoneIsBack()
         if (!settingsChanged && stamp == state.appliedPhoneStamp) {
             servers?.let { requestMissingPasswords(phoneNodeId = it.key) }
-            planner.plan()
+            planner.plan(replaceSchedule = phoneBack)
             return@withLock
         }
         if (servers != null) {
@@ -103,12 +105,22 @@ class PhoneLibrarySync @Inject constructor(
             episodeReporter.report()
             episodeQueue.setOrder(podcastMirror.apply(WearCodec.decodeCompressed<WearPodcastManifest>(podcasts)))
         }
-        planner.plan(replaceSchedule = settingsChanged)
+        planner.plan(replaceSchedule = settingsChanged || phoneBack)
         // Ein DataItem, dessen Asset (noch) nicht lesbar war (Handy außer Reichweite, Übertragung läuft), gilt nicht als
         // übernommen; sonst käme es erst mit der nächsten Änderung am Handy.
         if ((manifestHash == null || manifest != null) && (podcastsHash == null || podcasts != null)) {
             state.appliedPhoneStamp = stamp
         }
+    }
+
+    /**
+     * Wartete der Download-Auftrag aufs Ladegerät, weil das Handy mehrmals fehlte, und ist es jetzt erreichbar: wieder volle
+     * Versuche, und der Auftrag läuft gleich statt erst am Ladegerät (Review V1).
+     */
+    private suspend fun phoneIsBack(): Boolean {
+        if (!state.waitingForPhone || phoneConnection.connectedPhoneNodeId() == null) return false
+        state.clearPhoneUnreachable()
+        return true
     }
 
     /**

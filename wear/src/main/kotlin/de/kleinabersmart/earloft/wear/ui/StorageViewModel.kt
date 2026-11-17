@@ -174,6 +174,7 @@ class StorageViewModel @Inject constructor(
     /** Songs wie Folgen und Bücher; Letztere warteten sonst, bis das Handy sie neu ins Manifest nimmt. */
     fun retryFailed() {
         watchState.clearAllServerFailures()
+        watchState.clearPhoneUnreachable()
         viewModelScope.launch {
             downloads.retryFailed()
             if (bookDao.resetFailedDownloads() > 0) planner.plan()

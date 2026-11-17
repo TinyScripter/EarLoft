@@ -101,13 +101,13 @@ class WearDownloadWorker(
                 val uid = next.sourceUid
                 if (state.hasServerFailedTooOften(uid)) {
                     // Der Server hat es schon mehrmals nicht geschafft (Wechsel an anderer Stelle, später erneut versucht).
-                    if (!viaPhone(next, serverFailed = true)) return Result.retry()
+                    if (!viaPhone(next, serverFailed = true)) return waitForPhone()
                     continue
                 }
                 if (!downloader.knowsSource(uid)) {
                     // Die Uhr kennt den Server nicht (noch keine Zugangsdaten): gleich über das Handy, ohne WLAN (Review V4).
                     Log.i(TAG, "Quelle von $uid hier unbekannt, über das Handy")
-                    if (!viaPhoneForUnknownSource(next)) return Result.retry()
+                    if (!viaPhoneForUnknownSource(next)) return waitForPhone()
                     continue
                 }
                 lease = lease ?: entryPoint.wifi().acquire()
@@ -135,19 +135,19 @@ class WearDownloadWorker(
                             downloadDao.requeue(uid)
                             return Result.retry()
                         }
-                        if (!viaPhone(next, serverFailed = true)) return Result.retry()
+                        if (!viaPhone(next, serverFailed = true)) return waitForPhone()
                     }
                     is DownloadOutcome.Failed -> {
                         Log.w(TAG, "Download $uid fehlgeschlagen: ${outcome.reason}")
                         // Datei weg, Anmeldung abgelehnt o. Ä.: Vielleicht hat das Handy sie.
                         if (outcome.sourceUnavailable) {
-                            if (!viaPhoneForUnknownSource(next)) return Result.retry()
+                            if (!viaPhoneForUnknownSource(next)) return waitForPhone()
                         } else {
                             state.markViaPhone(listOf(uid))
                             // Der Grund steht im Log; die Anzeige bekommt keinen internen Text, sondern was jetzt geschieht. Der
                             // Server war erreichbar, hat die Datei aber nicht geliefert (Review V16).
                             state.setLastError(applicationContext.getString(R.string.download_error_server_refused_via_phone))
-                            if (!viaPhone(next, serverFailed = true)) return Result.retry()
+                            if (!viaPhone(next, serverFailed = true)) return waitForPhone()
                         }
                     }
                     DownloadOutcome.Done -> {
@@ -161,7 +161,7 @@ class WearDownloadWorker(
                 val track = podcastDao.nextQueuedDownload() ?: break
                 val key = episodeFailureKey(track.bookId)
                 if (track.isPhoneOnly || state.hasServerFailedTooOften(key)) {
-                    if (!episodeViaPhone(track)) return Result.retry()
+                    if (!episodeViaPhone(track)) return waitForPhone()
                     continue
                 }
                 lease = lease ?: entryPoint.wifi().acquire()
@@ -177,12 +177,12 @@ class WearDownloadWorker(
                             podcastDao.requeueDownload(track.bookId)
                             return Result.retry()
                         }
-                        if (!episodeViaPhone(track)) return Result.retry()
+                        if (!episodeViaPhone(track)) return waitForPhone()
                     }
                     is DownloadOutcome.Failed -> {
                         // Adresse weg, keine Audiodatei o. Ä.: Vielleicht hat das Handy sie geladen.
                         Log.w(TAG, "Folge ${track.bookId} fehlgeschlagen: ${outcome.reason}")
-                        if (!episodeViaPhone(track)) return Result.retry()
+                        if (!episodeViaPhone(track)) return waitForPhone()
                     }
                     DownloadOutcome.Done -> state.clearServerFailures(key)
                     DownloadOutcome.Cancelled -> Unit
@@ -193,7 +193,7 @@ class WearDownloadWorker(
                 val track = bookDao.nextQueuedBookTrack() ?: break
                 val key = bookFailureKey(track.bookId)
                 if (track.isPhoneOnlyBook || state.hasServerFailedTooOften(key)) {
-                    if (!bookViaPhone(track)) return Result.retry()
+                    if (!bookViaPhone(track)) return waitForPhone()
                     continue
                 }
                 val book = bookDao.book(track.bookId) ?: break
@@ -203,7 +203,7 @@ class WearDownloadWorker(
                     val failures = state.recordServerFailure(key)
                     Log.w(TAG, "Buch ${track.bookId}: Audiobookshelf ohne Schlüssel (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS})")
                     if (failures < WatchState.SERVER_ATTEMPTS) return Result.retry()
-                    if (!bookViaPhone(track)) return Result.retry()
+                    if (!bookViaPhone(track)) return waitForPhone()
                     continue
                 }
                 lease = lease ?: entryPoint.wifi().acquire()
@@ -220,12 +220,12 @@ class WearDownloadWorker(
                         // Neuer Schlüssel am Handy: Die Antwort ersetzt ihn vor dem nächsten Versuch.
                         if (outcome.isAuthRejection) entryPoint.credentials().request(listOf(book.serverId))
                         if (failures < WatchState.SERVER_ATTEMPTS) return Result.retry()
-                        if (!bookViaPhone(track)) return Result.retry()
+                        if (!bookViaPhone(track)) return waitForPhone()
                     }
                     is DownloadOutcome.Failed -> {
                         // Datei weg, Schlüssel abgelehnt o. Ä.: Vielleicht hat das Handy das Buch geladen.
                         Log.w(TAG, "Buch ${track.bookId} fehlgeschlagen: ${outcome.reason}")
-                        if (!bookViaPhone(track)) return Result.retry()
+                        if (!bookViaPhone(track)) return waitForPhone()
                     }
                     DownloadOutcome.Done -> state.clearServerFailures(key)
                     DownloadOutcome.Cancelled -> Unit
@@ -235,7 +235,7 @@ class WearDownloadWorker(
             lease?.close()
         }
         cacheCovers()
-        if (!phoneReachable) return Result.retry()
+        if (!phoneReachable) return waitForPhone()
         return finish()
     }
 
@@ -253,6 +253,23 @@ class WearDownloadWorker(
         withTimeoutOrNull(KEY_WAIT_MS) {
             while (audiobookshelf.withExpiringToken(KEY_MARGIN_SECONDS).any { it in expiring }) delay(KEY_POLL_MS)
         }
+    }
+
+    /**
+     * Das Handy war für einen Download nicht erreichbar: höchstens [WatchState.PHONE_ATTEMPTS] Läufe, danach wartet der Auftrag
+     * aufs Ladegerät; meldet sich das Handy vorher, plant `PhoneLibrarySync` gleich neu (Review V1). Jeder Lauf startet sonst den
+     * Vordergrunddienst und funkt über Bluetooth.
+     */
+    private fun waitForPhone(): Result {
+        val runs = state.recordPhoneUnreachable()
+        if (runs < WatchState.PHONE_ATTEMPTS) {
+            Log.i(TAG, "Handy nicht erreichbar, später erneut (Lauf $runs)")
+            return Result.retry()
+        }
+        Log.i(TAG, "Handy nach $runs Läufen nicht erreichbar, weiter am Ladegerät oder wenn es sich meldet")
+        state.waitingForPhone = true
+        entryPoint.scheduler().enqueueOnCharger()
+        return Result.success()
     }
 
     /** Kein WLAN zählt nicht als Fehlversuch des Servers: Sonst käme die ganze Auswahl über Bluetooth. */
@@ -277,9 +294,11 @@ class WearDownloadWorker(
         return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchEpisode(track, onProgress) }) {
             DownloadOutcome.Done -> {
                 state.clearServerFailures(episodeFailureKey(track.bookId))
+                state.clearPhoneUnreachable()
                 true
             }
             is DownloadOutcome.Failed -> {
+                state.clearPhoneUnreachable()
                 Log.w(TAG, "Handy hat Folge ${track.bookId} nicht: ${outcome.reason}")
                 true
             }
@@ -298,9 +317,11 @@ class WearDownloadWorker(
         return when (val outcome = downloadSpoken(track) { onProgress -> phoneFetcher.fetchBookTrack(track, onProgress) }) {
             DownloadOutcome.Done -> {
                 state.clearServerFailures(bookFailureKey(track.bookId))
+                state.clearPhoneUnreachable()
                 true
             }
             is DownloadOutcome.Failed -> {
+                state.clearPhoneUnreachable()
                 Log.w(TAG, "Handy hat Buch ${track.bookId} Datei ${track.trackIndex} nicht: ${outcome.reason}")
                 true
             }
@@ -403,10 +424,12 @@ class WearDownloadWorker(
         }) {
             DownloadOutcome.Done -> {
                 state.clearServerFailures(uid)
+                state.clearPhoneUnreachable()
                 state.setLastError(null)
                 true
             }
             is DownloadOutcome.Failed -> {
+                state.clearPhoneUnreachable()
                 Log.w(TAG, "Handy hat $uid nicht: ${outcome.reason}")
                 state.setLastError(
                     applicationContext.getString(

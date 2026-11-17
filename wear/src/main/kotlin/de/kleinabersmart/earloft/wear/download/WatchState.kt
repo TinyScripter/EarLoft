@@ -116,6 +116,28 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         _lastError.value = message
     }
 
+    /**
+     * Zählt einen Lauf, in dem das Handy für einen Download nicht erreichbar war. @return die Anzahl bisher; nach
+     * [PHONE_ATTEMPTS] wartet der Auftrag aufs Ladegerät bzw. darauf, dass sich das Handy meldet (Review V1).
+     */
+    fun recordPhoneUnreachable(): Int {
+        val count = prefs.getInt(KEY_PHONE_FAILURES, 0) + 1
+        prefs.edit().putInt(KEY_PHONE_FAILURES, count).apply()
+        return count
+    }
+
+    /** Das Handy hat geliefert bzw. sich gemeldet: wieder volle Versuche. */
+    fun clearPhoneUnreachable() {
+        if (prefs.contains(KEY_PHONE_FAILURES) || prefs.contains(KEY_WAITING_PHONE)) {
+            prefs.edit().remove(KEY_PHONE_FAILURES).remove(KEY_WAITING_PHONE).apply()
+        }
+    }
+
+    /** Der Auftrag wartet nach [PHONE_ATTEMPTS] Läufen ohne Handy aufs Ladegerät; meldet sich das Handy, geht es gleich weiter. */
+    var waitingForPhone: Boolean
+        get() = prefs.getBoolean(KEY_WAITING_PHONE, false)
+        set(value) = prefs.edit().putBoolean(KEY_WAITING_PHONE, value).apply()
+
     fun setWaitingForWifi(waiting: Boolean) {
         if (waiting == _waitingForWifi.value) return
         prefs.edit().putBoolean(KEY_WAITING_WIFI, waiting).apply()
@@ -136,6 +158,9 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         /** Fehlversuche je Song, bevor die Uhr die Datei beim Handy holt. */
         const val SERVER_ATTEMPTS = 3
 
+        /** Läufe ohne erreichbares Handy, bevor der Auftrag aufs Ladegerät wartet (Review V1, wie beim WLAN). */
+        const val PHONE_ATTEMPTS = 5
+
         private const val VIA_PHONE_PREFIX = "via_phone:"
 
         private const val TAG = "WatchState"
@@ -144,5 +169,7 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_LAST_ERROR = "last_error"
         private const val KEY_WAITING_WIFI = "waiting_wifi"
         private const val KEY_APPLIED_STAMP = "applied_phone_stamp"
+        private const val KEY_PHONE_FAILURES = "phone_unreachable_runs"
+        private const val KEY_WAITING_PHONE = "waiting_phone"
     }
 }
