@@ -33,9 +33,9 @@ watch) to the respective service:
   server, which may forward them to services you configured there (for example Last.fm or ListenBrainz).
 * **Podcast feeds:** the feeds you subscribe to and the sites that host their episodes and images, operated by the
   respective publishers.
-* **Podcast directories (optional, off by default):** when you switch on a directory in **Settings → Podcasts**, it is
-  asked for popular podcasts as soon as you open **Add podcast** (your country and language are sent), and for your
-  search terms when you search: Apple Podcasts (Apple's search API), Podcast Index (the API of podcastindex.org) and
+* **Podcast directories (optional, off by default):** when you switch on a directory (in **Settings → Podcasts** or
+  with the gear on **Add podcast**), it is asked for popular podcasts as soon as you open **Add podcast** (your country
+  and language are sent), and for your search terms when you search: Apple Podcasts (Apple's search API), Podcast Index (the API of podcastindex.org) and
   ARD Sounds (ARD's public interface). Shows from ARD Sounds without their own feed are also refreshed through that
   interface.
 * **Audiobooks from ARD Sounds (optional, off by default):** when you switch them on in **Settings → Books**, the
@@ -86,7 +86,8 @@ and feed, Open Library), never to your own servers; the app itself does not cont
 
 * **Watch:** the phone and the watch exchange data through the Wear OS data layer (Google Play services): your server
   settings including the credentials the watch needs, what you choose to load onto the watch, playback commands and
-  listening progress. The watch then connects to your servers and podcast feeds itself.
+  listening progress. The watch then connects to your servers and podcast feeds itself, and loads books from ARD Sounds
+  directly from the ARD.
 * **Android Auto:** your library is shown in the car through Android Auto on your phone.
 * **Media controls:** like every media app, EarLoft shares what is playing (title, artist, cover) with the system for
   the notification, the lock screen, the widget and connected devices. Other apps may only control playback; they

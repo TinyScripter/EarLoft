@@ -36,9 +36,9 @@ Gerät (bzw. deiner Uhr) zum jeweiligen Dienst:
   die du dort eingerichtet hast (zum Beispiel Last.fm oder ListenBrainz).
 * **Podcast-Feeds:** die Feeds, die du abonnierst, und die Seiten, auf denen deren Folgen und Bilder liegen; betrieben
   von den jeweiligen Anbietern.
-* **Podcast-Verzeichnisse (optional, standardmäßig aus):** Schaltest du in **Einstellungen → Podcasts** ein
-  Verzeichnis ein, wird es nach beliebten Podcasts gefragt, sobald du **Podcast hinzufügen** öffnest (dabei werden dein
-  Land und deine Sprache gesendet), und bei einer Suche nach deinen Suchbegriffen: Apple Podcasts (Apples Such-API),
+* **Podcast-Verzeichnisse (optional, standardmäßig aus):** Schaltest du ein Verzeichnis ein (in **Einstellungen →
+  Podcasts** oder mit dem Zahnrad auf **Podcast hinzufügen**), wird es nach beliebten Podcasts gefragt, sobald du
+  **Podcast hinzufügen** öffnest (dabei werden dein Land und deine Sprache gesendet), und bei einer Suche nach deinen Suchbegriffen: Apple Podcasts (Apples Such-API),
   Podcast Index (die API von podcastindex.org) und ARD Sounds (öffentliche Schnittstelle der ARD). Sendungen aus ARD
   Sounds ohne eigenen Feed werden ebenfalls über diese Schnittstelle aktualisiert.
 * **Hörbücher aus ARD Sounds (optional, standardmäßig aus):** Schaltest du sie in **Einstellungen → Bücher** ein,
@@ -91,7 +91,8 @@ nicht auf.
 
 * **Uhr:** Handy und Uhr tauschen Daten über die Wear-OS-Datenschicht (Google Play-Dienste) aus: deine
   Server-Einstellungen samt den Zugangsdaten, die die Uhr braucht, was du auf die Uhr laden willst,
-  Wiedergabebefehle und den Hörfortschritt. Die Uhr verbindet sich dann selbst mit deinen Servern und Podcast-Feeds.
+  Wiedergabebefehle und den Hörfortschritt. Die Uhr verbindet sich dann selbst mit deinen Servern und Podcast-Feeds und lädt Bücher aus
+  ARD Sounds direkt von der ARD.
 * **Android Auto:** Deine Bibliothek wird im Auto über Android Auto auf deinem Handy angezeigt.
 * **Mediensteuerung:** Wie jede Medien-App teilt EarLoft dem System mit, was gerade läuft (Titel, Künstler, Cover), für
   die Benachrichtigung, den Sperrbildschirm, das Widget und verbundene Geräte. Andere Apps können nur die Wiedergabe
