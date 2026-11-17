@@ -27,6 +27,19 @@ android {
     }
 }
 
+// Release ohne Schlüssel: bauen, aber deutlich warnen (Review V23). README und Datenschutzerklärung nennen Podcast Index; fremde
+// Builds ohne eigenen Schlüssel sollen trotzdem gehen, die App bietet das Verzeichnis dann einfach nicht an.
+if (listOf("podcastindex.key", "podcastindex.secret").any { localProperties.getProperty(it).isNullOrBlank() }) {
+    tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+        doFirst {
+            logger.warn(
+                "w: Release ohne Podcast Index: podcastindex.key bzw. podcastindex.secret fehlen in local.properties. " +
+                    "Die App bietet das Verzeichnis dann nicht an.",
+            )
+        }
+    }
+}
+
 dependencies {
     implementation(projects.core.model)
     implementation(projects.core.common)
