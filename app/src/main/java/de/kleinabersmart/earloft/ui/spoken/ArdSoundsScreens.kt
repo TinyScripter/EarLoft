@@ -1,7 +1,9 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -36,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,12 +68,13 @@ import de.kleinabersmart.earloft.ui.components.SectionHeader
 import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.snackbar.LocalSnackbars
+import kotlinx.coroutines.launch
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
  * Seite „ARD Sounds“ in *Bücher* (`books_improvements.md` M9): oben die Suche nach Titeln (erst auf die Lupe), darunter die
  * Sendungen der Rubriken Hörbuch und Hörspiel. Eine Sendung ist ein Buch in Teilen oder eine Reihe mit vielen Büchern; ihre
- * Seite zeigt die Bücher.
+ * Seite zeigt die Bücher. Die Chips der Rubriken bleiben beim Scrollen oben stehen, damit sich die Rubrik jederzeit wechseln lässt.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,6 +95,8 @@ fun ArdSoundsScreen(
     val search by viewModel.search.collectAsStateWithLifecycle()
     var term by rememberSaveable { mutableStateOf("") }
     val focus = LocalFocusManager.current
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     val startSearch = {
         focus.clearFocus()
         viewModel.search(term)
@@ -118,7 +126,7 @@ fun ArdSoundsScreen(
             title = { Text(stringResource(R.string.directory_ard_sounds), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
         )
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "search") {
                 OutlinedTextField(
                     value = term,
@@ -157,28 +165,47 @@ fun ArdSoundsScreen(
                         )
                     }
                 }
-                item(key = "categories") {
+                stickyHeader(key = CategoriesKey) {
+                    // Eigener Hintergrund, damit die Sendungen darunter durchlaufen statt durchzuscheinen.
                     Row(
-                        Modifier.padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
+                        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
+                            .padding(horizontal = GroupMargin + 16.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         ArdCategory.entries.forEach { entry ->
                             FilterChip(
                                 selected = entry == category,
-                                onClick = { viewModel.selectCategory(entry) },
+                                onClick = {
+                                    viewModel.selectCategory(entry)
+                                    scope.launch { listState.showCategoriesStart() }
+                                },
                                 label = { Text(stringResource(entry.label)) },
                             )
                         }
                     }
                 }
                 when (val state = shows) {
-                    ArdLoad.Loading -> item(key = "shows-loading") { ArdLoading() }
-                    ArdLoad.Failed -> item(key = "shows-failed") { ArdFailed(viewModel::retry) }
+                    // So hoch wie die Liste: Beim Laden der anderen Rubrik bleiben die Chips oben stehen, statt dass die
+                    // kurze Liste zurück an den Seitenanfang springt.
+                    ArdLoad.Loading -> item(key = "shows-loading") { Box(Modifier.fillParentMaxHeight()) { ArdLoading() } }
+                    ArdLoad.Failed -> item(key = "shows-failed") { Box(Modifier.fillParentMaxHeight()) { ArdFailed(viewModel::retry) } }
                     is ArdLoad.Done -> groupedItems(state.value, key = { "show-${it.id}" }) { show -> ArdShowRow(show, subscribed = show.id in subscribed) { onShow(show) } }
                 }
             }
         }
     }
+}
+
+private const val CategoriesKey = "categories"
+
+/**
+ * Nach einem Rubrikwechsel beginnt die Liste wieder direkt unter den Chips, wenn sie schon darunter gescrollt war;
+ * sonst stünde man mitten in der neuen Liste (oder hinter ihrem Ende).
+ */
+private suspend fun LazyListState.showCategoriesStart() {
+    val header = layoutInfo.visibleItemsInfo.firstOrNull { it.key == CategoriesKey } ?: return
+    val pastHeader = firstVisibleItemIndex > header.index || (firstVisibleItemIndex == header.index && firstVisibleItemScrollOffset > 0)
+    if (pastHeader) scrollToItem(header.index)
 }
 
 /** Die Bücher einer Sendung aus ARD Sounds, neueste zuerst. */
