@@ -49,6 +49,9 @@ data class GenreRow(
     val songCount: Int,
 )
 
+/** Zu welchem Album ein Song gehört. */
+data class SongAlbumRow(val songId: Long, val albumId: Long)
+
 /** Eine Song-Quelle samt Eigenschaften ihrer Quelle – Grundlage der Quellenwahl beim Abspielen. */
 data class PlayableSourceRow(
     val uid: String,

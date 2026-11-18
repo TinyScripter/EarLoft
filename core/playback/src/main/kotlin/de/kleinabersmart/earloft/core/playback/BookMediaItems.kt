@@ -46,7 +46,7 @@ val MediaItem.isEpisode: Boolean get() = mediaMetadata.mediaType == MediaMetadat
 @OptIn(UnstableApi::class)
 internal fun PreparedBook.toMediaItems(): List<MediaItem> {
     SpokenCastSources.put(book.id, trackUrls.indices.map { index ->
-        castUrls.getOrNull(index)?.let { SpokenCastSource(it, timeline.tracks[index].mimeType, castCoverUrl, absServerId) }
+        castUrls.getOrNull(index)?.let { SpokenCastSource(it, timeline.tracks[index].mimeType, castCoverUrl, absServerId, book.id) }
     })
     return trackUrls.mapIndexed { index, url ->
         MediaItem.Builder()
@@ -95,9 +95,16 @@ private const val EXTRA_UNAVAILABLE = "de.kleinabersmart.earloft.UNAVAILABLE"
 /**
  * Wo ein Cast-Empfänger die Datei eines Buchs oder einer Folge findet. Die Adressen enthalten kein Passwort, bei manchen
  * privaten Feeds aber einen Token im Pfad; bei [absServerId] ≠ `null` gehört der Schlüssel dieses Audiobookshelf-Servers
- * als `token` dazu.
+ * als `token` dazu. Bücher und Folgen vom Gerät haben eine `content://`-Adresse und kein [coverUrl]; beides liefert dann das
+ * Handy selbst aus ([bookId] für das Cover).
  */
-class SpokenCastSource(val url: String, val mimeType: String?, val coverUrl: String?, val absServerId: String?)
+class SpokenCastSource(
+    val url: String,
+    val mimeType: String?,
+    val coverUrl: String?,
+    val absServerId: String?,
+    val bookId: Long? = null,
+)
 
 val MediaItem.spokenCastSource: SpokenCastSource?
     get() = bookId?.let { id -> bookTrackIndex?.let { SpokenCastSources.get(id, it) } }

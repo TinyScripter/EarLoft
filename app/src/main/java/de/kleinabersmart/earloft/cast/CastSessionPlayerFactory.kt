@@ -27,6 +27,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
+import de.kleinabersmart.earloft.core.data.repository.PhoneCastServer
 import de.kleinabersmart.earloft.core.playback.QueueReserve
 import de.kleinabersmart.earloft.core.playback.SessionPlayerFactory
 import de.kleinabersmart.earloft.core.playback.SpokenItemRebuilder
@@ -43,8 +44,9 @@ import javax.inject.Singleton
 
 /**
  * Chromecast (Default Media Receiver): [CastPlayer] wechselt beim Verbinden selbst zwischen dem lokalen
- * ExoPlayer und dem Empfänger. Der Empfänger lädt direkt vom Server; Songs, die nur auf dem Handy liegen,
- * werden beim Casten übersprungen. Bücher und Folgen spielt der Empfänger von Audiobookshelf bzw. aus dem Feed. ReplayGain und Gapless gibt es dort nicht.
+ * ExoPlayer und dem Empfänger. Der Empfänger lädt direkt vom Server; Songs, Bücher und Folgen, die nur auf dem Handy liegen,
+ * liefert das Handy selbst aus ([PhoneMediaServer], nur im WLAN und in Formaten, die der Empfänger kennt; sonst werden sie
+ * übersprungen). Bücher und Folgen spielt der Empfänger sonst von Audiobookshelf bzw. aus dem Feed. ReplayGain und Gapless gibt es dort nicht.
  *
  * Die Warteschlange geht als eine Nachricht an den Empfänger, und Cast-Nachrichten dürfen höchstens
  * 64 KB groß sein – ein Eintrag braucht etwa 700 Byte (zwei URLs mit Zugangsdaten plus Metadaten).
@@ -74,6 +76,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
     private val snackbars: Snackbars,
     private val spokenItems: SpokenItemRebuilder,
     private val rejoin: CastRejoin,
+    private val phone: PhoneMediaServer,
 ) : SessionPlayerFactory {
 
     private var sessionListener: SessionManagerListener<CastSession>? = null
@@ -310,6 +313,8 @@ internal class CastSessionPlayerFactory @Inject constructor(
                 handOver.resuming = rejoin.isRejoining(session)
                 handOver.checkRejoin = handOver.resuming
                 handOver.rejected = false
+                // Vor dem Auflösen: Adressen vom Handy gelten nur in dieser Sitzung.
+                phone.newSession()
                 prepareQueue()
             }
 
@@ -333,6 +338,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
             }
 
             override fun onSessionStartFailed(session: CastSession, error: Int) {
+                phone.stop()
                 rejoin.failed()
                 handOver.resuming = false
                 handOver.checkRejoin = false
@@ -342,6 +348,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
             override fun onSessionEnded(session: CastSession, error: Int) {
                 rejoin.failed()
                 rejoin.forget()
+                phone.stop()
             }
             override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) {
                 val sessionId = session.sessionId ?: return
@@ -641,4 +648,7 @@ private class CastTransferCallback(
 internal interface CastModule {
     @Binds
     fun bindSessionPlayerFactory(factory: CastSessionPlayerFactory): SessionPlayerFactory
+
+    @Binds
+    fun bindPhoneCastServer(server: PhoneMediaServer): PhoneCastServer
 }

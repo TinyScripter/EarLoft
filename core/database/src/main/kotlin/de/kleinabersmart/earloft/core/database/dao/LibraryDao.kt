@@ -21,6 +21,7 @@ import de.kleinabersmart.earloft.core.database.model.MusicPlayRow
 import de.kleinabersmart.earloft.core.database.model.PlayableSourceRow
 import de.kleinabersmart.earloft.core.database.model.RemoteSongIdRow
 import de.kleinabersmart.earloft.core.database.model.ReplayGainRow
+import de.kleinabersmart.earloft.core.database.model.SongAlbumRow
 import de.kleinabersmart.earloft.core.database.model.SongRow
 import de.kleinabersmart.earloft.core.database.model.SongSourceInfoRow
 import de.kleinabersmart.earloft.core.database.model.TopPlayedRow
@@ -604,6 +605,9 @@ abstract class LibraryDao {
         """,
     )
     abstract suspend fun getPlayableSourcesOfSongs(songIds: List<Long>): List<PlayableSourceRow>
+
+    @Query("SELECT songId, albumId FROM songs WHERE songId IN (:songIds)")
+    abstract suspend fun getAlbumIdsOfSongs(songIds: List<Long>): List<SongAlbumRow>
 
     /** Die eingeschalteten Quellen eines Songs, lokale zuerst, dann nach Priorität (Titel-Info). */
     @Query(

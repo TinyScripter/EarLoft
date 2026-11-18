@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import de.kleinabersmart.earloft.core.data.source.MusicDataSources
 import de.kleinabersmart.earloft.core.database.EarLoftDatabase
 import de.kleinabersmart.earloft.core.database.entity.AlbumEntity
+import de.kleinabersmart.earloft.core.database.entity.DownloadEntity
 import de.kleinabersmart.earloft.core.database.entity.SongEntity
 import de.kleinabersmart.earloft.core.database.entity.SongSourceEntity
 import de.kleinabersmart.earloft.core.database.entity.SourceEntity
@@ -14,6 +15,7 @@ import de.kleinabersmart.earloft.core.datasource.ExternalPlayback
 import de.kleinabersmart.earloft.core.datasource.MusicDataSource
 import de.kleinabersmart.earloft.core.datasource.PlaybackLocation
 import de.kleinabersmart.earloft.core.datasource.SourceBatch
+import de.kleinabersmart.earloft.core.model.DownloadState
 import de.kleinabersmart.earloft.core.model.SourceType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -25,6 +27,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class CastMediaResolverTest {
@@ -32,13 +35,14 @@ class CastMediaResolverTest {
     private lateinit var db: EarLoftDatabase
     private lateinit var resolver: CastMediaResolver
     private var albumId = 0L
+    private val phone = FakePhone()
 
     @Before
     fun setUp() = runTest {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), EarLoftDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        resolver = CastMediaResolver(db.libraryDao(), Sources)
+        resolver = CastMediaResolver(db.libraryDao(), db.downloadDao(), Sources, phone)
         db.sourceDao().upsert(SourceEntity("local", SourceType.LOCAL, "local"))
         db.sourceDao().upsert(SourceEntity("nd", SourceType.SUBSONIC, "nd", priority = 0))
         db.sourceDao().upsert(SourceEntity("nd2", SourceType.SUBSONIC, "nd2", priority = 5))
@@ -51,15 +55,45 @@ class CastMediaResolverTest {
     }
 
     @Test
-    fun `local-only songs cannot be cast, local copies of server songs stream from the server`() = runTest {
+    fun `local-only songs come from the phone, local copies of server songs stream from the server`() = runTest {
         val localOnly = song("local" to "9")
         val both = song("local" to "8", "nd" to "1")
 
         val media = resolver.resolve(listOf(localOnly, both))
 
-        assertNull(media[localOnly])
+        assertEquals("phone:content://media/9 audio/mpeg", media[localOnly]?.streamUrl)
+        assertEquals("phone-cover:$albumId", media[localOnly]?.coverUrl)
+        assertEquals(PhoneCastServer.SOURCE_ID, media[localOnly]?.sourceId)
         assertEquals("http://nd/stream/1", media[both]?.streamUrl)
         assertEquals("http://nd/cover/1", media[both]?.coverUrl)
+    }
+
+    @Test
+    fun `without an address on the network the phone serves nothing`() = runTest {
+        val localOnly = song("local" to "9")
+        phone.online = false
+
+        assertNull(resolver.resolve(listOf(localOnly))[localOnly])
+    }
+
+    @Test
+    fun `local files the receiver cannot play are left out`() = runTest {
+        val wma = song("local" to "9", mimeType = "audio/x-ms-wma")
+
+        assertNull(resolver.resolve(listOf(wma))[wma])
+    }
+
+    @Test
+    fun `a download plays from the phone when the receiver cannot reach its server`() = runTest {
+        val songId = song("nd" to "1", mimeType = "audio/flac")
+        val file = File.createTempFile("download", ".mp3").apply { deleteOnExit() }
+        db.downloadDao().insertIfAbsent(listOf(DownloadEntity(sourceUid = "nd:1", songId = songId, state = DownloadState.DONE, filePath = file.path)))
+
+        assertEquals("http://nd/stream/1", resolver.resolve(listOf(songId))[songId]?.streamUrl)
+        val fromPhone = resolver.resolve(listOf(songId), excludedSources = setOf("nd"))[songId]
+        assertEquals("phone:${Uri.fromFile(file)} audio/mpeg", fromPhone?.streamUrl)
+        assertEquals("audio/mpeg", fromPhone?.mimeType)
+        assertNull(resolver.resolve(listOf(songId), excludedSources = setOf("nd", PhoneCastServer.SOURCE_ID))[songId])
     }
 
     @Test
@@ -109,6 +143,13 @@ class CastMediaResolverTest {
             )
         }
         return songId
+    }
+
+    private class FakePhone : PhoneCastServer {
+        var online = true
+        override fun fileUrl(uri: Uri, mimeType: String) = if (online) "phone:$uri $mimeType" else null
+        override fun albumCoverUrl(albumId: Long) = if (online) "phone-cover:$albumId" else null
+        override fun bookCoverUrl(bookId: Long) = null
     }
 
     private object Sources : MusicDataSources {

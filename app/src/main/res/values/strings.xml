@@ -137,12 +137,12 @@
     <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">The Cast device could not load the tracks. Playback is back on this phone.</string>
     <plurals name="cast_nothing_castable">
-        <item quantity="one">This track is only on the phone and cannot be cast.</item>
-        <item quantity="other">These tracks are only on the phone and cannot be cast.</item>
+        <item quantity="one">This track cannot be cast (format not supported, or the phone is not on Wi‑Fi).</item>
+        <item quantity="other">These tracks cannot be cast (format not supported, or the phone is not on Wi‑Fi).</item>
     </plurals>
     <plurals name="cast_skipped_local">
-        <item quantity="one">%d track is only on the phone and is skipped when casting.</item>
-        <item quantity="other">%d tracks are only on the phone and are skipped when casting.</item>
+        <item quantity="one">%d track cannot be cast and is skipped (format not supported, or the phone is not on Wi‑Fi).</item>
+        <item quantity="other">%d tracks cannot be cast and are skipped (format not supported, or the phone is not on Wi‑Fi).</item>
     </plurals>
 
     <!-- Settings & servers -->

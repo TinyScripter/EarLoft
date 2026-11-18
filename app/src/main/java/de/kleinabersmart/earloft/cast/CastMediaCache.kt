@@ -6,6 +6,7 @@ import androidx.media3.common.MediaItem
 import de.kleinabersmart.earloft.core.data.repository.CastMedia
 import de.kleinabersmart.earloft.core.data.repository.CastFormats
 import de.kleinabersmart.earloft.core.data.repository.CastMediaResolver
+import de.kleinabersmart.earloft.core.data.repository.PhoneCastServer
 import de.kleinabersmart.earloft.core.data.spoken.AudiobookshelfServers
 import de.kleinabersmart.earloft.core.playback.SpokenCastSource
 import de.kleinabersmart.earloft.core.playback.songId
@@ -27,6 +28,7 @@ import javax.inject.Singleton
 class CastMediaCache @Inject constructor(
     private val resolver: CastMediaResolver,
     private val audiobookshelf: AudiobookshelfServers,
+    private val phone: PhoneCastServer,
 ) {
     /** `media == null`: Song lässt sich nicht casten (nur auf dem Handy). */
     private class Entry(val media: CastMedia?)
@@ -91,6 +93,7 @@ class CastMediaCache @Inject constructor(
      */
     private fun spoken(source: SpokenCastSource): CastMedia? {
         val url = Uri.parse(source.url)
+        if (url.scheme == "content" || url.scheme == "file") return fromPhone(url, source)
         if (url.scheme != "http" && url.scheme != "https") return null
         val apiKey = source.absServerId?.let { id -> serverKeys()[id] ?: return null }
         fun withKey(address: String): String =
@@ -114,6 +117,18 @@ class CastMediaCache @Inject constructor(
         val stored = runBlocking(Dispatchers.IO) { audiobookshelf.allIncludingDisabled().associate { it.serverId to it.token } }
         // Nur, wenn [prepareServerKeys] nicht inzwischen fertig ist.
         serverKeys ?: stored.also { serverKeys = it }
+    }
+
+    /**
+     * Buch bzw. Folge vom Gerät: Das Handy liefert Datei und Cover selbst aus (Chromecast Etappe 2). Nur Formate, die der
+     * Empfänger kennt (umwandeln kann hier niemand); ohne Adresse im WLAN gar nicht. Wie ein Server lässt sich das Handy
+     * ausschließen, wenn der Empfänger es nicht erreicht.
+     */
+    private fun fromPhone(uri: Uri, source: SpokenCastSource): CastMedia? {
+        if (PhoneCastServer.SOURCE_ID in excluded) return null
+        val mimeType = CastFormats.playableMimeType(source.mimeType) ?: return null
+        val url = phone.fileUrl(uri, mimeType) ?: return null
+        return CastMedia(url, mimeType, source.coverUrl ?: source.bookId?.let(phone::bookCoverUrl), PhoneCastServer.SOURCE_ID)
     }
 
     /** Feeds nennen den Typ oft nicht oder falsch (`audio/x-m4b`); dann entscheidet die Endung. */

@@ -25,8 +25,9 @@ data class PreparedBook(
     val resumedFromServer: Boolean,
     val speed: Float,
     /**
-     * Adresse je Datei für einen Cast-Empfänger: immer die des Servers bzw. des Feeds, auch wenn die Datei geladen ist.
-     * Ohne Zugangsdaten; bei Audiobookshelf ergänzt der Cast-Teil den Schlüssel ([absServerId]).
+     * Adresse je Datei für einen Cast-Empfänger: die des Servers bzw. des Feeds, auch wenn die Datei geladen ist.
+     * Ohne Zugangsdaten; bei Audiobookshelf ergänzt der Cast-Teil den Schlüssel ([absServerId]). Bücher und Folgen vom Gerät
+     * haben nur ihre Datei (`content://`); die liefert das Handy selbst aus (Chromecast Etappe 2).
      */
     val castUrls: List<String> = emptyList(),
     /** Der Audiobookshelf-Server der Adressen; `null` bei Podcast-Folgen (öffentliche Adressen). */
@@ -94,8 +95,8 @@ class BookPlaybackSource @Inject constructor(
                 // Bei Folgen ist die Dateikennung die Audio-Adresse aus dem Feed.
                 ?: if (server == null) track.remoteFileId else api.fileUrl(server, book.remoteId, track.remoteFileId).toString()
         }
-        // Ein Cast-Empfänger erreicht keine Datei auf diesem Gerät.
-        val castUrls = if (book.isLocal) emptyList() else timeline.tracks.map { track ->
+        // Dateien vom Gerät liefert das Handy beim Casten selbst aus (Konzept 7.5).
+        val castUrls = if (book.isLocal) urls else timeline.tracks.map { track ->
             if (server == null) track.remoteFileId else api.fileUrl(server, book.remoteId, track.remoteFileId).toString()
         }
         val progress = pulled.progress

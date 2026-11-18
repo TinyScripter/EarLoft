@@ -136,12 +136,12 @@
     <string name="cast_volume_percent">%1$d %%</string>
     <string name="cast_load_failed">Das Cast-Gerät konnte die Titel nicht laden. Die Wiedergabe ist wieder auf dem Handy.</string>
     <plurals name="cast_nothing_castable">
-        <item quantity="one">Dieser Titel liegt nur auf dem Handy und lässt sich nicht casten.</item>
-        <item quantity="other">Diese Titel liegen nur auf dem Handy und lassen sich nicht casten.</item>
+        <item quantity="one">Dieser Titel lässt sich nicht casten (Format nicht unterstützt oder Handy nicht im WLAN).</item>
+        <item quantity="other">Diese Titel lassen sich nicht casten (Format nicht unterstützt oder Handy nicht im WLAN).</item>
     </plurals>
     <plurals name="cast_skipped_local">
-        <item quantity="one">%d Titel liegt nur auf dem Handy und wird beim Casten übersprungen.</item>
-        <item quantity="other">%d Titel liegen nur auf dem Handy und werden beim Casten übersprungen.</item>
+        <item quantity="one">%d Titel lässt sich nicht casten und wird übersprungen (Format nicht unterstützt oder Handy nicht im WLAN).</item>
+        <item quantity="other">%d Titel lassen sich nicht casten und werden übersprungen (Format nicht unterstützt oder Handy nicht im WLAN).</item>
     </plurals>
 
     <!-- Einstellungen & Server -->
