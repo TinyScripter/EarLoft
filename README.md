@@ -299,7 +299,8 @@ phone and does not work without it.
 
 ## Known limitations
 
-- Chromecast plays from your servers and podcast feeds, not files stored on the phone. The Cast device must reach the
+- Chromecast plays from your servers and podcast feeds. Files stored only on the phone are sent by the phone itself, so
+  the phone has to stay in the same Wi-Fi as the Cast device. For everything else, the Cast device must reach the
   server address itself. If a song is on several servers and the Cast device cannot reach the first one, the app
   switches to the next one after about 20 seconds. Long queues are sent in parts. Casting books depends on the server
   accepting a token in the address and has not been tested widely (with an OpenID sign-in not at all).
