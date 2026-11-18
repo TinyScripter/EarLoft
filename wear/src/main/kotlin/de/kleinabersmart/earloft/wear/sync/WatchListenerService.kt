@@ -25,6 +25,7 @@ class WatchListenerService : WearableListenerService() {
 
     @Inject lateinit var serverMirror: WearServerMirror
     @Inject lateinit var audiobookshelf: AudiobookshelfServers
+    @Inject lateinit var phoneReturn: PhoneReturn
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onDataChanged(events: DataEventBuffer) {
@@ -36,7 +37,13 @@ class WatchListenerService : WearableListenerService() {
     }
 
     override fun onMessageReceived(event: MessageEvent) {
-        if (event.path != WearPaths.CREDENTIALS) return
+        when (event.path) {
+            WearPaths.CREDENTIALS -> storeCredentials(event)
+            WearPaths.PHONE_BACK -> phoneReturn.onPhoneBack(event.data)
+        }
+    }
+
+    private fun storeCredentials(event: MessageEvent) {
         val credentials = try {
             WearCodec.decode<WearCredentialsDto>(event.data)
         } catch (e: SerializationException) {

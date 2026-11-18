@@ -207,6 +207,14 @@
                     android:pathPrefix="/earloft/episodes/"
                     android:scheme="wear" />
             </intent-filter>
+            <!-- Die Uhr wartet aufs Handy (Review V1); zugestellt, sobald beide wieder verbunden sind. -->
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:host="*"
+                    android:path="/earloft/phone-wanted"
+                    android:scheme="wear" />
+            </intent-filter>
         </service>
 
         <!-- Übertragung zur Uhr als Vordergrund-Worker (WatchFileTransfers). core:download deklariert dasselbe, Lint

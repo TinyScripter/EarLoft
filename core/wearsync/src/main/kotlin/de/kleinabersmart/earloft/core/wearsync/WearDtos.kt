@@ -96,6 +96,10 @@ data class WearWatchInfoDto(
     val appVersion: String? = null,
 )
 
+/** Seit [since] (Uhrzeit der Uhr, ms) wartet der Download-Auftrag der Uhr aufs Handy ([WearPaths.PHONE_WANTED]). */
+@Serializable
+data class WearPhoneWantedDto(val since: Long)
+
 /**
  * Server ohne Secrets; das Passwort bzw. der API-Schlüssel kommt nur per [WearCredentialsDto] auf Anfrage.
  * [servers]: die Subsonic-Server. [otherServers]: alle anderen Musikserver (Jellyfin, Emby, Konzept 14) – eigene Liste, weil

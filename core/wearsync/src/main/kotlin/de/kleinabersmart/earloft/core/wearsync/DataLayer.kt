@@ -200,6 +200,12 @@ private fun allNodesUri(path: String): Uri =
 suspend fun NodeClient.connectedNodesOrEmpty(): List<Node> =
     runCatchingApi("Verbundene Geräte abfragen") { connectedNodes.await() }.orEmpty()
 
+/** Löscht das eigene DataItem unter [path] (DataItems gehören dem Gerät, das sie geschrieben hat). @return `false` bei Fehler. */
+suspend fun DataClient.deleteOwn(nodeClient: NodeClient, path: String): Boolean {
+    val localId = runCatchingApi("Eigenes Gerät abfragen") { nodeClient.localNode.await().id } ?: return false
+    return delete(Uri.Builder().scheme(PutDataRequest.WEAR_URI_SCHEME).authority(localId).path(path).build())
+}
+
 /** Data-Layer-Fehler (`ApiException`, z. B. API nicht verfügbar) werden geloggt und als `null` gemeldet. */
 internal suspend fun <T> runCatchingApi(what: String, block: suspend () -> T): T? = try {
     block()

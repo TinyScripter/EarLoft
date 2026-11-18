@@ -76,12 +76,13 @@
                 <data android:path="/earloft/settings" />
                 <data android:path="/earloft/podcasts" />
             </intent-filter>
+            <!-- Zugangsdaten und die Antwort des Handys, wenn der Download-Auftrag auf es wartet (/earloft/phone-back, Review V1). -->
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
-                <data
-                    android:host="*"
-                    android:path="/earloft/credentials"
-                    android:scheme="wear" />
+                <data android:scheme="wear" />
+                <data android:host="*" />
+                <data android:path="/earloft/credentials" />
+                <data android:path="/earloft/phone-back" />
             </intent-filter>
         </service>
     </application>

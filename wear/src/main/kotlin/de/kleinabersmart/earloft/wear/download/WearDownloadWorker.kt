@@ -44,6 +44,7 @@ import de.kleinabersmart.earloft.core.wearsync.WearQuality
 import de.kleinabersmart.earloft.wear.EXTRA_OPEN_STORAGE
 import de.kleinabersmart.earloft.wear.R
 import de.kleinabersmart.earloft.wear.sync.CredentialsRequester
+import de.kleinabersmart.earloft.wear.sync.PhoneReturn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -258,9 +259,9 @@ class WearDownloadWorker(
     /**
      * Das Handy war für einen Download nicht erreichbar: höchstens [WatchState.PHONE_ATTEMPTS] Läufe, danach wartet der Auftrag
      * aufs Ladegerät; meldet sich das Handy vorher, plant `PhoneLibrarySync` gleich neu (Review V1). Jeder Lauf startet sonst den
-     * Vordergrunddienst und funkt über Bluetooth.
+     * Vordergrunddienst und funkt über Bluetooth. Dass es sich meldet, erfährt die Uhr über [PhoneReturn].
      */
-    private fun waitForPhone(): Result {
+    private suspend fun waitForPhone(): Result {
         val runs = state.recordPhoneUnreachable()
         if (runs < WatchState.PHONE_ATTEMPTS) {
             Log.i(TAG, "Handy nicht erreichbar, später erneut (Lauf $runs)")
@@ -268,6 +269,7 @@ class WearDownloadWorker(
         }
         Log.i(TAG, "Handy nach $runs Läufen nicht erreichbar, weiter am Ladegerät oder wenn es sich meldet")
         state.waitingForPhone = true
+        entryPoint.phoneReturn().announce()
         entryPoint.scheduler().enqueueOnCharger()
         return Result.success()
     }
@@ -588,6 +590,7 @@ class WearDownloadWorker(
         fun bookStorage(): BookStorage
         fun audiobookshelf(): AudiobookshelfServers
         fun credentials(): CredentialsRequester
+        fun phoneReturn(): PhoneReturn
     }
 
     private companion object {

@@ -131,7 +131,10 @@ class PhoneWearListenerService : WearableListenerService() {
         }
     }
 
-    /** Pakete der Uhr – Wiedergaben (Wear-Konzept 10) und gehörte Folgen und Bücher (16.1/16.2): importieren, dann das DataItem löschen. */
+    /**
+     * Pakete der Uhr – Wiedergaben (Wear-Konzept 10) und gehörte Folgen und Bücher (16.1/16.2): importieren, dann das DataItem
+     * löschen. Dazu [WearPaths.PHONE_WANTED]: Die Uhr wartet aufs Handy; die Antwort sagt ihr, dass es wieder da ist (Review V1).
+     */
     override fun onDataChanged(events: DataEventBuffer) {
         // Die Ereignisse nur hier lesen; der Puffer wird danach freigegeben.
         val packets = events.filter { it.type == DataEvent.TYPE_CHANGED }
@@ -141,6 +144,10 @@ class PhoneWearListenerService : WearableListenerService() {
             when {
                 path.startsWith(WearPaths.PLAYS_PREFIX) -> applicationScope.launch { importPlays(uri, payload) }
                 path.startsWith(WearPaths.EPISODES_PREFIX) -> applicationScope.launch { importEpisodes(uri, payload) }
+                path == WearPaths.PHONE_WANTED -> uri.host?.let { watchNode ->
+                    Log.d(TAG, "Uhr $watchNode wartet aufs Handy, melde mich")
+                    applicationScope.launch { messageClient.sendPayload(watchNode, WearPaths.PHONE_BACK, payload) }
+                }
             }
         }
     }

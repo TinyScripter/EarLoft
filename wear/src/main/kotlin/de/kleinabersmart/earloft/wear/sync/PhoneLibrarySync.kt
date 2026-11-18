@@ -57,6 +57,7 @@ class PhoneLibrarySync @Inject constructor(
     private val state: WatchState,
     private val planner: WearDownloadPlanner,
     private val phoneConnection: PhoneConnection,
+    private val phoneReturn: PhoneReturn,
 ) {
     private val mutex = Mutex()
 
@@ -120,6 +121,7 @@ class PhoneLibrarySync @Inject constructor(
     private suspend fun phoneIsBack(): Boolean {
         if (!state.waitingForPhone || phoneConnection.connectedPhoneNodeId() == null) return false
         state.clearPhoneUnreachable()
+        phoneReturn.withdraw()
         return true
     }
 

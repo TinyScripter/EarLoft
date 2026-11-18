@@ -28,6 +28,16 @@ object WearPaths {
     /** DataItem, Uhr → Handy: [WearStatusDto]. */
     const val WATCH_STATUS = "/earloft/watch-status"
 
+    /**
+     * DataItem, Uhr → Handy: [WearPhoneWantedDto] – der Download-Auftrag der Uhr wartet, weil das Handy mehrmals nicht
+     * erreichbar war. Der Data Layer stellt es zu, sobald beide wieder verbunden sind; das Handy antwortet mit [PHONE_BACK].
+     * So merkt die Uhr die Rückkehr des Handys auch dort, wo Capabilities nicht ankommen (Review V1).
+     */
+    const val PHONE_WANTED = "/earloft/phone-wanted"
+
+    /** Message, Handy → Uhr: der [WearPhoneWantedDto] aus [PHONE_WANTED], unverändert zurück. */
+    const val PHONE_BACK = "/earloft/phone-back"
+
     /** DataItem je Paket, Uhr → Handy: [WearPlaysDto]; das Handy löscht es nach dem Import. */
     const val PLAYS_PREFIX = "/earloft/plays/"
 
