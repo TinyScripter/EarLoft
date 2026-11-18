@@ -22,6 +22,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.QueueEntry
+import de.kleinabersmart.earloft.core.playback.SavedMusicQueue
 import de.kleinabersmart.earloft.ui.components.AlbumArt
 import de.kleinabersmart.earloft.ui.components.PlayPauseButton
 import de.kleinabersmart.earloft.ui.player.PlayerViewModel
@@ -76,15 +77,22 @@ fun HomeScreen(
     val playControl: PlayControlViewModel = hiltViewModel()
     val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
+    val savedMusic by playerViewModel.savedMusicQueue.collectAsStateWithLifecycle()
     val upNext = remember(playerState.current, playerState.queue, playerState.currentIndex) { upNext(playerState) }
-    HomeContent(
-        state = state,
-        onAlbumClick = onAlbumClick,
-        onArtistClick = onArtistClick,
-        onAddServer = onAddServer,
-        playingAlbumId = playingAlbumId,
-        onPlayAlbum = playControl::playOrPauseAlbum,
-        queue = QueueRowState(
+    // Läuft ein Buch bzw. eine Folge, zeigt die Zeile die gespeicherte Musik-Warteschlange; ein Tipp setzt die Musik dort
+    // fort. Ohne Knopf zur Warteschlangen-Seite, die zeigt den Player.
+    val queue = if (playerState.spoken != null) {
+        savedMusic?.let { saved ->
+            QueueRowState(
+                entries = upNext(saved),
+                currentIndex = saved.index,
+                isPlaying = false,
+                onItemClick = playerViewModel::resumeMusic,
+                onOpen = null,
+            )
+        }
+    } else {
+        QueueRowState(
             entries = upNext,
             currentIndex = playerState.currentIndex,
             isPlaying = playerState.isPlaying,
@@ -92,7 +100,16 @@ fun HomeScreen(
                 if (index == playerState.currentIndex) playerViewModel.togglePlayPause() else playerViewModel.skipToQueueItem(index)
             },
             onOpen = onOpenQueue,
-        ),
+        )
+    }
+    HomeContent(
+        state = state,
+        onAlbumClick = onAlbumClick,
+        onArtistClick = onArtistClick,
+        onAddServer = onAddServer,
+        playingAlbumId = playingAlbumId,
+        onPlayAlbum = playControl::playOrPauseAlbum,
+        queue = queue,
         modifier = modifier,
     )
 }
@@ -101,14 +118,17 @@ fun HomeScreen(
 @Immutable
 data class UpNext(val index: Int, val entry: QueueEntry)
 
-/** Die Zeile „Warteschlange“: der laufende Titel und die folgenden ([entries]). */
+/**
+ * Die Zeile „Warteschlange“: der laufende Titel und die folgenden ([entries]); während Gesprochenes läuft, der gespeicherte
+ * Titel der Musik und die folgenden. Ohne [onOpen] kein Knopf zur Warteschlangen-Seite.
+ */
 @Immutable
 class QueueRowState(
     val entries: List<UpNext>,
     val currentIndex: Int,
     val isPlaying: Boolean,
     val onItemClick: (Int) -> Unit,
-    val onOpen: () -> Unit,
+    val onOpen: (() -> Unit)?,
 )
 
 /**
@@ -119,6 +139,10 @@ internal fun upNext(state: PlayerState): List<UpNext> {
     if (state.current == null || state.currentIndex !in state.queue.indices) return emptyList()
     return state.queue.withIndex().drop(state.currentIndex).take(UP_NEXT_COUNT).map { UpNext(it.index, it.value) }
 }
+
+/** Der gespeicherte Titel der Musik-Warteschlange und die nächsten, während ein Buch bzw. eine Folge geladen ist. */
+internal fun upNext(saved: SavedMusicQueue): List<UpNext> =
+    saved.entries.withIndex().drop(saved.index).take(UP_NEXT_COUNT).map { UpNext(it.index, it.value) }
 
 private const val UP_NEXT_COUNT = 20
 
@@ -193,9 +217,11 @@ private fun LazyListScope.queueSection(queue: QueueRowState) {
     item(key = "queue") {
         Shelf(
             stringResource(R.string.player_queue),
-            action = {
-                IconButton(onClick = queue.onOpen) {
-                    Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.player_open_queue))
+            action = queue.onOpen?.let { open ->
+                {
+                    IconButton(onClick = open) {
+                        Icon(painterResource(DesignR.drawable.ic_list), contentDescription = stringResource(R.string.player_open_queue))
+                    }
                 }
             },
         ) {

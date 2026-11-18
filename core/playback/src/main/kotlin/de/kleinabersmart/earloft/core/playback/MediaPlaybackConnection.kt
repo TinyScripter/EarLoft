@@ -35,6 +35,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.guava.await
@@ -224,18 +226,26 @@ class MediaPlaybackConnection @Inject constructor(
         return prepared
     }
 
-    override fun resumeMusic() {
+    override fun resumeMusic(index: Int?) {
         scope.launch {
             val restored = queuePersistence.restore() ?: return@launch
+            // Ein anderer Titel als der gespeicherte beginnt von vorn.
+            val start = index?.takeIf { it in restored.items.indices && it != restored.startIndex }
             useController {
                 shuffleModeEnabled = restored.shuffle
                 repeatMode = restored.repeatMode
-                setMediaItems(restored.items, restored.startIndex, restored.startPositionMs)
+                setMediaItems(restored.items, start ?: restored.startIndex, if (start != null) 0 else restored.startPositionMs)
                 prepare()
                 play()
             }
         }
     }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val savedMusicQueue: Flow<SavedMusicQueue?> = _state
+        .map { it.spoken != null }
+        .distinctUntilChanged()
+        .flatMapLatest { spoken -> if (spoken) queuePersistence.savedQueue else flowOf(null) }
 
     override fun skipBack() = withController { seekBack() }
 

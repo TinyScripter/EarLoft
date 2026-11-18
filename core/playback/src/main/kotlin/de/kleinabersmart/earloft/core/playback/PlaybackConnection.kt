@@ -22,6 +22,12 @@ data class QueueEntry(
     val albumTitle: String = "",
 )
 
+/**
+ * Die gespeicherte Musik-Warteschlange, während ein Buch bzw. eine Folge geladen ist: [entries] wie beim Fortsetzen geladen
+ * (Songs, die es nicht mehr gibt, fehlen), [index] der Titel, bei dem die Musik weiterginge.
+ */
+data class SavedMusicQueue(val entries: List<QueueEntry>, val index: Int)
+
 /** Das laufende Hörbuch (Konzept 12); die Position im Buch rechnet die UI über die Zeitachse aus. */
 data class SpokenEntry(
     val bookId: Long,
@@ -94,9 +100,13 @@ interface PlaybackConnection {
 
     /**
      * Setzt die gespeicherte Musik-Warteschlange an ihrer Stelle fort und löst damit ein geladenes Buch bzw. eine Folge ab
-     * (Widget nur für Musik); ohne gespeicherte Warteschlange nichts.
+     * (Widget nur für Musik, Zeile „Warteschlange“ auf dem Musik-Start); ohne gespeicherte Warteschlange nichts. Mit [index]
+     * (Stelle in [SavedMusicQueue.entries]) beginnt sie bei diesem Titel von vorn, außer es ist der gespeicherte.
      */
-    fun resumeMusic()
+    fun resumeMusic(index: Int? = null)
+
+    /** Die gespeicherte Musik-Warteschlange, solange ein Buch bzw. eine Folge geladen ist; sonst (und ohne gespeicherte) `null`. */
+    val savedMusicQueue: Flow<SavedMusicQueue?>
 
     fun skipBack()
 

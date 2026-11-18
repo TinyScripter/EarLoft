@@ -9,6 +9,7 @@ import de.kleinabersmart.earloft.core.model.Song
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.playback.PlaybackConnectionBindings
 import de.kleinabersmart.earloft.core.playback.PlayerState
+import de.kleinabersmart.earloft.core.playback.SavedMusicQueue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,7 +51,8 @@ class FakePlaybackConnection @Inject constructor() : PlaybackConnection {
         return null
     }
 
-    override fun resumeMusic() = record(Command.Simple("resumeMusic"))
+    override fun resumeMusic(index: Int?) = record(Command.Simple(if (index == null) "resumeMusic" else "resumeMusic $index"))
+    override val savedMusicQueue = MutableStateFlow<SavedMusicQueue?>(null)
     override fun skipBack() = record(Command.Simple("skipBack"))
     override fun skipForward() = record(Command.Simple("skipForward"))
     override fun seekToTrack(trackIndex: Int, positionMs: Long) = record(Command.SeekToTrack(trackIndex, positionMs))

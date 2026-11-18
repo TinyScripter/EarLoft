@@ -6,6 +6,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
 import de.kleinabersmart.earloft.core.database.entity.QueueItemEntity
+import kotlinx.coroutines.flow.Flow
 
 /** Persistierte Warteschlange und Hörverlauf. */
 @Dao
@@ -13,6 +14,9 @@ abstract class PlaybackDao {
 
     @Query("SELECT songId FROM queue_items ORDER BY position")
     abstract suspend fun getQueueSongIds(): List<Long>
+
+    @Query("SELECT songId FROM queue_items ORDER BY position")
+    abstract fun observeQueueSongIds(): Flow<List<Long>>
 
     @Query("DELETE FROM queue_items")
     protected abstract suspend fun clearQueue()

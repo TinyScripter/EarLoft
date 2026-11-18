@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.core.data.repository
 
 import de.kleinabersmart.earloft.core.database.dao.PlaybackDao
 import de.kleinabersmart.earloft.core.database.entity.PlayEventEntity
+import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -14,6 +15,9 @@ class PlaybackStateRepository @Inject constructor(
     suspend fun saveQueue(songIds: List<Long>) = playbackDao.replaceQueue(songIds)
 
     suspend fun loadQueue(): List<Long> = playbackDao.getQueueSongIds()
+
+    /** Die gespeicherte Warteschlange bei jeder Änderung. */
+    fun observeQueue(): Flow<List<Long>> = playbackDao.observeQueueSongIds()
 
     /**
      * Schreibt den Hörverlauf und gibt die Wiedergabe dem [PlayReporter] weiter (Handy: Scrobble, Uhr: ans Handy).

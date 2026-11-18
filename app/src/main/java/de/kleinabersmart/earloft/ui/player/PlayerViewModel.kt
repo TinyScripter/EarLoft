@@ -10,6 +10,7 @@ import de.kleinabersmart.earloft.core.data.repository.SongLyrics
 import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.playback.PlayerState
+import de.kleinabersmart.earloft.core.playback.SavedMusicQueue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +38,13 @@ class PlayerViewModel @Inject constructor(
 ) : ViewModel() {
 
     val state: StateFlow<PlayerState> = playbackConnection.state
+
+    /** Die gespeicherte Musik-Warteschlange, solange ein Buch bzw. eine Folge geladen ist (Musik-Start). */
+    val savedMusicQueue: StateFlow<SavedMusicQueue?> = playbackConnection.savedMusicQueue
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Setzt die Musik bei Titel [index] der [savedMusicQueue] fort und löst das Gesprochene ab. */
+    fun resumeMusic(index: Int) = playbackConnection.resumeMusic(index)
 
     /** Grundfarbe des Albums des aktuellen Titels für das Farbschema; `null` ohne Album oder Cover. */
     @OptIn(ExperimentalCoroutinesApi::class)

@@ -16,6 +16,8 @@ import de.kleinabersmart.earloft.core.data.repository.LibraryRepository
 import de.kleinabersmart.earloft.core.data.repository.PlaybackStateRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookKeyRenamer
 import de.kleinabersmart.earloft.core.data.spoken.BookKeys
+import de.kleinabersmart.earloft.core.model.Song
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -49,6 +51,13 @@ internal fun insertIntoSavedQueue(saved: List<Long>, savedIndex: Int, songIds: L
     if (!next) return saved + songIds
     val at = savedIndex.coerceIn(0, saved.lastIndex) + 1
     return saved.take(at) + songIds + saved.drop(at)
+}
+
+/** Die gespeicherte Warteschlange aus [songs] mit dem Titel an [savedIndex] (wie [QueuePersistence.restore] begrenzt); leer `null`. */
+internal fun savedMusicQueueOf(songs: List<Song>, savedIndex: Int): SavedMusicQueue? {
+    if (songs.isEmpty()) return null
+    val entries = songs.map { QueueEntry(songId = it.id, title = it.title, artist = it.artist, albumId = it.albumId, albumTitle = it.albumTitle) }
+    return SavedMusicQueue(entries, savedIndex.coerceIn(0, songs.lastIndex))
 }
 
 /** Speichert Warteschlange (Room) und Position/Modi (DataStore) – Konzept 5.5. */
@@ -152,6 +161,17 @@ class QueuePersistence @Inject constructor(
             }
         }
     }
+
+    /**
+     * Die gespeicherte Musik-Warteschlange bei jeder Änderung, so wie [restore] sie lädt; `null`, solange sie leer ist. Nur
+     * beobachten, während Gesprochenes geladen ist: Bei Musik ändert sich der gespeicherte Titel mit jedem Titelwechsel.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val savedQueue: Flow<SavedMusicQueue?> = combine(
+        playbackStateRepository.observeQueue(),
+        context.playbackDataStore.data.map { it[KEY_INDEX] ?: 0 }.distinctUntilChanged(),
+        ::Pair,
+    ).mapLatest { (songIds, index) -> savedMusicQueueOf(libraryRepository.songs(songIds), index) }
 
     suspend fun restore(): RestoredQueue? {
         val songs = libraryRepository.songs(playbackStateRepository.loadQueue())

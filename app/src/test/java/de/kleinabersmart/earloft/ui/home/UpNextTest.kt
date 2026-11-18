@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.ui.home
 
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.QueueEntry
+import de.kleinabersmart.earloft.core.playback.SavedMusicQueue
 import de.kleinabersmart.earloft.core.playback.SpokenEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -34,5 +35,13 @@ class UpNextTest {
     fun `nothing while no music plays`() {
         assertTrue(upNext(PlayerState()).isEmpty())
         assertTrue(upNext(PlayerState(spoken = SpokenEntry(1, 0, "Buch", "Autor"), queue = queue, currentIndex = 0)).isEmpty())
+    }
+
+    @Test
+    fun `the saved music queue starts with its saved song and keeps the positions`() {
+        val rows = upNext(SavedMusicQueue(queue, index = 27))
+
+        assertEquals(listOf(27, 28, 29), rows.map { it.index })
+        assertEquals(queue[27], rows.first().entry)
     }
 }
