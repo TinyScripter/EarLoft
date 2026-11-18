@@ -923,6 +923,8 @@
     <string name="podcast_tab_feeds">Subscriptions</string>
     <string name="podcast_tab_stats">Statistics</string>
     <string name="podcast_tab_starred">Starred</string>
+    <string name="podcast_tab_new">New</string>
+    <string name="podcast_new_empty">Your subscriptions have no episodes yet.</string>
     <string name="podcast_starred_empty">No starred episodes. Star an episode on its page or in its menu (long press) to find it here again; starred episodes stay even when the feed drops them.</string>
     <string name="podcast_history">Recently played</string>
     <string name="podcast_history_all">Show all</string>
@@ -966,7 +968,6 @@
     <string name="settings_stats_reset_message">All podcast statistics are deleted: the listening time counted by this app and the imported values, including the history. Subscriptions and listening progress stay. Imported values can only be restored by importing the database again. This cannot be undone.</string>
     <string name="settings_stats_reset_confirm">Reset</string>
     <string name="settings_stats_reset_done">Statistics reset.</string>
-    <string name="podcast_all_heard">All episodes heard.</string>
     <string name="podcast_no_episodes">This feed has no episodes.</string>
     <string name="podcast_section_subscription">Subscription</string>
     <string name="podcast_unsubscribe">Unsubscribe</string>

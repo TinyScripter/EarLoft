@@ -109,9 +109,6 @@ data class PodcastRefreshSummary(
     val newCount: Int get() = newEpisodes.sumOf { it.count }
 }
 
-/** Ein Abo mit einer Auswahl seiner Folgen. */
-data class FeedEpisodes(val feed: PodcastFeed, val episodes: List<BookWithProgress>)
-
 /** Ein Podcast mit seinen fertig geladenen Folgen (Anzahl, belegte Bytes). */
 data class FeedDownload(val feed: PodcastFeed, val episodes: Int, val bytes: Long)
 
@@ -218,19 +215,16 @@ class PodcastRepository @Inject constructor(
             }
         }.distinctUntilChanged()
 
-    /** Pro Abo (nach Titel) die Folgen, die noch nicht zu Ende gehört sind, neueste zuerst; Abos ohne solche Folgen entfallen. */
-    fun unheardByFeed(): Flow<List<FeedEpisodes>> =
+    /**
+     * Reiter „Neu“ der Bibliothek: die neuesten Folgen aller Abos nach Erscheinen, auch gehörte (anders als „Zuletzt
+     * hinzugefügt“ auf Start); was „Folgen behalten“ ausblendet und Trailer neben echten Folgen fehlen wie überall.
+     */
+    fun latestEpisodes(limit: Int = LATEST_LIMIT): Flow<List<BookWithProgress>> =
         combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress()) { feeds, episodes, progress ->
             val byBook = progress.associateBy { it.bookId }
-            val byFeed = episodes
-                .visibleIn(feeds, byBook)
-                .filter { byBook[it.bookId]?.finished != true }
-                .groupBy { it.serverId }
-            feeds.mapNotNull { feed ->
-                byFeed[feed.feedId]?.let { list ->
-                    FeedEpisodes(feed.toModel(), list.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) })
-                }
-            }
+            episodes.visibleIn(feeds, byBook)
+                .take(limit)
+                .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
         }
 
     /**
@@ -1013,6 +1007,9 @@ class PodcastRepository @Inject constructor(
 
         /** Wie bei den Büchern (`BookRepository.recentlyAdded`). */
         const val RECENT_LIMIT = 12
+
+        /** Reiter „Neu“: genug zum Durchsehen, ohne ein Archiv mit Tausenden Folgen in eine Liste zu laden. */
+        const val LATEST_LIMIT = 100
 
         /** Länge des Verlaufs: genug zum Wiederfinden, ohne jede je gehörte Folge zu laden. */
         const val HISTORY_LIMIT = 200

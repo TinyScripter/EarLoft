@@ -915,6 +915,8 @@
     <string name="podcast_tab_feeds">Abos</string>
     <string name="podcast_tab_stats">Statistik</string>
     <string name="podcast_tab_starred">Gemerkt</string>
+    <string name="podcast_tab_new">Neu</string>
+    <string name="podcast_new_empty">Deine Abos haben noch keine Folgen.</string>
     <string name="podcast_starred_empty">Keine gemerkten Folgen. Merke dir eine Folge auf ihrer Seite oder in ihrem Menü (lange drücken), um sie hier wiederzufinden; gemerkte Folgen bleiben, auch wenn der Feed sie nicht mehr führt.</string>
     <string name="podcast_history">Zuletzt gehört</string>
     <string name="podcast_history_all">Alle zeigen</string>
@@ -958,7 +960,6 @@
     <string name="settings_stats_reset_message">Die gesamte Podcast-Statistik wird gelöscht: die von dieser App gezählte Hörzeit und die importierten Werte, samt Verlauf. Abos und Hörfortschritt bleiben. Importierte Werte lassen sich nur durch einen erneuten Import der Datenbank wiederherstellen. Das lässt sich nicht rückgängig machen.</string>
     <string name="settings_stats_reset_confirm">Zurücksetzen</string>
     <string name="settings_stats_reset_done">Statistik zurückgesetzt.</string>
-    <string name="podcast_all_heard">Alle Folgen gehört.</string>
     <string name="podcast_no_episodes">Dieser Feed enthält keine Folgen.</string>
     <string name="podcast_section_subscription">Abo</string>
     <string name="podcast_unsubscribe">Abo beenden</string>

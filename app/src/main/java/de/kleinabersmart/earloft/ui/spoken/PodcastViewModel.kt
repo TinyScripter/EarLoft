@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
-import de.kleinabersmart.earloft.core.data.podcast.FeedEpisodes
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRefresher
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
 import de.kleinabersmart.earloft.core.data.podcast.PodcastSettings
@@ -43,11 +42,6 @@ class PodcastViewModel @Inject constructor(
     val recent: StateFlow<List<BookWithProgress>> = podcasts.recentEpisodes()
         .orOnError(emptyList())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /** Pro Abo die noch nicht zu Ende gehörten Folgen. */
-    val unheard: StateFlow<LoadState<List<FeedEpisodes>>> = podcasts.unheardByFeed()
-        .asLoadState()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
     /** Wie die Abos geordnet sind (Start und Reiter „Abos“). */
     val feedSort: StateFlow<FeedSort> = settings.feedSort

@@ -97,7 +97,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import de.kleinabersmart.earloft.R
-import de.kleinabersmart.earloft.core.data.podcast.FeedEpisodes
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
 import de.kleinabersmart.earloft.ui.components.ShareButton
 import de.kleinabersmart.earloft.core.model.BookWithProgress
@@ -280,15 +279,15 @@ fun FeedCard(
 }
 
 private enum class PodcastTab(@StringRes val label: Int) {
-    EPISODES(R.string.podcast_episodes),
-    STARRED(R.string.podcast_tab_starred),
+    NEW(R.string.podcast_tab_new),
     FEEDS(R.string.podcast_tab_feeds),
+    STARRED(R.string.podcast_tab_starred),
     STATS(R.string.podcast_tab_stats),
 }
 
 /**
- * Bibliothek im Modus „Podcasts“: Reiter Folgen (ungehörte je Abo), Gemerkt, Abos (Raster mit schwebendem „+“) und
- * Statistik (darin der Weg zum Verlauf, [onOpenHistory]); im Kopf der Weg zu den gesammelten Lesezeichen ([onOpenBookmarks]).
+ * Bibliothek im Modus „Podcasts“: Reiter Neu (die neuesten Folgen aller Abos), Abos (Raster mit schwebendem „+“), Gemerkt
+ * und Statistik (darin der Weg zum Verlauf, [onOpenHistory]); im Kopf der Weg zu den gesammelten Lesezeichen ([onOpenBookmarks]).
  */
 @Composable
 fun PodcastLibraryScreen(
@@ -301,16 +300,16 @@ fun PodcastLibraryScreen(
     modifier: Modifier = Modifier,
     viewModel: PodcastViewModel = hiltViewModel(),
     starredViewModel: PodcastStarredHistoryViewModel = hiltViewModel(),
+    newViewModel: PodcastNewViewModel = hiltViewModel(),
 ) {
     val feeds by viewModel.feeds.collectAsStateWithLifecycle()
-    val unheard by viewModel.unheard.collectAsStateWithLifecycle()
-    val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
+    val latest by newViewModel.episodes.collectAsStateWithLifecycle()
     val feedSort by viewModel.feedSort.collectAsStateWithLifecycle()
     val newEpisodeCounts by viewModel.newEpisodeCounts.collectAsStateWithLifecycle()
     val starred by starredViewModel.starred.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { PodcastTab.entries.size }
     val scope = rememberCoroutineScope()
-    // Mehrfachauswahl in den Reitern „Folgen“ und „Gemerkt“; sie endet, wenn man den Reiter verlässt.
+    // Mehrfachauswahl in den Reitern „Neu“ und „Gemerkt“; sie endet, wenn man den Reiter verlässt.
     val selection = rememberEpisodeSelection()
     // Nur bei einem Wechsel, nicht beim ersten Aufbau: Nach dem Drehen bleibt die Auswahl.
     var selectionPage by rememberSaveable { mutableIntStateOf(pagerState.currentPage) }
@@ -332,8 +331,8 @@ fun PodcastLibraryScreen(
         // Während der Auswahl steht ihre Leiste an der Stelle der Reiter, und der Pager bleibt stehen.
         if (selection.active) {
             val starredTab = PodcastTab.entries[pagerState.currentPage] == PodcastTab.STARRED
-            val shown = if (starredTab) starred.valueOrNull.orEmpty() else unheard.valueOrNull.orEmpty().flatMap { it.episodes }
-            val loaded = (if (starredTab) starred is LoadState.Ready else unheard is LoadState.Ready)
+            val shown = (if (starredTab) starred else latest).valueOrNull.orEmpty()
+            val loaded = (if (starredTab) starred else latest) is LoadState.Ready
             EpisodeSelectionBar(selection, shown, loaded = loaded, windowInsets = WindowInsets(0))
         } else PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
             PodcastTab.entries.forEachIndexed { index, tab ->
@@ -351,74 +350,11 @@ fun PodcastLibraryScreen(
             key = { it },
         ) { page ->
             when (PodcastTab.entries[page]) {
-                // Ohne Abos zeigen Folgen und Abos dasselbe wie der Start: Hinzufügen und Ausblenden.
-                PodcastTab.EPISODES -> if (feeds.valueOrNull?.isEmpty() == true) empty() else UnheardEpisodes(
-                    unheard,
-                    hasFeeds = feeds.valueOrNull?.isNotEmpty() == true,
-                    onFeedClick,
-                    onEpisodeClick,
-                    playingId,
-                    viewModel::playOrPause,
-                    selection,
-                )
-                PodcastTab.STARRED -> if (feeds.valueOrNull?.isEmpty() == true) empty() else StarredEpisodes(onEpisodeClick, selection, starredViewModel)
+                // Ohne Abos zeigen Neu und Abos dasselbe wie der Start: Hinzufügen und Ausblenden.
+                PodcastTab.NEW -> if (feeds.valueOrNull?.isEmpty() == true) empty() else NewEpisodes(onEpisodeClick, selection, newViewModel)
                 PodcastTab.FEEDS -> FeedGrid(feeds, newEpisodeCounts, onFeedClick, onFeedSettings, onAdd = onAddPodcast, empty = empty)
+                PodcastTab.STARRED -> if (feeds.valueOrNull?.isEmpty() == true) empty() else StarredEpisodes(onEpisodeClick, selection, starredViewModel)
                 PodcastTab.STATS -> PodcastStatsScreen(onFeedClick, onEpisodeClick, onOpenHistory)
-            }
-        }
-    }
-}
-
-/** Je Abo (untereinander) die ungehörten Folgen, horizontal scrollbar. */
-@Composable
-private fun UnheardEpisodes(
-    state: LoadState<List<FeedEpisodes>>,
-    hasFeeds: Boolean,
-    onFeedClick: (String) -> Unit,
-    onEpisodeClick: (Long) -> Unit,
-    playingId: Long?,
-    onPlay: (Long) -> Unit,
-    selection: EpisodeSelection,
-) {
-    LoadableList(state, stringResource(if (hasFeeds) R.string.podcast_all_heard else R.string.podcast_none)) { unheard ->
-        UnheardList(unheard, onFeedClick, onEpisodeClick, playingId, onPlay, selection)
-    }
-}
-
-@Composable
-private fun UnheardList(
-    unheard: List<FeedEpisodes>,
-    onFeedClick: (String) -> Unit,
-    onEpisodeClick: (Long) -> Unit,
-    playingId: Long?,
-    onPlay: (Long) -> Unit,
-    selection: EpisodeSelection,
-) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 16.dp)) {
-        unheard.forEach { (feed, episodes) ->
-            item(key = "feed-${feed.id}") {
-                Shelf(feed.title, onTitleClick = { onFeedClick(feed.id) }) {
-                    val rowState = rememberLazyListState()
-                    LazyRow(
-                        state = rowState,
-                        modifier = Modifier.keepHorizontalScroll(rowState),
-                        contentPadding = PaddingValues(horizontal = ShelfInset),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        val sameDay = episodesSharingDay(episodes.map { it.book })
-                        items(episodes, key = { it.book.id }) { item ->
-                            BookCard(
-                                item,
-                                onClick = { onEpisodeClick(item.book.id) },
-                                modifier = Modifier.width(140.dp),
-                                onPlay = { onPlay(item.book.id) },
-                                playing = item.book.id == playingId,
-                                withTime = item.book.id in sameDay,
-                                selection = selection,
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -680,7 +616,7 @@ private val HEADER_ART_SIZE = 144.dp
  * hielte sonst das bisher erste Abo fest, und die neuen ersten lägen außerhalb (wie [rememberFrontRow]).
  */
 @Composable
-private fun ShowStartOnNewFirst(firstId: String?, scrollToStart: suspend () -> Unit) {
+internal fun ShowStartOnNewFirst(firstId: String?, scrollToStart: suspend () -> Unit) {
     var shown by rememberSaveable { mutableStateOf(firstId) }
     LaunchedEffect(firstId) {
         if (firstId != shown) {
@@ -1166,7 +1102,8 @@ private fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: (
  * Eine Folge der Abo-Seite bzw. ihrer Suche. Während der Mehrfachauswahl ([selection], Konzept 12.5) schaltet ein Tipp sie
  * dazu oder weg, die Knöpfe rechts entfallen und eine ausgewählte trägt einen Haken über dem Bild. [swipe]: Wischgesten
  * ([EpisodeSwipeBox]), nicht während der Auswahl und nicht in einem Pager („Gemerkt“). [podcast]: in Listen aus mehreren Abos
- * („Gemerkt“) der Name darunter.
+ * („Gemerkt“) der Name darunter. [queued]: nicht `null`, steht zwischen Download und Abspielen ein Knopf für die Warteschlange
+ * ([onToggleQueue]; Reiter „Neu“).
  */
 @Composable
 internal fun EpisodeRow(
@@ -1183,6 +1120,8 @@ internal fun EpisodeRow(
     selection: EpisodeSelection,
     swipe: Boolean,
     podcast: String? = null,
+    queued: Boolean? = null,
+    onToggleQueue: () -> Unit = {},
 ) {
     val book = item.book
     val progress = item.progress
@@ -1233,6 +1172,7 @@ internal fun EpisodeRow(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Dateien vom Gerät sind schon da.
                         if (!book.isLocal) DownloadButton(download, downloadFraction, onDownload, onRemoveDownload)
+                        if (queued != null) QueueButton(queued, onToggleQueue)
                         IconButton(onClick = onPlay) {
                             if (playing) {
                                 Icon(painterResource(DesignR.drawable.ic_pause), contentDescription = stringResource(R.string.action_pause))
@@ -1253,6 +1193,22 @@ internal fun EpisodeRow(
         )
         EpisodeMenu(item, expanded = menu, onDismiss = { menu = false }, onSelect = { selection.toggle(book.id) })
     } }
+}
+
+/** Ans Ende der Warteschlange bzw. heraus; eine eingereihte Folge zeigt den Haken in der Akzentfarbe (wie ein fertiger Download). */
+@Composable
+private fun QueueButton(queued: Boolean, onToggle: () -> Unit) {
+    IconButton(onClick = onToggle) {
+        if (queued) {
+            Icon(
+                painterResource(DesignR.drawable.ic_playlist_add_check),
+                contentDescription = stringResource(R.string.episode_queue_remove),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        } else {
+            Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = stringResource(R.string.episode_queue_add))
+        }
+    }
 }
 
 /** Quadratisches Podcast-Bild aus dem Feed; bis es geladen ist (oder ohne Bild) bleibt das Symbol sichtbar. */

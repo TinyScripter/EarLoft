@@ -367,7 +367,7 @@ class PodcastRepositoryTest {
         repository.setKeepEpisodes(feedId, 1)
 
         assertEquals(listOf("A", "C"), repository.episodes(feedId).first().map { it.book.title })
-        assertEquals(listOf("A", "C"), repository.unheardByFeed().first().single().episodes.map { it.book.title })
+        assertEquals(listOf("A", "C"), repository.latestEpisodes().first().map { it.book.title })
         assertEquals(listOf("C", "A"), repository.continueListening { now }.first().map { it.book.title })
         val stats = repository.feedStats().first().getValue(feedId)
         assertEquals(1, stats.newEpisodes)
@@ -438,7 +438,7 @@ class PodcastRepositoryTest {
         repository.setKeepEpisodes(feedId, 1)
 
         assertEquals(listOf("A", "C"), repository.episodes(feedId).first().map { it.book.title })
-        assertEquals(listOf("A", "C"), repository.unheardByFeed().first().single().episodes.map { it.book.title })
+        assertEquals(listOf("A", "C"), repository.latestEpisodes().first().map { it.book.title })
         val episodes = repository.episodes(feedId).first()
         assertEquals(listOf("C"), episodes.filterEpisodes(EpisodeFilter.STARRED, oldestFirst = false, downloaded = emptySet()).map { it.book.title })
     }
@@ -717,7 +717,7 @@ class PodcastRepositoryTest {
         assertEquals(false, repository.feed(feedId).first()!!.subscribed)
         assertEquals(listOf("A", "B", "C"), repository.episodes(feedId).first().map { it.book.title })
         assertTrue(repository.feeds.first().isEmpty())
-        assertTrue(repository.unheardByFeed().first().isEmpty())
+        assertTrue(repository.latestEpisodes().first().isEmpty())
         assertTrue(repository.recentEpisodes().first().isEmpty())
         // Weder als neu noch als angefangen von selbst in „Weiterhören“.
         assertTrue(repository.continueListening { now }.first().isEmpty())
@@ -845,7 +845,7 @@ class PodcastRepositoryTest {
         repository.archive(feedId)
 
         assertTrue(repository.feeds.first().isEmpty())
-        assertTrue(repository.unheardByFeed().first().isEmpty())
+        assertTrue(repository.latestEpisodes().first().isEmpty())
         assertTrue(repository.recentEpisodes().first().isEmpty())
         assertTrue(repository.continueListening(flowOf(listOf(b))) { now }.first().isEmpty())
         assertTrue(repository.subscribedByKey.first().isEmpty())
@@ -929,6 +929,15 @@ class PodcastRepositoryTest {
 
         assertEquals(listOf("A", "C"), repository.recentEpisodes().first().map { it.book.title })
         assertEquals(listOf("A"), repository.recentEpisodes(limit = 1).first().map { it.book.title })
+    }
+
+    @Test
+    fun `the new tab lists the newest episodes first including finished ones`() = runTest {
+        val feedId = subscribe()
+        listen(idOf(feedId, "B"), positionMs = 600_000, updatedAt = 100, finished = true)
+
+        assertEquals(listOf("A", "B", "C"), repository.latestEpisodes().first().map { it.book.title })
+        assertEquals(listOf("A", "B"), repository.latestEpisodes(limit = 2).first().map { it.book.title })
     }
 
     @Test
