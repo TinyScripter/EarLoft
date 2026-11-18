@@ -18,6 +18,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.After
@@ -151,6 +155,20 @@ class BookProgressSyncTest {
         sync.record(bookId, 60_000, 3_600_000, finished = false)
 
         assertNull(db.bookDao().progress(bookId)!!.finishedAt)
+    }
+
+    @Test
+    fun `a held position is announced, a periodic one is not`() = runBlocking {
+        val held = mutableListOf<Long>()
+        val listener = launch(start = CoroutineStart.UNDISPATCHED) { sync.held.collect { held += it } }
+
+        sync.record(bookId, 5_000, 3_600_000, finished = false)
+        sync.record(bookId, 7_000, 3_600_000, finished = false, force = true)
+        withTimeout(5_000) { while (held.isEmpty()) yield() }
+        listener.cancel()
+
+        assertEquals(listOf(bookId), held)
+        assertEquals(7_000L, db.bookDao().progress(bookId)!!.positionMs)
     }
 
     @Test

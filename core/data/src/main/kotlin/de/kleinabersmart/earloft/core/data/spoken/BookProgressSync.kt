@@ -32,6 +32,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToLong
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 /** Ergebnis von [BookProgressSync.pull]: der jetzt gültige Fortschritt und ob er vom Server kam und spürbar springt. */
 data class PullResult(val progress: BookProgress?, val tookRemote: Boolean, val noticeable: Boolean)
@@ -55,6 +58,14 @@ class BookProgressSync @Inject constructor(
      * Aufruf auf 0 zurück, die Position muss deshalb noch einmal gesendet werden.
      */
     private val reopened = ConcurrentHashMap.newKeySet<Long>()
+
+    private val _held = MutableSharedFlow<Long>(extraBufferCapacity = HELD_BUFFER)
+
+    /**
+     * Bücher bzw. Folgen, deren Stand gerade mit `force` festgehalten wurde (Pause, Titelwechsel, Stop), nachdem er gespeichert
+     * ist. Die Uhr meldet ihn dann sofort dem Handy statt erst nach der Ruhepause (Wear-Konzept 16.1).
+     */
+    val held: SharedFlow<Long> = _held.asSharedFlow()
 
     /**
      * Hält die Position fest. Gesendet wird höchstens alle [PUSH_INTERVAL_MS], mit [force] (Pause, Titelwechsel,
@@ -84,6 +95,7 @@ class BookProgressSync @Inject constructor(
                 ),
             )
         }
+        if (force) _held.tryEmit(bookId)
         val sinceLastPush = System.currentTimeMillis() - (lastPush[bookId] ?: 0)
         if (force || sinceLastPush >= PUSH_INTERVAL_MS) push(bookId)
     }
@@ -233,6 +245,9 @@ class BookProgressSync @Inject constructor(
         const val TAG = "BookProgressSync"
         const val PUSH_INTERVAL_MS = 30_000L
         const val PULL_TIMEOUT_MS = 3_000L
+
+        /** Ohne Zuhörer (am Handy) gehen Meldungen verloren; mit Zuhörer reichen ein paar, er fragt ohnehin alle Stände ab. */
+        const val HELD_BUFFER = 8
     }
 }
 

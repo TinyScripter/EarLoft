@@ -2,6 +2,7 @@ package de.kleinabersmart.earloft.wear.sync
 
 import android.util.Log
 import com.google.android.gms.wearable.DataClient
+import de.kleinabersmart.earloft.core.data.spoken.BookProgressSync
 import de.kleinabersmart.earloft.core.database.dao.BookDao
 import de.kleinabersmart.earloft.core.database.dao.PodcastDao
 import de.kleinabersmart.earloft.core.database.dao.StatsDao
@@ -17,6 +18,8 @@ import de.kleinabersmart.earloft.core.wearsync.putPayload
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -29,7 +32,8 @@ import javax.inject.Singleton
  * Meldet dem Handy, was auf der Uhr an Folgen und Büchern gehört wurde (Wear-Konzept 16.1/16.2): neuere Fortschritte und die
  * seit der letzten Meldung gehörte Zeit, als DataItem `/earloft/episodes/<uuid>` (kommt auch an, wenn das Handy gerade fehlt).
  * Während etwas spielt, schreibt der Player alle 15 s; gemeldet wird erst nach einer Ruhepause, sonst weckte jede Meldung
- * das Handy. Bei Büchern ist der Schlüssel `serverId`/`remoteId` statt `feedId`/guid.
+ * das Handy. Hält der Player den Stand fest (Pause, Titelwechsel, Stop), geht er nach [HELD_SETTLE_MS] hinaus, damit man
+ * gleich am Handy weiterhören kann. Bei Büchern ist der Schlüssel `serverId`/`remoteId` statt `feedId`/guid.
  */
 @Singleton
 class WatchEpisodeReporter @Inject constructor(
@@ -38,14 +42,19 @@ class WatchEpisodeReporter @Inject constructor(
     private val podcastDao: PodcastDao,
     private val statsDao: StatsDao,
     private val reported: ReportedEpisodes,
+    private val progressSync: BookProgressSync,
 ) {
     private val mutex = Mutex()
 
     @OptIn(FlowPreview::class)
     fun start(scope: CoroutineScope) {
         scope.launch {
-            // Beim Start einmal: Was beim letzten Mal nicht mehr hinausging (Prozess beendet), holt das nach.
-            bookDao.observeAllProgress().debounce(QUIET_MS).onStart { emit(emptyList()) }.collect { report() }
+            // Beim Start einmal: Was beim letzten Mal nicht mehr hinausging (Prozess beendet), holt das nach. Die Ruhepause
+            // bleibt auch nach einer Pause wirksam: Sie nimmt die Hörzeit mit, falls die Statistik erst nach der Meldung schrieb.
+            merge(
+                bookDao.observeAllProgress().debounce(QUIET_MS).map { },
+                progressSync.held.debounce(HELD_SETTLE_MS).map { },
+            ).onStart { emit(Unit) }.collect { report() }
         }
     }
 
@@ -88,5 +97,8 @@ class WatchEpisodeReporter @Inject constructor(
     private companion object {
         const val TAG = "WatchEpisodeReporter"
         const val QUIET_MS = 30_000L
+
+        /** Kurz warten, bis der Player beim Pausieren auch die gehörte Zeit verbucht hat; sie geht im selben Paket mit. */
+        const val HELD_SETTLE_MS = 1_000L
     }
 }
