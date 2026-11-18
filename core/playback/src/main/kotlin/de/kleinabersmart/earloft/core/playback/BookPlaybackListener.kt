@@ -24,7 +24,11 @@ import de.kleinabersmart.earloft.core.model.sameSpeed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
  * Alles, was nur für Hörbücher gilt (Konzept 12.3/12.4): Fortschritt festhalten und melden, Tempo und Effekte nach der
@@ -65,6 +69,9 @@ internal class BookPlaybackListener(
     private var currentEffects: SpokenEffects? = null
     private var effectsJob: Job? = null
     private var outroJob: Job? = null
+
+    /** Beobachter des gespeicherten Stands des geladenen Buchs ([followStoredProgress]). */
+    private var storedProgressJob: Job? = null
 
     // Gehörte Zeit des laufenden Buchs bzw. der laufenden Folge (Statistik); [meterBookId] gehört die gemessene Zeit.
     private val meter = ListeningMeter()
@@ -127,6 +134,7 @@ internal class BookPlaybackListener(
             // Musik läuft immer mit normaler Geschwindigkeit und ohne Effekte.
             if (player.playbackParameters.speed != 1f) player.setPlaybackSpeed(1f)
             effectsJob?.cancel()
+            storedProgressJob?.cancel()
             currentEffects = null
             applyAudio(false, 0)
             updateTimers()
@@ -136,6 +144,7 @@ internal class BookPlaybackListener(
         if (timelineBookId == bookId) {
             // Zurück aus Musik ins selbe Buch: Die Musik hat die Effekte abgeschaltet und ihren Beobachter beendet.
             if (effectsJob?.isActive != true) followEffects(bookId)
+            if (storedProgressJob?.isActive != true) followStoredProgress(bookId)
             // Der Cast-Empfänger lädt die Warteschlange mit normaler Geschwindigkeit.
             if (handedOver) currentEffects?.speed?.takeUnless { sameSpeed(it, player.playbackParameters.speed) }?.let(player::setPlaybackSpeed)
             updateTimers()
@@ -143,6 +152,7 @@ internal class BookPlaybackListener(
         }
         timelineBookId = bookId
         followEffects(bookId)
+        followStoredProgress(bookId)
         // Ein frisch geladenes Buch hat seine Startposition schon aus dem gespeicherten Stand bekommen – außer es wurde
         // pausiert wiederhergestellt; dann zählt die Pause seit dem gespeicherten Stand.
         val restored = pendingRestore?.takeIf { it.first == bookId }
@@ -198,6 +208,28 @@ internal class BookPlaybackListener(
                 applyAudio(next.skipSilence, next.volumeBoostDb)
                 previous = next
                 updateOutro()
+            }
+        }
+    }
+
+    /**
+     * Ein anderes Gerät hat den Stand des geladenen, pausierten Buchs geändert (Uhr ↔ Handy, Abgleich mit Audiobookshelf): Der
+     * Player springt dorthin. Sonst ginge es bei Play an der alten Stelle weiter, und die nächste Speicherung schriebe sie mit
+     * neuem Zeitstempel über den neueren Stand. Nur Änderungen nach dem Laden zählen; geladen wird ohnehin am gespeicherten
+     * Stand. Ob der fremde Stand neuer ist, hat schon entschieden, wer ihn gespeichert hat.
+     */
+    private fun followStoredProgress(bookId: Long) {
+        storedProgressJob?.cancel()
+        storedProgressJob = scope.launch {
+            books.book(bookId).map { it?.progress }.distinctUntilChanged().drop(1).collect { stored ->
+                stored ?: return@collect
+                val (item, timeline, position) = current() ?: return@collect
+                if (item.bookId != bookId) return@collect
+                val target = storedPositionToAdopt(stored, position, player.playWhenReady) ?: return@collect
+                if (!seekInBook(timeline, target)) return@collect
+                // Die Regel zum Fortsetzen zählt ab der Pause auf dem anderen Gerät.
+                pausedBookId = bookId
+                pausedAt = stored.updatedAt
             }
         }
     }
@@ -581,3 +613,18 @@ internal class BookPlaybackListener(
         const val MIN_SPEED = 0.1f
     }
 }
+
+
+/**
+ * Wohin der pausierte Player springt, wenn sich der gespeicherte Stand [stored] seines Buchs ändert; `null`, wenn er bleibt:
+ * während der Wiedergabe ([playWhenReady]), bei einem als beendet markierten Stand und bei eigenen Speicherungen, die an der
+ * Position [playerPositionMs] des Players stehen (beides im ganzen Buch).
+ */
+internal fun storedPositionToAdopt(stored: BookProgress, playerPositionMs: Long, playWhenReady: Boolean): Long? {
+    if (playWhenReady || stored.finished) return null
+    if (abs(stored.positionMs - playerPositionMs) <= ADOPT_TOLERANCE_MS) return null
+    return stored.positionMs
+}
+
+/** Eigene Speicherungen weichen höchstens um die Rundung ab; fremde Stände um mehr. */
+private const val ADOPT_TOLERANCE_MS = 1_000L
