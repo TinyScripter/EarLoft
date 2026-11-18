@@ -598,6 +598,7 @@ fun EarLoftApp(
         LocalFeedDownloads provides rememberFeedDownloads(),
     ) {
         SyncNoticeEffect()
+        QueuedForMusicEffect()
         RefreshEventEffect()
         // Im Assistenten ohne „Eingeben“: Er listet die Server selbst, und der Wechsel zu den Einstellungen schlösse ihn.
         RestoreNoticeEffect(

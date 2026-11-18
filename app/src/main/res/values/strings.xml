@@ -38,6 +38,11 @@
         <item quantity="one">Up next: a mix of %1$d song</item>
         <item quantity="other">Up next: a mix of %1$d songs</item>
     </plurals>
+    <plurals name="queued_for_music">
+        <item quantity="one">%1$d song added to the music queue</item>
+        <item quantity="other">%1$d songs added to the music queue</item>
+    </plurals>
+    <string name="queued_for_music_play">Play music</string>
     <string name="action_remove_from_queue">Remove from queue</string>
     <string name="action_reorder_queue_item">Drag to reorder</string>
     <string name="action_move_up">Move up</string>

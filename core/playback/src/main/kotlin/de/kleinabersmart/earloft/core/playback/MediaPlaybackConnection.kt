@@ -243,15 +243,33 @@ class MediaPlaybackConnection @Inject constructor(
 
     override fun seekToTrack(trackIndex: Int, positionMs: Long) = withController { seekTo(trackIndex, positionMs) }
 
+    private val _queuedForMusic = MutableSharedFlow<Int>(extraBufferCapacity = 4)
+
+    override val queuedForMusic: Flow<Int> = _queuedForMusic.asSharedFlow()
+
     override fun playNext(songs: List<Song>) = withController {
+        if (currentMediaItem?.isSpoken == true) return@withController queueForMusic(songs, next = true)
         val position = if (mediaItemCount == 0) 0 else currentMediaItemIndex + 1
         addMediaItems(position, songs.map { it.toMediaItem() })
         if (playbackState == Player.STATE_IDLE) prepare()
     }
 
     override fun addToQueue(songs: List<Song>) = withController {
+        if (currentMediaItem?.isSpoken == true) return@withController queueForMusic(songs, next = false)
         addMediaItems(songs.map { it.toMediaItem() })
         if (playbackState == Player.STATE_IDLE) prepare()
+    }
+
+    /**
+     * Ein Buch bzw. eine Folge ersetzt die Warteschlange des Players. Songs dahinter spielten nach dem Gesprochenen, statt
+     * dass die nächste Folge kommt, und überschrieben die gespeicherte Musik-Warteschlange; sie gehen deshalb dorthin.
+     */
+    private fun queueForMusic(songs: List<Song>, next: Boolean) {
+        if (songs.isEmpty()) return
+        scope.launch {
+            queuePersistence.addToSavedQueue(songs.map { it.id }, next)
+            _queuedForMusic.emit(songs.size)
+        }
     }
 
     override fun replaceUpcoming(songs: List<Song>) = withController {

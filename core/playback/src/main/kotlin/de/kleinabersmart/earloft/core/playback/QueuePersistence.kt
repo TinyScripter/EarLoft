@@ -40,6 +40,17 @@ data class RestoredQueue(
     val repeatMode: Int,
 )
 
+/**
+ * Die gespeicherte Musik-Warteschlange [saved] mit [songIds] darin: bei [next] direkt hinter dem gespeicherten Titel
+ * ([savedIndex]), sonst am Ende; ist sie leer, nur [songIds].
+ */
+internal fun insertIntoSavedQueue(saved: List<Long>, savedIndex: Int, songIds: List<Long>, next: Boolean): List<Long> {
+    if (saved.isEmpty()) return songIds
+    if (!next) return saved + songIds
+    val at = savedIndex.coerceIn(0, saved.lastIndex) + 1
+    return saved.take(at) + songIds + saved.drop(at)
+}
+
 /** Speichert Warteschlange (Room) und Position/Modi (DataStore) – Konzept 5.5. */
 @Singleton
 class QueuePersistence @Inject constructor(
@@ -122,6 +133,24 @@ class QueuePersistence @Inject constructor(
             it.remove(LEGACY_LAST_BOOK)
         }
         return key
+    }
+
+    /**
+     * Songs für die Musik, solange der Player ein Buch bzw. eine Folge hält: Sie gehen in die gespeicherte Musik-Warteschlange,
+     * die „Musik fortsetzen“ ([restore]) lädt, statt hinter das Gesprochene. Bei [next] hinter den gespeicherten Titel, sonst
+     * ans Ende. Position und Modi bleiben; nur eine leere Warteschlange beginnt beim ersten neuen Song.
+     */
+    suspend fun addToSavedQueue(songIds: List<Long>, next: Boolean) {
+        if (songIds.isEmpty()) return
+        val saved = playbackStateRepository.loadQueue()
+        val index = context.playbackDataStore.data.first()[KEY_INDEX] ?: 0
+        playbackStateRepository.saveQueue(insertIntoSavedQueue(saved, index, songIds, next))
+        if (saved.isEmpty()) {
+            context.playbackDataStore.edit {
+                it[KEY_INDEX] = 0
+                it[KEY_POSITION] = 0L
+            }
+        }
     }
 
     suspend fun restore(): RestoredQueue? {

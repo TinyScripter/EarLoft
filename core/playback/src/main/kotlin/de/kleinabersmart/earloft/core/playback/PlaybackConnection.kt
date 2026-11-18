@@ -105,9 +105,17 @@ interface PlaybackConnection {
     /** Springt in Datei [trackIndex] an die Stelle [positionMs] (Position in der Datei). */
     fun seekToTrack(trackIndex: Int, positionMs: Long)
 
+    /**
+     * Spielt [songs] nach dem laufenden Titel. Hält der Player ein Buch bzw. eine Folge, gehen sie stattdessen hinter den
+     * gespeicherten Titel der Musik-Warteschlange (siehe [queuedForMusic]); das Gesprochene läuft unverändert weiter.
+     */
     fun playNext(songs: List<Song>)
 
+    /** Hängt [songs] an die Warteschlange; bei einem Buch bzw. einer Folge an die gespeicherte Musik-Warteschlange (wie [playNext]). */
     fun addToQueue(songs: List<Song>)
+
+    /** Anzahl Songs, die [playNext] bzw. [addToQueue] in die gespeicherte Musik-Warteschlange gelegt haben, weil Gesprochenes lief. */
+    val queuedForMusic: Flow<Int>
 
     /** Der laufende Titel spielt weiter, alles nach ihm weicht [songs] (Mix aus Now Playing); ohne Warteschlange wie [play]. */
     fun replaceUpcoming(songs: List<Song>)
