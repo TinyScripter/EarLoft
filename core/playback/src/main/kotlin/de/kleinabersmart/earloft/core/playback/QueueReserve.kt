@@ -1,9 +1,10 @@
 package de.kleinabersmart.earloft.core.playback
 
 /**
- * Der Teil einer Warteschlange, der gerade nicht im Player liegt (Cast: eine Nachricht fasst nur etwa 50 Titel).
- * [after] wird stückweise nachgereicht ([take]), wenn der Player sich dem Ende nähert; [before] (was vor dem
- * Starttitel lag) und der Rest kommen beim Wechsel zurück aufs Handy wieder dazu ([complete]). Nur Main-Thread.
+ * Der Teil einer Warteschlange, der gerade nicht im Player liegt (Cast: der Empfänger hält nur etwa 50 Titel).
+ * [after] wird stückweise nachgereicht ([take]), wenn der Player sich dem Ende nähert; dafür gehen gespielte Titel aus dem
+ * Player nach [before] ([keepBefore]). [before] (was vor dem Fenster lag) und der Rest kommen beim Wechsel zurück aufs
+ * Handy wieder dazu ([complete]). Nur Main-Thread.
  */
 class QueueReserve<T> {
 
@@ -26,6 +27,11 @@ class QueueReserve<T> {
 
     /** Was noch nachgereicht werden sollte, fällt weg; was vor dem Fenster lag, bleibt. */
     fun clearAfter() = after.clear()
+
+    /** Gespielte Titel, die aus dem Player genommen wurden, um Platz zu machen: Sie gehören hinter das bisherige [before]. */
+    fun keepBefore(items: List<T>) {
+        before = before + items
+    }
 
     /** Hängt [items] hinter alles an, was noch aussteht. */
     fun append(items: List<T>) {

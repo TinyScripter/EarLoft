@@ -291,10 +291,11 @@ internal class LibrarySessionCallback(
             factory.appendPending(items)
             return@future emptyList()
         }
-        val maxSize = maxQueueSize(player)
-        if (items.size <= maxSize) return@future items
-        factory.appendPending(items.drop(maxSize))
-        items.take(maxSize)
+        // Was nicht mehr in den Player passt (Cast: höchstens 50 Titel insgesamt), reicht die Fabrik später nach.
+        val room = factory.roomIn(player)
+        if (items.size <= room) return@future items
+        factory.appendPending(items.drop(room))
+        items.take(room)
     }
 
     /**

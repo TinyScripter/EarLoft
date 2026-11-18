@@ -18,6 +18,17 @@ data class QueueWindow<T>(
  * die folgenden. Bei Zufallswiedergabe: der Starttitel und eine zufällige Auswahl aus dem Rest (in der
  * ursprünglichen Reihenfolge), damit „alles zufällig“ nicht nur einen Abschnitt der Liste mischt.
  */
+/**
+ * Welche Titel aus dem Player können, um Platz zu machen: höchstens [count] schon gespielte, die am längsten zurückliegen.
+ * [previous] liefert den Titel vor einem Index in Wiedergabereihenfolge (bei Zufall die gemischte), `-1` am Anfang
+ * (`Timeline.getPreviousWindowIndex`). Ergebnis aufsteigend sortiert.
+ */
+fun oldestPlayed(current: Int, count: Int, previous: (Int) -> Int): List<Int> {
+    if (current < 0 || count <= 0) return emptyList()
+    val played = generateSequence(previous(current).takeIf { it >= 0 }) { index -> previous(index).takeIf { it >= 0 } }.toList()
+    return played.takeLast(count).sorted()
+}
+
 fun <T> queueWindow(items: List<T>, startIndex: Int, maxSize: Int, shuffle: Boolean, random: Random = Random): QueueWindow<T> {
     if (items.size <= maxSize) return QueueWindow(items, startIndex)
     val start = startIndex.coerceIn(items.indices)

@@ -60,6 +60,17 @@ class QueueReserveTest {
     }
 
     @Test
+    fun `played items taken out of the window go behind what lay before it`() {
+        val reserve = QueueReserve<Int>().apply { reset(before = listOf(0), after = listOf(6, 7)) }
+
+        reserve.keepBefore(listOf(1, 2))
+        val next = reserve.take(2)
+
+        assertEquals(listOf(6, 7), next)
+        assertEquals(listOf(0, 1, 2, 3, 4, 5, 6, 7) to 4, reserve.complete(listOf(3, 4, 5, 6, 7), windowIndex = 1))
+    }
+
+    @Test
     fun `complete keeps an unset index unset`() {
         val reserve = QueueReserve<Int>().apply { reset(before = listOf(0), after = emptyList()) }
 

@@ -21,8 +21,8 @@ interface SessionPlayerFactory {
     suspend fun playableSongIds(player: Player, songIds: Collection<Long>): Set<Long> = songIds.toSet()
 
     /**
-     * Höchstzahl Titel, die [player] auf einmal annimmt (Cast: Größe einer Nachricht); siehe [queueWindow].
-     * Was darüber liegt, hält die Fabrik zurück und reicht es nach ([onQueueReplaced], [appendPending]).
+     * Höchstzahl Titel, die [player] insgesamt hält (Cast: Größe einer Nachricht, auch des Status); siehe [queueWindow] und
+     * [roomIn]. Was darüber liegt, hält die Fabrik zurück und reicht es nach ([onQueueReplaced], [appendPending]).
      */
     fun maxQueueSize(player: Player): Int = Int.MAX_VALUE
 
@@ -37,4 +37,10 @@ interface SessionPlayerFactory {
 
     /** Main-Thread. Hängt [items] hinter die zurückgehaltenen Titel. */
     fun appendPending(items: List<MediaItem>) = Unit
+}
+
+/** Wie viele Titel [player] noch aufnehmen kann ([SessionPlayerFactory.maxQueueSize] abzüglich der vorhandenen). */
+fun SessionPlayerFactory?.roomIn(player: Player): Int {
+    val max = this?.maxQueueSize(player) ?: Int.MAX_VALUE
+    return if (max == Int.MAX_VALUE) max else (max - player.mediaItemCount).coerceAtLeast(0)
 }

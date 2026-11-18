@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.cast
 
 import android.os.Handler
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.DeviceInfo
@@ -25,6 +26,11 @@ import androidx.media3.common.util.UnstableApi
  * Jede neue Warteschlange, die beim Casten hinausgeht, meldet [onRemoteQueue] (als Stand fürs Handy, falls der
  * Empfänger sie nicht laden kann). Entfernt jemand beim Casten alles bis zum Ende (Mix „als Nächstes“), meldet das
  * [onClearedToEnd]: Was noch in der Reserve der Factory liegt, gilt dann ebenfalls als entfernt.
+ *
+ * Sprünge lassen sich kurz zurückhalten ([holdSeeks]), solange die Factory gespielte Titel vor dem laufenden aus dem
+ * Empfänger nimmt: `RemoteCastPlayer` rechnet bis zur Bestätigung eines Sprungs mit dessen Index, und meldet der Empfänger
+ * in dieser Zeit die kürzere Warteschlange, greift Media3 (1.11.1) daneben und die App stürzt ab (am Gerät gesehen,
+ * 2026-11-18). Wann zuletzt gesprungen wurde, steht in [lastSeekAtMs].
  */
 @OptIn(UnstableApi::class)
 internal class DeferredRemotePlayPlayer(
@@ -37,6 +43,12 @@ internal class DeferredRemotePlayPlayer(
     private val giveUp = Runnable { finishLoad() }
     private var loading = false
     private var playAfterLoad = false
+
+    /** `SystemClock.elapsedRealtime()` des letzten Sprungs. */
+    var lastSeekAtMs = 0L
+        private set
+    private var seeksHeld = false
+    private val heldSeeks = ArrayList<() -> Unit>()
 
     init {
         player.addListener(object : Player.Listener {
@@ -99,6 +111,60 @@ internal class DeferredRemotePlayPlayer(
     override fun addMediaItems(index: Int, mediaItems: List<MediaItem>) {
         if (mediaItems.isNotEmpty()) super.addMediaItems(index, mediaItems)
     }
+
+    /** Main-Thread. Sprünge ab jetzt sammeln, bis [releaseSeeks]. */
+    fun holdSeeks() {
+        seeksHeld = true
+    }
+
+    /** Main-Thread. Führt die gesammelten Sprünge in ihrer Reihenfolge aus. */
+    fun releaseSeeks() {
+        if (!seeksHeld) return
+        seeksHeld = false
+        val held = heldSeeks.toList()
+        heldSeeks.clear()
+        held.forEach { it() }
+    }
+
+    private fun seek(action: () -> Unit) {
+        lastSeekAtMs = SystemClock.elapsedRealtime()
+        if (seeksHeld) heldSeeks += action else action()
+    }
+
+    /**
+     * Ein Sprung zu einem Index: Wartet er, bis Titel davor entfernt sind, gilt danach der Titel, der beim Aufruf dort stand.
+     * `null`, wenn es ihn nicht mehr gibt.
+     */
+    private fun indexAfterHold(mediaItemIndex: Int, mediaId: String?): Int? {
+        if (mediaId == null || mediaItemIndex in 0 until mediaItemCount && getMediaItemAt(mediaItemIndex).mediaId == mediaId) {
+            return mediaItemIndex
+        }
+        return (0 until mediaItemCount).firstOrNull { getMediaItemAt(it).mediaId == mediaId }
+    }
+
+    private fun mediaIdAt(mediaItemIndex: Int): String? =
+        mediaItemIndex.takeIf { it in 0 until mediaItemCount }?.let { getMediaItemAt(it).mediaId }
+
+    override fun seekToDefaultPosition() = seek { super.seekToDefaultPosition() }
+
+    override fun seekToDefaultPosition(mediaItemIndex: Int) {
+        val mediaId = mediaIdAt(mediaItemIndex)
+        seek { indexAfterHold(mediaItemIndex, mediaId)?.let { super.seekToDefaultPosition(it) } }
+    }
+
+    override fun seekTo(positionMs: Long) = seek { super.seekTo(positionMs) }
+
+    override fun seekTo(mediaItemIndex: Int, positionMs: Long) {
+        val mediaId = mediaIdAt(mediaItemIndex)
+        seek { indexAfterHold(mediaItemIndex, mediaId)?.let { super.seekTo(it, positionMs) } }
+    }
+
+    override fun seekBack() = seek { super.seekBack() }
+    override fun seekForward() = seek { super.seekForward() }
+    override fun seekToPrevious() = seek { super.seekToPrevious() }
+    override fun seekToPreviousMediaItem() = seek { super.seekToPreviousMediaItem() }
+    override fun seekToNext() = seek { super.seekToNext() }
+    override fun seekToNextMediaItem() = seek { super.seekToNextMediaItem() }
 
     override fun play() {
         if (loading) playAfterLoad = true else super.play()

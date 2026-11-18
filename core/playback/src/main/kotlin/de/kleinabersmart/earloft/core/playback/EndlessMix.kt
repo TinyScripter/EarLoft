@@ -99,9 +99,9 @@ internal class EndlessMix(
             // Inzwischen weitergesprungen, etwas angehängt oder ausgeschaltet: Der Mix gehört nicht mehr hierher.
             if (items.isEmpty() || seedAtEnd() != seed) return@launch
             Log.d(TAG, "Mix nach Song $seed: ${items.size} Titel angehängt")
-            val maxSize = factory?.maxQueueSize(player) ?: Int.MAX_VALUE
-            player.addMediaItems(items.take(maxSize))
-            if (items.size > maxSize) factory?.appendPending(items.drop(maxSize))
+            val room = factory.roomIn(player)
+            player.addMediaItems(items.take(room))
+            if (items.size > room) factory?.appendPending(items.drop(room))
         }
     }
 

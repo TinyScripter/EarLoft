@@ -115,4 +115,58 @@ class DeferredRemotePlayPlayerTest {
         player.play()
         assertTrue(fake.wantsPlay)
     }
+
+    /** Fünf Titel a–e, der vierte läuft; merkt sich Sprünge und lässt sich vorn kürzen. */
+    private class PlaylistPlayer : SimpleBasePlayer(Looper.getMainLooper()) {
+        var ids = listOf("a", "b", "c", "d", "e")
+        var current = 3
+        val seeks = mutableListOf<Int>()
+
+        override fun getState(): State = State.Builder()
+            .setAvailableCommands(Player.Commands.Builder().addAllCommands().build())
+            .setDeviceInfo(DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).build())
+            .setPlaylist(ImmutableList.copyOf(ids.map { MediaItemData.Builder(it).setMediaItem(MediaItem.Builder().setMediaId(it).build()).build() }))
+            .setCurrentMediaItemIndex(current)
+            .build()
+
+        override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: Int): ListenableFuture<*> {
+            seeks += mediaItemIndex
+            current = mediaItemIndex
+            return Futures.immediateVoidFuture()
+        }
+
+        fun dropFirst(count: Int) {
+            ids = ids.drop(count)
+            current -= count
+            invalidateState()
+            shadowOf(Looper.getMainLooper()).idle()
+        }
+    }
+
+    @Test
+    fun `seeks wait while items before the current one are removed and then hit the item they meant`() {
+        val fake = PlaylistPlayer()
+        val player = DeferredRemotePlayPlayer(fake)
+        player.currentMediaItemIndex
+
+        player.holdSeeks()
+        player.seekTo(4, 0)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals("Zurückgehalten", emptyList<Int>(), fake.seeks)
+
+        fake.dropFirst(2)
+        player.releaseSeeks()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals("„e“ steht jetzt an Index 2", listOf(2), fake.seeks)
+    }
+
+    @Test
+    fun `without holding seeks go out at once`() {
+        val fake = PlaylistPlayer()
+        val player = DeferredRemotePlayPlayer(fake)
+
+        player.seekToNextMediaItem()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(listOf(4), fake.seeks)
+    }
 }
