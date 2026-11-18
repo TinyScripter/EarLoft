@@ -219,9 +219,14 @@ internal class LibrarySessionCallback(
             isAutomotiveController(controller)
 
     /**
-     * Der [CoverProvider] ist nicht exportiert: Vertrauenswürdige Controller bekommen Leserecht auf alle Cover (eine
-     * Präfix-Freigabe), damit Android Auto bzw. die System-Oberfläche die `content://`-Cover der Listen laden können.
+     * Die System-Oberfläche liest die Metadaten der Plattform-Session direkt und lädt das Cover selbst; verbinden ([onConnect])
+     * tut sie sich erst mit dem ersten Befehl (Pause, Weiter). Deshalb bekommt sie die Freigabe gleich beim Start des Service.
+     * Android verwirft Freigaben mit jedem Update der App und jedem Neustart des Geräts.
      */
+    fun grantSystemUiCoverAccess() {
+        systemUiPackage()?.let(::grantCoverAccess)
+    }
+
     /**
      * Paket der System-Oberfläche aus der Geräte-Konfiguration (`config_systemUi`, nur über den Namen erreichbar), sonst der
      * AOSP-Name. Nicht über den PackageManager prüfen: Die Paket-Sichtbarkeit ab API 30 verbirgt es; ein falscher Name lässt
@@ -234,6 +239,10 @@ internal class LibrarySessionCallback(
         return (if (id != 0) system.getString(id) else null)?.takeIf { it.isNotBlank() } ?: DEFAULT_SYSTEM_UI_PACKAGE
     }
 
+    /**
+     * Der [CoverProvider] ist nicht exportiert: Vertrauenswürdige Controller bekommen Leserecht auf alle Cover (eine
+     * Präfix-Freigabe), damit Android Auto bzw. die System-Oberfläche die `content://`-Cover der Listen laden können.
+     */
     private fun grantCoverAccess(packageName: String) {
         if (packageName == context.packageName || packageName == MediaSession.ControllerInfo.LEGACY_CONTROLLER_PACKAGE_NAME) return
         try {
@@ -435,9 +444,8 @@ internal class LibrarySessionCallback(
         controller: MediaSession.ControllerInfo,
         isForPlayback: Boolean,
     ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
-        // Die Anfrage der System-Oberfläche kommt über den Benachrichtigungs-Controller der eigenen App (ohne onConnect der
-        // System-Oberfläche); das Cover der Karte lädt sie aber selbst über den nicht exportierten CoverProvider.
-        if (!isForPlayback) systemUiPackage()?.let(::grantCoverAccess)
+        // Das Cover der Fortsetzen-Karte lädt die System-Oberfläche selbst; die Freigabe dafür gab es schon beim Start des
+        // Service ([grantSystemUiCoverAccess]).
         if (isForPlayback) {
             // Kommt „Abspielen“ (Kopfhörer, Widget, Fortsetzen-Karte) gleich nach dem Start des Service, läuft dessen
             // Wiederherstellung noch. Gewann sie, steht das Buch schon im Player und hat sich die Pause gemerkt; ein

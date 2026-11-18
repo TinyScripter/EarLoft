@@ -269,17 +269,16 @@ class PlaybackService : MediaLibraryService() {
             next = nextChapter,
             previous = previousChapter,
         )
-        session = MediaLibrarySession.Builder(
-            this,
-            sessionPlayer,
-            LibrarySessionCallback(
-                this, libraryRepository, favoritesRepository, queuePersistence, bookPlaybackSource, browseTree, continueListening, factory, mainScope,
-                mediaButtons = mediaButtons,
-                onChapterButton = { forward -> if (forward) nextChapter() else previousChapter() },
-            ) {
-                restoreJob?.join()
-            },
-        )
+        val callback = LibrarySessionCallback(
+            this, libraryRepository, favoritesRepository, queuePersistence, bookPlaybackSource, browseTree, continueListening, factory, mainScope,
+            mediaButtons = mediaButtons,
+            onChapterButton = { forward -> if (forward) nextChapter() else previousChapter() },
+        ) {
+            restoreJob?.join()
+        }
+        // Vor der ersten Wiedergabe: Medien-Karte und Sperrbildschirm laden das Cover über den CoverProvider.
+        callback.grantSystemUiCoverAccess()
+        session = MediaLibrarySession.Builder(this, sessionPlayer, callback)
             .setBitmapLoader(CacheBitmapLoader(ArtworkBitmapLoader(this, artworkRepository, bookCovers, mainScope)))
             .apply { sessionActivity()?.let { setSessionActivity(it) } }
             .build()
