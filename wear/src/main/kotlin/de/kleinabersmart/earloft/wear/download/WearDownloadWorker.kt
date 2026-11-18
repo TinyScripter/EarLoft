@@ -4,6 +4,8 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.content.pm.ServiceInfo
 import android.util.Log
 import androidx.core.app.NotificationChannelCompat
@@ -263,16 +265,35 @@ class WearDownloadWorker(
      */
     private suspend fun waitForPhone(): Result {
         val runs = state.recordPhoneUnreachable()
-        if (runs < WatchState.PHONE_ATTEMPTS) {
-            Log.i(TAG, "Handy nicht erreichbar, später erneut (Lauf $runs)")
-            return Result.retry()
+        val step = phoneWaitStep(runs, pluggedIn = isPluggedIn())
+        if (step != PhoneWaitStep.RETRY && !state.waitingForPhone) {
+            state.waitingForPhone = true
+            entryPoint.phoneReturn().announce()
         }
-        Log.i(TAG, "Handy nach $runs Läufen nicht erreichbar, weiter am Ladegerät oder wenn es sich meldet")
-        state.waitingForPhone = true
-        entryPoint.phoneReturn().announce()
-        entryPoint.scheduler().enqueueOnCharger()
-        return Result.success()
+        return when (step) {
+            PhoneWaitStep.RETRY -> {
+                Log.i(TAG, "Handy nicht erreichbar, später erneut (Lauf $runs)")
+                Result.retry()
+            }
+            PhoneWaitStep.RETRY_ON_CHARGER -> {
+                // Ein angehängter Auftrag liefe am Ladegerät sofort wieder an und scheiterte nach 30 s erneut, ohne Ende. So
+                // wächst der Abstand mit dem Backoff (bis 5 h), bis das Handy sich meldet.
+                Log.i(TAG, "Handy nach $runs Läufen nicht erreichbar, am Ladegerät später erneut oder wenn es sich meldet")
+                Result.retry()
+            }
+            PhoneWaitStep.WAIT_FOR_CHARGER -> {
+                Log.i(TAG, "Handy nach $runs Läufen nicht erreichbar, weiter am Ladegerät oder wenn es sich meldet")
+                entryPoint.scheduler().enqueueOnCharger()
+                Result.success()
+            }
+        }
     }
+
+    /** Am Strom (auch voll geladen): Dann läuft ein Auftrag mit Lade-Bedingung sofort an. */
+    private fun isPluggedIn(): Boolean =
+        applicationContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            ?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
+            ?.let { it != 0 } == true
 
     /** Kein WLAN zählt nicht als Fehlversuch des Servers: Sonst käme die ganze Auswahl über Bluetooth. */
     private fun waitForWifi(): Result {
@@ -607,6 +628,18 @@ class WearDownloadWorker(
         const val KEY_WAIT_MS = 15_000L
         const val KEY_POLL_MS = 500L
     }
+}
+
+internal enum class PhoneWaitStep { RETRY, RETRY_ON_CHARGER, WAIT_FOR_CHARGER }
+
+/**
+ * Nächster Schritt, wenn das Handy im [runs]. Lauf nicht erreichbar war (Review V1): bis [WatchState.PHONE_ATTEMPTS] mit
+ * Backoff erneut, danach aufs Ladegerät warten. Hängt die Uhr schon am Strom, bleibt es beim Backoff.
+ */
+internal fun phoneWaitStep(runs: Int, pluggedIn: Boolean): PhoneWaitStep = when {
+    runs < WatchState.PHONE_ATTEMPTS -> PhoneWaitStep.RETRY
+    pluggedIn -> PhoneWaitStep.RETRY_ON_CHARGER
+    else -> PhoneWaitStep.WAIT_FOR_CHARGER
 }
 
 /** Fehlversuche von Folgen stehen neben denen der Songs ([WatchState]); eigener Schlüssel, damit sie sich nicht mischen. */
