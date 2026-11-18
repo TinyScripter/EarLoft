@@ -28,6 +28,7 @@ import dagger.hilt.components.SingletonComponent
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.di.ApplicationScope
 import de.kleinabersmart.earloft.core.data.repository.PhoneCastServer
+import de.kleinabersmart.earloft.core.playback.QueuePersistence
 import de.kleinabersmart.earloft.core.playback.QueueReserve
 import de.kleinabersmart.earloft.core.playback.SessionPlayerFactory
 import de.kleinabersmart.earloft.core.playback.SpokenItemRebuilder
@@ -77,6 +78,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
     private val spokenItems: SpokenItemRebuilder,
     private val rejoin: CastRejoin,
     private val phone: PhoneMediaServer,
+    private val queuePersistence: QueuePersistence,
 ) : SessionPlayerFactory {
 
     private var sessionListener: SessionManagerListener<CastSession>? = null
@@ -112,7 +114,12 @@ internal class CastSessionPlayerFactory @Inject constructor(
         val player = CastPlayer.Builder(context)
             .setLocalPlayer(localPlayer)
             .setRemotePlayer(remotePlayer)
-            .setTransferCallback(CastTransferCallback(cache, handOver, reserve, spokenItems::playable, ::showSkipped, ::awaitQueue))
+            .setTransferCallback(
+                CastTransferCallback(cache, handOver, reserve, spokenItems::playable, ::showSkipped, ::awaitQueue) {
+                    // Wieder angehängt: Der Player des Handys ist nach dem Neustart leer, der Zufall der Musik steht im Gespeicherten.
+                    scope.launch { handOver.phoneShuffle = queuePersistence.savedShuffle() }
+                },
+            )
             .build()
         castPlayer = player
         prepareOnSessionStart(player)
@@ -547,10 +554,12 @@ private fun playingUntil(player: Player): Long? {
  * Stand des Empfängers mit Warteschlange, falls eine andere App ihn übernimmt. [resuming]: Die App hängt sich nach einem
  * Neustart wieder an ([CastRejoin]) – der Empfänger behält dann seinen Stand. [checkRejoin]: Beim Start der Sitzung ist zu
  * prüfen, ob es die von vorher ist; anders als [resuming] setzt das `transferState` nicht zurück. [rejected]: Dabei kam eine
- * andere Sitzung heraus, das Handy behält seinen Stand.
+ * andere Sitzung heraus, das Handy behält seinen Stand. [phoneShuffle]: Zufall am Handy bei der Übergabe; der Cast-Player
+ * kennt keinen und gibt „aus“ zurück, beim Zurückwechseln gilt wieder dieser Wert.
  */
 @OptIn(UnstableApi::class)
 private class HandOver {
+    @Volatile var phoneShuffle: Boolean? = null
     @Volatile var resuming = false
     @Volatile var checkRejoin = false
     @Volatile var rejected = false
@@ -591,6 +600,8 @@ private class CastTransferCallback(
     private val onSkipped: (skipped: Int, total: Int) -> Unit,
     /** Was als Warteschlange an den Empfänger geht (Fenster ohne Reserve). */
     private val onSent: (List<MediaItem>) -> Unit,
+    /** Die App hat sich an eine laufende Sitzung gehängt ([HandOver.resuming]); setzt [HandOver.phoneShuffle] nachträglich. */
+    private val onRejoined: () -> Unit,
 ) : CastPlayer.TransferCallback {
 
     override fun transferState(sourcePlayer: Player, targetPlayer: Player) {
@@ -619,7 +630,12 @@ private class CastTransferCallback(
             } else {
                 state
             }
-            back.playableOnPhone(rebuild).setToPlayer(targetPlayer)
+            // Nur für Musik: Ein Buch bzw. eine Folge, die beim Casten gestartet wurde, spielt ohne Zufall.
+            val shuffle = handOver.phoneShuffle
+            handOver.phoneShuffle = null
+            val music = back.mediaItems.getOrNull(back.currentMediaItemIndex)?.songId != null
+            val withShuffle = if (shuffle != null && music) back.buildUpon().setShuffleModeEnabled(shuffle).build() else back
+            withShuffle.playableOnPhone(rebuild).setToPlayer(targetPlayer)
             reserve.clear()
             return
         }
@@ -630,11 +646,14 @@ private class CastTransferCallback(
         // Wieder angehängt: Der Empfänger spielt weiter, was er hat. Die Warteschlange des Handys (nach dem Neustart leer
         // oder ein älterer Stand) würde sie sonst ersetzen oder anhalten.
         if (handOver.resuming || handOver.rejected) {
+            handOver.phoneShuffle = null
+            if (handOver.resuming) onRejoined()
             handOver.resuming = false
             handOver.state = null
             onSent(emptyList())
             return
         }
+        handOver.phoneShuffle = state.shuffleModeEnabled
         handOver.state = state.takeIf { it.mediaItems.isNotEmpty() }
         cache.prepareBlocking(state.mediaItems.mapNotNull { it.songId })
         val sent = castableState(state, cache, reserve, onSkipped)

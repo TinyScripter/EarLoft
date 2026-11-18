@@ -60,6 +60,18 @@ internal fun savedMusicQueueOf(songs: List<Song>, savedIndex: Int): SavedMusicQu
     return SavedMusicQueue(entries, savedIndex.coerceIn(0, songs.lastIndex))
 }
 
+/**
+ * Stelle von [songId] in der gespeicherten Warteschlange [songIds]: das erste Vorkommen ab [near] (dem bisher gespeicherten
+ * Titel), sonst das nächste davor; `null`, wenn der Song nicht darin steht. So trifft ein doppelt eingereihter Song die
+ * Stelle, an der die Wiedergabe gerade ist.
+ */
+internal fun indexOfSong(songIds: List<Long>, songId: Long, near: Int): Int? {
+    val from = near.coerceIn(0, (songIds.size - 1).coerceAtLeast(0))
+    for (i in from until songIds.size) if (songIds[i] == songId) return i
+    for (i in from - 1 downTo 0) if (songIds[i] == songId) return i
+    return null
+}
+
 /** Speichert Warteschlange (Room) und Position/Modi (DataStore) – Konzept 5.5. */
 @Singleton
 class QueuePersistence @Inject constructor(
@@ -85,6 +97,27 @@ class QueuePersistence @Inject constructor(
         val position = if (player.playbackState == Player.STATE_ENDED) 0L else player.currentPosition
         saveMusicPosition(player.currentMediaItemIndex, position, player.shuffleModeEnabled, player.repeatMode, scope)
     }
+
+    /**
+     * Beim Casten: Der Cast-Player hält nur ein Fenster der Warteschlange (Reserve, entfernte gespielte Titel) und kennt
+     * keinen Zufall. Gespeichert bleiben deshalb Warteschlange und Modi vom Handy; nur der laufende Song ([songId], in der
+     * gespeicherten Warteschlange gesucht) und seine Stelle werden übernommen. Steht er nicht darin (beim Casten
+     * eingereiht), bleibt alles, wie es ist.
+     */
+    fun saveRemotePosition(songId: Long, position: Long, scope: CoroutineScope) {
+        scope.launch {
+            val saved = playbackStateRepository.loadQueue()
+            val prefs = context.playbackDataStore.data.first()
+            val index = indexOfSong(saved, songId, near = prefs[KEY_INDEX] ?: 0) ?: return@launch
+            context.playbackDataStore.edit {
+                it[KEY_INDEX] = index
+                it[KEY_POSITION] = position
+            }
+        }
+    }
+
+    /** Der gespeicherte Zufall der Musik (etwa nach dem Wiederanhängen an eine Cast-Sitzung, wenn der Player ihn nicht kennt). */
+    suspend fun savedShuffle(): Boolean = context.playbackDataStore.data.first()[KEY_SHUFFLE] ?: false
 
     /** Stelle und Modi der Musik-Warteschlange, auch wenn der Player schon etwas anderes hält (Wechsel zu einem Buch). */
     fun saveMusicPosition(index: Int, position: Long, shuffle: Boolean, repeat: Int, scope: CoroutineScope) {

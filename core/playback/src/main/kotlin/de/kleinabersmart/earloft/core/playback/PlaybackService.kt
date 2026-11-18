@@ -560,7 +560,7 @@ class PlaybackService : MediaLibraryService() {
             playTracker.finishCurrent()
             bookListener.finish()
             // Mit einem Buch im Player gehörten dessen Datei und Position sonst in den Stand der Musik-Warteschlange.
-            if (session.player.currentMediaItem?.isSpoken != true) queuePersistence.savePosition(session.player, applicationScope)
+            if (session.player.currentMediaItem?.isSpoken != true) saveMusicPosition(session.player)
             session.player.release()
             session.release()
         }
@@ -654,6 +654,19 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    /**
+     * Speichert die Stelle der Musik; beim Casten nur Song und Stelle (in der gespeicherten Warteschlange gesucht), weil der
+     * Cast-Player nur ein Fenster der Warteschlange hält und keinen Zufall kennt. Nur aufrufen, wenn Musik im Player liegt.
+     */
+    private fun saveMusicPosition(player: Player) {
+        if (player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) {
+            val songId = player.currentMediaItem?.songId ?: return
+            queuePersistence.saveRemotePosition(songId, player.currentPosition, applicationScope)
+        } else {
+            queuePersistence.savePosition(player, applicationScope)
+        }
+    }
+
     /** Hält Warteschlange, Position und Beobachter (Widget) aktuell. */
     private inner class PersistenceListener(private val player: Player) : Player.Listener {
 
@@ -662,15 +675,31 @@ class PlaybackService : MediaLibraryService() {
         // Warteschlange beim Wechsel aufs Cast-Gerät.
         private val holdsSpoken: Boolean get() = player.currentMediaItem?.isSpoken == true || player.awaitsRemoteQueue
 
+        // Beim Casten hält der Player nur ein Fenster der Warteschlange und kennt keinen Zufall (Media3 `RemoteCastPlayer`);
+        // gespeichert bleibt der Stand vom Handy, siehe [QueuePersistence.saveRemotePosition].
+        private val isRemote: Boolean get() = player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+
         override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-            if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED && !holdsSpoken) {
+            if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED && !holdsSpoken && !isRemote) {
                 queuePersistence.saveQueueDebounced(player, applicationScope)
             }
         }
 
+        /**
+         * Beim Casten: Song und Stelle, die eine neue Warteschlange abgelöst hat ([onPositionDiscontinuity]). Der Empfänger meldet
+         * erst eine leere Warteschlange und danach die neue; was es war, zeigt erst der folgende Titelwechsel.
+         */
+        private var replacedRemoteSong: Pair<Long, Long>? = null
+
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            if (mediaItem != null) queuePersistence.saveLastBook(mediaItem.bookId, applicationScope)
-            if (!holdsSpoken) queuePersistence.savePosition(player, applicationScope)
+            if (mediaItem != null) {
+                queuePersistence.saveLastBook(mediaItem.bookId, applicationScope)
+                replacedRemoteSong?.let { (songId, position) ->
+                    if (mediaItem.isSpoken) queuePersistence.saveRemotePosition(songId, position, applicationScope)
+                }
+                replacedRemoteSong = null
+            }
+            if (!holdsSpoken) saveMusicPosition(player)
         }
 
         /**
@@ -680,26 +709,32 @@ class PlaybackService : MediaLibraryService() {
          */
         override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
             if (reason != Player.DISCONTINUITY_REASON_REMOVE) return
-            if (oldPosition.mediaItem?.songId == null || newPosition.mediaItem?.isSpoken != true) return
-            queuePersistence.saveMusicPosition(
-                oldPosition.mediaItemIndex,
-                oldPosition.positionMs,
-                player.shuffleModeEnabled,
-                player.repeatMode,
-                applicationScope,
-            )
+            val songId = oldPosition.mediaItem?.songId ?: return
+            if (isRemote) {
+                // Beim Casten ist der neue Eintrag hier noch leer (am Chromecast gesehen); gespeichert wird beim Titelwechsel.
+                replacedRemoteSong = songId to oldPosition.positionMs
+            } else if (newPosition.mediaItem?.isSpoken == true) {
+                queuePersistence.saveMusicPosition(
+                    oldPosition.mediaItemIndex,
+                    oldPosition.positionMs,
+                    player.shuffleModeEnabled,
+                    player.repeatMode,
+                    applicationScope,
+                )
+            }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            if (!isPlaying && !holdsSpoken) queuePersistence.savePosition(player, applicationScope)
+            if (!isPlaying && !holdsSpoken) saveMusicPosition(player)
         }
 
+        // Beim Casten meldet der Player beim Verbinden „Zufall aus“ (kennt keinen); das ist nicht der Modus der Musik.
         override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-            if (!holdsSpoken) queuePersistence.savePosition(player, applicationScope)
+            if (!holdsSpoken && !isRemote) queuePersistence.savePosition(player, applicationScope)
         }
 
         override fun onRepeatModeChanged(repeatMode: Int) {
-            if (!holdsSpoken) queuePersistence.savePosition(player, applicationScope)
+            if (!holdsSpoken && !isRemote) queuePersistence.savePosition(player, applicationScope)
         }
 
         override fun onEvents(player: Player, events: Player.Events) {
