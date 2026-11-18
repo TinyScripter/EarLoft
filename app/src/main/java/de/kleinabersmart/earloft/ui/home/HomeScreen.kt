@@ -79,9 +79,10 @@ fun HomeScreen(
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val savedMusic by playerViewModel.savedMusicQueue.collectAsStateWithLifecycle()
     val upNext = remember(playerState.current, playerState.queue, playerState.currentIndex) { upNext(playerState) }
-    // Läuft ein Buch bzw. eine Folge, zeigt die Zeile die gespeicherte Musik-Warteschlange; ein Tipp setzt die Musik dort
-    // fort. Ohne Knopf zur Warteschlangen-Seite, die zeigt den Player.
-    val queue = if (playerState.spoken != null) {
+    // Ist kein Song geladen (ein Buch bzw. eine Folge oder gar nichts, etwa nach dem Ende eines Buchs beim Casten), zeigt die
+    // Zeile die gespeicherte Musik-Warteschlange; ein Tipp setzt die Musik dort fort. Ohne Knopf zur Warteschlangen-Seite,
+    // die zeigt den Player.
+    val queue = if (playerState.current == null) {
         savedMusic?.let { saved ->
             QueueRowState(
                 entries = upNext(saved),

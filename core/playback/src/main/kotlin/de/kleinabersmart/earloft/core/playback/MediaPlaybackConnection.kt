@@ -81,6 +81,9 @@ class MediaPlaybackConnection @Inject constructor(
     private var releaseJob: Job? = null
     private val _state = MutableStateFlow(PlayerState())
 
+    /** Der erste Stand vom Player ist da; vorher heißt ein leerer [_state] nur „noch nicht verbunden“. */
+    private val stateKnown = MutableStateFlow(false)
+
     override val state: StateFlow<PlayerState> = _state.asStateFlow()
 
     private val _positionJumps = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -160,6 +163,7 @@ class MediaPlaybackConnection @Inject constructor(
                 }
             })
             _state.value = mediaController.toState(previous = PlayerState(), queueChanged = true)
+            stateKnown.value = true
             pending.complete(mediaController)
         }
         return pending
@@ -205,14 +209,14 @@ class MediaPlaybackConnection @Inject constructor(
         val index = if (shuffle) songs.indices.random() else startIndex.coerceIn(songs.indices)
         setMediaItems(songs.map { it.toMediaItem() }, index, 0)
         prepare()
-        play()
+        playSetItems()
     }
 
     override fun playFromSearch(query: String) = withController {
         val request = MediaItem.RequestMetadata.Builder().setSearchQuery(query).build()
         setMediaItem(MediaItem.Builder().setRequestMetadata(request).build())
         prepare()
-        play()
+        playSetItems()
     }
 
     override suspend fun playBook(bookId: Long, startPositionMs: Long?): PreparedBook? {
@@ -236,16 +240,18 @@ class MediaPlaybackConnection @Inject constructor(
                 repeatMode = restored.repeatMode
                 setMediaItems(restored.items, start ?: restored.startIndex, if (start != null) 0 else restored.startPositionMs)
                 prepare()
-                play()
+                playSetItems()
             }
         }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    override val savedMusicQueue: Flow<SavedMusicQueue?> = _state
-        .map { it.spoken != null }
+    override val savedMusicQueue: Flow<SavedMusicQueue?> = combine(_state, stateKnown) { state, known ->
+        // Ohne Song: ein Buch bzw. eine Folge ist geladen, oder gar nichts (z. B. nach dem Ende eines Buchs beim Casten).
+        state.current == null && (state.spoken != null || known)
+    }
         .distinctUntilChanged()
-        .flatMapLatest { spoken -> if (spoken) queuePersistence.savedQueue else flowOf(null) }
+        .flatMapLatest { noMusic -> if (noMusic) queuePersistence.savedQueue else flowOf(null) }
 
     override fun skipBack() = withController { seekBack() }
 
@@ -289,7 +295,7 @@ class MediaPlaybackConnection @Inject constructor(
         if (mediaItemCount == 0) {
             setMediaItems(songs.map { it.toMediaItem() })
             prepare()
-            play()
+            playSetItems()
             return@withController
         }
         val next = currentMediaItemIndex + 1

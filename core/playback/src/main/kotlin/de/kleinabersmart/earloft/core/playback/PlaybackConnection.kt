@@ -105,7 +105,10 @@ interface PlaybackConnection {
      */
     fun resumeMusic(index: Int? = null)
 
-    /** Die gespeicherte Musik-Warteschlange, solange ein Buch bzw. eine Folge geladen ist; sonst (und ohne gespeicherte) `null`. */
+    /**
+     * Die gespeicherte Musik-Warteschlange, solange kein Song geladen ist (ein Buch bzw. eine Folge oder gar nichts, etwa nach
+     * dem Ende eines Buchs beim Casten); mit Song (und ohne gespeicherte) `null`.
+     */
     val savedMusicQueue: Flow<SavedMusicQueue?>
 
     fun skipBack()

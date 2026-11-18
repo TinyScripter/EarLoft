@@ -90,7 +90,16 @@ internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = nu
     repeatMode = Player.REPEAT_MODE_OFF
     setPlaybackSpeed(prepared.speed)
     prepare()
-    if (autoPlay) play()
+    if (autoPlay) playSetItems()
+}
+
+/**
+ * Spielt los, was gerade mit `setMediaItems` gesetzt wurde. Über einen `MediaController` nicht mit `play()`: Die Session hält
+ * einen Player ohne aktuellen Titel dann für leer und lädt per `onPlaybackResumption` das zuletzt Gespielte. Beim Casten ist
+ * die Warteschlange direkt nach `setMediaItems` noch leer, bis der Empfänger sie meldet (etwa nach dem Ende eines Buchs).
+ */
+internal fun Player.playSetItems() {
+    playWhenReady = true
 }
 
 internal const val EXTRA_BOOK_ID = "de.kleinabersmart.earloft.BOOK_ID"
