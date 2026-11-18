@@ -67,6 +67,7 @@
     <string name="player_output">Bluetooth output</string>
     <string name="player_position">Position in track</string>
     <string name="player_position_spoken">Playback position</string>
+    <string name="player_position_chapter">Position in chapter</string>
     <plurals name="player_skip_back">
         <item quantity="one">Back %d second</item>
         <item quantity="other">Back %d seconds</item>

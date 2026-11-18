@@ -14,6 +14,7 @@ import de.kleinabersmart.earloft.core.playback.SpokenEntry
 import de.kleinabersmart.earloft.core.playback.nextRepeatMode
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteAction
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteChaptersDto
+import de.kleinabersmart.earloft.core.wearsync.WearRemoteMediaKind
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteStateDto
 import de.kleinabersmart.earloft.wear.sync.PhoneRemote
 import kotlinx.coroutines.CoroutineScope
@@ -74,7 +75,14 @@ class RemotePlayerViewModel @Inject constructor(
             current = if (dto.hasMedia && !spoken) QueueEntry(0, dto.title, dto.artist, dto.albumId, dto.albumTitle) else null,
             // Position und Länge sind schon Buchzeiten; eine Datei (trackIndex) gibt es für die Uhr nicht.
             spoken = if (spoken) {
-                SpokenEntry(dto.bookId ?: 0, 0, dto.title, dto.artist, SeekSteps(dto.seekBackSeconds, dto.seekForwardSeconds))
+                SpokenEntry(
+                    dto.bookId ?: 0,
+                    0,
+                    dto.title,
+                    dto.artist,
+                    SeekSteps(dto.seekBackSeconds, dto.seekForwardSeconds),
+                    isEpisode = dto.kind == WearRemoteMediaKind.EPISODE,
+                )
             } else {
                 null
             },

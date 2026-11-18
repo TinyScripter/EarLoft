@@ -17,6 +17,7 @@ import de.kleinabersmart.earloft.wear.R
 import de.kleinabersmart.earloft.core.model.BookTimeline
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.playback.PlayerState
+import de.kleinabersmart.earloft.core.playback.SpokenEntry
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -37,8 +38,9 @@ import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 
 /**
- * Wiedergabe-Bildschirm (Wear-Konzept 11): Zustand des Players, Fortschritt, Cover und Lautstärke der Krone. Spielt eine
- * Podcast-Folge (16.1), kommen Bild und Farbe von der Folge; eine Folge ist immer eine Datei, die Zeiten sind die des Players.
+ * Wiedergabe-Bildschirm (Wear-Konzept 11): Zustand des Players, Fortschritt, Cover und Lautstärke der Krone. Spielt ein Buch
+ * oder eine Folge (16.1), kommen Bild und Farbe von dort, und Position, Länge und Spulen gelten im ganzen Buch (wie in der
+ * Fernsteuerung); der Player selbst kennt nur die Position in der Datei.
  */
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
@@ -52,18 +54,35 @@ class PlayerViewModel @Inject constructor(
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
 
-    override val state: StateFlow<PlayerState> = playback.state
+    /** Zeitachse des laufenden Buchs bzw. der Folge (Dateien und Kapitel) mit dessen ID; `null` bei Musik. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val timeline: StateFlow<Pair<Long, BookTimeline>?> = playback.state
+        .map { it.spoken?.bookId }
+        .distinctUntilChanged()
+        .mapLatest { bookId -> bookId?.let { id -> books.timeline(id)?.let { id to it } } }
+        .orOnError(null)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Die Zeitachse von [spoken]; `null` bei Musik und solange sie (noch) die eines anderen Buchs ist. */
+    private fun Pair<Long, BookTimeline>?.of(spoken: SpokenEntry?): BookTimeline? =
+        this?.takeIf { spoken != null && it.first == spoken.bookId }?.second
+
+    /** Bei einem Buch oder einer Folge mit der Länge des ganzen Buchs statt der laufenden Datei. */
+    override val state: StateFlow<PlayerState> = combine(playback.state, timeline) { state, timeline ->
+        val length = timeline.of(state.spoken)?.durationMs?.takeIf { it > 0 }
+        if (length != null) state.copy(durationMs = length) else state
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), playback.state.value)
 
     /**
-     * Position in Millisekunden; regelmäßig abgefragt nur, solange der Bildschirm sichtbar ist und es spielt. Pausiert einmal
-     * und nach jedem Sprung (Spulen mit der Krone, Titelwechsel).
+     * Position in Millisekunden, bei Gesprochenem im ganzen Buch; regelmäßig abgefragt nur, solange der Bildschirm sichtbar ist
+     * und es spielt. Pausiert einmal und nach jedem Sprung (Spulen mit der Krone, Titelwechsel).
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     override val positionMs: StateFlow<Long> = playback.state
         .map { Triple(it.isPlaying, it.current, it.spoken) }
         .distinctUntilChanged()
-        .flatMapLatest { (playing, _, _) ->
-            flow {
+        .flatMapLatest { (playing, _, spoken) ->
+            val inTrack = flow {
                 emit(playback.currentPositionMs)
                 if (playing) {
                     while (true) {
@@ -73,6 +92,10 @@ class PlayerViewModel @Inject constructor(
                 } else {
                     playback.positionJumps.collect { emit(playback.currentPositionMs) }
                 }
+            }
+            // Ohne Zeitachse (Musik, oder noch nicht gelesen) bleibt es die Position in der Datei, wie die Länge im [state].
+            combine(inTrack, timeline) { position, timeline ->
+                if (spoken == null) position else timeline.of(spoken)?.toBookPosition(spoken.trackIndex, position) ?: position
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
@@ -106,29 +129,19 @@ class PlayerViewModel @Inject constructor(
         .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Zeitachse des laufenden Buchs bzw. der Folge (Dateien und Kapitel); `null` bei Musik. */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val timeline: StateFlow<BookTimeline?> = playback.state
-        .map { it.spoken?.bookId }
-        .distinctUntilChanged()
-        .mapLatest { bookId -> bookId?.let { books.timeline(it) } }
-        .orOnError(null)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
     override val chapters: StateFlow<List<BookChapter>> = timeline
-        .map { it?.chapters.orEmpty() }
+        .map { it?.second?.chapters.orEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Die Position des Players gilt in der Datei, Kapitel im ganzen Buch. */
+    /** [positionMs] gilt bei Gesprochenem schon im ganzen Buch, wie die Kapitel. */
     override val currentChapter: StateFlow<BookChapter?> = combine(timeline, playback.state, positionMs) { timeline, state, position ->
-        val entry = state.spoken ?: return@combine null
-        timeline?.chapterAt(timeline.toBookPosition(entry.trackIndex, position))
+        timeline.of(state.spoken)?.chapterAt(position)
     }
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     override fun seekToBook(bookPositionMs: Long) {
-        val target = timeline.value?.locate(bookPositionMs) ?: return
+        val target = timeline.value?.second?.locate(bookPositionMs) ?: return
         playback.seekToTrack(target.trackIndex, target.offsetMs)
     }
 
@@ -152,7 +165,10 @@ class PlayerViewModel @Inject constructor(
 
     override fun skipForward() = playback.skipForward()
 
-    override fun seekTo(positionMs: Long) = playback.seekTo(positionMs)
+    /** In der Zeit von [positionMs]: bei Gesprochenem mit Zeitachse im ganzen Buch, sonst in der Datei. */
+    override fun seekTo(positionMs: Long) {
+        if (timeline.value.of(playback.state.value.spoken) != null) seekToBook(positionMs) else playback.seekTo(positionMs)
+    }
 
     /** Restzeit des Sleep-Timers; `null`, solange keiner läuft. */
     override val sleepTimerRemainingMs: StateFlow<Long?> = playback.sleepTimerRemainingMs

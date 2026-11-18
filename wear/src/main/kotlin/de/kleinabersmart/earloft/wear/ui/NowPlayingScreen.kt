@@ -77,6 +77,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
+import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.QueueEntry
 import de.kleinabersmart.earloft.core.playback.SpokenEntry
@@ -92,8 +93,9 @@ import kotlin.math.sqrt
  * Wiedergabe (Wear-Konzept 11): Das Cover füllt, leicht unscharf, den Kreis innerhalb des Fortschrittsrings; darauf Titel und
  * Steuerung, Wiedergabe/Pause genau in der Mitte. Akzentfarben kommen aus dem Cover, die Krone ändert die Lautstärke.
  * Ohne passende Ausgabe (Kopfhörer) hält die Wiedergabe an; ein Tipp auf den Hinweis öffnet die Bluetooth-Einstellungen.
- * Bei einem Buch oder einer Folge springen die Knöpfe neben Wiedergabe/Pause −30 s / +10 s, Zufall gibt es dann nicht;
- * mit Kapiteln steht das laufende über dem Titel, und ein Knopf neben dem Sleep-Timer öffnet die Liste.
+ * Bei einem Buch oder einer Folge springen die Knöpfe neben Wiedergabe/Pause um die Sprungweiten, Zufall gibt es dann nicht;
+ * mit Kapiteln steht das laufende über dem Titel, und ein Knopf neben dem Sleep-Timer öffnet die Liste. Bei Büchern mit
+ * Kapiteln zeigt der Ring nur das laufende Kapitel ([RingWindow]).
  */
 @Composable
 fun NowPlayingScreen(
@@ -106,7 +108,7 @@ fun NowPlayingScreen(
     NowPlayingHost(
         viewModel,
         onOpenSleepTimer = onOpenSleepTimer,
-        chapterTitle = chapter?.title,
+        chapter = chapter,
         chaptersAvailable = chapters.isNotEmpty(),
         onOpenChapters = onOpenChapters,
     )
@@ -124,7 +126,7 @@ fun RemoteNowPlayingScreen(onOpenChapters: () -> Unit = {}, viewModel: RemotePla
         viewModel,
         onOpenSleepTimer = {},
         sleepTimerAvailable = false,
-        chapterTitle = chapter?.title,
+        chapter = chapter,
         chaptersAvailable = chapters.isNotEmpty(),
         onOpenChapters = onOpenChapters,
     )
@@ -135,14 +137,19 @@ private fun NowPlayingHost(
     model: NowPlayingModel,
     onOpenSleepTimer: () -> Unit,
     sleepTimerAvailable: Boolean = true,
-    chapterTitle: String? = null,
+    chapter: BookChapter? = null,
     chaptersAvailable: Boolean = false,
     onOpenChapters: () -> Unit = {},
 ) {
-    val state by model.state.collectAsStateWithLifecycle()
+    val modelState by model.state.collectAsStateWithLifecycle()
+    // Bei Büchern mit Kapiteln gilt der Ring nur für das laufende Kapitel; Position und Länge der Modelle sind Buchzeiten.
+    val window = ringWindow(modelState.spoken, chapter)
+    val state = if (window != null) modelState.copy(durationMs = window.durationMs) else modelState
     // Als Lambda weitergereicht und erst beim Zeichnen gelesen: Der 500-ms-Takt setzt sonst die ganze Ansicht neu zusammen.
     val position = model.positionMs.collectAsStateWithLifecycle()
-    val positionMs = remember(position) { { position.value } }
+    val positionMs = remember(position, window) {
+        if (window != null) { { window.toRing(position.value) } } else { { position.value } }
+    }
     val cover by model.cover.collectAsStateWithLifecycle()
     val volume by model.volume.collectAsStateWithLifecycle()
     val volumeVisible by model.volumeVisible.collectAsStateWithLifecycle()
@@ -160,7 +167,7 @@ private fun NowPlayingHost(
             sleepTimerRemainingMs = sleepTimerRemainingMs,
             // Läuft ein Timer, schaltet ein Tipp ihn aus; sonst öffnet er die Auswahl.
             onSleepTimer = { if (sleepTimerRemainingMs != null) model.cancelSleepTimer() else onOpenSleepTimer() },
-            chapterTitle = chapterTitle,
+            chapterTitle = chapter?.title,
             chaptersAvailable = chaptersAvailable,
             onChapters = onOpenChapters,
             onPrevious = model::previous,
@@ -172,7 +179,8 @@ private fun NowPlayingHost(
             onRepeat = model::cycleRepeat,
             onOutput = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
             onCrown = model::onCrown,
-            onSeek = model::seekTo,
+            onSeek = { ms -> model.seekTo(window?.toBook(ms) ?: ms) },
+            chapterRing = window != null,
         )
     }
 }
@@ -200,6 +208,7 @@ private fun NowPlayingContent(
     onOutput: () -> Unit,
     onCrown: (Float) -> Unit,
     onSeek: (Long) -> Unit,
+    chapterRing: Boolean = false,
 ) {
     val duration = state.durationMs
     val spoken = state.spoken
@@ -246,7 +255,13 @@ private fun NowPlayingContent(
             SeekRing(
                 positionMs = shownPositionMs,
                 durationMs = duration,
-                spoken = spoken != null,
+                positionLabel = stringResource(
+                    when {
+                        chapterRing -> R.string.player_position_chapter
+                        spoken != null -> R.string.player_position_spoken
+                        else -> R.string.player_position
+                    },
+                ),
                 onPreview = { dragProgress = it },
                 onSeek = { ms ->
                     seekTarget = ms
@@ -438,7 +453,7 @@ private fun RoundTextStack(
 private fun SeekRing(
     positionMs: () -> Long,
     durationMs: Long,
-    spoken: Boolean,
+    positionLabel: String,
     onPreview: (Float?) -> Unit,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -446,7 +461,6 @@ private fun SeekRing(
     val currentPositionMs by rememberUpdatedState(positionMs)
     val second by remember { derivedStateOf { currentPositionMs() / 1000 } }
     val shownMs = second * 1000
-    val positionLabel = stringResource(if (spoken) R.string.player_position_spoken else R.string.player_position)
     ProgressRing(
         progress = { if (durationMs > 0) (currentPositionMs().toFloat() / durationMs).coerceIn(0f, 1f) else 0f },
         modifier = modifier
