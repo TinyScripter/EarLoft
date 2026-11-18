@@ -27,6 +27,17 @@ class WatchStateTest {
     }
 
     @Test
+    fun `retry runs count up and start over after a clean end`() {
+        assertEquals(0, state.retryRuns)
+        assertEquals(1, state.recordRetry())
+        assertEquals(2, state.recordRetry())
+        assertEquals(2, WatchState(ApplicationProvider.getApplicationContext()).retryRuns)
+        state.clearRetries()
+        assertEquals(0, state.retryRuns)
+        assertEquals(1, state.recordRetry())
+    }
+
+    @Test
     fun `an unreachable server counts for all waiting songs of it`() {
         state.recordServerFailure("nd:1")
         state.recordServerFailures(listOf("nd:2", "nd:3"))

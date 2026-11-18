@@ -138,6 +138,26 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         get() = prefs.getBoolean(KEY_WAITING_PHONE, false)
         set(value) = prefs.edit().putBoolean(KEY_WAITING_PHONE, value).apply()
 
+    /**
+     * Läufe des Download-Auftrags in Folge, die mit einer Wiederholung endeten (WLAN fehlte, Server oder Handy nicht erreichbar).
+     * Ersetzt den `runAttemptCount` von WorkManager: Der zählt auch Stopps durchs System mit (etwa das kurze Trennen beim
+     * adaptiven Laden) und verlängerte damit jedes Mal den Abstand (Review W1).
+     */
+    val retryRuns: Int
+        get() = prefs.getInt(KEY_RETRY_RUNS, 0)
+
+    /** @return die Anzahl einschließlich dieses Laufs. */
+    fun recordRetry(): Int {
+        val count = retryRuns + 1
+        prefs.edit().putInt(KEY_RETRY_RUNS, count).apply()
+        return count
+    }
+
+    /** Ein Lauf endete ohne Wiederholung, oder ein neuer Auftrag beginnt von vorn (neue Auswahl, Ladegerät). */
+    fun clearRetries() {
+        if (prefs.contains(KEY_RETRY_RUNS)) prefs.edit().remove(KEY_RETRY_RUNS).apply()
+    }
+
     fun setWaitingForWifi(waiting: Boolean) {
         if (waiting == _waitingForWifi.value) return
         prefs.edit().putBoolean(KEY_WAITING_WIFI, waiting).apply()
@@ -171,5 +191,6 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_APPLIED_STAMP = "applied_phone_stamp"
         private const val KEY_PHONE_FAILURES = "phone_unreachable_runs"
         private const val KEY_WAITING_PHONE = "waiting_phone"
+        private const val KEY_RETRY_RUNS = "retry_runs"
     }
 }

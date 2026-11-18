@@ -56,7 +56,7 @@ import kotlin.coroutines.cancellation.CancellationException
 /**
  * Lädt die eingereihten Songs der Auswahlen vom Server (Wear-Konzept 8.2): nur über ein ausdrücklich
  * angefordertes WLAN, nach Einstellung nur am Ladegerät (Bedingung des Auftrags, siehe [WearDownloadScheduler]).
- * Ohne WLAN versucht WorkManager es später mit Backoff erneut, nach [MAX_WIFI_ATTEMPTS] Versuchen erst am Ladegerät. Songs, die nur das Handy hat, und Songs, bei
+ * Ohne WLAN folgt später ein neuer Lauf mit wachsendem Abstand ([retryLater]), nach [MAX_WIFI_ATTEMPTS] Versuchen erst am Ladegerät. Songs, die nur das Handy hat, und Songs, bei
  * denen der Server dreimal gescheitert ist, kommen über das Handy ([PhoneFileFetcher], Konzept 8.3/8.4).
  * Nach der Musik die Podcast-Folgen (16.1): direkt aus dem Feed über dasselbe WLAN, Folgen vom Gerät des Handys und nach
  * drei Fehlversuchen über das Handy. Danach die Hörbücher (16.2): direkt von Audiobookshelf über dasselbe WLAN (eine
@@ -136,7 +136,7 @@ class WearDownloadWorker(
                         Log.w(TAG, "Download $uid unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
                         if (failures < WatchState.SERVER_ATTEMPTS) {
                             downloadDao.requeue(uid)
-                            return Result.retry()
+                            return retryLater()
                         }
                         if (!viaPhone(next, serverFailed = true)) return waitForPhone()
                     }
@@ -178,7 +178,7 @@ class WearDownloadWorker(
                         Log.w(TAG, "Folge ${track.bookId} unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
                         if (failures < WatchState.SERVER_ATTEMPTS) {
                             podcastDao.requeueDownload(track.bookId)
-                            return Result.retry()
+                            return retryLater()
                         }
                         if (!episodeViaPhone(track)) return waitForPhone()
                     }
@@ -205,7 +205,7 @@ class WearDownloadWorker(
                     // Der Schlüssel ist noch unterwegs (Anfrage beim Handy läuft) oder fehlt dort; zählt als Fehlversuch.
                     val failures = state.recordServerFailure(key)
                     Log.w(TAG, "Buch ${track.bookId}: Audiobookshelf ohne Schlüssel (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS})")
-                    if (failures < WatchState.SERVER_ATTEMPTS) return Result.retry()
+                    if (failures < WatchState.SERVER_ATTEMPTS) return retryLater()
                     if (!bookViaPhone(track)) return waitForPhone()
                     continue
                 }
@@ -222,7 +222,7 @@ class WearDownloadWorker(
                         bookDao.requeueBookTrack(track.bookId, track.trackIndex)
                         // Neuer Schlüssel am Handy: Die Antwort ersetzt ihn vor dem nächsten Versuch.
                         if (outcome.isAuthRejection) entryPoint.credentials().request(listOf(book.serverId))
-                        if (failures < WatchState.SERVER_ATTEMPTS) return Result.retry()
+                        if (failures < WatchState.SERVER_ATTEMPTS) return retryLater()
                         if (!bookViaPhone(track)) return waitForPhone()
                     }
                     is DownloadOutcome.Failed -> {
@@ -273,13 +273,13 @@ class WearDownloadWorker(
         return when (step) {
             PhoneWaitStep.RETRY -> {
                 Log.i(TAG, "Handy nicht erreichbar, später erneut (Lauf $runs)")
-                Result.retry()
+                retryLater()
             }
             PhoneWaitStep.RETRY_ON_CHARGER -> {
-                // Ein angehängter Auftrag liefe am Ladegerät sofort wieder an und scheiterte nach 30 s erneut, ohne Ende. So
-                // wächst der Abstand mit dem Backoff (bis 5 h), bis das Handy sich meldet.
+                // Ein Auftrag ohne Verzögerung liefe am Ladegerät sofort wieder an und scheiterte nach 30 s erneut, ohne
+                // Ende. So wächst der Abstand (bis 5 h), bis das Handy sich meldet.
                 Log.i(TAG, "Handy nach $runs Läufen nicht erreichbar, am Ladegerät später erneut oder wenn es sich meldet")
-                Result.retry()
+                retryLater(onCharger = true)
             }
             PhoneWaitStep.WAIT_FOR_CHARGER -> {
                 Log.i(TAG, "Handy nach $runs Läufen nicht erreichbar, weiter am Ladegerät oder wenn es sich meldet")
@@ -298,16 +298,33 @@ class WearDownloadWorker(
     /** Kein WLAN zählt nicht als Fehlversuch des Servers: Sonst käme die ganze Auswahl über Bluetooth. */
     private fun waitForWifi(): Result {
         state.setWaitingForWifi(true)
-        if (runAttemptCount + 1 < MAX_WIFI_ATTEMPTS) {
-            Log.i(TAG, "Kein WLAN, später erneut (Versuch ${runAttemptCount + 1})")
-            return Result.retry()
+        val attempt = state.retryRuns + 1
+        if (attempt < MAX_WIFI_ATTEMPTS) {
+            Log.i(TAG, "Kein WLAN, später erneut (Versuch $attempt)")
+            return retryLater()
         }
         // Jeder Versuch startet einen Vordergrunddienst und schaltet das WLAN bis zu 30 s ein: nach einigen
         // Versuchen erst am Ladegerät weiter.
-        Log.i(TAG, "Kein WLAN nach ${runAttemptCount + 1} Versuchen, weiter am Ladegerät")
+        Log.i(TAG, "Kein WLAN nach $attempt Versuchen, weiter am Ladegerät")
         entryPoint.scheduler().enqueueOnCharger()
         return Result.success()
     }
+
+    /**
+     * Dieser Lauf soll später wiederholt werden: als neuer Auftrag nach [retryDelayMs], nicht per `Result.retry()`. Den Backoff
+     * von WorkManager verlängerte jeder Stopp durchs System mit (Review W1): Er zählt solche Stopps als Versuch und rechnet
+     * vom letzten `retry()` an. [onCharger]: der neue Auftrag nur am Ladegerät (sonst wie dieser).
+     */
+    private fun retryLater(onCharger: Boolean = this.onCharger): Result {
+        val runs = state.recordRetry()
+        val delayMs = retryDelayMs(runs)
+        Log.i(TAG, "Nächster Lauf in ${delayMs / 1000} s (Wiederholung $runs${if (onCharger) ", am Ladegerät" else ""})")
+        entryPoint.scheduler().enqueueRetry(delayMs, onCharger)
+        return Result.success()
+    }
+
+    /** Dieser Auftrag stammt aus [WearDownloadScheduler.enqueueOnCharger] bzw. einer Wiederholung davon. */
+    private val onCharger: Boolean get() = inputData.getBoolean(KEY_ON_CHARGER, false)
 
     /**
      * Holt eine Folge über das Handy. @return `false`, wenn das Handy nicht erreichbar war; die Folge wartet dann weiter.
@@ -326,7 +343,7 @@ class WearDownloadWorker(
                 true
             }
             is DownloadOutcome.Retry -> {
-                Log.i(TAG, "Handy für Folge ${track.bookId} nicht erreichbar (Versuch ${runAttemptCount + 1})", outcome.cause)
+                Log.i(TAG, "Handy für Folge ${track.bookId} nicht erreichbar (Versuch ${state.retryRuns + 1})", outcome.cause)
                 podcastDao.requeueDownload(track.bookId)
                 state.setLastError(applicationContext.getString(R.string.download_error_phone_unreachable))
                 false
@@ -349,7 +366,7 @@ class WearDownloadWorker(
                 true
             }
             is DownloadOutcome.Retry -> {
-                Log.i(TAG, "Handy für Buch ${track.bookId} nicht erreichbar (Versuch ${runAttemptCount + 1})", outcome.cause)
+                Log.i(TAG, "Handy für Buch ${track.bookId} nicht erreichbar (Versuch ${state.retryRuns + 1})", outcome.cause)
                 bookDao.requeueBookTrack(track.bookId, track.trackIndex)
                 state.setLastError(applicationContext.getString(R.string.download_error_phone_unreachable))
                 false
@@ -462,7 +479,7 @@ class WearDownloadWorker(
                 true
             }
             is DownloadOutcome.Retry -> {
-                Log.i(TAG, "Handy für $uid nicht erreichbar (Versuch ${runAttemptCount + 1})", outcome.cause)
+                Log.i(TAG, "Handy für $uid nicht erreichbar (Versuch ${state.retryRuns + 1})", outcome.cause)
                 downloadDao.requeue(uid)
                 state.setLastError(applicationContext.getString(R.string.download_error_phone_unreachable))
                 false
@@ -512,6 +529,7 @@ class WearDownloadWorker(
         // Teildateien nur, wenn nichts mehr wartet: Sonst macht der nächste Lauf dort weiter.
         if (bookDao.countPendingBookDownloads() == 0) bookStorage.deleteParts()
         coverFiles.retainOnly(downloadDao.getAlbumIdsWithDoneDownload().toSet())
+        state.clearRetries()
         return Result.success()
     }
 
@@ -614,21 +632,31 @@ class WearDownloadWorker(
         fun phoneReturn(): PhoneReturn
     }
 
-    private companion object {
-        const val TAG = "WearDownloadWorker"
-        const val CHANNEL_ID = "wear-downloads"
-        const val NOTIFICATION_ID = 2002
-        const val COVER_SIZE_PX = 400
+    companion object {
+        /** Eingabe: Der Auftrag läuft nur am Ladegerät ([WearDownloadScheduler.enqueueOnCharger]); Wiederholungen bleiben es. */
+        internal const val KEY_ON_CHARGER = "on_charger"
 
-        /** Bei exponentiellem Backoff ab 30 s rund eine Viertelstunde. */
-        const val MAX_WIFI_ATTEMPTS = 5
+        private const val TAG = "WearDownloadWorker"
+        private const val CHANNEL_ID = "wear-downloads"
+        private const val NOTIFICATION_ID = 2002
+        private const val COVER_SIZE_PX = 400
+
+        /** Mit [retryDelayMs] ab 30 s rund eine Viertelstunde. */
+        private const val MAX_WIFI_ATTEMPTS = 5
 
         /** Ein Access-Token, der in weniger als 5 Minuten abläuft, wird vor dem Lauf ersetzt (Konzept 12.11). */
-        const val KEY_MARGIN_SECONDS = 5 * 60L
-        const val KEY_WAIT_MS = 15_000L
-        const val KEY_POLL_MS = 500L
+        private const val KEY_MARGIN_SECONDS = 5 * 60L
+        private const val KEY_WAIT_MS = 15_000L
+        private const val KEY_POLL_MS = 500L
     }
 }
+
+/** Abstand vor der [runs]. Wiederholung in Folge: 30 s, 1, 2, 4 … min, höchstens 5 h (wie bisher der Backoff von WorkManager). */
+internal fun retryDelayMs(runs: Int): Long =
+    (RETRY_BASE_MS shl (runs.coerceAtLeast(1) - 1).coerceAtMost(20)).coerceAtMost(RETRY_MAX_MS)
+
+private const val RETRY_BASE_MS = 30_000L
+private const val RETRY_MAX_MS = 5 * 60 * 60 * 1000L
 
 internal enum class PhoneWaitStep { RETRY, RETRY_ON_CHARGER, WAIT_FOR_CHARGER }
 
