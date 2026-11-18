@@ -23,7 +23,9 @@ class WifiLease internal constructor(
 
 /**
  * Fordert ausdrücklich WLAN an (Wear-Konzept 8.2). Die Bluetooth-Verbindung zum Handy gilt für WorkManager
- * ebenfalls als Netz, soll aber für große Dateien nicht genutzt werden; das System schaltet WLAN dafür bei Bedarf ein.
+ * ebenfalls als Netz, soll aber für große Dateien nicht genutzt werden. Ist das WLAN der Uhr ausgeschaltet, schaltet das
+ * System es auf diese Anforderung hin **nicht** ein (Pixel Watch 3, 2026-10-30): Nach [DEFAULT_TIMEOUT_MS] kommt `null`,
+ * und die Uhr zeigt „Wartet auf WLAN“ (`WatchState.waitingForWifi`), bis der Nutzer es selbst einschaltet.
  */
 @Singleton
 class WifiNetwork @Inject constructor(@ApplicationContext private val context: Context) {
