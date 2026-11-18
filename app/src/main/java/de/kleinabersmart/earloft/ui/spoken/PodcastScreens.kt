@@ -13,6 +13,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -435,6 +436,8 @@ fun PodcastScreen(
     val credentialsUser by viewModel.credentialsUser.collectAsStateWithLifecycle()
     val credentialsAddress by viewModel.credentialsAddress.collectAsStateWithLifecycle()
     val swipe by viewModel.swipeActions.collectAsStateWithLifecycle()
+    val queued by viewModel.queued.collectAsStateWithLifecycle()
+    val areaEffects by viewModel.areaEffects.collectAsStateWithLifecycle()
     val selection = rememberEpisodeSelection()
 
     // Breit (Tablet, von Start aus ohne Liste daneben): nicht über die ganze Breite, sonst stehen Knöpfe weit vom Titel.
@@ -468,116 +471,123 @@ fun PodcastScreen(
             return@Column
         }
         val list = shownEpisodes.valueOrNull.orEmpty()
-        PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                item(key = "header") {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                        PodcastArt(current.imageUrl, Modifier.size(HEADER_ART_SIZE))
-                        // Titel und Autor mittig zur Bildhöhe, die Knöpfe bündig mit der Unterkante des Bildes.
-                        Box(Modifier.weight(1f).height(HEADER_ART_SIZE).padding(start = 16.dp)) {
-                            Column(Modifier.align(Alignment.Center).fillMaxWidth()) {
-                                Text(current.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                if (current.author.isNotBlank()) {
-                                    Text(
-                                        current.author,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
+        // Kopf, Hinweise und Filter-Chips bleiben stehen, nur die Folgen darunter scrollen (Nutzer, 2026-11-18). Ist dafür
+        // zu wenig Höhe da (kleines Handy, quer), scrollt alles zusammen wie zuvor.
+        val headerContent: @Composable () -> Unit = {
+            Column {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    PodcastArt(current.imageUrl, Modifier.size(HEADER_ART_SIZE))
+                    // Titel und Autor mittig zur Bildhöhe, die Knöpfe bündig mit der Unterkante des Bildes.
+                    Box(Modifier.weight(1f).height(HEADER_ART_SIZE).padding(start = 16.dp)) {
+                        Column(Modifier.align(Alignment.Center).fillMaxWidth()) {
+                            Text(current.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            if (current.author.isNotBlank()) {
+                                Text(
+                                    current.author,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                        Row(Modifier.align(Alignment.BottomStart).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = onInfo, modifier = Modifier.size(40.dp)) {
+                                Icon(painterResource(DesignR.drawable.ic_info), contentDescription = stringResource(R.string.podcast_info))
+                            }
+                            // Ein Probeabo hat keine Einstellungen; es gilt nur, solange seine Folgen in der Warteschlange stehen.
+                            if (current.subscribed) {
+                                IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
+                                    Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_settings))
                                 }
                             }
-                            Row(Modifier.align(Alignment.BottomStart).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = onInfo, modifier = Modifier.size(40.dp)) {
-                                    Icon(painterResource(DesignR.drawable.ic_info), contentDescription = stringResource(R.string.podcast_info))
-                                }
-                                // Ein Probeabo hat keine Einstellungen; es gilt nur, solange seine Folgen in der Warteschlange stehen.
-                                if (current.subscribed) {
-                                    IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
-                                        Icon(painterResource(DesignR.drawable.ic_settings), contentDescription = stringResource(R.string.podcast_settings))
-                                    }
-                                }
-                                // Nennt der Feed eine Seite zum Unterstützen (`podcast:funding`), steht sie hier.
-                                current.fundingUrl?.let { FundingButton(it, current.fundingLabel, 40.dp) }
-                            }
+                            // Nennt der Feed eine Seite zum Unterstützen (`podcast:funding`), steht sie hier.
+                            current.fundingUrl?.let { FundingButton(it, current.fundingLabel, 40.dp) }
                         }
                     }
                 }
                 if (!current.subscribed) {
-                    item(key = "trial") {
-                        TrialNotice(
-                            text = stringResource(R.string.podcast_trial_notice),
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
-                        ) {
-                            FilledTonalButton(onClick = viewModel::subscribe) { Text(stringResource(R.string.podcast_add_confirm)) }
-                        }
+                    TrialNotice(
+                        text = stringResource(R.string.podcast_trial_notice),
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                    ) {
+                        FilledTonalButton(onClick = viewModel::subscribe) { Text(stringResource(R.string.podcast_add_confirm)) }
                     }
                 }
                 // Scheitert der Abgleich seit mehreren Versuchen (Konzept 12.10), steht es hier mit dem Weg zu einer anderen Quelle.
                 if (current.hasProblem) {
-                    item(key = "problem") {
-                        TrialNotice(
-                            text = feedProblemText(current),
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
-                            error = true,
-                            // Abgelehnte Anmeldung: eher Zugangsdaten als eine andere Quelle.
-                            action = when {
-                                !current.subscribed -> null
-                                current.refreshError == FeedError.DENIED && ardSoundsShowId(current.url) == null -> {
-                                    { FilledTonalButton(onClick = { editingCredentials = true }) { Text(stringResource(R.string.podcast_credentials)) } }
-                                }
-                                else -> {
-                                    { FilledTonalButton(onClick = { switchingSource = true }) { Text(stringResource(R.string.podcast_source_switch)) } }
-                                }
-                            },
-                        )
-                    }
-                }
-                item(key = "episodes-header") { SectionHeader(stringResource(R.string.podcast_episodes)) }
-                if (episodes == LoadState.Failed) {
-                    item(key = "failed") { LoadFailedHint() }
-                } else if (episodes is LoadState.Ready && episodes.valueOrNull.isNullOrEmpty()) {
-                    item(key = "empty") { EmptyHint(stringResource(R.string.podcast_no_episodes)) }
-                } else if (episodes is LoadState.Ready) {
-                    // Die Chips bleiben stehen, auch wenn der Filter nichts übrig lässt, damit man ihn lösen kann.
-                    item(key = "filter") {
-                        EpisodeFilterChips(
-                            current.episodeFilter,
-                            viewModel::setEpisodeFilter,
-                            withStarred = episodes.valueOrNull.orEmpty().any { it.book.starred },
-                        )
-                    }
-                    if (shownEpisodes is LoadState.Ready && list.isEmpty()) {
-                        item(key = "filter-empty") { EmptyHint(stringResource(R.string.library_filter_empty)) }
-                    }
-                }
-                // Mehrere Folgen am selben Tag bzw. mit gleichem Titel: Uhrzeit bzw. erste Zeile der Shownotes dazu.
-                val sameDay = episodesSharingDay(list.map { it.book })
-                val sameTitle = episodesSharingTitle(list.map { it.book })
-                val row: @Composable (BookWithProgress) -> Unit = { item ->
-                    EpisodeRow(
-                        item,
-                        withTime = item.book.id in sameDay,
-                        withNotes = item.book.id in sameTitle,
-                        download = downloadStates[item.book.id] ?: TrackDownload.NONE,
-                        downloadFraction = downloadProgress[item.book.id],
-                        playing = item.book.id == playingId,
-                        onClick = { onEpisodeClick(item.book.id) },
-                        onPlay = { viewModel.playOrPause(item.book.id) },
-                        onDownload = { viewModel.download(item.book.id) },
-                        onRemoveDownload = { viewModel.removeDownload(item.book.id) },
-                        selection = selection,
-                        swipe = swipe,
+                    TrialNotice(
+                        text = feedProblemText(current),
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                        error = true,
+                        // Abgelehnte Anmeldung: eher Zugangsdaten als eine andere Quelle.
+                        action = when {
+                            !current.subscribed -> null
+                            current.refreshError == FeedError.DENIED && ardSoundsShowId(current.url) == null -> {
+                                { FilledTonalButton(onClick = { editingCredentials = true }) { Text(stringResource(R.string.podcast_credentials)) } }
+                            }
+                            else -> {
+                                { FilledTonalButton(onClick = { switchingSource = true }) { Text(stringResource(R.string.podcast_source_switch)) } }
+                            }
+                        },
                     )
                 }
-                // Nennt der Feed mehrere Staffeln (`itunes:season`), bekommt jede ihre Kopfzeile und Gruppe.
-                val seasons = seasonRuns(list) { it.book.season }
-                if (seasons == null) {
-                    groupedItems(list, key = { it.book.id }) { row(it) }
-                } else {
-                    seasons.forEachIndexed { index, (season, items) ->
-                        item(key = "season-$index") { SectionHeader(seasonTitle(season)) }
-                        groupedItems(items, key = { it.book.id }) { row(it) }
+                SectionHeader(stringResource(R.string.podcast_episodes))
+                when {
+                    episodes == LoadState.Failed -> LoadFailedHint()
+                    episodes is LoadState.Ready && episodes.valueOrNull.isNullOrEmpty() -> EmptyHint(stringResource(R.string.podcast_no_episodes))
+                    // Die Chips bleiben stehen, auch wenn der Filter nichts übrig lässt, damit man ihn lösen kann.
+                    episodes is LoadState.Ready -> EpisodeFilterChips(
+                        current.episodeFilter,
+                        viewModel::setEpisodeFilter,
+                        withStarred = episodes.valueOrNull.orEmpty().any { it.book.starred },
+                    )
+                }
+            }
+        }
+        val speed = current.effects.speed ?: areaEffects.speed
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val pinned = maxHeight >= PINNED_HEADER_MIN_HEIGHT
+            Column(Modifier.fillMaxSize()) {
+                if (pinned) headerContent()
+                PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = if (pinned) 4.dp else 0.dp, bottom = 24.dp)) {
+                        if (!pinned) item(key = "header") { headerContent() }
+                        if (shownEpisodes is LoadState.Ready && list.isEmpty() && episodes.valueOrNull.orEmpty().isNotEmpty()) {
+                            item(key = "filter-empty") { EmptyHint(stringResource(R.string.library_filter_empty)) }
+                        }
+                        // Mehrere Folgen am selben Tag: Uhrzeit beim Datum.
+                        val sameDay = episodesSharingDay(list.map { it.book })
+                        val row: @Composable (BookWithProgress) -> Unit = { item ->
+                            val id = item.book.id
+                            EpisodeSummaryRow(
+                                item,
+                                withPodcast = false,
+                                withTime = id in sameDay,
+                                remainingMs = item.remainingPlayMs(speed),
+                                download = downloadStates[id] ?: TrackDownload.NONE,
+                                downloadFraction = downloadProgress[id],
+                                queued = id in queued,
+                                playing = id == playingId,
+                                selection = selection,
+                                onClick = { onEpisodeClick(id) },
+                                onPlay = { viewModel.playOrPause(id) },
+                                onDownload = { viewModel.download(id) },
+                                onRemoveDownload = { viewModel.removeDownload(id) },
+                                onToggleQueue = { viewModel.toggleQueued(id) },
+                                swipe = swipe,
+                            )
+                        }
+                        // Nennt der Feed mehrere Staffeln (`itunes:season`), bekommt jede ihre Kopfzeile und Gruppe.
+                        val seasons = seasonRuns(list) { it.book.season }
+                        if (seasons == null) {
+                            groupedItems(list, key = { it.book.id }) { row(it) }
+                        } else {
+                            seasons.forEachIndexed { index, (season, items) ->
+                                item(key = "season-$index") { SectionHeader(seasonTitle(season)) }
+                                groupedItems(items, key = { it.book.id }) { row(it) }
+                            }
+                        }
                     }
                 }
             }
@@ -610,6 +620,9 @@ fun PodcastScreen(
 }
 
 private val HEADER_ART_SIZE = 144.dp
+
+/** Ab dieser Höhe unter der Kopfleiste bleibt der Kopf der Abo-Seite stehen; darunter scrollt er mit (kleines Handy, quer). */
+private val PINNED_HEADER_MIN_HEIGHT = 560.dp
 
 /**
  * Steht ein anderes Abo vorn (andere Sortierung, neue Folge, gehört), zeigt die Liste wieder ihren Anfang: Eine Lazy-Liste

@@ -97,6 +97,18 @@ class PodcastFeedViewModel @AssistedInject constructor(
         .asLoadState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LoadState.Loading)
 
+    /** Folgen, die gerade in „Weiterhören“ (der Warteschlange) stehen, auch die von selbst dort stehenden. */
+    val queued: StateFlow<Set<Long>> = continueListening.episodes
+        .map { list -> list.mapTo(HashSet()) { it.book.id } }
+        .orOnError(emptySet())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /** Ans Ende der Warteschlange bzw. heraus, wie im Folgenmenü. */
+    fun toggleQueued(bookId: Long) {
+        val inQueue = bookId in queued.value
+        viewModelScope.launch { if (inQueue) continueListening.remove(bookId) else continueListening.append(bookId) }
+    }
+
     private val searchQuery = MutableStateFlow("")
 
     /** Suchtext der Seite [PodcastSearchScreen]; die Treffer kommen über [searchHits]. */
