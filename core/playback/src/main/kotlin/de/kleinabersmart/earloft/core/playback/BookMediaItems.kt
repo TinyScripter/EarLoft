@@ -78,12 +78,16 @@ internal fun PreparedBook.toMediaItems(): List<MediaItem> {
     }
 }
 
-/** Ersetzt die Warteschlange durch das Buch und spielt es an der gespeicherten Stelle bzw. bei [startPositionMs]. */
+/**
+ * Ersetzt die Warteschlange durch das Buch und spielt es an der gespeicherten Stelle bzw. bei [startPositionMs]. Zufall und
+ * Wiederholen gehen erst danach aus: Vorher hielt der Player noch die Musik, und die App hätte „aus“ als Modus der
+ * Musik-Warteschlange gespeichert.
+ */
 internal fun Player.playBook(prepared: PreparedBook, startPositionMs: Long? = null, autoPlay: Boolean = true) {
     val start = prepared.timeline.locate(startPositionMs ?: prepared.startPositionMs)
+    setMediaItems(prepared.toMediaItems(), start.trackIndex, start.offsetMs)
     shuffleModeEnabled = false
     repeatMode = Player.REPEAT_MODE_OFF
-    setMediaItems(prepared.toMediaItems(), start.trackIndex, start.offsetMs)
     setPlaybackSpeed(prepared.speed)
     prepare()
     if (autoPlay) play()

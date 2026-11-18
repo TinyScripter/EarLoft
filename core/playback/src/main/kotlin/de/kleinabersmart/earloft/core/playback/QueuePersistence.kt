@@ -81,11 +81,13 @@ class QueuePersistence @Inject constructor(
     }
 
     fun savePosition(player: Player, scope: CoroutineScope) {
-        val index = player.currentMediaItemIndex
         // Zu Ende gespielt: Am Titelende wiederhergestellt würde „Abspielen“ sofort wieder enden.
         val position = if (player.playbackState == Player.STATE_ENDED) 0L else player.currentPosition
-        val shuffle = player.shuffleModeEnabled
-        val repeat = player.repeatMode
+        saveMusicPosition(player.currentMediaItemIndex, position, player.shuffleModeEnabled, player.repeatMode, scope)
+    }
+
+    /** Stelle und Modi der Musik-Warteschlange, auch wenn der Player schon etwas anderes hält (Wechsel zu einem Buch). */
+    fun saveMusicPosition(index: Int, position: Long, shuffle: Boolean, repeat: Int, scope: CoroutineScope) {
         scope.launch {
             context.playbackDataStore.edit {
                 it[KEY_INDEX] = index

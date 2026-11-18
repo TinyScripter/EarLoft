@@ -673,6 +673,23 @@ class PlaybackService : MediaLibraryService() {
             if (!holdsSpoken) queuePersistence.savePosition(player, applicationScope)
         }
 
+        /**
+         * Ein Buch bzw. eine Folge löst laufende Musik ab (`setMediaItems`): Danach hält der Player schon das Gesprochene, die
+         * Stelle des Songs kennt nur noch [oldPosition]. Ohne das begann „Musik fortsetzen“ den Song von vorn bzw. an der
+         * zuletzt gespeicherten Stelle. Zufall und Wiederholen sind hier noch die der Musik (`playBook` setzt sie danach).
+         */
+        override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+            if (reason != Player.DISCONTINUITY_REASON_REMOVE) return
+            if (oldPosition.mediaItem?.songId == null || newPosition.mediaItem?.isSpoken != true) return
+            queuePersistence.saveMusicPosition(
+                oldPosition.mediaItemIndex,
+                oldPosition.positionMs,
+                player.shuffleModeEnabled,
+                player.repeatMode,
+                applicationScope,
+            )
+        }
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             if (!isPlaying && !holdsSpoken) queuePersistence.savePosition(player, applicationScope)
         }
