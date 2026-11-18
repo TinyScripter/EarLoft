@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -7,24 +8,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -210,9 +207,9 @@ private fun QueueButton(queued: Boolean, enabled: Boolean, onToggle: () -> Unit)
 }
 
 /**
- * Abspielen samt Restzeit als ein Knopf. Die Form zeigt den Stand: nie angefangen tonal mit der ganzen Dauer, angefangen
- * (oder gerade laufend) gefüllt mit „noch …“, zu Ende gehört nur umrandet mit „Gehört“ (ein Tipp spielt sie von vorn).
- * Ohne bekannte Dauer steht nur das Symbol da.
+ * Abspielen samt Restzeit als ein Knopf, nur wenig größer als Symbol und Text (die Tippfläche bleibt 48 dp hoch). Die Farbe
+ * zeigt den Stand: nie angefangen hell mit der ganzen Dauer, angefangen (oder gerade laufend) kräftig mit „noch …“, zu Ende
+ * gehört nur umrandet mit „Gehört“ (ein Tipp spielt sie von vorn). Ohne bekannte Dauer steht nur das Symbol da.
  */
 @Composable
 private fun PlayTimeButton(item: BookWithProgress, remainingMs: Long?, playing: Boolean, enabled: Boolean, onClick: () -> Unit) {
@@ -225,21 +222,36 @@ private fun PlayTimeButton(item: BookWithProgress, remainingMs: Long?, playing: 
         started -> stringResource(R.string.book_remaining, formatDuration(remainingMs))
         else -> formatDuration(remainingMs)
     }
-    val content: @Composable RowScope.() -> Unit = {
-        Icon(
-            painterResource(if (playing) DesignR.drawable.ic_pause else DesignR.drawable.ic_play),
-            contentDescription = stringResource(if (playing) R.string.action_pause else R.string.podcast_play_episode),
-            modifier = Modifier.size(ButtonDefaults.IconSize),
-        )
-        if (label != null) {
-            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-            Text(label, maxLines = 1)
+    val colors = MaterialTheme.colorScheme
+    val (container, content) = when {
+        started || playing -> colors.primary to colors.onPrimary
+        finished -> Color.Transparent to colors.onSurfaceVariant
+        else -> colors.secondaryContainer to colors.onSecondaryContainer
+    }
+    val alpha = if (enabled) 1f else DISABLED_ALPHA
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = CircleShape,
+        color = container.copy(alpha = container.alpha * alpha),
+        contentColor = content.copy(alpha = alpha),
+        border = if (finished) BorderStroke(1.dp, colors.outlineVariant) else null,
+    ) {
+        Row(
+            Modifier.padding(start = 6.dp, end = if (label != null) 10.dp else 6.dp, top = 3.dp, bottom = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painterResource(if (playing) DesignR.drawable.ic_pause else DesignR.drawable.ic_play),
+                contentDescription = stringResource(if (playing) R.string.action_pause else R.string.podcast_play_episode),
+                modifier = Modifier.size(18.dp),
+            )
+            if (label != null) {
+                Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, modifier = Modifier.padding(start = 4.dp))
+            }
         }
     }
-    val padding = ButtonDefaults.ButtonWithIconContentPadding
-    when {
-        started || playing -> Button(onClick = onClick, enabled = enabled, contentPadding = padding, content = content)
-        finished -> OutlinedButton(onClick = onClick, enabled = enabled, contentPadding = padding, content = content)
-        else -> FilledTonalButton(onClick = onClick, enabled = enabled, contentPadding = padding, content = content)
-    }
 }
+
+/** Deckkraft eines ruhenden Knopfs (während der Mehrfachauswahl), wie bei Material. */
+private const val DISABLED_ALPHA = 0.38f
