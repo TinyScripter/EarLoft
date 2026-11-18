@@ -55,7 +55,9 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -218,14 +220,31 @@ class PodcastRepository @Inject constructor(
     /**
      * Reiter „Neu“ der Bibliothek: die neuesten Folgen aller Abos nach Erscheinen, auch gehörte (anders als „Zuletzt
      * hinzugefügt“ auf Start); was „Folgen behalten“ ausblendet und Trailer neben echten Folgen fehlen wie überall.
+     *
+     * Mit dem Anfang der Shownotes ([NOTES_CHARS] Zeichen, für eine kurze Inhaltsangabe): [PodcastDao.observeEpisodes] lässt
+     * sie für alle Folgen weg, hier kommen sie nur für die gezeigten dazu. Neu gelesen werden sie, wenn sich die Folgen in der
+     * Datenbank oder die Auswahl ändern, nicht bei jedem Speichern des Hörfortschritts (alle 15 s während der Wiedergabe).
      */
-    fun latestEpisodes(limit: Int = LATEST_LIMIT): Flow<List<BookWithProgress>> =
-        combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress()) { feeds, episodes, progress ->
-            val byBook = progress.associateBy { it.bookId }
-            episodes.visibleIn(feeds, byBook)
-                .take(limit)
-                .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
-        }
+    fun latestEpisodes(limit: Int = LATEST_LIMIT): Flow<List<BookWithProgress>> = flow {
+        var notesSource: List<BookEntity>? = null
+        var notesFor = emptyList<Long>()
+        var notes = emptyMap<Long, String>()
+        emitAll(
+            combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress()) { feeds, episodes, progress ->
+                val byBook = progress.associateBy { it.bookId }
+                val shown = episodes.visibleIn(feeds, byBook).take(limit)
+                val ids = shown.map { it.bookId }
+                if (episodes !== notesSource || ids != notesFor) {
+                    notes = ids.chunked(MAX_ARGS)
+                        .flatMap { dao.descriptionStarts(it, NOTES_CHARS) }
+                        .associate { it.bookId to it.description }
+                    notesSource = episodes
+                    notesFor = ids
+                }
+                shown.map { BookWithProgress(it.copy(description = notes[it.bookId].orEmpty()).toModel(), byBook[it.bookId]?.toModel()) }
+            },
+        )
+    }
 
     /**
      * „Zuletzt hinzugefügt“ auf Start: die neuesten Folgen aller Abos nach Erscheinen, ohne zu Ende gehörte. Folgen aus
@@ -1010,6 +1029,9 @@ class PodcastRepository @Inject constructor(
 
         /** Reiter „Neu“: genug zum Durchsehen, ohne ein Archiv mit Tausenden Folgen in eine Liste zu laden. */
         const val LATEST_LIMIT = 100
+
+        /** Anfang der Shownotes für die Inhaltsangabe im Reiter „Neu“; HTML mitgezählt, reicht für zwei Zeilen Text. */
+        const val NOTES_CHARS = 2_000
 
         /** Länge des Verlaufs: genug zum Wiederfinden, ohne jede je gehörte Folge zu laden. */
         const val HISTORY_LIMIT = 200

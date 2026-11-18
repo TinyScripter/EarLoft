@@ -1066,7 +1066,7 @@ fun PodcastSettingsScreen(
  * Ist die Größe unbekannt, dreht sich der Kreis. Haken und Fehler in den Farben der Markierung ([OfflineMarkIcon]).
  */
 @Composable
-private fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: () -> Unit, onRemove: () -> Unit) {
+internal fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: () -> Unit, onRemove: () -> Unit) {
     when (state) {
         TrackDownload.QUEUED, TrackDownload.RUNNING -> {
             val cancel = stringResource(R.string.podcast_download_cancel)
@@ -1102,8 +1102,7 @@ private fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: (
  * Eine Folge der Abo-Seite bzw. ihrer Suche. Während der Mehrfachauswahl ([selection], Konzept 12.5) schaltet ein Tipp sie
  * dazu oder weg, die Knöpfe rechts entfallen und eine ausgewählte trägt einen Haken über dem Bild. [swipe]: Wischgesten
  * ([EpisodeSwipeBox]), nicht während der Auswahl und nicht in einem Pager („Gemerkt“). [podcast]: in Listen aus mehreren Abos
- * („Gemerkt“) der Name darunter. [queued]: nicht `null`, steht zwischen Download und Abspielen ein Knopf für die Warteschlange
- * ([onToggleQueue]; Reiter „Neu“).
+ * („Gemerkt“) der Name darunter.
  */
 @Composable
 internal fun EpisodeRow(
@@ -1120,8 +1119,6 @@ internal fun EpisodeRow(
     selection: EpisodeSelection,
     swipe: Boolean,
     podcast: String? = null,
-    queued: Boolean? = null,
-    onToggleQueue: () -> Unit = {},
 ) {
     val book = item.book
     val progress = item.progress
@@ -1172,7 +1169,6 @@ internal fun EpisodeRow(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Dateien vom Gerät sind schon da.
                         if (!book.isLocal) DownloadButton(download, downloadFraction, onDownload, onRemoveDownload)
-                        if (queued != null) QueueButton(queued, onToggleQueue)
                         IconButton(onClick = onPlay) {
                             if (playing) {
                                 Icon(painterResource(DesignR.drawable.ic_pause), contentDescription = stringResource(R.string.action_pause))
@@ -1193,22 +1189,6 @@ internal fun EpisodeRow(
         )
         EpisodeMenu(item, expanded = menu, onDismiss = { menu = false }, onSelect = { selection.toggle(book.id) })
     } }
-}
-
-/** Ans Ende der Warteschlange bzw. heraus; eine eingereihte Folge zeigt den Haken in der Akzentfarbe (wie ein fertiger Download). */
-@Composable
-private fun QueueButton(queued: Boolean, onToggle: () -> Unit) {
-    IconButton(onClick = onToggle) {
-        if (queued) {
-            Icon(
-                painterResource(DesignR.drawable.ic_playlist_add_check),
-                contentDescription = stringResource(R.string.episode_queue_remove),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        } else {
-            Icon(painterResource(DesignR.drawable.ic_playlist_add), contentDescription = stringResource(R.string.episode_queue_add))
-        }
-    }
 }
 
 /** Quadratisches Podcast-Bild aus dem Feed; bis es geladen ist (oder ohne Bild) bleibt das Symbol sichtbar. */

@@ -20,6 +20,9 @@ data class FeedDownloadRow(val feedId: String, val episodes: Int, val bytes: Lon
 /** Geladene Folge, die zu Ende gehört ist; [finishedAt] ist der Zeitpunkt der letzten Änderung ihres Fortschritts. */
 data class FinishedDownloadRow(val bookId: Long, val finishedAt: Long, val filePath: String?)
 
+/** Anfang der Beschreibung einer Folge (siehe [PodcastDao.descriptionStarts]). */
+data class EpisodeDescriptionRow(val bookId: Long, val description: String)
+
 /** Download-Zustand einer Folge. */
 data class EpisodeDownloadRow(val bookId: Long, val state: TrackDownload)
 
@@ -218,6 +221,13 @@ abstract class PodcastDao {
             "ORDER BY lastListenedAt DESC LIMIT :limit",
     )
     abstract fun observeHistory(limit: Int): Flow<List<HistoryRow>>
+
+    /**
+     * Die ersten [chars] Zeichen der Beschreibung je Folge in [bookIds]: für eine kurze Inhaltsangabe in Listen, ohne die
+     * ganzen Shownotes vieler Folgen im Speicher zu halten (siehe [observeEpisodes]).
+     */
+    @Query("SELECT bookId, substr(description, 1, :chars) AS description FROM books WHERE bookId IN (:bookIds)")
+    abstract suspend fun descriptionStarts(bookIds: List<Long>, chars: Int): List<EpisodeDescriptionRow>
 
     /** Wie [observeEpisodes], nur die Folgen der Probeabos (für die Warteschlange). */
     @Query(

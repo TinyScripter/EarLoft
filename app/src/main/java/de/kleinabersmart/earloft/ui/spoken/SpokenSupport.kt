@@ -690,5 +690,24 @@ fun firstDescriptionLine(raw: String, title: String): String {
     return firstLineOtherThan(text, title)
 }
 
+/**
+ * Kurze Inhaltsangabe aus den Shownotes: reiner Text, Zeilen zu einem Absatz zusammengezogen, ohne Zeilen, die nur den
+ * [title] wiederholen; leer, wenn es keine gibt. Die Anzeige kürzt sie auf ihre Zeilenzahl.
+ */
+fun descriptionSummary(raw: String, title: String): String {
+    if (raw.isBlank()) return ""
+    val text = if ('<' in raw || '&' in raw) AnnotatedString.fromHtml(raw).text else raw
+    return summaryOtherThan(text, title)
+}
+
+internal fun summaryOtherThan(text: String, title: String): String =
+    text.lineSequence()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.equals(title.trim(), ignoreCase = true) }
+        .joinToString(" ")
+        .replace(WHITESPACE, " ")
+
+private val WHITESPACE = Regex("\\s+")
+
 internal fun firstLineOtherThan(text: String, title: String): String =
     text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() && !it.equals(title.trim(), ignoreCase = true) }.orEmpty()

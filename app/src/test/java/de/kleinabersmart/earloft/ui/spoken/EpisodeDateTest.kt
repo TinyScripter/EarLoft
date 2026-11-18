@@ -80,4 +80,13 @@ class EpisodeDateTest {
         assertEquals("Themen: Bahnstreik, Wetter", firstLineOtherThan("\n tagesschau in 100 Sekunden\nThemen: Bahnstreik, Wetter\n", "Tagesschau in 100 Sekunden"))
         assertEquals("", firstLineOtherThan("tagesschau in 100 Sekunden", "tagesschau in 100 Sekunden"))
     }
+
+    @Test
+    fun `the summary joins the lines into one paragraph without a repeated title`() {
+        assertEquals(
+            "Themen: Bahnstreik, Wetter Mehr unter tagesschau.de",
+            summaryOtherThan("tagesschau in 100 Sekunden\n\nThemen:  Bahnstreik,\tWetter\n Mehr unter tagesschau.de ", "Tagesschau in 100 Sekunden"),
+        )
+        assertEquals("", summaryOtherThan(" \n tagesschau in 100 Sekunden\n", "tagesschau in 100 Sekunden"))
+    }
 }

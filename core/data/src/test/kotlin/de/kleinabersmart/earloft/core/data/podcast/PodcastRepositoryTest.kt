@@ -941,6 +941,17 @@ class PodcastRepositoryTest {
     }
 
     @Test
+    fun `the new tab carries the start of the shownotes, other episode lists none`() = runTest {
+        val notes = "<p>" + "Inhalt ".repeat(500) + "</p>"
+        served = """<rss version="2.0"><channel><title>Test-Podcast</title><item><title>A</title><guid>guid-A</guid>""" +
+            """<description><![CDATA[$notes]]></description><enclosure url="https://example.com/A.mp3" type="audio/mpeg"/></item></channel></rss>"""
+        subscribe()
+
+        assertEquals(notes.take(2_000), repository.latestEpisodes().first().single().book.description)
+        assertEquals("", repository.recentEpisodes().first().single().book.description)
+    }
+
+    @Test
     fun `refresh keeps started episodes the feed no longer lists and drops the rest`() = runTest {
         val feedId = subscribe()
         listen(idOf(feedId, "B"), positionMs = 60_000, updatedAt = 100)
