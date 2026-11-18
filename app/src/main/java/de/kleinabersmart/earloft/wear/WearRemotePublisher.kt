@@ -44,10 +44,12 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -90,6 +92,12 @@ class WearRemotePublisher @Inject constructor(
         }
     }
 
+    /** Zuletzt geschriebener Zustand; daran misst sich, ob der Sleep-Timer neu gemeldet werden muss. */
+    @Volatile private var publishedState: WearRemoteStateDto? = null
+
+    /** Letzter Stand des Sleep-Timers am Handy. */
+    @Volatile private var sleep = SleepSnapshot(null, toEnd = false)
+
     /** [WearRemoteStateDto.coverKey] des zuletzt geschriebenen Covers; ändert sich nur beim Album- bzw. Buchwechsel. */
     private var publishedCoverKey: Long? = null
 
@@ -113,8 +121,14 @@ class WearRemotePublisher @Inject constructor(
                 if (!subscribed) {
                     emptyFlow()
                 } else {
+                    // Der Sleep-Timer meldet sich jede Sekunde; neu geschrieben wird nur bei Start, Ende oder Änderung, die Uhr
+                    // zählt selbst herunter.
+                    val sleepChanges = combine(playback.sleepTimerRemainingMs, playback.sleepTimerToEnd, ::SleepSnapshot)
+                        .onEach { sleep = it }
+                        .filter { publishedState?.sleepTimerDiffers(System.currentTimeMillis(), it.remainingMs, it.toEnd) == true }
+                        .map { }
                     // Zustandsänderungen und Sprünge (Spulen) zusammenfassen: Ein Titelwechsel löst beides aus.
-                    merge(playback.state.map { }, playback.positionJumps).debounce(STATE_DEBOUNCE_MS)
+                    merge(playback.state.map { }, playback.positionJumps, sleepChanges).debounce(STATE_DEBOUNCE_MS)
                 }
             }.collect { publishState() }
         }
@@ -167,8 +181,11 @@ class WearRemotePublisher @Inject constructor(
     private suspend fun publishState() {
         val state = playback.state.value
         val positionInTrack = withContext(Dispatchers.Main) { playback.currentPositionMs }
-        val dto = if (state.spoken != null) spokenState(state, positionInTrack) else musicState(state, positionInTrack)
+        val sleepNow = sleep
+        val dto = (if (state.spoken != null) spokenState(state, positionInTrack) else musicState(state, positionInTrack))
+            .copy(sleepTimerRemainingMs = sleepNow.remainingMs, sleepTimerToEnd = sleepNow.toEnd, sleepTimerSupported = true)
         dataClient.putPayload(WearPaths.REMOTE_STATE, WearCodec.encode(dto))
+        publishedState = dto
         // Nach einer Pause ohne Anmeldung kann die Uhr ein altes Cover haben: bei neuer Anmeldung neu schreiben.
         val coverKey = dto.coverKey
         if (coverKey != null && coverKey != publishedCoverKey) publishCover(dto, coverKey)
@@ -296,3 +313,6 @@ internal fun remoteChapters(bookId: Long, timeline: BookTimeline?): WearRemoteCh
     bookId = bookId,
     chapters = timeline?.chapters.orEmpty().map { WearChapterDto(it.title, it.startMs, it.endMs, it.unavailable) },
 )
+
+/** Restzeit des Sleep-Timers am Handy und ob er bis zum Ende des Kapitels bzw. der Folge läuft. */
+private data class SleepSnapshot(val remainingMs: Long?, val toEnd: Boolean)

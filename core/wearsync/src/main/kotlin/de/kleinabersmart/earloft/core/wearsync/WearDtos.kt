@@ -407,8 +407,35 @@ data class WearRemoteStateDto(
     val volume: Float = 0f,
     /** Höchste Lautstärkestufe des Handys; [volume] ist ein Vielfaches von 1/[volumeMax]. */
     val volumeMax: Int = 15,
+    /** Restzeit des Sleep-Timers am Handy (Echtzeit) zum Zeitpunkt [sampledAt]; `null`, solange keiner läuft. */
+    val sleepTimerRemainingMs: Long? = null,
+    /** Der Timer läuft bis zum Ende des Kapitels bzw. der Folge; dann steht er, solange pausiert ist. */
+    val sleepTimerToEnd: Boolean = false,
+    /** Das Handy nimmt die Sleep-Timer-Befehle an; ältere Handys melden nichts, dann zeigt die Uhr keinen Knopf. */
+    val sleepTimerSupported: Boolean = false,
 ) {
     val isSpoken: Boolean get() = kind != WearRemoteMediaKind.MUSIC
+
+    /** Ob die Restzeit des Sleep-Timers weiterläuft: bei fester Dauer immer, „bis zum Ende“ nur während der Wiedergabe. */
+    val sleepTimerCounting: Boolean get() = !sleepTimerToEnd || isPlaying
+
+    /** Restzeit des Sleep-Timers zum Zeitpunkt [now] (Handy-Uhrzeit wie [sampledAt]), nicht unter 0; `null` ohne Timer. */
+    fun sleepTimerRemainingAt(now: Long): Long? {
+        val remaining = sleepTimerRemainingMs ?: return null
+        if (!sleepTimerCounting || sampledAt == 0L) return remaining
+        return (remaining - (now - sampledAt).coerceAtLeast(0)).coerceAtLeast(0)
+    }
+
+    /**
+     * Das Handy muss neu melden, weil die Uhr mit dieser Meldung zum Zeitpunkt [now] eine andere Restzeit rechnete als der Timer
+     * ([remainingMs], [toEnd]): gestartet, beendet, verlängert, in ein anderes Kapitel gespult, Tempo geändert. Kleine
+     * Abweichungen aus dem Sekundentakt des Timers zählen nicht.
+     */
+    fun sleepTimerDiffers(now: Long, remainingMs: Long?, toEnd: Boolean): Boolean {
+        val shown = sleepTimerRemainingAt(now)
+        if (remainingMs == null || shown == null) return (remainingMs == null) != (shown == null)
+        return toEnd != sleepTimerToEnd || kotlin.math.abs(remainingMs - shown) > SLEEP_TIMER_DRIFT_MS
+    }
 
     /**
      * Schlüssel des Covers unter [WearPaths.REMOTE_COVER]: die Album-ID, bei Gesprochenem die negative Buch-ID
@@ -422,6 +449,11 @@ data class WearRemoteStateDto(
         val elapsed = ((now - sampledAt).coerceAtLeast(0) * speed.toDouble()).toLong()
         val position = positionMs + elapsed
         return if (durationMs > 0) position.coerceAtMost(durationMs) else position
+    }
+
+    private companion object {
+        /** Der Timer meldet sich etwa jede Sekunde; erst mehr Abweichung heißt, dass er sich geändert hat. */
+        const val SLEEP_TIMER_DRIFT_MS = 2_500L
     }
 }
 
@@ -560,6 +592,14 @@ enum class WearRemoteAction {
 
     /** Wiederholen: aus → alle → Titel → aus. Ältere Handys verwerfen den unbekannten Befehl. */
     CYCLE_REPEAT,
+
+    /**
+     * Sleep-Timer am Handy: [SLEEP_TIMER_START] mit [WearRemoteCommand.value] = Minuten, [SLEEP_TIMER_TO_END] bis zum Ende des
+     * Kapitels bzw. der Folge, [SLEEP_TIMER_CANCEL] beendet ihn. Nur, wenn das Handy [WearRemoteStateDto.sleepTimerSupported] meldet.
+     */
+    SLEEP_TIMER_START,
+    SLEEP_TIMER_TO_END,
+    SLEEP_TIMER_CANCEL,
 }
 
 @Serializable

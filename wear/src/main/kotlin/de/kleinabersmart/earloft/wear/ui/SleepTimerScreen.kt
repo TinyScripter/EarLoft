@@ -48,13 +48,23 @@ internal fun minutesLeft(remainingMs: Long): Int = ((remainingMs + MS_PER_MINUTE
 
 private const val MS_PER_MINUTE = 60_000L
 
+/** Sleep-Timer des Handys wählen (Fernsteuerung, Wear-Konzept 15). */
+@Composable
+fun RemoteSleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: RemotePlayerViewModel = hiltViewModel()) =
+    SleepTimerScreen(onCustom, onDone, viewModel)
+
+/** Eigene Dauer für den Sleep-Timer des Handys. */
+@Composable
+fun RemoteSleepTimerCustomScreen(onDone: () -> Unit, viewModel: RemotePlayerViewModel = hiltViewModel()) =
+    SleepTimerCustomScreen(onDone, viewModel)
+
 /**
  * Sleep-Timer wählen: bei Folgen und Büchern mit Kapiteln zuerst „Ende der Folge“ bzw. „Ende des Kapitels“, dann feste
  * Dauern und „Eigene Dauer“. Beenden geschieht über den Knopf in der Wiedergabe.
- * [onDone] schließt den Bildschirm nach einer Auswahl.
+ * [onDone] schließt den Bildschirm nach einer Auswahl. [viewModel] ist der Timer der Uhr oder, in der Fernsteuerung, der des Handys.
  */
 @Composable
-fun SleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: PlayerViewModel = hiltViewModel()) {
+fun SleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: SleepTimerModel = hiltViewModel<PlayerViewModel>()) {
     val toEndLabel by viewModel.sleepToEndLabel.collectAsStateWithLifecycle()
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
@@ -107,7 +117,7 @@ fun SleepTimerScreen(onCustom: () -> Unit, onDone: () -> Unit, viewModel: Player
 
 /** Eigene Dauer: die Krone (oder +/−) ändert die Minuten in Fünferschritten bis 240, „Starten“ übernimmt sie. */
 @Composable
-fun SleepTimerCustomScreen(onDone: () -> Unit, viewModel: PlayerViewModel = hiltViewModel()) {
+fun SleepTimerCustomScreen(onDone: () -> Unit, viewModel: SleepTimerModel = hiltViewModel<PlayerViewModel>()) {
     var minutes by remember { mutableIntStateOf(CUSTOM_DEFAULT_MINUTES) }
     val crown = remember { CrownStepper(CROWN_PX_PER_STEP) }
     val focusRequester = remember { FocusRequester() }

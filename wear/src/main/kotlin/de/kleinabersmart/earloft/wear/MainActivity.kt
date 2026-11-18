@@ -54,6 +54,8 @@ import de.kleinabersmart.earloft.wear.ui.NowPlayingScreen
 import de.kleinabersmart.earloft.wear.ui.SelectionScreen
 import de.kleinabersmart.earloft.wear.ui.ChaptersScreen
 import de.kleinabersmart.earloft.wear.ui.RemoteChaptersScreen
+import de.kleinabersmart.earloft.wear.ui.RemoteSleepTimerCustomScreen
+import de.kleinabersmart.earloft.wear.ui.RemoteSleepTimerScreen
 import de.kleinabersmart.earloft.wear.ui.SleepTimerCustomScreen
 import de.kleinabersmart.earloft.wear.ui.SleepTimerScreen
 import de.kleinabersmart.earloft.wear.ui.StartScreen
@@ -199,13 +201,13 @@ data class PhoneSpokenRoute(val item: WearRemoteBookDto) : NavKey
 @Serializable
 data class RemoteTracksRoute(val kind: WearRemoteListKind, val refId: Long? = null, val selectable: Boolean = true) : NavKey
 
-/** Sleep-Timer wählen (aus der Wiedergabe-Ansicht). */
+/** Sleep-Timer wählen (aus der Wiedergabe-Ansicht); mit [remote] den des Handys. */
 @Serializable
-data object SleepTimerRoute : NavKey
+data class SleepTimerRoute(val remote: Boolean = false) : NavKey
 
-/** Eigene Dauer des Sleep-Timers. */
+/** Eigene Dauer des Sleep-Timers; mit [remote] den des Handys. */
 @Serializable
-data object SleepTimerCustomRoute : NavKey
+data class SleepTimerCustomRoute(val remote: Boolean = false) : NavKey
 
 /** Kapitel des laufenden Buchs bzw. der Folge (aus der Wiedergabe-Ansicht); mit [remote] die des Handys. */
 @Serializable
@@ -306,10 +308,13 @@ fun WearApp(openRoute: NavKey? = null, onRouteOpened: () -> Unit = {}) {
                     entry<PhoneSpokenRoute> { route -> RemoteSpokenScreen(route.item, onPlayed = { backStack.openNowPlaying(remote = true) }) }
                     entry<NowPlayingRoute> { route ->
                         if (route.remote) {
-                            RemoteNowPlayingScreen(onOpenChapters = { backStack.add(ChaptersRoute(remote = true)) })
+                            RemoteNowPlayingScreen(
+                                onOpenSleepTimer = { backStack.add(SleepTimerRoute(remote = true)) },
+                                onOpenChapters = { backStack.add(ChaptersRoute(remote = true)) },
+                            )
                         } else {
                             NowPlayingScreen(
-                                onOpenSleepTimer = { backStack.add(SleepTimerRoute) },
+                                onOpenSleepTimer = { backStack.add(SleepTimerRoute()) },
                                 onOpenChapters = { backStack.add(ChaptersRoute()) },
                             )
                         }
@@ -332,15 +337,15 @@ fun WearApp(openRoute: NavKey? = null, onRouteOpened: () -> Unit = {}) {
                     entry<RemoteTracksRoute> { route ->
                         RemoteTracksScreen(route.kind, route.refId, onPlayed = { backStack.openNowPlaying(remote = true) }, selectable = route.selectable)
                     }
-                    entry<SleepTimerRoute> {
-                        SleepTimerScreen(
-                            onCustom = { backStack.add(SleepTimerCustomRoute) },
-                            onDone = { backStack.removeLastOrNull() },
-                        )
+                    entry<SleepTimerRoute> { route ->
+                        val onCustom: () -> Unit = { backStack.add(SleepTimerCustomRoute(route.remote)) }
+                        val onDone: () -> Unit = { backStack.removeLastOrNull() }
+                        if (route.remote) RemoteSleepTimerScreen(onCustom, onDone) else SleepTimerScreen(onCustom, onDone)
                     }
-                    entry<SleepTimerCustomRoute> {
+                    entry<SleepTimerCustomRoute> { route ->
                         // Zurück zur Wiedergabe: erst die eigene Dauer, dann die Auswahl davor schließen.
-                        SleepTimerCustomScreen(onDone = { repeat(2) { backStack.removeLastOrNull() } })
+                        val onDone: () -> Unit = { repeat(2) { backStack.removeLastOrNull() } }
+                        if (route.remote) RemoteSleepTimerCustomScreen(onDone) else SleepTimerCustomScreen(onDone)
                     }
                     entry<ChaptersRoute> { route ->
                         val onDone: () -> Unit = { backStack.removeLastOrNull() }

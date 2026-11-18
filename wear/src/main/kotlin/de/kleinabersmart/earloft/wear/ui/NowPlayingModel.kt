@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.SpokenEntry
+import de.kleinabersmart.earloft.wear.R
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -51,6 +52,27 @@ interface NowPlayingModel {
 
     /** Die Krone wurde um [pixels] gedreht: ändert die Lautstärke. */
     fun onCrown(pixels: Float)
+}
+
+/** Was die Sleep-Timer-Ansichten brauchen: der Timer der Uhr selbst ([PlayerViewModel]) oder der des Handys ([RemotePlayerViewModel]). */
+interface SleepTimerModel {
+    /** Text des ersten Eintrags „Ende des Kapitels“ bzw. „Ende der Folge“; `null`, wenn es ihn nicht gibt ([sleepToEndLabelFor]). */
+    val sleepToEndLabel: StateFlow<Int?>
+
+    fun startSleepTimer(minutes: Int)
+
+    fun startSleepTimerToEnd()
+}
+
+/**
+ * Erster Eintrag im Sleep-Timer (wie am Handy): Folgen bis zu ihrem Ende, Bücher mit Kapiteln bis zum Kapitelende; `null` bei
+ * Musik und Büchern ohne Kapitel (die enden erst nach Stunden).
+ */
+internal fun sleepToEndLabelFor(spoken: SpokenEntry?, chapters: List<BookChapter>): Int? = when {
+    spoken == null -> null
+    spoken.isEpisode -> R.string.sleep_timer_episode_end
+    chapters.isNotEmpty() -> R.string.sleep_timer_chapter_end
+    else -> null
 }
 
 /** Was die Kapitelliste braucht: Kapitel der Uhr selbst ([PlayerViewModel]) oder des Handys ([RemotePlayerViewModel]). */

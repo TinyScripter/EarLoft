@@ -14,6 +14,7 @@ import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.core.model.Song
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
+import de.kleinabersmart.earloft.core.playback.SleepTimer
 import de.kleinabersmart.earloft.core.wearsync.WearCodec
 import de.kleinabersmart.earloft.core.wearsync.WearPaths
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteAction
@@ -28,7 +29,9 @@ import de.kleinabersmart.earloft.core.wearsync.WearRemoteTracksRequest
 import de.kleinabersmart.earloft.core.wearsync.WearRemoteTracksResult
 import de.kleinabersmart.earloft.core.wearsync.sendPayload
 import de.kleinabersmart.earloft.ui.spoken.BookLauncher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -64,6 +67,12 @@ class WearRemoteHandler @Inject constructor(
             WearRemoteAction.SKIP_FORWARD -> playback.skipForward()
             WearRemoteAction.VOLUME_STEPS -> changeVolume(command.value.toInt())
             WearRemoteAction.CYCLE_REPEAT -> playback.cycleRepeatMode()
+            // Der Sleep-Timer gehört auf den Main-Thread; die Nachrichten der Uhr kommen auf einem anderen an.
+            WearRemoteAction.SLEEP_TIMER_START -> withContext(Dispatchers.Main) {
+                playback.startSleepTimer(command.value.toInt().coerceIn(1, SleepTimer.MAX_MINUTES))
+            }
+            WearRemoteAction.SLEEP_TIMER_TO_END -> withContext(Dispatchers.Main) { playback.startSleepTimerToEnd() }
+            WearRemoteAction.SLEEP_TIMER_CANCEL -> withContext(Dispatchers.Main) { playback.cancelSleepTimer() }
         }
     }
 

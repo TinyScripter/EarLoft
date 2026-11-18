@@ -36,6 +36,42 @@ class WearRemoteTest {
     }
 
     @Test
+    fun `Sleep-Timer zaehlt mit fester Dauer immer herunter`() {
+        val timer = playing.copy(sleepTimerRemainingMs = 600_000)
+        assertEquals(595_000L, timer.sleepTimerRemainingAt(now = 6_000))
+        assertEquals(595_000L, timer.copy(isPlaying = false).sleepTimerRemainingAt(now = 6_000))
+        assertEquals(0L, timer.sleepTimerRemainingAt(now = 10_000_000))
+        assertNull(playing.sleepTimerRemainingAt(now = 6_000))
+    }
+
+    @Test
+    fun `Sleep-Timer bis zum Ende steht in der Pause`() {
+        val toEnd = playing.copy(sleepTimerRemainingMs = 600_000, sleepTimerToEnd = true)
+        assertEquals(595_000L, toEnd.sleepTimerRemainingAt(now = 6_000))
+        assertEquals(600_000L, toEnd.copy(isPlaying = false).sleepTimerRemainingAt(now = 60_000))
+    }
+
+    @Test
+    fun `Sleep-Timer wird nur bei Start, Ende und Aenderung neu gemeldet`() {
+        val none = playing
+        val running = playing.copy(sleepTimerRemainingMs = 600_000)
+        assertEquals(false, none.sleepTimerDiffers(now = 6_000, remainingMs = null, toEnd = false))
+        assertEquals(true, none.sleepTimerDiffers(now = 6_000, remainingMs = 900_000, toEnd = false))
+        assertEquals(true, running.sleepTimerDiffers(now = 6_000, remainingMs = null, toEnd = false))
+        // Der Sekundentakt des Timers zählt nicht, ein Neustart mit anderer Dauer schon.
+        assertEquals(false, running.sleepTimerDiffers(now = 6_000, remainingMs = 594_000, toEnd = false))
+        assertEquals(true, running.sleepTimerDiffers(now = 6_000, remainingMs = 1_800_000, toEnd = false))
+        assertEquals(true, running.sleepTimerDiffers(now = 6_000, remainingMs = 595_000, toEnd = true))
+    }
+
+    @Test
+    fun `Aeltere Handys melden keinen Sleep-Timer`() {
+        val decoded = WearCodec.decode<WearRemoteStateDto>("""{"hasMedia":true,"title":"Mondlicht"}""".encodeToByteArray())
+        assertEquals(false, decoded.sleepTimerSupported)
+        assertNull(decoded.sleepTimerRemainingMs)
+    }
+
+    @Test
     fun `Cover-Schluessel trennt Alben und Buecher`() {
         assertEquals(12L, WearRemoteStateDto(hasMedia = true, albumId = 12).coverKey)
         assertEquals(-12L, WearRemoteStateDto(hasMedia = true, kind = WearRemoteMediaKind.EPISODE, bookId = 12).coverKey)

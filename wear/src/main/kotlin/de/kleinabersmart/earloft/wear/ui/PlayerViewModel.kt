@@ -13,7 +13,6 @@ import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
 import de.kleinabersmart.earloft.core.data.spoken.BookCovers
 import de.kleinabersmart.earloft.core.data.spoken.BookRepository
 import de.kleinabersmart.earloft.core.model.BookChapter
-import de.kleinabersmart.earloft.wear.R
 import de.kleinabersmart.earloft.core.model.BookTimeline
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.playback.PlayerState
@@ -50,7 +49,7 @@ class PlayerViewModel @Inject constructor(
     albumColors: AlbumColorRepository,
     bookCovers: BookCovers,
     books: BookRepository,
-) : ViewModel(), NowPlayingModel, ChaptersModel {
+) : ViewModel(), NowPlayingModel, ChaptersModel, SleepTimerModel {
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
 
@@ -174,22 +173,12 @@ class PlayerViewModel @Inject constructor(
     override val sleepTimerRemainingMs: StateFlow<Long?> = playback.sleepTimerRemainingMs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    fun startSleepTimer(minutes: Int) = playback.startSleepTimer(minutes)
+    override fun startSleepTimer(minutes: Int) = playback.startSleepTimer(minutes)
 
-    /**
-     * Erster Eintrag im Sleep-Timer: Folgen bis zu ihrem Ende, Bücher mit Kapiteln bis zum Kapitelende; `null` bei Musik
-     * und Büchern ohne Kapitel. Wert ist der Text des Eintrags.
-     */
-    val sleepToEndLabel: StateFlow<Int?> = combine(playback.state.map { it.spoken?.isEpisode }.distinctUntilChanged(), chapters) { episode, chapters ->
-        when {
-            episode == null -> null
-            episode -> R.string.sleep_timer_episode_end
-            chapters.isNotEmpty() -> R.string.sleep_timer_chapter_end
-            else -> null
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    override val sleepToEndLabel: StateFlow<Int?> = combine(playback.state.map { it.spoken }.distinctUntilChanged(), chapters, ::sleepToEndLabelFor)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    fun startSleepTimerToEnd() = playback.startSleepTimerToEnd()
+    override fun startSleepTimerToEnd() = playback.startSleepTimerToEnd()
 
     override fun cancelSleepTimer() = playback.cancelSleepTimer()
 

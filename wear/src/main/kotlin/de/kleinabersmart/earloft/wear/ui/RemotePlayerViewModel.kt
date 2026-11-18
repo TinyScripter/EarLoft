@@ -43,7 +43,7 @@ import kotlin.math.roundToInt
 class RemotePlayerViewModel @Inject constructor(
     private val remote: PhoneRemote,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
-) : ViewModel(), NowPlayingModel, ChaptersModel {
+) : ViewModel(), NowPlayingModel, ChaptersModel, SleepTimerModel {
 
     private val remoteState: StateFlow<WearRemoteStateDto?> =
         // Die Nebenwirkungen hängen am Fluss, nicht an einem eigenen Collector: Ein dauerhafter Collector hielte die Anmeldung
@@ -54,6 +54,7 @@ class RemotePlayerViewModel @Inject constructor(
                 pendingPlaying.value = null
                 pendingShuffle.value = null
                 pendingRepeat.value = null
+                pendingSleepCancelled.value = false
                 if (dto != null && !_volumeVisible.value) _volume.value = dto.volume
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -61,6 +62,9 @@ class RemotePlayerViewModel @Inject constructor(
     private val pendingPlaying = MutableStateFlow<Boolean?>(null)
     private val pendingShuffle = MutableStateFlow<Boolean?>(null)
     private val pendingRepeat = MutableStateFlow<Int?>(null)
+
+    /** Der Timer wurde hier beendet; bis das Handy meldet, steht er schon als aus da. */
+    private val pendingSleepCancelled = MutableStateFlow(false)
     private var pendingJob: Job? = null
 
     override val state: StateFlow<PlayerState> = combine(
@@ -137,8 +141,38 @@ class RemotePlayerViewModel @Inject constructor(
     /** Das Handy wählt Datei und Versatz über seine Zeitachse ([WearRemoteAction.SEEK] in Buchzeit). */
     override fun seekToBook(bookPositionMs: Long) = seekTo(bookPositionMs)
 
-    /** Einen Sleep-Timer gibt es nur auf der Uhr selbst. */
-    override val sleepTimerRemainingMs: StateFlow<Long?> = MutableStateFlow(null)
+    /**
+     * Restzeit des Sleep-Timers am Handy: aus der Meldung fortgerechnet wie die Position (das Handy meldet nur Start, Ende und
+     * Änderungen), bei „bis zum Ende“ nur während der Wiedergabe.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val sleepTimerRemainingMs: StateFlow<Long?> = combine(remoteState, pendingSleepCancelled, ::Pair)
+        .flatMapLatest { (dto, cancelled) ->
+            flow {
+                val start = if (cancelled) null else dto?.sleepTimerRemainingAt(System.currentTimeMillis())
+                emit(start)
+                if (start == null || dto?.sleepTimerCounting != true) return@flow
+                val startedAt = SystemClock.elapsedRealtime()
+                while (true) {
+                    delay(SLEEP_TICK_MS)
+                    val remaining = (start - (SystemClock.elapsedRealtime() - startedAt)).coerceAtLeast(0)
+                    emit(remaining)
+                    if (remaining == 0L) break
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Das Handy nimmt Sleep-Timer-Befehle an (ältere nicht: dann kein Knopf). */
+    val sleepTimerSupported: StateFlow<Boolean> = remoteState.map { it?.sleepTimerSupported == true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    override val sleepToEndLabel: StateFlow<Int?> = combine(state.map { it.spoken }.distinctUntilChanged(), chapters, ::sleepToEndLabelFor)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    override fun startSleepTimer(minutes: Int) = send(WearRemoteAction.SLEEP_TIMER_START, minutes.toLong())
+
+    override fun startSleepTimerToEnd() = send(WearRemoteAction.SLEEP_TIMER_TO_END)
 
     private val _volume = MutableStateFlow(0f)
     override val volume: StateFlow<Float> = _volume
@@ -173,7 +207,10 @@ class RemotePlayerViewModel @Inject constructor(
 
     override fun seekTo(positionMs: Long) = send(WearRemoteAction.SEEK, positionMs)
 
-    override fun cancelSleepTimer() = Unit
+    override fun cancelSleepTimer() {
+        pending { pendingSleepCancelled.value = true }
+        send(WearRemoteAction.SLEEP_TIMER_CANCEL)
+    }
 
     override fun onCrown(pixels: Float) {
         val steps = crown.add(pixels)
@@ -211,6 +248,7 @@ class RemotePlayerViewModel @Inject constructor(
             pendingPlaying.value = null
             pendingShuffle.value = null
             pendingRepeat.value = null
+            pendingSleepCancelled.value = false
         }
     }
 
@@ -219,6 +257,7 @@ class RemotePlayerViewModel @Inject constructor(
         const val CROWN_PX_PER_STEP = 30f
         const val VOLUME_VISIBLE_MS = 1_500L
         const val PENDING_MS = 3_000L
+        const val SLEEP_TICK_MS = 1_000L
     }
 }
 
