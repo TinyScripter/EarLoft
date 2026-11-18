@@ -219,31 +219,43 @@ class PodcastRepository @Inject constructor(
 
     /**
      * Reiter „Neu“ der Bibliothek: die neuesten Folgen aller Abos nach Erscheinen, auch gehörte (anders als „Zuletzt
-     * hinzugefügt“ auf Start); was „Folgen behalten“ ausblendet und Trailer neben echten Folgen fehlen wie überall.
-     *
-     * Mit dem Anfang der Shownotes ([NOTES_CHARS] Zeichen, für eine kurze Inhaltsangabe): [PodcastDao.observeEpisodes] lässt
-     * sie für alle Folgen weg, hier kommen sie nur für die gezeigten dazu. Neu gelesen werden sie, wenn sich die Folgen in der
-     * Datenbank oder die Auswahl ändern, nicht bei jedem Speichern des Hörfortschritts (alle 15 s während der Wiedergabe).
+     * hinzugefügt“ auf Start); was „Folgen behalten“ ausblendet und Trailer neben echten Folgen fehlen wie überall. Mit dem
+     * Anfang der Shownotes ([DescriptionStarts]).
      */
     fun latestEpisodes(limit: Int = LATEST_LIMIT): Flow<List<BookWithProgress>> = flow {
-        var notesSource: List<BookEntity>? = null
-        var notesFor = emptyList<Long>()
-        var notes = emptyMap<Long, String>()
+        val starts = DescriptionStarts()
         emitAll(
             combine(dao.observeFeeds(), dao.observeEpisodes(), bookDao.observeAllProgress()) { feeds, episodes, progress ->
                 val byBook = progress.associateBy { it.bookId }
-                val shown = episodes.visibleIn(feeds, byBook).take(limit)
-                val ids = shown.map { it.bookId }
-                if (episodes !== notesSource || ids != notesFor) {
-                    notes = ids.chunked(MAX_ARGS)
-                        .flatMap { dao.descriptionStarts(it, NOTES_CHARS) }
-                        .associate { it.bookId to it.description }
-                    notesSource = episodes
-                    notesFor = ids
-                }
-                shown.map { BookWithProgress(it.copy(description = notes[it.bookId].orEmpty()).toModel(), byBook[it.bookId]?.toModel()) }
+                starts.of(episodes, episodes.visibleIn(feeds, byBook).take(limit))
+                    .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
             },
         )
+    }
+
+    /**
+     * Anfang der Shownotes ([NOTES_CHARS] Zeichen) für eine kurze Inhaltsangabe in Listen aus mehreren Abos:
+     * [PodcastDao.observeEpisodes] und [PodcastDao.observeStarredEpisodes] lassen die Beschreibung weg, hier kommt sie nur für
+     * die gezeigten Folgen dazu. Neu gelesen wird, wenn die Datenbank eine neue Folgenliste liefert oder sich die Auswahl
+     * ändert, nicht bei jedem Speichern des Hörfortschritts (alle 15 s während der Wiedergabe). Eine Instanz je Sammeln.
+     */
+    private inner class DescriptionStarts {
+        private var source: List<BookEntity>? = null
+        private var ids = emptyList<Long>()
+        private var notes = emptyMap<Long, String>()
+
+        /** [shown] (aus [episodes], wie die Datenbank sie geliefert hat) mit dem Anfang ihrer Shownotes. */
+        suspend fun of(episodes: List<BookEntity>, shown: List<BookEntity>): List<BookEntity> {
+            val shownIds = shown.map { it.bookId }
+            if (episodes !== source || shownIds != ids) {
+                notes = shownIds.chunked(MAX_ARGS)
+                    .flatMap { dao.descriptionStarts(it, NOTES_CHARS) }
+                    .associate { it.bookId to it.description }
+                source = episodes
+                ids = shownIds
+            }
+            return shown.map { it.copy(description = notes[it.bookId].orEmpty()) }
+        }
     }
 
     /**
@@ -323,11 +335,15 @@ class PodcastRepository @Inject constructor(
     fun downloadedIds(): Flow<Set<Long>> = dao.observeDownloadedIds().map { it.toSet() }
 
     /** Gemerkte Folgen der Abos (Reiter „Gemerkt“), zuletzt gemerkte zuerst, ohne Beschreibung. */
-    fun starredEpisodes(): Flow<List<BookWithProgress>> =
-        combine(dao.observeStarredEpisodes(), bookDao.observeAllProgress()) { episodes, progress ->
-            val byBook = progress.associateBy { it.bookId }
-            episodes.map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
-        }
+    fun starredEpisodes(): Flow<List<BookWithProgress>> = flow {
+        val starts = DescriptionStarts()
+        emitAll(
+            combine(dao.observeStarredEpisodes(), bookDao.observeAllProgress()) { episodes, progress ->
+                val byBook = progress.associateBy { it.bookId }
+                starts.of(episodes, episodes).map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
+            },
+        )
+    }
 
     /**
      * Merkt die Folgen bzw. nimmt den Stern weg. Gemerkte Folgen bleiben, auch wenn der Feed sie nicht mehr führt, und ihr
@@ -1030,7 +1046,7 @@ class PodcastRepository @Inject constructor(
         /** Reiter „Neu“: genug zum Durchsehen, ohne ein Archiv mit Tausenden Folgen in eine Liste zu laden. */
         const val LATEST_LIMIT = 100
 
-        /** Anfang der Shownotes für die Inhaltsangabe im Reiter „Neu“; HTML mitgezählt, reicht für zwei Zeilen Text. */
+        /** Anfang der Shownotes für die Inhaltsangabe ([DescriptionStarts]); HTML mitgezählt, reicht für zwei Zeilen Text. */
         const val NOTES_CHARS = 2_000
 
         /** Länge des Verlaufs: genug zum Wiederfinden, ohne jede je gehörte Folge zu laden. */

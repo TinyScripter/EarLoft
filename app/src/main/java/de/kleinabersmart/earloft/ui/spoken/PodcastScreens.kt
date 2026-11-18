@@ -59,7 +59,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -88,7 +87,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.selected as selectedSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -722,6 +720,8 @@ fun PodcastSearchScreen(
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(query) { viewModel.search(query) }
     val swipe by viewModel.swipeActions.collectAsStateWithLifecycle()
+    val queued by viewModel.queued.collectAsStateWithLifecycle()
+    val areaEffects by viewModel.areaEffects.collectAsStateWithLifecycle()
     val selection = rememberEpisodeSelection()
 
     val trimmed = query.trim()
@@ -764,20 +764,24 @@ fun PodcastSearchScreen(
             hits.isEmpty() -> if (settled) EmptyHint(stringResource(R.string.search_no_results, trimmed))
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
                 val sameDay = episodesSharingDay(hits.map { it.book })
-                val sameTitle = episodesSharingTitle(hits.map { it.book })
+                val speed = feed.valueOrNull?.effects?.speed ?: areaEffects.speed
                 groupedItems(hits, key = { it.book.id }) { item ->
-                    EpisodeRow(
+                    val id = item.book.id
+                    EpisodeSummaryRow(
                         item,
-                        withTime = item.book.id in sameDay,
-                        withNotes = item.book.id in sameTitle,
-                        download = downloadStates[item.book.id] ?: TrackDownload.NONE,
-                        downloadFraction = downloadProgress[item.book.id],
-                        playing = item.book.id == playingId,
-                        onClick = { onEpisodeClick(item.book.id) },
-                        onPlay = { viewModel.playOrPause(item.book.id) },
-                        onDownload = { viewModel.download(item.book.id) },
-                        onRemoveDownload = { viewModel.removeDownload(item.book.id) },
+                        withPodcast = false,
+                        withTime = id in sameDay,
+                        remainingMs = item.remainingPlayMs(speed),
+                        download = downloadStates[id] ?: TrackDownload.NONE,
+                        downloadFraction = downloadProgress[id],
+                        queued = id in queued,
+                        playing = id == playingId,
                         selection = selection,
+                        onClick = { onEpisodeClick(id) },
+                        onPlay = { viewModel.playOrPause(id) },
+                        onDownload = { viewModel.download(id) },
+                        onRemoveDownload = { viewModel.removeDownload(id) },
+                        onToggleQueue = { viewModel.toggleQueued(id) },
                         swipe = swipe,
                     )
                 }
@@ -1109,99 +1113,6 @@ internal fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: 
             Icon(painterResource(DesignR.drawable.ic_download), contentDescription = stringResource(R.string.podcast_download_episode))
         }
     }
-}
-
-/**
- * Eine Folge der Abo-Seite bzw. ihrer Suche. Während der Mehrfachauswahl ([selection], Konzept 12.5) schaltet ein Tipp sie
- * dazu oder weg, die Knöpfe rechts entfallen und eine ausgewählte trägt einen Haken über dem Bild. [swipe]: Wischgesten
- * ([EpisodeSwipeBox]), nicht während der Auswahl und nicht in einem Pager („Gemerkt“). [podcast]: in Listen aus mehreren Abos
- * („Gemerkt“) der Name darunter.
- */
-@Composable
-internal fun EpisodeRow(
-    item: BookWithProgress,
-    withTime: Boolean,
-    withNotes: Boolean,
-    download: TrackDownload,
-    downloadFraction: Float?,
-    playing: Boolean,
-    onClick: () -> Unit,
-    onPlay: () -> Unit,
-    onDownload: () -> Unit,
-    onRemoveDownload: () -> Unit,
-    selection: EpisodeSelection,
-    swipe: Boolean,
-    podcast: String? = null,
-) {
-    val book = item.book
-    val progress = item.progress
-    val listened = progress != null && progress.positionMs > 0
-    var menu by remember { mutableStateOf(false) }
-    val selecting = selection.active
-    val selected = book.id in selection
-    EpisodeSwipeBox(item, enabled = swipe && !selecting) { Box {
-        ListItem(
-            headlineContent = { Text(book.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-            supportingContent = {
-                Column {
-                    if (!podcast.isNullOrBlank()) Text(podcast, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (withNotes) {
-                        val notes = remember(book.description, book.title) { firstDescriptionLine(book.description, book.title) }
-                        if (notes.isNotEmpty()) Text(notes, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    val facts = listOfNotNull(
-                        episodeLabel(book, withSeason = false),
-                        book.addedAt.takeIf { it > 0 }?.let { formatEpisodeDay(it, withTime) },
-                        book.durationMs.takeIf { it > 0 }?.let(::formatDuration),
-                    ).joinToString(" · ")
-                    // Gemerkte Folgen mit einem kleinen Stern vor Datum und Dauer.
-                    if (facts.isNotEmpty() || book.starred) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (book.starred) StarredMark(Modifier.padding(end = 4.dp))
-                            Text(facts)
-                        }
-                    }
-                    if (progress != null && listened) {
-                        if (progress.finished) {
-                            Text(stringResource(R.string.spoken_finished))
-                        } else {
-                            LinearProgressIndicator(
-                                progress = { progress.fraction },
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                                drawStopIndicator = {},
-                            )
-                        }
-                    }
-                }
-            },
-            leadingContent = { SelectableArt(book.id, selected, Modifier.size(56.dp)) },
-            trailingContent = if (selecting) {
-                null
-            } else {
-                {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Dateien vom Gerät sind schon da.
-                        if (!book.isLocal) DownloadButton(download, downloadFraction, onDownload, onRemoveDownload)
-                        IconButton(onClick = onPlay) {
-                            if (playing) {
-                                Icon(painterResource(DesignR.drawable.ic_pause), contentDescription = stringResource(R.string.action_pause))
-                            } else {
-                                Icon(painterResource(DesignR.drawable.ic_play), contentDescription = stringResource(R.string.podcast_play_episode))
-                            }
-                        }
-                    }
-                }
-            },
-            colors = if (selected) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
-            modifier = Modifier
-                .combinedClickable(
-                    onClick = { if (selecting) selection.toggle(book.id) else onClick() },
-                    onLongClick = { if (selecting) selection.toggle(book.id) else menu = true },
-                )
-                .semantics { if (selecting) selectedSemantics = selected },
-        )
-        EpisodeMenu(item, expanded = menu, onDismiss = { menu = false }, onSelect = { selection.toggle(book.id) })
-    } }
 }
 
 /** Quadratisches Podcast-Bild aus dem Feed; bis es geladen ist (oder ohne Bild) bleibt das Symbol sichtbar. */

@@ -39,8 +39,8 @@ import kotlinx.coroutines.flow.map
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
- * Reiter „Gemerkt“ der Podcast-Bibliothek: alle gemerkten Folgen, zuletzt gemerkte zuerst, wie die Zeilen der Abo-Seite
- * (mit dem Podcast darunter und Mehrfachauswahl über [selection]). Ohne Wischen auf den Zeilen: Der Reiter sitzt im Pager der
+ * Reiter „Gemerkt“ der Podcast-Bibliothek: alle gemerkten Folgen, zuletzt gemerkte zuerst, als [EpisodeSummaryRow] wie im
+ * Reiter „Neu“ (mit dem Podcast in der zweiten Zeile und Mehrfachauswahl über [selection]). Ohne Wischen auf den Zeilen: Der Reiter sitzt im Pager der
  * Bibliothek, und waagerechtes Wischen wechselt dort den Reiter (sonst nahm die Zeile die Geste, Review Abschnitt 5).
  */
 @Composable
@@ -53,29 +53,33 @@ fun StarredEpisodes(
     val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.progress.collectAsStateWithLifecycle()
     val playingId by viewModel.playingBookId.collectAsStateWithLifecycle()
+    val queued by viewModel.queued.collectAsStateWithLifecycle()
+    val speeds by viewModel.feedSpeeds.collectAsStateWithLifecycle()
     val snackbars = LocalSnackbars.current
     val resources = LocalResources.current
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { snackbars.show(resources.getString(it), SnackbarDuration.Long) }
     }
     LoadableList(starred, stringResource(R.string.podcast_starred_empty)) { list ->
-        val sameTitle = episodesSharingTitle(list.map { it.book })
+        val sameDay = episodesSharingDay(list.map { it.book })
         LazyColumn(Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
             groupedItems(list, key = { it.book.id }) { item ->
-                EpisodeRow(
+                val id = item.book.id
+                EpisodeSummaryRow(
                     item,
-                    withTime = false,
-                    withNotes = item.book.id in sameTitle,
-                    download = downloadStates[item.book.id] ?: TrackDownload.NONE,
-                    downloadFraction = downloadProgress[item.book.id],
-                    playing = item.book.id == playingId,
-                    onClick = { onEpisodeClick(item.book.id) },
-                    onPlay = { viewModel.playOrPause(item.book.id) },
-                    onDownload = { viewModel.download(item.book.id) },
-                    onRemoveDownload = { viewModel.removeDownload(item.book.id) },
+                    withPodcast = true,
+                    withTime = id in sameDay,
+                    remainingMs = item.remainingPlayMs(speeds[item.book.serverId] ?: 1f),
+                    download = downloadStates[id] ?: TrackDownload.NONE,
+                    downloadFraction = downloadProgress[id],
+                    queued = id in queued,
+                    playing = id == playingId,
                     selection = selection,
-                    swipe = false,
-                    podcast = item.book.author,
+                    onClick = { onEpisodeClick(id) },
+                    onPlay = { viewModel.playOrPause(id) },
+                    onDownload = { viewModel.download(id) },
+                    onRemoveDownload = { viewModel.removeDownload(id) },
+                    onToggleQueue = { viewModel.toggleQueued(id) },
                 )
             }
         }

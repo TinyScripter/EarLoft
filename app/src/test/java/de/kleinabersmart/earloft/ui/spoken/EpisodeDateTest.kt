@@ -65,23 +65,6 @@ class EpisodeDateTest {
     }
 
     @Test
-    fun `equal titles within a feed are found regardless of case`() {
-        val books = listOf(
-            episode(1, "news", 1, "tagesschau in 100 Sekunden"),
-            episode(2, "news", 2, "Tagesschau in 100 Sekunden "),
-            episode(3, "news", 3, "Sondersendung"),
-            episode(4, "other", 4, "Sondersendung"),
-        )
-        assertEquals(setOf(1L, 2L), episodesSharingTitle(books))
-    }
-
-    @Test
-    fun `the notes line skips a repeated title`() {
-        assertEquals("Themen: Bahnstreik, Wetter", firstLineOtherThan("\n tagesschau in 100 Sekunden\nThemen: Bahnstreik, Wetter\n", "Tagesschau in 100 Sekunden"))
-        assertEquals("", firstLineOtherThan("tagesschau in 100 Sekunden", "tagesschau in 100 Sekunden"))
-    }
-
-    @Test
     fun `the summary joins the lines into one paragraph without a repeated title`() {
         assertEquals(
             "Themen: Bahnstreik, Wetter Mehr unter tagesschau.de",

@@ -941,13 +941,15 @@ class PodcastRepositoryTest {
     }
 
     @Test
-    fun `the new tab carries the start of the shownotes, other episode lists none`() = runTest {
+    fun `the new and starred tabs carry the start of the shownotes, other episode lists none`() = runTest {
         val notes = "<p>" + "Inhalt ".repeat(500) + "</p>"
         served = """<rss version="2.0"><channel><title>Test-Podcast</title><item><title>A</title><guid>guid-A</guid>""" +
             """<description><![CDATA[$notes]]></description><enclosure url="https://example.com/A.mp3" type="audio/mpeg"/></item></channel></rss>"""
-        subscribe()
+        val feedId = subscribe()
+        repository.setStarred(listOf(idOf(feedId, "A")), starred = true)
 
         assertEquals(notes.take(2_000), repository.latestEpisodes().first().single().book.description)
+        assertEquals(notes.take(2_000), repository.starredEpisodes().first().single().book.description)
         assertEquals("", repository.recentEpisodes().first().single().book.description)
     }
 

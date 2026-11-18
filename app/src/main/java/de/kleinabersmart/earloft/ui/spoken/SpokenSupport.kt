@@ -671,28 +671,8 @@ fun episodesSharingDay(books: List<Book>, zone: TimeZone = TimeZone.getDefault()
 }
 
 /**
- * Folgen, deren Titel eine andere Folge desselben Podcasts in [books] auch trägt („tagesschau in 100 Sekunden“): Bei
- * ihnen steht die erste Zeile der Shownotes unter dem Titel.
- */
-fun episodesSharingTitle(books: List<Book>): Set<Long> =
-    books.filter { it.kind == BookKind.EPISODE }
-        .groupBy { it.serverId to it.title.trim().lowercase() }
-        .values.filter { it.size > 1 }
-        .flatMapTo(mutableSetOf()) { group -> group.map { it.id } }
-
-/**
- * Die erste Zeile der Shownotes als reiner Text, die nicht nur den [title] wiederholt (ARD Sounds: Shownotes = Titel);
- * leer, wenn es keine gibt.
- */
-fun firstDescriptionLine(raw: String, title: String): String {
-    if (raw.isBlank()) return ""
-    val text = if ('<' in raw || '&' in raw) AnnotatedString.fromHtml(raw).text else raw
-    return firstLineOtherThan(text, title)
-}
-
-/**
  * Kurze Inhaltsangabe aus den Shownotes: reiner Text, Zeilen zu einem Absatz zusammengezogen, ohne Zeilen, die nur den
- * [title] wiederholen; leer, wenn es keine gibt. Die Anzeige kürzt sie auf ihre Zeilenzahl.
+ * [title] wiederholen (ARD Sounds: Shownotes = Titel); leer, wenn es keine gibt. Die Anzeige kürzt sie auf ihre Zeilenzahl.
  */
 fun descriptionSummary(raw: String, title: String): String {
     if (raw.isBlank()) return ""
@@ -708,6 +688,3 @@ internal fun summaryOtherThan(text: String, title: String): String =
         .replace(WHITESPACE, " ")
 
 private val WHITESPACE = Regex("\\s+")
-
-internal fun firstLineOtherThan(text: String, title: String): String =
-    text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() && !it.equals(title.trim(), ignoreCase = true) }.orEmpty()

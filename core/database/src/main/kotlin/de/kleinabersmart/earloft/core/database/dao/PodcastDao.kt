@@ -185,7 +185,7 @@ abstract class PodcastDao {
     )
     abstract fun observeEpisodes(): Flow<List<BookEntity>>
 
-    /** Gemerkte Folgen der aktiven Abos, zuletzt gemerkte zuerst, ohne Beschreibung wie [observeEpisodes]. */
+    /** Gemerkte Folgen der aktiven Abos, zuletzt gemerkte zuerst, ohne Beschreibung wie [observeEpisodes] (den Anfang liest [descriptionStarts]). */
     @Query(
         "SELECT $EPISODE_COLUMNS FROM books WHERE kind = 'EPISODE' AND starredAt IS NOT NULL AND $NOT_TRIAL " +
             "ORDER BY starredAt DESC, bookId DESC",

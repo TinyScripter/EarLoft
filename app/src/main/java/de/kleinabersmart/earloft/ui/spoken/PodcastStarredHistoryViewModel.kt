@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import de.kleinabersmart.earloft.R
+import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.podcast.EpisodeHistoryEntry
 import de.kleinabersmart.earloft.core.data.podcast.PodcastRepository
+import de.kleinabersmart.earloft.core.data.spoken.SpokenSettings
 import de.kleinabersmart.earloft.core.download.DownloadStart
 import de.kleinabersmart.earloft.core.download.EpisodeDownloadProgress
 import de.kleinabersmart.earloft.core.download.EpisodeDownloads
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -33,6 +36,8 @@ class PodcastStarredHistoryViewModel @Inject constructor(
     downloadProgress: EpisodeDownloadProgress,
     private val launcher: BookLauncher,
     private val playback: PlaybackConnection,
+    private val continueListening: ContinueListening,
+    spokenSettings: SpokenSettings,
 ) : ViewModel() {
 
     val starred: StateFlow<LoadState<List<BookWithProgress>>> = podcasts.starredEpisodes()
@@ -48,6 +53,25 @@ class PodcastStarredHistoryViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     val progress: StateFlow<Map<Long, Float>> = downloadProgress.fractions
+
+    /** Folgen, die gerade in „Weiterhören“ (der Warteschlange) stehen, auch die von selbst dort stehenden. */
+    val queued: StateFlow<Set<Long>> = continueListening.episodes
+        .map { list -> list.mapTo(HashSet()) { it.book.id } }
+        .orOnError(emptySet())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /** Tempo je Abo (sonst die Vorgabe der Podcasts) für die Restzeit, wie auf der Seite der Warteschlange. */
+    val feedSpeeds: StateFlow<Map<String, Float>> = combine(podcasts.feeds, spokenSettings.podcastEffects) { feeds, area ->
+        feeds.associate { it.id to (it.effects.speed ?: area.speed) }
+    }
+        .orOnError(emptyMap())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** Ans Ende der Warteschlange bzw. heraus, wie im Folgenmenü. */
+    fun toggleQueued(bookId: Long) {
+        val inQueue = bookId in queued.value
+        viewModelScope.launch { if (inQueue) continueListening.remove(bookId) else continueListening.append(bookId) }
+    }
 
     /** Die Folge, die gerade läuft (nicht: pausiert). */
     val playingBookId: StateFlow<Long?> = playback.state
