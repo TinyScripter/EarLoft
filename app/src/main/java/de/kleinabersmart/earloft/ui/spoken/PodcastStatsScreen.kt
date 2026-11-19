@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -45,7 +47,18 @@ internal fun StatCard(modifier: Modifier = Modifier, content: @Composable () -> 
     ListGroup(modifier.padding(vertical = 4.dp)) { content() }
 }
 
-/** Auswahl „Gesamt“ und einzelne Jahre (beide Statistik-Reiter). */
+/**
+ * [YearChips] als stehender Kopf einer Statistik-Liste: Die Auswahl bleibt beim Scrollen oben, der eigene Hintergrund lässt
+ * die Einträge darunter durchlaufen statt durchscheinen.
+ */
+internal fun LazyListScope.yearChipsHeader(years: List<Int>, selected: Int?, onSelect: (Int?) -> Unit) {
+    if (years.isEmpty()) return
+    stickyHeader(key = "years") {
+        YearChips(years, selected, onSelect, Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background))
+    }
+}
+
+/** Auswahl „Gesamt“ und einzelne Jahre (alle drei Statistik-Seiten). */
 @Composable
 internal fun YearChips(years: List<Int>, selected: Int?, onSelect: (Int?) -> Unit, modifier: Modifier = Modifier) {
     if (years.isEmpty()) return
@@ -82,7 +95,7 @@ fun PodcastStatsScreen(
         return
     }
     LazyColumn(modifier.fillMaxSize()) {
-        item(key = "years") { YearChips(current.years, current.year, viewModel::selectYear) }
+        yearChipsHeader(current.years, current.year, viewModel::selectYear)
         current.year?.let { year ->
             if (current.totalMs == 0L && current.finishedEpisodes == 0) {
                 item(key = "year-empty") { EmptyHint(stringResource(R.string.stats_year_empty, year), Modifier.padding(16.dp)) }

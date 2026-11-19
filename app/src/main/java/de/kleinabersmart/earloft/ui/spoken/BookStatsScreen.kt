@@ -63,7 +63,7 @@ fun BookStatsScreen(
     val years = (device?.years.orEmpty() + server?.years.orEmpty() + listOfNotNull(year)).distinct().sortedDescending()
 
     LazyColumn(modifier.fillMaxSize()) {
-        item(key = "years") { YearChips(years, year, viewModel::selectYear) }
+        yearChipsHeader(years, year, viewModel::selectYear)
         if (year != null) {
             item(key = "year-note") {
                 Text(

@@ -37,11 +37,11 @@ import de.kleinabersmart.earloft.ui.components.ArtistAvatar
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.SectionHeader
 import de.kleinabersmart.earloft.ui.components.groupedItems
+import de.kleinabersmart.earloft.ui.spoken.yearChipsHeader
 import de.kleinabersmart.earloft.ui.spoken.BarChart
 import de.kleinabersmart.earloft.ui.spoken.HOUR_MS
 import de.kleinabersmart.earloft.ui.spoken.StatBar
 import de.kleinabersmart.earloft.ui.spoken.StatCard
-import de.kleinabersmart.earloft.ui.spoken.YearChips
 import de.kleinabersmart.earloft.ui.spoken.formatListened
 import java.time.DayOfWeek
 import java.time.Month
@@ -84,7 +84,7 @@ fun MusicStatsScreen(
         }
     }
     LazyColumn(modifier.fillMaxSize()) {
-        item(key = "years") { YearChips(current.years, current.year, viewModel::selectYear) }
+        yearChipsHeader(current.years, current.year, viewModel::selectYear)
         current.year?.let { year ->
             if (current.plays == 0) {
                 item(key = "year-empty") { EmptyHint(stringResource(R.string.stats_year_empty, year), Modifier.padding(16.dp)) }
