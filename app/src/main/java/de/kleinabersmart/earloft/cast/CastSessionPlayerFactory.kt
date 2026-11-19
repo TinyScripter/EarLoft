@@ -84,7 +84,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
     private var sessionListener: SessionManagerListener<CastSession>? = null
     private var castPlayer: Player? = null
     private val handOver = HandOver()
-    private val reserve = QueueReserve<MediaItem>()
+    private val reserve = QueueReserve<MediaItem> { it.mediaId }
 
     /** Counts every new queue; a refill that stems from an older one is discarded. */
     private var generation = 0
@@ -170,6 +170,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = refillIfNeeded(player)
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = refillIfNeeded(player)
+            override fun onRepeatModeChanged(repeatMode: Int) = refillIfNeeded(player)
 
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
                 val removed = removing
@@ -235,10 +236,16 @@ internal class CastSessionPlayerFactory @Inject constructor(
         return true
     }
 
-    /** Main thread. Appends the next chunk of the [reserve] as soon as the receiver is about to run out of titles. */
+    /**
+     * Main thread. Appends the next chunk of the [reserve] as soon as the receiver is about to run out of titles. With "repeat all"
+     * the next round follows the last title ([QueueReserve.nextRound]); otherwise the receiver would repeat only what it still holds.
+     */
     private fun refillIfNeeded(player: Player) {
-        if (refilling || reserve.remaining == 0 || player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return
+        if (refilling || player.deviceInfo.playbackType != DeviceInfo.PLAYBACK_TYPE_REMOTE) return
+        val repeatAll = player.repeatMode == Player.REPEAT_MODE_ALL
+        if (reserve.remaining == 0 && !(repeatAll && reserve.hasBefore)) return
         if (!hasReportedQueue(player) || itemsAhead(player) >= REFILL_BELOW) return
+        if (reserve.remaining == 0 && !reserve.nextRound()) return
         refilling = true
         val expected = generation
         val songIds = reserve.peek(REFILL_CHUNK).mapNotNull { it.songId }
@@ -325,7 +332,10 @@ internal class CastSessionPlayerFactory @Inject constructor(
                 prepareQueue()
             }
 
-            override fun onSessionResuming(session: CastSession, sessionId: String) = prepareQueue()
+            override fun onSessionResuming(session: CastSession, sessionId: String) {
+                phone.resumeSession()
+                prepareQueue()
+            }
 
             override fun onSessionStarted(session: CastSession, sessionId: String) {
                 // Not `resuming`: that resets `transferState`, and depending on the listener order it may already run earlier
