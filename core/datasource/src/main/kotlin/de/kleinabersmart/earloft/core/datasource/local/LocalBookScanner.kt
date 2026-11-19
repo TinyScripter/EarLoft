@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.datasource.local
 
+import de.kleinabersmart.earloft.core.datasource.MediaStoreUnavailableException
 import android.content.ContentUris
 import android.content.Context
 import android.database.Cursor
@@ -267,7 +268,7 @@ class LocalBookScanner @Inject constructor(
             "${MediaStore.Audio.Media.DATA} LIKE ?",
             arrayOf("%/$root/%"),
             null,
-        ) ?: throw IOException("MediaStore query returned no cursor")
+        ) ?: throw MediaStoreUnavailableException()
         return cursor.use { c ->
             buildList(c.count) {
                 while (c.moveToNext()) {

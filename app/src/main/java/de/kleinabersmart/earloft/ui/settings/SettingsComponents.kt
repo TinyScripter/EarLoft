@@ -292,7 +292,9 @@ private fun syncFailureText(failure: SyncFailure, type: SourceType): String = wh
     is SyncFailure.ServerError -> stringResource(R.string.add_server_server_error, failure.code, failure.message.orEmpty())
     is SyncFailure.LibraryChanged -> stringResource(R.string.sync_failed_library_changed, failure.libraryName)
     SyncFailure.PermissionMissing -> stringResource(R.string.sync_failed_permission)
-    is SyncFailure.Other -> failure.message
+    SyncFailure.LocalUnavailable -> stringResource(R.string.sync_failed_local_unavailable)
+    // The exception text is technical and English; it is in the log.
+    is SyncFailure.Other -> stringResource(R.string.sync_failed_other)
 }
 
 @Composable

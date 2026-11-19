@@ -6,6 +6,7 @@ import android.icu.util.Measure
 import android.icu.util.MeasureUnit
 import android.icu.math.BigDecimal
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 private val UNITS = listOf(MeasureUnit.BYTE, MeasureUnit.KILOBYTE, MeasureUnit.MEGABYTE, MeasureUnit.GIGABYTE, MeasureUnit.TERABYTE)
 
@@ -23,14 +24,26 @@ fun formatBytes(bytes: Long, locale: Locale = Locale.getDefault()): String {
         unit++
     }
     val decimals = if (unit == 0 || value >= 99.95) 0 else 1
+    return measureFormat(locale, decimals).format(Measure(value, UNITS[unit]))
+}
+
+/** A share between 0 and 1 as a whole percentage the way [locale] writes it ("42%" in English, "42 %" in German and French). */
+fun formatPercent(fraction: Double, locale: Locale = Locale.getDefault()): String {
+    val format = percentFormats.getOrPut(locale) { NumberFormat.getPercentInstance(locale).apply { maximumFractionDigits = 0 } }
+    // NumberFormat is not thread-safe; sizes and percentages are also formatted for notifications.
+    return synchronized(format) { format.format(fraction.coerceIn(0.0, 1.0)) }
+}
+
+// Formatters are built once per locale (download rows format several times a second). MeasureFormat is immutable and
+// thread-safe; it copies the NumberFormat it gets.
+private val measureFormats = ConcurrentHashMap<Pair<Locale, Int>, MeasureFormat>()
+private val percentFormats = ConcurrentHashMap<Locale, NumberFormat>()
+
+private fun measureFormat(locale: Locale, decimals: Int): MeasureFormat = measureFormats.getOrPut(locale to decimals) {
     val number = NumberFormat.getInstance(locale).apply {
         minimumFractionDigits = decimals
         maximumFractionDigits = decimals
         roundingMode = BigDecimal.ROUND_HALF_UP
     }
-    return MeasureFormat.getInstance(locale, MeasureFormat.FormatWidth.SHORT, number).format(Measure(value, UNITS[unit]))
+    MeasureFormat.getInstance(locale, MeasureFormat.FormatWidth.SHORT, number)
 }
-
-/** A share between 0 and 1 as a whole percentage the way [locale] writes it ("42%" in English, "42 %" in German and French). */
-fun formatPercent(fraction: Double, locale: Locale = Locale.getDefault()): String =
-    NumberFormat.getPercentInstance(locale).apply { maximumFractionDigits = 0 }.format(fraction.coerceIn(0.0, 1.0))

@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.datasource.local
 
+import de.kleinabersmart.earloft.core.datasource.MediaStoreUnavailableException
 import android.content.ContentUris
 import android.content.Context
 import android.database.Cursor
@@ -137,7 +138,7 @@ class LocalDataSource @Inject constructor(
             "${MediaStore.Audio.Media.IS_MUSIC} != 0",
             null,
             null,
-        ) ?: throw IOException("MediaStore query returned no cursor")
+        ) ?: throw MediaStoreUnavailableException()
 
         return cursor.use { c ->
             buildList(c.count) {

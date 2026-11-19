@@ -316,6 +316,8 @@
     <string name="add_server_server_error">Der Server meldet Fehler %1$d: %2$s</string>
     <string name="sync_failed_library_changed">Die Bibliothek „%1$s“ hat sich während des Abgleichs auf dem Server geändert. Es wurde nichts entfernt; der nächste Abgleich versucht es erneut.</string>
     <string name="sync_failed_permission">Die Musik auf diesem Gerät darf nicht gelesen werden. Erlaube den Zugriff in den App-Einstellungen unter „Berechtigungen“.</string>
+    <string name="sync_failed_local_unavailable">Die Musik auf diesem Gerät lässt sich gerade nicht lesen. Der nächste Abgleich versucht es erneut.</string>
+    <string name="sync_failed_other">Der Abgleich ist wegen eines internen Fehlers fehlgeschlagen. Der nächste Abgleich versucht es erneut.</string>
     <string name="edit_server_title">Server bearbeiten</string>
     <string name="edit_server_password_keep">Leer lassen, um das gespeicherte Passwort zu behalten.</string>
     <string name="edit_server_password_required">Das gespeicherte Passwort ist nicht lesbar. Bitte neu eingeben.</string>

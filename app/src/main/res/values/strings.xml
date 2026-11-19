@@ -323,7 +323,9 @@
     <string name="add_server_unreachable">Server unreachable (%1$s).</string>
     <string name="add_server_server_error">The server reports error %1$d: %2$s</string>
     <string name="sync_failed_library_changed">The library “%1$s” changed on the server during the sync. Nothing was removed; the next sync tries again.</string>
-    <string name="sync_failed_permission">Music on this device may not be read. Allow access in the app settings under “Permissions”.</string>
+    <string name="sync_failed_permission">EarLoft isn’t allowed to read the music on this device. Allow access in the app settings under “Permissions”.</string>
+    <string name="sync_failed_local_unavailable">The music on this device can’t be read right now. The next sync tries again.</string>
+    <string name="sync_failed_other">The sync failed because of an internal error. The next sync tries again.</string>
     <string name="edit_server_title">Edit server</string>
     <string name="edit_server_password_keep">Leave empty to keep the saved password.</string>
     <string name="edit_server_password_required">The saved password cannot be read. Please enter it again.</string>

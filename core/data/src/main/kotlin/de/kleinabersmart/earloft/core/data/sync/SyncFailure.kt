@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.data.sync
 
 import de.kleinabersmart.earloft.core.datasource.IncompleteScanException
+import de.kleinabersmart.earloft.core.datasource.MediaStoreUnavailableException
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.ServerApiException
 import de.kleinabersmart.earloft.core.network.UnexpectedResponseException
@@ -24,7 +25,10 @@ sealed interface SyncFailure {
     /** The app may not read the music on the device (permission revoked). */
     data object PermissionMissing : SyncFailure
 
-    /** Everything else, e.g. a database error. */
+    /** The device's media library (MediaStore) can't be read right now. */
+    data object LocalUnavailable : SyncFailure
+
+    /** Everything else, e.g. a database error; [message] only for the log, the user sees a general text. */
     data class Other(val message: String) : SyncFailure
 
     companion object {
@@ -37,6 +41,7 @@ sealed interface SyncFailure {
                 else -> Unreachable(e.message)
             }
             is IncompleteScanException -> LibraryChanged(e.libraryName)
+            is MediaStoreUnavailableException -> LocalUnavailable
             is IOException -> Unreachable(e.message)
             is SecurityException -> PermissionMissing
             else -> Other(e.message ?: e.javaClass.simpleName)

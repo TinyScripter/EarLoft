@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.data.sync
 
 import de.kleinabersmart.earloft.core.datasource.IncompleteScanException
+import de.kleinabersmart.earloft.core.datasource.MediaStoreUnavailableException
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.subsonic.NotSubsonicException
 import de.kleinabersmart.earloft.core.network.subsonic.SubsonicException
@@ -28,9 +29,11 @@ class SyncFailureTest {
     }
 
     @Test
-    fun `an incomplete scan and a missing permission get their own case`() {
+    fun `an incomplete scan, a missing permission and an unreadable MediaStore get their own case`() {
         assertEquals(SyncFailure.LibraryChanged("Music"), SyncFailure.of(IncompleteScanException("Music", "Music changed during the sync")))
         assertEquals(SyncFailure.PermissionMissing, SyncFailure.of(SecurityException("READ_MEDIA_AUDIO missing")))
+        // An IOException, but not a server that can't be reached.
+        assertEquals(SyncFailure.LocalUnavailable, SyncFailure.of(MediaStoreUnavailableException()))
     }
 
     @Test
