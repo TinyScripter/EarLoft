@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -219,10 +220,13 @@ private fun FastScroller(
                 .padding(end = TOUCH_WIDTH + 8.dp),
         ) {
             val labelIndex = if (dragging) (dragFraction * (itemCount - 1)).roundToInt() else firstVisibleIndex()
+            // Ein Zeichen oder zwei: Kreis; längere Marken („#100“, Jahreszahlen) machen ihn zur Pille.
             Box(
                 modifier = Modifier
-                    .size(BUBBLE_SIZE)
-                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    .height(BUBBLE_SIZE)
+                    .widthIn(min = BUBBLE_SIZE)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                    .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(

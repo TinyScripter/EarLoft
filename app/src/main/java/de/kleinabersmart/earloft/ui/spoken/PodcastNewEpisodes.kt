@@ -53,6 +53,8 @@ fun NewEpisodes(
             Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth),
             state = listState,
             contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+            // Die Liste ist nach Datum sortiert; die Blase nennt die Stelle (#1 = neueste).
+            labelAt = { index -> "#${index + 1}" },
         ) {
             groupedItems(list, key = { it.book.id }) { item ->
                 val id = item.book.id
