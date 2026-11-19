@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.podcast.TranscriptResult
 import de.kleinabersmart.earloft.core.model.Transcript
+import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 /**
@@ -181,6 +182,8 @@ private fun TranscriptText(transcript: Transcript, positionMs: () -> Long, onSee
                     }
                 }
             }
+            // Der Griff springt per `scrollToItem`, das meldet kein Ziehen; das Mitlaufen endet hier wie beim Wischen.
+            LazyListFastScroller(listState, onDragStart = { follow = false })
             if (!follow && needle.isEmpty() && transcript.timed) {
                 FilledTonalButton(onClick = { follow = true }, modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
                     Text(stringResource(R.string.transcript_follow))

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -62,6 +61,7 @@ import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdBook
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdBookSummary
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdCategory
 import de.kleinabersmart.earloft.core.network.podcast.ardsounds.ArdShow
+import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.GroupMargin
 import de.kleinabersmart.earloft.ui.components.SectionHeader
@@ -126,7 +126,7 @@ fun ArdSoundsScreen(
             title = { Text(stringResource(R.string.directory_ard_sounds), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
         )
-        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
+        FastScrollLazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "search") {
                 OutlinedTextField(
                     value = term,
@@ -252,7 +252,7 @@ fun ArdShowScreen(
                 Spacer(Modifier.width(8.dp))
             },
         )
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+        FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
             when (val state = books) {
                 ArdLoad.Failed -> item(key = "failed") { ArdFailed(viewModel::load) }
                 else -> ardBookList(
@@ -312,7 +312,7 @@ fun ArdBookPreviewScreen(
                 if (loaded == null) {
                     EmptyHint(stringResource(R.string.ard_books_gone))
                 } else {
-                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                    FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                         item(key = "header") { ArdBookHeader(loaded, working, viewModel::perform) }
                         if (loaded.description.isNotBlank()) {
                             item(key = "description") {

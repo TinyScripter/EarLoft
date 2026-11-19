@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.annotation.StringRes
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -51,6 +50,7 @@ import de.kleinabersmart.earloft.ui.spoken.SpokenModeViewModel
 import de.kleinabersmart.earloft.ui.spoken.searchLabel
 import de.kleinabersmart.earloft.ui.spoken.FeedCard
 import de.kleinabersmart.earloft.core.model.BookWithProgress
+import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import de.kleinabersmart.earloft.ui.components.AlbumListItem
 import de.kleinabersmart.earloft.ui.components.ArtistListItem
 import de.kleinabersmart.earloft.ui.components.GenreListItem
@@ -184,7 +184,7 @@ fun SearchScreen(
         when {
             state.query.isEmpty() -> Unit
             state.isEmpty -> EmptyHint(stringResource(R.string.search_no_results, state.query))
-            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+            else -> FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                 // Reihenfolge wie die Bereiche der App: Musik, Podcasts, Bücher; darin jeweils vom Allgemeinen zum Einzelnen.
                 if (results.artists.isNotEmpty()) {
                     item(key = "artists") { SectionHeader(stringResource(R.string.library_artists)) }

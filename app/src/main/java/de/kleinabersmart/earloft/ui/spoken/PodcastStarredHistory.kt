@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -28,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.data.podcast.EpisodeHistoryEntry
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import de.kleinabersmart.earloft.ui.components.LoadableList
 import de.kleinabersmart.earloft.ui.components.SectionHeader
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
@@ -62,7 +62,7 @@ fun StarredEpisodes(
     }
     LoadableList(starred, stringResource(R.string.podcast_starred_empty)) { list ->
         val sameDay = episodesSharingDay(list.map { it.book })
-        LazyColumn(Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
+        FastScrollLazyColumn(Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
             groupedItems(list, key = { it.book.id }) { item ->
                 val id = item.book.id
                 EpisodeSummaryRow(
@@ -135,7 +135,7 @@ fun PodcastHistoryScreen(
     Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         TopAppBar(title = { Text(stringResource(R.string.podcast_history)) }, navigationIcon = { BackButton(onBack) })
         LoadableList(history, stringResource(R.string.podcast_history_empty)) { list ->
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+            FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                 groupedItems(list, key = { it.key }) { entry ->
                     HistoryRow(entry, onEpisodeClick, onFeedClick)
                 }

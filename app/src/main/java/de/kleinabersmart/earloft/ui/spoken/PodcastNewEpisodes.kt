@@ -2,7 +2,6 @@ package de.kleinabersmart.earloft.ui.spoken
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.Composable
@@ -16,6 +15,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.TrackDownload
+import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import de.kleinabersmart.earloft.ui.components.LoadableList
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.earloft.ui.components.groupedItems
@@ -49,7 +49,7 @@ fun NewEpisodes(
         // Kommt eine neue Folge dazu, steht sie oben im Blick statt über dem Rand.
         ShowStartOnNewFirst(list.firstOrNull()?.book?.id?.toString()) { listState.scrollToItem(0) }
         val sameDay = episodesSharingDay(list.map { it.book })
-        LazyColumn(
+        FastScrollLazyColumn(
             Modifier.fillMaxSize().readableWidth(TwoColumnMinWidth),
             state = listState,
             contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),

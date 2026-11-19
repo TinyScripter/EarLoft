@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -95,6 +94,7 @@ import de.kleinabersmart.earloft.core.model.BookTimeline
 import de.kleinabersmart.earloft.core.model.EffectLayers
 import de.kleinabersmart.earloft.core.model.SpokenEffects
 import de.kleinabersmart.earloft.core.playback.PlayerState
+import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import de.kleinabersmart.earloft.ui.components.FitSquare
 import de.kleinabersmart.earloft.ui.components.LocalShareController
 import de.kleinabersmart.earloft.core.data.share.SharePosition
@@ -991,7 +991,7 @@ private fun ChapterList(
     // Die Liste öffnet beim laufenden Kapitel.
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = timeline.chapters.indexOfFirst { it.index == currentIndex }.coerceAtLeast(0))
     val withImages = timeline.chapters.any { it.imageUrl != null }
-    LazyColumn(modifier, state = listState) {
+    FastScrollLazyColumn(modifier, state = listState) {
         itemsIndexed(timeline.chapters, key = { _, chapter -> chapter.index }) { _, chapter ->
             ListItem(
                 headlineContent = { Text(chapterTitle(chapter), maxLines = 1, overflow = TextOverflow.Ellipsis) },

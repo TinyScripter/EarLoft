@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.spoken
 
+import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import android.content.res.Resources
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -78,7 +78,7 @@ internal fun BookmarkList(
     val bookmarks by remember(bookId) { viewModel.of(bookId) }.collectAsStateWithLifecycle(emptyList())
     var lastDeleted by remember(bookId) { mutableStateOf<Bookmark?>(null) }
     val actions = rememberBookmarkActions(viewModel) { lastDeleted = it }
-    LazyColumn(modifier) {
+    FastScrollLazyColumn(modifier) {
         item(key = "add") {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
                 FilledTonalButton(onClick = {

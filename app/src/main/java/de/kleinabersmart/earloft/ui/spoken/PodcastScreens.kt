@@ -47,6 +47,7 @@ import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.EpisodeFilter
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.FeedSort
+import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import de.kleinabersmart.earloft.ui.components.HeaderAction
 import de.kleinabersmart.earloft.ui.components.LazyGridFastScroller
 import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
@@ -790,7 +791,7 @@ fun PodcastSearchScreen(
         when {
             trimmed.isEmpty() -> Unit
             hits.isEmpty() -> if (settled) EmptyHint(stringResource(R.string.search_no_results, trimmed))
-            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+            else -> FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
                 val sameDay = episodesSharingDay(hits.map { it.book })
                 val speed = feed.valueOrNull?.effects?.speed ?: areaEffects.speed
                 groupedItems(hits, key = { it.book.id }) { item ->

@@ -5,15 +5,20 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -66,9 +71,15 @@ fun foldedLetterOf(sortText: String): String =
 /**
  * Schnellscroller für eine [androidx.compose.foundation.lazy.LazyColumn]; [labelAt] liefert zum Listenindex die Marke (z. B. den
  * Buchstaben). Ohne [labelAt] (Listen nach Datum oder in eigener Reihenfolge) gibt es nur den Griff, keine Blase.
+ * [onDragStart] meldet das Greifen: Das Springen per `scrollToItem` zählt nicht als Ziehen der Liste (z. B. für ein Mitlaufen).
  */
 @Composable
-fun LazyListFastScroller(state: LazyListState, modifier: Modifier = Modifier, labelAt: ((Int) -> String)? = null) {
+fun LazyListFastScroller(
+    state: LazyListState,
+    modifier: Modifier = Modifier,
+    labelAt: ((Int) -> String)? = null,
+    onDragStart: () -> Unit = {},
+) {
     // layoutInfo ändert sich bei jedem Scroll-Frame; nur die Anzahl ist hier von Belang.
     val itemCount by remember(state) { derivedStateOf { state.layoutInfo.totalItemsCount } }
     FastScroller(
@@ -78,7 +89,27 @@ fun LazyListFastScroller(state: LazyListState, modifier: Modifier = Modifier, la
         scrollToItem = { state.scrollToItem(it) },
         labelAt = labelAt,
         modifier = modifier,
+        onDragStart = onDragStart,
     )
+}
+
+/**
+ * Eine [LazyColumn] mit [LazyListFastScroller] darüber, für Listen, bei denen nichts anderes im selben Rahmen liegt. [modifier]
+ * gilt für beide; passt sich der Rahmen dem Inhalt an (Bottom Sheet), tut das auch die Spur des Griffs.
+ */
+@Composable
+fun FastScrollLazyColumn(
+    modifier: Modifier = Modifier,
+    state: LazyListState = rememberLazyListState(),
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    labelAt: ((Int) -> String)? = null,
+    content: LazyListScope.() -> Unit,
+) {
+    Box(modifier, propagateMinConstraints = true) {
+        LazyColumn(state = state, contentPadding = contentPadding, verticalArrangement = verticalArrangement, content = content)
+        LazyListFastScroller(state, Modifier.matchParentSize(), labelAt)
+    }
 }
 
 /** Wie [LazyListFastScroller] für ein [androidx.compose.foundation.lazy.grid.LazyVerticalGrid]. */
@@ -108,6 +139,7 @@ private fun FastScroller(
     scrollToItem: suspend (Int) -> Unit,
     labelAt: ((Int) -> String)?,
     modifier: Modifier = Modifier,
+    onDragStart: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var dragging by remember { mutableStateOf(false) }
@@ -115,6 +147,7 @@ private fun FastScroller(
     var visible by remember { mutableStateOf(false) }
     val currentCount by rememberUpdatedState(itemCount)
     val currentScrollTo by rememberUpdatedState(scrollToItem)
+    val currentOnDragStart by rememberUpdatedState(onDragStart)
 
     LaunchedEffect(isScrolling, dragging) {
         if (isScrolling || dragging) {
@@ -150,6 +183,7 @@ private fun FastScroller(
                     .pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onDragStart = { offset ->
+                                currentOnDragStart()
                                 dragging = true
                                 dragFraction = ((offset.y - thumbPx / 2) / rangePx).coerceIn(0f, 1f)
                                 scrollTo(scope, currentScrollTo, currentCount, dragFraction)

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -55,6 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.BookWithProgress
 import de.kleinabersmart.earloft.ui.LoadState
+import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.LoadFailedHint
 import de.kleinabersmart.earloft.ui.components.LoadingIndicator
@@ -184,7 +184,7 @@ internal fun SpokenQueueList(
     }
     if (rows.isEmpty()) return
     val sameDay = episodesSharingDay(rows.filter { it.isEpisode }.map { it.book })
-    LazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier) {
+    FastScrollLazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier) {
         items(rows, key = { it.book.id }) { item ->
             val id = item.book.id
             QueueRow(
@@ -280,7 +280,7 @@ fun PodcastQueueSearchScreen(
         when {
             trimmed.isEmpty() -> Unit
             hits.isEmpty() -> if (settled) EmptyHint(stringResource(R.string.search_no_results, trimmed))
-            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+            else -> FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
                 val sameDay = episodesSharingDay(hits.map { it.book })
                 items(hits, key = { it.book.id }) { item ->
                     QueueRow(

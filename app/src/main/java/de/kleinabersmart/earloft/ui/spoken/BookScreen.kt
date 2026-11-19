@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -64,6 +63,7 @@ import java.util.Locale
 import de.kleinabersmart.earloft.core.model.BookChapter
 import de.kleinabersmart.earloft.core.model.EpisodePerson
 import de.kleinabersmart.earloft.core.model.BookProgress
+import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import de.kleinabersmart.earloft.ui.components.GroupMargin
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.earloft.core.data.share.ShareTarget
@@ -203,13 +203,13 @@ fun BookScreen(
                             .verticalScroll(rememberScrollState())
                             .padding(bottom = 24.dp),
                     ) { header() }
-                    LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(bottom = 16.dp)) {
+                    FastScrollLazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(bottom = 16.dp)) {
                         bookDetailItems(book, chapters, persons, onChapter = viewModel::playFrom)
                         bookmarkItems(bookmarks, bookmarkActions, onJump = viewModel::playFrom)
                     }
                 }
             } else {
-                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+                FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                     item(key = "header") { header() }
                     bookDetailItems(book, chapters, persons, onChapter = viewModel::playFrom)
                     bookmarkItems(bookmarks, bookmarkActions, onJump = viewModel::playFrom)

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +27,7 @@ import de.kleinabersmart.earloft.core.data.spoken.BookmarkEntry
 import de.kleinabersmart.earloft.core.model.BookKind
 import de.kleinabersmart.earloft.core.model.bookAuthorLine
 import de.kleinabersmart.earloft.ui.LoadState
+import de.kleinabersmart.earloft.ui.components.FastScrollLazyColumn
 import de.kleinabersmart.earloft.ui.components.LoadableList
 import de.kleinabersmart.earloft.ui.components.TwoColumnMinWidth
 import de.kleinabersmart.earloft.ui.components.group
@@ -54,7 +54,7 @@ fun BookmarksScreen(
     Column(modifier.fillMaxSize().readableWidth(TwoColumnMinWidth)) {
         TopAppBar(title = { Text(stringResource(R.string.spoken_bookmarks)) }, navigationIcon = { BackButton(onBack) })
         LoadableList(state, stringResource(R.string.spoken_bookmarks_all_empty)) { books ->
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
+            FastScrollLazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
                 books.forEach { book ->
                     group(key = "book-${book.bookId}", title = null as (@Composable () -> String)?) {
                         row("book-${book.bookId}-head") {
