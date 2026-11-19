@@ -14,6 +14,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import de.kleinabersmart.earloft.core.data.di.LoggingExceptionHandler
 import de.kleinabersmart.earloft.core.data.podcast.ContinueListening
 import de.kleinabersmart.earloft.core.data.spoken.BookPlaybackSource
 import de.kleinabersmart.earloft.core.data.spoken.PreparedBook
@@ -26,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -64,7 +66,8 @@ class MediaPlaybackConnection @Inject constructor(
     private val queuePersistence: QueuePersistence,
     spokenSettings: SpokenSettings,
 ) : PlaybackConnection {
-    private val scope = MainScope()
+    // With a handler: an exception in a start (resume music, enqueue for music) is logged instead of ending the app.
+    private val scope = MainScope() + LoggingExceptionHandler
 
     /** Skip distances for books and episodes; main thread only. */
     private var bookSteps = SeekSteps.DEFAULT

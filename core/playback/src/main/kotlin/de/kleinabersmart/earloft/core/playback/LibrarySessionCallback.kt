@@ -415,8 +415,8 @@ internal class LibrarySessionCallback(
             ?: throw UnsupportedOperationException("Book $bookId not playable")
         val start = prepared.timeline.locate(prepared.startPositionMs)
         playerFactory?.onQueueReplaced(emptyList(), emptyList())
-        player.shuffleModeEnabled = false
-        player.repeatMode = Player.REPEAT_MODE_OFF
+        // Shuffle and repeat go off only once the book is in the player (PlaybackService): here the music is still loaded, and
+        // switching them off now would be saved as the music's modes.
         player.setPlaybackSpeed(prepared.speed)
         return MediaItemsWithStartPosition(prepared.toMediaItems(), start.trackIndex, start.offsetMs)
     }

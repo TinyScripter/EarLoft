@@ -691,7 +691,23 @@ class PlaybackService : MediaLibraryService() {
          */
         private var replacedRemoteSong: Pair<Long, Long>? = null
 
+        /**
+         * The last reported playback state was `STATE_ENDED`. When a book replaces music that played to the end, the player has
+         * already left that state in [onPositionDiscontinuity], and the old position is the song's end.
+         */
+        private var ended = false
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            ended = playbackState == Player.STATE_ENDED
+        }
+
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            // Books and episodes play without shuffle and repeat, however they were started (app, Android Auto, Assistant);
+            // only now, so the music's modes were saved before ([onPositionDiscontinuity]).
+            if (mediaItem?.isSpoken == true && reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
+                if (player.shuffleModeEnabled) player.shuffleModeEnabled = false
+                if (player.repeatMode != Player.REPEAT_MODE_OFF) player.repeatMode = Player.REPEAT_MODE_OFF
+            }
             if (mediaItem != null) {
                 queuePersistence.saveLastBook(mediaItem.bookId, applicationScope)
                 replacedRemoteSong?.let { (songId, position) ->
@@ -714,9 +730,10 @@ class PlaybackService : MediaLibraryService() {
                 // While casting, the new entry is still empty here (observed on the Chromecast); saving happens on the title change.
                 replacedRemoteSong = songId to oldPosition.positionMs
             } else if (newPosition.mediaItem?.isSpoken == true) {
+                // Played to the end: like [QueuePersistence.savePosition], otherwise "Resume music" would end again immediately.
                 queuePersistence.saveMusicPosition(
                     oldPosition.mediaItemIndex,
-                    oldPosition.positionMs,
+                    if (ended) 0L else oldPosition.positionMs,
                     player.shuffleModeEnabled,
                     player.repeatMode,
                     applicationScope,

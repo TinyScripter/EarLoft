@@ -28,6 +28,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -82,14 +85,26 @@ class QueuePersistence @Inject constructor(
 ) : BookKeyRenamer {
     private var queueSaveJob: Job? = null
 
+    /** The queue [saveQueueDebounced] is about to save; [addToSavedQueue] writes it first instead of being overwritten by it. */
+    private val pendingQueue = AtomicReference<List<Long>?>(null)
+
+    /** Read-modify-write of the saved queue ([addToSavedQueue]) and the delayed save must not interleave. */
+    private val queueLock = Mutex()
+
     /** Must be called on the player thread; reads the state there and saves asynchronously. */
     fun saveQueueDebounced(player: Player, scope: CoroutineScope) {
         val songIds = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).songId }
+        pendingQueue.set(songIds)
         queueSaveJob?.cancel()
         queueSaveJob = scope.launch {
             delay(QUEUE_SAVE_DELAY_MS)
-            playbackStateRepository.saveQueue(songIds)
+            queueLock.withLock { savePendingQueue() }
         }
+    }
+
+    /** Under [queueLock]. */
+    private suspend fun savePendingQueue() {
+        pendingQueue.getAndSet(null)?.let { playbackStateRepository.saveQueue(it) }
     }
 
     fun savePosition(player: Player, scope: CoroutineScope) {
@@ -186,13 +201,17 @@ class QueuePersistence @Inject constructor(
      */
     suspend fun addToSavedQueue(songIds: List<Long>, next: Boolean) {
         if (songIds.isEmpty()) return
-        val saved = playbackStateRepository.loadQueue()
-        val index = context.playbackDataStore.data.first()[KEY_INDEX] ?: 0
-        playbackStateRepository.saveQueue(insertIntoSavedQueue(saved, index, songIds, next))
-        if (saved.isEmpty()) {
-            context.playbackDataStore.edit {
-                it[KEY_INDEX] = 0
-                it[KEY_POSITION] = 0L
+        queueLock.withLock {
+            // The music's queue from just before the switch is still waiting to be saved: it comes first.
+            savePendingQueue()
+            val saved = playbackStateRepository.loadQueue()
+            val index = context.playbackDataStore.data.first()[KEY_INDEX] ?: 0
+            playbackStateRepository.saveQueue(insertIntoSavedQueue(saved, index, songIds, next))
+            if (saved.isEmpty()) {
+                context.playbackDataStore.edit {
+                    it[KEY_INDEX] = 0
+                    it[KEY_POSITION] = 0L
+                }
             }
         }
     }

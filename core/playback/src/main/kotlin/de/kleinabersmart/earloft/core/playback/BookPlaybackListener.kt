@@ -227,6 +227,9 @@ internal class BookPlaybackListener(
                 if (item.bookId != bookId) return@collect
                 val target = storedPositionToAdopt(stored, position, player.playWhenReady) ?: return@collect
                 if (!seekInBook(timeline, target)) return@collect
+                // The jump is not a state of this device (ExoPlayer reports it as a seek synchronously): otherwise switching away later
+                // or the service ending would write this position with a new timestamp over what the other device stores after it.
+                touched -= bookId
                 // The resume rule counts from the pause on the other device.
                 pausedBookId = bookId
                 pausedAt = stored.updatedAt
