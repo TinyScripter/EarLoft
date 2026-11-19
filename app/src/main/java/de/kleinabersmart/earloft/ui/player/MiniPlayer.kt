@@ -136,6 +136,8 @@ internal fun Modifier.swipeToDismiss(enabled: Boolean, label: String, onDismiss:
     var widthPx by remember { mutableFloatStateOf(0f) }
     val downPx = with(LocalDensity.current) { DISMISS_DISTANCE_DOWN.toPx() }
     val currentOnDismiss by rememberUpdatedState(onDismiss)
+    // If playback starts mid-swipe, Compose cancels the drag and still calls onDragStopped: then it springs back.
+    val currentEnabled by rememberUpdatedState(enabled)
     val verticalState = rememberDraggableState { delta -> offsetY = (offsetY + delta).coerceAtLeast(0f) }
     val horizontalState = rememberDraggableState { delta -> offsetX += delta }
     return this
@@ -153,7 +155,7 @@ internal fun Modifier.swipeToDismiss(enabled: Boolean, label: String, onDismiss:
             // Once swiped away it stays where it is: hiding arrives a frame later, springing back would flash.
             // When it comes back, it is created anew (with offset 0).
             onDragStopped = { velocity ->
-                if (offsetY >= downPx || velocity >= DISMISS_VELOCITY) {
+                if (currentEnabled && (offsetY >= downPx || velocity >= DISMISS_VELOCITY)) {
                     currentOnDismiss()
                 } else {
                     animate(offsetY, 0f) { value, _ -> offsetY = value }
@@ -167,14 +169,14 @@ internal fun Modifier.swipeToDismiss(enabled: Boolean, label: String, onDismiss:
             onDragStopped = { velocity ->
                 val far = widthPx > 0 && abs(offsetX) >= widthPx * DISMISS_FRACTION_SIDEWAYS
                 val fast = abs(velocity) >= DISMISS_VELOCITY
-                if (far || fast) {
+                if (currentEnabled && (far || fast)) {
                     // All the way out in the swipe direction, then gone; for a fling without distance, the fling direction counts. It's also
                     // gone if the animation is cancelled (new grab).
                     val direction = if (offsetX != 0f) sign(offsetX) else sign(velocity)
                     try {
                         animate(offsetX, direction * widthPx, animationSpec = tween(150)) { value, _ -> offsetX = value }
                     } finally {
-                        currentOnDismiss()
+                        if (currentEnabled) currentOnDismiss() else offsetX = 0f
                     }
                 } else {
                     animate(offsetX, 0f) { value, _ -> offsetX = value }

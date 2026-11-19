@@ -11,6 +11,7 @@ import de.kleinabersmart.earloft.core.model.Lyrics
 import de.kleinabersmart.earloft.core.playback.PlaybackConnection
 import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.SavedMusicQueue
+import de.kleinabersmart.earloft.ui.orOnError
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,18 +44,25 @@ class PlayerViewModel @Inject constructor(
     /** The user has swiped the mini player away; applies until the next playback. */
     val miniPlayerHidden: StateFlow<Boolean> = miniPlayerVisibility.hidden
 
-    fun hideMiniPlayer() = miniPlayerVisibility.hide()
+    fun hideMiniPlayer() = miniPlayerVisibility.hide(state.value.itemKey, playbackConnection.currentPositionMs)
     fun showMiniPlayer() = miniPlayerVisibility.show()
 
     init {
-        // As soon as something plays again (from a list, the notification, via Bluetooth), the mini player is back.
+        // As soon as something plays again (from a list, the notification, via Bluetooth), the mini player is back; also if it
+        // played and paused while no screen was open (Android Auto, the watch): then title or position differ from the hidden ones.
         viewModelScope.launch {
-            state.map { it.isPlaying }.distinctUntilChanged().collect { playing -> if (playing) miniPlayerVisibility.show() }
+            state.collect { current ->
+                when {
+                    current.isPlaying -> miniPlayerVisibility.show()
+                    current.hasMedia -> miniPlayerVisibility.showIfMovedOn(current.itemKey, playbackConnection.currentPositionMs)
+                }
+            }
         }
     }
 
     /** The saved music queue while a book or episode is loaded (music start). */
     val savedMusicQueue: StateFlow<SavedMusicQueue?> = playbackConnection.savedMusicQueue
+        .orOnError(null)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Resumes the music at title [index] of the [savedMusicQueue], replacing the spoken content. */
@@ -128,3 +136,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch { favoritesRepository.toggleFavorite(songId) }
     }
 }
+
+/** Identifies the loaded title for [MiniPlayerVisibility]. */
+private val PlayerState.itemKey: String?
+    get() = spoken?.let { "book:${it.bookId}" } ?: current?.let { "song:${it.songId}" }
