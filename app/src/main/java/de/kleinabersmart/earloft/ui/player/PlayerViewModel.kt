@@ -35,9 +35,23 @@ class PlayerViewModel @Inject constructor(
     private val favoritesRepository: FavoritesRepository,
     private val lyricsRepository: LyricsRepository,
     private val albumColorRepository: AlbumColorRepository,
+    private val miniPlayerVisibility: MiniPlayerVisibility,
 ) : ViewModel() {
 
     val state: StateFlow<PlayerState> = playbackConnection.state
+
+    /** Der Nutzer hat den Mini-Player weggewischt; gilt bis zur nächsten Wiedergabe. */
+    val miniPlayerHidden: StateFlow<Boolean> = miniPlayerVisibility.hidden
+
+    fun hideMiniPlayer() = miniPlayerVisibility.hide()
+    fun showMiniPlayer() = miniPlayerVisibility.show()
+
+    init {
+        // Sobald wieder etwas spielt (aus einer Liste, der Benachrichtigung, per Bluetooth), ist der Mini-Player wieder da.
+        viewModelScope.launch {
+            state.map { it.isPlaying }.distinctUntilChanged().collect { playing -> if (playing) miniPlayerVisibility.show() }
+        }
+    }
 
     /** Die gespeicherte Musik-Warteschlange, solange ein Buch bzw. eine Folge geladen ist (Musik-Start). */
     val savedMusicQueue: StateFlow<SavedMusicQueue?> = playbackConnection.savedMusicQueue

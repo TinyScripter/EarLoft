@@ -1,6 +1,11 @@
 package de.kleinabersmart.earloft.ui.player
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,8 +19,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,6 +42,8 @@ import de.kleinabersmart.earloft.core.playback.QueueEntry
 import de.kleinabersmart.earloft.ui.components.AlbumArt
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 @Composable
@@ -91,6 +107,39 @@ fun MiniPlayer(
             }
         }
     }
+}
+
+/** So weit (oder schnell genug) nach unten gewischt, verschwindet der Mini-Player; sonst springt er zurück. */
+private val DISMISS_DISTANCE = 48.dp
+private const val DISMISS_VELOCITY = 1_500f
+
+/**
+ * Mini-Player nach unten wegwischen (nur wenn [enabled], also pausiert und nicht beim Casten): Er folgt dem Finger und blasst
+ * aus; über [DISMISS_DISTANCE] oder mit Schwung ruft das Loslassen [onDismiss]. Für TalkBack dieselbe Aktion als eigene
+ * Aktion „Mini-Player ausblenden“ ([label]).
+ */
+@Composable
+internal fun Modifier.swipeDownToDismiss(enabled: Boolean, label: String, onDismiss: () -> Unit): Modifier {
+    val scope = rememberCoroutineScope()
+    val offset = remember { Animatable(0f) }
+    val distancePx = with(LocalDensity.current) { DISMISS_DISTANCE.toPx() }
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
+    val dragState = rememberDraggableState { delta -> scope.launch { offset.snapTo((offset.value + delta).coerceAtLeast(0f)) } }
+    return this
+        .offset { IntOffset(0, offset.value.roundToInt()) }
+        .graphicsLayer { alpha = 1f - (offset.value / (distancePx * 2)).coerceIn(0f, 0.6f) }
+        .draggable(
+            state = dragState,
+            orientation = Orientation.Vertical,
+            enabled = enabled,
+            onDragStopped = { velocity ->
+                if (offset.value >= distancePx || velocity >= DISMISS_VELOCITY) currentOnDismiss()
+                offset.animateTo(0f)
+            },
+        )
+        .semantics {
+            if (enabled) customActions = listOf(CustomAccessibilityAction(label) { currentOnDismiss(); true })
+        }
 }
 
 @Preview

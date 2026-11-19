@@ -104,6 +104,9 @@
 
     <!-- Player -->
     <string name="player_queue">Warteschlange</string>
+    <string name="mini_player_hide">Mini-Player ausblenden</string>
+    <string name="mini_player_hidden">Mini-Player ausgeblendet. Er kommt mit der nächsten Wiedergabe zurück.</string>
+    <string name="action_undo">Rückgängig</string>
     <string name="player_open_queue">Warteschlange öffnen</string>
     <string name="player_close">Player schließen</string>
     <string name="player_show_lyrics">Songtext anzeigen</string>

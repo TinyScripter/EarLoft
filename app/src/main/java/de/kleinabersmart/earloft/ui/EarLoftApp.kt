@@ -130,10 +130,12 @@ import de.kleinabersmart.earloft.ui.library.ArtistScreen
 import de.kleinabersmart.earloft.ui.library.GenreScreen
 import de.kleinabersmart.earloft.ui.library.FavoritesScreen
 import de.kleinabersmart.earloft.ui.library.LibraryScreen
+import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.ui.player.MiniPlayer
 import de.kleinabersmart.earloft.ui.player.NowPlayingScreen
 import de.kleinabersmart.earloft.ui.player.PlayerViewModel
 import de.kleinabersmart.earloft.ui.player.QueueScreen
+import de.kleinabersmart.earloft.ui.player.swipeDownToDismiss
 import de.kleinabersmart.earloft.ui.playlists.PlaylistScreen
 import de.kleinabersmart.earloft.ui.search.SearchScreen
 import de.kleinabersmart.earloft.ui.settings.AboutScreen
@@ -669,10 +671,24 @@ fun EarLoftApp(
     }
 }
 
-/** Mini-Player für Musik bzw. Hörbuch. Liest [playerState] erst hier, damit Änderungen nur ihn neu zusammensetzen. */
+/**
+ * Mini-Player für Musik bzw. Hörbuch. Liest [playerState] erst hier, damit Änderungen nur ihn neu zusammensetzen.
+ * Pausiert (und nicht beim Casten) lässt er sich nach unten wegwischen, mit „Rückgängig“; weg bleibt er bis zur nächsten
+ * Wiedergabe, auch über einen Neustart.
+ */
 @Composable
 private fun MiniPlayerHost(playerViewModel: PlayerViewModel, playerState: State<PlayerState>, onOpen: () -> Unit) {
     val state by playerState
+    val hidden by playerViewModel.miniPlayerHidden.collectAsStateWithLifecycle()
+    val dismissible = !state.isPlaying && !state.isRemote
+    if (hidden && dismissible) return
+    val snackbars = LocalSnackbars.current
+    val hiddenText = stringResource(R.string.mini_player_hidden)
+    val undoText = stringResource(R.string.action_undo)
+    val dismiss = Modifier.swipeDownToDismiss(dismissible, stringResource(R.string.mini_player_hide)) {
+        playerViewModel.hideMiniPlayer()
+        snackbars.show(hiddenText, actionLabel = undoText, onAction = playerViewModel::showMiniPlayer)
+    }
     if (state.spoken != null) {
         val bookPlayer: BookPlayerViewModel = hiltViewModel()
         val bookSeedColor by bookPlayer.seedColor.collectAsStateWithLifecycle()
@@ -688,6 +704,7 @@ private fun MiniPlayerHost(playerViewModel: PlayerViewModel, playerState: State<
                 onTogglePlayPause = bookPlayer::togglePlayPause,
                 onSkipBack = bookPlayer::skipBack,
                 onSkipForward = bookPlayer::skipForward,
+                modifier = dismiss,
             )
         }
     } else if (state.hasMedia) {
@@ -700,6 +717,7 @@ private fun MiniPlayerHost(playerViewModel: PlayerViewModel, playerState: State<
                 onClick = onOpen,
                 onTogglePlayPause = playerViewModel::togglePlayPause,
                 onNext = playerViewModel::next,
+                modifier = dismiss,
             )
         }
     }
