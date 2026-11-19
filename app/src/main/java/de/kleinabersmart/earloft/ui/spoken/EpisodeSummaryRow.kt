@@ -115,7 +115,7 @@ internal fun EpisodeSummaryRow(
                 // The icons are flush with the image above, the touch target extends into the margin.
                 Row(Modifier.offset(x = (-12).dp), verticalAlignment = Alignment.CenterVertically) {
                     // Files from the device are already there.
-                    if (!book.isLocal) DownloadButton(download, downloadFraction, onDownload, onRemoveDownload)
+                    if (!book.isLocal) DownloadButton(download, downloadFraction, onDownload, onRemoveDownload, enabled = !selecting)
                     QueueButton(queued, enabled = !selecting, onToggleQueue)
                 }
                 Spacer(Modifier.weight(1f))

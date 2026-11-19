@@ -1109,14 +1109,22 @@ fun PodcastSettingsScreen(
 
 /**
  * Download; while downloading a circle that fills up (empty = waiting, a tap cancels), afterwards a check mark (a tap deletes).
- * If the size is unknown, the circle spins. Check mark and error in the marker colors ([OfflineMarkIcon]).
+ * If the size is unknown, the circle spins. Check mark and error in the marker colors ([OfflineMarkIcon]). Inactive ([enabled]
+ * `false`) during a multi-selection, where a tap on the check mark would otherwise delete the download instead of selecting the row.
  */
 @Composable
-internal fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: () -> Unit, onRemove: () -> Unit) {
+internal fun DownloadButton(
+    state: TrackDownload,
+    fraction: Float?,
+    onDownload: () -> Unit,
+    onRemove: () -> Unit,
+    enabled: Boolean = true,
+) {
+    val disabledTint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
     when (state) {
         TrackDownload.QUEUED, TrackDownload.RUNNING -> {
             val cancel = stringResource(R.string.podcast_download_cancel)
-            IconButton(onClick = onRemove, modifier = Modifier.semantics { contentDescription = cancel }) {
+            IconButton(onClick = onRemove, enabled = enabled, modifier = Modifier.semantics { contentDescription = cancel }) {
                 if (fraction != null && fraction == EpisodeDownloadProgress.UNKNOWN) {
                     CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                 } else {
@@ -1124,21 +1132,21 @@ internal fun DownloadButton(state: TrackDownload, fraction: Float?, onDownload: 
                 }
             }
         }
-        TrackDownload.DONE -> IconButton(onClick = onRemove) {
+        TrackDownload.DONE -> IconButton(onClick = onRemove, enabled = enabled) {
             Icon(
                 painterResource(DesignR.drawable.ic_download_done),
                 contentDescription = stringResource(R.string.podcast_download_remove),
-                tint = MaterialTheme.colorScheme.primary,
+                tint = if (enabled) MaterialTheme.colorScheme.primary else disabledTint,
             )
         }
-        TrackDownload.FAILED -> IconButton(onClick = onDownload) {
+        TrackDownload.FAILED -> IconButton(onClick = onDownload, enabled = enabled) {
             Icon(
                 painterResource(DesignR.drawable.ic_error),
                 contentDescription = stringResource(R.string.podcast_download_retry),
-                tint = MaterialTheme.colorScheme.error,
+                tint = if (enabled) MaterialTheme.colorScheme.error else disabledTint,
             )
         }
-        TrackDownload.NONE, TrackDownload.REMOVED -> IconButton(onClick = onDownload) {
+        TrackDownload.NONE, TrackDownload.REMOVED -> IconButton(onClick = onDownload, enabled = enabled) {
             Icon(painterResource(DesignR.drawable.ic_download), contentDescription = stringResource(R.string.podcast_download_episode))
         }
     }

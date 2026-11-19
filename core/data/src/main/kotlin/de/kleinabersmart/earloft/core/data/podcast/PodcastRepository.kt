@@ -58,6 +58,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -215,7 +216,7 @@ class PodcastRepository @Inject constructor(
                     newEpisodes = list.takeWhile { byBook[it.bookId].isUntouched }.size,
                 )
             }
-        }.distinctUntilChanged()
+        }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
     /**
      * The library's "New" tab: the newest episodes of all subscriptions by publication, including played ones (unlike "Recently
@@ -231,7 +232,7 @@ class PodcastRepository @Inject constructor(
                     .map { BookWithProgress(it.toModel(), byBook[it.bookId]?.toModel()) }
             },
         )
-    }
+    }.flowOn(Dispatchers.Default) // Over all episodes and all progress, every 15 s during playback.
 
     /**
      * Beginning of the show notes ([NOTES_CHARS] characters) for a short summary in lists spanning several subscriptions:

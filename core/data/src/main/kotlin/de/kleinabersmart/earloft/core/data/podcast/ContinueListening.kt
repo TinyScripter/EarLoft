@@ -1,7 +1,9 @@
 package de.kleinabersmart.earloft.core.data.podcast
 
 import de.kleinabersmart.earloft.core.model.BookWithProgress
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,7 +20,8 @@ class ContinueListening @Inject constructor(
     private val podcasts: PodcastRepository,
     private val settings: PodcastSettings,
 ) {
-    val episodes: Flow<List<BookWithProgress>> = podcasts.continueListening(queue.order, queue.hidden)
+    /** Combines all episodes with all progress (every 15 s during playback), therefore off the main thread. */
+    val episodes: Flow<List<BookWithProgress>> = podcasts.continueListening(queue.order, queue.hidden).flowOn(Dispatchers.Default)
 
     /** An episode is started (regardless of whether it is already in the row). Audiobooks are left untouched. */
     suspend fun started(bookId: Long) {

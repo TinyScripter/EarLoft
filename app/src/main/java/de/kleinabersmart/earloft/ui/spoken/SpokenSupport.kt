@@ -675,12 +675,22 @@ fun episodesSharingDay(books: List<Book>, zone: TimeZone = TimeZone.getDefault()
 /**
  * Short summary from the show notes: plain text, lines joined into one paragraph, without lines that only
  * repeat the [title] (ARD Sounds: show notes = title); empty if there is none. The display truncates it to its line count.
+ * Runs during composition for every row that scrolls into view: only the beginning of the show notes is parsed (the full ones
+ * can be tens of KB of HTML), and the result is capped, which also keeps what TalkBack reads per row short.
  */
 fun descriptionSummary(raw: String, title: String): String {
     if (raw.isBlank()) return ""
-    val text = if ('<' in raw || '&' in raw) AnnotatedString.fromHtml(raw).text else raw
-    return summaryOtherThan(text, title)
+    val start = raw.take(SUMMARY_SOURCE_CHARS)
+    val text = if ('<' in start || '&' in start) AnnotatedString.fromHtml(start).text else start
+    val summary = summaryOtherThan(text, title)
+    return if (summary.length <= SUMMARY_MAX_CHARS) summary else summary.take(SUMMARY_MAX_CHARS).trimEnd() + "…"
 }
+
+/** Enough HTML for two lines of text even with markup and link lists in front. */
+private const val SUMMARY_SOURCE_CHARS = 2_000
+
+/** Two lines on a tablet in landscape are about 250 characters. */
+private const val SUMMARY_MAX_CHARS = 300
 
 internal fun summaryOtherThan(text: String, title: String): String =
     text.lineSequence()
