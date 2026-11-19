@@ -135,7 +135,7 @@ import de.kleinabersmart.earloft.ui.player.MiniPlayer
 import de.kleinabersmart.earloft.ui.player.NowPlayingScreen
 import de.kleinabersmart.earloft.ui.player.PlayerViewModel
 import de.kleinabersmart.earloft.ui.player.QueueScreen
-import de.kleinabersmart.earloft.ui.player.swipeDownToDismiss
+import de.kleinabersmart.earloft.ui.player.swipeToDismiss
 import de.kleinabersmart.earloft.ui.playlists.PlaylistScreen
 import de.kleinabersmart.earloft.ui.search.SearchScreen
 import de.kleinabersmart.earloft.ui.settings.AboutScreen
@@ -673,7 +673,7 @@ fun EarLoftApp(
 
 /**
  * Mini-Player für Musik bzw. Hörbuch. Liest [playerState] erst hier, damit Änderungen nur ihn neu zusammensetzen.
- * Pausiert (und nicht beim Casten) lässt er sich nach unten wegwischen, mit „Rückgängig“; weg bleibt er bis zur nächsten
+ * Pausiert (und nicht beim Casten) lässt er sich nach unten oder zur Seite wegwischen, mit „Rückgängig“; weg bleibt er bis zur nächsten
  * Wiedergabe, auch über einen Neustart.
  */
 @Composable
@@ -685,7 +685,7 @@ private fun MiniPlayerHost(playerViewModel: PlayerViewModel, playerState: State<
     val snackbars = LocalSnackbars.current
     val hiddenText = stringResource(R.string.mini_player_hidden)
     val undoText = stringResource(R.string.action_undo)
-    val dismiss = Modifier.swipeDownToDismiss(dismissible, stringResource(R.string.mini_player_hide)) {
+    val dismiss = Modifier.swipeToDismiss(dismissible, stringResource(R.string.mini_player_hide)) {
         playerViewModel.hideMiniPlayer()
         snackbars.show(hiddenText, actionLabel = undoText, onAction = playerViewModel::showMiniPlayer)
     }

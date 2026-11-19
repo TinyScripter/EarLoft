@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.ui.player
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -19,12 +20,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -43,7 +47,9 @@ import de.kleinabersmart.earloft.ui.components.AlbumArt
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.sign
 import de.kleinabersmart.earloft.core.designsystem.R as DesignR
 
 @Composable
@@ -110,31 +116,61 @@ fun MiniPlayer(
 }
 
 /** So weit (oder schnell genug) nach unten gewischt, verschwindet der Mini-Player; sonst springt er zurück. */
-private val DISMISS_DISTANCE = 48.dp
+private val DISMISS_DISTANCE_DOWN = 48.dp
+
+/** Zur Seite: dieser Anteil der Breite (Seitwärtswischen ist leichter versehentlich als nach unten). */
+private const val DISMISS_FRACTION_SIDEWAYS = 0.3f
 private const val DISMISS_VELOCITY = 1_500f
 
 /**
- * Mini-Player nach unten wegwischen (nur wenn [enabled], also pausiert und nicht beim Casten): Er folgt dem Finger und blasst
- * aus; über [DISMISS_DISTANCE] oder mit Schwung ruft das Loslassen [onDismiss]. Für TalkBack dieselbe Aktion als eigene
- * Aktion „Mini-Player ausblenden“ ([label]).
+ * Mini-Player nach unten, links oder rechts wegwischen (nur wenn [enabled], also pausiert und nicht beim Casten): Er folgt dem
+ * Finger und blasst aus. Nach unten über [DISMISS_DISTANCE_DOWN], zur Seite über [DISMISS_FRACTION_SIDEWAYS] der Breite, oder
+ * jeweils mit Schwung, ruft das Loslassen [onDismiss]; zur Seite gleitet er vorher ganz hinaus. Welche Richtung gilt, entscheidet
+ * die erste Bewegung (zwei `draggable`, je eine Achse). Für TalkBack dieselbe Aktion als „Mini-Player ausblenden“ ([label]).
  */
 @Composable
-internal fun Modifier.swipeDownToDismiss(enabled: Boolean, label: String, onDismiss: () -> Unit): Modifier {
+internal fun Modifier.swipeToDismiss(enabled: Boolean, label: String, onDismiss: () -> Unit): Modifier {
     val scope = rememberCoroutineScope()
-    val offset = remember { Animatable(0f) }
-    val distancePx = with(LocalDensity.current) { DISMISS_DISTANCE.toPx() }
+    val offsetX = remember { Animatable(0f) }
+    val offsetY = remember { Animatable(0f) }
+    var widthPx by remember { mutableFloatStateOf(0f) }
+    val downPx = with(LocalDensity.current) { DISMISS_DISTANCE_DOWN.toPx() }
     val currentOnDismiss by rememberUpdatedState(onDismiss)
-    val dragState = rememberDraggableState { delta -> scope.launch { offset.snapTo((offset.value + delta).coerceAtLeast(0f)) } }
+    val verticalState = rememberDraggableState { delta -> scope.launch { offsetY.snapTo((offsetY.value + delta).coerceAtLeast(0f)) } }
+    val horizontalState = rememberDraggableState { delta -> scope.launch { offsetX.snapTo(offsetX.value + delta) } }
     return this
-        .offset { IntOffset(0, offset.value.roundToInt()) }
-        .graphicsLayer { alpha = 1f - (offset.value / (distancePx * 2)).coerceIn(0f, 0.6f) }
+        .onSizeChanged { widthPx = it.width.toFloat() }
+        .offset { IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
+        .graphicsLayer {
+            val sideways = if (widthPx > 0) abs(offsetX.value) / widthPx else 0f
+            val down = offsetY.value / (downPx * 2)
+            alpha = 1f - maxOf(sideways, down).coerceIn(0f, 0.6f)
+        }
         .draggable(
-            state = dragState,
+            state = verticalState,
             orientation = Orientation.Vertical,
             enabled = enabled,
+            // Weggewischt bleibt er, wo er ist: Das Ausblenden kommt einen Frame später an, ein Zurückspringen blitzte auf.
+            // Kommt er wieder, entsteht er neu (mit Versatz 0).
             onDragStopped = { velocity ->
-                if (offset.value >= distancePx || velocity >= DISMISS_VELOCITY) currentOnDismiss()
-                offset.animateTo(0f)
+                if (offsetY.value >= downPx || velocity >= DISMISS_VELOCITY) currentOnDismiss() else offsetY.animateTo(0f)
+            },
+        )
+        .draggable(
+            state = horizontalState,
+            orientation = Orientation.Horizontal,
+            enabled = enabled,
+            onDragStopped = { velocity ->
+                val far = widthPx > 0 && abs(offsetX.value) >= widthPx * DISMISS_FRACTION_SIDEWAYS
+                val fast = abs(velocity) >= DISMISS_VELOCITY
+                if (far || fast) {
+                    // In Wischrichtung ganz hinaus, dann weg; bei Schwung ohne Weg zählt die Richtung des Schwungs.
+                    val direction = if (offsetX.value != 0f) sign(offsetX.value) else sign(velocity)
+                    offsetX.animateTo(direction * widthPx, tween(150))
+                    currentOnDismiss()
+                } else {
+                    offsetX.animateTo(0f)
+                }
             },
         )
         .semantics {
