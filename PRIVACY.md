@@ -51,7 +51,11 @@ watch) to the respective service:
 * **OpenID sign-in for Audiobookshelf (optional):** the sign-in page of your server's identity provider opens in your
   browser. EarLoft only receives the tokens from your Audiobookshelf server.
 * **Chromecast (optional):** when you cast, the Cast device on your network receives the address of the song and
-  plays it directly from your server.
+  plays it directly from your server. Titles that are only on your phone (or whose server the Cast device can't reach)
+  it loads from the phone instead: while you cast, EarLoft runs a small web server on your Wi-Fi that serves only the
+  titles and covers of this cast session, over plain HTTP, at addresses with a secret that changes with every session.
+  Other cast apps on your network can see these addresses. While the Cast device loads from the phone, the app keeps
+  the phone and its Wi-Fi awake.
 
 EarLoft does not contact any other service. Links you share point to open sources (MusicBrainz, the podcast's website
 and feed, Open Library), never to your own servers; the app itself does not contact these sites when you share.

@@ -9,6 +9,7 @@ import java.io.OutputStream
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.SynchronousQueue
 import java.util.concurrent.ThreadPoolExecutor
@@ -37,8 +38,15 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
     private var socket: ServerSocket? = null
     private var executor: ThreadPoolExecutor? = null
 
-    /** Called after every answered request (extends the wake lock). */
-    var onRequest: () -> Unit = {}
+    /** Accepted connections; [stop] closes them, otherwise a running transfer would continue after the stop. */
+    private val clients = ConcurrentHashMap.newKeySet<Socket>()
+
+    /**
+     * Called while a published resource is being delivered: at the start of the response and at most every
+     * [ACTIVITY_INTERVAL_MS] during the transfer (a receiver streams a long file through a single request for hours).
+     * Not for requests without a resource (404), so a scanner on the network doesn't keep the device awake.
+     */
+    var onActivity: () -> Unit = {}
 
     /** The port the server is listening on; `null` while it isn't running. */
     @get:Synchronized
@@ -68,6 +76,9 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
     fun stop() {
         runCatching { socket?.close() }
         executor?.shutdownNow()
+        // shutdownNow doesn't interrupt blocking socket I/O; closing the sockets ends the transfers.
+        clients.forEach { runCatching { it.close() } }
+        clients.clear()
         socket = null
         executor = null
     }
@@ -80,9 +91,11 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
                 if (!server.isClosed) Log.w(TAG, "accept", e)
                 return
             }
+            clients += client
             try {
                 pool.execute { serve(client) }
             } catch (e: RejectedExecutionException) {
+                clients -= client
                 runCatching { client.close() }
             }
         }
@@ -97,14 +110,17 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
                 val request = readRequest(input) ?: break
                 val keepAlive = respond(request, output)
                 output.flush()
-                onRequest()
                 if (!keepAlive) break
             }
         } catch (e: SocketException) {
             // The receiver closed the connection (seeking, next title).
         } catch (e: IOException) {
             Log.d(TAG, "Connection ended: ${e.message}")
+        } catch (e: RuntimeException) {
+            // E.g. a SecurityException from the content resolver: uncaught on a pool thread it would end the process.
+            Log.w(TAG, "Request failed", e)
         } finally {
+            clients -= client
             runCatching { client.close() }
         }
     }
@@ -130,6 +146,7 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
             writeHead(output, "404 Not Found", keepAlive, listOf("Content-Length" to "0"))
             return keepAlive
         }
+        onActivity()
         val length = resource.length
         val common = listOf("Content-Type" to resource.mimeType, "Accept-Ranges" to "bytes", "Cache-Control" to "no-store")
         val (status, start, count, extra) = when (val range = parseByteRange(request.headers["range"], length)) {
@@ -163,25 +180,39 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
     private fun copy(input: InputStream, output: OutputStream, count: Long) {
         val buffer = ByteArray(BUFFER_SIZE)
         var left = count
+        var lastActivity = System.nanoTime()
         while (left > 0) {
             val read = input.read(buffer, 0, minOf(buffer.size.toLong(), left).toInt())
             if (read < 0) throw IOException("File shorter than stated")
             output.write(buffer, 0, read)
             left -= read
+            val now = System.nanoTime()
+            if (now - lastActivity >= ACTIVITY_INTERVAL_MS * 1_000_000) {
+                lastActivity = now
+                onActivity()
+            }
         }
     }
 
     private class Request(val method: String, val path: String, val headers: Map<String, String>, val keepAlive: Boolean)
 
-    /** Reads a request up to the blank line; `null` at the end of the connection. */
+    /**
+     * Reads a request up to the blank line; `null` at the end of the connection. Once the request line is there, the rest of the
+     * head must follow within [HEADER_DEADLINE_MS] (the idle timeout applies per read only, a byte every few seconds would
+     * otherwise hold a connection for days).
+     */
     private fun readRequest(input: InputStream): Request? {
-        val requestLine = readLine(input) ?: return null
+        // Waiting for the next request of a kept-alive connection is idle time; the deadline starts with its first byte.
+        val first = input.read()
+        if (first < 0) return null
+        val deadline = System.nanoTime() + HEADER_DEADLINE_MS * 1_000_000
+        val requestLine = readLine(input, deadline, first) ?: return null
         val parts = requestLine.split(' ')
         if (parts.size < 3) throw IOException("Invalid request")
         val headers = HashMap<String, String>()
         var size = requestLine.length
         while (true) {
-            val line = readLine(input) ?: return null
+            val line = readLine(input, deadline) ?: return null
             if (line.isEmpty()) break
             size += line.length
             if (size > MAX_HEADER_BYTES) throw IOException("Header too large")
@@ -194,10 +225,13 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
         return Request(parts[0], parts[1].substringBefore('?'), headers, keepAlive)
     }
 
-    private fun readLine(input: InputStream): String? {
+    /** [first]: a byte of the line that was already read, or -1. */
+    private fun readLine(input: InputStream, deadline: Long, first: Int = -1): String? {
         val line = StringBuilder()
+        var pending = first
         while (true) {
-            val byte = input.read()
+            if (System.nanoTime() > deadline) throw IOException("Header too slow")
+            val byte = if (pending >= 0) pending.also { pending = -1 } else input.read()
             if (byte < 0) return if (line.isEmpty()) null else line.toString()
             if (byte == '\n'.code) return line.toString().trimEnd('\r')
             line.append(byte.toChar())
@@ -211,6 +245,8 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
         const val IDLE_TIMEOUT_MS = 30_000
         const val BUFFER_SIZE = 64 * 1024
         const val MAX_HEADER_BYTES = 16 * 1024
+        const val HEADER_DEADLINE_MS = 10_000L
+        const val ACTIVITY_INTERVAL_MS = 60_000L
     }
 }
 

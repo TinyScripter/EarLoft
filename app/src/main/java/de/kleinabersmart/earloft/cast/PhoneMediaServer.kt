@@ -13,6 +13,7 @@ import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.os.PowerManager
 import android.util.Log
+import android.util.LruCache
 import androidx.core.graphics.scale
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.data.repository.ArtworkRepository
@@ -36,13 +37,15 @@ import javax.inject.Singleton
  * can't reach) are loaded by the receiver from the phone via HTTP.
  *
  * - The server ([HttpFileServer]) only starts once an address is needed in a session, and stops with the session
- *   ([stop]). Each session gets a new secret in the path ([newSession]); only what was published in this session
- *   can be fetched ([fileUrl], covers via album or book). The addresses must therefore be treated like credentials.
+ *   ([stop]); outside a session there are no addresses (a late resolve after the end doesn't start it again).
+ *   Each session gets a new secret in the path ([newSession]); only what was published in this session
+ *   can be fetched ([fileUrl], the covers of published albums and books). The addresses must therefore be treated like credentials.
  * - The address is the phone's IPv4 address on Wi-Fi (or Ethernet); without it there are no addresses, and the titles are
  *   dropped when casting as before. In the debug build, `phone_address` (host:port) in the SharedPreferences `cast_debug` replaces
  *   the announced address: in the emulator the receiver can only reach the phone through port forwarding on the host.
  * - While the server is running and being accessed, a partial wake lock and a Wi-Fi lock keep CPU and Wi-Fi awake
- *   (like ExoPlayer when streaming); they expire by themselves [LOCK_TIMEOUT_MS] after the last request.
+ *   (like ExoPlayer when streaming); they expire by themselves [LOCK_TIMEOUT_MS] after the last delivery
+ *   ([HttpFileServer.onActivity], also renewed during a long transfer).
  */
 @Singleton
 internal class PhoneMediaServer @Inject constructor(
@@ -53,15 +56,28 @@ internal class PhoneMediaServer @Inject constructor(
 
     private class PublishedFile(val uri: Uri, val mimeType: String)
 
-    private val server = HttpFileServer(::resolve).apply { onRequest = ::keepAwake }
+    private val server = HttpFileServer(::resolve).apply { onActivity = ::keepAwake }
     private val random = SecureRandom()
 
     @Volatile
     private var token = newToken()
+
+    /** Between [newSession] and [stop]. */
+    @Volatile
+    private var active = false
     private val files = ConcurrentHashMap<String, PublishedFile>()
     private val keys = ConcurrentHashMap<String, String>()
     private val nextKey = AtomicInteger()
-    private val covers = ConcurrentHashMap<String, ByteArray>()
+
+    /** `album:<id>` / `book:<id>` whose cover address was handed out in this session. */
+    private val publishedCovers = ConcurrentHashMap.newKeySet<String>()
+    private val covers = object : LruCache<String, ByteArray>(COVER_CACHE_BYTES) {
+        override fun sizeOf(key: String, value: ByteArray) = value.size
+    }
+
+    /** The LAN address with the time it was determined; [baseUrl] is called per title (on the main thread for books). */
+    @Volatile
+    private var host: Pair<String, Long>? = null
 
     private val wakeLock by lazy {
         context.getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "EarLoft:cast-server")
@@ -81,11 +97,20 @@ internal class PhoneMediaServer @Inject constructor(
         token = newToken()
         files.clear()
         keys.clear()
-        covers.clear()
+        publishedCovers.clear()
+        covers.evictAll()
+        active = true
+    }
+
+    /** Resuming a session: within the process everything stays; after a process restart it starts like a new one. */
+    fun resumeSession() {
+        if (!active) newSession()
     }
 
     /** At the end of the session. */
     fun stop() {
+        active = false
+        host = null
         server.stop()
         releaseLocks()
     }
@@ -98,23 +123,37 @@ internal class PhoneMediaServer @Inject constructor(
         return "$base/f/$key"
     }
 
-    override fun albumCoverUrl(albumId: Long): String? = baseUrl()?.let { "$it/c/album/$albumId" }
+    override fun albumCoverUrl(albumId: Long): String? =
+        baseUrl()?.let { publishedCovers += "$COVER_ALBUM:$albumId"; "$it/c/$COVER_ALBUM/$albumId" }
 
-    override fun bookCoverUrl(bookId: Long): String? = baseUrl()?.let { "$it/c/book/$bookId" }
+    override fun bookCoverUrl(bookId: Long): String? =
+        baseUrl()?.let { publishedCovers += "$COVER_BOOK:$bookId"; "$it/c/$COVER_BOOK/$bookId" }
 
-    /** `http://host:port/<secret>`; starts the server if needed. */
+    /** `http://host:port/<secret>`; starts the server if needed. `null` outside a session. */
     private fun baseUrl(): String? {
+        if (!active) return null
         val override = debugAddress()
-        val host = override?.substringBeforeLast(':') ?: lanAddress() ?: return null
+        val host = override?.substringBeforeLast(':') ?: currentLanAddress() ?: return null
         val port = try {
             server.start(PREFERRED_PORT)
         } catch (e: IOException) {
             Log.w(TAG, "Server does not start", e)
             return null
         }
-        keepAwake()
+        // The session may have ended meanwhile (resolving runs off the main thread).
+        if (!active) {
+            server.stop()
+            return null
+        }
         val advertisedPort = override?.substringAfterLast(':')?.toIntOrNull() ?: port
         return "http://$host:$advertisedPort/$token"
+    }
+
+    /** [lanAddress], remembered for [HOST_CACHE_MS] (a network change in between is rare; the next title then has the new one). */
+    private fun currentLanAddress(): String? {
+        val now = System.currentTimeMillis()
+        host?.takeIf { now - it.second < HOST_CACHE_MS }?.let { return it.first }
+        return lanAddress()?.also { host = it to now }
     }
 
     /** The IPv4 address on Wi-Fi or Ethernet; the receiver can't reach the phone over mobile data. */
@@ -138,6 +177,7 @@ internal class PhoneMediaServer @Inject constructor(
 
     /** On a server thread. */
     private fun resolve(path: String): HttpFileServer.Resource? {
+        if (!active) return null
         val parts = path.trim('/').split('/')
         if (parts.size < 3 || parts[0] != token) return null
         return when (parts[1]) {
@@ -170,15 +210,17 @@ internal class PhoneMediaServer @Inject constructor(
 
     private fun cover(kind: String, id: Long): HttpFileServer.Resource? {
         val key = "$kind:$id"
+        // Only covers of this session's titles, not the whole library by counting up the ids.
+        if (key !in publishedCovers) return null
         val bytes = covers[key] ?: run {
             val bitmap = runBlocking {
                 when (kind) {
-                    "album" -> artwork.albumCover(id, COVER_SIZE_PX)
-                    "book" -> bookCovers.cover(id)
+                    COVER_ALBUM -> artwork.albumCover(id, COVER_SIZE_PX)
+                    COVER_BOOK -> bookCovers.cover(id)
                     else -> null
                 }
             } ?: return null
-            jpeg(bitmap).also { covers[key] = it }
+            jpeg(bitmap).also { covers.put(key, it) }
         }
         return HttpFileServer.BytesResource("image/jpeg", bytes)
     }
@@ -196,6 +238,7 @@ internal class PhoneMediaServer @Inject constructor(
     /** Extends the locks on every request; without requests they expire. */
     @SuppressLint("WakelockTimeout")
     private fun keepAwake() {
+        if (!active) return
         wakeLock.acquire(LOCK_TIMEOUT_MS)
         if (!wifiLock.isHeld) wifiLock.acquire()
         lockReleaser.removeCallbacksAndMessages(null)
@@ -217,6 +260,10 @@ internal class PhoneMediaServer @Inject constructor(
         const val PREFERRED_PORT = 47321
         const val COVER_SIZE_PX = 512
         const val LOCK_TIMEOUT_MS = 10 * 60 * 1000L
+        const val HOST_CACHE_MS = 5_000L
+        const val COVER_CACHE_BYTES = 8 * 1024 * 1024
+        const val COVER_ALBUM = "album"
+        const val COVER_BOOK = "book"
         const val DEBUG_PREFS = "cast_debug"
         const val DEBUG_ADDRESS = "phone_address"
     }

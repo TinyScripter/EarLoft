@@ -55,7 +55,11 @@ Gerät (bzw. deiner Uhr) zum jeweiligen Dienst:
 * **OpenID-Anmeldung bei Audiobookshelf (optional):** Die Anmeldeseite des Identitätsanbieters deines Servers öffnet
   sich in deinem Browser. EarLoft erhält nur die Tokens von deinem Audiobookshelf-Server.
 * **Chromecast (optional):** Wenn du castest, bekommt das Cast-Gerät in deinem Netzwerk die Adresse des Titels und
-  spielt ihn direkt von deinem Server ab.
+  spielt ihn direkt von deinem Server ab. Titel, die nur auf deinem Handy liegen (oder deren Server das Cast-Gerät nicht
+  erreicht), lädt es stattdessen vom Handy: Während du castest, betreibt EarLoft in deinem WLAN einen kleinen Webserver,
+  der nur die Titel und Cover dieser Cast-Sitzung ausliefert, über einfaches HTTP, unter Adressen mit einem Geheimnis,
+  das mit jeder Sitzung wechselt. Andere Cast-Apps in deinem Netzwerk können diese Adressen sehen. Solange das Cast-Gerät
+  vom Handy lädt, hält die App das Handy und sein WLAN wach.
 
 EarLoft kontaktiert keine anderen Dienste. Links, die du teilst, zeigen auf offene Quellen (MusicBrainz, die Website
 und den Feed des Podcasts, Open Library), nie auf deine eigenen Server; die App selbst ruft diese Seiten beim Teilen

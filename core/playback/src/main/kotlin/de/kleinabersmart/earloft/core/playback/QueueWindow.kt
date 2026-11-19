@@ -14,11 +14,6 @@ data class QueueWindow<T>(
 )
 
 /**
- * At most [maxSize] entries from [items], always including the start title. In order: the start title and
- * the following ones. With shuffle: the start title and a random selection from the rest (in the
- * original order), so that "shuffle all" doesn't just shuffle one section of the list.
- */
-/**
  * Which titles may leave the player to make room: at most [count] already played ones, the oldest first.
  * [previous] returns the title before an index in playback order (with shuffle the shuffled one), `-1` at the start
  * (`Timeline.getPreviousWindowIndex`). Result sorted ascending.
@@ -29,6 +24,11 @@ fun oldestPlayed(current: Int, count: Int, previous: (Int) -> Int): List<Int> {
     return played.takeLast(count).sorted()
 }
 
+/**
+ * At most [maxSize] entries from [items], always including the start title. In order: the start title and
+ * the following ones. With shuffle: the start title and a random selection from the rest (in the
+ * original order), so that "shuffle all" doesn't just shuffle one section of the list.
+ */
 fun <T> queueWindow(items: List<T>, startIndex: Int, maxSize: Int, shuffle: Boolean, random: Random = Random): QueueWindow<T> {
     if (items.size <= maxSize) return QueueWindow(items, startIndex)
     val start = startIndex.coerceIn(items.indices)
