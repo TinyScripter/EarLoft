@@ -34,6 +34,7 @@ import de.kleinabersmart.earloft.core.playback.SessionPlayerFactory
 import de.kleinabersmart.earloft.core.playback.SpokenItemRebuilder
 import de.kleinabersmart.earloft.core.playback.oldestPlayed
 import de.kleinabersmart.earloft.core.playback.queueWindow
+import de.kleinabersmart.earloft.core.playback.restoreOrder
 import de.kleinabersmart.earloft.core.playback.songId
 import de.kleinabersmart.earloft.ui.snackbar.Snackbars
 import kotlinx.coroutines.CoroutineScope
@@ -502,8 +503,9 @@ internal class CastSessionPlayerFactory @Inject constructor(
 
 /**
  * What goes to the receiver from state [state]: only songs it can load (addresses prepared in [cache]), at most
- * [CastSessionPlayerFactory.MAX_REMOTE_QUEUE] around the current one; the rest goes into the [reserve]. Reports skipped
- * songs via [onSkipped].
+ * [CastSessionPlayerFactory.MAX_REMOTE_QUEUE] around the current one; the rest goes into the [reserve]. The receiver knows
+ * no shuffle: with shuffle the current song goes first and the others follow in random order ([queueWindow], review E11).
+ * Reports skipped songs via [onSkipped].
  */
 @OptIn(UnstableApi::class)
 private fun castableState(
@@ -514,20 +516,28 @@ private fun castableState(
 ): PlayerTransferState {
     val items = state.mediaItems
     val castable = items.indices.filter { cache.isCastable(items[it]) }
-    if (castable.size == items.size && items.size <= CastSessionPlayerFactory.MAX_REMOTE_QUEUE) return state
+    val shuffle = state.shuffleModeEnabled
+    if (castable.size == items.size && items.size <= CastSessionPlayerFactory.MAX_REMOTE_QUEUE && !shuffle) return state
     onSkipped(items.size - castable.size, items.size)
     if (castable.isEmpty()) {
         return state.buildUpon().setMediaItems(emptyList()).setCurrentMediaItemIndex(C.INDEX_UNSET).build()
     }
     val current = state.currentMediaItemIndex
     val startInCastable = castable.indexOfFirst { it >= current }.takeIf { it >= 0 } ?: 0
-    val window = queueWindow(castable, startInCastable, CastSessionPlayerFactory.MAX_REMOTE_QUEUE, state.shuffleModeEnabled)
+    val window = queueWindow(castable, startInCastable, CastSessionPlayerFactory.MAX_REMOTE_QUEUE, shuffle)
     reserve.reset(window.before.map(items::get), window.after.map(items::get))
     return state.buildUpon()
         .setMediaItems(window.items.map(items::get))
         .setCurrentMediaItemIndex(window.startIndex)
         .apply { if (window.items[window.startIndex] != current) setCurrentPosition(0) }
         .build()
+}
+
+/** This state's queue in the list order of [original] ([restoreOrder]). */
+@OptIn(UnstableApi::class)
+private fun PlayerTransferState.inOrderOf(original: PlayerTransferState): PlayerTransferState {
+    val (items, index) = restoreOrder(mediaItems, currentMediaItemIndex, original.mediaItems) { it.mediaId }
+    return buildUpon().setMediaItems(items).setCurrentMediaItemIndex(index).build()
 }
 
 /** Ascending indices as contiguous ranges. */
@@ -624,6 +634,7 @@ private class CastTransferCallback(
         if (targetPlayer !is RemoteCastPlayer) {
             val rescue = handOver.rescue
             val lastRemote = handOver.lastRemote
+            val handedOver = handOver.state
             handOver.state = null
             handOver.rescue = null
             handOver.lastRemote = null
@@ -644,7 +655,9 @@ private class CastTransferCallback(
             val shuffle = handOver.phoneShuffle
             handOver.phoneShuffle = null
             val music = back.mediaItems.getOrNull(back.currentMediaItemIndex)?.songId != null
-            val withShuffle = if (shuffle != null && music) back.buildUpon().setShuffleModeEnabled(shuffle).build() else back
+            // With shuffle the receiver got a shuffled list ([castableState]); the phone gets its list order back.
+            val ordered = if (shuffle == true && music && handedOver != null) back.inOrderOf(handedOver) else back
+            val withShuffle = if (shuffle != null && music) ordered.buildUpon().setShuffleModeEnabled(shuffle).build() else ordered
             withShuffle.playableOnPhone(rebuild).setToPlayer(targetPlayer)
             reserve.clear()
             return

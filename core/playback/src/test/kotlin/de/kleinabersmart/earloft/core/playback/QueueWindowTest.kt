@@ -1,6 +1,7 @@
 package de.kleinabersmart.earloft.core.playback
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
@@ -10,8 +11,20 @@ class QueueWindowTest {
     private val items = (0 until 100).toList()
 
     @Test
-    fun `short queues stay untouched`() {
-        assertEquals(QueueWindow(items, 42), queueWindow(items, 42, maxSize = 100, shuffle = true))
+    fun `short queues stay untouched in order`() {
+        assertEquals(QueueWindow(items, 42), queueWindow(items, 42, maxSize = 100, shuffle = false))
+        assertEquals(QueueWindow(emptyList<Int>(), 0), queueWindow(emptyList<Int>(), 0, maxSize = 50, shuffle = true))
+    }
+
+    @Test
+    fun `shuffled a short queue starts with the start item and keeps nothing before it`() {
+        val window = queueWindow(items, 42, maxSize = 100, shuffle = true, random = Random(1))
+
+        assertEquals(0, window.startIndex)
+        assertEquals(42, window.items.first())
+        assertEquals(items, window.items.sorted())
+        assertNotEquals(items, window.items)
+        assertTrue(window.before.isEmpty() && window.after.isEmpty())
     }
 
     @Test
@@ -27,12 +40,13 @@ class QueueWindowTest {
     }
 
     @Test
-    fun `shuffled the start item is kept and the rest is sampled from the whole list`() {
+    fun `shuffled the start item comes first and the rest is sampled from the whole list in random order`() {
         val window = queueWindow(items, 70, maxSize = 50, shuffle = true, random = Random(1))
 
         assertEquals(50, window.items.size)
-        assertEquals(70, window.items[window.startIndex])
-        assertEquals(window.items.sorted(), window.items)
+        assertEquals(0, window.startIndex)
+        assertEquals(70, window.items.first())
+        assertNotEquals(window.items.sorted(), window.items)
         assertEquals(50, window.items.toSet().size)
         assertTrue(window.items.any { it < 20 } && window.items.any { it > 90 })
     }
@@ -43,7 +57,27 @@ class QueueWindowTest {
 
         assertTrue(window.before.isEmpty())
         assertEquals(50, window.after.size)
+        assertNotEquals(window.after.sorted(), window.after)
         assertEquals(items, (window.items + window.after).sorted())
+    }
+
+    @Test
+    fun `restoreOrder puts a shuffled queue back into list order and follows the current item`() {
+        val window = queueWindow(items, 70, maxSize = 50, shuffle = true, random = Random(1))
+        val shuffled = window.items + window.after
+        val current = shuffled.indexOf(12)
+
+        assertEquals(items to 12, restoreOrder(shuffled, current, items) { it })
+    }
+
+    @Test
+    fun `restoreOrder appends unknown items and matches duplicates in turn`() {
+        val original = listOf("a", "b", "a", "c")
+
+        assertEquals(listOf("a", "b", "a", "c", "x") to 4, restoreOrder(listOf("c", "a", "x", "a", "b"), 2, original) { it })
+        // Removed while casting: simply missing.
+        assertEquals(listOf("a", "c") to 0, restoreOrder(listOf("c", "a"), 1, original) { it })
+        assertEquals(listOf("b") to -1, restoreOrder(listOf("b"), -1, original) { it })
     }
 
     @Test
