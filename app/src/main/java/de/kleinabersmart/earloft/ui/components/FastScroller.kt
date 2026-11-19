@@ -86,6 +86,7 @@ fun LazyListFastScroller(
     FastScroller(
         itemCount = itemCount,
         firstVisibleIndex = { state.firstVisibleItemIndex },
+        visibleCount = { state.layoutInfo.visibleItemsInfo.size },
         isScrolling = state.isScrollInProgress,
         scrollToItem = { state.scrollToItem(it) },
         labelAt = labelAt,
@@ -120,6 +121,7 @@ fun LazyGridFastScroller(state: LazyGridState, modifier: Modifier = Modifier, la
     FastScroller(
         itemCount = itemCount,
         firstVisibleIndex = { state.firstVisibleItemIndex },
+        visibleCount = { state.layoutInfo.visibleItemsInfo.size },
         isScrolling = state.isScrollInProgress,
         scrollToItem = { state.scrollToItem(it) },
         labelAt = labelAt,
@@ -136,6 +138,7 @@ fun LazyGridFastScroller(state: LazyGridState, modifier: Modifier = Modifier, la
 private fun FastScroller(
     itemCount: Int,
     firstVisibleIndex: () -> Int,
+    visibleCount: () -> Int,
     isScrolling: Boolean,
     scrollToItem: suspend (Int) -> Unit,
     labelAt: ((Int) -> String)?,
@@ -149,6 +152,7 @@ private fun FastScroller(
     val currentCount by rememberUpdatedState(itemCount)
     val currentScrollTo by rememberUpdatedState(scrollToItem)
     val currentOnDragStart by rememberUpdatedState(onDragStart)
+    val currentVisibleCount by rememberUpdatedState(visibleCount)
 
     LaunchedEffect(isScrolling, dragging) {
         if (isScrolling || dragging) {
@@ -165,9 +169,11 @@ private fun FastScroller(
         val thumbPx = with(density) { THUMB_HEIGHT.toPx() }
         val rangePx = (trackPx - thumbPx).coerceAtLeast(1f)
 
-        // Read only during placement: scrolling then only moves the thumb without recomposing.
+        // Read only during placement: scrolling then only moves the thumb without recomposing. At the end of the list the first
+        // visible row is the one [lastFirstIndex] returns, so the thumb reaches the bottom also for short lists.
         val thumbTop = {
-            val listFraction = if (itemCount > 1) firstVisibleIndex().coerceIn(0, itemCount - 1) / (itemCount - 1f) else 0f
+            val last = lastFirstIndex(itemCount, visibleCount())
+            val listFraction = if (last > 0) firstVisibleIndex().coerceIn(0, last) / last.toFloat() else 0f
             ((if (dragging) dragFraction else listFraction) * rangePx).roundToInt()
         }
 
@@ -187,14 +193,14 @@ private fun FastScroller(
                                 currentOnDragStart()
                                 dragging = true
                                 dragFraction = ((offset.y - thumbPx / 2) / rangePx).coerceIn(0f, 1f)
-                                scrollTo(scope, currentScrollTo, currentCount, dragFraction)
+                                scrollTo(scope, currentScrollTo, lastFirstIndex(currentCount, currentVisibleCount()), dragFraction)
                             },
                             onDragEnd = { dragging = false },
                             onDragCancel = { dragging = false },
                             onVerticalDrag = { change, _ ->
                                 change.consume()
                                 dragFraction = ((change.position.y - thumbPx / 2) / rangePx).coerceIn(0f, 1f)
-                                scrollTo(scope, currentScrollTo, currentCount, dragFraction)
+                                scrollTo(scope, currentScrollTo, lastFirstIndex(currentCount, currentVisibleCount()), dragFraction)
                             },
                         )
                     },
@@ -219,7 +225,7 @@ private fun FastScroller(
                 .offset { IntOffset(0, thumbTop() + (thumbPx / 2 - with(density) { BUBBLE_SIZE.toPx() } / 2).roundToInt()) }
                 .padding(end = TOUCH_WIDTH + 8.dp),
         ) {
-            val labelIndex = if (dragging) (dragFraction * (itemCount - 1)).roundToInt() else firstVisibleIndex()
+            val labelIndex = if (dragging) (dragFraction * lastFirstIndex(itemCount, visibleCount())).roundToInt() else firstVisibleIndex()
             // One or two characters: circle; longer labels ("#100", years) turn it into a pill.
             Box(
                 modifier = Modifier
@@ -239,13 +245,20 @@ private fun FastScroller(
     }
 }
 
+/** [lastIndex]: the first visible row at the end of the list ([lastFirstIndex]). */
 private fun scrollTo(
     scope: CoroutineScope,
     scrollToItem: suspend (Int) -> Unit,
-    count: Int,
+    lastIndex: Int,
     fraction: Float,
 ) {
-    if (count <= 0) return
-    val index = (fraction * (count - 1)).roundToInt().coerceIn(0, count - 1)
+    if (lastIndex < 0) return
+    val index = (fraction * lastIndex).roundToInt().coerceIn(0, lastIndex)
     scope.launch { scrollToItem(index) }
 }
+
+/**
+ * The first visible row once the list is scrolled to its end: [count] minus the rows that fit, at least the last row while nothing is
+ * laid out yet. Thumb position and jump both refer to it.
+ */
+internal fun lastFirstIndex(count: Int, visible: Int): Int = if (count <= 0) -1 else (count - visible.coerceAtLeast(1)).coerceAtLeast(0)

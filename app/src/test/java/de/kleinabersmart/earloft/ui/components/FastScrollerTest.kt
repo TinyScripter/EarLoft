@@ -24,4 +24,14 @@ class FastScrollerTest {
     fun `the plain letter keeps the first character as it is`() {
         assertEquals("Ö", letterOf("Ödön"))
     }
+
+    @Test
+    fun `at the end of a short list the first visible row is the reference, not the last row`() {
+        // 15 chapters, 6 fit: at the end rows 9..14 are visible, so the thumb is at the bottom with row 9 first.
+        assertEquals(9, lastFirstIndex(count = 15, visible = 6))
+        // Nothing laid out yet: the last row, as before.
+        assertEquals(14, lastFirstIndex(count = 15, visible = 0))
+        assertEquals(0, lastFirstIndex(count = 3, visible = 5))
+        assertEquals(-1, lastFirstIndex(count = 0, visible = 0))
+    }
 }
