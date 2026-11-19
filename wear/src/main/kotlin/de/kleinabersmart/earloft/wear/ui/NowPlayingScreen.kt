@@ -148,11 +148,16 @@ private fun NowPlayingHost(
     onOpenChapters: () -> Unit = {},
 ) {
     val modelState by model.state.collectAsStateWithLifecycle()
-    // For books with chapters the ring only applies to the current chapter; position and length of the models are book times.
-    val window = ringWindow(modelState.spoken, chapter)
-    val state = if (window != null) modelState.copy(durationMs = window.durationMs) else modelState
     // Passed on as a lambda and only read while drawing: otherwise the 500 ms tick recomposes the whole view.
     val position = model.positionMs.collectAsStateWithLifecycle()
+    // Before the first chapter or after the last one (the chapters don't cover the whole book) the ring shows the whole book;
+    // otherwise it would stand at 0 or 100 % there. Recomposes only when this changes, not per tick.
+    val insideChapter by remember(chapter) {
+        derivedStateOf { chapter != null && position.value >= chapter.startMs && position.value < chapter.endMs }
+    }
+    // For books with chapters the ring only applies to the current chapter; position and length of the models are book times.
+    val window = ringWindow(modelState.spoken, chapter.takeIf { insideChapter })
+    val state = if (window != null) modelState.copy(durationMs = window.durationMs) else modelState
     val positionMs = remember(position, window) {
         if (window != null) { { window.toRing(position.value) } } else { { position.value } }
     }
@@ -160,7 +165,12 @@ private fun NowPlayingHost(
     val volume by model.volume.collectAsStateWithLifecycle()
     val volumeVisible by model.volumeVisible.collectAsStateWithLifecycle()
     val seedColor by model.seedColor.collectAsStateWithLifecycle()
-    val sleepTimerRemainingMs by model.sleepTimerRemainingMs.collectAsStateWithLifecycle()
+    // The badge shows whole minutes: read only inside derivedStateOf and rounded up to the minute, the 1 s tick of the timer
+    // recomposes the view once a minute.
+    val sleepTimer = model.sleepTimerRemainingMs.collectAsStateWithLifecycle()
+    val sleepTimerRemainingMs by remember(sleepTimer) {
+        derivedStateOf { sleepTimer.value?.let { minutesLeft(it) * MS_PER_MINUTE } }
+    }
     val context = LocalContext.current
     AlbumColorTheme(seedColor) {
         NowPlayingContent(

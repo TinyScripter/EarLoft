@@ -46,7 +46,7 @@ import de.kleinabersmart.earloft.wear.R
 /** Rounded up to whole minutes: until it expires, "1 min" is shown instead of "0 min". */
 internal fun minutesLeft(remainingMs: Long): Int = ((remainingMs + MS_PER_MINUTE - 1) / MS_PER_MINUTE).toInt()
 
-private const val MS_PER_MINUTE = 60_000L
+internal const val MS_PER_MINUTE = 60_000L
 
 /** Choose the phone's sleep timer (remote control, Wear concept 15). */
 @Composable
