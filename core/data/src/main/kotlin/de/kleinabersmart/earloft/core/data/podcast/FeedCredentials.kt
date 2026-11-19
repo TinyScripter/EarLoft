@@ -97,7 +97,7 @@ class FeedCredentials @Inject constructor(
         val json = JSONObject(stored)
         json.getString(SCOPE).toHttpUrlOrNull()?.let { FeedAuth(it, json.getString(USER), json.getString(PASSWORD)) }
     } catch (e: JSONException) {
-        Log.w(TAG, "Zugangsdaten eines Abos sind unlesbar", e)
+        Log.w(TAG, "Credentials of a subscription are unreadable", e)
         null
     }
 

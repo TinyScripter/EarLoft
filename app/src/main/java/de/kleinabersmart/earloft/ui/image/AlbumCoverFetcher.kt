@@ -29,7 +29,7 @@ class AlbumCoverFetcher(
             options.size.height.pxOrElse { DEFAULT_SIZE_PX },
         ).coerceAtMost(MAX_SIZE_PX)
         val bitmap = artworkRepository.albumCover(albumId, sizePx)
-            ?: throw IOException("Kein Cover für Album $albumId")
+            ?: throw IOException("No cover for album $albumId")
         return ImageFetchResult(
             image = bitmap.asImage(),
             isSampled = true,

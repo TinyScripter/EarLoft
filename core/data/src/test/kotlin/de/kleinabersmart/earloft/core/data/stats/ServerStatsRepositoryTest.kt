@@ -63,7 +63,7 @@ class ServerStatsRepositoryTest {
         }
         db.bookDao().upsertServer(SpokenServerEntity("srv", "Server", "https://abs.example/"))
         db.bookDao().upsertBook(
-            BookEntity(serverId = "srv", kind = BookKind.BOOK, remoteId = "item-1", title = "Buch Eins", normTitle = "buch eins", author = "A", durationMs = 1),
+            BookEntity(serverId = "srv", kind = BookKind.BOOK, remoteId = "item-1", title = "Book One", normTitle = "book one", author = "A", durationMs = 1),
         )
         repository = ServerStatsRepository(db.statsDao(), db.bookDao(), testAudiobookshelfServers(db.bookDao(), secrets, api), api)
     }
@@ -81,7 +81,7 @@ class ServerStatsRepositoryTest {
         assertEquals(36_000_000L, stats.totalMs)
         assertEquals(1_800_000L, stats.todayMs)
         assertEquals(3, stats.streakDays)
-        assertEquals(listOf("Buch Eins", "Fremdes Buch"), stats.books.map { it.title })
+        assertEquals(listOf("Book One", "Foreign Book"), stats.books.map { it.title })
         assertEquals(listOf(true, false), stats.books.map { it.bookId != null })
         assertEquals(12, stats.months.size)
         assertEquals(1_800_000L + 3_600_000L, stats.months.last().listenedMs)
@@ -126,9 +126,9 @@ class ServerStatsRepositoryTest {
         val RESPONSE = """
             {"totalTime":36000,"today":1800,
              "items":{
-               "item-1":{"id":"item-1","timeListening":20000,"mediaMetadata":{"title":"Buch Eins","authorName":"A"},"lastUpdate":1},
-               "item-9":{"id":"item-9","timeListening":5000,"mediaMetadata":{"title":"Fremdes Buch"},"lastUpdate":2},
-               "item-0":{"id":"item-0","timeListening":0,"mediaMetadata":{"title":"Nie"},"lastUpdate":3}},
+               "item-1":{"id":"item-1","timeListening":20000,"mediaMetadata":{"title":"Book One","authorName":"A"},"lastUpdate":1},
+               "item-9":{"id":"item-9","timeListening":5000,"mediaMetadata":{"title":"Foreign Book"},"lastUpdate":2},
+               "item-0":{"id":"item-0","timeListening":0,"mediaMetadata":{"title":"Never"},"lastUpdate":3}},
              "days":{"2026-11-02":1800,"2026-11-01":3600,"2026-10-31":7200,"2026-10-01":100},
              "dayOfWeek":{"Monday":10800,"Tuesday":0,"Sunday":3600},
              "recentSessions":[]}

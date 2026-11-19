@@ -41,8 +41,8 @@ class SpokenEffectsRepositoryTest {
         settings.setPodcastEffects(SpokenEffects.DEFAULT)
         repository = SpokenEffectsRepository(db.bookDao(), db.podcastDao(), settings)
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = FEED_ID, url = "https://example.org/feed", title = "Podcast", speed = 1.5f, skipIntroS = 30))
-        episodeId = db.bookDao().upsertBook(book(FEED_ID, BookKind.EPISODE, "folge"))
-        bookId = db.bookDao().upsertBook(book(LOCAL_BOOK_SERVER_ID, BookKind.BOOK, "buch"))
+        episodeId = db.bookDao().upsertBook(book(FEED_ID, BookKind.EPISODE, "episode"))
+        bookId = db.bookDao().upsertBook(book(LOCAL_BOOK_SERVER_ID, BookKind.BOOK, "book"))
         db.bookDao().upsertProgress(BookProgressEntity(episodeId, positionMs = 0, durationMs = HOUR_MS, updatedAt = 1))
         db.bookDao().upsertProgress(BookProgressEntity(bookId, positionMs = 0, durationMs = HOUR_MS, updatedAt = 1))
     }
@@ -99,7 +99,7 @@ class SpokenEffectsRepositoryTest {
     @Test
     fun `a changed area default reaches books without own values`() = runTest {
         repository.setSpeed(bookId, 1.75f)
-        val other = db.bookDao().upsertBook(book(LOCAL_BOOK_SERVER_ID, BookKind.BOOK, "anderes"))
+        val other = db.bookDao().upsertBook(book(LOCAL_BOOK_SERVER_ID, BookKind.BOOK, "other"))
 
         settings.setBookEffects(SpokenEffects(speed = 1.3f))
 

@@ -109,7 +109,7 @@ internal class PhoneMediaServer @Inject constructor(
         val port = try {
             server.start(PREFERRED_PORT)
         } catch (e: IOException) {
-            Log.w(TAG, "Server startet nicht", e)
+            Log.w(TAG, "Server does not start", e)
             return null
         }
         keepAwake()
@@ -162,7 +162,7 @@ internal class PhoneMediaServer @Inject constructor(
             override val mimeType = file.mimeType
             override val length = length
             override fun open(offset: Long): InputStream {
-                val descriptor = context.contentResolver.openFileDescriptor(uri, "r") ?: throw IOException("Nicht lesbar")
+                val descriptor = context.contentResolver.openFileDescriptor(uri, "r") ?: throw IOException("Not readable")
                 return ParcelFileDescriptor.AutoCloseInputStream(descriptor).apply { channel.position(offset) }
             }
         }

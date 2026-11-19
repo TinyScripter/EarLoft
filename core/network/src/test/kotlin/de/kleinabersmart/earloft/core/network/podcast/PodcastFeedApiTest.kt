@@ -19,28 +19,28 @@ class PodcastFeedApiTest {
     @Test
     fun `invalid feed urls are rejected`() {
         assertNull(normalizeFeedUrl(""))
-        assertNull(normalizeFeedUrl("kein feed"))
+        assertNull(normalizeFeedUrl("not a feed"))
         assertNull(normalizeFeedUrl("ftp://example.com/rss"))
-        assertNull(normalizeFeedUrl("hallo"))
+        assertNull(normalizeFeedUrl("hello"))
     }
 
     @Test
     fun `chapters are sorted and fractional starts kept`() {
         val chapters = parseChapters(
             """{"version":"1.2.0","chapters":[
-                {"startTime":61.5,"title":" Zwei "},
-                {"startTime":0,"title":"Eins","img":"https://example.com/1.jpg","url":"https://example.com/eins"},
-                {"startTime":30,"title":"Relativ","img":"x.png","url":"/seite"},
-                {"startTime":40,"endTime":45,"title":"Spende","img":"https://example.com/spende.png","toc":false},
-                {"startTime":-3,"title":"kaputt"}
+                {"startTime":61.5,"title":" Two "},
+                {"startTime":0,"title":"One","img":"https://example.com/1.jpg","url":"https://example.com/one"},
+                {"startTime":30,"title":"Relative","img":"x.png","url":"/page"},
+                {"startTime":40,"endTime":45,"title":"Donation","img":"https://example.com/donation.png","toc":false},
+                {"startTime":-3,"title":"broken"}
             ]}""",
         )
         assertEquals(
             listOf(
-                ParsedChapter(0, "Eins", "https://example.com/1.jpg", "https://example.com/eins"),
+                ParsedChapter(0, "One", "https://example.com/1.jpg", "https://example.com/one"),
                 // Relative addresses are useless without a base; the silent chapter (toc: false) is missing.
-                ParsedChapter(30_000, "Relativ"),
-                ParsedChapter(61_500, "Zwei"),
+                ParsedChapter(30_000, "Relative"),
+                ParsedChapter(61_500, "Two"),
             ),
             chapters,
         )

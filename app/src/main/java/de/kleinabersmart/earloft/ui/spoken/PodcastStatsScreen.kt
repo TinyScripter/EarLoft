@@ -37,6 +37,7 @@ import de.kleinabersmart.earloft.ui.components.ListGroup
 import de.kleinabersmart.earloft.ui.components.SectionHeader
 import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.components.keepHorizontalScroll
+import de.kleinabersmart.earloft.ui.formatPercent
 import de.kleinabersmart.earloft.ui.valueOrNull
 import java.time.Month
 import java.time.format.TextStyle
@@ -173,7 +174,7 @@ internal fun SilenceSavedLine(savedMs: Long) {
 
 @Composable
 private fun PodcastRow(podcast: PodcastListening, share: Float, totalMs: Long, onFeedClick: (String) -> Unit) {
-    val percent = (podcast.listenedMs * 100 / totalMs.coerceAtLeast(1)).toInt()
+    val percent = formatPercent(podcast.listenedMs.toDouble() / totalMs.coerceAtLeast(1), LocalConfiguration.current.locales[0])
     val feedId = podcast.feedId
     ListItem(
         headlineContent = { Text(podcast.title) },
@@ -185,7 +186,7 @@ private fun PodcastRow(podcast: PodcastListening, share: Float, totalMs: Long, o
                     feedId == null -> " · " + stringResource(R.string.podcast_stats_unsubscribed)
                     else -> ""
                 }
-                Text("$episodes$percent %$note")
+                Text("$episodes$percent$note")
                 LinearProgressIndicator(progress = { share.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
             }
         },

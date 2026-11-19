@@ -13,7 +13,7 @@ class LocalBookLayoutTest {
                 row(1, "/storage/emulated/0/Audiobooks/Wurst.m4b"),
                 row(2, "/storage/emulated/0/Audiobooks/Ringe/b.mp3"),
                 row(3, "/storage/emulated/0/Audiobooks/Ringe/a.mp3"),
-                row(4, "/storage/emulated/0/Music/lied.mp3"),
+                row(4, "/storage/emulated/0/Music/song.mp3"),
             ),
         )
 
@@ -54,7 +54,7 @@ class LocalBookLayoutTest {
     @Test
     fun `file names are compared with numbers as numbers`() {
         val sorted = LocalBookLayout.sortInReadingOrder(
-            listOf(row(1, "/Audiobooks/B/Kapitel 10.mp3"), row(2, "/Audiobooks/B/Kapitel 2.mp3")),
+            listOf(row(1, "/Audiobooks/B/Chapter 10.mp3"), row(2, "/Audiobooks/B/Chapter 2.mp3")),
         )
 
         assertEquals(listOf(2L, 1L), sorted.map { it.id })
@@ -70,7 +70,7 @@ class LocalBookLayoutTest {
     @Test
     fun `chapter title drops what follows the bar and falls back to the file name`() {
         assertEquals("Der Herr der Ringe (04/30): Verfolger", LocalBookLayout.chapterTitle("Der Herr der Ringe (04/30): Verfolger | Tolkien", "x.mp3"))
-        assertEquals("Kapitel 1", LocalBookLayout.chapterTitle(null, "Kapitel_1.mp3"))
+        assertEquals("Chapter 1", LocalBookLayout.chapterTitle(null, "Chapter_1.mp3"))
     }
 
     @Test
@@ -81,7 +81,7 @@ class LocalBookLayoutTest {
             "Ringe",
             listOf(row(1, "/Audiobooks/Ringe/a.mp3", title = "1", album = "Tolkien: Ringe"), row(2, "/Audiobooks/Ringe/b.mp3", title = "2", album = "Tolkien: Ringe")),
         )
-        val untagged = LocalBookFiles("Audiobooks/Leer/", "Leer", listOf(row(1, "/Audiobooks/Leer/a.mp3", album = "<unknown>", artist = "<unknown>")))
+        val untagged = LocalBookFiles("Audiobooks/Empty/", "Empty", listOf(row(1, "/Audiobooks/Empty/a.mp3", album = "<unknown>", artist = "<unknown>")))
 
         assertEquals("Wurst", LocalBookLayout.bookTitle(single))
         assertEquals("Kalpenstein", LocalBookLayout.bookAuthor(single))
@@ -91,17 +91,17 @@ class LocalBookLayoutTest {
 
     @Test
     fun `without tags the folder title counts, not what MediaStore fills in`() {
-        // MediaStore: Titel = Dateiname, Album = Ordnername.
+        // MediaStore: title = file name, album = folder name.
         val inFolder = LocalBookFiles(
-            "Audiobooks/A/S/1 – Titel/",
-            "1 – Titel",
-            listOf(row(1, "/storage/emulated/0/Audiobooks/A/S/1 – Titel/01.mp3", title = "01", album = "1 – Titel")),
+            "Audiobooks/A/S/1 – Title/",
+            "1 – Title",
+            listOf(row(1, "/storage/emulated/0/Audiobooks/A/S/1 – Title/01.mp3", title = "01", album = "1 – Title")),
         )
-        val inRoot = LocalBookFiles("Audiobooks/Buch.mp3", null, listOf(row(2, "/storage/emulated/0/Audiobooks/Buch.mp3", title = "Buch", album = "Audiobooks")))
+        val inRoot = LocalBookFiles("Audiobooks/Book.mp3", null, listOf(row(2, "/storage/emulated/0/Audiobooks/Book.mp3", title = "Book", album = "Audiobooks")))
 
-        assertEquals("Titel", LocalBookLayout.bookTitle(inFolder, "Titel"))
-        assertEquals("1 – Titel", LocalBookLayout.bookTitle(inFolder))
-        assertEquals("Buch", LocalBookLayout.bookTitle(inRoot))
+        assertEquals("Title", LocalBookLayout.bookTitle(inFolder, "Title"))
+        assertEquals("1 – Title", LocalBookLayout.bookTitle(inFolder))
+        assertEquals("Book", LocalBookLayout.bookTitle(inRoot))
     }
 
     @Test

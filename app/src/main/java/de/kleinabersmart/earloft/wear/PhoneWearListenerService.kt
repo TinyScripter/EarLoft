@@ -145,7 +145,7 @@ class PhoneWearListenerService : WearableListenerService() {
                 path.startsWith(WearPaths.PLAYS_PREFIX) -> applicationScope.launch { importPlays(uri, payload) }
                 path.startsWith(WearPaths.EPISODES_PREFIX) -> applicationScope.launch { importEpisodes(uri, payload) }
                 path == WearPaths.PHONE_WANTED -> uri.host?.let { watchNode ->
-                    Log.d(TAG, "Uhr $watchNode wartet aufs Handy, melde mich")
+                    Log.d(TAG, "Watch $watchNode is waiting for the phone, answering")
                     applicationScope.launch { messageClient.sendPayload(watchNode, WearPaths.PHONE_BACK, payload) }
                 }
             }
@@ -156,13 +156,13 @@ class PhoneWearListenerService : WearableListenerService() {
         val packet = try {
             WearCodec.decode<WearPlaysDto>(payload)
         } catch (e: SerializationException) {
-            Log.w(TAG, "$uri nicht lesbar", e)
+            Log.w(TAG, "$uri not readable", e)
             // A broken package would otherwise stay around forever.
             dataClient.delete(uri)
             return
         }
         val imported = playImporter.import(packet.packetId, packet.plays.map { WatchPlay(it.songUid, it.playedAt, it.listenedMs) })
-        Log.d(TAG, "Paket ${packet.packetId}: $imported von ${packet.plays.size} Wiedergaben übernommen")
+        Log.d(TAG, "Packet ${packet.packetId}: $imported of ${packet.plays.size} plays imported")
         dataClient.delete(uri)
     }
 
@@ -170,7 +170,7 @@ class PhoneWearListenerService : WearableListenerService() {
         val report = try {
             WearCodec.decode<WearEpisodeReportDto>(payload)
         } catch (e: SerializationException) {
-            Log.w(TAG, "$uri nicht lesbar", e)
+            Log.w(TAG, "$uri not readable", e)
             dataClient.delete(uri)
             return
         }
@@ -182,7 +182,7 @@ class PhoneWearListenerService : WearableListenerService() {
             },
             listening = report.listening.map { WatchEpisodeListening(it.feedId, it.guid, it.listenedMs, it.at) },
         )
-        Log.d(TAG, "Paket ${report.packetId} (Folgen/Bücher): $applied von ${report.progress.size} Fortschritten, ${report.listening.size} Zeiten")
+        Log.d(TAG, "Packet ${report.packetId} (episodes/books): $applied of ${report.progress.size} progress entries, ${report.listening.size} listening times")
         dataClient.delete(uri)
     }
 
@@ -206,7 +206,7 @@ class PhoneWearListenerService : WearableListenerService() {
                 thumbnail != null -> thumbnails.open(thumbnail)?.let { PhoneFile(it.size.toLong(), ByteArrayInputStream(it)) }
                 else -> fileLocator.open(sourceUid)
             }
-            Log.d(TAG, "Datei $sourceUid für die Uhr: ${file?.length?.let { "$it Bytes ab $from" } ?: "keine Datei"}")
+            Log.d(TAG, "File $sourceUid for the watch: ${file?.length?.let { "$it bytes from $from" } ?: "no file"}")
             val send: suspend () -> Unit = { channelClient.sendFile(channel, file?.length ?: 0, file?.input, from) }
             // Images are small and come by the dozen when browsing lists; no work request for them.
             if (file != null && cover == null && thumbnail == null) transfers.track(send) else send()
@@ -220,7 +220,7 @@ class PhoneWearListenerService : WearableListenerService() {
     private suspend fun sendPassword(nodeId: String, sourceId: String) {
         val password = serverMirror.password(sourceId) ?: audiobookshelf.apiKey(sourceId)
         if (password == null) {
-            Log.w(TAG, "Kein Passwort für $sourceId")
+            Log.w(TAG, "No password for $sourceId")
             return
         }
         val credentials = WearCredentialsDto(sourceId, password, serverMirror.deviceId(sourceId))
@@ -230,10 +230,10 @@ class PhoneWearListenerService : WearableListenerService() {
     private inline fun <reified T> decodeOrNull(event: MessageEvent): T? = try {
         WearCodec.decode<T>(event.data)
     } catch (e: SerializationException) {
-        Log.w(TAG, "${event.path} nicht lesbar", e)
+        Log.w(TAG, "${event.path} not readable", e)
         null
     } catch (e: IllegalArgumentException) {
-        Log.w(TAG, "${event.path} nicht lesbar", e)
+        Log.w(TAG, "${event.path} not readable", e)
         null
     }
 

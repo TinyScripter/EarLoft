@@ -8,7 +8,7 @@ import org.junit.Test
 class SavedMusicQueueTest {
 
     private fun song(id: Long) = Song(
-        id = id, title = "Titel $id", artist = "Band", albumId = 7, albumTitle = "Album",
+        id = id, title = "Title $id", artist = "Band", albumId = 7, albumTitle = "Album",
         durationMs = 1_000, discNumber = 1, trackNumber = id.toInt(), isFavorite = false,
     )
 
@@ -17,7 +17,7 @@ class SavedMusicQueueTest {
         val saved = savedMusicQueueOf(listOf(song(1), song(2)), savedIndex = 1)!!
 
         assertEquals(1, saved.index)
-        assertEquals(QueueEntry(songId = 2, title = "Titel 2", artist = "Band", albumId = 7, albumTitle = "Album"), saved.entries[1])
+        assertEquals(QueueEntry(songId = 2, title = "Title 2", artist = "Band", albumId = 7, albumTitle = "Album"), saved.entries[1])
     }
 
     @Test

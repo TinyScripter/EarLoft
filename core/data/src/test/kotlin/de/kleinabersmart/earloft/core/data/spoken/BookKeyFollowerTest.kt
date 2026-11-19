@@ -44,9 +44,9 @@ class BookKeyFollowerTest {
             podcastDao = db.podcastDao(),
             statsDao = db.statsDao(),
             music = MusicBackup(db.backupDao(), db.playlistDao(), db.syncDao()),
-            restoreNotice = RestoreNotice(context, { error("nicht gebraucht") }, { error("nicht gebraucht") }),
-            registry = Lazy<DataSourceRegistry> { error("nicht gebraucht") },
-            ardBooks = { error("nicht gebraucht") },
+            restoreNotice = RestoreNotice(context, { error("not needed") }, { error("not needed") }),
+            registry = Lazy<DataSourceRegistry> { error("not needed") },
+            ardBooks = { error("not needed") },
             scope = TestScope(),
         )
         val renamer = object : BookKeyRenamer {
@@ -65,7 +65,7 @@ class BookKeyFollowerTest {
 
     @Test
     fun `a book under a new key keeps queue, statistics and drops the saved progress of the old key`() = runTest {
-        listOf("group:alt" to 60_000L, "group:neu" to 5_000L, "group:andere" to 1_000L).forEach { (key, ms) ->
+        listOf("group:old" to 60_000L, "group:new" to 5_000L, "group:other" to 1_000L).forEach { (key, ms) ->
             db.statsDao().addListening(
                 ListeningStatEntity(source = ListeningStatEntity.SOURCE_APP, kind = BookKind.BOOK, groupKey = ARD_BOOK_SERVER_ID,
                     groupTitle = "ARD Sounds", itemKey = key, itemTitle = key, listenedMs = ms, lastListenedAt = ms),
@@ -74,19 +74,19 @@ class BookKeyFollowerTest {
         }
         user.openHelper.writableDatabase.execSQL(
             "INSERT INTO book_progress (serverId, remoteId, positionMs, durationMs, finished, speed, updatedAt, dirty) " +
-                "VALUES ('$ARD_BOOK_SERVER_ID', 'group:alt', 60000, 600000, 0, 1.0, 100, 0)",
+                "VALUES ('$ARD_BOOK_SERVER_ID', 'group:old', 60000, 600000, 0, 1.0, 100, 0)",
         )
 
-        follower.moved(ARD_BOOK_SERVER_ID, mapOf("group:alt" to "group:neu"))
+        follower.moved(ARD_BOOK_SERVER_ID, mapOf("group:old" to "group:new"))
 
         // Both entries now count together under the new key; the days stay.
         assertEquals(
-            mapOf("group:neu" to 65_000L, "group:andere" to 1_000L),
+            mapOf("group:new" to 65_000L, "group:other" to 1_000L),
             db.statsDao().all().associate { it.itemKey to it.listenedMs },
         )
         assertEquals(66_000L, db.statsDao().allDays().sumOf { it.listenedMs })
         assertEquals(
-            listOf(mapOf(BookKeys.encode(ARD_BOOK_SERVER_ID, "group:alt") to BookKeys.encode(ARD_BOOK_SERVER_ID, "group:neu"))),
+            listOf(mapOf(BookKeys.encode(ARD_BOOK_SERVER_ID, "group:old") to BookKeys.encode(ARD_BOOK_SERVER_ID, "group:new"))),
             renamed,
         )
         assertEquals(0, user.openHelper.readableDatabase.query("SELECT * FROM book_progress").use { it.count })

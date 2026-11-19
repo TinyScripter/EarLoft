@@ -12,11 +12,11 @@ class OpmlTest {
             <?xml version="1.0" encoding="UTF-8"?>
             <opml version="2.0"><head><title>x</title></head><body>
               <outline text="Kalk &amp; Welk" title="Kalk &amp; Welk" type="atom" xmlUrl="https://a.example/feed?x=1&amp;y=2" htmlUrl="https://a.example/" />
-              <outline text="Gruppe">
-                <outline text="Nur Text" xmlUrl="feed://b.example/rss" />
+              <outline text="Group">
+                <outline text="Text only" xmlUrl="feed://b.example/rss" />
               </outline>
-              <outline text="Ohne Feed" />
-              <outline text="Kaputt" xmlUrl="kein feed" />
+              <outline text="Without feed" />
+              <outline text="Broken" xmlUrl="not a feed" />
             </body></opml>
         """.trimIndent()
 
@@ -25,7 +25,7 @@ class OpmlTest {
         assertEquals(
             listOf(
                 OpmlFeed("Kalk & Welk", "https://a.example/feed?x=1&y=2", "https://a.example/"),
-                OpmlFeed("Nur Text", "https://b.example/rss"),
+                OpmlFeed("Text only", "https://b.example/rss"),
             ),
             feeds,
         )
@@ -33,9 +33,9 @@ class OpmlTest {
 
     @Test
     fun `written opml reads back unchanged`() {
-        val feeds = listOf(OpmlFeed("A & \"B\" <C>", "https://a.example/feed?x=1&y=2"), OpmlFeed("Zwei", "https://b.example/rss"))
+        val feeds = listOf(OpmlFeed("A & \"B\" <C>", "https://a.example/feed?x=1&y=2"), OpmlFeed("Two", "https://b.example/rss"))
 
-        val text = Opml.write(feeds, "Abos", "Mon, 2 Nov 2026 14:10:40 +0100")
+        val text = Opml.write(feeds, "Subscriptions", "Mon, 2 Nov 2026 14:10:40 +0100")
 
         assertEquals(feeds, Opml.parse(text.byteInputStream()))
     }
@@ -43,6 +43,6 @@ class OpmlTest {
     @Test
     fun `rejects other xml and non xml`() {
         assertThrows(OpmlException::class.java) { Opml.parse("<rss/>".byteInputStream()) }
-        assertThrows(OpmlException::class.java) { Opml.parse("kein xml".byteInputStream()) }
+        assertThrows(OpmlException::class.java) { Opml.parse("not xml".byteInputStream()) }
     }
 }

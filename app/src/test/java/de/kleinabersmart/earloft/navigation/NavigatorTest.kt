@@ -167,7 +167,7 @@ class NavigatorTest {
 
     @Test
     fun `ending a subscription from the menu closes only its settings`() {
-        // Langklick auf das Abo in der Bibliothek → Einstellungen → Abo beenden.
+        // Long press on the subscription in the library → settings → unsubscribe.
         navigator.navigate(LibraryRoute)
         navigator.navigate(PodcastSettingsRoute("a"))
 

@@ -8,10 +8,10 @@ import org.junit.Test
 class MediaStoreTrackMapperTest {
 
     private val names = FallbackNames(
-        unknownTitle = "Unbekannter Titel",
-        unknownArtist = "Unbekannter Künstler",
-        unknownAlbum = "Unbekanntes Album",
-        variousArtists = "Verschiedene Künstler",
+        unknownTitle = "Unknown title",
+        unknownArtist = "Unknown artist",
+        unknownAlbum = "Unknown album",
+        variousArtists = "Various artists",
     )
 
     @Test
@@ -49,7 +49,7 @@ class MediaStoreTrackMapperTest {
             names,
         )
 
-        assertEquals(listOf("Verschiedene Künstler", "Verschiedene Künstler", "Björk"), tracks.map { it.albumArtistDisplay })
+        assertEquals(listOf("Various artists", "Various artists", "Björk"), tracks.map { it.albumArtistDisplay })
         assertTrue(tracks[0].isCompilation)
     }
 
@@ -57,8 +57,8 @@ class MediaStoreTrackMapperTest {
     fun `unknown placeholders and zero year are normalised`() {
         val track = MediaStoreTrackMapper.map(listOf(row(id = 1, artist = "<unknown>", album = " ", year = 0)), names).single()
 
-        assertEquals("Unbekannter Künstler", track.artistDisplay)
-        assertEquals("Unbekanntes Album", track.albumTitle)
+        assertEquals("Unknown artist", track.artistDisplay)
+        assertEquals("Unknown album", track.albumTitle)
         assertNull(track.year)
     }
 
@@ -95,7 +95,7 @@ class MediaStoreTrackMapperTest {
         year: Int = 2005,
     ) = MediaStoreRow(
         id = id,
-        title = "Titel $id",
+        title = "Title $id",
         artist = artist,
         album = album,
         albumId = albumId,

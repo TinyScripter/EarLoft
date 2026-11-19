@@ -42,11 +42,11 @@ class JellyfinApiTest {
     fun `login sends the device without token and returns user and token`() = runTest {
         mockServer.enqueue(json("""{"AccessToken":"abc","User":{"Id":"u1","Name":"test"},"ServerId":"s"}"""))
 
-        val result = api.authenticate(server.baseUrl, "earloft-jf", "test", "geh\"eim")
+        val result = api.authenticate(server.baseUrl, "earloft-jf", "test", "sec\"ret")
 
         val request = mockServer.takeRequest()
         assertEquals("/jellyfin/Users/AuthenticateByName", request.url.encodedPath)
-        assertEquals("""{"Username":"test","Pw":"geh\"eim"}""", request.body?.utf8())
+        assertEquals("""{"Username":"test","Pw":"sec\"ret"}""", request.body?.utf8())
         val header = request.headers["Authorization"]!!
         assertTrue(header.startsWith("MediaBrowser Client=\"EarLoft\""))
         assertTrue("DeviceId=\"earloft-jf\"" in header)
@@ -113,8 +113,8 @@ class JellyfinApiTest {
             mockServer.enqueue(MockResponse.Builder().code(307).addHeader("Location", other.url("/login").toString()).build())
 
             try {
-                api.authenticate(server.baseUrl, "dev", "test", "geheim")
-                fail("HttpStatusException erwartet")
+                api.authenticate(server.baseUrl, "dev", "test", "secret")
+                fail("HttpStatusException expected")
             } catch (e: HttpStatusException) {
                 assertEquals(307, e.status)
             }
@@ -128,7 +128,7 @@ class JellyfinApiTest {
         mockServer.enqueue(MockResponse.Builder().code(401).build())
         try {
             api.me(server)
-            fail("HttpStatusException erwartet")
+            fail("HttpStatusException expected")
         } catch (e: HttpStatusException) {
             assertTrue(e.isAuthError)
         }
@@ -136,14 +136,14 @@ class JellyfinApiTest {
         mockServer.enqueue(MockResponse.Builder().addHeader("Content-Type", "text/html").body("<html>Navidrome</html>").build())
         try {
             api.publicInfo(server.baseUrl)
-            fail("NotJellyfinException erwartet")
+            fail("NotJellyfinException expected")
         } catch (_: NotJellyfinException) {
         }
 
         mockServer.enqueue(json("""{"ProductName":"Emby Server","Id":"x","Version":"4.8"}"""))
         try {
             api.publicInfo(server.baseUrl)
-            fail("NotJellyfinException erwartet")
+            fail("NotJellyfinException expected")
         } catch (_: NotJellyfinException) {
         }
     }
@@ -157,7 +157,7 @@ class JellyfinApiTest {
         mockServer.enqueue(json("""{"ProductName":"Jellyfin Server","Id":"j","Version":"12.4"}"""))
         try {
             api.publicInfo(server.baseUrl, JellyfinFlavor.EMBY)
-            fail("NotJellyfinException erwartet")
+            fail("NotJellyfinException expected")
         } catch (e: NotJellyfinException) {
             assertTrue("Emby" in e.message!!)
         }
@@ -197,11 +197,11 @@ class JellyfinApiTest {
         mockServer.enqueue(json("""{"Id":"p1","ItemAddedCount":200}"""))
         mockServer.enqueue(json("""{"Id":"p1","ItemAddedCount":1}"""))
 
-        assertEquals("p1", api.createPlaylist(emby, "Sommer", ids))
+        assertEquals("p1", api.createPlaylist(emby, "Summer", ids))
 
         val create = mockServer.takeRequest().url
         assertEquals("/emby/Playlists", create.encodedPath)
-        assertEquals("Sommer", create.queryParameter("name"))
+        assertEquals("Summer", create.queryParameter("name"))
         assertEquals("Audio", create.queryParameter("mediaType"))
         assertEquals(ids.dropLast(1).joinToString(","), create.queryParameter("ids"))
         val add = mockServer.takeRequest().url
@@ -211,7 +211,7 @@ class JellyfinApiTest {
 
     @Test
     fun `emby playlist update renames the whole item and keeps the common start`() = runTest {
-        mockServer.enqueue(json("""{"Id":"p1","Name":"Sommer","Type":"Playlist","Etag":"e"}"""))
+        mockServer.enqueue(json("""{"Id":"p1","Name":"Summer","Type":"Playlist","Etag":"e"}"""))
         mockServer.enqueue(MockResponse.Builder().code(204).build())
         mockServer.enqueue(
             json("""{"Items":[{"Id":"a","PlaylistItemId":"1"},{"Id":"b","PlaylistItemId":"2"},{"Id":"c","PlaylistItemId":"3"}]}"""),
@@ -219,13 +219,13 @@ class JellyfinApiTest {
         mockServer.enqueue(MockResponse.Builder().code(204).build())
         mockServer.enqueue(json("""{"Id":"p1","ItemAddedCount":1}"""))
 
-        api.updatePlaylist(emby, "p1", "Sommer 2", listOf("a", "c"))
+        api.updatePlaylist(emby, "p1", "Summer 2", listOf("a", "c"))
 
         assertEquals("/emby/Users/u1/Items/p1", mockServer.takeRequest().url.encodedPath)
         val rename = mockServer.takeRequest()
         assertEquals("/emby/Items/p1", rename.url.encodedPath)
         // The whole entry goes back, otherwise Emby answers with 400.
-        assertEquals("""{"Id":"p1","Name":"Sommer 2","Type":"Playlist","Etag":"e"}""", rename.body?.utf8())
+        assertEquals("""{"Id":"p1","Name":"Summer 2","Type":"Playlist","Etag":"e"}""", rename.body?.utf8())
         assertEquals("/emby/Playlists/p1/Items", mockServer.takeRequest().url.encodedPath)
         val remove = mockServer.takeRequest()
         assertEquals("DELETE", remove.method)
@@ -235,17 +235,17 @@ class JellyfinApiTest {
 
     @Test
     fun `emby lyrics come from the lrc file, else from the tag`() = runTest {
-        mockServer.enqueue(json(embySong(""",{"Type":"Subtitle","Codec":"text","Index":2,"Extradata":"Getaggt"},""" +
+        mockServer.enqueue(json(embySong(""",{"Type":"Subtitle","Codec":"text","Index":2,"Extradata":"Tagged"},""" +
             """{"Type":"Subtitle","Codec":"lrc","Index":3,"IsExternal":true}""")))
-        mockServer.enqueue(MockResponse.Builder().body("\uFEFF[00:05.01]Zeile").build())
+        mockServer.enqueue(MockResponse.Builder().body("\uFEFF[00:05.01]Line").build())
         mockServer.enqueue(json(embySong(""",{"Type":"Subtitle","Codec":"text","Index":2,"Extradata":" "},""" +
-            """{"Type":"Subtitle","Codec":"text","Index":3,"Extradata":"Nur Text"}""")))
+            """{"Type":"Subtitle","Codec":"text","Index":3,"Extradata":"Just text"}""")))
         mockServer.enqueue(json(embySong("")))
 
-        assertEquals("[00:05.01]Zeile", api.embyLyricsText(emby, "s1"))
+        assertEquals("[00:05.01]Line", api.embyLyricsText(emby, "s1"))
         assertEquals("/emby/Users/u1/Items/s1", mockServer.takeRequest().url.encodedPath)
         assertEquals("/emby/Items/s1/ms1/Subtitles/3/Stream.lrc", mockServer.takeRequest().url.encodedPath)
-        assertEquals("Nur Text", api.embyLyricsText(emby, "s1"))
+        assertEquals("Just text", api.embyLyricsText(emby, "s1"))
         assertNull(api.embyLyricsText(emby, "s1"))
     }
 
@@ -311,7 +311,7 @@ class JellyfinApiTest {
 
         try {
             api.reportPlayback(server, "s1", durationMs = 118_000)
-            fail("HttpStatusException erwartet")
+            fail("HttpStatusException expected")
         } catch (_: HttpStatusException) {
         }
         assertEquals(1, mockServer.requestCount)
@@ -334,18 +334,18 @@ class JellyfinApiTest {
         mockServer.enqueue(json("""{"Id":"p1"}"""))
         mockServer.enqueue(MockResponse.Builder().code(204).build())
 
-        assertEquals("p1", api.createPlaylist(server, "Sommer", listOf("a", "b")))
-        api.updatePlaylist(server, "p1", "Sommer 2", listOf("b", "b"))
+        assertEquals("p1", api.createPlaylist(server, "Summer", listOf("a", "b")))
+        api.updatePlaylist(server, "p1", "Summer 2", listOf("b", "b"))
 
         val create = mockServer.takeRequest()
         assertEquals("/jellyfin/Playlists", create.url.encodedPath)
         assertEquals(
-            """{"Name":"Sommer","Ids":["a","b"],"UserId":"u1","MediaType":"Audio","IsPublic":false}""",
+            """{"Name":"Summer","Ids":["a","b"],"UserId":"u1","MediaType":"Audio","IsPublic":false}""",
             create.body?.utf8(),
         )
         val update = mockServer.takeRequest()
         assertEquals("/jellyfin/Playlists/p1", update.url.encodedPath)
-        assertEquals("""{"Name":"Sommer 2","Ids":["b","b"]}""", update.body?.utf8())
+        assertEquals("""{"Name":"Summer 2","Ids":["b","b"]}""", update.body?.utf8())
     }
 
     @Test

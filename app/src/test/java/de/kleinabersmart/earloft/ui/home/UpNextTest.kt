@@ -10,7 +10,7 @@ import org.junit.Test
 
 class UpNextTest {
 
-    private fun entry(id: Long) = QueueEntry(songId = id, title = "Titel $id", artist = "Band", albumId = null)
+    private fun entry(id: Long) = QueueEntry(songId = id, title = "Title $id", artist = "Band", albumId = null)
 
     private val queue = List(30) { entry(it.toLong()) }
 
@@ -34,7 +34,7 @@ class UpNextTest {
     @Test
     fun `nothing while no music plays`() {
         assertTrue(upNext(PlayerState()).isEmpty())
-        assertTrue(upNext(PlayerState(spoken = SpokenEntry(1, 0, "Buch", "Autor"), queue = queue, currentIndex = 0)).isEmpty())
+        assertTrue(upNext(PlayerState(spoken = SpokenEntry(1, 0, "Book", "Author"), queue = queue, currentIndex = 0)).isEmpty())
     }
 
     @Test

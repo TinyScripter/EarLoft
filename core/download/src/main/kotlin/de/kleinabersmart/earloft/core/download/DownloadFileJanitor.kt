@@ -26,7 +26,7 @@ internal class DownloadFileJanitor @Inject constructor(
     override suspend fun onSongSourcesRemoved() {
         val downloads = downloadDao.getAll()
         val deleted = withContext(Dispatchers.IO) { storage.deleteOrphans(downloads) }
-        if (deleted > 0) Log.i(TAG, "$deleted verwaiste Download-Dateien gelöscht")
+        if (deleted > 0) Log.i(TAG, "Deleted $deleted orphaned download files")
     }
 
     override suspend fun onSyncFinished() {

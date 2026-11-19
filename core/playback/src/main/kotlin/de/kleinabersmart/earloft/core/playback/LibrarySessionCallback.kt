@@ -191,7 +191,7 @@ internal class LibrarySessionCallback(
      */
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
         val trusted = session.isTrustedController(controller)
-        Log.d(TAG, "Controller ${controller.packageName}: ${if (trusted) "vertraut" else "nur Abspielsteuerung"}")
+        Log.d(TAG, "Controller ${controller.packageName}: ${if (trusted) "trusted" else "playback control only"}")
         if (!trusted) {
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
                 .setAvailableSessionCommands(SessionCommands.EMPTY)
@@ -252,7 +252,7 @@ internal class LibrarySessionCallback(
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION,
             )
         } catch (e: RuntimeException) {
-            Log.w(TAG, "Cover für $packageName nicht freigegeben", e)
+            Log.w(TAG, "Cover not granted to $packageName", e)
         }
     }
 
@@ -335,7 +335,7 @@ internal class LibrarySessionCallback(
         val resolved = resolve(player, requested)
         if (resolved.isEmpty() && requested.isNotEmpty()) {
             // Nothing playable: keep the queue instead of clearing it.
-            throw UnsupportedOperationException("Keiner der Titel ist abspielbar")
+            throw UnsupportedOperationException("None of the tracks is playable")
         }
         val items = resolved.map { it.second }
         val newIndex = resolved.indexOfFirst { it.first >= requestedStart }.takeIf { requestedStart != C.INDEX_UNSET }
@@ -409,10 +409,10 @@ internal class LibrarySessionCallback(
      * (saved position with rewind, speed, without shuffle/repeat, episode at the front of "Continue listening").
      */
     private suspend fun startSpoken(player: Player, bookId: Long): MediaItemsWithStartPosition {
-        if (!browseTree.isSpokenEnabled(bookId)) throw UnsupportedOperationException("Bereich von Buch $bookId ausgeschaltet")
+        if (!browseTree.isSpokenEnabled(bookId)) throw UnsupportedOperationException("Area of book $bookId is turned off")
         continueListening.started(bookId)
         val prepared = withContext(Dispatchers.IO) { bookPlaybackSource.prepare(bookId) }
-            ?: throw UnsupportedOperationException("Buch $bookId nicht abspielbar")
+            ?: throw UnsupportedOperationException("Book $bookId not playable")
         val start = prepared.timeline.locate(prepared.startPositionMs)
         playerFactory?.onQueueReplaced(emptyList(), emptyList())
         player.shuffleModeEnabled = false
@@ -485,11 +485,11 @@ internal class LibrarySessionCallback(
                 return@future MediaItemsWithStartPosition(items, start.trackIndex, start.offsetMs)
             }
         }
-        if (SpokenMode.MUSIC !in areas) throw UnsupportedOperationException("Musik ausgeschaltet")
-        val restored = queuePersistence.restore() ?: throw UnsupportedOperationException("Keine gespeicherte Warteschlange")
+        if (SpokenMode.MUSIC !in areas) throw UnsupportedOperationException("Music is turned off")
+        val restored = queuePersistence.restore() ?: throw UnsupportedOperationException("No saved queue")
         if (!isForPlayback) {
             val current = restored.items.getOrNull(restored.startIndex)
-                ?: throw UnsupportedOperationException("Keine gespeicherte Warteschlange")
+                ?: throw UnsupportedOperationException("No saved queue")
             // The system UI loads the cover itself and doesn't know earloft://cover (see CoverProvider).
             val coverUri = current.mediaMetadata.albumIdExtra?.let { CoverProvider.albumCoverUri(context, it) }
             val withCover = current.buildUpon()

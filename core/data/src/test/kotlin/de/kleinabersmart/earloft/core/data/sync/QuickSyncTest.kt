@@ -23,7 +23,7 @@ class QuickSyncTest {
     private lateinit var db: EarLoftDatabase
     private lateinit var syncer: LibrarySyncer
     private lateinit var favorites: FavoritesRepository
-    private val nd = FakeServer("nd", listOf(track("a", "Erstes")))
+    private val nd = FakeServer("nd", listOf(track("a", "First")))
 
     @Before
     fun setUp() {
@@ -42,11 +42,11 @@ class QuickSyncTest {
     @Test
     fun `new albums are added without a full scan`() = runTest {
         syncer.syncAdding(db, nd)
-        nd.newTracks = listOf(track("b", "Zweites"))
+        nd.newTracks = listOf(track("b", "Second"))
 
         assertTrue(syncer.quickSync(nd))
 
-        assertEquals(listOf("Erstes", "Zweites"), titles())
+        assertEquals(listOf("First", "Second"), titles())
         val lastFullSyncAt = db.sourceDao().get("nd")!!.lastFullSyncAt
         assertTrue(nd.lastSince < lastFullSyncAt)
     }
@@ -59,7 +59,7 @@ class QuickSyncTest {
 
         assertTrue(syncer.quickSync(nd))
 
-        assertEquals(listOf("Erstes"), titles())
+        assertEquals(listOf("First"), titles())
         assertEquals(before.syncGeneration, db.sourceDao().get("nd")!!.syncGeneration)
         // The next full sync cleans up as usual.
         syncer.syncAdding(db, nd)
@@ -68,7 +68,7 @@ class QuickSyncTest {
 
     @Test
     fun `quick sync needs a full sync first`() = runTest {
-        nd.newTracks = listOf(track("b", "Zweites"))
+        nd.newTracks = listOf(track("b", "Second"))
 
         assertFalse(syncer.quickSync(nd))
 
@@ -98,7 +98,7 @@ class QuickSyncTest {
 
     @Test
     fun `unsent local favorite change wins over the server`() = runTest {
-        nd.tracks = listOf(track("a", "Erstes", starredAt = 1_000))
+        nd.tracks = listOf(track("a", "First", starredAt = 1_000))
         syncer.syncAdding(db, nd)
         favorites.setFavorite(song().songId, false)
 
@@ -122,12 +122,12 @@ class QuickSyncTest {
     @Test
     fun `an unreachable server changes nothing and is not reported as a failure`() = runTest {
         syncer.syncAdding(db, nd)
-        nd.newTracks = listOf(track("b", "Zweites"))
+        nd.newTracks = listOf(track("b", "Second"))
         nd.failure = java.io.IOException("offline")
 
         assertFalse(syncer.quickSync(nd))
 
-        assertEquals(listOf("Erstes"), titles())
+        assertEquals(listOf("First"), titles())
         assertTrue(syncer.failures.value.isEmpty())
     }
 

@@ -124,11 +124,11 @@ class SyncQueueProcessor @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 if (isRetryable(e) && action.attempts + 1 < MAX_ATTEMPTS) {
-                    Log.w(TAG, "${action.actionType} an ${action.sourceId} später erneut", e)
+                    Log.w(TAG, "${action.actionType} to ${action.sourceId}: retrying later", e)
                     syncDao.incrementAttempts(action.actionId)
                     unreachable += action.sourceId
                 } else {
-                    Log.w(TAG, "${action.actionType} an ${action.sourceId} verworfen", e)
+                    Log.w(TAG, "${action.actionType} to ${action.sourceId} discarded", e)
                     syncDao.deleteAction(action.actionId)
                     noticeKind(action.actionType)?.let { notices.post(SyncNotice.ChangeDropped(it)) }
                 }
@@ -184,7 +184,7 @@ class SyncQueueProcessor @Inject constructor(
         } else {
             val current = remote.playlist(remoteId)
             if (current.info.changedAt != local.remoteUpdatedAt && action.attempts == 0) {
-                Log.i(TAG, "Playlist ${local.name} wurde auf dem Server geändert – Server gewinnt")
+                Log.i(TAG, "Playlist ${local.name} was changed on the server – server wins")
                 database.withTransaction { playlistSyncer.applyRemote(sourceId, playlistId, current) }
                 return
             }

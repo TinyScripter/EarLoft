@@ -74,9 +74,9 @@ class PodcastSourceSwitchTest {
             podcastDao = db.podcastDao(),
             statsDao = db.statsDao(),
             music = MusicBackup(db.backupDao(), db.playlistDao(), db.syncDao()),
-            restoreNotice = RestoreNotice(context, { error("nicht gebraucht") }, { error("nicht gebraucht") }),
-            registry = Lazy<DataSourceRegistry> { error("nicht gebraucht") },
-            ardBooks = { error("nicht gebraucht") },
+            restoreNotice = RestoreNotice(context, { error("not needed") }, { error("not needed") }),
+            registry = Lazy<DataSourceRegistry> { error("not needed") },
+            ardBooks = { error("not needed") },
             scope = TestScope(),
         )
         val renamer = object : BookKeyRenamer {
@@ -98,13 +98,13 @@ class PodcastSourceSwitchTest {
     @Test
     fun `switching to ARD Sounds keeps episodes, progress, downloads and statistics under the new keys`() = runTest {
         val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
-        val a = idOf(feedId, "Folge A")
-        val b = idOf(feedId, "Folge B")
+        val a = idOf(feedId, "Episode A")
+        val b = idOf(feedId, "Episode B")
         db.bookDao().upsertProgress(BookProgressEntity(b, 60_000, 600_000, false, 1f, 100))
         db.openHelper.writableDatabase.execSQL("UPDATE book_tracks SET downloadState = 'DONE', filePath = '/a.mp3' WHERE bookId = $a")
         db.statsDao().addListening(
             ListeningStatEntity(source = "app", kind = BookKind.EPISODE, groupKey = OLD_URL, groupTitle = "Talk", itemKey = "guid-B",
-                itemTitle = "Folge B", listenedMs = 60_000, lastListenedAt = 100),
+                itemTitle = "Episode B", listenedMs = 60_000, lastListenedAt = 100),
             day = 20_000,
         )
         user.openHelper.writableDatabase.execSQL(
@@ -124,7 +124,7 @@ class PodcastSourceSwitchTest {
         // A via the audio address (without query), B via title and date; C is missing in ARD Sounds and wasn't started.
         assertEquals("urn:ard:publication:a", db.bookDao().book(a)!!.remoteId)
         assertEquals("urn:ard:publication:b", db.bookDao().book(b)!!.remoteId)
-        assertEquals(listOf("Folge A (Wiederholung)", "Folge B", "Folge D"), db.bookDao().booksOf(feedId).map { it.title }.sorted())
+        assertEquals(listOf("Episode A (Rerun)", "Episode B", "Episode D"), db.bookDao().booksOf(feedId).map { it.title }.sorted())
         assertEquals(60_000L, db.bookDao().progress(b)!!.positionMs)
         val track = db.bookDao().tracks(a).single()
         assertEquals("https://cdn.example/a.mp3", track.remoteFileId)
@@ -145,24 +145,24 @@ class PodcastSourceSwitchTest {
         assertTrue(user.userDataDao().progress().none { it.remoteId == "guid-B" })
         // Syncing again leaves everything as it is.
         repository.refresh(feedId)
-        assertEquals(b, idOf(feedId, "Folge B"))
+        assertEquals(b, idOf(feedId, "Episode B"))
     }
 
     @Test
     fun `a feed announcing a new address moves there with its statistics`() = runTest {
         val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
-        val b = idOf(feedId, "Folge B")
+        val b = idOf(feedId, "Episode B")
         db.statsDao().addListening(
             ListeningStatEntity(source = "app", kind = BookKind.EPISODE, groupKey = OLD_URL, groupTitle = "Talk", itemKey = "guid-B",
-                itemTitle = "Folge B", listenedMs = 60_000, lastListenedAt = 100),
+                itemTitle = "Episode B", listenedMs = 60_000, lastListenedAt = 100),
             day = 20_000,
         )
-        bodies[OLD_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$NEW_FEED_URL")
+        bodies[OLD_URL] = RSS.replace("<title>Talk without guest</title>", "<title>Talk without guest</title>$NEW_FEED_URL")
 
-        assertEquals(true, repository.refreshAll().moved == listOf("Talk ohne Gast"))
+        assertEquals(true, repository.refreshAll().moved == listOf("Talk without guest"))
 
         assertEquals(NEW_URL, db.podcastDao().feed(feedId)!!.url)
-        assertEquals(b, idOf(feedId, "Folge B"))
+        assertEquals(b, idOf(feedId, "Episode B"))
         assertEquals(NEW_URL to "guid-B", db.statsDao().all().single().let { it.groupKey to it.itemKey })
         assertEquals(emptyList<Map<String, String>>(), renamed)
     }
@@ -170,8 +170,8 @@ class PodcastSourceSwitchTest {
     @Test
     fun `a move is refused when the new address points back or is subscribed`() = runTest {
         val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
-        bodies[OLD_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$NEW_FEED_URL")
-        bodies[NEW_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$OLD_FEED_URL")
+        bodies[OLD_URL] = RSS.replace("<title>Talk without guest</title>", "<title>Talk without guest</title>$NEW_FEED_URL")
+        bodies[NEW_URL] = RSS.replace("<title>Talk without guest</title>", "<title>Talk without guest</title>$OLD_FEED_URL")
 
         repository.refresh(feedId)
         assertEquals(OLD_URL, db.podcastDao().feed(feedId)!!.url)
@@ -187,8 +187,8 @@ class PodcastSourceSwitchTest {
     fun `a move is refused when the new address points back in another spelling`() = runTest {
         val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
         val spelledBack = OLD_FEED_URL.replace("https://bridge.example", "https://BRIDGE.example:443")
-        bodies[OLD_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$NEW_FEED_URL")
-        bodies[NEW_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$spelledBack")
+        bodies[OLD_URL] = RSS.replace("<title>Talk without guest</title>", "<title>Talk without guest</title>$NEW_FEED_URL")
+        bodies[NEW_URL] = RSS.replace("<title>Talk without guest</title>", "<title>Talk without guest</title>$spelledBack")
 
         // Otherwise the subscription moves and moves back on the next process, each time with new identifiers and statistics.
         assertEquals(false, switch.follow(feedId, NEW_URL))
@@ -199,7 +199,7 @@ class PodcastSourceSwitchTest {
     fun `an announced address that only spells the own address differently is not even fetched`() = runTest {
         val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
         val spelled = OLD_FEED_URL.replace("https://bridge.example", "https://BRIDGE.example:443")
-        bodies[OLD_URL] = RSS.replace("<title>Talk ohne Gast</title>", "<title>Talk ohne Gast</title>$spelled")
+        bodies[OLD_URL] = RSS.replace("<title>Talk without guest</title>", "<title>Talk without guest</title>$spelled")
         requests.clear()
 
         repository.refresh(feedId)
@@ -213,7 +213,7 @@ class PodcastSourceSwitchTest {
         val feedId = (repository.subscribe(OLD_URL) as SubscribeResult.Added).feedId
         assertEquals(SourceCheck.SameSource, switch.check(feedId, OLD_URL))
         repository.subscribe("ardsounds:urn:ard:show:abc")
-        assertEquals(SourceCheck.Taken("Talk ohne Gast"), switch.check(feedId, "ardsounds:urn:ard:show:abc"))
+        assertEquals(SourceCheck.Taken("Talk without guest"), switch.check(feedId, "ardsounds:urn:ard:show:abc"))
     }
 
     @Test
@@ -230,16 +230,16 @@ class PodcastSourceSwitchTest {
     fun `episodes match by guid, then audio address, then title near the same date`() {
         val day = 24 * 60 * 60 * 1000L
         val known = listOf(
-            KnownEpisode(1, "same", "https://a.example/1.mp3", "Eins", 10 * day),
-            KnownEpisode(2, "old-2", "http://CDN.example/2.mp3?ref=feed", "Zwei", 10 * day),
-            KnownEpisode(3, "old-3", "https://a.example/3.mp3", "Drei!", 10 * day),
-            KnownEpisode(4, "old-4", "https://a.example/4.mp3", "Vier", 10 * day),
+            KnownEpisode(1, "same", "https://a.example/1.mp3", "One", 10 * day),
+            KnownEpisode(2, "old-2", "http://CDN.example/2.mp3?ref=feed", "Two", 10 * day),
+            KnownEpisode(3, "old-3", "https://a.example/3.mp3", "Three!", 10 * day),
+            KnownEpisode(4, "old-4", "https://a.example/4.mp3", "Four", 10 * day),
         )
         val fresh = listOf(
-            episode("same", "https://b.example/1.mp3", "Anders", 0),
-            episode("new-2", "https://cdn.example/2.mp3", "Zwei (neu)", 30 * day),
-            episode("new-3", "https://b.example/3.mp3", "drei", 11 * day),
-            episode("new-4", "https://b.example/4.mp3", "Vier", 20 * day),
+            episode("same", "https://b.example/1.mp3", "Different", 0),
+            episode("new-2", "https://cdn.example/2.mp3", "Two (new)", 30 * day),
+            episode("new-3", "https://b.example/3.mp3", "three", 11 * day),
+            episode("new-4", "https://b.example/4.mp3", "Four", 20 * day),
         )
 
         val matches = matchEpisodes(known, fresh).mapValues { it.value.guid }
@@ -286,24 +286,24 @@ class PodcastSourceSwitchTest {
         const val OLD_FEED_URL = "<itunes:new-feed-url xmlns:itunes=\"http://www.itunes.com/dtds/podcast-1.0.dtd\">$OLD_URL</itunes:new-feed-url>"
 
         val RSS = """
-            <rss version="2.0"><channel><title>Talk ohne Gast</title>
-            <item><title>Folge A</title><guid>guid-A</guid><pubDate>Tue, 20 Oct 2026 06:00:00 GMT</pubDate>
+            <rss version="2.0"><channel><title>Talk without guest</title>
+            <item><title>Episode A</title><guid>guid-A</guid><pubDate>Tue, 20 Oct 2026 06:00:00 GMT</pubDate>
               <enclosure url="https://cdn.example/a.mp3?source=bridge" type="audio/mpeg"/></item>
-            <item><title>Folge B</title><guid>guid-B</guid><pubDate>Tue, 13 Oct 2026 06:00:00 GMT</pubDate>
+            <item><title>Episode B</title><guid>guid-B</guid><pubDate>Tue, 13 Oct 2026 06:00:00 GMT</pubDate>
               <enclosure url="https://bridge.example/b.mp3" type="audio/mpeg"/></item>
-            <item><title>Folge C</title><guid>guid-C</guid><pubDate>Tue, 06 Oct 2026 06:00:00 GMT</pubDate>
+            <item><title>Episode C</title><guid>guid-C</guid><pubDate>Tue, 06 Oct 2026 06:00:00 GMT</pubDate>
               <enclosure url="https://bridge.example/c.mp3" type="audio/mpeg"/></item>
             </channel></rss>
         """.trimIndent()
 
         val SHOW = """
-            {"data":{"show":{"id":"9","coreId":"urn:ard:show:abc","title":"Talk ohne Gast","publicationService":{"title":"ARD"},
+            {"data":{"show":{"id":"9","coreId":"urn:ard:show:abc","title":"Talk without guest","publicationService":{"title":"ARD"},
             "items":{"nodes":[
-              {"coreId":"urn:ard:publication:d","title":"Folge D","publishDate":"2026-10-27T06:00:00+01:00","duration":600,
+              {"coreId":"urn:ard:publication:d","title":"Episode D","publishDate":"2026-10-27T06:00:00+01:00","duration":600,
                "audios":[{"url":"https://cdn.example/d.mp3","downloadUrl":"https://cdn.example/d.mp3","allowDownload":true,"mimeType":"audio/mp3"}]},
-              {"coreId":"urn:ard:publication:a","title":"Folge A (Wiederholung)","publishDate":"2026-10-20T08:00:00+02:00","duration":600,
+              {"coreId":"urn:ard:publication:a","title":"Episode A (Rerun)","publishDate":"2026-10-20T08:00:00+02:00","duration":600,
                "audios":[{"url":"https://cdn.example/a.mp3","downloadUrl":"https://cdn.example/a.mp3","allowDownload":true,"mimeType":"audio/mp3"}]},
-              {"coreId":"urn:ard:publication:b","title":"Folge B","publishDate":"2026-10-13T20:00:00+02:00","duration":600,
+              {"coreId":"urn:ard:publication:b","title":"Episode B","publishDate":"2026-10-13T20:00:00+02:00","duration":600,
                "audios":[{"url":"https://cdn.example/b.mp3","downloadUrl":"https://cdn.example/b.mp3","allowDownload":true,"mimeType":"audio/mp3"}]}
             ]}}}}
         """.trimIndent()

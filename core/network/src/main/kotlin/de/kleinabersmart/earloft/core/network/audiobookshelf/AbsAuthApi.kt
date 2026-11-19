@@ -54,7 +54,7 @@ class AbsAuthApi @Inject constructor(
     suspend fun loginOptions(baseUrl: HttpUrl): AbsLoginOptions = withContext(Dispatchers.IO) {
         val url = baseUrl.newBuilder().addPathSegment("status").build()
         val status = client.newCall(Request.Builder().url(url).build()).await().use { decode<AbsStatusDto>(it.textOrThrow()) }
-        if (status.app != "audiobookshelf") throw AbsException(0, "Kein Audiobookshelf-Server")
+        if (status.app != "audiobookshelf") throw AbsException(0, "Not an Audiobookshelf server")
         AbsLoginOptions(openId = "openid" in status.authMethods)
     }
 
@@ -77,7 +77,7 @@ class AbsAuthApi @Inject constructor(
         val location = loginClient(cookies).newCall(Request.Builder().url(url).build()).await().use { response ->
             if (!response.isRedirect) throw AbsException(response.code, "HTTP ${response.code}: ${response.body.string().take(200)}")
             response.header("Location")?.let { response.request.url.resolve(it) }
-        } ?: throw AbsException(0, "Weiterleitung ohne Ziel")
+        } ?: throw AbsException(0, "Redirect without target")
         AbsOpenIdLogin(baseUrl, redirectUri, location, state, verifier, cookies)
     }
 
@@ -86,9 +86,9 @@ class AbsAuthApi @Inject constructor(
      * redirect doesn't belong to [login] or the server rejects it.
      */
     suspend fun finishOpenId(login: AbsOpenIdLogin, redirect: HttpUrl): AbsTokens = withContext(Dispatchers.IO) {
-        if (redirect.queryParameter("state") != login.state) throw AbsException(0, "Rückleitung gehört nicht zu dieser Anmeldung")
+        if (redirect.queryParameter("state") != login.state) throw AbsException(0, "Redirect back does not belong to this sign-in")
         val code = redirect.queryParameter("code")
-            ?: throw AbsException(401, "Anmeldung abgelehnt: ${redirect.queryParameter("error")}")
+            ?: throw AbsException(401, "Sign-in rejected: ${redirect.queryParameter("error")}")
         val url = login.baseUrl.newBuilder().addPathSegments("auth/openid/callback")
             .addQueryParameter("state", login.state)
             .addQueryParameter("code", code)
@@ -116,7 +116,7 @@ class AbsAuthApi @Inject constructor(
 
     private fun Response.tokensOrThrow(): AbsTokens {
         val user = decode<AbsLoginResponse>(textOrThrow()).user
-        val access = user.accessToken ?: user.token ?: throw AbsException(0, "Antwort ohne Token")
+        val access = user.accessToken ?: user.token ?: throw AbsException(0, "Response without token")
         return AbsTokens(access, user.refreshToken?.takeIf { user.accessToken != null })
     }
 
@@ -130,9 +130,9 @@ class AbsAuthApi @Inject constructor(
         try {
             JSON.decodeFromString(text)
         } catch (e: SerializationException) {
-            throw AbsException(0, "Unerwartete Antwort: ${e.message}")
+            throw AbsException(0, "Unexpected response: ${e.message}")
         } catch (e: IllegalArgumentException) {
-            throw AbsException(0, "Unerwartete Antwort: ${e.message}")
+            throw AbsException(0, "Unexpected response: ${e.message}")
         }
 
     private class MemoryCookieJar : CookieJar {

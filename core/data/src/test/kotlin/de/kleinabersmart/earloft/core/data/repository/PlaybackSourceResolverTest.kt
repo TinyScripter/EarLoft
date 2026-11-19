@@ -79,7 +79,7 @@ class PlaybackSourceResolverTest {
     fun `missing download file falls back to the stream`() = runTest {
         val songId = song("nd" to "1")
         db.downloadDao().insertIfAbsent(
-            listOf(DownloadEntity("nd:1", songId, DownloadState.DONE, filePath = "/gibt/es/nicht.flac")),
+            listOf(DownloadEntity("nd:1", songId, DownloadState.DONE, filePath = "/does/not/exist.flac")),
         )
 
         assertEquals(Sources.stream("nd", "1"), resolver.candidates(songId).firstOrNull()?.location)

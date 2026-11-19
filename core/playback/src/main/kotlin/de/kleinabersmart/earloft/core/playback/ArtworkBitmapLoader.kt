@@ -38,11 +38,11 @@ internal class ArtworkBitmapLoader(
         // `earloft://cover/…` and the same covers as CoverProvider address (that's how the queue entries carry them).
         val bookId = AppUris.parseBookCoverId(uri.toString()) ?: CoverProvider.bookId(uri)
         if (bookId != null) {
-            return scope.future(Dispatchers.IO) { bookCovers.cover(bookId) ?: throw IOException("Kein Cover für Buch $bookId") }
+            return scope.future(Dispatchers.IO) { bookCovers.cover(bookId) ?: throw IOException("No cover for book $bookId") }
         }
         val albumId = AppUris.parseAlbumCoverId(uri.toString()) ?: CoverProvider.albumId(uri) ?: return fallback.loadBitmap(uri)
         return scope.future(Dispatchers.IO) {
-            artworkRepository.albumCover(albumId, ARTWORK_SIZE_PX) ?: throw IOException("Kein Cover für Album $albumId")
+            artworkRepository.albumCover(albumId, ARTWORK_SIZE_PX) ?: throw IOException("No cover for album $albumId")
         }
     }
 

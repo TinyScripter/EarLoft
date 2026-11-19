@@ -129,7 +129,7 @@ class SpokenRefresher @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
-                Log.w(TAG, "Fortschritt von ${server.baseUrl} nicht abrufbar", e)
+                Log.w(TAG, "Progress from ${server.baseUrl} not available", e)
             }
         }
         // The books from ARD Sounds don't belong to a server: they are synced even without Audiobookshelf.

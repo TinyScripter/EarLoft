@@ -43,10 +43,10 @@ class WatchEpisodeImporterTest {
             .build()
         db.podcastDao().upsertFeed(PodcastFeedEntity(FEED_ID, FEED_URL, "Podcast"))
         episodeId = db.bookDao().insertBook(
-            BookEntity(serverId = FEED_ID, kind = BookKind.EPISODE, remoteId = GUID, title = "Folge", normTitle = "folge", author = "Podcast", durationMs = 3_600_000),
+            BookEntity(serverId = FEED_ID, kind = BookKind.EPISODE, remoteId = GUID, title = "Episode", normTitle = "episode", author = "Podcast", durationMs = 3_600_000),
         )
         bookId = db.bookDao().insertBook(
-            BookEntity(serverId = ABS_ID, kind = BookKind.BOOK, remoteId = ITEM_ID, title = "Buch", normTitle = "buch", author = "Autorin", durationMs = 36_000_000),
+            BookEntity(serverId = ABS_ID, kind = BookKind.BOOK, remoteId = ITEM_ID, title = "Book", normTitle = "book", author = "Author", durationMs = 36_000_000),
         )
         // Without a key no server is registered: sending fails immediately, without network.
         val secrets = object : SecretStore {
@@ -74,7 +74,7 @@ class WatchEpisodeImporterTest {
         WatchEpisodeProgress(FEED_ID, GUID, positionMs, 3_600_000, finished, speed = 1.5f, updatedAt = updatedAt)
 
     @Test
-    fun `neuerer Stand der Uhr gewinnt`() = runTest {
+    fun `newer progress from the watch wins`() = runTest {
         db.bookDao().upsertProgress(BookProgressEntity(episodeId, 60_000, 3_600_000, updatedAt = 1_000))
 
         assertEquals(1, importer.import("p1", listOf(progress(600_000, updatedAt = 2_000, finished = true)), emptyList()))
@@ -87,7 +87,7 @@ class WatchEpisodeImporterTest {
     }
 
     @Test
-    fun `aelterer Stand der Uhr wird verworfen`() = runTest {
+    fun `older progress from the watch is discarded`() = runTest {
         db.bookDao().upsertProgress(BookProgressEntity(episodeId, 60_000, 3_600_000, updatedAt = 5_000))
 
         assertEquals(0, importer.import("p1", listOf(progress(600_000, updatedAt = 4_000)), emptyList()))
@@ -96,7 +96,7 @@ class WatchEpisodeImporterTest {
     }
 
     @Test
-    fun `gehoerte Zeit zaehlt einmal je Paket`() = runTest {
+    fun `listened time counts once per packet`() = runTest {
         val listening = listOf(WatchEpisodeListening(FEED_ID, GUID, listenedMs = 90_000, at = 1_000))
 
         importer.import("p1", emptyList(), listening)
@@ -110,7 +110,7 @@ class WatchEpisodeImporterTest {
     }
 
     @Test
-    fun `Buch von der Uhr geht als offener Stand und Hoersitzung an den Server`() = runTest {
+    fun `a book from the watch goes to the server as pending progress and listening session`() = runTest {
         val progress = WatchEpisodeProgress(ABS_ID, ITEM_ID, 1_200_000, 36_000_000, finished = false, speed = 1f, updatedAt = 9_000)
         val listening = listOf(WatchEpisodeListening(ABS_ID, ITEM_ID, listenedMs = 300_000, at = 9_000))
 
@@ -131,16 +131,16 @@ class WatchEpisodeImporterTest {
     }
 
     @Test
-    fun `Folgen bleiben ohne Server-Stand`() = runTest {
+    fun `episodes stay without server progress`() = runTest {
         importer.import("p1", listOf(progress(600_000, updatedAt = 2_000)), emptyList())
         assertEquals(false, db.bookDao().progress(episodeId)!!.dirty)
         assertTrue(db.absSessionDao().dirty().isEmpty())
     }
 
     @Test
-    fun `unbekannte Folgen werden uebersprungen`() = runTest {
-        val unknown = WatchEpisodeProgress(FEED_ID, "andere", 1, 2, false, 1f, 3)
-        assertEquals(0, importer.import("p1", listOf(unknown), listOf(WatchEpisodeListening(FEED_ID, "andere", 5_000, 1))))
+    fun `unknown episodes are skipped`() = runTest {
+        val unknown = WatchEpisodeProgress(FEED_ID, "other", 1, 2, false, 1f, 3)
+        assertEquals(0, importer.import("p1", listOf(unknown), listOf(WatchEpisodeListening(FEED_ID, "other", 5_000, 1))))
         assertTrue(db.statsDao().all().isEmpty())
     }
 

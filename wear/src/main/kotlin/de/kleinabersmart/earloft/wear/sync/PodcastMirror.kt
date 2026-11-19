@@ -107,8 +107,8 @@ class PodcastMirror @Inject constructor(
         bookDao.deleteUnseenBooks(generation)
         Log.d(
             TAG,
-            "Übernommen: ${episodeIds.size} Folgen in ${feeds.size} Abos, ${bookIds.size} Bücher; " +
-                "${removedFeeds.size} Abos, ${removedEpisodeFiles.size} Folgen-Dateien und ${removedBooks.size} Bücher entfernt",
+            "Applied: ${episodeIds.size} episodes in ${feeds.size} subscriptions, ${bookIds.size} books; " +
+                "removed ${removedFeeds.size} subscriptions, ${removedEpisodeFiles.size} episode files and ${removedBooks.size} books",
         )
         Applied(episodeIds + bookIds, removedEpisodeFiles, removedBooks)
     }

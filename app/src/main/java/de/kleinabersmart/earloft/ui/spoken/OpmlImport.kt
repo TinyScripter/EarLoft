@@ -34,13 +34,13 @@ class OpmlImporter @Inject constructor(
      */
     suspend fun import(uri: Uri, replace: Boolean): OpmlImportResult? = try {
         val feeds = withContext(Dispatchers.IO) {
-            context.contentResolver.openInputStream(uri)?.use(Opml::parse) ?: throw IOException("Datei nicht lesbar")
+            context.contentResolver.openInputStream(uri)?.use(Opml::parse) ?: throw IOException("File not readable")
         }
         podcasts.importOpml(feeds, replace).also { if (it.added > 0) refresher.refreshAll() }
     } catch (e: CancellationException) {
         throw e
     } catch (e: IOException) {
-        Log.w(TAG, "OPML-Import fehlgeschlagen", e)
+        Log.w(TAG, "OPML import failed", e)
         null
     }
 

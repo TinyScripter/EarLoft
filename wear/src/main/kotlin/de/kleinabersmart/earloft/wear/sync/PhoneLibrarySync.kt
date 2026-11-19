@@ -75,7 +75,7 @@ class PhoneLibrarySync @Inject constructor(
         // alone do not replan: that would replace the download job and cancel a running download.
         val previous = state.settings.value
         val settingsChanged = dataClient.payloadsAt(WearPaths.SETTINGS).values.firstOrNull()
-            ?.let { bytes -> decodeOrNull<WearSettingsDto>(bytes, "Einstellungen") }
+            ?.let { bytes -> decodeOrNull<WearSettingsDto>(bytes, "Settings") }
             ?.takeIf { state.updateSettings(it) }
             ?.let { it.withoutSeek() != previous.withoutSeek() } == true
         val servers = dataClient.payloadsAt(WearPaths.SERVERS).entries.firstOrNull()
@@ -138,7 +138,7 @@ class PhoneLibrarySync @Inject constructor(
         try {
             WearCodec.decode<T>(bytes)
         } catch (e: SerializationException) {
-            Log.w(TAG, "$what des Handys nicht lesbar (neuere App-Version?): ${e.message}")
+            Log.w(TAG, "$what from the phone not readable (newer app version?): ${e.message}")
             null
         }
 
@@ -146,7 +146,7 @@ class PhoneLibrarySync @Inject constructor(
     private fun WearServerDto.toMirrored(): MirroredServer? {
         val sourceType = SourceType.entries.firstOrNull { it.name == type && it.isServer }
         if (sourceType == null) {
-            Log.w(TAG, "Server $sourceId: Typ $type wird nicht unterstützt")
+            Log.w(TAG, "Server $sourceId: type $type is not supported")
             return null
         }
         return MirroredServer(sourceId, sourceType, name, baseUrl, username, priority, formPost, credentialsStamp)
@@ -181,7 +181,7 @@ class ManifestApplier @Inject constructor(
             WearManifestSource(WearManifestSource.PHONE_SOURCE_ID, SourceType.PHONE, tracks[WearManifestSource.PHONE_SOURCE_ID].orEmpty()),
         )
         applySelections(manifest, servers)
-        Log.d(TAG, "Manifest übernommen: ${manifest.selections.size} Auswahlen, ${manifest.songs.size} Songs")
+        Log.d(TAG, "Manifest applied: ${manifest.selections.size} selections, ${manifest.songs.size} songs")
     }
 
     private suspend fun applySelections(manifest: WearManifest, servers: Set<String>) = database.withTransaction {
@@ -213,7 +213,7 @@ class ManifestApplier @Inject constructor(
 
     private companion object {
         const val TAG = "ManifestApplier"
-        const val PHONE_SOURCE_NAME = "Handy"
+        const val PHONE_SOURCE_NAME = "Phone"
         const val MAX_SQL_VARIABLES = 900
     }
 }

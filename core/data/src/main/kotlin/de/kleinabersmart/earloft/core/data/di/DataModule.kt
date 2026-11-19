@@ -31,4 +31,4 @@ internal object DataModule {
  * For long-lived scopes (app, service): an unhandled exception in a background coroutine is logged instead of
  * killing the process along with ongoing playback (e.g. a foreign key, because the content was just deleted).
  */
-val LoggingExceptionHandler = CoroutineExceptionHandler { _, e -> Log.e("ApplicationScope", "Unbehandelte Ausnahme", e) }
+val LoggingExceptionHandler = CoroutineExceptionHandler { _, e -> Log.e("ApplicationScope", "Unhandled exception", e) }

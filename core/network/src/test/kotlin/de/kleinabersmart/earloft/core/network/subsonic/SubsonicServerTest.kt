@@ -44,14 +44,14 @@ class SubsonicServerTest {
 
     @Test
     fun `authenticated url carries a valid token for external receivers`() {
-        val server = SubsonicServer("nd", "https://example.com/".toHttpUrl(), SubsonicCredentials.Password("anna", "geheim"))
+        val server = SubsonicServer("nd", "https://example.com/".toHttpUrl(), SubsonicCredentials.Password("anna", "secret"))
 
         val url = server.authenticatedUrl("https://example.com/rest/stream?id=7&format=raw".toHttpUrl())
 
         assertEquals("7", url.queryParameter("id"))
         assertEquals("anna", url.queryParameter("u"))
         val salt = url.queryParameter("s")!!
-        assertEquals(SubsonicAuthInterceptor.md5Hex("geheim$salt"), url.queryParameter("t"))
+        assertEquals(SubsonicAuthInterceptor.md5Hex("secret$salt"), url.queryParameter("t"))
         assertEquals(SubsonicAuthInterceptor.CLIENT_NAME, url.queryParameter("c"))
         assertNull(url.queryParameter("p"))
     }

@@ -29,7 +29,7 @@ internal class CastMediaItemConverter(private val cache: CastMediaCache) : Media
     override fun toMediaQueueItem(mediaItem: MediaItem): MediaQueueItem {
         val media = cache.get(mediaItem)
         val spoken = mediaItem.spokenCastSource != null
-        if (media == null) Log.w(TAG, "${mediaItem.mediaId} hat keine Server-Quelle")
+        if (media == null) Log.w(TAG, "${mediaItem.mediaId} has no server source")
         val meta = mediaItem.mediaMetadata
         val metadata = MediaMetadata(if (spoken) MediaMetadata.MEDIA_TYPE_GENERIC else MediaMetadata.MEDIA_TYPE_MUSIC_TRACK).apply {
             meta.title?.let { putString(MediaMetadata.KEY_TITLE, it.toString()) }

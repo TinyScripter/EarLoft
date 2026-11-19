@@ -12,7 +12,7 @@ import org.junit.Test
 class SeriesProgressTest {
 
     private fun book(id: Long, series: String, progress: BookProgress? = null) =
-        BookWithProgress(Book(id, "abs", BookKind.BOOK, "Buch $id", "A", series = series, durationMs = 1_000, remoteId = "$id"), progress)
+        BookWithProgress(Book(id, "abs", BookKind.BOOK, "Book $id", "A", series = series, durationMs = 1_000, remoteId = "$id"), progress)
 
     private fun finished(at: Long) = BookProgress(1_000, 1_000, finished = true, updatedAt = at)
     private fun started(at: Long, position: Long = 300) = BookProgress(position, 1_000, finished = false, updatedAt = at)
@@ -64,13 +64,13 @@ class SeriesProgressTest {
         val all = listOf(
             book(1, "Saga #1", finished(10)),
             book(2, "Saga #2"),
-            book(11, "Reihe #1", finished(50)),
-            book(12, "Reihe #2"),
+            book(11, "Cycle #1", finished(50)),
+            book(12, "Cycle #2"),
             // Started: is in "Continue listening", not here.
-            book(21, "Krimis #1", finished(60)),
-            book(22, "Krimis #2", started(70)),
+            book(21, "Thrillers #1", finished(60)),
+            book(22, "Thrillers #2", started(70)),
             // Nothing played.
-            book(31, "Neu #1"),
+            book(31, "New #1"),
         )
         assertEquals(listOf(12L, 2L), all.continueSeries().map { it.first.book.id })
     }
@@ -82,7 +82,7 @@ class SeriesProgressTest {
             book(2, "Saga #2", finished(20)),
             book(3, "Saga #3"),
             book(4, "Saga #3.5"),
-            book(9, "Ohne Nummer"),
+            book(9, "Without number"),
         )
         assertEquals(3L to "3", nextInSeries(all[0], all)?.let { it.first.book.id to it.second })
         assertEquals(3L, nextInSeries(all[1], all)?.first?.book?.id)
@@ -113,13 +113,13 @@ class SeriesProgressTest {
     fun `volumes that are not just a number stay in their series and in order`() {
         val all = listOf(
             book(3, "Saga #3"),
-            book(21, "Saga #2a, Welt #1"),
+            book(21, "Saga #2a, World #1"),
             book(2, "Saga #2", finished(10)),
             book(15, "Saga #1,5", finished(5)),
             book(1, "Saga #1-3"),
         )
         val groups = all.seriesGroups()
-        assertEquals(listOf("Saga", "Welt"), groups.map { it.name })
+        assertEquals(listOf("Saga", "World"), groups.map { it.name })
         assertEquals(listOf(1L, 15L, 2L, 21L, 3L), groups.first().books.map { it.book.id })
         assertEquals(21L to "2a", nextInSeries(all[2], all)?.let { it.first.book.id to it.second })
         val saga = groups.first().let { seriesProgress(it.name, it.books) }

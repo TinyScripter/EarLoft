@@ -58,7 +58,7 @@ class EpisodeDownloader @Inject constructor(
     private suspend fun fetch(track: BookTrackEntity, network: Network?, onProgress: suspend (Long, Long?) -> Unit): DownloadOutcome {
         // The process may have been started for the download before the credentials of all subscriptions are available.
         val auth = dao.feedIdOf(track.bookId)?.let { credentials.forFeed(it) }
-        val request = api.audioRequest(track.remoteFileId, auth) ?: return DownloadOutcome.Failed("Ungültige Adresse")
+        val request = api.audioRequest(track.remoteFileId, auth) ?: return DownloadOutcome.Failed("Invalid address")
         val transfer = if (network == null) transfer else ResumableTransfer(clientFor(network), storage)
         // "Remove download" resets the state; without this check the transfer would keep running to the end.
         return when (val result = transfer.run(request, track.bookId, 0, onProgress, { stillRunning(track.bookId) })) {
@@ -82,7 +82,7 @@ class EpisodeDownloader @Inject constructor(
         if (!part.renameTo(target)) {
             // Removed shortly before the end: the partial file is already gone, no reason for a new attempt.
             if (!stillRunning(bookId)) return DownloadOutcome.Cancelled
-            throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
+            throw IOException("Renaming to ${target.name} failed")
         }
         val size = target.length()
         if (dao.markDownloadDone(bookId, target.absolutePath, size) == 0) {
@@ -90,7 +90,7 @@ class EpisodeDownloader @Inject constructor(
             target.delete()
             return DownloadOutcome.Cancelled
         }
-        Log.d(TAG, "Folge $bookId geladen ($size Bytes)")
+        Log.d(TAG, "Episode $bookId downloaded ($size bytes)")
         return DownloadOutcome.Done
     }
 

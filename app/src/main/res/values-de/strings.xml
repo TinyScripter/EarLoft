@@ -5,7 +5,7 @@
     <string name="nav_settings">Einstellungen</string>
     <string name="nav_downloads">Downloads</string>
 
-    <!-- Berechtigungen -->
+    <!-- Permissions -->
     <string name="permission_title">Zugriff auf deine Musik</string>
     <string name="permission_text">EarLoft braucht die Erlaubnis, die Musik auf diesem Gerät zu lesen.</string>
     <string name="permission_denied_text">Der Zugriff wurde abgelehnt. Du kannst ihn in den App-Einstellungen unter „Berechtigungen“ erlauben.</string>
@@ -13,7 +13,7 @@
     <string name="permission_open_settings">Einstellungen öffnen</string>
     <string name="permission_skip">Ohne Musik auf dem Gerät weiter</string>
 
-    <!-- Allgemeine Aktionen -->
+    <!-- General actions -->
     <string name="action_back">Zurück</string>
     <string name="action_close_pane">Schließen</string>
     <string name="action_more">Weitere Optionen</string>
@@ -48,7 +48,7 @@
     <string name="action_move_down">Nach unten</string>
     <string name="action_clear_search">Suche löschen</string>
 
-    <!-- Bibliothek -->
+    <!-- Library -->
     <string name="library_albums">Alben</string>
     <string name="library_artists">Künstler</string>
     <string name="library_songs">Songs</string>
@@ -84,7 +84,7 @@
         <item quantity="other">%1$d Songs</item>
     </plurals>
 
-    <!-- Start -->
+    <!-- Home -->
     <string name="home_recently_added">Neu hinzugefügt</string>
     <string name="home_rediscover">Alben wiederentdecken</string>
     <string name="home_recently_played">Zuletzt gespielte Alben</string>
@@ -92,7 +92,7 @@
     <string name="home_random_artists">Zufällige Interpreten</string>
     <string name="home_random_albums">Zufällige Alben</string>
 
-    <!-- Suche -->
+    <!-- Search -->
     <string name="search_hint">Songs, Alben, Künstler</string>
     <string name="search_hint_all">Überall suchen</string>
     <string name="search_hint_podcasts">Folgen, Abos</string>
@@ -122,7 +122,7 @@
     <string name="player_repeat_one">Titel wiederholen</string>
     <string name="player_seek">Wiedergabeposition</string>
 
-    <!-- Einschlaf-Timer -->
+    <!-- Sleep timer -->
     <string name="sleep_timer_title">Einschlaf-Timer</string>
     <string name="sleep_timer_remaining">Pause: %1$s</string>
     <plurals name="sleep_timer_minutes">
@@ -152,7 +152,7 @@
         <item quantity="other">%d Titel lassen sich nicht casten und werden übersprungen (Format nicht unterstützt oder Handy nicht im WLAN).</item>
     </plurals>
 
-    <!-- Einstellungen & Server -->
+    <!-- Settings & servers -->
     <string name="settings_title">Einstellungen</string>
     <string name="settings_no_servers">Noch kein Server eingerichtet. Unterstützt werden Navidrome und andere Subsonic-Server sowie Jellyfin und Emby.</string>
     <string name="settings_add_server">Server hinzufügen</string>
@@ -314,11 +314,13 @@
     <string name="edit_server_login_required">Nicht angemeldet. Bitte das Passwort eingeben, um dich neu anzumelden.</string>
     <string name="add_server_unreachable">Server nicht erreichbar (%1$s).</string>
     <string name="add_server_server_error">Der Server meldet Fehler %1$d: %2$s</string>
+    <string name="sync_failed_library_changed">Die Bibliothek „%1$s“ hat sich während des Abgleichs auf dem Server geändert. Es wurde nichts entfernt; der nächste Abgleich versucht es erneut.</string>
+    <string name="sync_failed_permission">Die Musik auf diesem Gerät darf nicht gelesen werden. Erlaube den Zugriff in den App-Einstellungen unter „Berechtigungen“.</string>
     <string name="edit_server_title">Server bearbeiten</string>
     <string name="edit_server_password_keep">Leer lassen, um das gespeicherte Passwort zu behalten.</string>
     <string name="edit_server_password_required">Das gespeicherte Passwort ist nicht lesbar. Bitte neu eingeben.</string>
 
-    <!-- Favoriten & Playlists -->
+    <!-- Favorites & playlists -->
     <string name="action_add_favorite">Zu Favoriten hinzufügen</string>
     <string name="action_remove_favorite">Aus Favoriten entfernen</string>
     <string name="library_playlists">Playlists</string>
@@ -403,7 +405,7 @@
     <string name="settings_auto_download_albums_custom">Eigene Anzahl</string>
     <string name="settings_auto_download_albums_apply">Übernehmen</string>
 
-    <!-- Einstellungen: Wiedergabe -->
+    <!-- Settings: playback -->
     <string name="settings_downloads_summary">Heruntergeladene Musik, Folgen und Bücher verwalten und Speicher prüfen</string>
     <string name="settings_playback">Wiedergabe</string>
     <string name="settings_replay_gain">Lautstärke angleichen (ReplayGain)</string>
@@ -468,7 +470,7 @@
     <string name="action_add_to_playlist">Zur Playlist hinzufügen</string>
     <string name="action_remove_from_playlist">Aus Playlist entfernen</string>
 
-    <!-- Uhr (Wear-Konzept 5) -->
+    <!-- Watch (Wear concept 5) -->
     <string name="watch_add">Auf Uhr laden</string>
     <string name="watch_remove">Von Uhr entfernen</string>
     <string name="watch_added">Kommt auf die Uhr</string>
@@ -517,7 +519,7 @@
         <item quantity="other">%1$s · %2$d Titel</item>
     </plurals>
 
-    <!-- Gesprochenes: Bücher & Podcasts (Konzept 12) -->
+    <!-- Spoken: books & podcasts (concept 12) -->
     <string name="spoken_mode_music">Musik</string>
     <string name="spoken_mode_podcasts">Podcasts</string>
     <string name="spoken_mode_books">Bücher</string>
@@ -722,7 +724,7 @@
     <string name="podcast_directory_failed">Keine Antwort von %1$s.</string>
     <string name="podcast_directory_subscribed">Abonniert</string>
     <string name="podcast_source_title">Abonnieren über</string>
-    <!-- Fehlerstatus eines Abos (Konzept 12.10): seit wann der Abgleich scheitert, und warum -->
+    <!-- Error state of a subscription (concept 12.10): since when refreshing fails, and why -->
     <string name="podcast_refresh_failing">Abgleich fehlgeschlagen seit %1$s: %2$s</string>
     <string name="feed_error_gone">Feed nicht mehr vorhanden (404)</string>
     <string name="feed_error_denied">Zugriff verweigert</string>
@@ -1032,7 +1034,7 @@
     <string name="settings_chapter_restart_summary">Wurde die Wiedergabe innerhalb von 30 Sekunden nach dem Kapitelanfang beendet, beginnt das Kapitel wieder von vorn.</string>
     <string name="settings_sleep_shake">Schütteln verlängert den Einschlaf-Timer</string>
     <string name="settings_sleep_shake_summary">In der letzten Minute und bis zwei Minuten nach dem Anhalten. Gilt für Bücher und Podcasts.</string>
-    <!-- Benachrichtigungen über Neues: Titel bei mehreren Alben, Podcasts bzw. Büchern, zugleich Namen der Kanäle -->
+    <!-- New-content notifications: titles for several albums, podcasts or books, also the channel names -->
     <string name="new_content_music_title">Neue Musik</string>
     <string name="new_content_episodes_title">Neue Folgen</string>
     <string name="new_content_books_title">Neue Bücher</string>
@@ -1052,13 +1054,13 @@
         <item quantity="one">%1$d neues Buch</item>
         <item quantity="other">%1$d neue Bücher</item>
     </plurals>
-    <!-- Feed-Umzug (Konzept 12.10): Abos, die an eine neue Adresse umgezogen sind -->
+    <!-- Feed move (concept 12.10): subscriptions that moved to a new address -->
     <plurals name="new_content_feeds_moved_title">
         <item quantity="one">Podcast an neue Adresse umgezogen</item>
         <item quantity="other">%1$d Podcasts an neue Adressen umgezogen</item>
     </plurals>
     <string name="new_content_feeds_moved">Neue Adresse übernommen: %1$s</string>
-    <!-- Aktionen der Benachrichtigung bei genau einer neuen Folge -->
+    <!-- Notification actions for exactly one new episode -->
     <string name="new_content_play">Abspielen</string>
     <string name="new_content_play_next">Als Nächstes</string>
     <string name="new_content_download">Laden</string>
@@ -1138,7 +1140,7 @@
         <item quantity="one">%1$d neuer Titel</item>
         <item quantity="other">%1$d neue Titel</item>
     </plurals>
-    <!-- Bereiche Musik / Podcasts / Bücher ein- und ausschalten (Allgemein → Bereiche) -->
+    <!-- Switching the areas music / podcasts / books on and off (General → Areas) -->
     <string name="settings_section_areas">Bereiche</string>
     <string name="settings_areas_hint">Ausgeschaltete Bereiche verschwinden aus Start, Bibliothek, Suche, Einstellungen und von der Uhr. Gelöscht wird nichts. Ein Bereich bleibt immer eingeschaltet.</string>
     <string name="area_hide_music">Musik ausblenden</string>
@@ -1149,7 +1151,7 @@
     <string name="settings_area_podcasts_summary">RSS-Feeds, Podcasts auf dem Gerät</string>
     <string name="settings_area_books_summary">Audiobookshelf, Bücher auf dem Gerät</string>
 
-    <!-- Einrichtungsassistent (Konzept 15) -->
+    <!-- Setup wizard (concept 15) -->
     <string name="setup_step">Schritt %1$d von %2$d</string>
     <string name="setup_skip">Überspringen</string>
     <string name="setup_next">Weiter</string>
@@ -1203,7 +1205,7 @@
         <item quantity="other">%d Playlists</item>
     </plurals>
     <string name="setup_backup_summary">Schon eine Sicherung von EarLoft? Server, Abos, Fortschritt und Einstellungen sind dann gleich da; Passwörter gibst du danach neu ein.</string>
-    <!-- Hörbücher und Hörspiele aus ARD Sounds (books_improvements M9) -->
+    <!-- Audiobooks and radio plays from ARD Sounds (books_improvements M9) -->
     <string name="settings_ard_sounds_books_summary">Hörbücher und Hörspiele der ARD-Anstalten: stöbern, hören, laden. Nutzt eine inoffizielle Schnittstelle, die ausfallen kann; Suchbegriffe und die Bücher in deiner Bibliothek gehen an die ARD.</string>
     <string name="ard_books_open">Hörbücher aus ARD Sounds</string>
     <string name="ard_books_search_label">Titel in ARD Sounds suchen</string>
@@ -1242,7 +1244,7 @@
         <item quantity="one">%d Titel</item>
         <item quantity="other">%d Titel</item>
     </plurals>
-    <!-- Hochladen eines Buchs aus ARD Sounds zu Audiobookshelf (books_improvements M9) -->
+    <!-- Uploading a book from ARD Sounds to Audiobookshelf (books_improvements M9) -->
     <string name="ard_upload_open">In Audiobookshelf hochladen</string>
     <string name="ard_upload_title">In Audiobookshelf hochladen</string>
     <string name="ard_upload_message">„%1$s“ wird mit Cover, Beschreibung und Sprecher hochgeladen. Es ersetzt dann dieses Buch aus ARD Sounds: Fortschritt, Lesezeichen und Tempo gehen mit, die geladenen Dateien hier werden gelöscht.</string>

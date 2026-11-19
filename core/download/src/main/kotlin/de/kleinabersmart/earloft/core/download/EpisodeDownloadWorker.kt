@@ -102,7 +102,7 @@ class EpisodeDownloadWorker(
         }
         when (outcome) {
             is DownloadOutcome.Retry -> {
-                Log.w(TAG, "Folge ${next.bookId} unterbrochen (Versuch ${runAttemptCount + 1})", outcome.cause)
+                Log.w(TAG, "Episode ${next.bookId} interrupted (attempt ${runAttemptCount + 1})", outcome.cause)
                 if (!budget.giveUp(outcome)) {
                     dao.requeueDownload(next.bookId)
                     return false
@@ -110,7 +110,7 @@ class EpisodeDownloadWorker(
                 dao.markDownloadFailed(next.bookId)
                 storage.deletePart(next.bookId, 0)
             }
-            is DownloadOutcome.Failed -> Log.w(TAG, "Folge ${next.bookId} fehlgeschlagen: ${outcome.reason}")
+            is DownloadOutcome.Failed -> Log.w(TAG, "Episode ${next.bookId} failed: ${outcome.reason}")
             // If the feed lists no chapters, they may be in the file (concept 12.5 "chapter sources").
             DownloadOutcome.Done -> {
                 podcasts.chaptersFromFile(next.bookId)
@@ -157,7 +157,7 @@ class EpisodeDownloadWorker(
             throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true
-            Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund (${e.javaClass.simpleName})")
+            Log.i(TAG, "Foreground start not possible, downloading in the background (${e.javaClass.simpleName})")
         }
     }
 

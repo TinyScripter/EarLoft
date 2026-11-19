@@ -95,10 +95,10 @@ class WearDownloadPlanner @Inject constructor(
             )
             val missing = plan.missing + episodes.size - episodesFitting.size + books.size - booksFitting.size
             state.setMissingForStorage(missing)
-            if (missing > 0) Log.i(TAG, "Speicher voll: $missing Titel, Folgen bzw. Bücher nicht eingereiht (Budget $budget Bytes)")
+            if (missing > 0) Log.i(TAG, "Storage full: $missing songs, episodes or books not queued (budget $budget bytes)")
             plan.toQueue.size + episodesFitting.size + booksFitting.size
         }
-        if (queued > 0) Log.d(TAG, "$queued Downloads eingereiht")
+        if (queued > 0) Log.d(TAG, "$queued downloads queued")
         // Even if there is nothing left to download: the same job fetches missing covers.
         val coversMissing = downloadDao.getAlbumIdsWithDoneDownload().any { !coverFiles.has(it) }
         // New downloads replace a waiting job: otherwise they would be stuck behind the backoff of an earlier failed attempt.

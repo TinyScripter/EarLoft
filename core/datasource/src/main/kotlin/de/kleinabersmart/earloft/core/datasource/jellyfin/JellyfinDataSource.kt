@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import androidx.core.net.toUri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import de.kleinabersmart.earloft.core.datasource.ExternalPlayback
+import de.kleinabersmart.earloft.core.datasource.IncompleteScanException
 import de.kleinabersmart.earloft.core.datasource.MusicDataSource
 import de.kleinabersmart.earloft.core.datasource.PlaybackLocation
 import de.kleinabersmart.earloft.core.datasource.RawTrack
@@ -69,7 +70,7 @@ class JellyfinDataSource internal constructor(
         api.musicLibraries(server).forEach { library ->
             // If the library shifted along the way (scan or deletion on the server), start over once.
             if (!scanLibrary(library) && !scanLibrary(library)) {
-                throw IOException("${library.name} hat sich während des Abgleichs geändert")
+                throw IncompleteScanException(library.name ?: library.id, "${library.name} changed during the sync")
             }
         }
     }
@@ -95,7 +96,7 @@ class JellyfinDataSource internal constructor(
                 // Without a total, as before: a short page is the last one.
                 ?: if (page.size < PAGE_SIZE) return true else continue
             if (start >= total) return true
-            if (page.isEmpty()) throw IOException("Jellyfin lieferte nur $start von $total Songs aus ${library.name}")
+            if (page.isEmpty()) throw IncompleteScanException(library.name ?: library.id, "Jellyfin delivered only $start of $total songs from ${library.name}")
         }
     }
 

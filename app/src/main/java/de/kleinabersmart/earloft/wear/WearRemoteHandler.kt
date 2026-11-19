@@ -90,7 +90,7 @@ class WearRemoteHandler @Inject constructor(
         }
         val list = resolve(request.kind, request.refId)
         if (list == null || list.songs.isEmpty()) {
-            Log.w(TAG, "Abspielen von ${request.kind}/${request.refId}: keine Titel")
+            Log.w(TAG, "Play ${request.kind}/${request.refId}: no tracks")
             return
         }
         val byId = request.startSongId?.let { id -> list.songs.indexOfFirst { it.id == id } }?.takeIf { it >= 0 }

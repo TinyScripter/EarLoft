@@ -52,7 +52,7 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
         val server = try {
             ServerSocket(preferredPort)
         } catch (e: IOException) {
-            Log.i(TAG, "Port $preferredPort belegt, nehme einen freien", e)
+            Log.i(TAG, "Port $preferredPort in use, taking a free one", e)
             ServerSocket(0)
         }
         val pool = ThreadPoolExecutor(0, MAX_CONNECTIONS, 30, TimeUnit.SECONDS, SynchronousQueue()) { runnable ->
@@ -103,7 +103,7 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
         } catch (e: SocketException) {
             // The receiver closed the connection (seeking, next title).
         } catch (e: IOException) {
-            Log.d(TAG, "Verbindung beendet: ${e.message}")
+            Log.d(TAG, "Connection ended: ${e.message}")
         } finally {
             runCatching { client.close() }
         }
@@ -123,7 +123,7 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
         val resource = try {
             resolve(request.path)
         } catch (e: Exception) {
-            Log.w(TAG, "Nicht lesbar", e)
+            Log.w(TAG, "Not readable", e)
             null
         }
         if (resource == null) {
@@ -165,7 +165,7 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
         var left = count
         while (left > 0) {
             val read = input.read(buffer, 0, minOf(buffer.size.toLong(), left).toInt())
-            if (read < 0) throw IOException("Datei kürzer als angegeben")
+            if (read < 0) throw IOException("File shorter than stated")
             output.write(buffer, 0, read)
             left -= read
         }
@@ -177,14 +177,14 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
     private fun readRequest(input: InputStream): Request? {
         val requestLine = readLine(input) ?: return null
         val parts = requestLine.split(' ')
-        if (parts.size < 3) throw IOException("Ungültige Anfrage")
+        if (parts.size < 3) throw IOException("Invalid request")
         val headers = HashMap<String, String>()
         var size = requestLine.length
         while (true) {
             val line = readLine(input) ?: return null
             if (line.isEmpty()) break
             size += line.length
-            if (size > MAX_HEADER_BYTES) throw IOException("Kopf zu groß")
+            if (size > MAX_HEADER_BYTES) throw IOException("Header too large")
             val colon = line.indexOf(':')
             if (colon > 0) headers[line.substring(0, colon).trim().lowercase()] = line.substring(colon + 1).trim()
         }
@@ -201,7 +201,7 @@ internal class HttpFileServer(private val resolve: (path: String) -> Resource?) 
             if (byte < 0) return if (line.isEmpty()) null else line.toString()
             if (byte == '\n'.code) return line.toString().trimEnd('\r')
             line.append(byte.toChar())
-            if (line.length > MAX_HEADER_BYTES) throw IOException("Zeile zu lang")
+            if (line.length > MAX_HEADER_BYTES) throw IOException("Line too long")
         }
     }
 

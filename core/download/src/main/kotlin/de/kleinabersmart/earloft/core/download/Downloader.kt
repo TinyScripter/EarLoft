@@ -106,14 +106,14 @@ class Downloader @Inject constructor(
     ): DownloadOutcome {
         val songSource = downloadDao.getSongSource(uid) ?: return DownloadOutcome.Cancelled
         val source = sources[songSource.sourceId]
-            ?: return DownloadOutcome.Failed("Quelle nicht verfügbar", sourceUnavailable = true)
+            ?: return DownloadOutcome.Failed("Source unavailable", sourceUnavailable = true)
         val location = profile.transcodeTo
             ?.let { (codec, kbps) -> (source as? RemoteTranscoding)?.transcodedPlayback(songSource.remoteId, codec, kbps) }
             ?: source.resolvePlayback(songSource.remoteId) as? PlaybackLocation.Remote
-            ?: return DownloadOutcome.Failed("Keine Server-Quelle")
+            ?: return DownloadOutcome.Failed("No server source")
 
         val url = location.uri.toString().toHttpUrlOrNull()
-            ?: return DownloadOutcome.Failed("Ungültige Adresse")
+            ?: return DownloadOutcome.Failed("Invalid address")
         val request = Request.Builder()
             .url(url)
             .cacheControl(CacheControl.Builder().noStore().build())
@@ -133,12 +133,12 @@ class Downloader @Inject constructor(
                         contentType.startsWith("application/json") || contentType.contains("xml") -> {
                             val error = subsonicErrorIn(response.peekBody(MAX_ERROR_BODY_BYTES).string())
                             if (error?.isRejectedCredentials == true) throw error
-                            return@withContext DownloadOutcome.Failed(error?.message ?: "Server-Fehler statt Audiodatei")
+                            return@withContext DownloadOutcome.Failed(error?.message ?: "Server error instead of audio file")
                         }
                     }
                     val total = response.body.contentLength().takeIf { it >= 0 }
                     if (total != null && storage.freeBytes() < total + FREE_SPACE_RESERVE_BYTES) {
-                        return@withContext DownloadOutcome.Failed("Zu wenig Speicher")
+                        return@withContext DownloadOutcome.Failed("Not enough storage")
                     }
                     writeToPart(uid, response.body.byteStream(), total, onProgress)
                         ?: return@withContext DownloadOutcome.Cancelled
@@ -193,20 +193,20 @@ class Downloader @Inject constructor(
                 }
             }
         }
-        if (total != null && written != total) throw IOException("Unvollständig: $written von $total Bytes")
+        if (total != null && written != total) throw IOException("Incomplete: $written of $total bytes")
         return written
     }
 
     private suspend fun finish(uid: String, mimeType: String?, total: Long?): DownloadOutcome {
         val part = storage.partFileFor(uid)
         val target = storage.fileFor(uid, mimeType)
-        if (!part.renameTo(target)) throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
+        if (!part.renameTo(target)) throw IOException("Renaming to ${target.name} failed")
         val size = target.length()
         if (downloadDao.markDone(uid, target.absolutePath, size) == 0) {
             target.delete()
             return DownloadOutcome.Cancelled
         }
-        Log.d(TAG, "Download fertig: $uid ($size Bytes${if (total == null) ", Größe vorher unbekannt" else ""})")
+        Log.d(TAG, "Download done: $uid ($size bytes${if (total == null) ", size unknown beforehand" else ""})")
         return DownloadOutcome.Done
     }
 

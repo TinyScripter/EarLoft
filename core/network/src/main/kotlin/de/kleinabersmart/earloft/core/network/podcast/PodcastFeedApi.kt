@@ -80,7 +80,7 @@ class PodcastFeedApi @Inject constructor(
     }
 
     suspend fun chapters(url: String): List<ParsedChapter> = withContext(Dispatchers.IO) {
-        val httpUrl = url.toHttpUrlOrNull() ?: throw IOException("Ungültige Kapitel-URL")
+        val httpUrl = url.toHttpUrlOrNull() ?: throw IOException("Invalid chapters URL")
         val request = Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).cacheControl(CacheControl.FORCE_NETWORK).build()
         val text = client.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code)
@@ -94,12 +94,12 @@ class PodcastFeedApi @Inject constructor(
      * host of a protected feed [FeedAuthInterceptor] authenticates. One that is too large is not truncated but rejected.
      */
     suspend fun transcript(url: String): TranscriptText = withContext(Dispatchers.IO) {
-        val httpUrl = url.toHttpUrlOrNull() ?: throw IOException("Ungültige Transkript-URL")
+        val httpUrl = url.toHttpUrlOrNull() ?: throw IOException("Invalid transcript URL")
         val request = Request.Builder().url(httpUrl).header("User-Agent", USER_AGENT).build()
         client.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code)
             val body = response.peekBody(MAX_TRANSCRIPT_BYTES + 1)
-            if (body.contentLength() > MAX_TRANSCRIPT_BYTES) throw IOException("Transkript größer als $MAX_TRANSCRIPT_BYTES Bytes")
+            if (body.contentLength() > MAX_TRANSCRIPT_BYTES) throw IOException("Transcript larger than $MAX_TRANSCRIPT_BYTES bytes")
             TranscriptText(body.string(), response.header("Content-Type"))
         }
     }
@@ -191,7 +191,7 @@ fun parseChapters(json: String): List<ParsedChapter> =
             .sortedBy { it.startTime }
             .map { ParsedChapter((it.startTime * 1000).toLong(), it.title.trim(), webAddress(it.img), webAddress(it.url)) }
     } catch (e: SerializationException) {
-        throw IOException("Unlesbare Kapitelliste", e)
+        throw IOException("Unreadable chapter list", e)
     }
 
 private val CHAPTER_JSON = Json { ignoreUnknownKeys = true; coerceInputValues = true }

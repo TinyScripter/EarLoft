@@ -64,7 +64,7 @@ class BookDownloadWorker(
             }
             when (outcome) {
                 is DownloadOutcome.Retry -> {
-                    Log.w(TAG, "Buch ${next.bookId} Datei ${next.trackIndex} unterbrochen (Versuch ${runAttemptCount + 1})", outcome.cause)
+                    Log.w(TAG, "Book ${next.bookId} file ${next.trackIndex} interrupted (attempt ${runAttemptCount + 1})", outcome.cause)
                     if (!budget.giveUp(outcome)) {
                         dao.requeueBookTrack(next.bookId, next.trackIndex)
                         return Result.retry()
@@ -77,7 +77,7 @@ class BookDownloadWorker(
                         storage.deletePart(next.bookId, next.trackIndex)
                     }
                 }
-                is DownloadOutcome.Failed -> Log.w(TAG, "Buch ${next.bookId} fehlgeschlagen: ${outcome.reason}")
+                is DownloadOutcome.Failed -> Log.w(TAG, "Book ${next.bookId} failed: ${outcome.reason}")
                 DownloadOutcome.Done, DownloadOutcome.Cancelled -> Unit
             }
         }
@@ -114,7 +114,7 @@ class BookDownloadWorker(
             throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true
-            Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund (${e.javaClass.simpleName})")
+            Log.i(TAG, "Foreground start not possible, downloading in the background (${e.javaClass.simpleName})")
         }
     }
 

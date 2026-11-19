@@ -17,20 +17,20 @@ class LocalBookMetadataTest {
         )
         assertEquals("Scheibenwelt #1", FolderMetadata.parse("Audiobooks/Terry Pratchett/Scheibenwelt/01. Die Farben der Magie/").seriesEntry)
         assertEquals(
-            FolderMetadata(author = "A", series = "S", sequence = "2.5", title = "Titel", narrator = "Rufus Beck", year = 1999),
-            FolderMetadata.parse("Audiobooks/A/S/Band 2,5 - 1999 - Titel {Rufus Beck}/"),
+            FolderMetadata(author = "A", series = "S", sequence = "2.5", title = "Title", narrator = "Rufus Beck", year = 1999),
+            FolderMetadata.parse("Audiobooks/A/S/Band 2,5 - 1999 - Title {Rufus Beck}/"),
         )
         // Without a series folder, a leading number is part of the title.
         assertEquals(FolderMetadata(author = "George Orwell", title = "1984"), FolderMetadata.parse("Audiobooks/George Orwell/1984/"))
-        assertEquals(FolderMetadata(author = "A", title = "1 - Titel"), FolderMetadata.parse("Audiobooks/A/1 - Titel/"))
-        assertEquals(FolderMetadata(title = "Buch"), FolderMetadata.parse("Audiobooks/Buch/"))
+        assertEquals(FolderMetadata(author = "A", title = "1 - Title"), FolderMetadata.parse("Audiobooks/A/1 - Title/"))
+        assertEquals(FolderMetadata(title = "Book"), FolderMetadata.parse("Audiobooks/Book/"))
         // A file directly in "Audiobooks" has no folder.
-        assertEquals(FolderMetadata(), FolderMetadata.parse("Audiobooks/Buch.m4b"))
-        assertEquals("S", FolderMetadata.parse("Audiobooks/A/S/Ohne Nummer/").seriesEntry)
+        assertEquals(FolderMetadata(), FolderMetadata.parse("Audiobooks/Book.m4b"))
+        assertEquals("S", FolderMetadata.parse("Audiobooks/A/S/No number/").seriesEntry)
         // A volume with letters (intermediate volume).
         assertEquals(
-            FolderMetadata(author = "A", series = "S", sequence = "2a", title = "Titel"),
-            FolderMetadata.parse("Audiobooks/A/S/02a – Titel/"),
+            FolderMetadata(author = "A", series = "S", sequence = "2a", title = "Title"),
+            FolderMetadata.parse("Audiobooks/A/S/02a – Title/"),
         )
     }
 
@@ -46,9 +46,9 @@ class LocalBookMetadataTest {
         assertEquals("reader.txt", picked.reader?.name)
         assertEquals("metadata.opf", picked.opf?.name)
 
-        val other = BookSidecars.pick(listOf(file("b.webp"), file("a.jpg"), file("buch.opf")))
+        val other = BookSidecars.pick(listOf(file("b.webp"), file("a.jpg"), file("book.opf")))
         assertEquals("a.jpg", other.cover?.name)
-        assertEquals("buch.opf", other.opf?.name)
+        assertEquals("book.opf", other.opf?.name)
         assertNull(other.description)
     }
 
@@ -103,31 +103,31 @@ class LocalBookMetadataTest {
             """
             <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
               <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-                <dc:title id="t1">Titel</dc:title>
-                <dc:title id="t2">Der Untertitel</dc:title>
+                <dc:title id="t1">Title</dc:title>
+                <dc:title id="t2">The Subtitle</dc:title>
                 <meta refines="#t2" property="title-type">subtitle</meta>
-                <dc:creator id="c1">Anna Autor</dc:creator>
-                <dc:creator id="c2">Sam Sprecher</dc:creator>
+                <dc:creator id="c1">Anna Author</dc:creator>
+                <dc:creator id="c2">Sam Narrator</dc:creator>
                 <meta refines="#c2" property="role" scheme="marc:relators">nrt</meta>
-                <meta property="belongs-to-collection" id="s1">Die Reihe</meta>
+                <meta property="belongs-to-collection" id="s1">The Series</meta>
                 <meta refines="#s1" property="group-position">2.5</meta>
                 <dc:identifier>urn:isbn:3899401234</dc:identifier>
               </metadata>
             </package>
             """.trimIndent(),
         )!!
-        assertEquals("Titel", opf.title)
-        assertEquals("Der Untertitel", opf.subtitle)
-        assertEquals(listOf("Anna Autor"), opf.authors)
-        assertEquals(listOf("Sam Sprecher"), opf.narrators)
-        assertEquals("Die Reihe #2.5", opf.seriesEntry)
+        assertEquals("Title", opf.title)
+        assertEquals("The Subtitle", opf.subtitle)
+        assertEquals(listOf("Anna Author"), opf.authors)
+        assertEquals(listOf("Sam Narrator"), opf.narrators)
+        assertEquals("The Series #2.5", opf.seriesEntry)
         assertEquals("3899401234", opf.isbn)
     }
 
     @Test
     fun `broken opf is ignored`() {
-        assertNull(OpfMetadata.parse("<package><metadata><dc:title>kaputt"))
-        assertNull(OpfMetadata.parse("kein xml"))
+        assertNull(OpfMetadata.parse("<package><metadata><dc:title>broken"))
+        assertNull(OpfMetadata.parse("not xml"))
     }
 
     @Test

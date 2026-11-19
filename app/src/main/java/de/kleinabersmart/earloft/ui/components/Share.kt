@@ -86,7 +86,7 @@ class ShareViewModel @Inject constructor(
         try {
             source.file.copyTo(copy, overwrite = true)
         } catch (e: IOException) {
-            Log.w(TAG, "Folge $bookId nicht zum Teilen kopiert", e)
+            Log.w(TAG, "Episode $bookId not copied for sharing", e)
             copy.delete()
             snackbars.show(context.getString(R.string.share_media_failed))
             return null

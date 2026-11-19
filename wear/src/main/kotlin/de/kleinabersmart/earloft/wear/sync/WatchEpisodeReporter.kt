@@ -91,7 +91,7 @@ class WatchEpisodeReporter @Inject constructor(
         if (!dataClient.putPayload(WearPaths.episodes(packet.packetId), WearCodec.encode(packet))) return@withLock
         progress.forEach { reported.markProgress(it.serverId, it.remoteId, it.progress.updatedAt) }
         listening.forEach { (stat, _) -> reported.markListened(stat.groupKey, stat.itemKey, stat.listenedMs) }
-        Log.d(TAG, "Folgen und Bücher gemeldet: ${progress.size} Fortschritte, ${listening.size} Zeiten")
+        Log.d(TAG, "Episodes and books reported: ${progress.size} progress entries, ${listening.size} listening times")
     }
 
     private companion object {

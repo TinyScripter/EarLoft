@@ -349,7 +349,7 @@ private fun PlaylistContentPreview() {
     EarLoftTheme {
         PlaylistContent(
             state = LoadState.Ready(
-                PlaylistDetails(Playlist(1, "Sommer", 3, 645_000, serverName = "Navidrome"), entries),
+                PlaylistDetails(Playlist(1, "Summer", 3, 645_000, serverName = "Navidrome"), entries),
             ),
             offline = AlbumOfflineStatus.EMPTY,
             onDownload = {},

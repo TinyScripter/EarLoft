@@ -43,7 +43,7 @@ class LocalBookFolders @Inject constructor(
             resolver.takePersistableUriPermission(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             true
         } catch (e: SecurityException) {
-            Log.w(TAG, "Freigabe $tree nicht übernommen", e)
+            Log.w(TAG, "Grant for $tree not taken", e)
             false
         }
     }
@@ -86,7 +86,7 @@ class LocalBookFolders @Inject constructor(
             }
         } catch (e: RuntimeException) {
             // Grant revoked, folder gone (SecurityException, IllegalArgumentException, …).
-            Log.w(TAG, "Ordner $folderPath nicht lesbar", e)
+            Log.w(TAG, "Folder $folderPath unreadable", e)
             null
         }
     }
@@ -98,10 +98,10 @@ class LocalBookFolders @Inject constructor(
             bytes.takeIf { it.size <= maxBytes }
         }
     } catch (e: IOException) {
-        Log.w(TAG, "$uri nicht lesbar", e)
+        Log.w(TAG, "$uri unreadable", e)
         null
     } catch (e: RuntimeException) {
-        Log.w(TAG, "$uri nicht lesbar", e)
+        Log.w(TAG, "$uri unreadable", e)
         null
     }
 

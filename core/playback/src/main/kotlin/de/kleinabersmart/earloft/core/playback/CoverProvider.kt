@@ -44,7 +44,7 @@ class CoverProvider : ContentProvider() {
     }
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
-        if (mode != "r") throw FileNotFoundException("Nur lesbar")
+        if (mode != "r") throw FileNotFoundException("Read-only")
         val albumId = albumId(uri)
         val bookId = bookId(uri)
         val feedId = feedId(uri)

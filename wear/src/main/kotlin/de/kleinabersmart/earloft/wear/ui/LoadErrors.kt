@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.catch
  * crashing the watch app. The flow then ends; the view shows [failed] until it is reopened.
  */
 internal fun <T> Flow<T>.orOnError(failed: T): Flow<T> = catch { e ->
-    Log.e(TAG, "Inhalt konnte nicht geladen werden", e)
+    Log.e(TAG, "Content could not be loaded", e)
     emit(failed)
 }
 

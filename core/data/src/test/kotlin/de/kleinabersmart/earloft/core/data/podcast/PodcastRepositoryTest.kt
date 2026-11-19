@@ -81,7 +81,7 @@ class PodcastRepositoryTest {
                     .build()
             }
             .build()
-        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), settings, AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
+        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), settings, AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("no source switch in tests") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
     }
 
     @After
@@ -120,9 +120,9 @@ class PodcastRepositoryTest {
               <channel>
                 <title>P20</title>
                 <podcast:guid>abc</podcast:guid>
-                <podcast:funding url="https://example.com/support">Spenden</podcast:funding>
+                <podcast:funding url="https://example.com/support">Donate</podcast:funding>
                 <item>
-                  <title>Eins</title><guid>1</guid><pubDate>Thu, 30 Oct 2025 06:00:00 GMT</pubDate>
+                  <title>One</title><guid>1</guid><pubDate>Thu, 30 Oct 2025 06:00:00 GMT</pubDate>
                   <enclosure url="https://example.com/1.mp3"/>
                   <itunes:season>2</itunes:season><itunes:episode>7</itunes:episode>
                   <podcast:person role="guest">$guest</podcast:person>
@@ -142,9 +142,9 @@ class PodcastRepositoryTest {
         val feed = db.podcastDao().feed(feedId)!!
         assertEquals("abc", feed.podcastGuid)
         assertEquals("https://example.com/support", repository.feed(feedId).first()!!.fundingUrl)
-        assertEquals("Spenden", repository.feed(feedId).first()!!.fundingLabel)
+        assertEquals("Donate", repository.feed(feedId).first()!!.fundingLabel)
         val episodes = repository.episodes(feedId).first().map { it.book }
-        assertEquals(listOf("Eins"), episodes.map { it.title })
+        assertEquals(listOf("One"), episodes.map { it.title })
         val first = episodes.single()
         assertEquals(2, first.season)
         assertEquals(7, first.episodeNumber)
@@ -229,11 +229,11 @@ class PodcastRepositoryTest {
     fun `opml import skips known and repeated feeds and replacing keeps matches and device podcasts`() = runTest {
         val kept = subscribe()
         val dropped = (repository.subscribe("https://example.com/other.xml") as SubscribeResult.Added).feedId
-        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "local:x", url = "local:x", title = "Gerät"))
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "local:x", url = "local:x", title = "Device"))
         val file = listOf(
-            OpmlFeed("Alt", "https://example.com/feed.xml"),
-            OpmlFeed("Neu", "https://example.com/new.xml"),
-            OpmlFeed("Neu nochmal", "https://example.com/new.xml"),
+            OpmlFeed("Old", "https://example.com/feed.xml"),
+            OpmlFeed("New", "https://example.com/new.xml"),
+            OpmlFeed("New again", "https://example.com/new.xml"),
         )
 
         val added = repository.importOpml(file, replace = false)
@@ -259,7 +259,7 @@ class PodcastRepositoryTest {
         assertEquals(2, db.podcastDao().feeds().size)
 
         // Without RSS-Bridge EarLoft exports no ARD subscriptions; the file therefore doesn't replace them.
-        val result = repository.importOpml(listOf(OpmlFeed("Neu", "https://example.com/new.xml")), replace = true)
+        val result = repository.importOpml(listOf(OpmlFeed("New", "https://example.com/new.xml")), replace = true)
         assertEquals(1, result.removed)
         val ids = db.podcastDao().feeds().map { it.feedId }
         assertTrue("ard" in ids && feed !in ids)
@@ -268,9 +268,9 @@ class PodcastRepositoryTest {
     @Test
     fun `opml export lists subscriptions but not device podcasts`() = runTest {
         subscribe()
-        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "local:x", url = "local:x", title = "Gerät"))
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "local:x", url = "local:x", title = "Device"))
 
-        val feeds = Opml.parse(repository.exportOpml("Abos", "Mon, 2 Nov 2026 14:10:40 +0100", rssBridge = null).byteInputStream())
+        val feeds = Opml.parse(repository.exportOpml("Subscriptions", "Mon, 2 Nov 2026 14:10:40 +0100", rssBridge = null).byteInputStream())
 
         assertEquals(listOf(OpmlFeed("Test-Podcast", "https://example.com/feed.xml")), feeds)
     }
@@ -281,7 +281,7 @@ class PodcastRepositoryTest {
 
         assertEquals(listOf(feedId), repository.searchFeeds("test-POD").map { it.id })
         assertEquals(emptyList<String>(), repository.searchFeeds("   ").map { it.id })
-        assertEquals(emptyList<String>(), repository.searchFeeds("Hörbuch").map { it.id })
+        assertEquals(emptyList<String>(), repository.searchFeeds("Audiobook").map { it.id })
     }
 
     @Test
@@ -314,7 +314,7 @@ class PodcastRepositoryTest {
         val feedId = subscribe()
 
         assertEquals(SubscribeResult.AlreadySubscribed(feedId), repository.subscribe("https://example.com/feed.xml"))
-        assertEquals(SubscribeResult.InvalidUrl, repository.subscribe("kein feed"))
+        assertEquals(SubscribeResult.InvalidUrl, repository.subscribe("not a feed"))
         served = "<html></html>"
         assertEquals(SubscribeResult.NotAFeed, repository.subscribe("https://example.com/other"))
         served = null
@@ -454,8 +454,8 @@ class PodcastRepositoryTest {
             listOf(
                 stat(ListeningStatEntity.SOURCE_APP, "guid-A", "A", 60_000, 300),
                 stat(ListeningStatEntity.SOURCE_IMPORTED, "guid-A", "A", 30_000, 100),
-                stat(ListeningStatEntity.SOURCE_APP, "guid-old", "Alt", 10_000, 200),
-                stat(ListeningStatEntity.SOURCE_IMPORTED, "x", "Fremd", 5_000, 400, group = "https://example.com/gone.xml"),
+                stat(ListeningStatEntity.SOURCE_APP, "guid-old", "Old", 10_000, 200),
+                stat(ListeningStatEntity.SOURCE_IMPORTED, "x", "Foreign", 5_000, 400, group = "https://example.com/gone.xml"),
                 // Without a timestamp it isn't in the history.
                 stat(ListeningStatEntity.SOURCE_IMPORTED, "guid-B", "B", 5_000, 0),
             ),
@@ -463,7 +463,7 @@ class PodcastRepositoryTest {
 
         val history = repository.history().first()
 
-        assertEquals(listOf("Fremd", "A", "Alt"), history.map { it.title })
+        assertEquals(listOf("Foreign", "A", "Old"), history.map { it.title })
         val (gone, heard, old) = history
         assertEquals(Triple(null, null, false), Triple(gone.feedId, gone.bookId, gone.finished))
         assertEquals(Triple(feedId, a, true), Triple(heard.feedId, heard.bookId, heard.finished))
@@ -571,10 +571,10 @@ class PodcastRepositoryTest {
         assertEquals(ChapterSource.FEED, db.bookDao().chapterSource(id))
 
         // The chapter list (JSON) takes precedence.
-        served = """{"version":"1.2.0","chapters":[{"startTime":0,"title":"Begrüßung"},
+        served = """{"version":"1.2.0","chapters":[{"startTime":0,"title":"Welcome"},
             {"startTime":30.5,"title":"Ukraine","img":"https://example.com/karte.jpg","url":"https://example.com/quelle"}]}"""
         repository.ensureChapters(id)
-        assertEquals(listOf(Triple("Begrüßung", 0L, 30_500L), Triple("Ukraine", 30_500L, 600_000L)), chapters())
+        assertEquals(listOf(Triple("Welcome", 0L, 30_500L), Triple("Ukraine", 30_500L, 600_000L)), chapters())
         assertEquals(ChapterSource.JSON, db.bookDao().chapterSource(id))
         // Image and website come along.
         val ukraine = db.bookDao().chapters(id).last()
@@ -634,7 +634,7 @@ class PodcastRepositoryTest {
         repository.ensureChapters(id) { clock }
         assertEquals(2, fetches())
         clock += 6 * 60 * 60 * 1000L
-        served = """{"version":"1.2.0","chapters":[{"startTime":0,"title":"Begrüßung"}]}"""
+        served = """{"version":"1.2.0","chapters":[{"startTime":0,"title":"Welcome"}]}"""
         repository.ensureChapters(id) { clock }
         assertEquals(3, fetches())
         assertEquals(ChapterSource.JSON, db.bookDao().chapterSource(id))
@@ -779,7 +779,7 @@ class PodcastRepositoryTest {
             listOf(
                 OpmlFeed("Archiviert", "https://example.com/feed.xml"),
                 OpmlFeed("Probe", "https://example.com/trial.xml"),
-                OpmlFeed("Neu", "https://example.com/new.xml"),
+                OpmlFeed("New", "https://example.com/new.xml"),
             ),
             replace = false,
         )
@@ -819,8 +819,8 @@ class PodcastRepositoryTest {
 
     /** Like the feeds of the rbb stations: channel image elements present, but empty. */
     private fun feedWithoutImage(episodeImage: String?) = """
-        <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>Ohne Bild</title>
-        <itunes:image href=""/><image><url></url><title>Ohne Bild</title></image>
+        <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>No image</title>
+        <itunes:image href=""/><image><url></url><title>No image</title></image>
         <item><title>A</title><guid>guid-A</guid><enclosure url="https://example.com/A.mp3" type="audio/mpeg"/>
         ${episodeImage?.let { "<itunes:image href=\"$it\"/>" }.orEmpty()}</item>
         </channel></rss>
@@ -1324,7 +1324,7 @@ class PodcastRepositoryTest {
         val ard = (repository.openPreview("ardsounds:urn:ard:show:abc") as SubscribeResult.Added).feedId
         repository.subscribeTrial(ard)
 
-        ardServed = """{"data":{"show":{"items":{"nodes":"geändert"}}}}"""
+        ardServed = """{"data":{"show":{"items":{"nodes":"changed"}}}}"""
         val summary = repository.refreshAll()
 
         assertEquals(false, summary.ok)
@@ -1332,7 +1332,7 @@ class PodcastRepositoryTest {
         assertNotNull(repository.refresh(rss))
         assertEquals(2, db.bookDao().booksOf(ard).size)
         ardServed = """{"data":{"show":null}}"""
-        assertEquals(SubscribeResult.NotAFeed, repository.subscribe("ardsounds:urn:ard:show:weg"))
+        assertEquals(SubscribeResult.NotAFeed, repository.subscribe("ardsounds:urn:ard:show:gone"))
     }
 
     @Test
@@ -1344,8 +1344,8 @@ class PodcastRepositoryTest {
             "https://bridge.example/rss/?action=display&bridge=ARDAudiothekBridge&path=urn%3Aard%3Ashow%3Aabc&format=Atom",
         )
 
-        val exported = Opml.parse(repository.exportOpml("Abos", "Mon, 2 Nov 2026 14:10:40 +0100", "https://bridge.example/rss/").byteInputStream())
-        val withoutBridge = Opml.parse(repository.exportOpml("Abos", "Mon, 2 Nov 2026 14:10:40 +0100", rssBridge = null).byteInputStream())
+        val exported = Opml.parse(repository.exportOpml("Subscriptions", "Mon, 2 Nov 2026 14:10:40 +0100", "https://bridge.example/rss/").byteInputStream())
+        val withoutBridge = Opml.parse(repository.exportOpml("Subscriptions", "Mon, 2 Nov 2026 14:10:40 +0100", rssBridge = null).byteInputStream())
 
         assertEquals(listOf(bridgeFeed, OpmlFeed("Test-Podcast", "https://example.com/feed.xml")), exported)
         assertEquals(listOf(OpmlFeed("Test-Podcast", "https://example.com/feed.xml")), withoutBridge)
@@ -1365,8 +1365,8 @@ class PodcastRepositoryTest {
 
     @Test
     fun `descriptions keep their html and doubly escaped markup is resolved`() {
-        assertEquals("<p>Hallo <b>Welt</b></p>", " <p>Hallo <b>Welt</b></p>\n".toDescriptionHtml())
-        assertEquals("<p>Hallo <b>Welt</b></p>", "&lt;p&gt;Hallo &lt;b&gt;Welt&lt;/b&gt;&lt;/p&gt;".toDescriptionHtml())
+        assertEquals("<p>Hello <b>world</b></p>", " <p>Hello <b>world</b></p>\n".toDescriptionHtml())
+        assertEquals("<p>Hello <b>world</b></p>", "&lt;p&gt;Hello &lt;b&gt;world&lt;/b&gt;&lt;/p&gt;".toDescriptionHtml())
         assertEquals("Tom &amp; Jerry", "Tom &amp; Jerry".toDescriptionHtml())
     }
 

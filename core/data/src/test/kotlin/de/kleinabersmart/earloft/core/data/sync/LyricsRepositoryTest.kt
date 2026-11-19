@@ -36,8 +36,8 @@ class LyricsRepositoryTest {
     private lateinit var db: EarLoftDatabase
     private lateinit var lyrics: LyricsRepository
     private lateinit var settings: LyricsSettings
-    private val nd = FakeServer("nd", listOf(track("a"), track("b", artist = "Band feat. Gast"), track("c")))
-    private val synced = Lyrics.Synced(listOf(LyricLine(0, "Eins"), LyricLine(5_000, "Zweiä")))
+    private val nd = FakeServer("nd", listOf(track("a"), track("b", artist = "Band feat. Guest"), track("c")))
+    private val synced = Lyrics.Synced(listOf(LyricLine(0, "One"), LyricLine(5_000, "Two café")))
 
     // Fake LRCLIB: responses per path, all requests recorded for inspection.
     private val lrclib = MockWebServer()
@@ -91,11 +91,11 @@ class LyricsRepositoryTest {
 
     @Test
     fun `plain lyrics survive the round trip`() = runTest {
-        nd.lyrics["a"] = Lyrics.Plain("Zeile 1\nZeile 2")
+        nd.lyrics["a"] = Lyrics.Plain("Line 1\nLine 2")
 
         lyrics.lyrics(songId("a"))
 
-        assertEquals(Lyrics.Plain("Zeile 1\nZeile 2"), lyrics.lyrics(songId("a")))
+        assertEquals(Lyrics.Plain("Line 1\nLine 2"), lyrics.lyrics(songId("a")))
         assertEquals(1, nd.calls.size)
     }
 
@@ -147,17 +147,17 @@ class LyricsRepositoryTest {
     @Test
     fun `LRCLIB fills in what the servers lack, asked with title, artist and duration`() = runTest {
         lyrics.setOnlineLyrics(true)
-        lrclibResponses["/api/get"] = entry(synced = "[00:01.00] Online\n[00:04.50] Zwei")
+        lrclibResponses["/api/get"] = entry(synced = "[00:01.00] Online\n[00:04.50] Two")
         val id = songId("b")
 
-        val expected = Lyrics.Synced(listOf(LyricLine(1_000, "Online"), LyricLine(4_500, "Zwei")))
+        val expected = Lyrics.Synced(listOf(LyricLine(1_000, "Online"), LyricLine(4_500, "Two")))
         assertEquals(SongLyrics(expected, fromLrclib = true), lyrics.songLyrics(id))
         // From the cache, too, with source.
         assertEquals(SongLyrics(expected, fromLrclib = true), lyrics.songLyrics(id))
 
         val request = lrclibRequests.single().url
-        assertEquals("Titel b", request.queryParameter("track_name"))
-        assertEquals("Band feat. Gast", request.queryParameter("artist_name"))
+        assertEquals("Title b", request.queryParameter("track_name"))
+        assertEquals("Band feat. Guest", request.queryParameter("artist_name"))
         assertEquals("100", request.queryParameter("duration"))
         assertEquals("lrclib", db.lyricsDao().get(id)!!.origin)
     }
@@ -170,20 +170,20 @@ class LyricsRepositoryTest {
         assertEquals(Lyrics.None, lyrics.lyrics(songId("b")))
 
         val asked = lrclibRequests.filter { it.url.encodedPath == "/api/get" }.map { it.url.queryParameter("artist_name") }
-        assertEquals(listOf("Band feat. Gast", "Band"), asked)
+        assertEquals(listOf("Band feat. Guest", "Band"), asked)
     }
 
     @Test
     fun `synced lyrics from LRCLIB beat plain ones from the server, plain ones do not`() = runTest {
         lyrics.setOnlineLyrics(true)
-        nd.lyrics["a"] = Lyrics.Plain("Vom Server")
-        nd.lyrics["b"] = Lyrics.Plain("Auch vom Server")
+        nd.lyrics["a"] = Lyrics.Plain("From the server")
+        nd.lyrics["b"] = Lyrics.Plain("Also from the server")
         lrclibResponses["/api/get"] = entry(synced = "[00:01.00] Online")
 
         assertEquals(Lyrics.Synced(listOf(LyricLine(1_000, "Online"))), lyrics.lyrics(songId("a")))
 
-        lrclibResponses["/api/get"] = entry(plain = "Online statisch")
-        assertEquals(SongLyrics(Lyrics.Plain("Auch vom Server")), lyrics.songLyrics(songId("b")))
+        lrclibResponses["/api/get"] = entry(plain = "Online static")
+        assertEquals(SongLyrics(Lyrics.Plain("Also from the server")), lyrics.songLyrics(songId("b")))
         assertEquals("nd", db.lyricsDao().get(songId("b"))!!.origin)
     }
 
@@ -193,13 +193,13 @@ class LyricsRepositoryTest {
         lrclibResponses["/api/search"] = json(
             """
             [
-              {"trackName":"Anderer Song","artistName":"Band","instrumental":false,"plainLyrics":"Falsch","syncedLyrics":null},
-              {"trackName":"Titel A","artistName":"band","instrumental":false,"plainLyrics":"Richtig\nZeile 2","syncedLyrics":"[00:01.00] Live"}
+              {"trackName":"Other song","artistName":"Band","instrumental":false,"plainLyrics":"Wrong","syncedLyrics":null},
+              {"trackName":"Title A","artistName":"band","instrumental":false,"plainLyrics":"Right\nLine 2","syncedLyrics":"[00:01.00] Live"}
             ]
             """,
         )
 
-        assertEquals(Lyrics.Plain("Richtig\nZeile 2"), lyrics.lyrics(songId("a")))
+        assertEquals(Lyrics.Plain("Right\nLine 2"), lyrics.lyrics(songId("a")))
     }
 
     @Test
@@ -226,11 +226,11 @@ class LyricsRepositoryTest {
     @Test
     fun `a plain server text is not stored while LRCLIB was unreachable`() = runTest {
         lyrics.setOnlineLyrics(true)
-        nd.lyrics["a"] = Lyrics.Plain("Vom Server")
+        nd.lyrics["a"] = Lyrics.Plain("From the server")
         lrclibResponses["/api/get"] = MockResponse.Builder().code(503).build()
         val id = songId("a")
 
-        assertEquals(Lyrics.Plain("Vom Server"), lyrics.lyrics(id))
+        assertEquals(Lyrics.Plain("From the server"), lyrics.lyrics(id))
         assertNull(db.lyricsDao().get(id))
 
         lrclibResponses["/api/get"] = entry(synced = "[00:01.00] Online")
@@ -280,10 +280,10 @@ class LyricsRepositoryTest {
         val a = songId("a")
         val b = songId("b")
         val c = songId("c")
-        nd.lyrics["a"] = Lyrics.Plain("Vom Server")
+        nd.lyrics["a"] = Lyrics.Plain("From the server")
         lyrics.lyrics(a)
         lyrics.lyrics(b)
-        db.lyricsDao().upsert(LyricsEntity(c, LyricsKind.PLAIN, "Datei", "embedded", fetchedAt = 1))
+        db.lyricsDao().upsert(LyricsEntity(c, LyricsKind.PLAIN, "File", "embedded", fetchedAt = 1))
 
         lyrics.setOnlineLyrics(true)
         assertNull(db.lyricsDao().get(a))
@@ -299,7 +299,7 @@ class LyricsRepositoryTest {
 
     private fun entry(synced: String? = null, plain: String? = null): MockResponse {
         val body = org.json.JSONObject()
-            .put("trackName", "Titel")
+            .put("trackName", "Title")
             .put("artistName", "Band")
             .put("instrumental", false)
             .put("syncedLyrics", synced ?: org.json.JSONObject.NULL)
@@ -313,7 +313,7 @@ class LyricsRepositoryTest {
 
     private fun track(remoteId: String, artist: String = "Band") = RawTrack(
         remoteId = remoteId,
-        title = "Titel $remoteId",
+        title = "Title $remoteId",
         artistDisplay = artist,
         artists = listOf(RawArtist("Band")),
         albumTitle = "Album",

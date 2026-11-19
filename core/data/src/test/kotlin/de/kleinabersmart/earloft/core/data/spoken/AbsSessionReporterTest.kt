@@ -76,7 +76,7 @@ class AbsSessionReporterTest {
         val servers = testAudiobookshelfServers(db.bookDao(), secrets, api)
         reporter = AbsSessionReporter(context, db.absSessionDao(), db.bookDao(), servers, api, PlaybackPolicy())
         bookId = db.bookDao().upsertBook(
-            BookEntity(serverId = "srv", kind = BookKind.BOOK, remoteId = "item-1", title = "Buch", normTitle = "buch", author = "Autor", durationMs = 36_000_000),
+            BookEntity(serverId = "srv", kind = BookKind.BOOK, remoteId = "item-1", title = "Book", normTitle = "book", author = "Author", durationMs = 36_000_000),
         )
     }
 
@@ -144,10 +144,10 @@ class AbsSessionReporterTest {
     @Test
     fun `episodes and books from the device are not reported`() = runTest {
         val episode = db.bookDao().upsertBook(
-            BookEntity(serverId = "feed", kind = BookKind.EPISODE, remoteId = "g", title = "Folge", normTitle = "folge", author = "P", durationMs = 1),
+            BookEntity(serverId = "feed", kind = BookKind.EPISODE, remoteId = "g", title = "Episode", normTitle = "episode", author = "P", durationMs = 1),
         )
         val local = db.bookDao().upsertBook(
-            BookEntity(serverId = "local", kind = BookKind.BOOK, remoteId = "/x.m4b", title = "Lokal", normTitle = "lokal", author = "A", durationMs = 1),
+            BookEntity(serverId = "local", kind = BookKind.BOOK, remoteId = "/x.m4b", title = "Local", normTitle = "local", author = "A", durationMs = 1),
         )
 
         reporter.record(episode, 60_000, 0, 1, force = true)

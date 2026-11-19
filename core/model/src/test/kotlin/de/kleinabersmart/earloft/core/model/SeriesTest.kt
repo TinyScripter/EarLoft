@@ -29,10 +29,10 @@ class SeriesTest {
 
     @Test
     fun `a volume that is not just a number still belongs to the series`() {
-        val (twoA, world) = parseSeries("Saga #2a, Welt #1")
+        val (twoA, world) = parseSeries("Saga #2a, World #1")
         assertEquals("Saga", twoA.name)
         assertEquals("2a", twoA.volume)
-        assertEquals(SeriesRef("Welt", 1.0, "1"), world)
+        assertEquals(SeriesRef("World", 1.0, "1"), world)
 
         val range = parseSeries("Saga #1-3").single()
         assertEquals("Saga", range.name)
@@ -47,8 +47,8 @@ class SeriesTest {
     @Test
     fun `a decimal comma does not separate series`() {
         assertEquals(
-            listOf(SeriesRef("Saga", 1.5, "1,5"), SeriesRef("Welt", 2.0, "2")),
-            parseSeries("Saga #1,5, Welt #2"),
+            listOf(SeriesRef("Saga", 1.5, "1,5"), SeriesRef("World", 2.0, "2")),
+            parseSeries("Saga #1,5, World #2"),
         )
     }
 

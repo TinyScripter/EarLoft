@@ -98,5 +98,5 @@ class Navigator(private val state: NavigationState) {
     }
 
     private fun currentStack() =
-        state.backStacks[state.topLevelRoute] ?: error("Kein Back Stack für ${state.topLevelRoute}")
+        state.backStacks[state.topLevelRoute] ?: error("No back stack for ${state.topLevelRoute}")
 }

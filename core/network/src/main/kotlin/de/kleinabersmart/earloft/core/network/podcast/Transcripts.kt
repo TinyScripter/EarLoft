@@ -98,9 +98,9 @@ private fun parseJson(body: String): List<TranscriptSegment> =
             )
         }
     } catch (e: SerializationException) {
-        throw IOException("Unlesbares Transkript", e)
+        throw IOException("Unreadable transcript", e)
     } catch (e: IllegalArgumentException) {
-        throw IOException("Unlesbares Transkript", e)
+        throw IOException("Unreadable transcript", e)
     }
 
 // --- SRT and WebVTT ---

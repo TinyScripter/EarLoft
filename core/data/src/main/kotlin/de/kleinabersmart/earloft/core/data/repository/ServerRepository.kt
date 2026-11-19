@@ -292,7 +292,7 @@ class ServerRepository @Inject constructor(
         try {
             withTimeoutOrNull(LOGOUT_TIMEOUT_MS) { jellyfinApi.logout(server) }
         } catch (e: IOException) {
-            Log.w(TAG, "Abmelden bei ${server.baseUrl} fehlgeschlagen: ${e.message}")
+            Log.w(TAG, "Logout at ${server.baseUrl} failed: ${e.message}")
         }
     }
 

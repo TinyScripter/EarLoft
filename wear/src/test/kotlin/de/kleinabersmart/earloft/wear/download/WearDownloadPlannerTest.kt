@@ -71,9 +71,9 @@ class WearDownloadPlannerTest {
             episodeQueue = episodeQueue,
         )
         db.sourceDao().upsert(SourceEntity("nd", SourceType.SUBSONIC, "Navidrome"))
-        db.sourceDao().upsert(SourceEntity("phone", SourceType.PHONE, "Handy"))
+        db.sourceDao().upsert(SourceEntity("phone", SourceType.PHONE, "Phone"))
         albumId = db.libraryDao().insertAlbum(
-            AlbumEntity(title = "Mondlicht", sortTitle = "Mondlicht", normTitle = "mondlicht", albumArtistDisplay = "Band", normAlbumArtist = "band"),
+            AlbumEntity(title = "Moonlight", sortTitle = "Moonlight", normTitle = "moonlight", albumArtistDisplay = "Band", normAlbumArtist = "band"),
         )
     }
 
@@ -140,7 +140,7 @@ class WearDownloadPlannerTest {
 
     private suspend fun book(remoteId: String, files: Int): Long {
         val bookId = db.bookDao().insertBook(
-            BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = remoteId, title = remoteId, normTitle = remoteId, author = "Autorin", durationMs = files * 3_600_000L),
+            BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = remoteId, title = remoteId, normTitle = remoteId, author = "Author", durationMs = files * 3_600_000L),
         )
         db.bookDao().insertTracks((0 until files).map { BookTrackEntity(bookId, it, "$remoteId-$it", it * 3_600_000L, 3_600_000) })
         return bookId
@@ -233,7 +233,7 @@ class WearDownloadPlannerTest {
             ),
         )
         val bookId = db.bookDao().insertBook(
-            BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = "b1", title = "b1", normTitle = "b1", author = "Autorin", durationMs = 7_200_000),
+            BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = "b1", title = "b1", normTitle = "b1", author = "Author", durationMs = 7_200_000),
         )
         val episodeId = db.bookDao().insertBook(
             BookEntity(serverId = "f1", kind = BookKind.EPISODE, remoteId = "e1", title = "e1", normTitle = "e1", author = "Podcast", durationMs = 3_600_000),
@@ -274,8 +274,8 @@ class WearDownloadPlannerTest {
         val songId = db.libraryDao().insertSong(
             SongEntity(
                 albumId = albumId,
-                title = "Titel $songCounter",
-                normTitle = "titel $songCounter",
+                title = "Track $songCounter",
+                normTitle = "track $songCounter",
                 artistDisplay = "Band",
                 durationMs = 200_000,
                 dateAdded = 0,

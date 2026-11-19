@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Auto Backup bis API 30. Nicht gesichert werden (Konzept 10, Sicherheit):
-    - die Hauptdatenbank – sie wird aus den Quellen neu aufgebaut; was keine Quelle kennt (Server, Abos, Statistik, Fortschritt, Musik-Nutzerdaten),
-      steht zusätzlich in user.db und wird gesichert (Review K9);
-    - die Datenbank von ExoPlayer – ein Zwischenspeicher dieses Geräts;
-    - die verschlüsselten Zugangsdaten – der Schlüssel liegt im Keystore dieses Geräts;
-    - der Stand des MediaStore beim letzten lokalen Scan – er gehört zur Datenbank;
-    - der letzte Stand des Widgets – er nennt IDs der Hauptdatenbank.
-    Downloads liegen in noBackupFilesDir und sind dadurch ohnehin ausgenommen.
-    „Weiterhören“ und der Wiedergabestand speichern Schlüssel statt IDs der Hauptdatenbank und werden gesichert.
+    Auto Backup up to API 30. Not backed up (concept 10, security):
+    - the main database – it is rebuilt from the sources; whatever no source knows (servers, subscriptions, statistics,
+      progress, music user data) is also kept in user.db, which is backed up (review K9);
+    - ExoPlayer's database – a cache of this device;
+    - the encrypted credentials – the key lives in this device's keystore;
+    - the MediaStore state of the last local scan – it belongs to the database;
+    - the last widget state – it names IDs of the main database.
+    Downloads live in noBackupFilesDir and are excluded anyway.
+    "Continue listening" and the playback state store keys instead of main database IDs and are backed up.
 -->
 <full-backup-content>
     <exclude domain="database" path="earloft.db" />

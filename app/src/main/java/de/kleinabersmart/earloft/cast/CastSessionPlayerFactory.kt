@@ -336,7 +336,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
                     // No longer the previous session: if nothing was running on the receiver, selecting launched the app there
                     // and it gets stopped again; otherwise it belongs to another app and keeps running.
                     val launched = session.applicationConnectionResult?.wasLaunched == true
-                    Log.i(TAG, "Sitzung $sessionId ist nicht die von vorher (neu gestartet: $launched), löse mich wieder")
+                    Log.i(TAG, "Session $sessionId is not the previous one (newly launched: $launched), leaving again")
                     handOver.rejected = true
                     cast.endCurrentSession(launched)
                     return
@@ -410,7 +410,7 @@ internal class CastSessionPlayerFactory @Inject constructor(
                         rescue(handedOver)
                         return@withContext
                     }
-                    Log.i(TAG, "Empfänger erreicht $failedSource nicht, die Warteschlange geht von einem anderen Server hinaus")
+                    Log.i(TAG, "Receiver cannot reach $failedSource, sending the queue from another server")
                     reserve.clear()
                     val retry = castableState(handedOver, cache, reserve, ::showSkipped)
                     awaitQueue(retry.mediaItems)

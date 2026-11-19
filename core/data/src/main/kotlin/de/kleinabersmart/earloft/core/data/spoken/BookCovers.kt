@@ -91,7 +91,7 @@ class BookCovers @Inject constructor(
             loadOwn(book)?.let { write(own, it) }
             true
         } catch (e: IOException) {
-            Log.w(TAG, "Cover von ${book.title} nicht abrufbar", e)
+            Log.w(TAG, "Cover of ${book.title} not available", e)
             false
         }
     }
@@ -197,7 +197,7 @@ class BookCovers @Inject constructor(
     private suspend fun fetch(label: String, load: suspend () -> ByteArray?): ByteArray? = try {
         load()
     } catch (e: IOException) {
-        Log.w(TAG, "Cover von $label nicht abrufbar", e)
+        Log.w(TAG, "Cover of $label not available", e)
         null
     }
 

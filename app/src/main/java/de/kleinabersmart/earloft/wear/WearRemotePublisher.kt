@@ -83,7 +83,7 @@ class WearRemotePublisher @Inject constructor(
     /** The watch shows the remote control: the first time the phone rewrites everything immediately, afterwards on changes. */
     @Synchronized
     fun subscribe(scope: CoroutineScope) {
-        Log.d(TAG, "Uhr angemeldet (aktiv bisher: ${active.value})")
+        Log.d(TAG, "Watch subscribed (active before: ${active.value})")
         expiry?.cancel()
         active.value = true
         expiry = scope.launch {
@@ -274,8 +274,8 @@ class WearRemotePublisher @Inject constructor(
             publishedLibraryHash = hash
             Log.d(
                 TAG,
-                "Fernsteuerung: ${dto.albums.size} Alben, ${dto.artists.size} Künstler, ${dto.playlists.size} Playlists, " +
-                    "${dto.podcasts.size} Abos, ${dto.books.size} Bücher",
+                "Remote control: ${dto.albums.size} albums, ${dto.artists.size} artists, ${dto.playlists.size} playlists, " +
+                    "${dto.podcasts.size} subscriptions, ${dto.books.size} books",
             )
         }
     }

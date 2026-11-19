@@ -105,7 +105,7 @@ class LrclibClient internal constructor(
                 delay((retryAfterS ?: 1) * 1_000)
                 get(url, retry = false)
             }
-            body == null -> throw IOException("HTTP $code von LRCLIB")
+            body == null -> throw IOException("HTTP $code from LRCLIB")
             else -> body
         }
     }
@@ -114,7 +114,7 @@ class LrclibClient internal constructor(
     private inline fun <T> parsed(block: () -> T): T = try {
         block()
     } catch (e: JSONException) {
-        throw IOException("Unlesbare Antwort von LRCLIB", e)
+        throw IOException("Unreadable response from LRCLIB", e)
     }
 
     private companion object {

@@ -98,7 +98,7 @@ class WatchEpisodeImporter @Inject constructor(
 
     private suspend fun book(serverId: String, remoteId: String): BookEntity? {
         val book = bookDao.bookByRemote(serverId, remoteId)
-        if (book == null) Log.d(TAG, "$serverId/$remoteId unbekannt, übersprungen")
+        if (book == null) Log.d(TAG, "$serverId/$remoteId unknown, skipped")
         return book
     }
 

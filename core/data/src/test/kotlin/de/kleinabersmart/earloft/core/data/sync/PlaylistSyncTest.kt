@@ -46,7 +46,7 @@ class PlaylistSyncTest {
 
     @Test
     fun `server playlists are imported in order with duplicates`() = runTest {
-        nd.putPlaylist("Mix", listOf("b", "a", "b", "unbekannt"))
+        nd.putPlaylist("Mix", listOf("b", "a", "b", "unknown"))
 
         syncer.syncAdding(db, nd)
 
@@ -103,10 +103,10 @@ class PlaylistSyncTest {
         val id = playlists.playlists().first().single().id
         playlists.addSongs(id, listOf(songId("b")))
 
-        nd.putPlaylist("Vom Nachbarn", listOf("c"), remoteId)
+        nd.putPlaylist("From the neighbor", listOf("c"), remoteId)
         syncer.syncAdding(db, nd)
 
-        assertEquals("Vom Nachbarn", playlists.playlists().first().single().name)
+        assertEquals("From the neighbor", playlists.playlists().first().single().name)
         assertEquals(listOf("C"), titles(id))
         assertEquals(0, db.syncDao().countActions())
     }
@@ -121,15 +121,15 @@ class PlaylistSyncTest {
         val job = launch(UnconfinedTestDispatcher(testScheduler)) { notices.notices.toList(received) }
 
         // Without a pending change there is nothing to report.
-        nd.putPlaylist("Vom Nachbarn", listOf("b"), remoteId)
+        nd.putPlaylist("From the neighbor", listOf("b"), remoteId)
         syncer.syncAdding(db, nd)
         assertTrue(received.isEmpty())
 
         playlists.addSongs(id, listOf(songId("c")))
-        nd.putPlaylist("Noch einmal", listOf("a"), remoteId)
+        nd.putPlaylist("Once more", listOf("a"), remoteId)
         syncer.syncAdding(db, nd)
 
-        assertEquals(listOf<SyncNotice>(SyncNotice.PlaylistReplacedByServer("Noch einmal")), received)
+        assertEquals(listOf<SyncNotice>(SyncNotice.PlaylistReplacedByServer("Once more")), received)
         job.cancel()
     }
 
@@ -179,9 +179,9 @@ class PlaylistSyncTest {
 
     @Test
     fun `playlist created in the app is created on the server and deleted there`() = runTest {
-        val id = playlists.create("Neu", "nd", listOf(songId("a"), songId("c")))
+        val id = playlists.create("New", "nd", listOf(songId("a"), songId("c")))
         assertTrue(processor().process())
-        assertEquals(listOf("create Neu [a, c]"), nd.calls)
+        assertEquals(listOf("create New [a, c]"), nd.calls)
 
         // The next sync recognizes it again and doesn't create it twice.
         syncer.syncAdding(db, nd)
@@ -195,7 +195,7 @@ class PlaylistSyncTest {
 
     @Test
     fun `playlist deleted before it was sent is never sent`() = runTest {
-        val id = playlists.create("Neu", "nd", listOf(songId("a")))
+        val id = playlists.create("New", "nd", listOf(songId("a")))
         playlists.delete(id)
 
         assertEquals(0, db.syncDao().countActions())
@@ -203,9 +203,9 @@ class PlaylistSyncTest {
 
     @Test
     fun `local playlist stays on the device`() = runTest {
-        val id = playlists.create("Nur hier", null, listOf(songId("a")))
+        val id = playlists.create("Only here", null, listOf(songId("a")))
         playlists.addSongs(id, listOf(songId("b")))
-        playlists.rename(id, "Nur hier!")
+        playlists.rename(id, "Only here!")
 
         assertEquals(0, db.syncDao().countActions())
         assertEquals(null, playlists.playlists().first().single().serverName)
@@ -213,14 +213,14 @@ class PlaylistSyncTest {
 
     @Test
     fun `songs missing on the server are marked and left out when sending`() = runTest {
-        syncer.syncAdding(db, FakeLocalSource(listOf(track("1", "Nur lokal", 9))))
+        syncer.syncAdding(db, FakeLocalSource(listOf(track("1", "Local only", 9))))
         val localSongId = db.syncDao().getSongSource("local:1")!!.songId
 
-        val id = playlists.create("Neu", "nd", listOf(songId("a"), localSongId))
+        val id = playlists.create("New", "nd", listOf(songId("a"), localSongId))
 
         assertEquals(listOf(false, true), playlists.playlist(id).first()!!.entries.map { it.missingOnServer })
         assertTrue(processor().process())
-        assertEquals(listOf("create Neu [a]"), nd.calls)
+        assertEquals(listOf("create New [a]"), nd.calls)
     }
 
     private fun processor() = db.syncQueueProcessor(nd, notices = notices)

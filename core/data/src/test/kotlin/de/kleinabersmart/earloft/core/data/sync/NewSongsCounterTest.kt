@@ -19,7 +19,7 @@ class NewSongsCounterTest {
     private lateinit var db: EarLoftDatabase
     private lateinit var syncer: LibrarySyncer
     private lateinit var counter: NewSongsCounter
-    private val nd = FakeServer("nd", listOf(track("a", "Erstes")))
+    private val nd = FakeServer("nd", listOf(track("a", "First")))
 
     @Before
     fun setUp() {
@@ -46,7 +46,7 @@ class NewSongsCounterTest {
     @Test
     fun `songs added after the first import are counted`() = runTest {
         syncer.syncAdding(db, nd)
-        nd.tracks = listOf(track("a", "Erstes"), track("b", "Zweites"), track("c", "Drittes"))
+        nd.tracks = listOf(track("a", "First"), track("b", "Second"), track("c", "Third"))
 
         val baseline = counter.begin(listOf("nd"))
         syncer.syncAdding(db, nd)
@@ -58,8 +58,8 @@ class NewSongsCounterTest {
     fun `new songs are grouped by album with the most new songs first`() = runTest {
         syncer.syncAdding(db, nd)
         nd.tracks = listOf(
-            track("a", "Erstes"),
-            track("b", "Zweites"),
+            track("a", "First"),
+            track("b", "Second"),
             track("c", "Glósóli", album = "Takk... (Live)"),
             track("d", "Hoppípolla", album = "Takk... (Live)"),
             track("e", "Sæglópur", album = "Takk... (Live)"),
@@ -97,7 +97,7 @@ class NewSongsCounterTest {
     @Test
     fun `retagged files keep their song and are not new`() = runTest {
         syncer.syncAdding(db, nd)
-        nd.tracks = listOf(track("a", "Erstes (Remaster)", lastModified = 2))
+        nd.tracks = listOf(track("a", "First (Remaster)", lastModified = 2))
 
         val baseline = counter.begin(listOf("nd"))
         syncer.syncAdding(db, nd)
@@ -108,7 +108,7 @@ class NewSongsCounterTest {
     @Test
     fun `one source never synced makes the whole refresh a first import`() = runTest {
         syncer.syncAdding(db, nd)
-        nd.tracks = listOf(track("a", "Erstes"), track("b", "Zweites"))
+        nd.tracks = listOf(track("a", "First"), track("b", "Second"))
 
         val baseline = counter.begin(listOf("nd", "other"))
         syncer.syncAdding(db, nd)

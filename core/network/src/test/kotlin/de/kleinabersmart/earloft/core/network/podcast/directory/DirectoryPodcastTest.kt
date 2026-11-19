@@ -16,7 +16,7 @@ class DirectoryPodcastTest {
         val apple = listOf(hit("Both", "https://www.both.example/feed/", PodcastDirectory.APPLE), hit("A2", "https://a.example/2", PodcastDirectory.APPLE))
         val fyyd = listOf(
             hit("F1", "https://f.example/1", PodcastDirectory.FYYD),
-            hit("Both (fyyd)", "http://both.example/feed", PodcastDirectory.FYYD, author = "Autor", image = "https://img"),
+            hit("Both (fyyd)", "http://both.example/feed", PodcastDirectory.FYYD, author = "Author", image = "https://img"),
             hit("F3", "https://f.example/3", PodcastDirectory.FYYD),
         )
 
@@ -25,7 +25,7 @@ class DirectoryPodcastTest {
         assertEquals(listOf("Both", "F1", "A2", "F3"), merged.map { it.title })
         val both = merged[0]
         assertEquals(setOf(PodcastDirectory.APPLE, PodcastDirectory.FYYD), both.directories)
-        assertEquals("Autor", both.author)
+        assertEquals("Author", both.author)
         assertEquals("https://img", both.imageUrl)
         assertEquals("https://www.both.example/feed/", both.feedUrl)
     }

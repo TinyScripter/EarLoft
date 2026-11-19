@@ -8,8 +8,8 @@ import org.junit.Test
 
 class RingWindowTest {
 
-    private val book = SpokenEntry(bookId = 7, trackIndex = 0, title = "Buch", author = "Autor")
-    private val chapter = BookChapter(index = 2, title = "Drei", startMs = 600_000, endMs = 900_000)
+    private val book = SpokenEntry(bookId = 7, trackIndex = 0, title = "Book", author = "Author")
+    private val chapter = BookChapter(index = 2, title = "Three", startMs = 600_000, endMs = 900_000)
 
     @Test
     fun `a book with chapters shows only the current chapter`() {

@@ -20,10 +20,10 @@ import org.junit.Test
 class SubsonicTrackMapperTest {
 
     private val names = FallbackNames(
-        unknownTitle = "Unbekannter Titel",
-        unknownArtist = "Unbekannter Künstler",
-        unknownAlbum = "Unbekanntes Album",
-        variousArtists = "Verschiedene Künstler",
+        unknownTitle = "Unknown title",
+        unknownArtist = "Unknown artist",
+        unknownAlbum = "Unknown album",
+        variousArtists = "Various artists",
     )
 
     private val album = AlbumDto(
@@ -63,7 +63,7 @@ class SubsonicTrackMapperTest {
         assertEquals(404_000, track.bitRate)
         assertEquals(1, track.discNumber)
         assertEquals("22222222-2222-4222-8222-222222222222", track.mbidAlbum)
-        assertNull("Leere MBIDs zählen nicht", track.mbidTrack)
+        assertNull("Empty MBIDs don't count", track.mbidTrack)
         assertEquals("al-al1_abc", track.coverRemoteId)
         assertEquals(-6.5f, track.rgTrackGainDb)
         assertEquals(1_793_055_915_941L, track.dateAdded)
@@ -76,8 +76,8 @@ class SubsonicTrackMapperTest {
         val track = SubsonicTrackMapper.map(sampler, album.copy(isCompilation = false), names)
 
         assertTrue(track.isCompilation)
-        assertEquals("Verschiedene Künstler", track.albumArtistDisplay)
-        assertEquals(listOf("Verschiedene Künstler"), track.albumArtists.map { it.name })
+        assertEquals("Various artists", track.albumArtistDisplay)
+        assertEquals(listOf("Various artists"), track.albumArtists.map { it.name })
     }
 
     @Test
@@ -105,9 +105,9 @@ class SubsonicTrackMapperTest {
     fun `missing tags fall back to placeholders`() {
         val track = SubsonicTrackMapper.map(SongDto(id = "x"), null, names)
 
-        assertEquals("Unbekannter Titel", track.title)
-        assertEquals("Unbekannter Künstler", track.artistDisplay)
-        assertEquals("Unbekanntes Album", track.albumTitle)
+        assertEquals("Unknown title", track.title)
+        assertEquals("Unknown artist", track.artistDisplay)
+        assertEquals("Unknown album", track.albumTitle)
         assertEquals(track.artistDisplay, track.albumArtistDisplay)
     }
 
@@ -153,24 +153,24 @@ class SubsonicTrackMapperTest {
     fun `synced lyrics are preferred and sorted`() {
         val lyrics = SubsonicTrackMapper.lyrics(
             listOf(
-                StructuredLyricsDto(synced = false, line = listOf(LyricLineDto(value = "statisch"))),
-                StructuredLyricsDto(synced = true, line = listOf(LyricLineDto(5_000, "zwei"), LyricLineDto(0, "eins"))),
+                StructuredLyricsDto(synced = false, line = listOf(LyricLineDto(value = "static"))),
+                StructuredLyricsDto(synced = true, line = listOf(LyricLineDto(5_000, "two"), LyricLineDto(0, "one"))),
             ),
         )
 
-        assertEquals(Lyrics.Synced(listOf(LyricLine(0, "eins"), LyricLine(5_000, "zwei"))), lyrics)
+        assertEquals(Lyrics.Synced(listOf(LyricLine(0, "one"), LyricLine(5_000, "two"))), lyrics)
     }
 
     @Test
     fun `offset moves synced lines earlier or later`() {
-        val lines = listOf(LyricLineDto(1_000, "eins"), LyricLineDto(5_000, "zwei"))
+        val lines = listOf(LyricLineDto(1_000, "one"), LyricLineDto(5_000, "two"))
 
         assertEquals(
-            Lyrics.Synced(listOf(LyricLine(0, "eins"), LyricLine(3_500, "zwei"))),
+            Lyrics.Synced(listOf(LyricLine(0, "one"), LyricLine(3_500, "two"))),
             SubsonicTrackMapper.lyrics(listOf(StructuredLyricsDto(synced = true, offset = 1_500, line = lines))),
         )
         assertEquals(
-            Lyrics.Synced(listOf(LyricLine(1_250, "eins"), LyricLine(5_250, "zwei"))),
+            Lyrics.Synced(listOf(LyricLine(1_250, "one"), LyricLine(5_250, "two"))),
             SubsonicTrackMapper.lyrics(listOf(StructuredLyricsDto(synced = true, offset = -250, line = lines))),
         )
     }

@@ -40,14 +40,14 @@ class BookKeysTest {
 
     @Test
     fun `a key finds the same episode on another device`() = runTest {
-        val key = BookKeys(context, db.bookDao()).keyOf(episode(db, "folge-7"))!!
+        val key = BookKeys(context, db.bookDao()).keyOf(episode(db, "episode-7"))!!
 
         val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         try {
             val keys = BookKeys(context, newDevice.bookDao())
             assertNull(keys.idOf(key))
-            episode(newDevice, "andere")
-            val id = episode(newDevice, "folge-7")
+            episode(newDevice, "other")
+            val id = episode(newDevice, "episode-7")
             assertEquals(id, keys.idOf(key))
         } finally {
             newDevice.close()
@@ -56,7 +56,7 @@ class BookKeysTest {
 
     @Test
     fun `old ids count only if this install did not create the database`() = runTest {
-        val id = episode(db, "folge-1")
+        val id = episode(db, "episode-1")
         val keys = BookKeys(context, db.bookDao())
         assertEquals(keys.keyOf(id), keys.keyOfLegacyId(id))
 

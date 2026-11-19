@@ -515,17 +515,17 @@ fun formatDuration(durationMs: Long): String {
 
 internal val PreviewSong = Song(
     id = 1,
-    title = "Ein Lied",
-    artist = "Eine Band",
+    title = "A Song",
+    artist = "A Band",
     albumId = 1,
-    albumTitle = "Ein Album",
+    albumTitle = "An Album",
     durationMs = 215_000,
     discNumber = 1,
     trackNumber = 3,
     isFavorite = false,
 )
 
-internal val PreviewAlbum = Album(id = 1, title = "Ein Album", artist = "Eine Band", year = 2024, songCount = 12)
+internal val PreviewAlbum = Album(id = 1, title = "An Album", artist = "A Band", year = 2024, songCount = 12)
 
 internal object NoSongActions : SongActions {
     override fun playNext(song: Song) = Unit
@@ -553,7 +553,7 @@ private fun SongListItemPreview() {
                 trackNumber = 5,
                 offline = SongOfflineStatus(SongOfflineState.DOWNLOADING, progress = 0.4f),
             )
-            ArtistListItem(artist = Artist(id = 1, name = "Eine Band", albumCount = 2), onClick = {})
+            ArtistListItem(artist = Artist(id = 1, name = "A Band", albumCount = 2), onClick = {})
             AlbumCard(album = PreviewAlbum, onClick = {}, width = 160.dp)
         }
     }

@@ -49,7 +49,7 @@ class PodcastDirectoryApiTest {
                 """{"resultCount":2,"results":[
                     {"collectionName":"Lage der Nation","artistName":"Banse & Buermeyer","feedUrl":"https://feeds.example.org/ldn.xml",
                      "artworkUrl100":"https://img.example/100.jpg","artworkUrl600":"https://img.example/600.jpg"},
-                    {"collectionName":"Ohne Feed","artistName":"x"}
+                    {"collectionName":"Without feed","artistName":"x"}
                 ]}""",
             ),
         )
@@ -113,18 +113,18 @@ class PodcastDirectoryApiTest {
         mockServer.enqueue(
             json(
                 """{"feed":{"title":{"label":"Top"},"entry":[
-                    {"im:name":{"label":"Zwei"},"id":{"label":"https://podcasts.apple.com/de/podcast/id2","attributes":{"im:id":"2"}}},
-                    {"im:name":{"label":"Eins"},"id":{"label":"https://podcasts.apple.com/de/podcast/id1","attributes":{"im:id":"1"}}},
-                    {"im:name":{"label":"Ohne Feed"},"id":{"label":"x","attributes":{"im:id":"3"}}}
+                    {"im:name":{"label":"Two"},"id":{"label":"https://podcasts.apple.com/de/podcast/id2","attributes":{"im:id":"2"}}},
+                    {"im:name":{"label":"One"},"id":{"label":"https://podcasts.apple.com/de/podcast/id1","attributes":{"im:id":"1"}}},
+                    {"im:name":{"label":"Without feed"},"id":{"label":"x","attributes":{"im:id":"3"}}}
                 ]}}""",
             ),
         )
         mockServer.enqueue(
             json(
                 """{"resultCount":3,"results":[
-                    {"collectionId":1,"collectionName":"Eins","artistName":"A","feedUrl":"https://one.example/feed","artworkUrl600":"https://img/1"},
-                    {"collectionId":2,"collectionName":"Zwei","artistName":"B","feedUrl":"https://two.example/feed"},
-                    {"collectionId":3,"collectionName":"Ohne Feed"}
+                    {"collectionId":1,"collectionName":"One","artistName":"A","feedUrl":"https://one.example/feed","artworkUrl600":"https://img/1"},
+                    {"collectionId":2,"collectionName":"Two","artistName":"B","feedUrl":"https://two.example/feed"},
+                    {"collectionId":3,"collectionName":"Without feed"}
                 ]}""",
             ),
         )
@@ -142,10 +142,10 @@ class PodcastDirectoryApiTest {
     @Test
     fun `apple charts without genre, with a single entry or none`() = runTest {
         mockServer.enqueue(json("""{"feed":{"entry":{"id":{"label":"x","attributes":{"im:id":"7"}}}}}"""))
-        mockServer.enqueue(json("""{"results":[{"collectionId":7,"collectionName":"Sieben","feedUrl":"https://seven.example/feed"}]}"""))
-        mockServer.enqueue(json("""{"feed":{"title":{"label":"Leer"}}}"""))
+        mockServer.enqueue(json("""{"results":[{"collectionId":7,"collectionName":"Seven","feedUrl":"https://seven.example/feed"}]}"""))
+        mockServer.enqueue(json("""{"feed":{"title":{"label":"Empty"}}}"""))
 
-        assertEquals(listOf("Sieben"), api.popular(PodcastDirectory.APPLE, null, "AT", "de").map { it.title })
+        assertEquals(listOf("Seven"), api.popular(PodcastDirectory.APPLE, null, "AT", "de").map { it.title })
         assertEquals("/at/rss/toppodcasts/limit=50/json", mockServer.takeRequest().url.encodedPath)
         mockServer.takeRequest()
         // No entries, no second request.

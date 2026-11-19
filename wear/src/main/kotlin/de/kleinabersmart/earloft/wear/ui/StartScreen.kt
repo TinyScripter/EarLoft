@@ -209,7 +209,7 @@ private fun StartAppMissingPreview() = previewCallbacks(StartUiState(phone = Pho
 @WearPreviewDevices
 @Composable
 private fun StartPhoneConnectedPreview() = previewCallbacks(
-    StartUiState(phone = PhoneStatus.Connected("phone"), phoneNowPlaying = "Mondlicht"),
+    StartUiState(phone = PhoneStatus.Connected("phone"), phoneNowPlaying = "Moonlight"),
 )
 
 @WearPreviewDevices
@@ -219,9 +219,9 @@ private fun StartSelectionsPreview() = previewCallbacks(
     StartUiState(
         phone = PhoneStatus.Connected("phone"),
         selections = listOf(
-            SelectionItem(1, WearSelectionKind.FAVORITES, "Favoriten", 42),
-            SelectionItem(2, WearSelectionKind.ALBUM, "Mondlicht", 4, downloadedCount = 1),
-            SelectionItem(3, WearSelectionKind.PLAYLIST, "Laufen am Morgen mit sehr langem Namen", 1),
+            SelectionItem(1, WearSelectionKind.FAVORITES, "Favorites", 42),
+            SelectionItem(2, WearSelectionKind.ALBUM, "Moonlight", 4, downloadedCount = 1),
+            SelectionItem(3, WearSelectionKind.PLAYLIST, "Morning run with a very long name", 1),
         ),
     ),
 )

@@ -101,14 +101,14 @@ class AuthorImages @Inject constructor(
             val index = try {
                 index(entity.serverId) { libraryIds.flatMap { api.authors(server, it) } }
             } catch (e: IOException) {
-                Log.w(TAG, "Autoren von ${entity.name} nicht abrufbar", e)
+                Log.w(TAG, "Authors of ${entity.name} not available", e)
                 continue
             }
             val author = wanted.firstNotNullOfOrNull { index[it] }?.takeIf { it.imagePath != null } ?: continue
             try {
                 api.authorImage(server, author.id, WIDTH_PX)?.let { return it }
             } catch (e: IOException) {
-                Log.w(TAG, "Autorenbild von ${author.name} nicht abrufbar", e)
+                Log.w(TAG, "Author image of ${author.name} not available", e)
             }
         }
         return null

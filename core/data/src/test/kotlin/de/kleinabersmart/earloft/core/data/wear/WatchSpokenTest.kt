@@ -76,10 +76,10 @@ class WatchSpokenTest {
         val syncer = BookSyncer(dao, servers, api, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy()), LocalBooks(dao, scanner, SpokenSettings(context), covers),
             ArdBooks(dao, ArdSoundsBooks(ArdSoundsApi(OkHttpClient())), SpokenSettings(context), covers, { _, _ -> }),
             ArdUploadAdoption(context, dao, progressSync, Bookmarks(context, dao, servers, api, PlaybackPolicy())))
-        val podcasts = PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
+        val podcasts = PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("no source switch in tests") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
         spoken = WatchSpoken(db, db.wearDao(), db.podcastDao(), dao, podcasts, syncer, progressSync)
-        db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast", imageUrl = "https://example.org/bild.jpg"))
-        dao.upsertServer(SpokenServerEntity("abs", "Hörbücher", "https://abs.example.org"))
+        db.podcastDao().upsertFeed(PodcastFeedEntity("f1", "https://example.org/feed", "Podcast", imageUrl = "https://example.org/image.jpg"))
+        dao.upsertServer(SpokenServerEntity("abs", "Audiobooks", "https://abs.example.org"))
     }
 
     @After
@@ -105,7 +105,7 @@ class WatchSpokenTest {
         assertEquals(listOf("f1"), content.feeds.map { it.feedId })
         assertEquals(60_000L, content.episodes.first().progress?.positionMs)
         assertEquals("https://example.org/g1.mp3", content.episodes.last().audioUrl)
-        assertEquals("https://example.org/bild.jpg", content.episodes.last().coverUrl)
+        assertEquals("https://example.org/image.jpg", content.episodes.last().coverUrl)
         assertEquals(setOf(first, third), spoken.selectedIds().first())
 
         spoken.setSelected(third, selected = false)
@@ -150,7 +150,7 @@ class WatchSpokenTest {
         spoken.setSelected(book, selected = true)
 
         spoken.setSelected("f1", "g1", selected = false)
-        spoken.setSelected("abs", "unbekannt", selected = false)
+        spoken.setSelected("abs", "unknown", selected = false)
 
         assertEquals(setOf(book), spoken.selectedIds().first())
         spoken.setSelected("abs", "b1", selected = false)
@@ -194,7 +194,7 @@ class WatchSpokenTest {
         val book = spoken.load().books.single()
         assertEquals("abs", book.serverId)
         assertEquals("b1", book.remoteId)
-        assertEquals("Autorin", book.author)
+        assertEquals("Author", book.author)
         assertEquals(listOf("b1-0", "b1-1"), book.tracks.map { it.fileId })
         assertEquals(listOf(0L, 3_600_000L), book.tracks.map { it.startMs })
         assertEquals(4_000_000L, book.progress?.positionMs)
@@ -206,8 +206,8 @@ class WatchSpokenTest {
         val episodeId = episode("g1")
         db.bookDao().insertChapters(
             listOf(
-                BookChapterEntity(bookId, 0, "Eins", 0, 1_800_000),
-                BookChapterEntity(bookId, 1, "Zwei", 1_800_000, 3_600_000),
+                BookChapterEntity(bookId, 0, "One", 0, 1_800_000),
+                BookChapterEntity(bookId, 1, "Two", 1_800_000, 3_600_000),
                 BookChapterEntity(episodeId, 0, "Intro", 0, 60_000),
             ),
         )
@@ -215,7 +215,7 @@ class WatchSpokenTest {
         spoken.setSelected(episodeId, selected = true)
 
         val content = spoken.load()
-        assertEquals(listOf("Eins", "Zwei"), content.books.single().chapters.map { it.title })
+        assertEquals(listOf("One", "Two"), content.books.single().chapters.map { it.title })
         assertEquals(listOf(1_800_000L), content.books.single().chapters.drop(1).map { it.startMs })
         assertEquals(listOf("Intro"), content.episodes.single().chapters.map { it.title })
     }
@@ -223,7 +223,7 @@ class WatchSpokenTest {
     @Test
     fun `books of a disabled server stay chosen but off the watch, local books go without file ids`() = runTest {
         val remote = book("b1")
-        val local = book("eigen", serverId = LOCAL_BOOK_SERVER_ID)
+        val local = book("own", serverId = LOCAL_BOOK_SERVER_ID)
         spoken.setSelected(remote, selected = true)
         spoken.setSelected(local, selected = true)
 
@@ -263,13 +263,13 @@ class WatchSpokenTest {
                 remoteId = remoteId,
                 title = remoteId,
                 normTitle = remoteId,
-                author = "Autorin",
+                author = "Author",
                 durationMs = files * 3_600_000L,
                 detailsLoaded = true,
             ),
         )
         db.bookDao().insertTracks(
-            (0 until files).map { BookTrackEntity(id, it, if (serverId == "abs") "$remoteId-$it" else "content://buch/$it", it * 3_600_000L, 3_600_000) },
+            (0 until files).map { BookTrackEntity(id, it, if (serverId == "abs") "$remoteId-$it" else "content://book/$it", it * 3_600_000L, 3_600_000) },
         )
         return id
     }

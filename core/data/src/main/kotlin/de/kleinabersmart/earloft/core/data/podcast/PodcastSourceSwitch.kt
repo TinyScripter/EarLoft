@@ -143,7 +143,7 @@ class PodcastSourceSwitch @Inject constructor(
         }
         if (keys.isNotEmpty()) renamers.forEach { it.renameBookKeys(keys) }
         userDataBackup.forgetProgress(plan.feedId, renamed.values.map { it.oldGuid })
-        Log.i(TAG, "Quelle gewechselt: ${plan.matches.size} Folgen zugeordnet, ${renamed.size} mit neuer Kennung")
+        Log.i(TAG, "Source switched: ${plan.matches.size} episodes matched, ${renamed.size} with a new ID")
         return true
     }
 
@@ -163,7 +163,7 @@ class PodcastSourceSwitch @Inject constructor(
         val ready = when (val check = check(feedId, newUrl)) {
             is SourceCheck.Ready -> check
             else -> {
-                Log.i(TAG, "Kein Umzug nach ${hostOf(newUrl)}: $check")
+                Log.i(TAG, "No move to ${hostOf(newUrl)}: $check")
                 return false
             }
         }
@@ -172,17 +172,17 @@ class PodcastSourceSwitch @Inject constructor(
         val downgrade = oldUrl.startsWith("https://", ignoreCase = true) && !target.startsWith("https://", ignoreCase = true)
         val pointsBack = listOfNotNull(fetched.feed.newFeedUrl, fetched.movedTo).any { sameAddress(it, oldUrl) }
         if (downgrade || pointsBack) {
-            Log.i(TAG, "Kein Umzug nach ${hostOf(target)}: unverschlüsselt oder zurück auf die alte Adresse")
+            Log.i(TAG, "No move to ${hostOf(target)}: unencrypted or back to the old address")
             return false
         }
         // If both feeds name their ID (`podcast:guid`), they must be equal: otherwise there is a different podcast there.
         if (!samePodcast(old.podcastGuid, fetched.feed.podcastGuid)) {
-            Log.i(TAG, "Kein Umzug nach ${hostOf(target)}: anderer Podcast (podcast:guid)")
+            Log.i(TAG, "No move to ${hostOf(target)}: different podcast (podcast:guid)")
             return false
         }
         if (!switch(ready)) return false
         refusedMoves.remove(feedId to newUrl)
-        Log.i(TAG, "Feed umgezogen: ${hostOf(oldUrl)} → ${hostOf(target)}")
+        Log.i(TAG, "Feed moved: ${hostOf(oldUrl)} → ${hostOf(target)}")
         return true
     }
 

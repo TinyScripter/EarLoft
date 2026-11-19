@@ -130,12 +130,12 @@ class MigrationTest {
         helper.createDatabase(DB_NAME, 19).use { db ->
             db.execSQL(
                 "INSERT INTO podcast_feeds (feedId, url, title, author, description, etag, lastModified, lastRefreshAt, syncGeneration, autoDownload) " +
-                    "VALUES ('f', 'https://example.com/feed.xml', 'Logbuch', '', '', '\"abc\"', 'Sat, 01 Nov 2026 10:00:00 GMT', 5, 2, 1)",
+                    "VALUES ('f', 'https://example.com/feed.xml', 'Logbook', '', '', '\"abc\"', 'Sat, 01 Nov 2026 10:00:00 GMT', 5, 2, 1)",
             )
             db.execSQL(
                 "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
                     "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
-                    "VALUES (7, 'f', 'EPISODE', 'guid-1', 'Folge 1', 'folge 1', 'Logbuch', '', '', '', 60000, 0, 1, 1, 2)",
+                    "VALUES (7, 'f', 'EPISODE', 'guid-1', 'Episode 1', 'episode 1', 'Logbook', '', '', '', 60000, 0, 1, 1, 2)",
             )
         }
 
@@ -143,7 +143,7 @@ class MigrationTest {
         helper.runMigrationsAndValidate(DB_NAME, 21, true).use { db ->
             db.query("SELECT title, etag, lastModified, websiteUrl, syncGeneration FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
-                assertEquals("Logbuch", cursor.getString(0))
+                assertEquals("Logbook", cursor.getString(0))
                 // Without validators the next sync loads the feed fully and thus fetches the websites.
                 assertTrue(cursor.isNull(1))
                 assertTrue(cursor.isNull(2))
@@ -152,7 +152,7 @@ class MigrationTest {
             }
             db.query("SELECT title, durationMs, webUrl, isbn FROM books WHERE bookId = 7").use { cursor ->
                 assertTrue(cursor.moveToFirst())
-                assertEquals("Folge 1", cursor.getString(0))
+                assertEquals("Episode 1", cursor.getString(0))
                 assertEquals(60_000, cursor.getInt(1))
                 assertTrue(cursor.isNull(2))
                 assertTrue(cursor.isNull(3))
@@ -171,7 +171,7 @@ class MigrationTest {
                 db.execSQL(
                     "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
                         "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration, chapterSource) " +
-                        "VALUES ($id, 'f', 'EPISODE', 'guid-$id', 'Folge', 'folge', '', '', '', '', 60000, 0, 1, 1, 2, $source)",
+                        "VALUES ($id, 'f', 'EPISODE', 'guid-$id', 'Episode', 'episode', '', '', '', '', 60000, 0, 1, 1, 2, $source)",
                 )
                 db.execSQL("INSERT INTO book_chapters (bookId, chapterIndex, title, startMs, endMs) VALUES ($id, 0, 'Intro', 0, 60000)")
             }
@@ -207,7 +207,7 @@ class MigrationTest {
             db.execSQL(
                 "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
                     "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
-                    "VALUES (7, 'f', 'EPISODE', 'guid-7', 'Folge', 'folge', '', '', '', '', 60000, 0, 1, 1, 2)",
+                    "VALUES (7, 'f', 'EPISODE', 'guid-7', 'Episode', 'episode', '', '', '', '', 60000, 0, 1, 1, 2)",
             )
             db.execSQL(
                 "INSERT INTO book_tracks (bookId, trackIndex, remoteFileId, startMs, durationMs, downloadState, filePath, fileSize) " +
@@ -235,14 +235,14 @@ class MigrationTest {
             db.execSQL(
                 "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
                     "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
-                    "VALUES (7, 'f', 'EPISODE', 'guid-7', 'Folge', 'folge', '', '', '', '', 60000, 0, 1, 1, 2)",
+                    "VALUES (7, 'f', 'EPISODE', 'guid-7', 'Episode', 'episode', '', '', '', '', 60000, 0, 1, 1, 2)",
             )
         }
 
         helper.runMigrationsAndValidate(DB_NAME, 34, true).use { db ->
             db.query("SELECT title, starredAt FROM books WHERE bookId = 7").use { cursor ->
                 assertTrue(cursor.moveToFirst())
-                assertEquals("Folge", cursor.getString(0))
+                assertEquals("Episode", cursor.getString(0))
                 assertTrue(cursor.isNull(1))
             }
         }
@@ -272,14 +272,14 @@ class MigrationTest {
             db.execSQL(
                 "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
                     "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
-                    "VALUES (3, 'abs', 'BOOK', 'li_3', 'Buch', 'buch', 'A', '', '', '', 60000, 0, 1, 1, 2)",
+                    "VALUES (3, 'abs', 'BOOK', 'li_3', 'Book', 'book', 'A', '', '', '', 60000, 0, 1, 1, 2)",
             )
         }
 
         helper.runMigrationsAndValidate(DB_NAME, 40, true).use { db ->
             db.query("SELECT title, availableUntil FROM books WHERE bookId = 3").use { cursor ->
                 assertTrue(cursor.moveToFirst())
-                assertEquals("Buch", cursor.getString(0))
+                assertEquals("Book", cursor.getString(0))
                 assertTrue(cursor.isNull(1))
             }
         }
@@ -291,7 +291,7 @@ class MigrationTest {
             db.execSQL(
                 "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
                     "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
-                    "VALUES (3, 'ardsounds', 'BOOK', 'group:x', 'Buch', 'buch', 'A', '', '', '', 60000, 0, 1, 1, 2)",
+                    "VALUES (3, 'ardsounds', 'BOOK', 'group:x', 'Book', 'book', 'A', '', '', '', 60000, 0, 1, 1, 2)",
             )
             db.execSQL(
                 "INSERT INTO book_tracks (bookId, trackIndex, remoteFileId, startMs, durationMs, downloadState, fileSize, autoDownload) " +
@@ -315,7 +315,7 @@ class MigrationTest {
                 db.execSQL(
                     "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
                         "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
-                        "VALUES ($id, 'abs', 'BOOK', 'li_$id', 'Buch', 'buch', 'A', '', '', '', 60000, 0, 1, 1, 2)",
+                        "VALUES ($id, 'abs', 'BOOK', 'li_$id', 'Book', 'book', 'A', '', '', '', 60000, 0, 1, 1, 2)",
                 )
             }
             // 3: finished before v42, 4: already with a timestamp, 5: not finished.
@@ -343,7 +343,7 @@ class MigrationTest {
             db.execSQL(
                 "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
                     "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
-                    "VALUES (3, 'ardsounds', 'BOOK', 'group:x', 'Buch', 'buch', 'A', '', '', '', 60000, 0, 1, 1, 2)",
+                    "VALUES (3, 'ardsounds', 'BOOK', 'group:x', 'Book', 'book', 'A', '', '', '', 60000, 0, 1, 1, 2)",
             )
             db.execSQL(
                 "INSERT INTO book_tracks (bookId, trackIndex, remoteFileId, startMs, durationMs, downloadState, fileSize, autoDownload) " +
@@ -366,7 +366,7 @@ class MigrationTest {
         helper.createDatabase(DB_NAME, 44).use { db ->
             db.execSQL(
                 "INSERT INTO sources (sourceId, type, name, priority, syncGeneration, lastFullSyncAt) VALUES " +
-                    "('nav', 'SUBSONIC', 'Navidrome', 2, 5, 1700000000000), ('local', 'LOCAL', 'Gerät', 1, 3, 1700000000000)",
+                    "('nav', 'SUBSONIC', 'Navidrome', 2, 5, 1700000000000), ('local', 'LOCAL', 'Device', 1, 3, 1700000000000)",
             )
             db.execSQL(
                 "INSERT INTO albums (albumId, title, sortTitle, normTitle, albumArtistDisplay, normAlbumArtist, isCompilation) " +
@@ -434,7 +434,7 @@ class MigrationTest {
                 db.execSQL(
                     "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
                         "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
-                        "VALUES ($id, '$server', 'BOOK', 'li_$id', 'Buch', 'buch', 'A', '', '', '', 60000, 0, 1, 1, 2)",
+                        "VALUES ($id, '$server', 'BOOK', 'li_$id', 'Book', 'book', 'A', '', '', '', 60000, 0, 1, 1, 2)",
                 )
             }
         }
@@ -463,14 +463,14 @@ class MigrationTest {
             db.execSQL(
                 "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
                     "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
-                    "VALUES (3, 'abs', 'BOOK', 'li_3', 'Buch', 'buch', 'A', '', '', '', 60000, 0, 1, 1, 2)",
+                    "VALUES (3, 'abs', 'BOOK', 'li_3', 'Book', 'book', 'A', '', '', '', 60000, 0, 1, 1, 2)",
             )
         }
 
         helper.runMigrationsAndValidate(DB_NAME, 37, true).use { db ->
             db.query("SELECT title, genres FROM books WHERE bookId = 3").use { cursor ->
                 assertTrue(cursor.moveToFirst())
-                assertEquals("Buch", cursor.getString(0))
+                assertEquals("Book", cursor.getString(0))
                 assertTrue(cursor.isNull(1))
             }
         }
@@ -486,14 +486,14 @@ class MigrationTest {
             db.execSQL(
                 "INSERT INTO books (bookId, serverId, kind, remoteId, title, normTitle, author, narrator, series, description, durationMs, " +
                     "remoteUpdatedAt, addedAt, detailsLoaded, seenInGeneration) " +
-                    "VALUES (7, 'f', 'EPISODE', 'guid-7', 'Folge', 'folge', '', '', '', '', 60000, 0, 1, 1, 2)",
+                    "VALUES (7, 'f', 'EPISODE', 'guid-7', 'Episode', 'episode', '', '', '', '', 60000, 0, 1, 1, 2)",
             )
         }
 
         helper.runMigrationsAndValidate(DB_NAME, 36, true).use { db ->
             db.query("SELECT title, season, episodeType, transcriptUrl FROM books WHERE bookId = 7").use { cursor ->
                 assertTrue(cursor.moveToFirst())
-                assertEquals("Folge", cursor.getString(0))
+                assertEquals("Episode", cursor.getString(0))
                 assertTrue(cursor.isNull(1) && cursor.isNull(2) && cursor.isNull(3))
             }
             db.query("SELECT etag, podcastGuid, fundingUrl FROM podcast_feeds WHERE feedId = 'f'").use { cursor ->
@@ -528,7 +528,7 @@ class UserMigrationTest {
             )
             db.execSQL(
                 "INSERT INTO podcasts (feedId, url, title, author, autoDownload, newestFirst, continuous, notifyNew) " +
-                    "VALUES ('f', 'https://example.com/feed.xml', 'Logbuch', '', 1, 0, 1, 1)",
+                    "VALUES ('f', 'https://example.com/feed.xml', 'Logbook', '', 1, 0, 1, 1)",
             )
         }
 
@@ -543,7 +543,7 @@ class UserMigrationTest {
             }
             db.query("SELECT title, autoDownload FROM podcasts WHERE feedId = 'f'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
-                assertEquals("Logbuch", cursor.getString(0))
+                assertEquals("Logbook", cursor.getString(0))
                 assertEquals(1, cursor.getInt(1))
             }
             for (table in listOf("book_progress", "playlists", "playlist_entries", "favorites", "play_events", "wear_selections")) {
@@ -615,7 +615,7 @@ class UserMigrationTest {
             }
             db.execSQL(
                 "INSERT INTO bookmarks (serverId, remoteId, positionMs, title, note, createdAt, updatedAt, remoteTime) " +
-                    "VALUES ('abs', 'item', 30000, 'Kapitel', '', 1, 1, NULL)",
+                    "VALUES ('abs', 'item', 30000, 'Chapter', '', 1, 1, NULL)",
             )
         }
     }

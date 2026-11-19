@@ -98,13 +98,13 @@ object DatabaseReader {
         val db = try {
             SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY)
         } catch (e: SQLiteException) {
-            throw DatabaseFileException("Keine Datenbank", e)
+            throw DatabaseFileException("Not a database", e)
         }
         return db.use {
             try {
                 ImportData(readFeeds(it), readEpisodes(it))
             } catch (e: SQLiteException) {
-                throw DatabaseFileException("Unerwartete Tabellen", e)
+                throw DatabaseFileException("Unexpected tables", e)
             }
         }
     }

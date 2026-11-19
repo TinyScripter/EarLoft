@@ -16,18 +16,18 @@ class LocalPodcastLayoutTest {
     fun `a subfolder is a podcast, loose files go by album then artist then the shared name`() {
         val podcasts = LocalPodcastLayout.group(
             listOf(
-                row(1, "/storage/emulated/0/Podcasts/Mein Podcast/a.mp3"),
+                row(1, "/storage/emulated/0/Podcasts/My podcast/a.mp3"),
                 row(2, "/storage/emulated/0/Podcasts/swr.mp3", album = "SWR"),
                 row(3, "/storage/emulated/0/Podcasts/x.mp3", album = "Podcasts", artist = "<unknown>"),
-                row(4, "/storage/emulated/0/Podcasts/y.mp3", album = "Podcasts", artist = "Sender"),
+                row(4, "/storage/emulated/0/Podcasts/y.mp3", album = "Podcasts", artist = "Station"),
                 row(5, "/storage/emulated/0/Podcasts/z.mp3", album = "Podcasts", artist = "<unknown>"),
-                row(6, "/storage/emulated/0/Music/lied.mp3", album = "Lieder"),
+                row(6, "/storage/emulated/0/Music/song.mp3", album = "Songs"),
             ),
-            untitled = "Dieses Gerät",
+            untitled = "This device",
         )
 
-        assertEquals(listOf("Dieses Gerät", "Mein Podcast", "Sender", "SWR"), podcasts.map { it.name })
-        assertEquals(listOf(3L, 5L), podcasts.first { it.name == "Dieses Gerät" }.files.map { it.id })
+        assertEquals(listOf("My podcast", "Station", "SWR", "This device"), podcasts.map { it.name })
+        assertEquals(listOf(3L, 5L), podcasts.first { it.name == "This device" }.files.map { it.id })
     }
 
     @Test
@@ -44,7 +44,7 @@ class LocalPodcastLayoutTest {
         assertEquals(oct29 + day, LocalPodcastLayout.parseTagDate("2026-10-30"))
         assertEquals(LocalPodcastLayout.parseTagDate("2026-01-01"), LocalPodcastLayout.parseTagDate("2026"))
         assertNull(LocalPodcastLayout.parseTagDate("2026-13-40"))
-        assertNull(LocalPodcastLayout.parseTagDate("gestern"))
+        assertNull(LocalPodcastLayout.parseTagDate("yesterday"))
         assertNull(LocalPodcastLayout.parseTagDate(null))
     }
 
@@ -59,17 +59,17 @@ class LocalPodcastLayoutTest {
             listOf(
                 Metadata(
                     TextInformationFrame("TDRC", null, listOf("2026-10-29")),
-                    TextInformationFrame("TXXX", "description", listOf("Eine Folge")),
+                    TextInformationFrame("TXXX", "description", listOf("An episode")),
                     chapter("c2", 1_843_835, 3_493_981, "Interview"),
                     chapter("c1", 467_210, 1_255_165, "Intro"),
-                    chapter("c3", 1_255_165, 1_255_335, "Schnittmarke"),
+                    chapter("c3", 1_255_165, 1_255_335, "Cut mark"),
                     chapter("c4", 4_000_000, 4_100_000, null),
                 ),
             ),
         )
 
         assertEquals("2026-10-29", tags.date)
-        assertEquals("Eine Folge", tags.description)
+        assertEquals("An episode", tags.description)
         assertEquals(listOf("Intro", "Interview", "c4"), tags.chapters.map { it.title })
         assertEquals(467_210L, tags.chapters.first().startMs)
     }
@@ -83,8 +83,8 @@ class LocalPodcastLayoutTest {
             listOf(
                 Metadata(
                     chapter("a", 0, 2_123_676, "General Podcast V2"),
-                    chapter("b", 2_123_676, 2_184_786, "Abspann"),
-                    chapter("c", 2_123_676, 2_134_140, "Teil"),
+                    chapter("b", 2_123_676, 2_184_786, "Credits"),
+                    chapter("c", 2_123_676, 2_134_140, "Part"),
                 ),
             ),
         )
@@ -113,7 +113,7 @@ class LocalPodcastLayoutTest {
         assertEquals(listOf("Chapter 1", "Chapter 2", "Chapter 3"), tags("Chapter 1", "Chapter 2", "Chapter 3").chapters.map { it.title })
         assertEquals(3, tags("Kapitel 1", "Kapitel 2", "Kapitel 3").chapters.size)
         assertEquals(3, tags("001", "002", "003").chapters.size)
-        assertEquals(4, tags("Vorwort", "Chapter 1", "Chapter 2", "Chapter 3").chapters.size)
+        assertEquals(4, tags("Foreword", "Chapter 1", "Chapter 2", "Chapter 3").chapters.size)
         // Numbers with gaps are IDs, not chapters.
         assertEquals(emptyList<LocalBookChapter>(), tags("ch1", "ch4", "ch9").chapters)
     }
@@ -130,16 +130,16 @@ class LocalPodcastLayoutTest {
 
     @Test
     fun `subtitle and year come from ID3, Vorbis or the free MP4 fields`() {
-        val id3 = SpokenTags.from(listOf(Metadata(TextInformationFrame("TIT3", null, listOf(" Ein Roman ")), TextInformationFrame("TDRC", null, listOf("2019-05-01")))))
-        val vorbis = SpokenTags.from(listOf(Metadata(VorbisComment("subtitle", "Teil 2"), VorbisComment("DATE", "2021"))))
-        val mp4 = SpokenTags.from(listOf(Metadata(InternalFrame("com.apple.iTunes", "SUBTITLE", "Kriminalroman"))))
+        val id3 = SpokenTags.from(listOf(Metadata(TextInformationFrame("TIT3", null, listOf(" A novel ")), TextInformationFrame("TDRC", null, listOf("2019-05-01")))))
+        val vorbis = SpokenTags.from(listOf(Metadata(VorbisComment("subtitle", "Part 2"), VorbisComment("DATE", "2021"))))
+        val mp4 = SpokenTags.from(listOf(Metadata(InternalFrame("com.apple.iTunes", "SUBTITLE", "Crime novel"))))
         val none = SpokenTags.from(listOf(Metadata(TextInformationFrame("TDRC", null, listOf("20190")))))
 
-        assertEquals("Ein Roman", id3.subtitle)
+        assertEquals("A novel", id3.subtitle)
         assertEquals(2019, id3.year)
-        assertEquals("Teil 2", vorbis.subtitle)
+        assertEquals("Part 2", vorbis.subtitle)
         assertEquals(2021, vorbis.year)
-        assertEquals("Kriminalroman", mp4.subtitle)
+        assertEquals("Crime novel", mp4.subtitle)
         assertNull(mp4.year)
         assertNull(none.year)
     }

@@ -65,7 +65,7 @@ class BookSyncer @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
-            Log.w(TAG, "Abgleich mit ${server.baseUrl} fehlgeschlagen", e)
+            Log.w(TAG, "Sync with ${server.baseUrl} failed", e)
             BookSyncResult(ok = false, newBooks = emptyList())
         }
 
@@ -94,7 +94,7 @@ class BookSyncer @Inject constructor(
             if (!scanLibrary(server, library.id, generation) { if (countsAsNew && it !in known) fresh += it } &&
                 !scanLibrary(server, library.id, generation) { if (countsAsNew && it !in known) fresh += it }
             ) {
-                throw IOException("${library.name} hat sich während des Abgleichs geändert")
+                throw IOException("${library.name} changed during the sync")
             }
         }
         // First upload unreported progress: deleted books take it with them.
@@ -121,7 +121,7 @@ class BookSyncer @Inject constructor(
         val authors = try {
             libraryIds.flatMap { api.authors(server, it) }
         } catch (e: IOException) {
-            Log.w(TAG, "Autoren von ${server.baseUrl} nicht abrufbar", e)
+            Log.w(TAG, "Authors of ${server.baseUrl} not available", e)
             return
         }
         dao.replaceAuthors(
@@ -149,7 +149,7 @@ class BookSyncer @Inject constructor(
         val item = try {
             api.item(server, book.remoteId)
         } catch (e: IOException) {
-            Log.w(TAG, "Details von ${book.title} nicht abrufbar", e)
+            Log.w(TAG, "Details of ${book.title} not available", e)
             return false
         }
         var start = 0L
@@ -211,7 +211,7 @@ class BookSyncer @Inject constructor(
         while (true) {
             val result = api.libraryItems(server, libraryId, page, PAGE_SIZE)
             if (lastId != null && api.libraryItems(server, libraryId, page * PAGE_SIZE - 1, 1).results.firstOrNull()?.id != lastId) {
-                Log.i(TAG, "Bibliothek $libraryId hat sich während des Abgleichs verschoben")
+                Log.i(TAG, "Library $libraryId shifted during the sync")
                 return false
             }
             result.results.forEach {

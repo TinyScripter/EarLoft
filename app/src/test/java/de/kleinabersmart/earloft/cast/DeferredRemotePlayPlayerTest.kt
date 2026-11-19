@@ -63,7 +63,7 @@ class DeferredRemotePlayPlayerTest {
 
         fake.update { remote = true }
         player.play()
-        assertFalse("Während des Ladens geht kein Abspielen hinaus", fake.wantsPlay)
+        assertFalse("No play goes out while loading", fake.wantsPlay)
 
         fake.update { receiverState = Player.STATE_READY }
         assertTrue(fake.wantsPlay)
@@ -76,7 +76,7 @@ class DeferredRemotePlayPlayerTest {
         val player = DeferredRemotePlayPlayer(fake, onClearedToEnd = { cleared++ })
 
         player.removeMediaItems(0, 1)
-        assertEquals("Lokal gibt es keine Reserve", 0, cleared)
+        assertEquals("Locally there is no reserve", 0, cleared)
 
         fake.update { remote = true }
         player.removeMediaItems(0, 1)
@@ -152,12 +152,12 @@ class DeferredRemotePlayPlayerTest {
         player.holdSeeks()
         player.seekTo(4, 0)
         shadowOf(Looper.getMainLooper()).idle()
-        assertEquals("Zurückgehalten", emptyList<Int>(), fake.seeks)
+        assertEquals("Held back", emptyList<Int>(), fake.seeks)
 
         fake.dropFirst(2)
         player.releaseSeeks()
         shadowOf(Looper.getMainLooper()).idle()
-        assertEquals("„e“ steht jetzt an Index 2", listOf(2), fake.seeks)
+        assertEquals("\"e\" is now at index 2", listOf(2), fake.seeks)
     }
 
     @Test

@@ -80,18 +80,18 @@ internal class ResumableTransfer(
                         response.code == 416 -> {
                             // The partial file no longer matches the server file: start from scratch.
                             storage.deletePart(bookId, trackIndex)
-                            throw IOException("Bereich nicht erfüllbar, beginne von vorn")
+                            throw IOException("Range not satisfiable, starting over")
                         }
                         response.code in 500..599 -> throw IOException("HTTP ${response.code}")
                         // 401 is a network error from the caller's point of view: on the watch a new key may come from the phone.
                         response.code == 401 -> throw HttpStatusException(response.code)
-                        response.code == 403 -> return@withContext TransferResult.Failed("Nicht angemeldet", forbidden = true)
+                        response.code == 403 -> return@withContext TransferResult.Failed("Not signed in", forbidden = true)
                         !response.isSuccessful -> return@withContext TransferResult.Failed("HTTP ${response.code}")
                     }
                     val contentType = response.header("Content-Type").orEmpty().substringBefore(';').trim().lowercase()
                     if (contentType.startsWith("text/") || contentType.contains("json") || contentType.contains("xml")) {
                         storage.deletePart(bookId, trackIndex)
-                        return@withContext TransferResult.Failed("Keine Audiodatei ($contentType)")
+                        return@withContext TransferResult.Failed("Not an audio file ($contentType)")
                     }
 
                     val length = response.body.contentLength().takeIf { it > 0 }
@@ -101,11 +101,11 @@ internal class ResumableTransfer(
                         val range = parseContentRange(response.header("Content-Range"))
                         if (resume == null || range == null || range.start != resume.offset) {
                             storage.deletePart(bookId, trackIndex)
-                            throw IOException("Unerwarteter Bereich: ${response.header("Content-Range")}")
+                            throw IOException("Unexpected range: ${response.header("Content-Range")}")
                         }
                         offset = resume.offset
                         total = range.total ?: length?.let { offset + it }
-                        Log.i(TAG, "Eintrag $bookId Datei $trackIndex: setze bei $offset von ${total ?: "?"} Bytes fort")
+                        Log.i(TAG, "Entry $bookId file $trackIndex: resuming at $offset of ${total ?: "?"} bytes")
                     } else {
                         // 200: whole file, either a fresh start or the server has changed the file.
                         offset = 0
@@ -116,7 +116,7 @@ internal class ResumableTransfer(
                     val missing = total?.let { it - offset }
                     if (missing != null && storage.freeBytes() < missing + FREE_SPACE_RESERVE_BYTES) {
                         storage.deletePart(bookId, trackIndex)
-                        return@withContext TransferResult.Failed("Zu wenig Speicher")
+                        return@withContext TransferResult.Failed("Not enough storage")
                     }
                     if (!write(part, response.body.byteStream(), append = offset > 0, offset, total, onProgress, stillWanted)) {
                         return@withContext TransferResult.Cancelled
@@ -179,7 +179,7 @@ internal class ResumableTransfer(
                 }
             }
         }
-        if (total != null && written != total) throw IOException("Unvollständig: $written von $total Bytes")
+        if (total != null && written != total) throw IOException("Incomplete: $written of $total bytes")
         return true
     }
 

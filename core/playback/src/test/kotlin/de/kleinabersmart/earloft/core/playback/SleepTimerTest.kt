@@ -75,7 +75,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `fadeVolume sinkt linear auf null`() {
+    fun `fadeVolume drops linearly to zero`() {
         assertEquals(1f, fadeVolume(SleepTimer.FADE_MS), 0.001f)
         assertEquals(0.5f, fadeVolume(SleepTimer.FADE_MS / 2), 0.001f)
         assertEquals(0f, fadeVolume(0), 0.001f)
@@ -83,7 +83,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `pausiert nach Ablauf und stellt die Lautstaerke zurueck`() {
+    fun `pauses on expiry and restores the volume`() {
         timer.start(60_000)
         scope.advanceTimeBy(59_999)
         assertEquals(0, target.pauseCount)
@@ -95,7 +95,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `blendet in den letzten Sekunden aus`() {
+    fun `fades out in the last seconds`() {
         timer.start(60_000)
         scope.advanceTimeBy(30_000)
         assertEquals(1f, target.volume, 0f)
@@ -105,7 +105,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `Abbrechen verhindert die Pause und setzt die Lautstaerke zurueck`() {
+    fun `cancelling prevents the pause and restores the volume`() {
         timer.start(60_000)
         scope.advanceTimeBy(50_000)
         timer.cancel()
@@ -116,7 +116,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `neuer Start ersetzt den laufenden Timer`() {
+    fun `a new start replaces the running timer`() {
         timer.start(30_000)
         scope.advanceTimeBy(20_000)
         timer.start(60_000)
@@ -127,14 +127,14 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `ohne Player passiert nichts`() {
+    fun `without a player nothing happens`() {
         timer.detach()
         timer.start(60_000)
         assertNull(timer.state.value)
     }
 
     @Test
-    fun `bis zum Kapitelende haelt knapp vor der Grenze an`() {
+    fun `end of chapter stops just before the boundary`() {
         target.position = 10_000
         timer.startToEnd()
         scope.runCurrent()
@@ -149,7 +149,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `bis zum Kapitelende rechnet mit dem Tempo`() {
+    fun `end of chapter takes the speed into account`() {
         target.speed = 2f
         target.position = 0
         timer.startToEnd()
@@ -160,7 +160,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `Spulen in ein anderes Kapitel schlaeft an dessen Ende ein`() {
+    fun `seeking into another chapter falls asleep at its end`() {
         target.position = 10_000
         timer.startToEnd()
         advance(5_000)
@@ -175,7 +175,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `ein anderes Buch bringt den Anfang seines Kapitels mit statt den des vorigen`() {
+    fun `another book brings the start of its own chapter instead of the previous one`() {
         target.position = 10_000
         timer.startToEnd()
         advance(1_000)
@@ -191,7 +191,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `pausiert laeuft bis zum Ende nicht weiter und blendet nicht aus`() {
+    fun `while paused, end of chapter does not count down and does not fade out`() {
         target.position = 50_000
         timer.startToEnd()
         advance(1_000)
@@ -204,7 +204,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `Folge bis zum Ende und Musik beendet den Timer ohne Pause`() {
+    fun `episode to the end followed by music ends the timer without a pause`() {
         target.ends = listOf(90_000)
         target.position = 0
         timer.startToEnd()
@@ -217,7 +217,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `bis zum Ende wartet die leere Warteschlange bei der Uebergabe ans Cast-Geraet ab`() {
+    fun `end of chapter waits out the empty queue during the handover to the cast device`() {
         target.position = 10_000
         timer.startToEnd()
         advance(5_000)
@@ -231,7 +231,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `ueber die Grenze ins naechste Item gilt als Ende`() {
+    fun `crossing the boundary into the next item counts as the end`() {
         target.ends = listOf(10_000)
         target.position = 9_000
         timer.startToEnd()
@@ -244,7 +244,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `Schuetteln nur kurz vor Ablauf`() {
+    fun `shaking only shortly before expiry`() {
         timer.start(10 * 60_000L)
         advance(60_000)
         assertFalse(timer.shakeWindow.value)
@@ -254,7 +254,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `pausiert kurz vor dem Kapitelende hilft Schuetteln nicht und der Sensor ruht`() {
+    fun `paused shortly before the end of chapter shaking does not help and the sensor rests`() {
         target.position = 20_000
         timer.startToEnd()
         advance(5_000)
@@ -271,7 +271,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `Schuetteln vor dem Ausblenden spult nicht zurueck`() {
+    fun `shaking before the fade-out does not rewind`() {
         target.position = 100_000
         timer.start(5 * 60_000L)
         advance(5 * 60_000L - 40_000)
@@ -282,7 +282,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `Schuetteln beim Ausblenden setzt die Dauer neu und spult das Leise zurueck`() {
+    fun `shaking during the fade-out restarts the duration and rewinds the quiet part`() {
         target.position = 100_000
         timer.start(5 * 60_000L)
         advance(5 * 60_000L - 5_000)
@@ -296,7 +296,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `Schuetteln nach dem Einschlafen spielt weiter und spult zurueck`() {
+    fun `shaking after falling asleep resumes playback and rewinds`() {
         timer.start(60_000)
         advance(60_000)
         assertEquals(1, target.pauseCount)
@@ -309,7 +309,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `nach zwei Minuten hilft Schuetteln nicht mehr`() {
+    fun `after two minutes shaking no longer helps`() {
         timer.start(60_000)
         advance(60_000)
         advance(SleepTimer.SHAKE_AFTER_MS)
@@ -319,7 +319,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `nach zwei Minuten Tiefschlaf hilft Schuetteln auch dann nicht, wenn das Fenster noch offen ist`() {
+    fun `after two minutes of deep sleep shaking does not help even if the window is still open`() {
         timer.start(60_000)
         advance(60_000)
         advance(30_000)
@@ -333,7 +333,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `Schuetteln bis Kapitelende reicht bis zum Ende des naechsten Kapitels`() {
+    fun `shaking with end of chapter extends to the end of the next chapter`() {
         target.position = 30_000
         timer.startToEnd()
         advance(30_000)
@@ -346,7 +346,7 @@ class SleepTimerTest {
     }
 
     @Test
-    fun `Schuetteln im letzten Abschnitt verlaengert um die zuletzt gewaehlte Dauer`() {
+    fun `shaking in the last section extends by the last chosen duration`() {
         timer.start(30 * 60_000L)
         timer.cancel()
         target.ends = listOf(90_000)

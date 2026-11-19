@@ -476,7 +476,7 @@ class NowPlayingWidgetUpdater @Inject constructor(
         try {
             context.grantUriPermission(home, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         } catch (e: RuntimeException) {
-            Log.w(TAG, "Cover für $home nicht freigegeben", e)
+            Log.w(TAG, "Cover not granted to $home", e)
         }
     }
 

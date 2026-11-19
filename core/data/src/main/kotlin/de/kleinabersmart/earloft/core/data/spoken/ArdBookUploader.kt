@@ -104,7 +104,7 @@ class ArdBookUploader @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
-            Log.w(TAG, "Ziele auf ${server.baseUrl} nicht abrufbar", e)
+            Log.w(TAG, "Targets on ${server.baseUrl} not available", e)
             emptyList()
         }
     }
@@ -147,7 +147,7 @@ class ArdBookUploader @Inject constructor(
             } catch (e: AbsUploadExists) {
                 return UploadResult.Exists
             } catch (e: AbsException) {
-                Log.w(TAG, "Upload von ${book.title} abgelehnt", e)
+                Log.w(TAG, "Upload of ${book.title} rejected", e)
                 return when {
                     e.isAuthError -> UploadResult.NoPermission
                     e.code >= SERVER_ERROR -> UploadResult.ServerError
@@ -156,7 +156,7 @@ class ArdBookUploader @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
-                Log.w(TAG, "Upload von ${book.title} fehlgeschlagen", e)
+                Log.w(TAG, "Upload of ${book.title} failed", e)
                 return UploadResult.Failed
             }
         } finally {

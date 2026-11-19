@@ -7,7 +7,7 @@ import kotlinx.serialization.SerializationException
 
 /** The server answered with `status = failed`; [serverMessage] is its message without the code. */
 class SubsonicException(code: Int, serverMessage: String?) :
-    ServerApiException(code, serverMessage, "Subsonic-Fehler $code" + serverMessage?.let { ": $it" }.orEmpty()) {
+    ServerApiException(code, serverMessage, "Subsonic error $code" + serverMessage?.let { ": $it" }.orEmpty()) {
 
     override val isAuthError: Boolean
         get() = isRejectedCredentials || code == TOKEN_AUTH_NOT_SUPPORTED || code == NOT_AUTHORIZED

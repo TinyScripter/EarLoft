@@ -20,7 +20,7 @@ class ArtistImageFetcher(
 
     override suspend fun fetch(): FetchResult {
         val bitmap = artworkRepository.artistImage(artistId)
-            ?: throw IOException("Kein Bild für Interpret $artistId")
+            ?: throw IOException("No image for artist $artistId")
         return ImageFetchResult(
             image = bitmap.asImage(),
             isSampled = false,

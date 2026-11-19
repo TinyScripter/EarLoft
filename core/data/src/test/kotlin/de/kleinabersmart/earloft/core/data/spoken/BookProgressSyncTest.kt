@@ -62,10 +62,10 @@ class BookProgressSyncTest {
             BookEntity(
                 serverId = LOCAL_BOOK_SERVER_ID,
                 kind = BookKind.BOOK,
-                remoteId = "buch",
-                title = "Buch",
-                normTitle = "buch",
-                author = "Autor",
+                remoteId = "book",
+                title = "Book",
+                normTitle = "book",
+                author = "Author",
                 durationMs = 3_600_000,
                 detailsLoaded = true,
             ),
@@ -104,10 +104,10 @@ class BookProgressSyncTest {
     fun `the time a book was finished stays when it is only hidden from continue listening`() = runBlocking {
         sync.record(bookId, 3_600_000, 3_600_000, finished = true)
         val finishedAt = db.bookDao().progress(bookId)!!.finishedAt!!
-        db.bookDao().insertTracks(listOf(BookTrackEntity(bookId, trackIndex = 0, remoteFileId = "datei", startMs = 0, durationMs = 3_600_000)))
+        db.bookDao().insertTracks(listOf(BookTrackEntity(bookId, trackIndex = 0, remoteFileId = "file", startMs = 0, durationMs = 3_600_000)))
         db.bookDao().queueBookDownload(bookId)
         db.bookDao().markBookTrackRunning(bookId, 0)
-        db.bookDao().markBookTrackDone(bookId, 0, "/tmp/datei", 1)
+        db.bookDao().markBookTrackDone(bookId, 0, "/tmp/file", 1)
         Thread.sleep(5)
 
         sync.hideFromContinueListening(bookId)
@@ -125,8 +125,8 @@ class BookProgressSyncTest {
         db.bookDao().upsertProgress(BookProgressEntity(bookId, 3_600_000, 3_600_000, finished = true, updatedAt = 1_000))
         val other = db.bookDao().upsertBook(
             BookEntity(
-                serverId = LOCAL_BOOK_SERVER_ID, kind = BookKind.BOOK, remoteId = "zwei", title = "Zwei", normTitle = "zwei",
-                author = "Autor", durationMs = 3_600_000, detailsLoaded = true,
+                serverId = LOCAL_BOOK_SERVER_ID, kind = BookKind.BOOK, remoteId = "two", title = "Two", normTitle = "two",
+                author = "Author", durationMs = 3_600_000, detailsLoaded = true,
             ),
         )
         db.bookDao().upsertProgress(BookProgressEntity(other, 3_600_000, 3_600_000, finished = true, updatedAt = 2_000))
@@ -182,7 +182,7 @@ class BookProgressSyncTest {
             val change = async(Dispatchers.IO) { db.bookDao().setEffects(bookId, speed, null, null) }
             (saves + change).awaitAll()
 
-            assertEquals("Runde $round", speed, db.bookDao().progress(bookId)!!.speed)
+            assertEquals("Round $round", speed, db.bookDao().progress(bookId)!!.speed)
         }
     }
 }

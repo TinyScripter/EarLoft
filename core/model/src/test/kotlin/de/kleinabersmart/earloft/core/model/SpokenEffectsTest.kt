@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Rangfolge Folge bzw. Buch > Abo > Bereich (Konzept 12.4). */
+/** Precedence episode or book > subscription > area (concept 12.4). */
 class SpokenEffectsTest {
 
     private val area = SpokenEffects(speed = 1.2f, skipSilence = true, volumeBoostDb = 0)

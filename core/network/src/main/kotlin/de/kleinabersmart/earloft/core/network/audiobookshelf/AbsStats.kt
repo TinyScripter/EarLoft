@@ -43,7 +43,7 @@ object AbsStats {
         try {
             json.decodeFromString(text)
         } catch (e: SerializationException) {
-            throw AbsException(0, "Unerwartete Antwort: ${e.message}")
+            throw AbsException(0, "Unexpected response: ${e.message}")
         }
 }
 

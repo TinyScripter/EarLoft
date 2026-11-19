@@ -208,7 +208,7 @@ class BookDownloads @Inject constructor(
             queued += dao.queueBookDownloadAutomatic(bookId)
         }
         if (queued > 0) {
-            Log.i(TAG, "Automatik: $queued Dateien von ${bookIds.size} Büchern eingereiht")
+            Log.i(TAG, "Automatic: queued $queued files of ${bookIds.size} books")
             enqueueWorker()
         }
         return complete

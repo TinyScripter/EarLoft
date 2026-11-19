@@ -76,7 +76,7 @@ class MixViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Mix von $seed fehlgeschlagen", e)
+                Log.w(TAG, "Mix from $seed failed", e)
                 snackbars.show(context.getString(R.string.mix_failed))
             } finally {
                 hint.cancel()

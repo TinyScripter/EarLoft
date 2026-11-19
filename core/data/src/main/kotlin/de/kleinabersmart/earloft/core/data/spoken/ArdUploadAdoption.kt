@@ -84,7 +84,7 @@ class ArdUploadAdoption @Inject constructor(
             for (pending in all.filter { it.serverId == serverId }) {
                 val old = dao.book(pending.bookId)?.takeIf { isArdSoundsBook(it.serverId) }
                 if (old == null || now - pending.uploadedAt > MAX_AGE_MS) {
-                    if (old != null) Log.i(TAG, "${old.title}: Server hat den Upload nicht gemeldet, Übernahme verworfen")
+                    if (old != null) Log.i(TAG, "${old.title}: server did not report the upload, adoption discarded")
                     done += pending.bookId
                     continue
                 }
@@ -124,7 +124,7 @@ class ArdUploadAdoption @Inject constructor(
         dao.bookmarksOf(listOf(old.bookId)).filter { !it.deleted }.forEach {
             bookmarks.add(new.bookId, positionWithout(it.positionMs, missing), it.title, it.note)
         }
-        Log.i(TAG, "Stand von ${old.title} auf das Buch auf dem Server übernommen")
+        Log.i(TAG, "State of ${old.title} transferred to the book on the server")
     }
 
     private suspend fun read(): List<PendingUpload> =

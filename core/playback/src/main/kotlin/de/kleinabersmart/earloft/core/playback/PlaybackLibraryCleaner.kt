@@ -50,10 +50,10 @@ internal class PlaybackLibraryCleaner @Inject constructor(
         withContext(Dispatchers.IO) {
             stale.forEach { key ->
                 runCatching { streamCache.removeResource(key) }
-                    .onFailure { Log.w(TAG, "Cache für $key nicht gelöscht", it) }
+                    .onFailure { Log.w(TAG, "Cache for $key not deleted", it) }
             }
         }
-        if (stale.isNotEmpty()) Log.i(TAG, "Stream-Cache von ${stale.size} entfernten Quellen gelöscht")
+        if (stale.isNotEmpty()) Log.i(TAG, "Deleted stream cache of ${stale.size} removed sources")
     }
 
     private companion object {

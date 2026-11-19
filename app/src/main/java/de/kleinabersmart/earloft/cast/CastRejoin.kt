@@ -84,7 +84,7 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         val deviceId = prefs.getString(KEY_DEVICE, null) ?: return
         val sessionId = prefs.getString(KEY_SESSION, null) ?: return
         if (System.currentTimeMillis() > prefs.getLong(KEY_UNTIL, 0)) {
-            Log.i(TAG, "Letzte Sitzung ist vermutlich vorbei, hänge mich nicht wieder an")
+            Log.i(TAG, "Last session is probably over, not rejoining")
             forget()
             return
         }
@@ -114,16 +114,16 @@ internal class CastRejoin @Inject constructor(@param:ApplicationContext private 
         }
         forget()
         if (route == null) {
-            if (!busy()) Log.i(TAG, "Gerät der letzten Sitzung nicht gefunden")
+            if (!busy()) Log.i(TAG, "Device of the last session not found")
             return
         }
         val running = CastDevice.getFromBundle(route.extras)?.let { CastReceiverStatus.sessionIds(it) }
         if (running == null || sessionId !in running) {
-            Log.i(TAG, "Auf ${route.name} läuft die letzte Sitzung nicht mehr (${running ?: "Status unbekannt"}), hänge mich nicht an")
+            Log.i(TAG, "The last session no longer runs on ${route.name} (${running ?: "status unknown"}), not rejoining")
             return
         }
         if (busy()) return
-        Log.i(TAG, "Hänge mich wieder an ${route.name}")
+        Log.i(TAG, "Rejoining ${route.name}")
         val selected = Saved(deviceId, sessionId)
         pending = selected
         router.selectRoute(route)

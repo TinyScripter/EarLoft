@@ -41,12 +41,12 @@ class ArdSoundsApiTest {
         mockServer.enqueue(
             json(
                 """{"data":{"search":{"programSets":{"nodes":[
-                    {"id":"1","coreId":"urn:ard:show:aa","title":"Mit Feed","numberOfElements":3,"feedUrl":"https://feeds.example.org/a.xml",
+                    {"id":"1","coreId":"urn:ard:show:aa","title":"With feed","numberOfElements":3,"feedUrl":"https://feeds.example.org/a.xml",
                      "image":{"url":"https://img.example/a?w={width}","url1X1":"https://img.example/a1?w={width}"},"publicationService":{"title":"Bayern 2"}},
-                    {"id":"2","coreId":"urn:ard:show:bb","title":"Ohne Feed","numberOfElements":9,"feedUrl":"crid://ndr.de/4532",
+                    {"id":"2","coreId":"urn:ard:show:bb","title":"Without feed","numberOfElements":9,"feedUrl":"crid://ndr.de/4532",
                      "image":{"url":"https://img.example/b?w={width}"},"publicationService":{"title":"NDR"}},
-                    {"id":"3","coreId":null,"title":"Nur Zahl","numberOfElements":null,"feedUrl":null},
-                    {"id":"4","coreId":"urn:ard:show:dd","title":"Leer","numberOfElements":0,"feedUrl":null}
+                    {"id":"3","coreId":null,"title":"Number only","numberOfElements":null,"feedUrl":null},
+                    {"id":"4","coreId":"urn:ard:show:dd","title":"Empty","numberOfElements":0,"feedUrl":null}
                 ]}}}}""",
             ),
         )
@@ -56,15 +56,15 @@ class ArdSoundsApiTest {
         assertEquals(
             listOf(
                 DirectoryPodcast(
-                    "Mit Feed",
+                    "With feed",
                     "Bayern 2",
                     "https://feeds.example.org/a.xml",
                     "https://img.example/a1?w=600",
                     setOf(PodcastDirectory.ARD_SOUNDS),
                     ardSoundsUrl = "ardsounds:urn:ard:show:aa",
                 ),
-                DirectoryPodcast("Ohne Feed", "NDR", "ardsounds:urn:ard:show:bb", "https://img.example/b?w=600", setOf(PodcastDirectory.ARD_SOUNDS)),
-                DirectoryPodcast("Nur Zahl", "", "ardsounds:3", null, setOf(PodcastDirectory.ARD_SOUNDS)),
+                DirectoryPodcast("Without feed", "NDR", "ardsounds:urn:ard:show:bb", "https://img.example/b?w=600", setOf(PodcastDirectory.ARD_SOUNDS)),
+                DirectoryPodcast("Number only", "", "ardsounds:3", null, setOf(PodcastDirectory.ARD_SOUNDS)),
             ),
             hits,
         )
@@ -80,16 +80,16 @@ class ArdSoundsApiTest {
     fun `a show becomes a parsed feed with downloadable audio, dates and show notes`() = runTest {
         mockServer.enqueue(
             json(
-                """{"data":{"show":{"id":"9","coreId":"urn:ard:show:cc","title":"Radio Tatort","description":"<p>Krimis</p>","synopsis":"Krimis kurz",
+                """{"data":{"show":{"id":"9","coreId":"urn:ard:show:cc","title":"Radio Tatort","description":"<p>Crime stories</p>","synopsis":"Crime stories, short",
                     "image":{"url1X1":"https://img.example/s?w={width}"},"publicationService":{"title":"ARD"},
                     "items":{"nodes":[
-                      {"id":"11","coreId":"urn:ard:publication:x1","title":"Fall 2","publishDate":"2026-10-09T10:03:49+02:00","duration":3460,
-                       "description":"kurz","showNotes":"<b>lang</b>","summary":"s","image":{"url1X1":"https://img.example/e?w={width}"},
+                      {"id":"11","coreId":"urn:ard:publication:x1","title":"Case 2","publishDate":"2026-10-09T10:03:49+02:00","duration":3460,
+                       "description":"short","showNotes":"<b>long</b>","summary":"s","image":{"url1X1":"https://img.example/e?w={width}"},
                        "audios":[{"url":"https://stream.example/2.mp3","downloadUrl":null,"allowDownload":false,"mimeType":"audio/mp3"},
                                  {"url":"https://dl.example/2.mp3","downloadUrl":"https://dl.example/2.mp3","allowDownload":true,"mimeType":"audio/mp3"}]},
-                      {"id":"12","coreId":null,"title":"Fall 1","publishDate":"kaputt","duration":null,"description":null,"showNotes":null,"summary":"Zusammenfassung",
+                      {"id":"12","coreId":null,"title":"Case 1","publishDate":"broken","duration":null,"description":null,"showNotes":null,"summary":"Summary",
                        "audios":[{"url":"https://stream.example/1.mp3","downloadUrl":null,"allowDownload":false,"mimeType":"audio/mp4"}]},
-                      {"id":"13","coreId":"urn:ard:publication:x0","title":"Ohne Ton","audios":[]}
+                      {"id":"13","coreId":"urn:ard:publication:x0","title":"No sound","audios":[]}
                     ]}}}}""",
             ),
         )
@@ -98,7 +98,7 @@ class ArdSoundsApiTest {
 
         assertEquals("Radio Tatort", feed.title)
         assertEquals("ARD", feed.author)
-        assertEquals("<p>Krimis</p>", feed.description)
+        assertEquals("<p>Crime stories</p>", feed.description)
         assertEquals("https://img.example/s?w=600", feed.imageUrl)
         assertEquals(listOf("urn:ard:publication:x1", "12"), feed.episodes.map { it.guid })
         val newest = feed.episodes[0]
@@ -106,14 +106,14 @@ class ArdSoundsApiTest {
         assertEquals("audio/mpeg", newest.mimeType)
         assertEquals(3_460_000L, newest.durationMs)
         assertEquals(OffsetDateTime.parse("2026-10-09T10:03:49+02:00").toInstant().toEpochMilli(), newest.publishedAt)
-        assertEquals("<b>lang</b>", newest.description)
+        assertEquals("<b>long</b>", newest.description)
         assertEquals("https://img.example/e?w=600", newest.imageUrl)
         val older = feed.episodes[1]
         assertEquals("https://stream.example/1.mp3", older.audioUrl)
         assertEquals("audio/mp4", older.mimeType)
         assertEquals(0L, older.publishedAt)
         assertEquals(0L, older.durationMs)
-        assertEquals("Zusammenfassung", older.description)
+        assertEquals("Summary", older.description)
         val variables = Json.parseToJsonElement(mockServer.takeRequest().body!!.utf8()).jsonObject.getValue("variables").jsonObject
         assertEquals("urn:ard:show:cc", variables.getValue("id").jsonPrimitive.content)
     }
@@ -122,7 +122,7 @@ class ArdSoundsApiTest {
     fun `an unknown show is not a feed`() = runTest {
         mockServer.enqueue(json("""{"data":{"show":null}}"""))
 
-        assertTrue(runCatching { api.fetch("urn:ard:show:weg") }.exceptionOrNull() is PodcastFeedException)
+        assertTrue(runCatching { api.fetch("urn:ard:show:gone") }.exceptionOrNull() is PodcastFeedException)
     }
 
     @Test

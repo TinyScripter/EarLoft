@@ -66,7 +66,7 @@ internal class SongDataSource(
                 if (dataSpec.position == 0L) onOpened(songId, candidate)
                 return length
             } catch (e: IOException) {
-                Log.w(TAG, "Song $songId: ${candidate.key} nicht erreichbar", e)
+                Log.w(TAG, "Song $songId: ${candidate.key} unreachable", e)
                 runCatching { upstream.close() }
                 health.failed(candidate.sourceId)
                 lastError = e

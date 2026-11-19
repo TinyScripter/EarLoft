@@ -51,10 +51,10 @@ class LocalPodcasts @Inject constructor(
                 bookDao.bookByRemote(feedIdOf(podcast), key)?.let { it.remoteUpdatedAt == fingerprint && it.detailsLoaded } == true
             }
         } catch (e: SecurityException) {
-            Log.w(TAG, "Keine Berechtigung für die Podcasts auf dem Gerät", e)
+            Log.w(TAG, "No permission for the podcasts on the device", e)
             return@withLock false
         } catch (e: IOException) {
-            Log.w(TAG, "Podcasts auf dem Gerät nicht lesbar", e)
+            Log.w(TAG, "Podcasts on the device not readable", e)
             return@withLock false
         }
         scanned.forEach { store(it, generation) }

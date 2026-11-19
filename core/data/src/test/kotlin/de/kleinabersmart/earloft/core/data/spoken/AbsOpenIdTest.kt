@@ -92,7 +92,7 @@ class AbsOpenIdTest {
     private suspend fun signIn(serverId: String? = null): String {
         val started = servers.beginOpenId(baseUrl, AbsAuthApi.DEFAULT_REDIRECT_URI) as BeginOpenIdResult.Started
         val state = started.login.authorizationUrl.queryParameter("state")
-        val result = servers.connectOpenId(serverId, "Hörbücher", started.login, "audiobookshelf://oauth?code=the-code&state=$state")
+        val result = servers.connectOpenId(serverId, "Audiobooks", started.login, "audiobookshelf://oauth?code=the-code&state=$state")
         return (result as AddServerResult.Added).serverId
     }
 
@@ -170,7 +170,7 @@ class AbsOpenIdTest {
     @Test
     fun `a wrong new API key is not replaced by the stored token`() = runTest {
         val id = signIn()
-        val result = servers.update(id, "Hörbücher", baseUrl, "wrong-key")
+        val result = servers.update(id, "Audiobooks", baseUrl, "wrong-key")
         assertEquals(AddServerResult.AuthFailed, result)
         assertEquals(0, refreshCalls.get())
         assertEquals(jwt("access-1"), secrets.values[AbsSecrets.token(id)])
@@ -181,12 +181,12 @@ class AbsOpenIdTest {
         val id = signIn()
         validAccess.clear()
 
-        val result = servers.update(id, "Neu", baseUrl, "")
+        val result = servers.update(id, "New", baseUrl, "")
 
         assertEquals(AddServerResult.Added(id), result)
         val entity = db.bookDao().server(id)!!
         assertTrue(entity.openId)
-        assertEquals("Neu", entity.name)
+        assertEquals("New", entity.name)
         assertEquals(jwt("access-2"), secrets.values[AbsSecrets.token(id)])
         assertEquals(jwt("access-2"), registry[id]!!.token)
     }
@@ -196,7 +196,7 @@ class AbsOpenIdTest {
         val id = signIn()
         validAccess += "api-key"
 
-        servers.update(id, "Hörbücher", baseUrl, "api-key")
+        servers.update(id, "Audiobooks", baseUrl, "api-key")
 
         assertFalse(db.bookDao().server(id)!!.openId)
         assertEquals("api-key", secrets.values[AbsSecrets.token(id)])
@@ -299,7 +299,7 @@ class AbsOpenIdTest {
             return when (url.encodedPath) {
                 "/status" -> json(
                     """{"app":"audiobookshelf","serverVersion":"2.37.2","authMethods":["openid"],""" +
-                        """"authFormData":{"authOpenIDButtonText":"Login mit OpenId"}}""",
+                        """"authFormData":{"authOpenIDButtonText":"Login with OpenId"}}""",
                 )
                 "/auth/openid" -> {
                     if (url.queryParameter("redirect_uri") != AbsAuthApi.DEFAULT_REDIRECT_URI) {
@@ -332,7 +332,7 @@ class AbsOpenIdTest {
                 else -> when {
                     bearer == null || bearer !in validAccess -> MockResponse.Builder().code(401).body("Unauthorized").build()
                     url.encodedPath == "/api/me" -> json("""{"id":"user-1","mediaProgress":[]}""")
-                    url.encodedPath == "/api/libraries" -> json("""{"libraries":[{"id":"lib","name":"Bücher","mediaType":"book"}]}""")
+                    url.encodedPath == "/api/libraries" -> json("""{"libraries":[{"id":"lib","name":"Books","mediaType":"book"}]}""")
                     else -> MockResponse.Builder().code(404).build()
                 }
             }

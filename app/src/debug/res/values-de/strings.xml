@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Überschreibt die Texte aus main, damit sich die Debug-App neben der Release-App unterscheiden lässt. -->
+    <!-- Overrides the texts from main so the debug app can be told apart from the release app. -->
     <string name="widget_name">Wiedergabe (Debug)</string>
 </resources>

@@ -128,7 +128,7 @@ class EndlessMixTest {
         assertEquals(listOf(5L, 7, 8), player.songIds())
     }
 
-    private fun song(id: Long) = Song(id, "Song $id", "Künstler", albumId = 1, albumTitle = "Album", durationMs = 1000, discNumber = 1, trackNumber = id.toInt(), isFavorite = false)
+    private fun song(id: Long) = Song(id, "Song $id", "Artist", albumId = 1, albumTitle = "Album", durationMs = 1000, discNumber = 1, trackNumber = id.toInt(), isFavorite = false)
 
     /**
      * Plays a list of songs (`song:<id>`) and records appended titles. [SimpleBasePlayer] only reads the first state on the

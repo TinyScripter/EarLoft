@@ -24,10 +24,10 @@ import java.io.IOException
 class JellyfinDataSourceTest {
 
     private val names = FallbackNames(
-        unknownTitle = "Unbekannter Titel",
-        unknownArtist = "Unbekannter Künstler",
-        unknownAlbum = "Unbekanntes Album",
-        variousArtists = "Verschiedene Künstler",
+        unknownTitle = "Unknown title",
+        unknownArtist = "Unknown artist",
+        unknownAlbum = "Unknown album",
+        variousArtists = "Various artists",
     )
     private lateinit var mockServer: MockWebServer
     private lateinit var source: JellyfinDataSource
@@ -48,7 +48,7 @@ class JellyfinDataSourceTest {
                     synchronized(requests) { requests += url.encodedPath.substringAfter("/jf/") }
                     val body = when {
                         url.encodedPath.endsWith("/Items") && url.queryParameter("includeItemTypes") == "Playlist" ->
-                            """{"Items":[{"Id":"p1","Name":"Sommer","MediaType":"Audio","Etag":"$playlistEtag"},""" +
+                            """{"Items":[{"Id":"p1","Name":"Summer","MediaType":"Audio","Etag":"$playlistEtag"},""" +
                                 """{"Id":"p2","Name":"Fremd","MediaType":"Audio","Etag":"x"}],"TotalRecordCount":2}"""
                         url.encodedPath.endsWith("/Playlists/p1/Users/u1") -> """{"CanEdit":true}"""
                         url.encodedPath.endsWith("/Playlists/p2/Users/u1") -> return MockResponse.Builder().code(403).build()
@@ -59,7 +59,7 @@ class JellyfinDataSourceTest {
                         request.method == "POST" && url.encodedPath.endsWith("/Playlists") -> """{"Id":"p1"}"""
                         request.method == "POST" -> return MockResponse.Builder().code(204).build()
                         url.encodedPath.endsWith("/Playlists/p1") -> """{"OpenAccess":false,"Shares":[],"ItemIds":["a"]}"""
-                        url.encodedPath.endsWith("/Items/p1") -> """{"Id":"p1","Name":"Sommer","Type":"Playlist"}"""
+                        url.encodedPath.endsWith("/Items/p1") -> """{"Id":"p1","Name":"Summer","Type":"Playlist"}"""
                         else -> return MockResponse.Builder().code(404).build()
                     }
                     return MockResponse.Builder().addHeader("Content-Type", "application/json").body(body).build()
@@ -107,22 +107,22 @@ class JellyfinDataSourceTest {
 
         try {
             source.fullScan().toList()
-            fail("Der Scan muss abbrechen, sonst löschte der Abgleich die fehlenden Songs")
+            fail("The scan must abort, otherwise the sync would delete the missing songs")
         } catch (_: IOException) {
         }
     }
 
     @Test
     fun `changing a playlist right after creating it waits until the server has settled`() = runTest {
-        val created = source.createPlaylist("Sommer", listOf("a"))
+        val created = source.createPlaylist("Summer", listOf("a"))
         val current = RemotePlaylist(created, listOf("a"))
 
-        source.replacePlaylist(current, "Sommer 2", listOf("a", "b"))
+        source.replacePlaylist(current, "Summer 2", listOf("a", "b"))
         assertTrue(testScheduler.currentTime >= JellyfinDataSource.CREATION_SETTLE_MS - 1_000)
 
         // Only the first change after creation waits.
         val before = testScheduler.currentTime
-        source.replacePlaylist(current, "Sommer 3", listOf("a"))
+        source.replacePlaylist(current, "Summer 3", listOf("a"))
         assertEquals(before, testScheduler.currentTime)
     }
 
@@ -144,7 +144,7 @@ class JellyfinDataSourceTest {
     @Test
     fun `own changes fetch the entries again even when the etag stays`() = runTest {
         // Emby keeps the Etag unchanged on reordering; otherwise the remembered entries would count as a change on the server.
-        source.replacePlaylist(RemotePlaylist(source.playlists().single(), listOf("a")), "Sommer", listOf("a"))
+        source.replacePlaylist(RemotePlaylist(source.playlists().single(), listOf("a")), "Summer", listOf("a"))
         val afterReplace = synchronized(requests) { requests.size }
         source.playlists()
 

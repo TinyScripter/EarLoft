@@ -109,7 +109,7 @@ private fun RemoteSpokenContent(item: WearRemoteBookDto, onWatch: OnWatchState, 
 private fun RemoteSpokenPreview() {
     MaterialTheme {
         RemoteSpokenContent(
-            item = WearRemoteBookDto(1, "#383 Drohnen überall – wie eine Waffe den Krieg verändert", "Was tun, Herr General?", "f1", "g1"),
+            item = WearRemoteBookDto(1, "#383 Drones everywhere – how a weapon is changing war", "What now, General?", "f1", "g1"),
             onWatch = OnWatchState(OnWatchStatus.DOWNLOADING, progress = 0.23f),
             onPlay = {},
             onSetOnWatch = {},

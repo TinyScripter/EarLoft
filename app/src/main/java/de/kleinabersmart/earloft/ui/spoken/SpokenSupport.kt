@@ -5,7 +5,6 @@ import java.util.Date
 import java.util.Calendar
 import java.util.TimeZone
 import java.text.DateFormat
-import java.text.SimpleDateFormat
 import de.kleinabersmart.earloft.core.model.Book
 import de.kleinabersmart.earloft.core.model.BookKind
 import androidx.compose.material3.SnackbarDuration
@@ -630,11 +629,14 @@ private fun AnnotatedString.trimmed(): AnnotatedString {
     return subSequence(start, text.indexOfLast { !it.isWhitespace() } + 1)
 }
 
-/** "Oct 31"; the year is only included if it isn't the current one ("Oct 31, 2025"). */
+/**
+ * Short date with the abbreviated month in the order and spelling of [locale] ("Oct 31", "31. Okt.", "31 oct."); the
+ * year is only included if it isn't the current one ("Oct 31, 2025").
+ */
 fun formatEpisodeDate(ms: Long, now: Long = System.currentTimeMillis(), locale: Locale = Locale.getDefault()): String {
     fun yearOf(time: Long) = Calendar.getInstance().apply { timeInMillis = time }.get(Calendar.YEAR)
-    val pattern = if (yearOf(ms) == yearOf(now)) "MMM d" else "MMM d, yyyy"
-    return SimpleDateFormat(pattern, locale).format(Date(ms))
+    val skeleton = if (yearOf(ms) == yearOf(now)) "MMMd" else "yMMMd"
+    return android.icu.text.DateFormat.getInstanceForSkeleton(skeleton, locale).format(Date(ms))
 }
 
 /** Like [formatEpisodeDate], with [withTime] followed by the time of day ("Nov 12 · 17:00"). */
@@ -643,7 +645,7 @@ fun formatEpisodeDate(ms: Long, withTime: Boolean): String {
     return if (withTime) "$date · ${formatEpisodeTime(ms)}" else date
 }
 
-/** Date of the episode in lists ("12.11.2026"), with [withTime] also the time of day. */
+/** Date of the episode in lists in the style of the locale ("Nov 12, 2026", "12.11.2026"), with [withTime] also the time of day. */
 fun formatEpisodeDay(ms: Long, withTime: Boolean): String =
     if (withTime) {
         DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(ms))

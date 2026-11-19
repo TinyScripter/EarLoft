@@ -75,7 +75,7 @@ class SyncQueuePlayReporter @Inject constructor(
         return try {
             withTimeoutOrNull(LIVE_TIMEOUT_MS) { source.reportPlayback(server.remoteId, durationMs) } != null
         } catch (e: IOException) {
-            Log.i(TAG, "Wiedergabe an ${server.sourceId} nicht live gemeldet, kommt in die Warteschlange: $e")
+            Log.i(TAG, "Playback not reported live to ${server.sourceId}, queued: $e")
             false
         }
     }

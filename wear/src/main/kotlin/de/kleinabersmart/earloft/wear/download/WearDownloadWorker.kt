@@ -109,7 +109,7 @@ class WearDownloadWorker(
                 }
                 if (!downloader.knowsSource(uid)) {
                     // The watch does not know the server (no credentials yet): go via the phone right away, without Wi-Fi (Review V4).
-                    Log.i(TAG, "Quelle von $uid hier unbekannt, über das Handy")
+                    Log.i(TAG, "Source of $uid unknown here, via the phone")
                     if (!viaPhoneForUnknownSource(next)) return waitForPhone()
                     continue
                 }
@@ -133,7 +133,7 @@ class WearDownloadWorker(
                             if (outcome.isAuthRejection) entryPoint.credentials().request(listOf(sourceId))
                         }
                         // The text is logged explicitly: Log.w with a Throwable prints no stack trace for UnknownHostException.
-                        Log.w(TAG, "Download $uid unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
+                        Log.w(TAG, "Download $uid interrupted (failed attempt $failures of ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
                         if (failures < WatchState.SERVER_ATTEMPTS) {
                             downloadDao.requeue(uid)
                             return retryLater()
@@ -141,7 +141,7 @@ class WearDownloadWorker(
                         if (!viaPhone(next, serverFailed = true)) return waitForPhone()
                     }
                     is DownloadOutcome.Failed -> {
-                        Log.w(TAG, "Download $uid fehlgeschlagen: ${outcome.reason}")
+                        Log.w(TAG, "Download $uid failed: ${outcome.reason}")
                         // File gone, login refused or similar: maybe the phone has it.
                         if (outcome.sourceUnavailable) {
                             if (!viaPhoneForUnknownSource(next)) return waitForPhone()
@@ -175,7 +175,7 @@ class WearDownloadWorker(
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
                         val failures = state.recordServerFailure(key)
-                        Log.w(TAG, "Folge ${track.bookId} unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
+                        Log.w(TAG, "Episode ${track.bookId} interrupted (failed attempt $failures of ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
                         if (failures < WatchState.SERVER_ATTEMPTS) {
                             podcastDao.requeueDownload(track.bookId)
                             return retryLater()
@@ -184,7 +184,7 @@ class WearDownloadWorker(
                     }
                     is DownloadOutcome.Failed -> {
                         // Address gone, no audio file or similar: maybe the phone has downloaded it.
-                        Log.w(TAG, "Folge ${track.bookId} fehlgeschlagen: ${outcome.reason}")
+                        Log.w(TAG, "Episode ${track.bookId} failed: ${outcome.reason}")
                         if (!episodeViaPhone(track)) return waitForPhone()
                     }
                     DownloadOutcome.Done -> state.clearServerFailures(key)
@@ -204,7 +204,7 @@ class WearDownloadWorker(
                 if (!isArdSoundsBook(book.serverId) && entryPoint.audiobookshelf().server(book.serverId) == null) {
                     // The key is still on its way (request to the phone running) or missing there; counts as a failed attempt.
                     val failures = state.recordServerFailure(key)
-                    Log.w(TAG, "Buch ${track.bookId}: Audiobookshelf ohne Schlüssel (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS})")
+                    Log.w(TAG, "Book ${track.bookId}: Audiobookshelf without key (failed attempt $failures of ${WatchState.SERVER_ATTEMPTS})")
                     if (failures < WatchState.SERVER_ATTEMPTS) return retryLater()
                     if (!bookViaPhone(track)) return waitForPhone()
                     continue
@@ -217,7 +217,7 @@ class WearDownloadWorker(
                 when (outcome) {
                     is DownloadOutcome.Retry -> {
                         val failures = state.recordServerFailure(key)
-                        Log.w(TAG, "Buch ${track.bookId} Datei ${track.trackIndex} unterbrochen (Fehlversuch $failures von ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
+                        Log.w(TAG, "Book ${track.bookId} file ${track.trackIndex} interrupted (failed attempt $failures of ${WatchState.SERVER_ATTEMPTS}): ${outcome.cause}", outcome.cause)
                         // The partial file stays; the next run resumes there.
                         bookDao.requeueBookTrack(track.bookId, track.trackIndex)
                         // New key on the phone: the answer replaces it before the next attempt.
@@ -227,7 +227,7 @@ class WearDownloadWorker(
                     }
                     is DownloadOutcome.Failed -> {
                         // File gone, key refused or similar: maybe the phone has downloaded the book.
-                        Log.w(TAG, "Buch ${track.bookId} fehlgeschlagen: ${outcome.reason}")
+                        Log.w(TAG, "Book ${track.bookId} failed: ${outcome.reason}")
                         if (!bookViaPhone(track)) return waitForPhone()
                     }
                     DownloadOutcome.Done -> state.clearServerFailures(key)
@@ -251,7 +251,7 @@ class WearDownloadWorker(
         val audiobookshelf = entryPoint.audiobookshelf()
         val expiring = audiobookshelf.withExpiringToken(KEY_MARGIN_SECONDS)
         if (expiring.isEmpty()) return
-        Log.i(TAG, "Schlüssel für ${expiring.size} Audiobookshelf-Server läuft ab, frischen beim Handy anfragen")
+        Log.i(TAG, "Key for ${expiring.size} Audiobookshelf servers expiring, requesting a fresh one from the phone")
         entryPoint.credentials().request(expiring)
         withTimeoutOrNull(KEY_WAIT_MS) {
             while (audiobookshelf.withExpiringToken(KEY_MARGIN_SECONDS).any { it in expiring }) delay(KEY_POLL_MS)
@@ -272,17 +272,17 @@ class WearDownloadWorker(
         }
         return when (step) {
             PhoneWaitStep.RETRY -> {
-                Log.i(TAG, "Handy nicht erreichbar, später erneut (Lauf $runs)")
+                Log.i(TAG, "Phone unreachable, retrying later (run $runs)")
                 retryLater()
             }
             PhoneWaitStep.RETRY_ON_CHARGER -> {
                 // A job without delay would restart immediately on the charger and fail again after 30 s, without
                 // end. This way the interval grows (up to 5 h) until the phone checks in.
-                Log.i(TAG, "Handy nach $runs Läufen nicht erreichbar, am Ladegerät später erneut oder wenn es sich meldet")
+                Log.i(TAG, "Phone unreachable after $runs runs, retrying later on the charger or when it checks in")
                 retryLater(onCharger = true)
             }
             PhoneWaitStep.WAIT_FOR_CHARGER -> {
-                Log.i(TAG, "Handy nach $runs Läufen nicht erreichbar, weiter am Ladegerät oder wenn es sich meldet")
+                Log.i(TAG, "Phone unreachable after $runs runs, continuing on the charger or when it checks in")
                 entryPoint.scheduler().enqueueOnCharger()
                 Result.success()
             }
@@ -300,12 +300,12 @@ class WearDownloadWorker(
         state.setWaitingForWifi(true)
         val attempt = state.retryRuns + 1
         if (attempt < MAX_WIFI_ATTEMPTS) {
-            Log.i(TAG, "Kein WLAN, später erneut (Versuch $attempt)")
+            Log.i(TAG, "No Wi-Fi, retrying later (attempt $attempt)")
             return retryLater()
         }
         // Every attempt starts a foreground service and turns Wi-Fi on for up to 30 s: after a few
         // attempts continue only on the charger.
-        Log.i(TAG, "Kein WLAN nach $attempt Versuchen, weiter am Ladegerät")
+        Log.i(TAG, "No Wi-Fi after $attempt attempts, continuing on the charger")
         entryPoint.scheduler().enqueueOnCharger()
         return Result.success()
     }
@@ -318,7 +318,7 @@ class WearDownloadWorker(
     private fun retryLater(onCharger: Boolean = this.onCharger): Result {
         val runs = state.recordRetry()
         val delayMs = retryDelayMs(runs)
-        Log.i(TAG, "Nächster Lauf in ${delayMs / 1000} s (Wiederholung $runs${if (onCharger) ", am Ladegerät" else ""})")
+        Log.i(TAG, "Next run in ${delayMs / 1000} s (retry $runs${if (onCharger) ", on the charger" else ""})")
         entryPoint.scheduler().enqueueRetry(delayMs, onCharger)
         return Result.success()
     }
@@ -339,11 +339,11 @@ class WearDownloadWorker(
             }
             is DownloadOutcome.Failed -> {
                 state.clearPhoneUnreachable()
-                Log.w(TAG, "Handy hat Folge ${track.bookId} nicht: ${outcome.reason}")
+                Log.w(TAG, "Phone does not have episode ${track.bookId}: ${outcome.reason}")
                 true
             }
             is DownloadOutcome.Retry -> {
-                Log.i(TAG, "Handy für Folge ${track.bookId} nicht erreichbar (Versuch ${state.retryRuns + 1})", outcome.cause)
+                Log.i(TAG, "Phone unreachable for episode ${track.bookId} (attempt ${state.retryRuns + 1})", outcome.cause)
                 podcastDao.requeueDownload(track.bookId)
                 state.setLastError(applicationContext.getString(R.string.download_error_phone_unreachable))
                 false
@@ -362,11 +362,11 @@ class WearDownloadWorker(
             }
             is DownloadOutcome.Failed -> {
                 state.clearPhoneUnreachable()
-                Log.w(TAG, "Handy hat Buch ${track.bookId} Datei ${track.trackIndex} nicht: ${outcome.reason}")
+                Log.w(TAG, "Phone does not have book ${track.bookId} file ${track.trackIndex}: ${outcome.reason}")
                 true
             }
             is DownloadOutcome.Retry -> {
-                Log.i(TAG, "Handy für Buch ${track.bookId} nicht erreichbar (Versuch ${state.retryRuns + 1})", outcome.cause)
+                Log.i(TAG, "Phone unreachable for book ${track.bookId} (attempt ${state.retryRuns + 1})", outcome.cause)
                 bookDao.requeueBookTrack(track.bookId, track.trackIndex)
                 state.setLastError(applicationContext.getString(R.string.download_error_phone_unreachable))
                 false
@@ -412,7 +412,7 @@ class WearDownloadWorker(
         val free = withContext(Dispatchers.IO) { storage.freeBytes() }
         val budget = downloadBudget(settings, free, wearDao.getDoneBytes() + bookDao.trackTotals().doneBytes, reservedBytes = 0)
         if (hasRoomForAny(pending.map { estimateBytes(it, settings.quality) }, budget)) return true
-        Log.i(TAG, "Speicher voll: kein wartender Titel passt (Budget $budget Bytes), kein Start")
+        Log.i(TAG, "Storage full: no waiting track fits (budget $budget bytes), not starting")
         state.setMissingForStorage(pending.size)
         return false
     }
@@ -470,7 +470,7 @@ class WearDownloadWorker(
             }
             is DownloadOutcome.Failed -> {
                 state.clearPhoneUnreachable()
-                Log.w(TAG, "Handy hat $uid nicht: ${outcome.reason}")
+                Log.w(TAG, "Phone does not have $uid: ${outcome.reason}")
                 state.setLastError(
                     applicationContext.getString(
                         if (serverFailed) R.string.download_error_server_no_phone_copy else R.string.download_error_phone_no_copy,
@@ -479,7 +479,7 @@ class WearDownloadWorker(
                 true
             }
             is DownloadOutcome.Retry -> {
-                Log.i(TAG, "Handy für $uid nicht erreichbar (Versuch ${state.retryRuns + 1})", outcome.cause)
+                Log.i(TAG, "Phone unreachable for $uid (attempt ${state.retryRuns + 1})", outcome.cause)
                 downloadDao.requeue(uid)
                 state.setLastError(applicationContext.getString(R.string.download_error_phone_unreachable))
                 false
@@ -503,7 +503,7 @@ class WearDownloadWorker(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Bild von $bookId nicht ladbar", e)
+                Log.w(TAG, "Image of $bookId not loadable", e)
             }
         }
         for (albumId in downloadDao.getAlbumIdsWithDoneDownload()) {
@@ -512,7 +512,7 @@ class WearDownloadWorker(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Cover für Album $albumId nicht ladbar", e)
+                Log.w(TAG, "Cover for album $albumId not loadable", e)
             }
         }
     }
@@ -553,7 +553,7 @@ class WearDownloadWorker(
             throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true
-            Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund (${e.javaClass.simpleName})")
+            Log.i(TAG, "Foreground start not possible, downloading in the background (${e.javaClass.simpleName})")
         }
     }
 

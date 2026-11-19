@@ -38,7 +38,7 @@ class AbsApi @Inject constructor(
     /** Reachable and an Audiobookshelf? (without login) */
     suspend fun ping(server: AbsServer) {
         val body = execute(Request.Builder().url(server.endpoint("ping").build()).build())
-        if (!body.contains("\"success\"")) throw AbsException(0, "Kein Audiobookshelf-Server")
+        if (!body.contains("\"success\"")) throw AbsException(0, "Not an Audiobookshelf server")
     }
 
     /** Checks the API key and returns the account's progress. */
@@ -200,7 +200,7 @@ class AbsApi @Inject constructor(
         try {
             JSON.decodeFromString(text)
         } catch (e: SerializationException) {
-            throw AbsException(0, "Unerwartete Antwort: ${e.message}")
+            throw AbsException(0, "Unexpected response: ${e.message}")
         }
 
     private companion object {
@@ -214,7 +214,7 @@ class AbsApi @Inject constructor(
 }
 
 /** The book already exists on the server (the target folder exists). */
-class AbsUploadExists : IOException("Das Buch gibt es auf dem Server schon")
+class AbsUploadExists : IOException("The book already exists on the server")
 
 /** A book to upload: [title] and [author] determine the folder, [files] the files in this order. */
 data class AbsUpload(

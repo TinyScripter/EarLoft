@@ -26,7 +26,7 @@ class BookClockTest {
 
     @Test
     fun `the chronometer prefix pads its text to two-digit hours`() {
-        // Der Chronometer zeigt „45:12“ bzw. „3:12:01“ bzw. „12:00:00“.
+        // The chronometer shows "45:12", "3:12:01" and "12:00:00" respectively.
         assertEquals("00:", chronometerPrefix(45 * 60 * 1000L))
         assertEquals("0", chronometerPrefix(3_600_000))
         assertEquals("", chronometerPrefix(10 * 3_600_000L))

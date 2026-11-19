@@ -7,7 +7,7 @@ import java.io.IOException
 
 class RetryBudgetTest {
 
-    private val interrupted = DownloadOutcome.Retry(IOException("Verbindung abgebrochen"))
+    private val interrupted = DownloadOutcome.Retry(IOException("Connection aborted"))
 
     @Test
     fun `before the budget is used up every interrupted file waits for the next run`() {

@@ -59,20 +59,20 @@ class ShareRepositoryTest {
 
     @Test
     fun `a private feed address with its token is left out, the website stays`() = runTest {
-        feed("a", "https://www.patreon.com/rss/show?auth=geheim", website = "https://example.com/")
+        feed("a", "https://www.patreon.com/rss/show?auth=secret", website = "https://example.com/")
         assertEquals("Podcast a\nhttps://example.com/", repository.content(ShareTarget.Feed("a"))?.text)
     }
 
     @Test
     fun `a protected feed shares neither its address nor audio on its host`() = runTest {
         feed("a", "https://members.example.com/feed.xml", website = "https://example.com/")
-        val onHost = episode("a", "Eins", null, "https://members.example.com/1.mp3")
-        val onCdn = episode("a", "Zwei", null, "https://cdn.example.com/2.mp3")
+        val onHost = episode("a", "One", null, "https://members.example.com/1.mp3")
+        val onCdn = episode("a", "Two", null, "https://cdn.example.com/2.mp3")
         feedAuth.replaceAll(mapOf("a" to FeedAuth("https://members.example.com/feed.xml".toHttpUrl(), "user", "pass")))
 
         assertEquals("Podcast a\nhttps://example.com/", repository.content(ShareTarget.Feed("a"))?.text)
-        assertEquals("Eins\nPodcast a", repository.content(ShareTarget.Book(onHost))?.text)
-        assertEquals("Zwei\nPodcast a\nhttps://cdn.example.com/2.mp3", repository.content(ShareTarget.Book(onCdn))?.text)
+        assertEquals("One\nPodcast a", repository.content(ShareTarget.Book(onHost))?.text)
+        assertEquals("Two\nPodcast a\nhttps://cdn.example.com/2.mp3", repository.content(ShareTarget.Book(onCdn))?.text)
     }
 
     @Test
@@ -90,7 +90,7 @@ class ShareRepositoryTest {
     @Test
     fun `podcasts from the device are not shared`() = runTest {
         feed("local:x", "local:x")
-        val id = episode("local:x", "Datei", null, "content://media/1")
+        val id = episode("local:x", "File", null, "content://media/1")
         assertNull(repository.content(ShareTarget.Feed("local:x")))
         assertNull(repository.content(ShareTarget.Book(id)))
     }
@@ -109,14 +109,14 @@ class ShareRepositoryTest {
     @Test
     fun `an episode shares its page, otherwise the audio file`() = runTest {
         feed("a", "https://example.com/feed.xml")
-        val withPage = episode("a", "Eins", "https://example.com/1", "https://cdn.example.com/1.mp3")
-        val withoutPage = episode("a", "Zwei", "https://open.spotify.com/episode/2", "https://cdn.example.com/2.mp3")
+        val withPage = episode("a", "One", "https://example.com/1", "https://cdn.example.com/1.mp3")
+        val withoutPage = episode("a", "Two", "https://open.spotify.com/episode/2", "https://cdn.example.com/2.mp3")
         assertEquals(
-            "Eins\nPodcast a\nhttps://example.com/1\nRSS: https://example.com/feed.xml",
+            "One\nPodcast a\nhttps://example.com/1\nRSS: https://example.com/feed.xml",
             repository.content(ShareTarget.Book(withPage))?.text,
         )
         assertEquals(
-            "Zwei\nPodcast a\nhttps://cdn.example.com/2.mp3\nRSS: https://example.com/feed.xml",
+            "Two\nPodcast a\nhttps://cdn.example.com/2.mp3\nRSS: https://example.com/feed.xml",
             repository.content(ShareTarget.Book(withoutPage))?.text,
         )
     }
@@ -124,15 +124,15 @@ class ShareRepositoryTest {
     @Test
     fun `sharing from a position names it and marks the audio link`() = runTest {
         feed("a", "https://example.com/feed.xml")
-        val withPage = episode("a", "Eins", "https://example.com/1", "https://cdn.example.com/1.mp3")
-        val withoutPage = episode("a", "Zwei", "https://open.spotify.com/episode/2", "https://cdn.example.com/2.mp3")
-        val at = SharePosition(754_321, "ab 12:34")
+        val withPage = episode("a", "One", "https://example.com/1", "https://cdn.example.com/1.mp3")
+        val withoutPage = episode("a", "Two", "https://open.spotify.com/episode/2", "https://cdn.example.com/2.mp3")
+        val at = SharePosition(754_321, "from 12:34")
         assertEquals(
-            "Eins\nPodcast a\nab 12:34\nhttps://example.com/1\nRSS: https://example.com/feed.xml",
+            "One\nPodcast a\nfrom 12:34\nhttps://example.com/1\nRSS: https://example.com/feed.xml",
             repository.content(ShareTarget.Book(withPage, at))?.text,
         )
         assertEquals(
-            "Zwei\nPodcast a\nab 12:34\nhttps://cdn.example.com/2.mp3#t=754\nRSS: https://example.com/feed.xml",
+            "Two\nPodcast a\nfrom 12:34\nhttps://cdn.example.com/2.mp3#t=754\nRSS: https://example.com/feed.xml",
             repository.content(ShareTarget.Book(withoutPage, at))?.text,
         )
     }

@@ -147,7 +147,7 @@ class SettingsBackup @Inject constructor(
                     is String -> "string"
                     is Set<*> -> "stringSet"
                     else -> {
-                        Log.w(TAG, "Einstellung ${key.name} mit unbekanntem Typ ausgelassen")
+                        Log.w(TAG, "Setting ${key.name} with unknown type left out")
                         return@forEach
                     }
                 }
@@ -166,10 +166,10 @@ class SettingsBackup @Inject constructor(
                 "double" -> entry.getDouble(VALUE)
                 "string" -> entry.getString(VALUE)
                 "stringSet" -> entry.getJSONArray(VALUE).let { array -> (0 until array.length()).map(array::getString).toSet() }
-                else -> null.also { Log.w(TAG, "Einstellung $name mit unbekanntem Typ übergangen") }
+                else -> null.also { Log.w(TAG, "Setting $name with unknown type skipped") }
             }
         } catch (e: JSONException) {
-            Log.w(TAG, "Einstellung $name übergangen", e)
+            Log.w(TAG, "Setting $name skipped", e)
             null
         }
 

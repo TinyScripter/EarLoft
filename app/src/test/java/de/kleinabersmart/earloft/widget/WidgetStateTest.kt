@@ -12,8 +12,8 @@ import org.junit.Test
 class WidgetStateTest {
 
     private val song = NowPlaying(songId = 1, title = "Song", artist = "A", albumId = 10, isPlaying = false)
-    private val episode = NowPlaying(songId = null, title = "Folge", artist = "P", albumId = null, isPlaying = true, bookId = 5, isEpisode = true)
-    private val book = NowPlaying(songId = null, title = "Buch", artist = "B", albumId = null, isPlaying = false, bookId = 7)
+    private val episode = NowPlaying(songId = null, title = "Episode", artist = "P", albumId = null, isPlaying = true, bookId = 5, isEpisode = true)
+    private val book = NowPlaying(songId = null, title = "Book", artist = "B", albumId = null, isPlaying = false, bookId = 7)
 
     private val state = WidgetState(
         entries = mapOf(

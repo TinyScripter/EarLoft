@@ -143,7 +143,7 @@ class SettingsViewModelTest {
         override val type = SourceType.SUBSONIC
         override val displayName = "Navidrome"
         override fun fullScan(): Flow<SourceBatch> = flow(scan)
-        override suspend fun resolvePlayback(remoteId: String): PlaybackLocation = error("nicht im Test")
+        override suspend fun resolvePlayback(remoteId: String): PlaybackLocation = error("not in the test")
         override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = null
     }
 

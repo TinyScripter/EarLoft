@@ -45,7 +45,7 @@ class MusicStatsRepositoryTest {
 
     @Test
     fun `totals, months, weekdays and new albums follow the chosen year`() = runTest {
-        db.sourceDao().upsert(SourceEntity(sourceId = "local", type = SourceType.LOCAL, name = "Gerät"))
+        db.sourceDao().upsert(SourceEntity(sourceId = "local", type = SourceType.LOCAL, name = "Device"))
         val library = db.libraryDao()
         val old = library.insertAlbum(album("Old"))
         val new = library.insertAlbum(album("New"))

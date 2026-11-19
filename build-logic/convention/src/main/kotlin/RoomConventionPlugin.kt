@@ -6,7 +6,7 @@ import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 
-/** Room with KSP; exported schemas are versioned under `<modul>/schemas`. */
+/** Room with KSP; exported schemas are versioned under `<module>/schemas`. */
 class RoomConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {

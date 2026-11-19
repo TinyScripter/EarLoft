@@ -50,7 +50,7 @@ class PodcastViewModelTest {
 
     @Test
     fun `the loaded episode pauses or resumes instead of starting again`() {
-        playback.state.value = PlayerState(spoken = SpokenEntry(bookId = 7, trackIndex = 0, title = "Folge", author = "Feed"), isPlaying = true)
+        playback.state.value = PlayerState(spoken = SpokenEntry(bookId = 7, trackIndex = 0, title = "Episode", author = "Feed"), isPlaying = true)
 
         viewModel.playOrPause(7)
 
@@ -59,7 +59,7 @@ class PodcastViewModelTest {
 
     @Test
     fun `another episode is started through the launcher`() = runTest {
-        playback.state.value = PlayerState(spoken = SpokenEntry(bookId = 7, trackIndex = 0, title = "Folge", author = "Feed"), isPlaying = true)
+        playback.state.value = PlayerState(spoken = SpokenEntry(bookId = 7, trackIndex = 0, title = "Episode", author = "Feed"), isPlaying = true)
 
         viewModel.playOrPause(8)
 

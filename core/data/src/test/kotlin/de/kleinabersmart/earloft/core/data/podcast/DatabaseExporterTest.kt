@@ -48,7 +48,7 @@ class DatabaseExporterTest {
                     .build()
             }
             .build()
-        val repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
+        val repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("no source switch in tests") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
         importer = DatabaseImporter(repository, db.podcastDao(), db.bookDao(), db.statsDao())
         settings = SpokenSettings(ApplicationProvider.getApplicationContext())
         // The DataStore persists between tests in the same JVM.
@@ -61,22 +61,22 @@ class DatabaseExporterTest {
     fun tearDown() = db.close()
 
     private fun episode(guid: String, played: Boolean = false, position: Long = 0, listened: Long = 0, at: Long = 1_000, feed: String = FEED_URL) =
-        ImportEpisode(feed, guid, "Titel $guid", 600_000, position, played, listened, at)
+        ImportEpisode(feed, guid, "Title $guid", 600_000, position, played, listened, at)
 
     @Test
     fun `an export reads back as the same progress and listening time`() = runTest {
         importer.import(
             ImportData(
-                feeds = listOf(ImportFeed(FEED_URL, "Test", active = true), ImportFeed(OLD_URL, "Altes Abo", active = false)),
+                feeds = listOf(ImportFeed(FEED_URL, "Test", active = true), ImportFeed(OLD_URL, "Old subscription", active = false)),
                 episodes = listOf(
                     episode("guid-A", played = true, listened = 500_000, at = 2_000),
                     episode("guid-B", position = 120_000, listened = 130_000, at = 3_000),
-                    episode("guid-weg", listened = 60_000),
+                    episode("guid-gone", listened = 60_000),
                     episode("old-1", listened = 1_000_000, feed = OLD_URL),
                 ),
             ),
         )
-        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "local:x", url = "local:x", title = "Gerät"))
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "local:x", url = "local:x", title = "Device"))
         val file = folder.newFile("export.db")
 
         val result = exporter.export(file, rssBridge = null)
@@ -88,7 +88,7 @@ class DatabaseExporterTest {
         // Only what has progress or listening time is read.
         assertEquals(listOf("old-1"), read.episodes.filter { it.feedUrl == OLD_URL }.map { it.guid })
         val byGuid = read.episodes.filter { it.feedUrl != OLD_URL }.associateBy { it.guid }
-        assertEquals(setOf("guid-A", "guid-B", "guid-weg"), byGuid.keys)
+        assertEquals(setOf("guid-A", "guid-B", "guid-gone"), byGuid.keys)
         with(byGuid.getValue("guid-A")) {
             assertEquals(true, played)
             assertEquals(500_000, listenedMs)
@@ -99,7 +99,7 @@ class DatabaseExporterTest {
             assertEquals(120_000, positionMs)
             assertEquals(130_000, listenedMs)
         }
-        assertEquals(60_000, byGuid.getValue("guid-weg").listenedMs)
+        assertEquals(60_000, byGuid.getValue("guid-gone").listenedMs)
     }
 
     @Test
@@ -123,7 +123,7 @@ class DatabaseExporterTest {
     @Test
     fun `shows from ARD Sounds go out as feeds of the RSS bridge and come back as subscriptions`() = runTest {
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard", url = ARD_URL, title = "Kalk & Welk"))
-        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard-alt", url = ARD_ARCHIVED_URL, title = "Satire Deluxe", archived = true))
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "ard-old", url = ARD_ARCHIVED_URL, title = "Satire Deluxe", archived = true))
         val file = folder.newFile("export.db")
 
         exporter.export(file, rssBridge = "https://bridge.example.com/")

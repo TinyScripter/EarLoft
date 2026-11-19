@@ -21,10 +21,10 @@ import org.junit.Test
 class JellyfinTrackMapperTest {
 
     private val names = FallbackNames(
-        unknownTitle = "Unbekannter Titel",
-        unknownArtist = "Unbekannter Künstler",
-        unknownAlbum = "Unbekanntes Album",
-        variousArtists = "Verschiedene Künstler",
+        unknownTitle = "Unknown title",
+        unknownArtist = "Unknown artist",
+        unknownAlbum = "Unknown album",
+        variousArtists = "Various artists",
     )
 
     /** Like a song from the test server (Jellyfin 12.4), shortened. */
@@ -98,7 +98,7 @@ class JellyfinTrackMapperTest {
         assertEquals("A & B", track.artistDisplay)
         assertEquals(listOf(RawArtist("A"), RawArtist("B")), track.artists)
         assertTrue(track.isCompilation)
-        assertEquals("Verschiedene Künstler", track.albumArtistDisplay)
+        assertEquals("Various artists", track.albumArtistDisplay)
     }
 
     @Test
@@ -120,9 +120,9 @@ class JellyfinTrackMapperTest {
         )
 
         assertEquals("s2:x", track.coverRemoteId)
-        assertEquals("Unbekannter Titel", track.title)
-        assertEquals("Unbekannter Künstler", track.artistDisplay)
-        assertEquals("Unbekanntes Album", track.albumTitle)
+        assertEquals("Unknown title", track.title)
+        assertEquals("Unknown artist", track.artistDisplay)
+        assertEquals("Unknown album", track.albumTitle)
         assertEquals(1, track.discNumber)
         assertNull(JellyfinTrackMapper.map(JfItem(id = "s3", type = "Audio"), names).coverRemoteId)
         // Emby never names the album's image tag: without its own image, the album has no tag.
@@ -142,35 +142,35 @@ class JellyfinTrackMapperTest {
     fun `lyrics are synced only with timestamps on every line`() {
         val synced = JfLyrics(
             JfLyricMetadata(isSynced = true),
-            listOf(JfLyricLine("Zwei", 20_000_000), JfLyricLine("Eins", 10_000_000)),
+            listOf(JfLyricLine("Two", 20_000_000), JfLyricLine("One", 10_000_000)),
         )
-        assertEquals(Lyrics.Synced(listOf(LyricLine(1_000, "Eins"), LyricLine(2_000, "Zwei"))), JellyfinTrackMapper.lyrics(synced))
+        assertEquals(Lyrics.Synced(listOf(LyricLine(1_000, "One"), LyricLine(2_000, "Two"))), JellyfinTrackMapper.lyrics(synced))
 
-        val plain = JfLyrics(JfLyricMetadata(), listOf(JfLyricLine("Habe die Ehre"), JfLyricLine(""), JfLyricLine("Ja nee")))
-        assertEquals(Lyrics.Plain("Habe die Ehre\n\nJa nee"), JellyfinTrackMapper.lyrics(plain))
+        val plain = JfLyrics(JfLyricMetadata(), listOf(JfLyricLine("Hello there"), JfLyricLine(""), JfLyricLine("Well no")))
+        assertEquals(Lyrics.Plain("Hello there\n\nWell no"), JellyfinTrackMapper.lyrics(plain))
         assertEquals(Lyrics.None, JellyfinTrackMapper.lyrics(JfLyrics()))
     }
 
     @Test
     fun `lyrics are shifted by the offset of the server`() {
-        val lines = listOf(JfLyricLine("Eins", 5_000_000), JfLyricLine("Zwei", 20_000_000))
+        val lines = listOf(JfLyricLine("One", 5_000_000), JfLyricLine("Two", 20_000_000))
 
         assertEquals(
-            Lyrics.Synced(listOf(LyricLine(0, "Eins"), LyricLine(1_500, "Zwei"))),
+            Lyrics.Synced(listOf(LyricLine(0, "One"), LyricLine(1_500, "Two"))),
             JellyfinTrackMapper.lyrics(JfLyrics(JfLyricMetadata(isSynced = true, offset = 5_000_000), lines)),
         )
         assertEquals(
-            Lyrics.Synced(listOf(LyricLine(750, "Eins"), LyricLine(2_250, "Zwei"))),
+            Lyrics.Synced(listOf(LyricLine(750, "One"), LyricLine(2_250, "Two"))),
             JellyfinTrackMapper.lyrics(JfLyrics(JfLyricMetadata(isSynced = true, offset = -2_500_000), lines)),
         )
     }
 
     @Test
     fun `playlist change marker follows name and entries`() {
-        val base = JellyfinTrackMapper.playlistInfo("p1", "Sommer", listOf("a", "b"))
+        val base = JellyfinTrackMapper.playlistInfo("p1", "Summer", listOf("a", "b"))
 
-        assertEquals(base, JellyfinTrackMapper.playlistInfo("p1", "Sommer", listOf("a", "b")))
-        assertNotEquals(base.changedAt, JellyfinTrackMapper.playlistInfo("p1", "Sommer", listOf("b", "a")).changedAt)
+        assertEquals(base, JellyfinTrackMapper.playlistInfo("p1", "Summer", listOf("a", "b")))
+        assertNotEquals(base.changedAt, JellyfinTrackMapper.playlistInfo("p1", "Summer", listOf("b", "a")).changedAt)
         assertNotEquals(base.changedAt, JellyfinTrackMapper.playlistInfo("p1", "Winter", listOf("a", "b")).changedAt)
     }
 }

@@ -41,7 +41,7 @@ class DatabaseExport @Inject constructor(
                 exporter.export(file, podcastSettings.rssBridge.first().ifBlank { null }).also {
                     withContext(Dispatchers.IO) {
                         context.contentResolver.openOutputStream(uri, "wt")?.use { out -> file.inputStream().use { it.copyTo(out) } }
-                            ?: throw IOException("Datei nicht beschreibbar")
+                            ?: throw IOException("File not writable")
                     }
                 }
             } finally {
@@ -51,10 +51,10 @@ class DatabaseExport @Inject constructor(
     } catch (e: CancellationException) {
         throw e
     } catch (e: IOException) {
-        Log.w(TAG, "Datenbank-Export fehlgeschlagen", e)
+        Log.w(TAG, "Database export failed", e)
         null
     } catch (e: SQLiteException) {
-        Log.w(TAG, "Datenbank-Export fehlgeschlagen", e)
+        Log.w(TAG, "Database export failed", e)
         null
     }
 

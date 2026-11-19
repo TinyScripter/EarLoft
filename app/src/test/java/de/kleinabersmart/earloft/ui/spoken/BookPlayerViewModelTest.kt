@@ -67,32 +67,32 @@ class BookPlayerViewModelTest {
             BookEntity(
                 serverId = LOCAL_BOOK_SERVER_ID,
                 kind = BookKind.BOOK,
-                remoteId = "buch",
-                title = "Buch",
-                normTitle = "buch",
-                author = "Autor",
+                remoteId = "book",
+                title = "Book",
+                normTitle = "book",
+                author = "Author",
                 durationMs = 2 * HOUR_MS,
                 detailsLoaded = true,
             ),
         )
         dao.insertTracks(
             listOf(
-                BookTrackEntity(bookId, trackIndex = 0, remoteFileId = "/sdcard/Audiobooks/teil1.m4b", startMs = 0, durationMs = HOUR_MS),
-                BookTrackEntity(bookId, trackIndex = 1, remoteFileId = "/sdcard/Audiobooks/teil2.m4b", startMs = HOUR_MS, durationMs = HOUR_MS),
+                BookTrackEntity(bookId, trackIndex = 0, remoteFileId = "/sdcard/Audiobooks/part1.m4b", startMs = 0, durationMs = HOUR_MS),
+                BookTrackEntity(bookId, trackIndex = 1, remoteFileId = "/sdcard/Audiobooks/part2.m4b", startMs = HOUR_MS, durationMs = HOUR_MS),
             ),
         )
         dao.insertChapters(
             listOf(
-                BookChapterEntity(bookId, chapterIndex = 0, title = "Eins", startMs = 0, endMs = 50 * MINUTE_MS),
-                BookChapterEntity(bookId, chapterIndex = 1, title = "Zwei", startMs = 50 * MINUTE_MS, endMs = 80 * MINUTE_MS),
-                BookChapterEntity(bookId, chapterIndex = 2, title = "Drei", startMs = 80 * MINUTE_MS, endMs = 2 * HOUR_MS),
+                BookChapterEntity(bookId, chapterIndex = 0, title = "One", startMs = 0, endMs = 50 * MINUTE_MS),
+                BookChapterEntity(bookId, chapterIndex = 1, title = "Two", startMs = 50 * MINUTE_MS, endMs = 80 * MINUTE_MS),
+                BookChapterEntity(bookId, chapterIndex = 2, title = "Three", startMs = 80 * MINUTE_MS, endMs = 2 * HOUR_MS),
             ),
         )
     }
 
     /** Plays the second file at [offsetMs] and waits until the ViewModel has loaded the timeline. */
     private suspend fun TestScope.playSecondFileAt(offsetMs: Long) {
-        playback.state.value = PlayerState(spoken = SpokenEntry(bookId, trackIndex = 1, title = "Buch", author = "Autor"), isPlaying = true)
+        playback.state.value = PlayerState(spoken = SpokenEntry(bookId, trackIndex = 1, title = "Book", author = "Author"), isPlaying = true)
         playback.currentPositionMs = offsetMs
         backgroundScope.launch { viewModel.timeline.collect {} }
         awaitReal { viewModel.timeline.first { it != null } }
@@ -121,7 +121,7 @@ class BookPlayerViewModelTest {
 
     @Test
     fun `next chapter jumps across the file boundary`() = runTest {
-        // 65 min into the book = chapter "Zwei"; the next one starts at 80 min, i.e. 20 min into the second file.
+        // 65 min into the book = chapter "Two"; the next one starts at 80 min, i.e. 20 min into the second file.
         playSecondFileAt(5 * MINUTE_MS)
 
         viewModel.nextChapter()
@@ -131,7 +131,7 @@ class BookPlayerViewModelTest {
 
     @Test
     fun `previous chapter twice goes back although the player still reports the old position`() = runTest {
-        // 65 min = 15 min into "Zwei": first to its start (50 min), then – the player still reports 65 min while casting – to "Eins".
+        // 65 min = 15 min into "Two": first to its start (50 min), then – the player still reports 65 min while casting – to "One".
         playSecondFileAt(5 * MINUTE_MS)
 
         viewModel.previousChapter()
@@ -144,7 +144,7 @@ class BookPlayerViewModelTest {
     fun `once the player has caught up its position counts again`() = runTest {
         playSecondFileAt(5 * MINUTE_MS)
         viewModel.previousChapter()
-        // The seek has arrived and it played on for 10 s: back to the start of "Zwei" again.
+        // The seek has arrived and it played on for 10 s: back to the start of "Two" again.
         playback.state.value = playback.state.value.copy(spoken = playback.state.value.spoken?.copy(trackIndex = 0))
         playback.currentPositionMs = 50 * MINUTE_MS + 10_000
 

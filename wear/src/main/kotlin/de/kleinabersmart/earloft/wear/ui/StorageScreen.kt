@@ -97,7 +97,7 @@ private fun StorageContent(
                 line(transformationSpec) {
                     when {
                         overview.pendingSongs > 0 && progress != null ->
-                            stringResource(R.string.storage_loading) + " " + (progress * 100).toInt() + " %"
+                            stringResource(R.string.storage_loading_percent, (progress * 100).toInt())
                         overview.pendingSongs > 0 ->
                             pluralStringResource(R.plurals.storage_pending, overview.pendingSongs, overview.pendingSongs)
                         else -> stringResource(R.string.storage_idle)
@@ -293,12 +293,12 @@ private fun StoragePreview() {
                 overview = DownloadOverview(12, 5, 2, 420_000_000, 3_100_000_000, 0.4f),
                 limitBytes = 2_000_000_000,
                 missingForStorage = 3,
-                lastError = "Server nicht erreichbar",
+                lastError = "Server unreachable",
             ),
             entries = listOf(
-                StoredEntry("album:1", StoredSection.MUSIC, "Mondlicht", 48_000_000, loaded = true, StoredRef.Music(WearSelectionKind.ALBUM, 1)),
-                StoredEntry("book:2", StoredSection.PODCASTS, "#383 Drohnen überall", 31_000_000, loaded = true, StoredRef.Spoken("f1", "g1")),
-                StoredEntry("book:3", StoredSection.BOOKS, "20.000 Meilen unter dem Meer", 120_000_000, loaded = false, StoredRef.Spoken("s1", "r1")),
+                StoredEntry("album:1", StoredSection.MUSIC, "Moonlight", 48_000_000, loaded = true, StoredRef.Music(WearSelectionKind.ALBUM, 1)),
+                StoredEntry("book:2", StoredSection.PODCASTS, "#383 Drones everywhere", 31_000_000, loaded = true, StoredRef.Spoken("f1", "g1")),
+                StoredEntry("book:3", StoredSection.BOOKS, "20,000 Leagues Under the Sea", 120_000_000, loaded = false, StoredRef.Spoken("s1", "r1")),
             ),
             removeFailed = false,
             onRetry = {},

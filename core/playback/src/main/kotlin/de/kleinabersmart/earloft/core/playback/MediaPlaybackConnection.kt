@@ -138,7 +138,7 @@ class MediaPlaybackConnection @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Keine Verbindung zum Wiedergabe-Service", e)
+                Log.w(TAG, "No connection to the playback service", e)
                 if (connection === pending) connection = null
                 pending.completeExceptionally(e)
                 return@launch

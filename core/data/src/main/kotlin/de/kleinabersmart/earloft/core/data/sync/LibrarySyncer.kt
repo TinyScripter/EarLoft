@@ -62,7 +62,7 @@ class LibrarySyncer @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(TAG, "Abgleich von ${source.sourceId} fehlgeschlagen", e)
+            Log.w(TAG, "Sync of ${source.sourceId} failed", e)
             failedSyncs.update { it + (source.sourceId to SyncFailure.of(e)) }
             false
         }
@@ -97,7 +97,7 @@ class LibrarySyncer @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Zwischenabgleich von ${source.sourceId} fehlgeschlagen", e)
+                Log.w(TAG, "Intermediate sync of ${source.sourceId} failed", e)
                 return false
             }
         } finally {
@@ -155,7 +155,7 @@ class LibrarySyncer @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(TAG, "Favoriten von Alben/Künstlern nicht geladen", e)
+            Log.w(TAG, "Album/artist favorites not loaded", e)
             return
         }
         database.withTransaction { applyCollectionStars((source as MusicDataSource).sourceId, starred) }

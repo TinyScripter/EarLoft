@@ -138,7 +138,7 @@ class DownloaderTest {
 
         val outcome = downloader.download(queued())
 
-        assertEquals("Subsonic-Fehler 70", (outcome as DownloadOutcome.Failed).reason)
+        assertEquals("Subsonic error 70", (outcome as DownloadOutcome.Failed).reason)
         assertNull(library.db.downloadDao().get(uid)!!.filePath)
     }
 

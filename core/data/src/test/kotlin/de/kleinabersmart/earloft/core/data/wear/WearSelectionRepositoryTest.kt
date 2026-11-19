@@ -40,9 +40,9 @@ class WearSelectionRepositoryTest {
         listOf(track("c", "C", 3, sizeBytes = 3_000), track("a", "A", 1, sizeBytes = 1_000), track("b", "B", 2, sizeBytes = 2_000)),
     )
 
-    /** "A" also exists locally (merged with the server song), "Sommerlied" only locally. */
+    /** "A" also exists locally (merged with the server song), "Summer song" only locally. */
     private val local = FakeLocalSource(
-        listOf(track("1", "A", 1, sizeBytes = 9_000), track("2", "Sommerlied", 1, album = "Lokal", sizeBytes = 4_000)),
+        listOf(track("1", "A", 1, sizeBytes = 9_000), track("2", "Summer song", 1, album = "Local", sizeBytes = 4_000)),
     )
 
     @Before
@@ -98,7 +98,7 @@ class WearSelectionRepositoryTest {
 
     @Test
     fun `local songs carry the phone file, local-only songs have no server source`() = runTest {
-        val playlistId = playlists.create("Lokal", serverSourceId = null, listOf(songId("a"), localSongId("2")))
+        val playlistId = playlists.create("Local", serverSourceId = null, listOf(songId("a"), localSongId("2")))
         repository.setSelected(WearSelectionKind.PLAYLIST, playlistId, selected = true)
 
         val songs = repository.load().songs
@@ -107,7 +107,7 @@ class WearSelectionRepositoryTest {
         assertEquals("local:1", a.key)
         assertEquals(listOf("nd:a"), a.serverSources.map { it.uid })
         assertEquals(WearPhoneFile("local:1", 9_000, "audio/mpeg"), a.phoneFile)
-        val summer = songs.single { it.title == "Sommerlied" }
+        val summer = songs.single { it.title == "Summer song" }
         assertTrue(summer.serverSources.isEmpty())
         assertEquals("local:2", summer.phoneFile?.uid)
     }
@@ -134,7 +134,7 @@ class WearSelectionRepositoryTest {
 
         val content = repository.load()
 
-        assertEquals(listOf("B", "Sommerlied", "A", "C"), content.selections.single().songIds.map { title(content, it) })
+        assertEquals(listOf("B", "Summer song", "A", "C"), content.selections.single().songIds.map { title(content, it) })
     }
 
     @Test

@@ -26,7 +26,7 @@ import org.robolectric.Shadows.shadowOf
 class PlayBookOrderTest {
 
     private val book = PreparedBook(
-        book = Book(id = 5, serverId = "abs", kind = BookKind.BOOK, title = "Buch", author = "Autor", durationMs = 60_000, remoteId = "b5"),
+        book = Book(id = 5, serverId = "abs", kind = BookKind.BOOK, title = "Book", author = "Author", durationMs = 60_000, remoteId = "b5"),
         timeline = BookTimeline(60_000, listOf(BookTrack(0, "f0", 0, 60_000, mimeType = "audio/mpeg")), emptyList()),
         trackUrls = listOf("https://abs.example.org/f0.mp3"),
         startPositionMs = 0,

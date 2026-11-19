@@ -72,11 +72,11 @@ class PodcastFeedMoveTest {
 
     @Test
     fun `the feed may announce its new address itself`() = runTest {
-        server.enqueue(feed("<itunes:new-feed-url> https://neu.example/feed.xml </itunes:new-feed-url>"))
+        server.enqueue(feed("<itunes:new-feed-url> https://new.example/feed.xml </itunes:new-feed-url>"))
 
         val fetched = api.fetch(server.url("/a.xml")) as FeedFetch.Fetched
 
-        assertEquals("https://neu.example/feed.xml", fetched.feed.newFeedUrl)
+        assertEquals("https://new.example/feed.xml", fetched.feed.newFeedUrl)
         assertNull(fetched.movedTo)
     }
 

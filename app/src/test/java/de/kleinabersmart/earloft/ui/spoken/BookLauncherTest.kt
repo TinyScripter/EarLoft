@@ -80,10 +80,10 @@ class BookLauncherTest {
         val id = dao.upsertBook(
             BookEntity(
                 serverId = "abs", kind = BookKind.BOOK, remoteId = remoteId, title = remoteId, normTitle = remoteId,
-                author = "Autor", durationMs = HOUR_MS, detailsLoaded = true,
+                author = "Author", durationMs = HOUR_MS, detailsLoaded = true,
             ),
         )
-        dao.insertTracks(listOf(BookTrackEntity(id, trackIndex = 0, remoteFileId = "datei", startMs = 0, durationMs = HOUR_MS)))
+        dao.insertTracks(listOf(BookTrackEntity(id, trackIndex = 0, remoteFileId = "file", startMs = 0, durationMs = HOUR_MS)))
         return id
     }
 
@@ -125,7 +125,7 @@ class BookLauncherTest {
 
     @Test
     fun `resuming the loaded book from a tile does not ask`() = runTest {
-        playback.state.value = PlayerState(spoken = SpokenEntry(bookId, trackIndex = 0, title = "li_1", author = "Autor"), isPlaying = false)
+        playback.state.value = PlayerState(spoken = SpokenEntry(bookId, trackIndex = 0, title = "li_1", author = "Author"), isPlaying = false)
 
         PlayControlViewModel(library, playback, launcher).playOrPauseBook(bookId)
 

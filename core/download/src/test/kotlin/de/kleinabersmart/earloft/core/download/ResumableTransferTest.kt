@@ -74,7 +74,7 @@ class ResumableTransferTest {
         server.enqueue(cutOff())
         try {
             run()
-            fail("Der Abbruch hätte eine Ausnahme auslösen müssen")
+            fail("The abort should have thrown an exception")
         } catch (_: IOException) {
             // expected
         }
@@ -105,7 +105,7 @@ class ResumableTransferTest {
     @Test
     fun `the very first download creates the folder before writing the marker`() = runTest {
         // As on a freshly set up watch: the folder for books doesn't exist yet.
-        val fresh = BookStorage(java.io.File(tempFolder.root, "neu/books"))
+        val fresh = BookStorage(java.io.File(tempFolder.root, "new/books"))
         server.enqueue(full())
 
         val result = ResumableTransfer(OkHttpClient(), fresh).run(server.url("/file"), bookId = 7, trackIndex = 0, onProgress = progress)
@@ -117,7 +117,7 @@ class ResumableTransferTest {
     @Test
     fun `an interrupted download continues where the part file ends`() = runTest {
         val have = interrupt()
-        assertTrue("Teildatei muss liegen bleiben und kürzer sein", have in 1 until audio.size)
+        assertTrue("Part file must remain and be shorter", have in 1 until audio.size)
         server.takeRequest()
         server.enqueue(rest(have))
 
@@ -140,7 +140,7 @@ class ResumableTransferTest {
         server.enqueue(cutOff())
         try {
             episodeTransfer.run(request, bookId = 9, trackIndex = 0, onProgress = progress)
-            fail("Der Abbruch hätte eine Ausnahme auslösen müssen")
+            fail("The abort should have thrown an exception")
         } catch (_: IOException) {
             // expected
         }
@@ -173,7 +173,7 @@ class ResumableTransferTest {
             assertEquals(audio.size.toLong(), total)
         }
 
-        assertTrue("Fortschritt beginnt nicht bei 0", first.let { it == null || it >= have })
+        assertTrue("Progress does not start at 0", first.let { it == null || it >= have })
     }
 
     @Test
@@ -225,7 +225,7 @@ class ResumableTransferTest {
 
         try {
             run()
-            fail("416 muss einen neuen Versuch auslösen")
+            fail("416 must trigger a new attempt")
         } catch (_: IOException) {
         }
         assertFalse(storage.partFileFor(7, 0).exists())
@@ -243,7 +243,7 @@ class ResumableTransferTest {
 
         try {
             run()
-            fail("Falscher Bereich muss abgelehnt werden")
+            fail("Wrong range must be rejected")
         } catch (_: IOException) {
         }
         assertFalse(storage.partFileFor(7, 0).exists())
@@ -254,13 +254,13 @@ class ResumableTransferTest {
         server.enqueue(MockResponse.Builder().code(401).build())
         try {
             run()
-            fail("401 muss als Fehler gemeldet werden, damit der Aufrufer neue Zugangsdaten holen kann")
+            fail("401 must be reported as an error so the caller can fetch new credentials")
         } catch (e: HttpStatusException) {
             assertTrue(e.isAuthError)
         }
 
         server.enqueue(MockResponse.Builder().code(403).build())
-        assertEquals(TransferResult.Failed("Nicht angemeldet", forbidden = true), run())
+        assertEquals(TransferResult.Failed("Not signed in", forbidden = true), run())
     }
 
     @Test

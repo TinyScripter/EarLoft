@@ -80,7 +80,7 @@ class SyncQueueProcessorTest {
 
     @Test
     fun `unreachable server keeps its actions while others are sent`() = runTest {
-        home.failure = IOException("Verbindung abgelehnt")
+        home.failure = IOException("Connection refused")
         db.syncDao().replaceAction("home", SyncActionType.SET_FAVORITE, "home:h", "true")
         db.syncDao().replaceAction("office", SyncActionType.SET_FAVORITE, "office:o", "true")
 

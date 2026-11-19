@@ -111,6 +111,6 @@ private val CARD_MAX_WIDTH = 360.dp
 @Composable
 private fun CastVolumeCardPreview() {
     EarLoftTheme(darkTheme = true) {
-        CastVolumeCard(deviceName = "Büro", volume = 4, maxVolume = 20)
+        CastVolumeCard(deviceName = "Office", volume = 4, maxVolume = 20)
     }
 }

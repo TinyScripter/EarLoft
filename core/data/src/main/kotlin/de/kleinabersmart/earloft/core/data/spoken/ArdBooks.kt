@@ -99,7 +99,7 @@ class ArdBooks @Inject constructor(
         val here = dao.bookByRemote(ARD_BOOK_SERVER_ID, key)?.bookId
         val found = if (here == null) fetch(key) { saved.mapNotNull { it.track.remoteItemId } } else null
         val elsewhere = found?.key?.takeIf { it != key }?.let { moved ->
-            dao.bookByRemote(ARD_BOOK_SERVER_ID, moved)?.also { Log.i(TAG, "$key gibt es bei ARD Sounds jetzt als $moved, das schon in der Bibliothek ist") }
+            dao.bookByRemote(ARD_BOOK_SERVER_ID, moved)?.also { Log.i(TAG, "$key is now $moved at ARD Sounds, which is already in the library") }
         }
         val bookId = here ?: elsewhere?.bookId ?: found?.let { add(key, known = it.copy(key = key), addedAt = addedAt, saved = saved) }
         val missing = settings.ardMissing()
@@ -161,7 +161,7 @@ class ArdBooks @Inject constructor(
                         }
                         // It is already in the library under the new key: this one stays as it is.
                         book.key != current.remoteId && dao.bookByRemote(ARD_BOOK_SERVER_ID, book.key) != null -> {
-                            Log.i(TAG, "${current.title} gibt es bei ARD Sounds jetzt als ${book.key}, das schon in der Bibliothek ist")
+                            Log.i(TAG, "${current.title} is now ${book.key} at ARD Sounds, which is already in the library")
                             null
                         }
                         else -> {
@@ -180,7 +180,7 @@ class ArdBooks @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
-                Log.w(TAG, "${existing.title} aus ARD Sounds nicht abrufbar", e)
+                Log.w(TAG, "${existing.title} from ARD Sounds not available", e)
                 ok = false
             }
         }
@@ -191,7 +191,7 @@ class ArdBooks @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
-                Log.w(TAG, "${subscription.title} aus ARD Sounds nicht abrufbar", e)
+                Log.w(TAG, "${subscription.title} from ARD Sounds not available", e)
                 ok = false
             }
         }

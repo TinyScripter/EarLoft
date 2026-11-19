@@ -79,7 +79,7 @@ class PodcastDirectoryApi internal constructor(
      */
     suspend fun popular(directory: PodcastDirectory, category: PodcastCategory?, country: String, language: String): List<DirectoryPodcast> =
         withContext(Dispatchers.IO) {
-            check(access.allows(directory) && directory.discoverable) { "Verzeichnis $directory hat keine Charts" }
+            check(access.allows(directory) && directory.discoverable) { "Directory $directory has no charts" }
             try {
                 when (directory) {
                     PodcastDirectory.APPLE -> appleCharts(category, country)
@@ -87,10 +87,10 @@ class PodcastDirectoryApi internal constructor(
                     PodcastDirectory.FYYD, PodcastDirectory.ARD_SOUNDS -> emptyList()
                 }
             } catch (e: SerializationException) {
-                throw IOException("Unlesbare Antwort von $directory", e)
+                throw IOException("Unreadable response from $directory", e)
             } catch (e: IllegalArgumentException) {
                 // Unexpected shape of the chart feed (no object where there should be one).
-                throw IOException("Unlesbare Antwort von $directory", e)
+                throw IOException("Unreadable response from $directory", e)
             }
         }
 
@@ -139,7 +139,7 @@ class PodcastDirectoryApi internal constructor(
      */
     suspend fun search(directory: PodcastDirectory, term: String, country: String): List<DirectoryPodcast> =
         withContext(Dispatchers.IO) {
-            check(access.allows(directory)) { "Verzeichnis $directory ist in diesem Build nicht freigeschaltet" }
+            check(access.allows(directory)) { "Directory $directory is not enabled in this build" }
             try {
                 when (directory) {
                     PodcastDirectory.APPLE -> apple(term, country)
@@ -148,7 +148,7 @@ class PodcastDirectoryApi internal constructor(
                     PodcastDirectory.ARD_SOUNDS -> ardSounds.search(term)
                 }
             } catch (e: SerializationException) {
-                throw IOException("Unlesbare Antwort von $directory", e)
+                throw IOException("Unreadable response from $directory", e)
             }
         }
 

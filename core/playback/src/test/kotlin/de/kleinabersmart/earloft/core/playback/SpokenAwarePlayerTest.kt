@@ -81,20 +81,20 @@ class SpokenAwarePlayerTest {
             }
         })
 
-        player.chapterTitle = "Kapitel 3"
-        player.chapterTitle = "Kapitel 3"
-        assertEquals("Kapitel 3 · Jo Nesbø", player.mediaMetadata.artist.toString())
+        player.chapterTitle = "Chapter 3"
+        player.chapterTitle = "Chapter 3"
+        assertEquals("Chapter 3 · Jo Nesbø", player.mediaMetadata.artist.toString())
         player.chapterTitle = null
 
         assertEquals("Jo Nesbø", player.mediaMetadata.artist.toString())
-        assertEquals(listOf("Kapitel 3 · Jo Nesbø", "Jo Nesbø"), reported)
+        assertEquals(listOf("Chapter 3 · Jo Nesbø", "Jo Nesbø"), reported)
     }
 
     @Test
     fun `music keeps its metadata`() {
         val player = SpokenAwarePlayer(FakePlayer(item("song:1", MediaMetadata.MEDIA_TYPE_MUSIC, artist = "Queen"), positionMs = 0))
 
-        player.chapterTitle = "Kapitel 3"
+        player.chapterTitle = "Chapter 3"
 
         assertEquals("Queen", player.mediaMetadata.artist.toString())
     }

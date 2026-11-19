@@ -93,9 +93,9 @@ class FullBackup @Inject constructor(
     suspend fun import(input: InputStream): FullBackupResult = withWorkDir { dir ->
         val db = File(dir, USER_DB)
         val (manifest, settingsJson) = withContext(Dispatchers.IO) { unpack(input, db) }
-        if (manifest == null || !manifest.has(FORMAT) || !db.exists()) throw FullBackupException(false, "Keine Komplett-Sicherung")
+        if (manifest == null || !manifest.has(FORMAT) || !db.exists()) throw FullBackupException(false, "Not a full backup")
         if (manifest.optInt(FORMAT) > CURRENT_FORMAT || manifest.optInt(USER_DB_VERSION) > UserDatabase.VERSION) {
-            throw FullBackupException(true, "Sicherung aus einer neueren Version")
+            throw FullBackupException(true, "Backup from a newer version")
         }
         val snapshot = try {
             val database = UserDatabase.openFile(context, db)
@@ -108,10 +108,10 @@ class FullBackup @Inject constructor(
             throw e
         } catch (e: IllegalArgumentException) {
             // Room: unknown enum value with the same schema, so from a newer version.
-            throw FullBackupException(true, "user.db mit unbekanntem Wert", e)
+            throw FullBackupException(true, "user.db with an unknown value", e)
         } catch (e: RuntimeException) {
             // `SQLException`; Room: schema doesn't match, no migration (`IllegalStateException`); otherwise unreadable.
-            throw FullBackupException(false, "user.db nicht lesbar", e)
+            throw FullBackupException(false, "user.db not readable", e)
         }
         val imported = userData.import(snapshot)
         val restored = settingsJson?.let { settings.write(it, imported.ids) } ?: SettingsRestore(0, localSourcesSkipped = false)
@@ -132,7 +132,7 @@ class FullBackup @Inject constructor(
                 }
             }
         } catch (e: JSONException) {
-            throw FullBackupException(false, "Beschädigte Komplett-Sicherung", e)
+            throw FullBackupException(false, "Corrupted full backup", e)
         }
         return manifest to settingsJson
     }

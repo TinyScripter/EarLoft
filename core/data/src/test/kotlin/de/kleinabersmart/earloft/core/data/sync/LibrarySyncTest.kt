@@ -251,7 +251,7 @@ class LibrarySyncTest {
 
         override fun fullScan(): Flow<SourceBatch> = flow {
             emit(SourceBatch(tracks))
-            if (failAfterFirstBatch) error("Verbindung abgebrochen")
+            if (failAfterFirstBatch) error("Connection aborted")
         }
 
         override suspend fun resolvePlayback(remoteId: String) = PlaybackLocation.LocalFile(Uri.EMPTY)

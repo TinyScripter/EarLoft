@@ -46,7 +46,7 @@ class JellyfinApi @Inject constructor(
         val info = decode<JfPublicSystemInfo>(execute(Request.Builder().url(url).build()), "System/Info/Public")
         val isJellyfin = info.productName?.contains("Jellyfin", ignoreCase = true) == true
         if (info.id == null || isJellyfin != (flavor == JellyfinFlavor.JELLYFIN)) {
-            throw NotJellyfinException("Kein ${flavor.productName}-Server: ${info.productName}")
+            throw NotJellyfinException("Not a ${flavor.productName} server: ${info.productName}")
         }
         return info
     }
@@ -404,9 +404,9 @@ class JellyfinApi @Inject constructor(
         try {
             JSON.decodeFromString(serializer, text)
         } catch (e: SerializationException) {
-            throw NotJellyfinException("Keine Jellyfin-Antwort von $endpoint", e)
+            throw NotJellyfinException("No Jellyfin response from $endpoint", e)
         } catch (e: IllegalArgumentException) {
-            throw NotJellyfinException("Keine Jellyfin-Antwort von $endpoint", e)
+            throw NotJellyfinException("No Jellyfin response from $endpoint", e)
         }
 
     internal companion object {

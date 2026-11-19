@@ -226,7 +226,7 @@ private fun QueueContentPreview() {
     EarLoftTheme {
         QueueContent(
             state = PlayerState(
-                queue = List(5) { QueueEntry(songId = it.toLong(), title = "Lied ${it + 1}", artist = "Eine Band", albumId = null) },
+                queue = List(5) { QueueEntry(songId = it.toLong(), title = "Song ${it + 1}", artist = "A Band", albumId = null) },
                 currentIndex = 1,
             ),
             onBack = {},

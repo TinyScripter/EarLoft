@@ -43,7 +43,7 @@ class DatabaseImporterTest {
                     .build()
             }
             .build()
-        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
+        repository = PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("no source switch in tests") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()))
         importer = DatabaseImporter(repository, db.podcastDao(), db.bookDao(), db.statsDao())
         feedId = (repository.subscribe(FEED_URL) as SubscribeResult.Added).feedId
     }
@@ -54,14 +54,14 @@ class DatabaseImporterTest {
     private suspend fun bookId(guid: String) = db.bookDao().booksOf(feedId).single { it.remoteId == guid }.bookId
 
     private fun episode(guid: String, played: Boolean = false, position: Long = 0, listened: Long = 0, at: Long = 1_000, feed: String = FEED_URL) =
-        ImportEpisode(feed, guid, "Titel $guid", 600_000, position, played, listened, at)
+        ImportEpisode(feed, guid, "Title $guid", 600_000, position, played, listened, at)
 
     private val backup = ImportData(
-        feeds = listOf(ImportFeed(FEED_URL, "Test", active = true), ImportFeed(OLD_URL, "Altes Abo", active = false)),
+        feeds = listOf(ImportFeed(FEED_URL, "Test", active = true), ImportFeed(OLD_URL, "Old subscription", active = false)),
         episodes = listOf(
             episode("guid-A", played = true, listened = 500_000, at = 2_000),
             episode("guid-B", position = 120_000, listened = 130_000, at = 3_000),
-            episode("guid-weg", played = true, listened = 60_000),
+            episode("guid-gone", played = true, listened = 60_000),
             episode("old-1", played = true, listened = 1_000_000, feed = OLD_URL),
         ),
     )
@@ -81,7 +81,7 @@ class DatabaseImporterTest {
         val stats = db.statsDao().all()
         assertEquals(1_690_000, stats.sumOf { it.listenedMs })
         assertEquals(setOf(ListeningStatEntity.SOURCE_IMPORTED), stats.map { it.source }.toSet())
-        assertEquals("Altes Abo", stats.single { it.itemKey == "old-1" }.groupTitle)
+        assertEquals("Old subscription", stats.single { it.itemKey == "old-1" }.groupTitle)
         // The archived subscription comes in as an archived subscription.
         assertEquals(true, db.podcastDao().feedByUrl(OLD_URL)!!.archived)
     }

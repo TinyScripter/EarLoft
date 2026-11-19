@@ -592,7 +592,7 @@ private fun NowPlayingContentPreview() {
     EarLoftTheme {
         NowPlayingContent(
             state = PlayerState(
-                current = QueueEntry(songId = 1, title = "Ein Lied", artist = "Eine Band", albumId = null, albumTitle = "Ein Album"),
+                current = QueueEntry(songId = 1, title = "A Song", artist = "A Band", albumId = null, albumTitle = "An Album"),
                 isPlaying = true,
                 durationMs = 200_000,
                 shuffle = true,

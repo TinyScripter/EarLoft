@@ -22,7 +22,7 @@ object Opml {
         val feeds = mutableListOf<OpmlFeed>()
         try {
             val parser = XmlPullParserFactory.newInstance().newPullParser()
-            parser.setInput(input.rejectingEntityDeclarations() ?: throw OpmlException("OPML mit eigenen XML-Entities"), null)
+            parser.setInput(input.rejectingEntityDeclarations() ?: throw OpmlException("OPML with custom XML entities"), null)
             var sawOpml = false
             var event = parser.eventType
             while (event != XmlPullParser.END_DOCUMENT) {
@@ -41,9 +41,9 @@ object Opml {
                 }
                 event = parser.next()
             }
-            if (!sawOpml) throw OpmlException("Kein OPML")
+            if (!sawOpml) throw OpmlException("Not OPML")
         } catch (e: XmlPullParserException) {
-            throw OpmlException("Kein gültiges XML", e)
+            throw OpmlException("Not valid XML", e)
         }
         return feeds
     }

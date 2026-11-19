@@ -47,7 +47,7 @@ class WatchListenerService : WearableListenerService() {
         val credentials = try {
             WearCodec.decode<WearCredentialsDto>(event.data)
         } catch (e: SerializationException) {
-            Log.w(TAG, "Zugangsdaten nicht lesbar", e)
+            Log.w(TAG, "Credentials not readable", e)
             return
         }
         applicationScope.launch {
@@ -55,7 +55,7 @@ class WatchListenerService : WearableListenerService() {
             if (!serverMirror.storePassword(credentials.sourceId, credentials.password, credentials.deviceId) &&
                 !audiobookshelf.storeKey(credentials.sourceId, credentials.password)
             ) {
-                Log.w(TAG, "Passwort für unbekannten Server ${credentials.sourceId} verworfen")
+                Log.w(TAG, "Password for unknown server ${credentials.sourceId} discarded")
             }
         }
     }

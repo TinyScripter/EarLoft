@@ -7,11 +7,11 @@ class LrcParserTest {
 
     @Test
     fun `timestamps make lyrics synced and sorted`() {
-        val lyrics = LrcParser.parse("[ar:Band]\n[00:12.50]Zweite\n[00:01.5]Erste\n[01:02]Dritte")
+        val lyrics = LrcParser.parse("[ar:Band]\n[00:12.50]Second\n[00:01.5]First\n[01:02]Third")
 
         assertEquals(
             Lyrics.Synced(
-                listOf(LyricLine(1_500, "Erste"), LyricLine(12_500, "Zweite"), LyricLine(62_000, "Dritte")),
+                listOf(LyricLine(1_500, "First"), LyricLine(12_500, "Second"), LyricLine(62_000, "Third")),
             ),
             lyrics,
         )
@@ -27,20 +27,20 @@ class LrcParserTest {
     @Test
     fun `offset tag shifts all lines`() {
         assertEquals(
-            Lyrics.Synced(listOf(LyricLine(0, "eins"), LyricLine(1_500, "zwei"))),
-            LrcParser.parse("[offset:+500]\n[00:00.20]eins\n[00:02.00]zwei"),
+            Lyrics.Synced(listOf(LyricLine(0, "one"), LyricLine(1_500, "two"))),
+            LrcParser.parse("[offset:+500]\n[00:00.20]one\n[00:02.00]two"),
         )
-        assertEquals(Lyrics.Synced(listOf(LyricLine(2_300, "zwei"))), LrcParser.parse("[offset: -300]\n[00:02.00]zwei"))
+        assertEquals(Lyrics.Synced(listOf(LyricLine(2_300, "two"))), LrcParser.parse("[offset: -300]\n[00:02.00]two"))
     }
 
     @Test
     fun `text without timestamps is plain`() {
-        assertEquals(Lyrics.Plain("Zeile 1\n\nZeile 2"), LrcParser.parse("Zeile 1\r\n\r\nZeile 2\n"))
+        assertEquals(Lyrics.Plain("Line 1\n\nLine 2"), LrcParser.parse("Line 1\r\n\r\nLine 2\n"))
     }
 
     @Test
     fun `meta lines are dropped from plain text and blank input is none`() {
-        assertEquals(Lyrics.Plain("Text"), LrcParser.parse("[ti:Titel]\nText"))
+        assertEquals(Lyrics.Plain("Text"), LrcParser.parse("[ti:Title]\nText"))
         assertEquals(Lyrics.None, LrcParser.parse("  \n "))
     }
 }

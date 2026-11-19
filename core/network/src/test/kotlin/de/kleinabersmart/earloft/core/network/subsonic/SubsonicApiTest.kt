@@ -40,7 +40,7 @@ class SubsonicApiTest {
             .addNetworkInterceptor(CoverArtCacheInterceptor())
             .build()
         api = SubsonicApi(client)
-        server = SubsonicServer("nd", mockServer.url("/navidrome/"), SubsonicCredentials.Password("kal", "geheim"))
+        server = SubsonicServer("nd", mockServer.url("/navidrome/"), SubsonicCredentials.Password("kal", "secret"))
     }
 
     @After
@@ -58,7 +58,7 @@ class SubsonicApiTest {
         assertEquals("/navidrome/rest/ping", url.encodedPath)
         assertEquals("kal", url.queryParameter("u"))
         val salt = url.queryParameter("s")!!
-        assertEquals(SubsonicAuthInterceptor.md5Hex("geheim$salt"), url.queryParameter("t"))
+        assertEquals(SubsonicAuthInterceptor.md5Hex("secret$salt"), url.queryParameter("t"))
         assertNull(url.queryParameter("p"))
         assertEquals("json", url.queryParameter("f"))
         assertEquals("EarLoft", url.queryParameter("c"))
@@ -151,7 +151,7 @@ class SubsonicApiTest {
 
         try {
             api.ping(server)
-            fail("SubsonicException erwartet")
+            fail("SubsonicException expected")
         } catch (e: SubsonicException) {
             assertEquals(SubsonicException.WRONG_CREDENTIALS, e.code)
             assertTrue(e.isAuthError)

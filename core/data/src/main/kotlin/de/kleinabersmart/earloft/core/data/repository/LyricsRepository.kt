@@ -72,7 +72,7 @@ class LyricsRepository @Inject constructor(
             val found = try {
                 provider.lyrics(source.remoteId, song.artistDisplay, song.title)
             } catch (e: IOException) {
-                Log.w(TAG, "Lyrics von ${source.sourceId} nicht abrufbar", e)
+                Log.w(TAG, "Lyrics from ${source.sourceId} not available", e)
                 failed = true
                 continue
             }
@@ -93,7 +93,7 @@ class LyricsRepository @Inject constructor(
             val found = try {
                 onlineLyrics(song)
             } catch (e: IOException) {
-                Log.w(TAG, "Lyrics von LRCLIB nicht abrufbar", e)
+                Log.w(TAG, "Lyrics from LRCLIB not available", e)
                 failed = true
                 Lyrics.None
             }

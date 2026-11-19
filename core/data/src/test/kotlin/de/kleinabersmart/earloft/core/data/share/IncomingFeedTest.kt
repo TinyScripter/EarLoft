@@ -18,18 +18,18 @@ class IncomingFeedTest {
 
     @Test
     fun `text shared by earloft opens the feed, not the website`() {
-        val text = "Folge\nPodcast\nhttps://example.com/folge-1\nRSS: https://example.com/feed.xml"
+        val text = "Episode\nPodcast\nhttps://example.com/episode-1\nRSS: https://example.com/feed.xml"
         assertEquals("https://example.com/feed.xml", IncomingFeed.fromText(text))
     }
 
     @Test
     fun `other text opens its first address`() {
-        assertEquals("https://example.com/feed.xml", IncomingFeed.fromText("Hör mal (https://example.com/feed.xml)."))
-        assertEquals("http://example.com/rss", IncomingFeed.fromText("Abo: feed://example.com/rss"))
+        assertEquals("https://example.com/feed.xml", IncomingFeed.fromText("Listen to this (https://example.com/feed.xml)."))
+        assertEquals("http://example.com/rss", IncomingFeed.fromText("Subscribe: feed://example.com/rss"))
         assertEquals(
             "https://www.ardsounds.de/sendung/x/urn:ard:show:1/",
             IncomingFeed.fromText("Talk\nhttps://www.ardsounds.de/sendung/x/urn:ard:show:1/"),
         )
-        assertEquals(null, IncomingFeed.fromText("nur Text"))
+        assertEquals(null, IncomingFeed.fromText("just text"))
     }
 }

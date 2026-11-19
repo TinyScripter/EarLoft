@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.core.data.sync
 
+import de.kleinabersmart.earloft.core.datasource.IncompleteScanException
 import de.kleinabersmart.earloft.core.network.HttpStatusException
 import de.kleinabersmart.earloft.core.network.ServerApiException
 import de.kleinabersmart.earloft.core.network.UnexpectedResponseException
@@ -17,6 +18,12 @@ sealed interface SyncFailure {
     data class Unreachable(val reason: String?) : SyncFailure
     data class ServerError(val code: Int, val message: String?) : SyncFailure
 
+    /** The library [libraryName] changed on the server while it was read; nothing was deleted, the next sync retries. */
+    data class LibraryChanged(val libraryName: String) : SyncFailure
+
+    /** The app may not read the music on the device (permission revoked). */
+    data object PermissionMissing : SyncFailure
+
     /** Everything else, e.g. a database error. */
     data class Other(val message: String) : SyncFailure
 
@@ -29,7 +36,9 @@ sealed interface SyncFailure {
                 e.status == 404 -> UnexpectedServer
                 else -> Unreachable(e.message)
             }
+            is IncompleteScanException -> LibraryChanged(e.libraryName)
             is IOException -> Unreachable(e.message)
+            is SecurityException -> PermissionMissing
             else -> Other(e.message ?: e.javaClass.simpleName)
         }
     }

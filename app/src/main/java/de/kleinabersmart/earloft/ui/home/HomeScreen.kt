@@ -319,7 +319,7 @@ private fun HomeContentPreview() {
                 recentlyAdded = List(4) { PreviewAlbum.copy(id = it.toLong()) },
                 rediscover = List(4) { PreviewAlbum.copy(id = 10L + it) },
                 recentlyPlayed = List(4) { PreviewAlbum.copy(id = 20L + it) },
-                randomArtists = List(4) { Artist(id = it.toLong(), name = "Eine Band", albumCount = 2) },
+                randomArtists = List(4) { Artist(id = it.toLong(), name = "A Band", albumCount = 2) },
                 randomAlbums = List(4) { PreviewAlbum.copy(id = 30L + it) },
                 isLoading = false,
             ),
@@ -327,7 +327,7 @@ private fun HomeContentPreview() {
             onArtistClick = {},
             onAddServer = {},
             queue = QueueRowState(
-                entries = List(3) { UpNext(it, QueueEntry(songId = it.toLong(), title = "Ein Titel", artist = "Eine Band", albumId = null)) },
+                entries = List(3) { UpNext(it, QueueEntry(songId = it.toLong(), title = "A Track", artist = "A Band", albumId = null)) },
                 currentIndex = 0,
                 isPlaying = true,
                 onItemClick = {},

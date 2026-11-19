@@ -213,11 +213,11 @@ private fun ListEntry.secondaryText(): String? {
 private fun EntryListPreview() {
     MaterialTheme {
         EntryListContent(
-            "Alben",
+            "Albums",
             EntryListState.Ready(
                 listOf(
-                    ListEntry(1, "Mondlicht", 4, artist = "Nachtfalter", loadedCount = 4, cover = CoverRef.Album(1)),
-                    ListEntry(2, "Ein Album mit sehr langem Namen", 12, artist = "Jemand", loadedCount = 5, cover = CoverRef.Album(2)),
+                    ListEntry(1, "Moonlight", 4, artist = "Night Moth", loadedCount = 4, cover = CoverRef.Album(1)),
+                    ListEntry(2, "An album with a very long name", 12, artist = "Someone", loadedCount = 5, cover = CoverRef.Album(2)),
                 ),
             ),
             onClick = {},

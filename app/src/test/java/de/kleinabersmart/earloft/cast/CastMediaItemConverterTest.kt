@@ -47,7 +47,7 @@ class CastMediaItemConverterTest {
             .setMediaId("book:42/0")
             .setMediaMetadata(
                 MediaMetadata.Builder()
-                    .setTitle("Folge")
+                    .setTitle("Episode")
                     .setArtist("Podcast")
                     .setMediaType(MediaMetadata.MEDIA_TYPE_PODCAST_EPISODE)
                     .build(),
@@ -58,7 +58,7 @@ class CastMediaItemConverterTest {
 
         assertEquals(42L, back.bookId)
         assertTrue(back.isEpisode)
-        assertEquals("Folge", back.mediaMetadata.title)
+        assertEquals("Episode", back.mediaMetadata.title)
         assertEquals("Podcast", back.mediaMetadata.artist)
     }
 
@@ -85,7 +85,7 @@ class CastMediaItemConverterTest {
 
     @Test
     fun `an item without a kind stays without one`() {
-        val item = MediaItem.Builder().setMediaId("book:7/2").setMediaMetadata(MediaMetadata.Builder().setTitle("Teil").build()).build()
+        val item = MediaItem.Builder().setMediaId("book:7/2").setMediaMetadata(MediaMetadata.Builder().setTitle("Part").build()).build()
 
         assertNull(converter.toMediaItem(converter.toMediaQueueItem(item)).mediaMetadata.mediaType)
     }

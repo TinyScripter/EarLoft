@@ -102,7 +102,7 @@ class OnlineArtworkClient @Inject constructor(
         client.newCall(request).execute().use { response ->
             when {
                 response.code == 404 -> null
-                !response.isSuccessful -> throw IOException("HTTP ${response.code} von $url")
+                !response.isSuccessful -> throw IOException("HTTP ${response.code} from $url")
                 else -> response.body.bytes()
             }
         }

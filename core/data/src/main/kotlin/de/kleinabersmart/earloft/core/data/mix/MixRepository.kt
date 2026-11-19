@@ -70,7 +70,7 @@ class MixRepository @Inject constructor(
             libraryDao.getRandomMixCandidates(MIX_SIZE * 3).forEach { candidates.putIfAbsent(it.songId, it) }
         }
 
-        Log.d(TAG, "$seed: ${similar.size} vom Server, ${candidates.size} Kandidaten")
+        Log.d(TAG, "$seed: ${similar.size} from the server, ${candidates.size} candidates")
         val seedArtistLimit = if (seed is MixSeed.Artist) MIX_SIZE / 4 else MIX_SIZE / 10
         val ids = MixPicker.pick(
             profile = profile,
@@ -97,7 +97,7 @@ class MixRepository @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Keine Vorschläge von ${source.sourceId}", e)
+                Log.w(TAG, "No suggestions from ${source.sourceId}", e)
                 continue
             }
             if (remoteIds.isEmpty()) continue

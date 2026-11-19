@@ -130,7 +130,7 @@ class WearPublisher @Inject constructor(
         if (hash == publishedHash) return
         if (dataClient.putAssetPayload(WearPaths.MANIFEST, WearCodec.encodeManifest(manifest), hash)) {
             publishedHash = hash
-            Log.d(TAG, "Manifest: ${manifest.selections.size} Auswahlen, ${manifest.songs.size} Songs")
+            Log.d(TAG, "Manifest: ${manifest.selections.size} selections, ${manifest.songs.size} songs")
         }
     }
 
@@ -141,7 +141,7 @@ class WearPublisher @Inject constructor(
         if (hash == publishedPodcastsHash) return
         if (dataClient.putAssetPayload(WearPaths.PODCASTS, WearCodec.encodeCompressed(manifest), hash)) {
             publishedPodcastsHash = hash
-            Log.d(TAG, "Für die Uhr: ${manifest.episodes.size} Folgen, ${manifest.books.size} Bücher")
+            Log.d(TAG, "For the watch: ${manifest.episodes.size} episodes, ${manifest.books.size} books")
         }
     }
 

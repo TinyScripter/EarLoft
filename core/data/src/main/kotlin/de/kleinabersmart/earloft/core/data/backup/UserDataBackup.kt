@@ -132,7 +132,7 @@ class UserDataBackup @Inject constructor(
                 } catch (e: Exception) {
                     // No flag: it is retried on the next start. Mirroring still does not happen, so that a backup
                     // not yet restored is not overwritten by the empty state.
-                    Log.e(TAG, "Nutzerdaten konnten nicht zurückgespielt werden", e)
+                    Log.e(TAG, "User data could not be restored", e)
                     return@launch
                 } finally {
                     restoreFinished.complete(Unit)
@@ -156,7 +156,7 @@ class UserDataBackup @Inject constructor(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        Log.e(TAG, "Nutzerdaten konnten nicht gesichert werden", e)
+                        Log.e(TAG, "User data could not be backed up", e)
                         mirrored = null
                     }
                     delay(MIRROR_INTERVAL_MS)
@@ -249,7 +249,7 @@ class UserDataBackup @Inject constructor(
         scope.launch { restoreArdBooks() }
         // `FullBackup` reports the note about missing passwords with its result.
         if (result.musicServers > 0) registry.get().reload()
-        Log.i(TAG, "Sicherung eingespielt: $result")
+        Log.i(TAG, "Backup restored: $result")
         return BackupImport(result, ids)
     }
 
@@ -320,12 +320,12 @@ class UserDataBackup @Inject constructor(
             serversRestored(saved.servers.isNotEmpty(), saved.spokenServers.isNotEmpty())
             Log.i(
                 TAG,
-                "Nutzerdaten zurückgespielt: ${saved.servers.size} Musik-Server, ${saved.spokenServers.size} ABS-Server, " +
-                    "${saved.podcasts.size} Podcasts, ${saved.listeningStats.size} Statistik-Einträge, " +
-                    "${saved.progress.size} Fortschritte, ${saved.bookmarks.size} Lesezeichen, ${saved.playlists.size} Playlists, ${saved.favorites.size} Favoriten, " +
-                    "${saved.playEvents.size} Einträge im Hörverlauf, ${saved.wearSelections.size} Auswahlen für die Uhr, " +
-                    "${saved.episodeDownloads.size} Downloads von Folgen, ${saved.episodeStars.size} gemerkte Folgen " +
-                    "(folgen mit ihren Büchern und Songs)",
+                "User data restored: ${saved.servers.size} music servers, ${saved.spokenServers.size} ABS servers, " +
+                    "${saved.podcasts.size} podcasts, ${saved.listeningStats.size} statistics entries, " +
+                    "${saved.progress.size} progress entries, ${saved.bookmarks.size} bookmarks, ${saved.playlists.size} playlists, ${saved.favorites.size} favorites, " +
+                    "${saved.playEvents.size} listening history entries, ${saved.wearSelections.size} watch selections, " +
+                    "${saved.episodeDownloads.size} episode downloads, ${saved.episodeStars.size} saved episodes " +
+                    "(follow with their books and songs)",
             )
         }
         withContext(Dispatchers.IO) { marker.createNewFile() }
@@ -371,7 +371,7 @@ class UserDataBackup @Inject constructor(
                 }
             }
         }
-        if (applied > 0) Log.i(TAG, "Fortschritt zurückgespielt: $applied, noch ohne Buch: ${unresolved.size}")
+        if (applied > 0) Log.i(TAG, "Progress restored: $applied, still without book: ${unresolved.size}")
         return unresolved
     }
 
@@ -413,7 +413,7 @@ class UserDataBackup @Inject constructor(
                 }
             }
         }
-        if (applied > 0) Log.i(TAG, "Lesezeichen zurückgespielt: $applied, noch ohne Buch: ${unresolved.size}")
+        if (applied > 0) Log.i(TAG, "Bookmarks restored: $applied, still without book: ${unresolved.size}")
         return unresolved
     }
 
@@ -443,7 +443,7 @@ class UserDataBackup @Inject constructor(
                 wanted.map { it.second }.filter { it !in finished }.chunked(MAX_ARGS).forEach { queued += podcastDao.queueNeverDownloaded(it) }
             }
         }
-        if (excluded > 0 || queued > 0) Log.i(TAG, "Downloads zurückgespielt: $queued geladen, $excluded ausgelassen, noch ohne Folge: ${unresolved.size}")
+        if (excluded > 0 || queued > 0) Log.i(TAG, "Downloads restored: $queued queued, $excluded excluded, still without episode: ${unresolved.size}")
         if (queued > 0) _downloadsQueued.tryEmit(Unit)
         return unresolved
     }
@@ -454,7 +454,7 @@ class UserDataBackup @Inject constructor(
         val unresolved = database.withTransaction {
             saved.filter { podcastDao.restoreStar(it.serverId, it.remoteId, it.starredAt) == 0 }
         }
-        if (unresolved.size < saved.size) Log.i(TAG, "Gemerkte Folgen zurückgespielt: ${saved.size - unresolved.size}, noch ohne Folge: ${unresolved.size}")
+        if (unresolved.size < saved.size) Log.i(TAG, "Saved episodes restored: ${saved.size - unresolved.size}, still without episode: ${unresolved.size}")
         return unresolved
     }
 
@@ -495,17 +495,17 @@ class UserDataBackup @Inject constructor(
             )
         }
         val found = listOf(
-            "Favoriten" to pending.favorites.size - rest.favorites.size,
-            "Alben/Künstler" to pending.collectionFavorites.size - rest.collectionFavorites.size,
-            "Hörverlauf" to pending.playEvents.size - rest.playEvents.size,
-            "Uhr" to pending.wearSelections.size - rest.wearSelections.size,
+            "favorites" to pending.favorites.size - rest.favorites.size,
+            "albums/artists" to pending.collectionFavorites.size - rest.collectionFavorites.size,
+            "listening history" to pending.playEvents.size - rest.playEvents.size,
+            "watch" to pending.wearSelections.size - rest.wearSelections.size,
         ).filter { it.second > 0 }
         if (found.isNotEmpty() || rest.playlists != pending.playlists) {
             Log.i(
                 TAG,
-                "Musik zurückgespielt: ${found.joinToString { "${it.first} ${it.second}" }}; noch ohne Song: " +
-                    "${rest.playlists.size} Playlists, ${rest.favorites.size} Favoriten, " +
-                    "${rest.collectionFavorites.size} Alben/Künstler, ${rest.playEvents.size} Hörverlauf, ${rest.wearSelections.size} Uhr",
+                "Music restored: ${found.joinToString { "${it.first} ${it.second}" }}; still without song: " +
+                    "${rest.playlists.size} playlists, ${rest.favorites.size} favorites, " +
+                    "${rest.collectionFavorites.size} albums/artists, ${rest.playEvents.size} listening history, ${rest.wearSelections.size} watch",
             )
         }
         return rest
@@ -540,10 +540,10 @@ class UserDataBackup @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
-                Log.w(TAG, "Buch aus ARD Sounds nicht zurückgeholt: ${row.remoteId}", e)
+                Log.w(TAG, "Book from ARD Sounds not restored: ${row.remoteId}", e)
                 return false
             } catch (e: Exception) {
-                Log.e(TAG, "Buch aus ARD Sounds nicht zurückgeholt: ${row.remoteId}", e)
+                Log.e(TAG, "Book from ARD Sounds not restored: ${row.remoteId}", e)
             }
         }
         return true
@@ -560,7 +560,7 @@ class UserDataBackup @Inject constructor(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    Log.e(TAG, "Nutzerdaten konnten nicht zurückgespielt werden", e)
+                    Log.e(TAG, "User data could not be restored", e)
                 }
                 delay(APPLY_INTERVAL_MS)
             }

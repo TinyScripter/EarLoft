@@ -121,7 +121,7 @@ internal class ReplayGainProcessor : BaseAudioProcessor() {
             ReplayGainMode.AUTO -> track?.inAlbum == true
         }
         factor = if (replayGain == null || useAlbum == null) 1f else replayGain.linearFactor(useAlbum, preAmpDb)
-        Log.d(TAG, "Song ${track?.songId}: $mode, Album=$useAlbum, $replayGain → Faktor $factor")
+        Log.d(TAG, "Song ${track?.songId}: $mode, Album=$useAlbum, $replayGain → factor $factor")
     }
 
     private class CurrentTrack(val songId: Long?, val replayGain: ReplayGain?, val inAlbum: Boolean)

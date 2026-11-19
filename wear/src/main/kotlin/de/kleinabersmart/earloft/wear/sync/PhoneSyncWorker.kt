@@ -30,7 +30,7 @@ class PhoneSyncWorker(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(TAG, "Übernahme vom Handy fehlgeschlagen", e)
+            Log.w(TAG, "Sync from the phone failed", e)
             if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
         }
     }

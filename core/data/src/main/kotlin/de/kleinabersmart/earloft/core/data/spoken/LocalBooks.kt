@@ -49,10 +49,10 @@ class LocalBooks @Inject constructor(
                 dao.bookByRemote(LOCAL_BOOK_SERVER_ID, key)?.let { it.remoteUpdatedAt == fingerprint && it.detailsLoaded } == true
             }
         } catch (e: SecurityException) {
-            Log.w(TAG, "Keine Berechtigung für die Bücher auf dem Gerät", e)
+            Log.w(TAG, "No permission for the books on the device", e)
             return@withLock false
         } catch (e: IOException) {
-            Log.w(TAG, "Bücher auf dem Gerät nicht lesbar", e)
+            Log.w(TAG, "Books on the device not readable", e)
             return@withLock false
         }
         for (book in scanned) {

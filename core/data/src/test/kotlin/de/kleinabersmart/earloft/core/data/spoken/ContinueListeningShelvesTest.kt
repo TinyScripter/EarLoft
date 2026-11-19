@@ -74,7 +74,7 @@ class ContinueListeningShelvesTest {
             remoteId = title,
             title = title,
             normTitle = title.lowercase(),
-            author = "Autor",
+            author = "Author",
             durationMs = HOUR_MS,
             detailsLoaded = true,
         ),
@@ -85,38 +85,38 @@ class ContinueListeningShelvesTest {
 
     @Test
     fun `a started book is only in continue listening`() = runTest {
-        val id = book("Angefangen")
+        val id = book("Started")
         progressSync.record(id, 600_000, HOUR_MS, finished = false, force = true)
 
-        assertEquals(listOf("Angefangen"), continueTitles())
+        assertEquals(listOf("Started"), continueTitles())
         assertEquals(emptyList<String>(), recentTitles())
     }
 
     @Test
     fun `a reset book goes back to recently added`() = runTest {
-        val id = book("Zurückgesetzt")
+        val id = book("Reset")
         progressSync.record(id, 600_000, HOUR_MS, finished = false, force = true)
         progressSync.record(id, 0, HOUR_MS, finished = false, force = true, hidden = true)
 
         assertEquals(emptyList<String>(), continueTitles())
-        assertEquals(listOf("Zurückgesetzt"), recentTitles())
+        assertEquals(listOf("Reset"), recentTitles())
     }
 
     @Test
     fun `a book finished and marked unheard is again recently added, a finished one nowhere`() = runTest {
-        val unheard = book("Ungehört")
-        val finished = book("Beendet")
+        val unheard = book("Unheard")
+        val finished = book("Finished")
         progressSync.record(unheard, HOUR_MS, HOUR_MS, finished = true, force = true)
         progressSync.record(unheard, 0, HOUR_MS, finished = false, force = true, hidden = true)
         progressSync.record(finished, HOUR_MS, HOUR_MS, finished = true, force = true)
 
         assertEquals(emptyList<String>(), continueTitles())
-        assertEquals(listOf("Ungehört"), recentTitles())
+        assertEquals(listOf("Unheard"), recentTitles())
     }
 
     @Test
     fun `a hidden book keeps its position and comes back when it plays again`() = runTest {
-        val id = book("Pausiert")
+        val id = book("Paused")
         progressSync.record(id, 600_000, HOUR_MS, finished = false, force = true)
 
         progressSync.hideFromContinueListening(id)
@@ -126,17 +126,17 @@ class ContinueListeningShelvesTest {
         assertEquals(600_000L, dao.progress(id)?.positionMs)
 
         books.touchProgress(id, 600_000, HOUR_MS)
-        assertEquals(listOf("Pausiert"), continueTitles())
+        assertEquals(listOf("Paused"), continueTitles())
     }
 
     @Test
     fun `playing writes the progress without the hidden mark`() = runTest {
-        val id = book("Weiter")
+        val id = book("Resumed")
         progressSync.record(id, 600_000, HOUR_MS, finished = false, force = true)
         progressSync.hideFromContinueListening(id)
 
         progressSync.record(id, 615_000, HOUR_MS, finished = false)
-        assertEquals(listOf("Weiter"), continueTitles())
+        assertEquals(listOf("Resumed"), continueTitles())
     }
 
     private companion object {

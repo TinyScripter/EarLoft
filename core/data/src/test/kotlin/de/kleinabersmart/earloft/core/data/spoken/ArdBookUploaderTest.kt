@@ -75,7 +75,7 @@ class ArdBookUploaderTest {
     @Volatile
     private var reportedTitle: String? = null
 
-    /** Instead of the upload, the server reports a book of another person (title "Fremdes Buch", one hour). */
+    /** Instead of the upload, the server reports a book of another person (title "Foreign book", one hour). */
     @Volatile
     private var foreignInstead = false
 
@@ -127,7 +127,7 @@ class ArdBookUploaderTest {
             adoption,
         )
         uploader = ArdBookUploader(context, dao, servers, api, syncer, covers, adoption)
-        audio = File(context.cacheDir, "teil.mp3").apply { writeBytes(ByteArray(2048) { it.toByte() }) }
+        audio = File(context.cacheDir, "part.mp3").apply { writeBytes(ByteArray(2048) { it.toByte() }) }
     }
 
     @After
@@ -137,11 +137,11 @@ class ArdBookUploaderTest {
     }
 
     /** A fully downloaded book from ARD Sounds with progress, speed and a bookmark. */
-    private suspend fun ardBook(title: String = "Der Krieg der Welten", author: String = "H. G. Wells", downloaded: Boolean = true): Long {
+    private suspend fun ardBook(title: String = "The War of the Worlds", author: String = "H. G. Wells", downloaded: Boolean = true): Long {
         val id = dao.insertBook(
             BookEntity(
                 serverId = ARD_BOOK_SERVER_ID, kind = BookKind.BOOK, remoteId = "item:$title", title = title,
-                normTitle = title.normalizeForMerge(), author = author, narrator = "Andreas Fröhlich", description = "Marsianer greifen an.",
+                normTitle = title.normalizeForMerge(), author = author, narrator = "Andreas Fröhlich", description = "Martians attack.",
                 durationMs = 60_000, detailsLoaded = true,
             ),
         )
@@ -156,7 +156,7 @@ class ArdBookUploaderTest {
         )
         dao.insertChapters(listOf(BookChapterEntity(id, 0, title, 0, 60_000)))
         dao.upsertProgress(BookProgressEntity(id, 30_000, 60_000, speed = 1.5f, updatedAt = 5, volumeBoostDb = 3))
-        dao.insertBookmark(BookmarkEntity(bookId = id, positionMs = 12_000, title = "Stelle", note = "wichtig", createdAt = 1, updatedAt = 1))
+        dao.insertBookmark(BookmarkEntity(bookId = id, positionMs = 12_000, title = "Spot", note = "important", createdAt = 1, updatedAt = 1))
         return id
     }
 
@@ -166,7 +166,7 @@ class ArdBookUploaderTest {
     fun `targets list the folders of the book libraries only when the account may upload`() = runTest {
         val target = target()
         assertEquals(listOf("lib" to "folder"), listOf(target.libraryId to target.folderId))
-        assertEquals("Audiobücher", target.libraryName)
+        assertEquals("Audiobooks", target.libraryName)
 
         canUpload = false
         assertTrue(uploader.targets().isEmpty())
@@ -181,14 +181,14 @@ class ArdBookUploaderTest {
         val done = result as UploadResult.Done
         val newBookId = done.newBookId!!
         val sent = uploads.single()
-        assertTrue(sent, "title=Der Krieg der Welten" in sent && "author=H. G. Wells" in sent && "library=lib" in sent && "folder=folder" in sent)
-        assertTrue(sent, "file=Der Krieg der Welten.mp3" in sent)
+        assertTrue(sent, "title=The War of the Worlds" in sent && "author=H. G. Wells" in sent && "library=lib" in sent && "folder=folder" in sent)
+        assertTrue(sent, "file=The War of the Worlds.mp3" in sent)
         assertTrue(sent, "file=metadata.opf" in sent && "file=desc.txt" in sent && "file=reader.txt" in sent)
         val progress = dao.progress(newBookId)!!
         assertEquals(30_000L, progress.positionMs)
         assertEquals(1.5f, progress.speed)
         assertEquals(3, progress.volumeBoostDb)
-        assertEquals(listOf("Stelle"), dao.bookmarksOf(listOf(newBookId)).map { it.title })
+        assertEquals(listOf("Spot"), dao.bookmarksOf(listOf(newBookId)).map { it.title })
         // The ARD Sounds version stays until the caller removes it.
         assertTrue(dao.book(bookId) != null)
     }
@@ -198,18 +198,18 @@ class ArdBookUploaderTest {
         val opf = opfOf(
             BookEntity(
                 serverId = ARD_BOOK_SERVER_ID, remoteId = "item", title = "Goldstrand <Hörspiel>", normTitle = "goldstrand",
-                author = "Katerina Poladjan", narrator = "Anna & Ben", description = "Am \"Strand\"\u0007.", durationMs = 1,
-                publisher = "MDR", genres = "Krimi, Hörspiel",
+                author = "Katerina Poladjan", narrator = "Anna & Ben", description = "On the \"beach\"\u0007.", durationMs = 1,
+                publisher = "MDR", genres = "Crime, Hörspiel",
             ),
         )
 
         assertTrue(opf, "<dc:title>Goldstrand &lt;Hörspiel&gt;</dc:title>" in opf)
         assertTrue(opf, "<dc:creator opf:role=\"aut\">Katerina Poladjan</dc:creator>" in opf)
         assertTrue(opf, "<dc:creator opf:role=\"nrt\">Anna &amp; Ben</dc:creator>" in opf)
-        assertTrue(opf, "<dc:description>Am &quot;Strand&quot;.</dc:description>" in opf)
+        assertTrue(opf, "<dc:description>On the &quot;beach&quot;.</dc:description>" in opf)
         assertTrue(opf, "<dc:publisher>MDR</dc:publisher>" in opf)
         assertTrue(opf, "<dc:language>de</dc:language>" in opf)
-        assertTrue(opf, "<dc:subject>Krimi</dc:subject>" in opf && "<dc:subject>Hörspiel</dc:subject>" in opf)
+        assertTrue(opf, "<dc:subject>Crime</dc:subject>" in opf && "<dc:subject>Hörspiel</dc:subject>" in opf)
         assertFalse(opf, "dc:date" in opf)
         // Well-formed: an XML parser reads back title and author.
         val document = javax.xml.parsers.DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
@@ -231,8 +231,8 @@ class ArdBookUploaderTest {
     fun `a part that is gone and never downloaded is left out, positions move up`() = runTest {
         val id = dao.insertBook(
             BookEntity(
-                serverId = ARD_BOOK_SERVER_ID, kind = BookKind.BOOK, remoteId = "group:krieg", title = "Der Krieg der Welten",
-                normTitle = "Der Krieg der Welten".normalizeForMerge(), author = "H. G. Wells", durationMs = 60_000, detailsLoaded = true,
+                serverId = ARD_BOOK_SERVER_ID, kind = BookKind.BOOK, remoteId = "group:war", title = "The War of the Worlds",
+                normTitle = "The War of the Worlds".normalizeForMerge(), author = "H. G. Wells", durationMs = 60_000, detailsLoaded = true,
             ),
         )
         dao.insertTracks(
@@ -241,21 +241,21 @@ class ArdBookUploaderTest {
                 BookTrackEntity(id, 1, "https://ard.example/2.mp3", 30_000, 30_000, "audio/mpeg", TrackDownload.DONE, audio.absolutePath),
             ),
         )
-        dao.insertChapters(listOf(BookChapterEntity(id, 0, "Ankunft", 0, 30_000), BookChapterEntity(id, 1, "Flucht", 30_000, 60_000)))
+        dao.insertChapters(listOf(BookChapterEntity(id, 0, "Arrival", 0, 30_000), BookChapterEntity(id, 1, "Escape", 30_000, 60_000)))
         dao.upsertProgress(BookProgressEntity(id, 45_000, 60_000, updatedAt = 5))
-        dao.insertBookmark(BookmarkEntity(bookId = id, positionMs = 12_000, title = "Im ersten Teil", note = "", createdAt = 1, updatedAt = 1))
+        dao.insertBookmark(BookmarkEntity(bookId = id, positionMs = 12_000, title = "In the first part", note = "", createdAt = 1, updatedAt = 1))
 
         assertEquals(1, uploader.missingParts(id))
         val newBookId = (uploader.upload(id, target()) as UploadResult.Done).newBookId!!
 
-        assertTrue(uploads.single(), "file=Der Krieg der Welten.mp3" in uploads.single())
+        assertTrue(uploads.single(), "file=The War of the Worlds.mp3" in uploads.single())
         assertEquals(15_000L, dao.progress(newBookId)!!.positionMs)
         assertEquals(listOf(0L), dao.bookmarksOf(listOf(newBookId)).map { it.positionMs })
     }
 
     @Test
     fun `a book already on the server is not uploaded again`() = runTest {
-        items["li_old"] = "Der Krieg der Welten"
+        items["li_old"] = "The War of the Worlds"
         val bookId = ardBook()
         // The sync knows the book on the server.
         syncer.syncSafely(servers.server(serverId)!!)
@@ -279,7 +279,7 @@ class ArdBookUploaderTest {
     fun `a book somebody else uploaded in the meantime is not taken for the upload`() = runTest {
         val bookId = ardBook()
         // The app doesn't know the other person's book yet; without a prior sync it would count as new.
-        items["li_foreign"] = "Fremdes Buch"
+        items["li_foreign"] = "Foreign book"
         durations["li_foreign"] = 3_600
         foreignInstead = true
 
@@ -304,7 +304,7 @@ class ArdBookUploaderTest {
     @Test
     fun `a title changed by the audio tags is still found by the length`() = runTest {
         val bookId = ardBook()
-        reportedTitle = "Krieg der Welten (Hörspiel)"
+        reportedTitle = "War of the Worlds (radio play)"
 
         val newBookId = (uploader.upload(bookId, target()) as UploadResult.Done).newBookId!!
 
@@ -323,7 +323,7 @@ class ArdBookUploaderTest {
 
         val newBook = dao.booksOf(serverId).single { it.remoteId == "li_new" }
         assertEquals(30_000L, dao.progress(newBook.bookId)!!.positionMs)
-        assertEquals(listOf("Stelle"), dao.bookmarksOf(listOf(newBook.bookId)).map { it.title })
+        assertEquals(listOf("Spot"), dao.bookmarksOf(listOf(newBook.bookId)).map { it.title })
         // Only once: another sync doesn't create the bookmark again.
         syncer.syncSafely(servers.server(serverId)!!)
         assertEquals(1, dao.bookmarksOf(listOf(newBook.bookId)).size)
@@ -337,7 +337,7 @@ class ArdBookUploaderTest {
                 path == "/ping" -> json("""{"success":true}""")
                 path == "/api/me" -> json("""{"id":"u","type":"user","permissions":{"upload":$canUpload},"mediaProgress":[],"bookmarks":[]}""")
                 path == "/api/libraries" -> json(
-                    """{"libraries":[{"id":"lib","name":"Audiobücher","mediaType":"book","folders":[{"id":"folder","fullPath":"/books"}]}]}""",
+                    """{"libraries":[{"id":"lib","name":"Audiobooks","mediaType":"book","folders":[{"id":"folder","fullPath":"/books"}]}]}""",
                 )
                 path == "/api/libraries/lib/items" ->
                     json("""{"results":[${items.entries.joinToString(",") { item(it.key, it.value) }}],"total":${items.size}}""")
@@ -354,7 +354,7 @@ class ArdBookUploaderTest {
                         uploads += "$fields $files"
                         // The server scans and reports the book afterwards.
                         if (foreignInstead) {
-                            items["li_foreign"] = "Fremdes Buch"
+                            items["li_foreign"] = "Foreign book"
                             durations["li_foreign"] = 3_600
                         } else {
                             Regex("""name="title"\r\n\r\n([^\r]*)""").find(body)?.let {

@@ -39,7 +39,7 @@ class PodcastListsTest {
 
     @Test
     fun `the downloaded filter also shows episodes from the device`() {
-        val onDevice = episode(6, feed = "local:musik")
+        val onDevice = episode(6, feed = "local:music")
 
         val ids = (listOf(onDevice) + episodes).filterEpisodes(EpisodeFilter.DOWNLOADED, oldestFirst = false, downloaded = setOf(1L)).map { it.book.id }
 

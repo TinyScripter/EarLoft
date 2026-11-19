@@ -89,7 +89,7 @@ class LocalBookScanner @Inject constructor(
      */
     suspend fun scan(isUnchanged: suspend (key: String, fingerprint: Long) -> Boolean): List<LocalBook> =
         withContext(Dispatchers.IO) {
-            if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} fehlt")
+            if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} missing")
             val trees = folders.trees()
             LocalBookLayout.group(queryRows()).map { book ->
                 val added = book.files.minOf { it.dateAddedSec } * 1000
@@ -113,7 +113,7 @@ class LocalBookScanner @Inject constructor(
      */
     suspend fun scanPodcasts(isUnchanged: suspend (podcast: String, key: String, fingerprint: Long) -> Boolean): List<LocalPodcast> =
         withContext(Dispatchers.IO) {
-            if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} fehlt")
+            if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} missing")
             val untitled = context.getString(R.string.local_source_name)
             LocalPodcastLayout.group(queryRows(LocalPodcastLayout.ROOT), untitled).map { podcast ->
                 LocalPodcast(
@@ -225,7 +225,7 @@ class LocalBookScanner @Inject constructor(
             FileInputStream(descriptor.fileDescriptor).use { stream -> Mp4Chapters.read(ChannelSource(stream.channel)) }
         }.orEmpty()
     } catch (e: IOException) {
-        Log.w(TAG, "Kapitel von $uri nicht lesbar", e)
+        Log.w(TAG, "Chapters of $uri unreadable", e)
         emptyList()
     }
 
@@ -236,7 +236,7 @@ class LocalBookScanner @Inject constructor(
             block(retriever)
         } catch (e: RuntimeException) {
             // With broken files the retriever throws IllegalArgumentException/RuntimeException.
-            Log.w(TAG, "Metadaten von $uri nicht lesbar", e)
+            Log.w(TAG, "Metadata of $uri unreadable", e)
             null
         } finally {
             retriever.release()
@@ -267,7 +267,7 @@ class LocalBookScanner @Inject constructor(
             "${MediaStore.Audio.Media.DATA} LIKE ?",
             arrayOf("%/$root/%"),
             null,
-        ) ?: throw IOException("MediaStore-Abfrage lieferte keinen Cursor")
+        ) ?: throw IOException("MediaStore query returned no cursor")
         return cursor.use { c ->
             buildList(c.count) {
                 while (c.moveToNext()) {

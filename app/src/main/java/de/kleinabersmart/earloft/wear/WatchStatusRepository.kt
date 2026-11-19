@@ -27,7 +27,7 @@ class WatchStatusRepository @Inject constructor(private val dataClient: DataClie
             try {
                 WearCodec.decode<WearStatusDto>(payload)
             } catch (e: SerializationException) {
-                Log.w(TAG, "Statusbericht der Uhr nicht lesbar", e)
+                Log.w(TAG, "Status report of the watch not readable", e)
                 null
             }
         }

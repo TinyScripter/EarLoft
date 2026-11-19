@@ -32,7 +32,7 @@ class CredentialsRequester @Inject constructor(
         val now = System.currentTimeMillis()
         asked.edit().apply { sourceIds.forEach { putLong(it, now) } }.apply()
         sourceIds.forEach { sourceId ->
-            Log.d(TAG, "Zugangsdaten für $sourceId anfordern")
+            Log.d(TAG, "Requesting credentials for $sourceId")
             messageClient.sendPayload(nodeId, WearPaths.CREDENTIALS_REQUEST, WearCodec.encode(WearCredentialsRequest(sourceId)))
         }
     }

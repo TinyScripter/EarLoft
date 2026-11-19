@@ -98,7 +98,7 @@ internal class EndlessMix(
             val items = found.filter { it.id in playable }.map { it.toMediaItem() }
             // Skipped ahead, something appended or turned off in the meantime: the mix no longer belongs here.
             if (items.isEmpty() || seedAtEnd() != seed) return@launch
-            Log.d(TAG, "Mix nach Song $seed: ${items.size} Titel angehängt")
+            Log.d(TAG, "Mix after song $seed: appended ${items.size} tracks")
             val room = factory.roomIn(player)
             player.addMediaItems(items.take(room))
             if (items.size > room) factory?.appendPending(items.drop(room))

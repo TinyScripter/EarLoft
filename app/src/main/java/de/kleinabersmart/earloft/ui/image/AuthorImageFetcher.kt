@@ -19,7 +19,7 @@ class AuthorImageFetcher(
 ) : Fetcher {
 
     override suspend fun fetch(): FetchResult {
-        val bitmap = authorImages.image(name) ?: throw IOException("Kein Bild für Autor $name")
+        val bitmap = authorImages.image(name) ?: throw IOException("No image for author $name")
         return ImageFetchResult(image = bitmap.asImage(), isSampled = false, dataSource = DataSource.DISK)
     }
 

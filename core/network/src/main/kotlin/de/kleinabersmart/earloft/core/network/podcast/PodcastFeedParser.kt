@@ -79,17 +79,17 @@ object PodcastFeedParser {
         val root = try {
             readTree(input)
         } catch (e: XmlPullParserException) {
-            throw PodcastFeedException("Kein gültiges XML", e)
+            throw PodcastFeedException("Not valid XML", e)
         }
         return when (root?.name) {
             "rss" -> parseRss(root)
             "feed" -> parseAtom(root)
-            else -> throw PodcastFeedException("Weder RSS noch Atom")
+            else -> throw PodcastFeedException("Neither RSS nor Atom")
         }
     }
 
     private fun parseRss(rss: Node): ParsedFeed {
-        val channel = rss.child("channel") ?: throw PodcastFeedException("RSS ohne channel")
+        val channel = rss.child("channel") ?: throw PodcastFeedException("RSS without channel")
         val feedPersons = channel.persons()
         val episodes = channel.children("item").mapNotNull { item ->
             val enclosure = item.child("enclosure")
@@ -293,7 +293,7 @@ object PodcastFeedParser {
 
     private fun readTree(input: InputStream): Node? {
         val parser = XmlPullParserFactory.newInstance().apply { isNamespaceAware = true }.newPullParser()
-        parser.setInput(input.rejectingEntityDeclarations() ?: throw PodcastFeedException("Feed mit eigenen XML-Entities"), null)
+        parser.setInput(input.rejectingEntityDeclarations() ?: throw PodcastFeedException("Feed with custom XML entities"), null)
         val stack = ArrayDeque<Node>()
         var root: Node? = null
         while (true) {
@@ -310,7 +310,7 @@ object PodcastFeedParser {
                 XmlPullParser.END_TAG -> stack.removeLastOrNull()
                 XmlPullParser.END_DOCUMENT -> {
                     // The parsers are lenient; a truncated feed would otherwise look like an empty one.
-                    if (stack.isNotEmpty()) throw PodcastFeedException("Feed ist abgeschnitten")
+                    if (stack.isNotEmpty()) throw PodcastFeedException("Feed is truncated")
                     return root
                 }
             }

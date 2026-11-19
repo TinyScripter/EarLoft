@@ -15,37 +15,37 @@ class StorageUiStateTest {
     )
 
     @Test
-    fun `wartet auf das Ladegerät, wenn etwas ansteht und die Uhr nicht lädt`() {
+    fun `waits for the charger when something is pending and the watch is not charging`() {
         assertTrue(state(pending = 3, requireCharging = true, charging = false).waitingForCharger)
     }
 
     @Test
-    fun `wartet nicht, wenn die Uhr lädt`() {
+    fun `does not wait when the watch is charging`() {
         assertFalse(state(pending = 3, requireCharging = true, charging = true).waitingForCharger)
     }
 
     @Test
-    fun `wartet nicht, wenn das Handy kein Ladegerät verlangt`() {
+    fun `does not wait when the phone does not require the charger`() {
         assertFalse(state(pending = 3, requireCharging = false, charging = false).waitingForCharger)
     }
 
     @Test
-    fun `wartet auf WLAN, wenn etwas ansteht und der letzte Lauf kein WLAN bekam`() {
+    fun `waits for Wi-Fi when something is pending and the last run got no Wi-Fi`() {
         assertTrue(state(pending = 3, requireCharging = false, charging = false, noWifi = true).waitingForWifi)
     }
 
     @Test
-    fun `wartet nicht auf WLAN, wenn nichts ansteht`() {
+    fun `does not wait for Wi-Fi when nothing is pending`() {
         assertFalse(state(pending = 0, requireCharging = false, charging = true, noWifi = true).waitingForWifi)
     }
 
     @Test
-    fun `wartet zuerst auf das Ladegerät, nicht auf WLAN`() {
+    fun `waits for the charger first, not for Wi-Fi`() {
         assertFalse(state(pending = 3, requireCharging = true, charging = false, noWifi = true).waitingForWifi)
     }
 
     @Test
-    fun `wartet nicht, wenn nichts ansteht`() {
+    fun `does not wait when nothing is pending`() {
         assertFalse(state(pending = 0, requireCharging = true, charging = false).waitingForCharger)
     }
 }

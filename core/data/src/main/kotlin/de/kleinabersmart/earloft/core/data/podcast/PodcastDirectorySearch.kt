@@ -43,7 +43,7 @@ class PodcastDirectorySearch @Inject constructor(
     /** Queries all enabled directories at once; an error or timeout only affects that one. */
     suspend fun search(term: String): DirectorySearchResult {
         val country = settings.appleCountry.first()
-        return ask(enabled.first(), "Suche") { api.search(it, term, country) }
+        return ask(enabled.first(), "Search") { api.search(it, term, country) }
     }
 
     /**
@@ -71,11 +71,11 @@ class PodcastDirectorySearch @Inject constructor(
 
     private suspend fun fetch(directory: PodcastDirectory, what: String, request: suspend () -> List<DirectoryPodcast>): List<DirectoryPodcast>? = try {
         withTimeoutOrNull(TIMEOUT_MS) { request() }
-            .also { if (it == null) Log.w(TAG, "$directory antwortet nicht") }
+            .also { if (it == null) Log.w(TAG, "$directory does not respond") }
     } catch (e: CancellationException) {
         throw e
     } catch (e: IOException) {
-        Log.w(TAG, "$what in $directory fehlgeschlagen", e)
+        Log.w(TAG, "$what in $directory failed", e)
         null
     }
 

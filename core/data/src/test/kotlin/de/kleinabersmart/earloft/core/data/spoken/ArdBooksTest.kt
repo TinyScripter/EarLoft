@@ -183,14 +183,14 @@ class ArdBooksTest {
         dao.upsertProgress(BookProgressEntity(bookId, positionMs = 1_500_000, durationMs = 2_000_000, updatedAt = 1))
 
         val recut = part(1)
-            .replace("https://a.example/1.mp3", "https://b.example/1-neu.mp3")
-            .replace("Goldstrand (1/2)", "Goldstrand (1/2): Am Strand")
+            .replace("https://a.example/1.mp3", "https://b.example/1-new.mp3")
+            .replace("Goldstrand (1/2)", "Goldstrand (1/2): On the beach")
             .replace("\"duration\":1000", "\"duration\":1300")
         server.enqueue(answer(recut, part(2)))
         assertTrue(ardBooks.refresh().ok)
 
         val tracks = dao.tracks(bookId)
-        assertEquals(listOf("https://b.example/1-neu.mp3", "https://a.example/2.mp3"), tracks.map { it.remoteFileId })
+        assertEquals(listOf("https://b.example/1-new.mp3", "https://a.example/2.mp3"), tracks.map { it.remoteFileId })
         assertEquals(listOf(null, null), tracks.map { it.unavailableSince })
         assertEquals(listOf(0L, 1_000_000L), tracks.map { it.startMs })
         assertEquals(listOf("Teil 1", "Teil 2"), dao.chapters(bookId).map { it.title })
@@ -325,11 +325,11 @@ class ArdBooksTest {
 
     @Test
     fun `two refreshes at once count a new book once`() = runTest {
-        server.enqueue(showAnswer(single("old", "Alt")))
-        ardBooks.subscribe(SHOW, "Reihe")
-        server.enqueue(showAnswer(single("new", "Neu")))
-        server.enqueue(itemsAnswer(single("new", "Neu")))
-        server.enqueue(showAnswer(single("new", "Neu")))
+        server.enqueue(showAnswer(single("old", "Old")))
+        ardBooks.subscribe(SHOW, "Series")
+        server.enqueue(showAnswer(single("new", "New")))
+        server.enqueue(itemsAnswer(single("new", "New")))
+        server.enqueue(showAnswer(single("new", "New")))
 
         val results = listOf(async(Dispatchers.Default) { ardBooks.refresh() }, async(Dispatchers.Default) { ardBooks.refresh() }).awaitAll()
 
@@ -346,7 +346,7 @@ class ArdBooksTest {
         // The title now belongs to a series as its second part: there's no book under its old key anymore.
         server.enqueue(itemsAnswer(grouped("solo", 2)))
         server.enqueue(itemsAnswer(grouped("solo", 2)))
-        server.enqueue(itemsAnswer(grouped("eins", 1), grouped("solo", 2)))
+        server.enqueue(itemsAnswer(grouped("one", 1), grouped("solo", 2)))
         assertTrue(ardBooks.refresh().ok)
 
         val book = dao.book(bookId)!!
@@ -354,7 +354,7 @@ class ArdBooksTest {
         assertNull(book.availableUntil)
         assertEquals(500_000L, dao.progress(bookId)!!.positionMs)
         // Started: the known part stays in front, the new one is added.
-        assertEquals(listOf("https://a.example/solo.mp3", "https://a.example/eins.mp3"), dao.tracks(bookId).map { it.remoteFileId })
+        assertEquals(listOf("https://a.example/solo.mp3", "https://a.example/one.mp3"), dao.tracks(bookId).map { it.remoteFileId })
         assertEquals(1, dao.booksOf(ARD_BOOK_SERVER_ID).size)
     }
 
@@ -482,52 +482,52 @@ class ArdBooksTest {
 
     @Test
     fun `a subscription takes only the books that come after it, each once`() = runTest {
-        server.enqueue(showAnswer(single("old", "Alt")))
-        ardBooks.subscribe(SHOW, "Reihe")
-        assertEquals(listOf(ArdSubscription(SHOW, "Reihe")), ardBooks.subscriptions.first())
+        server.enqueue(showAnswer(single("old", "Old")))
+        ardBooks.subscribe(SHOW, "Series")
+        assertEquals(listOf(ArdSubscription(SHOW, "Series")), ardBooks.subscriptions.first())
 
         // Nothing new: the book that already existed when subscribing doesn't go into the library.
-        server.enqueue(showAnswer(single("old", "Alt")))
+        server.enqueue(showAnswer(single("old", "Old")))
         assertEquals(emptyList<String>(), ardBooks.refresh().newBooks.map { it.title })
         assertTrue(dao.booksOf(ARD_BOOK_SERVER_ID).isEmpty())
 
         // A new book appears.
-        server.enqueue(showAnswer(single("new", "Neu"), single("old", "Alt")))
-        server.enqueue(itemsAnswer(single("new", "Neu")))
+        server.enqueue(showAnswer(single("new", "New"), single("old", "Old")))
+        server.enqueue(itemsAnswer(single("new", "New")))
         val result = ardBooks.refresh()
         assertTrue(result.ok)
-        assertEquals(listOf("Neu"), result.newBooks.map { it.title })
+        assertEquals(listOf("New"), result.newBooks.map { it.title })
         val bookId = dao.bookByRemote(ARD_BOOK_SERVER_ID, "item:new")!!.bookId
         assertEquals(bookId, result.newBooks.single().bookId)
         // The show is included so the notification can lead to it.
-        assertEquals(NewShow(SHOW, "Reihe"), result.newBooks.single().ardShow)
+        assertEquals(NewShow(SHOW, "Series"), result.newBooks.single().ardShow)
 
         // Whoever removes it from the library doesn't get it back.
         ardBooks.remove(bookId)
-        server.enqueue(showAnswer(single("new", "Neu"), single("old", "Alt")))
+        server.enqueue(showAnswer(single("new", "New"), single("old", "Old")))
         assertTrue(ardBooks.refresh().newBooks.isEmpty())
         assertNull(dao.bookByRemote(ARD_BOOK_SERVER_ID, "item:new"))
     }
 
     @Test
     fun `a new book that cannot be fetched yet is tried again`() = runTest {
-        server.enqueue(showAnswer(single("old", "Alt")))
-        ardBooks.subscribe(SHOW, "Reihe")
+        server.enqueue(showAnswer(single("old", "Old")))
+        ardBooks.subscribe(SHOW, "Series")
 
         // The book is announced but has no parts yet: it stays unknown and comes next time.
-        server.enqueue(showAnswer(single("new", "Neu")))
+        server.enqueue(showAnswer(single("new", "New")))
         server.enqueue(itemsAnswer())
         assertTrue(ardBooks.refresh().newBooks.isEmpty())
 
-        server.enqueue(showAnswer(single("new", "Neu")))
-        server.enqueue(itemsAnswer(single("new", "Neu")))
-        assertEquals(listOf("Neu"), ardBooks.refresh().newBooks.map { it.title })
+        server.enqueue(showAnswer(single("new", "New")))
+        server.enqueue(itemsAnswer(single("new", "New")))
+        assertEquals(listOf("New"), ardBooks.refresh().newBooks.map { it.title })
     }
 
     @Test
     fun `after unsubscribing nothing new comes`() = runTest {
-        server.enqueue(showAnswer(single("old", "Alt")))
-        ardBooks.subscribe(SHOW, "Reihe")
+        server.enqueue(showAnswer(single("old", "Old")))
+        ardBooks.subscribe(SHOW, "Series")
         ardBooks.unsubscribe(SHOW)
 
         assertTrue(ardBooks.subscriptions.first().isEmpty())
@@ -546,16 +546,16 @@ class ArdBooksTest {
     private fun single(coreId: String, title: String) = """
         {"id":"$coreId","coreId":"$coreId","title":"$title","groupId":null,"duration":1000,"publishDate":"2026-11-01T10:00:00+01:00",
          "audios":[{"url":"https://a.example/$coreId.mp3","downloadUrl":null,"allowDownload":false,"mimeType":"audio/mp3"}],
-         "programSet":{"id":"1","coreId":"$SHOW","title":"Reihe","publicationService":{"title":"MDR KULTUR"},
+         "programSet":{"id":"1","coreId":"$SHOW","title":"Series","publicationService":{"title":"MDR KULTUR"},
                        "editorialCategoryId":"42914713","editorialCategoriesList":[{"id":"42914713"}]}}
     """.trimIndent()
 
     /** Part [number] of series [GROUP] of show [SHOW]. */
     private fun grouped(coreId: String, number: Int) = """
-        {"id":"$coreId","coreId":"$coreId","title":"Reihe ($number/2)","groupId":"$GROUP","episodeNumber":$number,"maxGroupNumber":2,
-         "duration":1000,"publishDate":"2026-11-0${number}T10:00:00+01:00","group":{"type":"MULTIPART","title":"Reihe","count":2},
+        {"id":"$coreId","coreId":"$coreId","title":"Series ($number/2)","groupId":"$GROUP","episodeNumber":$number,"maxGroupNumber":2,
+         "duration":1000,"publishDate":"2026-11-0${number}T10:00:00+01:00","group":{"type":"MULTIPART","title":"Series","count":2},
          "audios":[{"url":"https://a.example/$coreId.mp3","downloadUrl":null,"allowDownload":false,"mimeType":"audio/mp3"}],
-         "programSet":{"id":"1","coreId":"$SHOW","title":"Reihe","publicationService":{"title":"MDR KULTUR"},
+         "programSet":{"id":"1","coreId":"$SHOW","title":"Series","publicationService":{"title":"MDR KULTUR"},
                        "editorialCategoryId":"42914713","editorialCategoriesList":[{"id":"42914713"}]}}
     """.trimIndent()
 
@@ -573,9 +573,9 @@ class ArdBooksTest {
 
     private companion object {
         const val KEY = "group:urn:ard:show:gs"
-        const val SHOW = "urn:ard:show:reihe"
-        const val GROUP = "urn:ard:show:neu"
-        const val MOVED = "urn:ard:show:umgezogen"
+        const val SHOW = "urn:ard:show:series"
+        const val GROUP = "urn:ard:show:new"
+        const val MOVED = "urn:ard:show:moved"
         const val HOUR_MS = 60 * 60 * 1000L
     }
 }

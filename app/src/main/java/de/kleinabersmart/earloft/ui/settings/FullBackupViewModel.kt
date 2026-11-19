@@ -60,7 +60,7 @@ class FullBackupViewModel @Inject constructor(
         val counts = applicationScope.async {
             withContext(Dispatchers.IO) {
                 context.contentResolver.openOutputStream(uri, "wt")?.use { fullBackup.export(it) }
-                    ?: throw IOException("Datei nicht beschreibbar")
+                    ?: throw IOException("File not writable")
             }
         }.await()
         FullBackupMessage.Exported(counts)
@@ -70,7 +70,7 @@ class FullBackupViewModel @Inject constructor(
         applicationScope.async {
             withContext(Dispatchers.IO) {
                 context.contentResolver.openInputStream(uri)?.use { fullBackup.import(it) }
-                    ?: throw IOException("Datei nicht lesbar")
+                    ?: throw IOException("File not readable")
             }.also {
                 // New subscriptions fetch their episodes right away, not only the next time the app is opened; only then does their progress apply.
                 if (it.added.podcasts > 0) podcastRefresher.refreshAll()
@@ -89,13 +89,13 @@ class FullBackupViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: FullBackupException) {
-                Log.w(TAG, "Sicherung nicht eingespielt", e)
+                Log.w(TAG, "Backup not restored", e)
                 FullBackupMessage.ImportFailed(e.newerVersion)
             } catch (e: IOException) {
-                Log.w(TAG, "Sicherung fehlgeschlagen", e)
+                Log.w(TAG, "Backup failed", e)
                 failed
             } catch (e: SQLException) {
-                Log.w(TAG, "Sicherung fehlgeschlagen", e)
+                Log.w(TAG, "Backup failed", e)
                 failed
             } finally {
                 running = false

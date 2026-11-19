@@ -33,7 +33,7 @@ class LocalScanStamp @Inject constructor(
                 "$volume:${MediaStore.getVersion(context, volume)}:${MediaStore.getGeneration(context, volume)}"
             }
         } catch (e: RuntimeException) {
-            Log.w(TAG, "Stand des MediaStore nicht lesbar", e)
+            Log.w(TAG, "MediaStore state not readable", e)
             null
         }
     }

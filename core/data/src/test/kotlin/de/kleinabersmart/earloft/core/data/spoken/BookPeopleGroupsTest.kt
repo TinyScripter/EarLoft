@@ -21,7 +21,7 @@ class BookPeopleGroupsTest {
         book(1, "Tote Seelen singen nicht", "Line Holm, Stine Bolther, Jussi Adler-Olsen", "Wolfram Koch"),
         book(2, "Verheißung", "Jussi Adler-Olsen", "Wolfram Koch"),
         book(3, "Kill Shot", "Günther Frauenlob — Translator, Jo Nesbø", "Uve Teschner, Anna Thalbach"),
-        book(4, "Ohne Autor", ""),
+        book(4, "Without author", ""),
     )
 
     @Test

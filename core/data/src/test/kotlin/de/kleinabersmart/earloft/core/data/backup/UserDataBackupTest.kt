@@ -72,9 +72,9 @@ class UserDataBackupTest {
         podcastDao = db.podcastDao(),
         statsDao = db.statsDao(),
         music = MusicBackup(db.backupDao(), db.playlistDao(), db.syncDao()),
-        restoreNotice = RestoreNotice(context, { error("nicht gebraucht") }, { error("nicht gebraucht") }),
-        registry = Lazy<DataSourceRegistry> { error("nicht gebraucht") },
-        ardBooks = { ard ?: error("nicht gebraucht") },
+        restoreNotice = RestoreNotice(context, { error("not needed") }, { error("not needed") }),
+        registry = Lazy<DataSourceRegistry> { error("not needed") },
+        ardBooks = { ard ?: error("not needed") },
         scope = TestScope(),
     )
 
@@ -94,16 +94,16 @@ class UserDataBackupTest {
                 username = "sebi", priority = 2, syncGeneration = 7, lastFullSyncAt = 123,
             ),
         )
-        main.sourceDao().upsert(SourceEntity(sourceId = "local", type = SourceType.LOCAL, name = "Gerät"))
+        main.sourceDao().upsert(SourceEntity(sourceId = "local", type = SourceType.LOCAL, name = "Device"))
         main.bookDao().upsertServer(SpokenServerEntity("abs", "ABS", "https://abs.example", libraryId = "lib", syncGeneration = 3))
         main.podcastDao().upsertFeed(
-            PodcastFeedEntity("feed-1", "https://example.org/feed", "Logbuch", etag = "\"x\"", lastRefreshAt = 999, autoDownload = true),
+            PodcastFeedEntity("feed-1", "https://example.org/feed", "Logbook", etag = "\"x\"", lastRefreshAt = 999, autoDownload = true),
         )
-        main.podcastDao().upsertFeed(PodcastFeedEntity("${LOCAL_PODCAST_PREFIX}eigen", "${LOCAL_PODCAST_PREFIX}eigen", "Eigener Ordner"))
+        main.podcastDao().upsertFeed(PodcastFeedEntity("${LOCAL_PODCAST_PREFIX}own", "${LOCAL_PODCAST_PREFIX}own", "Own folder"))
         main.statsDao().addListening(
             ListeningStatEntity(
                 source = ListeningStatEntity.SOURCE_APP, kind = BookKind.EPISODE, groupKey = "https://example.org/feed",
-                groupTitle = "Logbuch", itemKey = "guid-1", itemTitle = "Folge 1", listenedMs = 60_000, lastListenedAt = 1_000,
+                groupTitle = "Logbook", itemKey = "guid-1", itemTitle = "Episode 1", listenedMs = 60_000, lastListenedAt = 1_000,
             ),
             day = 20_000,
         )
@@ -133,7 +133,7 @@ class UserDataBackupTest {
         main.statsDao().addListening(
             ListeningStatEntity(
                 source = ListeningStatEntity.SOURCE_APP, kind = BookKind.EPISODE, groupKey = "https://example.org/feed",
-                groupTitle = "Logbuch", itemKey = "guid-1", itemTitle = "Folge 1", listenedMs = 30_000, lastListenedAt = 2_000,
+                groupTitle = "Logbook", itemKey = "guid-1", itemTitle = "Episode 1", listenedMs = 30_000, lastListenedAt = 2_000,
             ),
             day = 20_000,
         )
@@ -157,7 +157,7 @@ class UserDataBackupTest {
         main.statsDao().addListening(
             ListeningStatEntity(
                 source = ListeningStatEntity.SOURCE_APP, kind = BookKind.EPISODE, groupKey = "https://example.org/feed",
-                groupTitle = "Logbuch", itemKey = "guid-1", itemTitle = "Folge 1", listenedMs = 30_000, lastListenedAt = 2_000,
+                groupTitle = "Logbook", itemKey = "guid-1", itemTitle = "Episode 1", listenedMs = 30_000, lastListenedAt = 2_000,
             ),
             day = 20_000,
         )
@@ -210,12 +210,12 @@ class UserDataBackupTest {
     fun `restoring keeps what the main database already has`() = runTest {
         fillMain()
         backupFor(main).mirror()
-        main.sourceDao().upsert(main.sourceDao().get("nav")!!.copy(name = "Neu benannt"))
+        main.sourceDao().upsert(main.sourceDao().get("nav")!!.copy(name = "Renamed"))
         main.statsDao().clear(BookKind.EPISODE)
         main.statsDao().addListening(
             ListeningStatEntity(
                 source = ListeningStatEntity.SOURCE_APP, kind = BookKind.EPISODE, groupKey = "https://example.org/feed",
-                groupTitle = "Logbuch", itemKey = "guid-1", itemTitle = "Folge 1", listenedMs = 5_000, lastListenedAt = 3_000,
+                groupTitle = "Logbook", itemKey = "guid-1", itemTitle = "Episode 1", listenedMs = 5_000, lastListenedAt = 3_000,
             ),
             day = 20_001,
         )
@@ -228,7 +228,7 @@ class UserDataBackupTest {
             user.userDataDao().listeningDays(),
         ))
 
-        assertEquals("Neu benannt", main.sourceDao().get("nav")!!.name)
+        assertEquals("Renamed", main.sourceDao().get("nav")!!.name)
         assertEquals(5_000L, main.statsDao().all().single().listenedMs)
         // The day from the backup was missing and is added; the new one stays.
         assertEquals(setOf(20_000L, 20_001L), main.statsDao().allDays().map { it.day }.toSet())
@@ -286,8 +286,8 @@ class UserDataBackupTest {
         try {
             // Nothing under the old group; the backed-up title is now in a different one.
             server.enqueue(MockResponse.Builder().body("""{"data":{"items":{"nodes":[]}}}""").build())
-            server.enqueue(ardAnswer(group = "urn:ard:show:neu"))
-            server.enqueue(ardAnswer(group = "urn:ard:show:neu"))
+            server.enqueue(ardAnswer(group = "urn:ard:show:new"))
+            server.enqueue(ardAnswer(group = "urn:ard:show:new"))
             val backup = backupFor(newDevice, testArdBooks(context, newDevice, server.url("/graphql")))
             val saved = user.userDataDao().snapshot()
 
@@ -432,7 +432,7 @@ class UserDataBackupTest {
     fun `progress is saved by book key, Audiobookshelf only while not reported`() = runTest {
         fillMain()
         val episode = book(main, "feed-1", "guid-1")
-        val local = book(main, LOCAL_BOOK_SERVER_ID, "Autor/Buch", BookKind.BOOK)
+        val local = book(main, LOCAL_BOOK_SERVER_ID, "Author/Book", BookKind.BOOK)
         val reported = book(main, "abs", "item-1", BookKind.BOOK)
         val unreported = book(main, "abs", "item-2", BookKind.BOOK)
         main.bookDao().upsertProgress(progress(episode, 100, updatedAt = 10))
@@ -444,7 +444,7 @@ class UserDataBackupTest {
 
         val saved = user.userDataDao().progress().associate { (it.serverId to it.remoteId) to it.positionMs }
         assertEquals(
-            mapOf(("feed-1" to "guid-1") to 100L, (LOCAL_BOOK_SERVER_ID to "Autor/Buch") to 200L, ("abs" to "item-2") to 400L),
+            mapOf(("feed-1" to "guid-1") to 100L, (LOCAL_BOOK_SERVER_ID to "Author/Book") to 200L, ("abs" to "item-2") to 400L),
             saved,
         )
 
@@ -478,7 +478,7 @@ class UserDataBackupTest {
             assertEquals(3, user.userDataDao().progress().size)
 
             // The sync creates the episodes with new ids; one of them was already played further here.
-            book(newDevice, "feed-0", "andere")
+            book(newDevice, "feed-0", "other")
             val first = book(newDevice, "feed-1", "guid-1")
             val second = book(newDevice, "feed-1", "guid-2")
             newDevice.bookDao().upsertProgress(progress(second, 999, updatedAt = 99))
@@ -500,14 +500,14 @@ class UserDataBackupTest {
     @Test
     fun `a book taken out of continue listening stays out on a new device`() = runTest {
         fillMain()
-        val local = book(main, LOCAL_BOOK_SERVER_ID, "Autor/Buch", BookKind.BOOK)
+        val local = book(main, LOCAL_BOOK_SERVER_ID, "Author/Book", BookKind.BOOK)
         main.bookDao().upsertProgress(progress(local, 200, updatedAt = 20).copy(hidden = true))
         backupFor(main).mirror()
         assertTrue(user.userDataDao().progress().single().hidden)
 
         val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
         try {
-            val again = book(newDevice, LOCAL_BOOK_SERVER_ID, "Autor/Buch", BookKind.BOOK)
+            val again = book(newDevice, LOCAL_BOOK_SERVER_ID, "Author/Book", BookKind.BOOK)
             assertTrue(backupFor(newDevice).applyProgress(user.userDataDao().progress()).isEmpty())
             assertTrue(newDevice.bookDao().progress(again)!!.hidden)
         } finally {
@@ -583,12 +583,12 @@ class UserDataBackupTest {
         fillMain()
         val episode = book(main, "feed-1", "guid-1")
         val absBook = book(main, "abs", "item-1", BookKind.BOOK)
-        main.bookDao().insertBookmark(bookmark(episode, 10_000, "Folge", note = "Notiz"))
-        main.bookDao().insertBookmark(bookmark(episode, 20_000, "Gelöscht", deleted = true))
-        main.bookDao().insertBookmark(bookmark(absBook, 30_000, "Neu", dirty = true))
-        val known = main.bookDao().insertBookmark(bookmark(absBook, 40_000, "Bekannt", remoteTime = 40.0))
-        main.bookDao().insertBookmark(bookmark(absBook, 50_000, "Mit Notiz", note = "nur hier", remoteTime = 50.0))
-        main.bookDao().insertBookmark(bookmark(absBook, 60_000, "Umbenannt", remoteTime = 60.0, dirty = true))
+        main.bookDao().insertBookmark(bookmark(episode, 10_000, "Episode", note = "Note"))
+        main.bookDao().insertBookmark(bookmark(episode, 20_000, "Deleted", deleted = true))
+        main.bookDao().insertBookmark(bookmark(absBook, 30_000, "New", dirty = true))
+        val known = main.bookDao().insertBookmark(bookmark(absBook, 40_000, "Known", remoteTime = 40.0))
+        main.bookDao().insertBookmark(bookmark(absBook, 50_000, "With note", note = "only here", remoteTime = 50.0))
+        main.bookDao().insertBookmark(bookmark(absBook, 60_000, "Renamed", remoteTime = 60.0, dirty = true))
         val backup = backupFor(main)
         backup.mirror()
 
@@ -601,11 +601,11 @@ class UserDataBackupTest {
             ),
             user.userDataDao().bookmarks().map { it.key }.toSet(),
         )
-        assertEquals("Notiz", user.userDataDao().bookmarks().single { it.remoteId == "guid-1" }.note)
+        assertEquals("Note", user.userDataDao().bookmarks().single { it.remoteId == "guid-1" }.note)
 
         // Deleted here: also from the backup. If the known one gets a note, it's added.
         main.bookDao().deleteBookmark(main.bookDao().bookmarksOf(listOf(episode)).single { it.positionMs == 10_000L }.bookmarkId)
-        main.bookDao().updateBookmark(main.bookDao().bookmark(known)!!.copy(note = "später"))
+        main.bookDao().updateBookmark(main.bookDao().bookmark(known)!!.copy(note = "later"))
         backup.mirror(setOf("bookmarks"))
         val saved = user.userDataDao().bookmarks().map { it.key }.toSet()
         assertFalse(BookmarkKey("feed-1", "guid-1", 10_000) in saved)
@@ -622,9 +622,9 @@ class UserDataBackupTest {
         fillMain()
         val episode = book(main, "feed-1", "guid-1")
         val absBook = book(main, "abs", "item-1", BookKind.BOOK)
-        main.bookDao().insertBookmark(bookmark(episode, 10_000, "Folge", note = "Notiz"))
-        main.bookDao().insertBookmark(bookmark(absBook, 30_000, "Neu", dirty = true))
-        main.bookDao().insertBookmark(bookmark(absBook, 50_000, "Mit Notiz", note = "nur hier", remoteTime = 50.0))
+        main.bookDao().insertBookmark(bookmark(episode, 10_000, "Episode", note = "Note"))
+        main.bookDao().insertBookmark(bookmark(absBook, 30_000, "New", dirty = true))
+        main.bookDao().insertBookmark(bookmark(absBook, 50_000, "With note", note = "only here", remoteTime = 50.0))
         backupFor(main).mirror()
 
         val newDevice = Room.inMemoryDatabaseBuilder(context, EarLoftDatabase::class.java).allowMainThreadQueries().build()
@@ -638,14 +638,14 @@ class UserDataBackupTest {
             assertEquals(3, user.userDataDao().bookmarks().size)
 
             // The books come with new ids; the sync already fetched the bookmark with a note, without the note.
-            book(newDevice, "feed-0", "andere")
+            book(newDevice, "feed-0", "other")
             val newEpisode = book(newDevice, "feed-1", "guid-1")
             val newAbsBook = book(newDevice, "abs", "item-1", BookKind.BOOK)
-            newDevice.bookDao().insertBookmark(bookmark(newAbsBook, 50_000, "Vom Server", remoteTime = 50.0))
+            newDevice.bookDao().insertBookmark(bookmark(newAbsBook, 50_000, "From server", remoteTime = 50.0))
             assertTrue(backup.applyBookmarks(saved.bookmarks.values).isEmpty())
 
             val episodeMarks = newDevice.bookDao().bookmarksOf(listOf(newEpisode))
-            assertEquals(listOf("Folge" to "Notiz"), episodeMarks.map { it.title to it.note })
+            assertEquals(listOf("Episode" to "Note"), episodeMarks.map { it.title to it.note })
             assertFalse(episodeMarks.single().dirty)
             val absMarks = newDevice.bookDao().bookmarksOf(listOf(newAbsBook)).associateBy { it.positionMs }
             assertEquals(2, absMarks.size)
@@ -653,8 +653,8 @@ class UserDataBackupTest {
             assertTrue(absMarks.getValue(30_000).dirty)
             assertNull(absMarks.getValue(30_000).remoteTime)
             // Already on the server: stays, only gets the note.
-            assertEquals("Vom Server", absMarks.getValue(50_000).title)
-            assertEquals("nur hier", absMarks.getValue(50_000).note)
+            assertEquals("From server", absMarks.getValue(50_000).title)
+            assertEquals("only here", absMarks.getValue(50_000).note)
             assertFalse(absMarks.getValue(50_000).dirty)
 
             // Applying a second time creates nothing twice.

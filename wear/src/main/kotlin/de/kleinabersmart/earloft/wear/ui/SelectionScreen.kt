@@ -53,13 +53,13 @@ private fun SelectionPreview() {
     MaterialTheme {
         TrackListContent(
             state = TrackListState.Ready(
-                title = "Mondlicht",
+                title = "Moonlight",
                 songCount = 3,
                 loadedCount = 2,
                 items = listOf(
-                    TrackItem(0, "Aufbruch", "Nachtfalter"),
-                    TrackItem(1, "Mondlicht", "Nachtfalter"),
-                    TrackItem(2, "Nachtfalter", "Nachtfalter", enabled = false),
+                    TrackItem(0, "Departure", "Night Moth"),
+                    TrackItem(1, "Moonlight", "Night Moth"),
+                    TrackItem(2, "Night Moth", "Night Moth", enabled = false),
                 ),
             ),
             onPlay = { _, _ -> },

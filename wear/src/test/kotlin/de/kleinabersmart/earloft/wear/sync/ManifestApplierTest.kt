@@ -43,11 +43,11 @@ class ManifestApplierTest {
 
     /** Compilation track on two servers – one song on the phone. */
     private val sampler = song(
-        "nd:s1", "Erster Schritt", album = "Sampler 2023", albumArtist = "Verschiedene Künstler", artist = "Band A",
+        "nd:s1", "First Step", album = "Sampler 2023", albumArtist = "Various Artists", artist = "Band A",
         servers = listOf(server("nd", "s1"), server("office", "o1")), isCompilation = true,
     )
     private val sampler2 = song(
-        "nd:s2", "Zweiter Schritt", album = "Sampler 2023", albumArtist = "Verschiedene Künstler", artist = "Band B",
+        "nd:s2", "Second Step", album = "Sampler 2023", albumArtist = "Various Artists", artist = "Band B",
         servers = listOf(server("nd", "s2")), isCompilation = true, track = 2,
     )
 
@@ -57,7 +57,7 @@ class ManifestApplierTest {
 
     /** Only on the phone. */
     private val summer = song(
-        "local:5", "Sommerlied", album = "Lokal", albumArtist = "Ich", servers = emptyList(),
+        "local:5", "Summer Song", album = "Local", albumArtist = "Me", servers = emptyList(),
         phoneFile = PhoneFileDto("local:5", 4_000, "audio/mpeg"),
     )
 
@@ -68,7 +68,7 @@ class ManifestApplierTest {
             .build()
         val sourceDao = db.sourceDao()
         sourceDao.upsert(SourceEntity("nd", SourceType.SUBSONIC, "Navidrome"))
-        sourceDao.upsert(SourceEntity("office", SourceType.SUBSONIC, "Büro"))
+        sourceDao.upsert(SourceEntity("office", SourceType.SUBSONIC, "Office"))
         val syncer = LibrarySyncer(
             database = db,
             sourceDao = sourceDao,

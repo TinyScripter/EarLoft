@@ -38,7 +38,7 @@ class EpisodeQueueTest {
     @Test
     fun `order and hidden episodes survive new book ids`() = runTest {
         val a = episode(db, "a")
-        val b = episode(db, "b,mit Komma")
+        val b = episode(db, "b,with comma")
         val c = episode(db, "c")
         val queue = EpisodeQueue(context, db.bookDao())
         queue.append(a)
@@ -52,11 +52,11 @@ class EpisodeQueueTest {
         try {
             val restored = EpisodeQueue(context, newDevice.bookDao())
             assertEquals(emptyList<Long>(), restored.order.first())
-            episode(newDevice, "andere")
+            episode(newDevice, "other")
             val newA = episode(newDevice, "a")
             assertEquals(listOf(newA), restored.order.first())
             val newC = episode(newDevice, "c")
-            val newB = episode(newDevice, "b,mit Komma")
+            val newB = episode(newDevice, "b,with comma")
             assertEquals(listOf(newB, newA), restored.order.first())
             assertEquals(setOf(newC), restored.hidden.first())
         } finally {

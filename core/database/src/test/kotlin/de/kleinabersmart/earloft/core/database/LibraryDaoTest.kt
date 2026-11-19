@@ -53,7 +53,7 @@ class LibraryDaoTest {
 
     @Test
     fun `removing a source keeps songs that another source still provides`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
         val albumId = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
         val shared = insertSong(song(albumId, "Svefn-g-englar", track = 1))
@@ -76,8 +76,8 @@ class LibraryDaoTest {
             SourceType.entries.filterNot { it.isServer }.joinToString(", ", "(", ")") { "'${it.name}'" },
             NOT_SERVER_TYPES,
         )
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
-        sourceDao.upsert(SourceEntity(sourceId = PHONE, type = SourceType.PHONE, name = "Handy"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
+        sourceDao.upsert(SourceEntity(sourceId = PHONE, type = SourceType.PHONE, name = "Phone"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
         val albumId = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
         val songId = insertSong(song(albumId, "Svefn-g-englar", track = 1))
@@ -96,7 +96,7 @@ class LibraryDaoTest {
 
     @Test
     fun `cleanup removes empty albums and unreferenced artists`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         val artistId = libraryDao.insertArtist(
             ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"),
         )
@@ -124,7 +124,7 @@ class LibraryDaoTest {
 
     @Test
     fun `full text search ignores case and diacritics`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         val artistId = libraryDao.insertArtist(
             ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"),
         )
@@ -141,7 +141,7 @@ class LibraryDaoTest {
 
     @Test
     fun `album rows count songs and queue skips unknown songs`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         val albumId = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
         val first = insertSong(song(albumId, "Glósóli", track = 2))
         val second = insertSong(song(albumId, "Hoppípolla", track = 3))
@@ -157,7 +157,7 @@ class LibraryDaoTest {
 
     @Test
     fun `genres merge spellings, count visible songs and list their albums`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
         val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
         val agaetis = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
@@ -202,7 +202,7 @@ class LibraryDaoTest {
 
     @Test
     fun `decades group visible albums by year`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
         val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós").copy(year = 2005))
         val agaetis = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós").copy(year = 1999))
@@ -223,7 +223,7 @@ class LibraryDaoTest {
 
     @Test
     fun `albums, artists and songs follow the chosen order`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         val beatles = libraryDao.insertArtist(ArtistEntity(name = "The Beatles", sortName = "Beatles", normName = "thebeatles"))
         val abba = libraryDao.insertArtist(ArtistEntity(name = "ABBA", sortName = "ABBA", normName = "abba"))
         val help = libraryDao.insertAlbum(album("Help!", "The Beatles").copy(year = 1965))
@@ -267,7 +267,7 @@ class LibraryDaoTest {
 
     @Test
     fun `most played albums count plays in the period`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
         val agaetis = libraryDao.insertAlbum(album("Ágætis byrjun", "Sigur Rós"))
         val glosoli = insertSong(song(takk, "Glósóli", track = 2))
@@ -287,7 +287,7 @@ class LibraryDaoTest {
 
     @Test
     fun `most played albums do not count songs of a switched off server`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
         val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
         val glosoli = insertSong(song(takk, "Glósóli", track = 2))
@@ -305,7 +305,7 @@ class LibraryDaoTest {
 
     @Test
     fun `artist page lists all songs, most played and appearances`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         val jonsi = libraryDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
         val sigur = libraryDao.insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"))
         val go = libraryDao.insertAlbum(album("Go", "Jónsi").copy(year = 2010))
@@ -341,7 +341,7 @@ class LibraryDaoTest {
 
     @Test
     fun `mix candidates match genre, artist or year and carry the play history`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
         val jonsi = libraryDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
         val sigur = libraryDao.insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"))
@@ -386,7 +386,7 @@ class LibraryDaoTest {
 
     @Test
     fun `offline mix candidates are local files and finished downloads only`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome"))
         val takk = libraryDao.insertAlbum(album("Takk...", "Sigur Rós"))
         val local = insertSong(song(takk, "Glósóli", track = 2))
@@ -407,7 +407,7 @@ class LibraryDaoTest {
 
     @Test
     fun `music statistics rank songs, albums, artists and genres in the period`() = runTest {
-        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Gerät"))
+        sourceDao.upsert(SourceEntity(sourceId = LOCAL, type = SourceType.LOCAL, name = "Device"))
         sourceDao.upsert(SourceEntity(sourceId = NAVIDROME, type = SourceType.SUBSONIC, name = "Navidrome", enabled = false))
         val jonsi = libraryDao.insertArtist(ArtistEntity(name = "Jónsi", sortName = "Jónsi", normName = "jonsi"))
         val sigur = libraryDao.insertArtist(ArtistEntity(name = "Sigur Rós", sortName = "Sigur Rós", normName = "sigurros"))

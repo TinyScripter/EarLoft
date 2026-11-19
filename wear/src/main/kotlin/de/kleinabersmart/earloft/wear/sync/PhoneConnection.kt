@@ -78,7 +78,7 @@ class PhoneConnection @Inject constructor(
         val connected = nodeClient.connectedNodesOrEmpty().filter { it.id != CLOUD_NODE_ID }
         val byCapability = capabilityClient.reachableNodes(WearCapabilities.PHONE_APP).map { it.id }
         val byPhoneInfo = dataClient.payloadsAt(WearPaths.PHONE_INFO).keys
-        Log.d(TAG, "Verbunden: ${connected.map { it.displayName }}, Capability: $byCapability, Handy-Info: $byPhoneInfo")
+        Log.d(TAG, "Connected: ${connected.map { it.displayName }}, capability: $byCapability, phone info: $byPhoneInfo")
         return phoneStatusOf(connected, withApp = byCapability.toSet() + byPhoneInfo)
     }
 
@@ -96,7 +96,7 @@ class PhoneConnection @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(TAG, "Play Store auf dem Handy nicht geöffnet", e)
+            Log.w(TAG, "Play Store not opened on the phone", e)
             false
         }
     }

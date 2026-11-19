@@ -55,7 +55,7 @@ class PodcastTranscripts @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
-            Log.w(TAG, "Transkript von ${book.title} nicht abrufbar", e)
+            Log.w(TAG, "Transcript of ${book.title} not available", e)
             return TranscriptResult.Unavailable
         }
         // Parse first, then store: otherwise a broken transcript would stay in the cache, and "Try again" would read it again.
@@ -73,7 +73,7 @@ class PodcastTranscripts @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
-            Log.i(TAG, "Transkript nicht vorab geladen: ${e.message}")
+            Log.i(TAG, "Transcript not prefetched: ${e.message}")
         }
     }
 
@@ -82,7 +82,7 @@ class PodcastTranscripts @Inject constructor(
             val transcript = parseTranscript(text, declared)
             if (transcript.segments.isEmpty()) TranscriptResult.None else TranscriptResult.Ready(transcript)
         } catch (e: IOException) {
-            Log.w(TAG, "Transkript unlesbar", e)
+            Log.w(TAG, "Transcript unreadable", e)
             TranscriptResult.Unavailable
         }
     }

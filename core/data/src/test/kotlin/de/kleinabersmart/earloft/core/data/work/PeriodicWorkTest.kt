@@ -43,7 +43,7 @@ class PeriodicWorkTest {
     }
 
     @Test
-    fun `gleicher Auftrag beim naechsten Prozessstart bleibt unberuehrt`() = runTest {
+    fun `the same job stays untouched on the next process start`() = runTest {
         assertTrue(schedule(12, wifi))
         assertFalse(schedule(12, wifi))
         assertFalse(schedule(12, wifi))
@@ -51,7 +51,7 @@ class PeriodicWorkTest {
     }
 
     @Test
-    fun `geaenderte Bedingungen ersetzen den Auftrag`() = runTest {
+    fun `changed constraints replace the job`() = runTest {
         schedule(12, wifi)
         val mobile = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).setRequiresBatteryNotLow(true).build()
         assertTrue(schedule(12, mobile))
@@ -60,14 +60,14 @@ class PeriodicWorkTest {
     }
 
     @Test
-    fun `geaenderter Takt ersetzt den Auftrag`() = runTest {
+    fun `a changed interval replaces the job`() = runTest {
         schedule(12, wifi)
         assertTrue(schedule(24, wifi))
         assertEquals(TimeUnit.HOURS.toMillis(24), info().periodicityInfo?.repeatIntervalMillis)
     }
 
     @Test
-    fun `abgebrochener Auftrag wird neu eingeplant`() = runTest {
+    fun `a cancelled job is scheduled again`() = runTest {
         schedule(12, wifi)
         workManager.cancelUniqueWork(NAME).result.get()
         assertTrue(schedule(12, wifi))

@@ -106,16 +106,16 @@ class BookCoversTest {
 
     @Test
     fun `episode whose image is gone shows the subscription image`() = runTest {
-        val id = episode("f1", "g1", coverUrl = "https://example.org/weg.jpg")
+        val id = episode("f1", "g1", coverUrl = "https://example.org/gone.jpg")
         assertArrayEquals(byteArrayOf(7, 8, 9), covers.coverBytes(id))
     }
 
     @Test
     fun `episode of a local podcast falls back to the cover of another episode`() = runTest {
-        val feedId = "local:eigen"
+        val feedId = "local:own"
         val withCover = episode(feedId, "a.mp3", coverUrl = null)
         val without = episode(feedId, "b.mp3", coverUrl = null)
-        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId, feedId, "Eigen", imageUrl = AppUris.bookCover(withCover)))
+        db.podcastDao().upsertFeed(PodcastFeedEntity(feedId, feedId, "Own", imageUrl = AppUris.bookCover(withCover)))
         covers.store(withCover, byteArrayOf(4, 5))
         assertArrayEquals(byteArrayOf(4, 5), covers.coverBytes(without))
     }
@@ -123,8 +123,8 @@ class BookCoversTest {
     @Test
     fun `book from the phone storage has no cover on the watch until it is stored`() = runTest {
         // On the watch the file is a phone identifier, not a content:// address.
-        val id = db.bookDao().upsertBook(book(LOCAL_BOOK_SERVER_ID, "Buch"))
-        db.bookDao().insertTracks(listOf(BookTrackEntity(id, 0, "book:local:Buch:0", 0, 1_000)))
+        val id = db.bookDao().upsertBook(book(LOCAL_BOOK_SERVER_ID, "Book"))
+        db.bookDao().insertTracks(listOf(BookTrackEntity(id, 0, "book:local:Book:0", 0, 1_000)))
         assertNull(covers.coverBytes(id))
         covers.store(id, byteArrayOf(6))
         assertArrayEquals(byteArrayOf(6), covers.coverBytes(id))
@@ -167,7 +167,7 @@ class BookCoversTest {
 
     @Test
     fun `own image tells a missing image from an unreachable server`() = runTest {
-        val gone = episode("f1", "g1", coverUrl = "https://example.org/weg.jpg")
+        val gone = episode("f1", "g1", coverUrl = "https://example.org/gone.jpg")
         val broken = episode("f1", "g2", coverUrl = BROKEN_IMAGE)
         val fine = episode("f1", "g3", coverUrl = EPISODE_IMAGE)
         assertTrue(covers.ensureOwnCached(gone))
@@ -244,15 +244,15 @@ class BookCoversTest {
         remoteId = remoteId,
         title = remoteId,
         normTitle = remoteId,
-        author = "Autor",
+        author = "Author",
         durationMs = 1_000,
         detailsLoaded = true,
     )
 
     private companion object {
-        const val EPISODE_IMAGE = "https://example.org/folge.jpg"
-        const val FEED_IMAGE = "https://example.org/abo.jpg"
-        const val BROKEN_IMAGE = "https://example.org/kaputt.jpg"
+        const val EPISODE_IMAGE = "https://example.org/episode.jpg"
+        const val FEED_IMAGE = "https://example.org/subscription.jpg"
+        const val BROKEN_IMAGE = "https://example.org/broken.jpg"
 
         // "Aa" and "BB" have the same `hashCode`.
         const val COLLIDING_A = "https://example.org/Aa.jpg"

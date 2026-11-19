@@ -51,7 +51,7 @@ class DownloadWorker(
             }
             when (outcome) {
                 is DownloadOutcome.Retry -> {
-                    Log.w(TAG, "Download ${next.sourceUid} unterbrochen (Versuch ${runAttemptCount + 1})", outcome.cause)
+                    Log.w(TAG, "Download ${next.sourceUid} interrupted (attempt ${runAttemptCount + 1})", outcome.cause)
                     // Rejected credentials don't change by waiting; otherwise the song would hold up the queue.
                     if (!budget.giveUp(outcome)) {
                         downloadDao.requeue(next.sourceUid)
@@ -62,7 +62,7 @@ class DownloadWorker(
                     // credentials in the server form re-enqueue them.
                     if (outcome.isAuthRejection) downloadDao.failQueuedOfSource(next.sourceUid.substringBefore(':'))
                 }
-                is DownloadOutcome.Failed -> Log.w(TAG, "Download ${next.sourceUid} fehlgeschlagen: ${outcome.reason}")
+                is DownloadOutcome.Failed -> Log.w(TAG, "Download ${next.sourceUid} failed: ${outcome.reason}")
                 DownloadOutcome.Done, DownloadOutcome.Cancelled -> Unit
             }
         }
@@ -86,7 +86,7 @@ class DownloadWorker(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Cover für Album $albumId nicht ladbar", e)
+                Log.w(TAG, "Cover for album $albumId not loadable", e)
             }
         }
     }
@@ -109,7 +109,7 @@ class DownloadWorker(
             throw e
         } catch (e: IllegalStateException) {
             foregroundDenied = true
-            Log.i(TAG, "Kein Vordergrund-Start möglich, lade im Hintergrund (${e.javaClass.simpleName})")
+            Log.i(TAG, "Foreground start not possible, downloading in the background (${e.javaClass.simpleName})")
         }
     }
 

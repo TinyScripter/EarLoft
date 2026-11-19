@@ -11,13 +11,13 @@ import org.junit.Test
 
 class WearPodcastManifestBuilderTest {
 
-    private val feed = WatchFeedContent("f1", "https://example.org/feed", "Podcast", "Autor", null, newestFirst = false, continuous = true)
+    private val feed = WatchFeedContent("f1", "https://example.org/feed", "Podcast", "Author", null, newestFirst = false, continuous = true)
 
     private fun episode(guid: String, positionMs: Long, audioUrl: String? = "https://example.org/$guid.mp3") = WatchEpisodeContent(
         bookId = guid.hashCode().toLong(),
         feedId = "f1",
         guid = guid,
-        title = "Folge $guid",
+        title = "Episode $guid",
         publishedAt = 1,
         durationMs = 3_600_000,
         audioUrl = audioUrl,
@@ -27,7 +27,7 @@ class WearPodcastManifestBuilderTest {
     )
 
     @Test
-    fun `Reihenfolge, Abo und Fortschritt werden uebernommen`() {
+    fun `order, subscription and progress are carried over`() {
         val manifest = WearPodcastManifestBuilder.build(WatchSpokenContent(listOf(feed), listOf(episode("b", 10), episode("a", 20, audioUrl = null))))
 
         assertEquals(listOf("b", "a"), manifest.episodes.map { it.guid })
@@ -38,7 +38,7 @@ class WearPodcastManifestBuilderTest {
     }
 
     @Test
-    fun `ohne Fortschritt unterscheiden sich nur fortschreitende Manifeste nicht`() {
+    fun `without progress manifests that differ only in progress are equal`() {
         val before = WearPodcastManifestBuilder.build(WatchSpokenContent(listOf(feed), listOf(episode("a", 10))))
         val playing = WearPodcastManifestBuilder.build(WatchSpokenContent(listOf(feed), listOf(episode("a", 15_000))))
         val otherEpisode = WearPodcastManifestBuilder.build(WatchSpokenContent(listOf(feed), listOf(episode("b", 10))))

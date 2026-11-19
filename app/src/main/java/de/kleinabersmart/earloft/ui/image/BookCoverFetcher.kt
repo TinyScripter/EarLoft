@@ -26,7 +26,7 @@ class BookCoverFetcher(
             options.size.width.pxOrElse { DEFAULT_SIZE_PX },
             options.size.height.pxOrElse { DEFAULT_SIZE_PX },
         ).coerceAtMost(MAX_SIZE_PX)
-        val bitmap = bookCovers.cover(bookId) ?: throw IOException("Kein Cover für Buch $bookId")
+        val bitmap = bookCovers.cover(bookId) ?: throw IOException("No cover for book $bookId")
         val scaled = if (bitmap.width > sizePx) {
             Bitmap.createScaledBitmap(bitmap, sizePx, (bitmap.height * sizePx.toFloat() / bitmap.width).toInt().coerceAtLeast(1), true)
         } else {

@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application>
-        <!-- Lange Downloads laufen als Vordergrund-Worker (Konzept 10, Berechtigungen). -->
+        <!-- Long downloads run as foreground workers (concept 10, permissions). -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"

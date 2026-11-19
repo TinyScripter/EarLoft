@@ -21,7 +21,7 @@ class BookMediaItemsTest {
     private val feedAddress = "https://feeds.example.org/private/s3cr3t/episode.mp3"
 
     private fun episode(id: Long) = PreparedBook(
-        book = Book(id = id, serverId = "feed", kind = BookKind.EPISODE, title = "Folge", author = "Show", durationMs = 60_000, remoteId = "e1"),
+        book = Book(id = id, serverId = "feed", kind = BookKind.EPISODE, title = "Episode", author = "Show", durationMs = 60_000, remoteId = "e1"),
         timeline = BookTimeline(60_000, listOf(BookTrack(0, "f0", 0, 60_000, mimeType = "audio/mpeg")), emptyList()),
         trackUrls = listOf(feedAddress),
         startPositionMs = 0,

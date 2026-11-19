@@ -136,7 +136,7 @@ class ArdSoundsApi(
             put("first", EPISODE_LIMIT)
         }
         val show = query(SHOW_QUERY, variables, ShowData.serializer()).show
-            ?: throw PodcastFeedException("Keine Sendung $showId in ARD Sounds")
+            ?: throw PodcastFeedException("No show $showId in ARD Sounds")
         val feedImage = show.image?.sized()
         return ParsedFeed(
             title = show.title?.trim().orEmpty(),
@@ -196,7 +196,7 @@ class ArdSoundsApi(
         try {
             val answer = JSON.decodeFromString(GraphQlResponse.serializer(), text)
             val data = answer.data?.takeIf { it is JsonObject }
-                ?: throw IOException("ARD Sounds: ${answer.errors?.firstOrNull()?.message ?: "Antwort ohne Daten"}")
+                ?: throw IOException("ARD Sounds: ${answer.errors?.firstOrNull()?.message ?: "Response without data"}")
             if (strict && !answer.errors.isNullOrEmpty()) throw IOException("ARD Sounds: ${answer.errors.first().message}")
             JSON.decodeFromJsonElement(serializer, data)
         } catch (e: CancellationException) {
@@ -205,7 +205,7 @@ class ArdSoundsApi(
             throw e
         } catch (e: Exception) {
             // Also IllegalArgumentException from deserialization: the interface has changed.
-            throw IOException("Unlesbare Antwort von ARD Sounds", e)
+            throw IOException("Unreadable response from ARD Sounds", e)
         }
     }
 

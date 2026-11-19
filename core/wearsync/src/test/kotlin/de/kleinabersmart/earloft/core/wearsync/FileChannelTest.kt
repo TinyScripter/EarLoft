@@ -12,14 +12,14 @@ class FileChannelTest {
     val folder = TemporaryFolder()
 
     @Test
-    fun `Kanal ohne Versatz bleibt der alte Pfad`() {
+    fun `channel without offset keeps the old path`() {
         assertEquals("/earloft/file/local:102", WearPaths.fileChannel("local:102", from = 0))
         assertEquals(FileChannelRequest("local:102", 0), WearPaths.parseFileChannel("/earloft/file/local:102"))
     }
 
     @Test
-    fun `Versatz steht vor der Kennung, auch wenn diese Schraegstriche enthaelt`() {
-        val uid = WearEpisodeFile.uid("f1", "https://example.org/folge/1")
+    fun `offset comes before the id, even if the id contains slashes`() {
+        val uid = WearEpisodeFile.uid("f1", "https://example.org/episode/1")
         val path = WearPaths.fileChannel(uid, from = 5_000)
         assertEquals("/earloft/file-from/5000/$uid", path)
         assertEquals(FileChannelRequest(uid, 5_000), WearPaths.parseFileChannel(path))
@@ -27,7 +27,7 @@ class FileChannelTest {
     }
 
     @Test
-    fun `Fremde und kaputte Pfade werden nicht angenommen`() {
+    fun `foreign and broken paths are not accepted`() {
         assertNull(WearPaths.parseFileChannel("/earloft/plays/123"))
         assertNull(WearPaths.parseFileChannel("/earloft/file-from/x/local:1"))
         assertNull(WearPaths.parseFileChannel("/earloft/file-from/-3/local:1"))
@@ -35,19 +35,19 @@ class FileChannelTest {
     }
 
     @Test
-    fun `Teildatei mit bekannter Laenge wird fortgesetzt`() {
+    fun `partial file with known length is resumed`() {
         val part = folder.newFile("a.phone.part").apply { writeBytes(ByteArray(300)) }
         val length = folder.newFile("a.phone.part.len").apply { writeText("1000") }
         assertEquals(300L, resumeOffset(part, length))
     }
 
     @Test
-    fun `Ohne Laenge, leer oder schon vollstaendig beginnt die Uebertragung von vorn`() {
+    fun `without length, empty or already complete the transfer starts over`() {
         val part = folder.newFile("b.phone.part").apply { writeBytes(ByteArray(300)) }
         val length = folder.root.resolve("b.phone.part.len")
         assertEquals(0L, resumeOffset(part, length))
 
-        length.writeText("kaputt")
+        length.writeText("broken")
         assertEquals(0L, resumeOffset(part, length))
 
         length.writeText("300")

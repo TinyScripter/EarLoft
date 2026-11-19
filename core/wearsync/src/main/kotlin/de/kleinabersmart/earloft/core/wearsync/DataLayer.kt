@@ -30,11 +30,11 @@ private const val TAG = "WearDataLayer"
  */
 fun CapabilityClient.capabilityChanges(capability: String): Flow<Unit> = callbackFlow {
     val listener = CapabilityClient.OnCapabilityChangedListener { info ->
-        Log.d(TAG, "Capability ${info.name} geändert: ${info.nodes.map { it.displayName }}")
+        Log.d(TAG, "Capability ${info.name} changed: ${info.nodes.map { it.displayName }}")
         trySend(Unit)
     }
     // `await()` returns `Void` (= null) here; hence explicitly Unit for "registered".
-    val registered = runCatchingApi("Capability $capability beobachten") { addListener(listener, capability).await(); Unit } != null
+    val registered = runCatchingApi("Observe capability $capability") { addListener(listener, capability).await(); Unit } != null
     send(Unit)
     awaitClose { if (registered) removeListener(listener, capability) }
 }
@@ -49,7 +49,7 @@ suspend fun CapabilityClient.reachableNodes(capability: String): Set<Node> = nod
 suspend fun CapabilityClient.pairedNodes(capability: String): Set<Node> = nodesWith(capability, CapabilityClient.FILTER_ALL)
 
 private suspend fun CapabilityClient.nodesWith(capability: String, filter: Int): Set<Node> =
-    runCatchingApi("Capability $capability abfragen") {
+    runCatchingApi("Query capability $capability") {
         getCapability(capability, filter).await().nodes.toSet()
     }.orEmpty()
 
@@ -63,7 +63,7 @@ suspend fun DataClient.putPayload(path: String, payload: ByteArray, urgent: Bool
         dataMap.putByteArray(WearDataKeys.PAYLOAD, payload)
     }.asPutDataRequest()
     if (urgent) request.setUrgent()
-    return runCatchingApi("$path schreiben") { putDataItem(request).await() } != null
+    return runCatchingApi("Write $path") { putDataItem(request).await() } != null
 }
 
 /**
@@ -76,12 +76,12 @@ suspend fun DataClient.putAssetPayload(path: String, payload: ByteArray, hash: S
         dataMap.putAsset(WearDataKeys.PAYLOAD, Asset.createFromBytes(payload))
         dataMap.putString(WearDataKeys.HASH, hash)
     }.asPutDataRequest().setUrgent()
-    return runCatchingApi("$path schreiben") { putDataItem(request).await() } != null
+    return runCatchingApi("Write $path") { putDataItem(request).await() } != null
 }
 
 /** [WearDataKeys.HASH] of the DataItems under [path]: `nodeId → hash`. */
 suspend fun DataClient.hashesAt(path: String): Map<String, String> =
-    runCatchingApi("$path lesen") {
+    runCatchingApi("Read $path") {
         val buffer = getDataItems(allNodesUri(path)).await()
         try {
             buffer.mapNotNull { item ->
@@ -99,7 +99,7 @@ suspend fun DataClient.hashesAt(path: String): Map<String, String> =
  * different [WearProtocol.VERSION] are skipped.
  */
 suspend fun DataClient.assetPayloadsAt(path: String): Map<String, ByteArray> {
-    val assets = runCatchingApi("$path lesen") {
+    val assets = runCatchingApi("Read $path") {
         val buffer = getDataItems(allNodesUri(path)).await()
         try {
             buffer.mapNotNull { item ->
@@ -109,7 +109,7 @@ suspend fun DataClient.assetPayloadsAt(path: String): Map<String, ByteArray> {
                 when {
                     nodeId == null || asset == null -> null
                     dataMap.getInt(WearDataKeys.PROTOCOL) != WearProtocol.VERSION -> {
-                        Log.w(TAG, "$path von $nodeId: Protokoll ${dataMap.getInt(WearDataKeys.PROTOCOL)} wird nicht unterstützt")
+                        Log.w(TAG, "$path from $nodeId: protocol ${dataMap.getInt(WearDataKeys.PROTOCOL)} is not supported")
                         null
                     }
                     else -> nodeId to asset
@@ -120,7 +120,7 @@ suspend fun DataClient.assetPayloadsAt(path: String): Map<String, ByteArray> {
         }
     }.orEmpty()
     return assets.mapNotNull { (nodeId, asset) ->
-        runCatchingApi("Asset $path lesen") {
+        runCatchingApi("Read asset $path") {
             getFdForAsset(asset).await().inputStream.use { nodeId to it.readBytes() }
         }
     }.toMap()
@@ -135,11 +135,11 @@ fun DataItem.payloadOrNull(): ByteArray? {
 
 /** Deletes the DataItem under [uri] (e.g. an imported playback package). @return `false` on error. */
 suspend fun DataClient.delete(uri: Uri): Boolean =
-    runCatchingApi("$uri löschen") { deleteDataItems(uri).await() } != null
+    runCatchingApi("Delete $uri") { deleteDataItems(uri).await() } != null
 
 /** Sends a message; only delivered if [nodeId] is currently reachable. @return `false` on error. */
 suspend fun MessageClient.sendPayload(nodeId: String, path: String, payload: ByteArray): Boolean =
-    runCatchingApi("Message $path an $nodeId senden") { sendMessage(nodeId, path, payload).await() } != null
+    runCatchingApi("Send message $path to $nodeId") { sendMessage(nodeId, path, payload).await() } != null
 
 /**
  * Sends [payload] to [nodeId] and waits at most [timeoutMs] for the first message under [responsePath] whose content
@@ -158,7 +158,7 @@ suspend fun MessageClient.sendAndAwait(
     val listener = MessageClient.OnMessageReceivedListener { event ->
         if (event.path == responsePath && accept(event.data)) response.complete(event.data)
     }
-    runCatchingApi("Antwort $responsePath erwarten") { addListener(listener).await(); Unit } ?: return null
+    runCatchingApi("Await response $responsePath") { addListener(listener).await(); Unit } ?: return null
     try {
         if (!sendPayload(nodeId, path, payload)) return null
         return withTimeoutOrNull(timeoutMs) { response.await() }
@@ -169,7 +169,7 @@ suspend fun MessageClient.sendAndAwait(
 
 /** Payloads of the DataItems under [path] from all devices (including our own): `nodeId → payload`. */
 suspend fun DataClient.payloadsAt(path: String): Map<String, ByteArray> =
-    runCatchingApi("$path lesen") {
+    runCatchingApi("Read $path") {
         val buffer = getDataItems(allNodesUri(path)).await()
         try {
             buffer.mapNotNull { item ->
@@ -188,7 +188,7 @@ fun DataClient.changesAt(path: String): Flow<Unit> = callbackFlow {
     val listener = DataClient.OnDataChangedListener { events ->
         if (events.any { it.dataItem.uri.path == path }) trySend(Unit)
     }
-    val registered = runCatchingApi("$path beobachten") { addListener(listener).await(); Unit } != null
+    val registered = runCatchingApi("Observe $path") { addListener(listener).await(); Unit } != null
     send(Unit)
     awaitClose { if (registered) removeListener(listener) }
 }
@@ -198,11 +198,11 @@ private fun allNodesUri(path: String): Uri =
 
 /** All currently connected devices (regardless of whether our app runs there). */
 suspend fun NodeClient.connectedNodesOrEmpty(): List<Node> =
-    runCatchingApi("Verbundene Geräte abfragen") { connectedNodes.await() }.orEmpty()
+    runCatchingApi("Query connected devices") { connectedNodes.await() }.orEmpty()
 
 /** Deletes our own DataItem under [path] (DataItems belong to the device that wrote them). @return `false` on error. */
 suspend fun DataClient.deleteOwn(nodeClient: NodeClient, path: String): Boolean {
-    val localId = runCatchingApi("Eigenes Gerät abfragen") { nodeClient.localNode.await().id } ?: return false
+    val localId = runCatchingApi("Query own device") { nodeClient.localNode.await().id } ?: return false
     return delete(Uri.Builder().scheme(PutDataRequest.WEAR_URI_SCHEME).authority(localId).path(path).build())
 }
 
@@ -212,6 +212,6 @@ internal suspend fun <T> runCatchingApi(what: String, block: suspend () -> T): T
 } catch (e: CancellationException) {
     throw e
 } catch (e: ApiException) {
-    Log.w(TAG, "$what fehlgeschlagen (${e.statusCode})", e)
+    Log.w(TAG, "$what failed (${e.statusCode})", e)
     null
 }

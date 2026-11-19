@@ -63,9 +63,9 @@ class BookDownloader @Inject constructor(
         val book = dao.book(track.bookId) ?: return DownloadOutcome.Cancelled
         // Books from ARD Sounds: the file ID is the file's URL (`books_improvements.md` M9).
         val url = if (isArdSoundsBook(book.serverId)) {
-            track.remoteFileId.toHttpUrlOrNull() ?: return DownloadOutcome.Failed("Keine Adresse")
+            track.remoteFileId.toHttpUrlOrNull() ?: return DownloadOutcome.Failed("No address")
         } else {
-            val server = servers.server(book.serverId) ?: return DownloadOutcome.Failed("Server nicht eingerichtet")
+            val server = servers.server(book.serverId) ?: return DownloadOutcome.Failed("Server not set up")
             api.fileUrl(server, book.remoteId, track.remoteFileId)
         }
         val transfer = if (network == null) transfer else ResumableTransfer(clientFor(network), storage)
@@ -90,7 +90,7 @@ class BookDownloader @Inject constructor(
         if (!part.renameTo(target)) {
             // Removed shortly before the end: the partial file is already gone, no reason for a new attempt.
             if (!stillRunning(track)) return DownloadOutcome.Cancelled
-            throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
+            throw IOException("Renaming to ${target.name} failed")
         }
         val size = target.length()
         if (dao.markBookTrackDone(track.bookId, track.trackIndex, target.absolutePath, size) == 0) {
@@ -98,7 +98,7 @@ class BookDownloader @Inject constructor(
             target.delete()
             return DownloadOutcome.Cancelled
         }
-        Log.d(TAG, "Buch ${track.bookId} Datei ${track.trackIndex} geladen ($size Bytes)")
+        Log.d(TAG, "Book ${track.bookId} file ${track.trackIndex} downloaded ($size bytes)")
         return DownloadOutcome.Done
     }
 

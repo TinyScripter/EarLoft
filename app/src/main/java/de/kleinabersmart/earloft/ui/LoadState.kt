@@ -33,7 +33,7 @@ fun <T : Any> Flow<T?>.asLoadStateOrMissing(): Flow<LoadState<T>> = map { it.toL
 
 /** For combined states: an exception from the source yields [failed] instead of terminating the app. */
 fun <T> Flow<T>.orOnError(failed: T): Flow<T> = catch { e ->
-    Log.e(TAG, "Inhalt konnte nicht geladen werden", e)
+    Log.e(TAG, "Content could not be loaded", e)
     emit(failed)
 }
 

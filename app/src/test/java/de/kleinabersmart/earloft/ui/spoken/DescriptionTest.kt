@@ -16,41 +16,41 @@ class DescriptionTest {
 
     @Test
     fun `an image in front leaves no placeholder`() {
-        val raw = "<p><img src=\"https://example.org/cover.jpg\" alt=\"\"/><br/>Der Erfolg bekommt Risse.</p>"
-        assertEquals("Der Erfolg bekommt Risse.", formatDescription(raw).text)
+        val raw = "<p><img src=\"https://example.org/cover.jpg\" alt=\"\"/><br/>Success starts to crack.</p>"
+        assertEquals("Success starts to crack.", formatDescription(raw).text)
     }
 
     @Test
     fun `images in the middle are dropped, the text stays`() {
-        val raw = "<p>Vorher</p><IMG SRC='a.png'><p>Nachher &amp; mehr</p>"
+        val raw = "<p>Before</p><IMG SRC='a.png'><p>After &amp; more</p>"
         val text = formatDescription(raw).text
         assertEquals(false, '￼' in text)
-        assertEquals(true, text.startsWith("Vorher") && text.endsWith("Nachher & mehr"))
+        assertEquals(true, text.startsWith("Before") && text.endsWith("After & more"))
     }
 
     @Test
     fun `plain text keeps its line breaks`() {
-        assertEquals("Zeile 1\nZeile 2", formatDescription("  Zeile 1\nZeile 2 ").text)
+        assertEquals("Line 1\nLine 2", formatDescription("  Line 1\nLine 2 ").text)
     }
 
     @Test
     fun `bare addresses become links without trailing punctuation`() {
-        val text = formatDescription("Mehr unter https://example.org/folge-1. Oder (www.example.org/a_(b)), danke")
+        val text = formatDescription("More at https://example.org/episode-1. Or (www.example.org/a_(b)), thanks")
         assertEquals(
-            listOf("https://example.org/folge-1", "https://www.example.org/a_(b)"),
+            listOf("https://example.org/episode-1", "https://www.example.org/a_(b)"),
             text.urls(),
         )
     }
 
     @Test
     fun `bare addresses after html are linked, html links stay once`() {
-        val raw = "<p>Siehe <a href=\"https://a.example/x\">https://a.example/x</a> und https://b.example/y</p>"
+        val raw = "<p>See <a href=\"https://a.example/x\">https://a.example/x</a> and https://b.example/y</p>"
         assertEquals(listOf("https://a.example/x", "https://b.example/y"), formatDescription(raw).urls())
     }
 
     @Test
     fun `timestamps jump only with a listener and inside the episode`() {
-        val raw = "00:00 Intro\n12:34 Thema\n1:02:03 Schluss\n2:10:00 zu spät\nUm 17:00 Uhr live"
+        val raw = "00:00 Intro\n12:34 Topic\n1:02:03 Ending\n2:10:00 too late\nUm 17:00 Uhr live"
         assertEquals(emptyList<String>(), formatDescription(raw).tags())
         val jumps = mutableListOf<Long>()
         val text = formatDescription(raw, durationMs = 2 * 3_600_000L, onTimestamp = { jumps += it })
@@ -62,7 +62,7 @@ class DescriptionTest {
 
     @Test
     fun `numbers in addresses are no timestamps`() {
-        val text = formatDescription("http://example.org:8080/12:34 und 3:45", onTimestamp = {})
+        val text = formatDescription("http://example.org:8080/12:34 and 3:45", onTimestamp = {})
         assertEquals(listOf("t:225000"), text.tags())
         assertEquals(listOf("http://example.org:8080/12:34"), text.urls())
     }

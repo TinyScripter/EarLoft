@@ -48,10 +48,10 @@ class ShareLinksTest {
 
     @Test
     fun `the book search leaves out subtitles, notes and translators`() {
-        assertEquals("Kill Shot", ShareLinks.mainTitle("Kill Shot (Ein Harry-Hole-Krimi 14)"))
+        assertEquals("Kill Shot", ShareLinks.mainTitle("Kill Shot (A Harry Hole Thriller 14)"))
         assertEquals("Milchschaumschläger", ShareLinks.mainTitle("Milchschaumschläger: Ein Café-Hörbuch"))
         assertEquals("Carl’s Doomsday Scenario", ShareLinks.mainTitle("Carl’s Doomsday Scenario (Unabridged) [Book 2]"))
-        assertEquals("(Nur Klammer)", ShareLinks.mainTitle("(Nur Klammer)"))
+        assertEquals("(Only brackets)", ShareLinks.mainTitle("(Only brackets)"))
         assertEquals("Jo Nesbø", ShareLinks.mainAuthor("Günther Frauenlob — Translator, Jo Nesbø"))
         assertEquals("Matt Dinniman", ShareLinks.mainAuthor("Matt Dinniman, Ruggero Leò - translator"))
         assertEquals(null, ShareLinks.mainAuthor("Anna Übersetzerin (Übersetzerin)"))
@@ -75,9 +75,9 @@ class ShareLinksTest {
     fun `own pages and hosters stay`() {
         listOf(
             "https://www.ardsounds.de/sendung/x/urn:ard:show:1/",
-            "https://example.podigee.io/1-folge",
+            "https://example.podigee.io/1-episode",
             "https://spotifyfans.example.org/",
-            "http://example.com/folge",
+            "http://example.com/episode",
         ).forEach { assertEquals(it, ShareLinks.publicPage(it)) }
         assertEquals(null, ShareLinks.publicPage("local:abc"))
         assertEquals(null, ShareLinks.publicPage("  "))

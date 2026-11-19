@@ -236,7 +236,7 @@ class AppNewContentNotifier @Inject constructor(
         throw e
     } catch (e: Exception) {
         // Without a cover the notification is still correct.
-        Log.w(TAG, "Cover für die Benachrichtigung nicht ladbar", e)
+        Log.w(TAG, "Cover for the notification could not be loaded", e)
         null
     }
 

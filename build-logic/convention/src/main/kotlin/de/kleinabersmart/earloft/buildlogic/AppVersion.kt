@@ -30,11 +30,11 @@ data class AppVersion(
 
     init {
         listOf("VERSION_MAJOR" to major, "VERSION_MINOR" to minor, "VERSION_PATCH" to patch).forEach { (key, value) ->
-            require(value in 0..99) { "$key muss zwischen 0 und 99 liegen, ist $value" }
+            require(value in 0..99) { "$key must be between 0 and 99, is $value" }
         }
         if (type != Type.RELEASE) {
             require(buildNum in 1..type.maxBuildNum) {
-                "VERSION_BUILD_NUM muss für ${type.name.lowercase()} zwischen 1 und ${type.maxBuildNum} liegen, ist $buildNum"
+                "VERSION_BUILD_NUM must be between 1 and ${type.maxBuildNum} for ${type.name.lowercase()}, is $buildNum"
             }
         }
     }
@@ -58,15 +58,15 @@ data class AppVersion(
     companion object {
         fun parse(property: (String) -> String?): AppVersion {
             fun int(key: String): Int {
-                val raw = property(key)?.trim() ?: error("$key fehlt in gradle.properties")
-                return raw.toIntOrNull() ?: error("$key ist keine Zahl: '$raw'")
+                val raw = property(key)?.trim() ?: error("$key is missing in gradle.properties")
+                return raw.toIntOrNull() ?: error("$key is not a number: '$raw'")
             }
             val typeRaw = property("VERSION_TYPE")?.trim().orEmpty()
             val type = when (typeRaw.lowercase()) {
                 "beta" -> Type.BETA
                 "rc" -> Type.RC
                 "", "release" -> Type.RELEASE
-                else -> error("VERSION_TYPE '$typeRaw' unbekannt, erlaubt: beta, rc, release")
+                else -> error("VERSION_TYPE '$typeRaw' unknown, allowed: beta, rc, release")
             }
             return AppVersion(
                 major = int("VERSION_MAJOR"),

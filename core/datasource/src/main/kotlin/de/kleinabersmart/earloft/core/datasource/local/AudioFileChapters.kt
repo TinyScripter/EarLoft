@@ -30,7 +30,7 @@ class AudioFileChapters @Inject constructor(@param:ApplicationContext context: C
     private fun marks(file: File): List<Mp4ChapterMark> = try {
         RandomAccessFile(file, "r").use { Mp4Chapters.read(ChannelSource(it.channel)) }
     } catch (e: IOException) {
-        Log.w(TAG, "Kapitel von ${file.name} nicht lesbar", e)
+        Log.w(TAG, "Chapters of ${file.name} unreadable", e)
         emptyList()
     }
 

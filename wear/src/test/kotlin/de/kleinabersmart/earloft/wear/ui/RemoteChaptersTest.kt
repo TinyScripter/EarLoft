@@ -14,14 +14,14 @@ class RemoteChaptersTest {
     private val book = WearRemoteStateDto(hasMedia = true, kind = WearRemoteMediaKind.BOOK, bookId = 7)
     private val chapters = WearRemoteChaptersDto(
         bookId = 7,
-        chapters = listOf(WearChapterDto("Eins", 0, 30_000), WearChapterDto("Zwei", 30_000, 90_000, unavailable = true)),
+        chapters = listOf(WearChapterDto("One", 0, 30_000), WearChapterDto("Two", 30_000, 90_000, unavailable = true)),
     )
 
     @Test
     fun `chapters of the playing book are shown`() {
         val shown = chaptersOf(book, chapters)
 
-        assertEquals(listOf("Eins", "Zwei"), shown.map { it.title })
+        assertEquals(listOf("One", "Two"), shown.map { it.title })
         assertEquals(listOf(0, 1), shown.map { it.index })
         assertEquals(listOf(false, true), shown.map { it.unavailable })
     }
@@ -39,9 +39,9 @@ class RemoteChaptersTest {
     fun `the current chapter follows the position`() {
         val shown = chaptersOf(book, chapters)
 
-        assertEquals("Eins", chapterAt(shown, 0)?.title)
-        assertEquals("Eins", chapterAt(shown, 29_999)?.title)
-        assertEquals("Zwei", chapterAt(shown, 30_000)?.title)
+        assertEquals("One", chapterAt(shown, 0)?.title)
+        assertEquals("One", chapterAt(shown, 29_999)?.title)
+        assertEquals("Two", chapterAt(shown, 30_000)?.title)
         assertNull(chapterAt(emptyList(), 10_000))
     }
 }

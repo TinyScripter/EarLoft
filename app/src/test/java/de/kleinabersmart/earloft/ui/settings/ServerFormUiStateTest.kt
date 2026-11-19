@@ -19,14 +19,14 @@ class ServerFormUiStateTest {
         val editing = filled.copy(isEditing = true, hasStoredPassword = true)
         assertTrue(editing.keepsStoredPassword)
         assertTrue(editing.canSubmit)
-        assertFalse(editing.copy(password = "neu").keepsStoredPassword)
+        assertFalse(editing.copy(password = "new").keepsStoredPassword)
     }
 
     @Test
     fun `editing with an unreadable password needs a new one`() {
         val editing = filled.copy(isEditing = true, hasStoredPassword = false)
         assertFalse(editing.canSubmit)
-        assertTrue(editing.copy(password = "neu").canSubmit)
+        assertTrue(editing.copy(password = "new").canSubmit)
     }
 
     @Test

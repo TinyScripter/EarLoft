@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.player
 
+import de.kleinabersmart.earloft.ui.formatBytes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -115,7 +116,7 @@ private fun sourceTitle(source: SongSourceInfo): String = when {
     else -> source.sourceName
 }
 
-/** "FLAC · 1 012 kbit/s · 34,2 MB · ReplayGain −6,3 dB (Album −7,1 dB)"; whatever is missing is omitted. */
+/** "FLAC · 1012 kbit/s · 34.2 MB · ReplayGain −6.3 dB (album −7.1 dB)", numbers in the style of the locale; whatever is missing is omitted. */
 @Composable
 private fun sourceDetails(source: SongSourceInfo): String {
     val locale = LocalConfiguration.current.locales[0]
@@ -126,7 +127,7 @@ private fun sourceDetails(source: SongSourceInfo): String {
     return listOfNotNull(
         formatLabel(source.mimeType),
         source.bitRate?.takeIf { it > 0 }?.let { stringResource(R.string.track_info_kbps, it / 1000) },
-        source.sizeBytes?.takeIf { it > 0 }?.let { "%.1f MB".format(locale, it / 1_000_000.0) },
+        source.sizeBytes?.takeIf { it > 0 }?.let { formatBytes(it, locale) },
         gain,
     ).joinToString(" · ").ifEmpty { "–" }
 }

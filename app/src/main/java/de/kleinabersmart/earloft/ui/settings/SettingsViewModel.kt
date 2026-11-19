@@ -573,7 +573,7 @@ class SettingsViewModel @Inject constructor(
                     try {
                         val backup = withContext(Dispatchers.IO) {
                             context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } }
-                                ?: throw IOException("Datei nicht lesbar")
+                                ?: throw IOException("File not readable")
                             DatabaseReader.read(file)
                         }
                         databaseImporter.import(backup)
@@ -585,7 +585,7 @@ class SettingsViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
-                Log.w(TAG, "Backup-Import fehlgeschlagen", e)
+                Log.w(TAG, "Backup import failed", e)
                 _transferMessages.send(TransferMessage.DatabaseImportFailed)
             } finally {
                 backupRunning = false
@@ -625,13 +625,13 @@ class SettingsViewModel @Inject constructor(
                 val text = podcastRepository.exportOpml(title, created, podcastSettings.rssBridge.first().ifBlank { null })
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
-                        ?: throw IOException("Datei nicht beschreibbar")
+                        ?: throw IOException("File not writable")
                 }
                 TransferMessage.Exported
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
-                Log.w(TAG, "OPML-Export fehlgeschlagen", e)
+                Log.w(TAG, "OPML export failed", e)
                 TransferMessage.ExportFailed
             }
             _transferMessages.send(message)

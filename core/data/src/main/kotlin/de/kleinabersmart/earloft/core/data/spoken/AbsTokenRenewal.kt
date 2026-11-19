@@ -97,21 +97,21 @@ class AbsTokenRenewal @Inject constructor(
             withContext(Dispatchers.IO) { authApi.refreshBlocking(server.baseUrl, refreshToken) }
         } catch (e: AbsException) {
             if (e.code == 401) {
-                Log.w(TAG, "Anmeldung bei ${server.baseUrl} abgelaufen", e)
+                Log.w(TAG, "Login at ${server.baseUrl} expired", e)
                 expire(server.serverId)
             } else {
-                Log.w(TAG, "Erneuern bei ${server.baseUrl} fehlgeschlagen", e)
+                Log.w(TAG, "Renewal at ${server.baseUrl} failed", e)
             }
             return null
         } catch (e: IOException) {
-            Log.w(TAG, "Erneuern bei ${server.baseUrl} nicht möglich", e)
+            Log.w(TAG, "Renewal at ${server.baseUrl} not possible", e)
             return null
         }
         secretStore.put(AbsSecrets.token(server.serverId), tokens.accessToken)
         tokens.refreshToken?.let { secretStore.put(AbsSecrets.refresh(server.serverId), it) }
         retired[server.serverId] = (listOf(server.token) + retired[server.serverId].orEmpty()).take(RETIRED_KEPT)
         registry.register(server.copy(token = tokens.accessToken))
-        Log.d(TAG, "Access-Token für ${server.baseUrl} erneuert")
+        Log.d(TAG, "Access token for ${server.baseUrl} renewed")
         return tokens.accessToken
     }
 

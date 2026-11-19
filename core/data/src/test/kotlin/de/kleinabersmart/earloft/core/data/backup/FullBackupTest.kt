@@ -98,7 +98,7 @@ class FullBackupTest {
             jellyfinRegistry = JellyfinServerRegistry(),
             librarySettings = LibrarySettings(context),
         )
-        private val notice = RestoreNotice(context, { registry }, { error("nicht gebraucht") })
+        private val notice = RestoreNotice(context, { registry }, { error("not needed") })
         val userData = UserDataBackup(
             context = context,
             database = main,
@@ -110,7 +110,7 @@ class FullBackupTest {
             music = MusicBackup(main.backupDao(), main.playlistDao(), main.syncDao()),
             restoreNotice = notice,
             registry = { registry },
-            ardBooks = { error("nicht gebraucht") },
+            ardBooks = { error("not needed") },
             scope = scope,
         ).also { it.start() }
         val backup = FullBackup(
@@ -146,7 +146,7 @@ class FullBackupTest {
         bookDao().upsertServer(SpokenServerEntity(serverId, "ABS", "https://abs.example", libraryId = libraryId))
 
     private suspend fun EarLoftDatabase.addFeed(feedId: String = "feed-1") =
-        podcastDao().upsertFeed(PodcastFeedEntity(feedId, "https://example.org/feed", "Logbuch", notifyNew = false))
+        podcastDao().upsertFeed(PodcastFeedEntity(feedId, "https://example.org/feed", "Logbook", notifyNew = false))
 
     private suspend fun EarLoftDatabase.addEpisode(feedId: String, guid: String): Long = bookDao().upsertBook(
         BookEntity(serverId = feedId, kind = BookKind.EPISODE, remoteId = guid, title = guid, normTitle = guid, author = "", durationMs = 1_000_000),
@@ -177,7 +177,7 @@ class FullBackupTest {
         old.main.statsDao().addListening(
             ListeningStatEntity(
                 source = ListeningStatEntity.SOURCE_APP, kind = BookKind.EPISODE, groupKey = "https://example.org/feed",
-                groupTitle = "Logbuch", itemKey = "guid-1", itemTitle = "Folge 1", listenedMs = 60_000, lastListenedAt = 1_000,
+                groupTitle = "Logbook", itemKey = "guid-1", itemTitle = "Episode 1", listenedMs = 60_000, lastListenedAt = 1_000,
             ),
             day = 20_000,
         )
@@ -275,7 +275,7 @@ class FullBackupTest {
         val old = Device(backgroundScope)
         old.main.addAbs("abs", libraryId = "lib-books")
         val book = old.main.bookDao().upsertBook(
-            BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = "li_1", title = "Krimi", normTitle = "krimi", author = "", durationMs = 1_000_000),
+            BookEntity(serverId = "abs", kind = BookKind.BOOK, remoteId = "li_1", title = "Thriller", normTitle = "thriller", author = "", durationMs = 1_000_000),
         )
         // Not yet reported: the app only backs up such progress (the server has the rest).
         old.main.bookDao().upsertProgress(BookProgressEntity(book, positionMs = 7_000, durationMs = 1_000_000, updatedAt = 10, dirty = true))
@@ -285,7 +285,7 @@ class FullBackupTest {
         val new = Device(backgroundScope)
         new.main.addAbs("abs-here", libraryId = "lib-plays")
         val here = new.main.bookDao().upsertBook(
-            BookEntity(serverId = "abs-here", kind = BookKind.BOOK, remoteId = "li_1", title = "Krimi", normTitle = "krimi", author = "", durationMs = 1_000_000),
+            BookEntity(serverId = "abs-here", kind = BookKind.BOOK, remoteId = "li_1", title = "Thriller", normTitle = "thriller", author = "", durationMs = 1_000_000),
         )
         val result = new.backup.import(ByteArrayInputStream(file))
 
@@ -351,8 +351,8 @@ class FullBackupTest {
     fun `files that are no backup or come from a newer version are refused`() = runTest {
         val device = Device(backgroundScope)
         try {
-            device.backup.import(ByteArrayInputStream("kein zip".toByteArray()))
-            fail("keine Sicherung angenommen")
+            device.backup.import(ByteArrayInputStream("no zip".toByteArray()))
+            fail("non-backup accepted")
         } catch (e: FullBackupException) {
             assertFalse(e.newerVersion)
         }
@@ -366,7 +366,7 @@ class FullBackupTest {
         }
         try {
             device.backup.import(ByteArrayInputStream(newer.toByteArray()))
-            fail("neuere Sicherung angenommen")
+            fail("newer backup accepted")
         } catch (e: FullBackupException) {
             assertTrue(e.newerVersion)
         }
@@ -399,7 +399,7 @@ class FullBackupTest {
         val new = Device(backgroundScope)
         try {
             new.backup.import(ByteArrayInputStream(changed.toByteArray()))
-            fail("unbekannter Wert angenommen")
+            fail("unknown value accepted")
         } catch (e: FullBackupException) {
             assertTrue(e.newerVersion)
         }
@@ -441,14 +441,14 @@ class FullBackupTest {
         val seen = stringSetPreferencesKey("ard_seen")
         val gone = stringSetPreferencesKey("ard_gone")
         store.edit {
-            it[shows] = setOf("show:a\tKrimi", "show:b\tHörspiel alt")
+            it[shows] = setOf("show:a\tThriller", "show:b\tRadio play old")
             it[seen] = setOf("show:a\tbook:1")
             it[gone] = setOf("book:9\t100")
         }
         val saved = settings.read()
         store.edit {
             it.clear()
-            it[shows] = setOf("show:b\tHörspiel", "show:c\tDoku")
+            it[shows] = setOf("show:b\tRadio play", "show:c\tDocumentary")
             it[seen] = setOf("show:c\tbook:3")
             it[gone] = setOf("book:8\t200")
         }
@@ -456,7 +456,7 @@ class FullBackupTest {
         settings.write(saved)
 
         val now = store.data.first()
-        assertEquals(setOf("show:a\tKrimi", "show:b\tHörspiel", "show:c\tDoku"), now[shows])
+        assertEquals(setOf("show:a\tThriller", "show:b\tRadio play", "show:c\tDocumentary"), now[shows])
         assertEquals(setOf("show:a\tbook:1", "show:c\tbook:3"), now[seen])
         assertEquals(setOf("book:8\t200"), now[gone])
     }

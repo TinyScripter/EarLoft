@@ -91,10 +91,10 @@ class PhoneRemote @Inject constructor(
                 try {
                     WearCodec.decodeCompressed<WearRemoteChaptersDto>(bytes)
                 } catch (e: SerializationException) {
-                    Log.w(TAG, "Kapitel des Handys nicht lesbar", e)
+                    Log.w(TAG, "Chapters from the phone not readable", e)
                     null
                 } catch (e: java.io.IOException) {
-                    Log.w(TAG, "Kapitel des Handys nicht lesbar", e)
+                    Log.w(TAG, "Chapters from the phone not readable", e)
                     null
                 }
             }
@@ -112,10 +112,10 @@ class PhoneRemote @Inject constructor(
                 try {
                     WearCodec.decodeCompressed<WearRemoteLibraryDto>(bytes)
                 } catch (e: SerializationException) {
-                    Log.w(TAG, "Bibliotheksindex nicht lesbar", e)
+                    Log.w(TAG, "Library index not readable", e)
                     null
                 } catch (e: java.io.IOException) {
-                    Log.w(TAG, "Bibliotheksindex nicht lesbar", e)
+                    Log.w(TAG, "Library index not readable", e)
                     null
                 }
             }
@@ -152,7 +152,7 @@ class PhoneRemote @Inject constructor(
             responsePath = WearPaths.REMOTE_TRACKS_RESULT,
             timeoutMs = TRACKS_TIMEOUT_MS,
         ) { decodeTracks(it)?.requestId == requestId } ?: run {
-            Log.w(TAG, "Keine Titelliste von $kind/$refId")
+            Log.w(TAG, "No track list from $kind/$refId")
             return null
         }
         return decodeTracks(answer)
@@ -172,7 +172,7 @@ class PhoneRemote @Inject constructor(
             responsePath = WearPaths.REMOTE_EPISODES_RESULT,
             timeoutMs = TRACKS_TIMEOUT_MS,
         ) { decodeEpisodes(it)?.requestId == requestId } ?: run {
-            Log.w(TAG, "Keine Folgen von $feedId")
+            Log.w(TAG, "No episodes from $feedId")
             return null
         }
         return decodeEpisodes(answer)
@@ -181,20 +181,20 @@ class PhoneRemote @Inject constructor(
     private fun decodeEpisodes(bytes: ByteArray): WearRemoteEpisodesResult? = try {
         WearCodec.decodeCompressed<WearRemoteEpisodesResult>(bytes)
     } catch (e: SerializationException) {
-        Log.w(TAG, "Folgenliste nicht lesbar", e)
+        Log.w(TAG, "Episode list not readable", e)
         null
     } catch (e: java.io.IOException) {
-        Log.w(TAG, "Folgenliste nicht lesbar", e)
+        Log.w(TAG, "Episode list not readable", e)
         null
     }
 
     private fun decodeTracks(bytes: ByteArray): WearRemoteTracksResult? = try {
         WearCodec.decodeCompressed<WearRemoteTracksResult>(bytes)
     } catch (e: SerializationException) {
-        Log.w(TAG, "Titelliste nicht lesbar", e)
+        Log.w(TAG, "Track list not readable", e)
         null
     } catch (e: java.io.IOException) {
-        Log.w(TAG, "Titelliste nicht lesbar", e)
+        Log.w(TAG, "Track list not readable", e)
         null
     }
 
@@ -206,7 +206,7 @@ class PhoneRemote @Inject constructor(
     private fun decodeState(bytes: ByteArray): WearRemoteStateDto? = try {
         WearCodec.decode<WearRemoteStateDto>(bytes)
     } catch (e: SerializationException) {
-        Log.w(TAG, "Zustand des Handys nicht lesbar", e)
+        Log.w(TAG, "Phone state not readable", e)
         null
     }
 

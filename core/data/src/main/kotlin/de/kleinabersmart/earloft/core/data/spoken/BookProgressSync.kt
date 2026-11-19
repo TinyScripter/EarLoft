@@ -145,7 +145,7 @@ class BookProgressSync @Inject constructor(
             dao.markClean(bookId, progress.updatedAt)
             true
         } catch (e: IOException) {
-            Log.w(TAG, "Fortschritt von ${book.title} nicht gesendet", e)
+            Log.w(TAG, "Progress of ${book.title} not sent", e)
             BookProgressWorker.schedule(context)
             false
         }
@@ -178,7 +178,7 @@ class BookProgressSync @Inject constructor(
         val remote = try {
             withTimeoutOrNull(PULL_TIMEOUT_MS) { api.progress(server, book.remoteId) }
         } catch (e: IOException) {
-            Log.w(TAG, "Fortschritt von ${book.title} nicht abrufbar", e)
+            Log.w(TAG, "Progress of ${book.title} not available", e)
             null
         } ?: return PullResult(local, tookRemote = false, noticeable = false)
         val tookRemote = applyRemote(server.serverId, remote)

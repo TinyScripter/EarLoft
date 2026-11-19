@@ -2,12 +2,16 @@ package de.kleinabersmart.earloft.ui.spoken
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import de.kleinabersmart.earloft.core.model.Book
 import de.kleinabersmart.earloft.core.model.BookKind
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 
+/** Robolectric for the ICU date patterns (`android.icu`). */
+@RunWith(RobolectricTestRunner::class)
 class EpisodeDateTest {
 
     private fun millis(year: Int, month: Int, day: Int) =
@@ -26,14 +30,22 @@ class EpisodeDateTest {
     }
 
     @Test
-    fun `german months are abbreviated before the day`() {
+    fun `german puts the day before the month`() {
         val now = millis(2026, Calendar.NOVEMBER, 1)
-        assertEquals("Okt. 31", formatEpisodeDate(millis(2026, Calendar.OCTOBER, 31), now, Locale.GERMANY))
+        assertEquals("31. Okt.", formatEpisodeDate(millis(2026, Calendar.OCTOBER, 31), now, Locale.GERMANY))
+        assertEquals("31. Okt. 2025", formatEpisodeDate(millis(2025, Calendar.OCTOBER, 31), now, Locale.GERMANY))
+    }
+
+    @Test
+    fun `british and french order follow their locale`() {
+        val now = millis(2026, Calendar.NOVEMBER, 1)
+        assertEquals("31 Oct", formatEpisodeDate(millis(2026, Calendar.OCTOBER, 31), now, Locale.UK))
+        assertEquals("31 oct.", formatEpisodeDate(millis(2026, Calendar.OCTOBER, 31), now, Locale.FRANCE))
     }
 
     private val berlin = TimeZone.getTimeZone("Europe/Berlin")
 
-    private fun episode(id: Long, feed: String, at: Long, title: String = "Folge $id") =
+    private fun episode(id: Long, feed: String, at: Long, title: String = "Episode $id") =
         Book(id = id, serverId = feed, kind = BookKind.EPISODE, title = title, author = "", durationMs = 0, remoteId = "$id", addedAt = at)
 
     private fun berlinMillis(day: Int, hour: Int) =
@@ -67,8 +79,8 @@ class EpisodeDateTest {
     @Test
     fun `the summary joins the lines into one paragraph without a repeated title`() {
         assertEquals(
-            "Themen: Bahnstreik, Wetter Mehr unter tagesschau.de",
-            summaryOtherThan("tagesschau in 100 Sekunden\n\nThemen:  Bahnstreik,\tWetter\n Mehr unter tagesschau.de ", "Tagesschau in 100 Sekunden"),
+            "Topics: rail strike, weather More at tagesschau.de",
+            summaryOtherThan("tagesschau in 100 Sekunden\n\nTopics:  rail strike,\tweather\n More at tagesschau.de ", "Tagesschau in 100 Sekunden"),
         )
         assertEquals("", summaryOtherThan(" \n tagesschau in 100 Sekunden\n", "tagesschau in 100 Sekunden"))
     }

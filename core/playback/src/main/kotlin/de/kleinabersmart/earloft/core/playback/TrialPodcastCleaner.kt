@@ -67,7 +67,7 @@ class TrialPodcastCleaner @Inject constructor(
                         downloads.removeFeed(feedId)
                         podcasts.unsubscribe(feedId)
                     }
-                    Log.i(TAG, "Probeabos aufgeräumt: ${plan.episodes.size} Folgen, ${plan.feeds.size} Podcasts")
+                    Log.i(TAG, "Trial subscriptions cleaned up: ${plan.episodes.size} episodes, ${plan.feeds.size} podcasts")
                 }
         }
     }

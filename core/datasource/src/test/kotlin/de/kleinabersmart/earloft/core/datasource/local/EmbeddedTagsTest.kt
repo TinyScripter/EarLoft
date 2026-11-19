@@ -23,7 +23,7 @@ class EmbeddedTagsTest {
                     VorbisComment("musicbrainz_trackid", recording),
                     VorbisComment("MUSICBRAINZ_ALBUMID", release.uppercase()),
                     VorbisComment("MUSICBRAINZ_ARTISTID", artist),
-                    VorbisComment("LYRICS", "[00:01.00]Hallo"),
+                    VorbisComment("LYRICS", "[00:01.00]Hello"),
                 ),
             ),
         )
@@ -31,7 +31,7 @@ class EmbeddedTagsTest {
         assertEquals(recording, tags.recordingMbid)
         assertEquals(release, tags.releaseMbid)
         assertEquals(artist, tags.artistMbid)
-        assertEquals("[00:01.00]Hallo", tags.lyrics)
+        assertEquals("[00:01.00]Hello", tags.lyrics)
     }
 
     @Test
@@ -76,7 +76,7 @@ class EmbeddedTagsTest {
     @Test
     fun `uslt decodes encodings`() {
         val latin = byteArrayOf(0) + "deu".toByteArray() + 0 + "Grüße".toByteArray(Charsets.ISO_8859_1)
-        val utf8 = byteArrayOf(3) + "deu".toByteArray() + "beschr".toByteArray() + 0 + "Grüße".toByteArray()
+        val utf8 = byteArrayOf(3) + "deu".toByteArray() + "descr".toByteArray() + 0 + "Grüße".toByteArray()
         val utf16 = byteArrayOf(2) + "deu".toByteArray() + byteArrayOf(0, 0) + "Grüße".toByteArray(Charsets.UTF_16BE)
 
         assertEquals("Grüße", EmbeddedTags.decodeUslt(latin))

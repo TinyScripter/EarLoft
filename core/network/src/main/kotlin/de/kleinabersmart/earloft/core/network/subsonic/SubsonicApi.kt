@@ -57,7 +57,7 @@ class SubsonicApi @Inject constructor(
 
     suspend fun album(server: SubsonicServer, albumId: String): AlbumDto =
         get(server, "getAlbum") { addQueryParameter("id", albumId) }.album
-            ?: throw NotSubsonicException("getAlbum ohne album")
+            ?: throw NotSubsonicException("getAlbum without album")
 
     /** All favorited songs of the account. */
     /** Favorited songs, albums and artists. */
@@ -109,12 +109,12 @@ class SubsonicApi @Inject constructor(
 
     suspend fun playlist(server: SubsonicServer, playlistId: String): PlaylistDto =
         get(server, "getPlaylist") { addQueryParameter("id", playlistId) }.playlist
-            ?: throw NotSubsonicException("getPlaylist ohne playlist")
+            ?: throw NotSubsonicException("getPlaylist without playlist")
 
     /** @return the ID of the new playlist (Subsonic ≥ 1.14 returns the playlist). */
     suspend fun createPlaylist(server: SubsonicServer, name: String, songIds: List<String>): String =
         send(server, "createPlaylist", listOf("name" to name) + songIds.map { "songId" to it }).playlist?.id
-            ?: throw NotSubsonicException("createPlaylist ohne playlist")
+            ?: throw NotSubsonicException("createPlaylist without playlist")
 
     /** First removes the entries at [removeIndices] (relative to the previous state), then appends [addSongIds]. */
     suspend fun updatePlaylist(
@@ -216,10 +216,10 @@ class SubsonicApi @Inject constructor(
                 json.decodeFromString<SubsonicEnvelope>(body)
             } catch (e: SerializationException) {
                 if (!response.isSuccessful) throw HttpStatusException(response.code)
-                throw NotSubsonicException("Keine Subsonic-Antwort von $endpoint", e)
+                throw NotSubsonicException("No Subsonic response from $endpoint", e)
             } catch (e: IllegalArgumentException) {
                 if (!response.isSuccessful) throw HttpStatusException(response.code)
-                throw NotSubsonicException("Keine Subsonic-Antwort von $endpoint", e)
+                throw NotSubsonicException("No Subsonic response from $endpoint", e)
             }
             val result = envelope.response
             if (result.status != "ok") {

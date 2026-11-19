@@ -128,7 +128,7 @@ class Bookmarks @Inject constructor(
             dao.markBookmarkClean(bookmarkId, time, bookmark.updatedAt)
             true
         } catch (e: IOException) {
-            Log.w(TAG, "Lesezeichen in ${book.title} nicht gemeldet", e)
+            Log.w(TAG, "Bookmark in ${book.title} not reported", e)
             BookProgressWorker.schedule(context)
             false
         }

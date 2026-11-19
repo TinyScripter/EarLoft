@@ -61,7 +61,7 @@ class AutoBrowseTest {
                 null,
             ).apply { connect() }
         }
-        assertTrue("Keine Verbindung innerhalb von 10 s", connected.await(10, TimeUnit.SECONDS))
+        assertTrue("No connection within 10 s", connected.await(10, TimeUnit.SECONDS))
     }
 
     @After
@@ -115,8 +115,8 @@ class AutoBrowseTest {
             .associateWith { children(it)?.size }
         android.util.Log.i("AutoBrowseTest", "books=$sizes")
         val all = sizes.getValue("books:all")
-        assertNotNull("Alle Bücher nicht abrufbar", all)
-        if (sizes.getValue("books:authors") ?: 0 > 0) assertTrue("Autoren da, aber keine Bücher", all!! > 0)
+        assertNotNull("All books not retrievable", all)
+        if (sizes.getValue("books:authors") ?: 0 > 0) assertTrue("Authors present, but no books", all!! > 0)
     }
 
     /** Library → Genres lists the genres; each genre is a folder of albums (logcat `AutoBrowseTest`). */
@@ -124,11 +124,11 @@ class AutoBrowseTest {
     fun genreFolderListsAlbums() {
         assertEquals(listOf("albums", "artists", "genres"), children("library")!!.map { it.mediaId })
         val genres = children("genres")
-        assertNotNull("Genres nicht abrufbar", genres)
+        assertNotNull("Genres not retrievable", genres)
         android.util.Log.i("AutoBrowseTest", "genres=${genres!!.map { it.mediaId }}")
         val first = genres.firstOrNull() ?: return // No music with genre tags.
         val albums = children(first.mediaId!!)
-        assertTrue("Genre ${first.mediaId} ohne Alben", !albums.isNullOrEmpty())
+        assertTrue("Genre ${first.mediaId} without albums", !albums.isNullOrEmpty())
         assertTrue(albums!!.all { it.mediaId!!.startsWith("album:") })
     }
 
@@ -139,11 +139,11 @@ class AutoBrowseTest {
     @Test
     fun favoritesListAlbumAndArtistFoldersAboveTheSongs() {
         val favorites = children("favorites")
-        assertNotNull("Favoriten nicht abrufbar", favorites)
+        assertNotNull("Favorites not retrievable", favorites)
         android.util.Log.i("AutoBrowseTest", "favorites=${favorites!!.map { it.mediaId }}")
         val folders = favorites.takeWhile { it.isBrowsable }.map { it.mediaId }
-        assertTrue("Ordner $folders", folders == listOf("favorites:albums", "favorites:artists").filter { it in folders })
-        assertTrue("Ordner zwischen den Songs", favorites.drop(folders.size).none { it.isBrowsable })
+        assertTrue("Folders $folders", folders == listOf("favorites:albums", "favorites:artists").filter { it in folders })
+        assertTrue("Folders between the songs", favorites.drop(folders.size).none { it.isBrowsable })
         if ("favorites:albums" in folders) assertTrue(children("favorites:albums")!!.all { it.mediaId!!.startsWith("album:") })
         if ("favorites:artists" in folders) assertTrue(children("favorites:artists")!!.all { it.mediaId!!.startsWith("artist:") })
     }
@@ -156,7 +156,7 @@ class AutoBrowseTest {
         assertNotNull(home)
         android.util.Log.i("AutoBrowseTest", "home=${home!!.map { it.mediaId + "|" + group(it) }} continue=$continueEpisodes")
         if (continueEpisodes.isNotEmpty()) {
-            assertTrue("Zuletzt ist leer, obwohl Weiterhören ${continueEpisodes.size} Folgen hat", home.isNotEmpty())
+            assertTrue("Recent is empty although Continue listening has ${continueEpisodes.size} episodes", home.isNotEmpty())
         }
     }
 
@@ -259,7 +259,7 @@ class AutoBrowseTest {
             }
         }
         try {
-            assertTrue("Buch/Folge $bookId lief nicht an", playing.await(20, TimeUnit.SECONDS))
+            assertTrue("Book/episode $bookId did not start", playing.await(20, TimeUnit.SECONDS))
         } finally {
             instrumentation.runOnMainSync { controller?.transportControls?.pause() }
         }
@@ -289,7 +289,7 @@ class AutoBrowseTest {
         instrumentation.runOnMainSync { browser!!.subscribe(parentId, callback) }
         val loaded = result.poll(10, TimeUnit.SECONDS)
         instrumentation.runOnMainSync { browser!!.unsubscribe(parentId) }
-        assertNotNull("Keine Antwort für $parentId", loaded)
+        assertNotNull("No answer for $parentId", loaded)
         return loaded!!.getOrNull()
     }
 

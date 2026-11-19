@@ -208,11 +208,11 @@ fun PlaylistIcon(modifier: Modifier = Modifier) {
 private fun PlaylistNameDialogPreview() {
     EarLoftTheme {
         PlaylistNameDialog(
-            title = "Neue Playlist",
-            confirmLabel = "Anlegen",
+            title = "New playlist",
+            confirmLabel = "Create",
             onConfirm = { _, _ -> },
             onDismiss = {},
-            initialName = "Sommer",
+            initialName = "Summer",
             servers = listOf(ServerInfo("nd", "Navidrome", "https://music.example", "kal", 0)),
         )
     }

@@ -568,7 +568,7 @@ class PodcastRepository @Inject constructor(
             if (attempt is SourceFetch.Loaded || (attempt as SourceFetch.Failed).result is SubscribeResult.CredentialsNeeded) {
                 return attempt
             }
-            Log.i(TAG, "Kein HTTPS bei ${secure.host}, lade unverschlüsselt")
+            Log.i(TAG, "No HTTPS at ${secure.host}, loading unencrypted")
         }
         return fetchForSubscribe(url.toString(), url.host, auth) { api.fetch(url, auth = auth) }
     }
@@ -598,17 +598,17 @@ class PodcastRepository @Inject constructor(
     } catch (e: CancellationException) {
         throw e
     } catch (e: HttpStatusException) {
-        Log.w(TAG, "Feed nicht geladen: $source (HTTP ${e.status})")
+        Log.w(TAG, "Feed not loaded: $source (HTTP ${e.status})")
         if (e.status == 401) {
             SourceFetch.Failed(SubscribeResult.CredentialsNeeded(rejected = auth != null))
         } else {
             SourceFetch.Failed(SubscribeResult.Unreachable)
         }
     } catch (e: PodcastFeedException) {
-        Log.w(TAG, "Kein Feed: $source", e)
+        Log.w(TAG, "Not a feed: $source", e)
         SourceFetch.Failed(SubscribeResult.NotAFeed)
     } catch (e: IOException) {
-        Log.w(TAG, "Feed nicht erreichbar: $source", e)
+        Log.w(TAG, "Feed unreachable: $source", e)
         SourceFetch.Failed(SubscribeResult.Unreachable)
     }
 
@@ -817,7 +817,7 @@ class PodcastRepository @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
-            Log.w(TAG, "Abgleich von ${feed.title} fehlgeschlagen", e)
+            Log.w(TAG, "Sync of ${feed.title} failed", e)
             val moved = (e as? HttpStatusException)?.takeIf { it.status == 401 }?.movedTo
             deniedMoves.update { if (moved != null) it + (feedId to moved) else it - feedId }
             return RefreshOutcome.Failed(feedError(e))
@@ -932,11 +932,11 @@ class PodcastRepository @Inject constructor(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: HttpStatusException) {
-                    Log.w(TAG, "Kapitel von ${book.title} abgelehnt", e)
+                    Log.w(TAG, "Chapters of ${book.title} rejected", e)
                     // An overloaded server (5xx, 429) counts like no connection.
                     if (e.status >= 500 || e.status == 429) null else emptyList()
                 } catch (e: IOException) {
-                    Log.w(TAG, "Kapitel von ${book.title} nicht abrufbar", e)
+                    Log.w(TAG, "Chapters of ${book.title} not available", e)
                     null
                 }
             }
@@ -1032,7 +1032,7 @@ class PodcastRepository @Inject constructor(
         transcriptType = transcriptType,
     )
 
-    private fun String.toHttpUrlOrThrow() = normalizeFeedUrl(this) ?: throw IOException("Ungültige Feed-Adresse: $this")
+    private fun String.toHttpUrlOrThrow() = normalizeFeedUrl(this) ?: throw IOException("Invalid feed address: $this")
 
     private companion object {
         const val TAG = "PodcastRepository"

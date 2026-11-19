@@ -25,9 +25,9 @@ class DatabaseReaderTest {
                 "CREATE TABLE FeedMedia (id INTEGER PRIMARY KEY, duration INTEGER, position INTEGER, playback_completion_date INTEGER, " +
                     "feeditem INTEGER, played_duration INTEGER, last_played_time INTEGER)",
             )
-            db.execSQL("INSERT INTO Feeds VALUES (1, 'Original', 'Mein Titel', 'https://a.example/feed', 0), (2, 'Alt', NULL, 'https://b.example/feed', 2)")
+            db.execSQL("INSERT INTO Feeds VALUES (1, 'Original', 'My title', 'https://a.example/feed', 0), (2, 'Old', NULL, 'https://b.example/feed', 2)")
             db.execSQL(
-                "INSERT INTO FeedItems VALUES (1, 'Gehört', 1, 1, 1, 'g1'), (2, 'Angefangen', 0, 2, 1, 'g2'), (3, 'Unberührt', 0, 3, 1, 'g3'), (4, 'Archiv', 1, 4, 2, 'g4')",
+                "INSERT INTO FeedItems VALUES (1, 'Heard', 1, 1, 1, 'g1'), (2, 'Started', 0, 2, 1, 'g2'), (3, 'Untouched', 0, 3, 1, 'g3'), (4, 'Archive', 1, 4, 2, 'g4')",
             )
             db.execSQL(
                 "INSERT INTO FeedMedia VALUES (1, 600000, 0, 5000, 1, 590000, 4000), (2, 600000, 100000, 0, 2, 100000, 7000), " +
@@ -38,7 +38,7 @@ class DatabaseReaderTest {
         val backup = DatabaseReader.read(file)
 
         assertEquals(
-            listOf(ImportFeed("https://a.example/feed", "Mein Titel", true), ImportFeed("https://b.example/feed", "Alt", false)),
+            listOf(ImportFeed("https://a.example/feed", "My title", true), ImportFeed("https://b.example/feed", "Old", false)),
             backup.feeds,
         )
         assertEquals(listOf("g1", "g2", "g4"), backup.episodes.map { it.guid })
@@ -64,25 +64,25 @@ class DatabaseReaderTest {
                     "feeditem INTEGER, played_duration INTEGER, last_played_time INTEGER)",
             )
             db.execSQL(
-                "INSERT INTO Feeds VALUES (1, 'Eigen', NULL, 'https://a.example/feed', 0, 1.75, 0, 4, 20, 40), " +
-                    "(2, 'Vorgabe', NULL, 'https://b.example/feed', 0, -1.0, 1, 0, 0, 0), " +
-                    "(3, 'Leiser', NULL, 'https://c.example/feed', 0, -1.0, 2, 2, 0, 0)",
+                "INSERT INTO Feeds VALUES (1, 'Own', NULL, 'https://a.example/feed', 0, 1.75, 0, 4, 20, 40), " +
+                    "(2, 'Default', NULL, 'https://b.example/feed', 0, -1.0, 1, 0, 0, 0), " +
+                    "(3, 'Quieter', NULL, 'https://c.example/feed', 0, -1.0, 2, 2, 0, 0)",
             )
         }
 
         val feeds = DatabaseReader.read(file).feeds
 
-        assertEquals(ImportFeed("https://a.example/feed", "Eigen", true, 1.75f, false, 6, 20, 40), feeds[0])
+        assertEquals(ImportFeed("https://a.example/feed", "Own", true, 1.75f, false, 6, 20, 40), feeds[0])
         // Volume level 0 explicitly means "unchanged", not the section default.
-        assertEquals(ImportFeed("https://b.example/feed", "Vorgabe", true, volumeBoostDb = 0), feeds[1])
+        assertEquals(ImportFeed("https://b.example/feed", "Default", true, volumeBoostDb = 0), feeds[1])
         // The app has no quieter setting: default; silence from level 2 on.
-        assertEquals(ImportFeed("https://c.example/feed", "Leiser", true, skipSilence = true), feeds[2])
+        assertEquals(ImportFeed("https://c.example/feed", "Quieter", true, skipSilence = true), feeds[2])
     }
 
     @Test
     fun `other files are rejected`() {
-        val text = folder.newFile("kein.db").apply { writeText("das ist keine datenbank") }
-        val empty = folder.newFile("leer.db")
+        val text = folder.newFile("none.db").apply { writeText("this is not a database") }
+        val empty = folder.newFile("empty.db")
         SQLiteDatabase.openOrCreateDatabase(empty, null).use { it.execSQL("CREATE TABLE x (a INTEGER)") }
 
         assertThrows(DatabaseFileException::class.java) { DatabaseReader.read(text) }

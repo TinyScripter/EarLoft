@@ -44,17 +44,17 @@ class PhoneReturn @Inject constructor(
         val wanted = try {
             WearCodec.decode<WearPhoneWantedDto>(payload)
         } catch (e: SerializationException) {
-            Log.w(TAG, "Antwort des Handys nicht lesbar", e)
+            Log.w(TAG, "Phone response not readable", e)
             return
         }
         when (phoneBackAction(state.waitingForPhone, wanted.since, System.currentTimeMillis())) {
-            PhoneBackAction.IGNORE -> Log.d(TAG, "Handy meldet sich, die Uhr wartet aber nicht (mehr)")
+            PhoneBackAction.IGNORE -> Log.d(TAG, "Phone checked in, but the watch is not waiting (any more)")
             PhoneBackAction.NEVER_AWAY ->
                 // The DataItem arrived right away: the phone was reachable, the transfer failed for another reason. New
                 // runs would fail as well; it stays with the charger or the next sync.
-                Log.i(TAG, "Handy antwortet sofort, war also erreichbar; kein neuer Lauf")
+                Log.i(TAG, "Phone answered immediately, so it was reachable; no new run")
             PhoneBackAction.RESYNC -> {
-                Log.i(TAG, "Handy ist zurück, gleiche ab")
+                Log.i(TAG, "Phone is back, syncing")
                 PhoneSyncWorker.enqueue(context)
             }
         }

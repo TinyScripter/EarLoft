@@ -169,7 +169,7 @@ class WatchState @Inject constructor(@ApplicationContext context: Context) {
         return try {
             WearCodec.decode<WearSettingsDto>(json.encodeToByteArray())
         } catch (e: SerializationException) {
-            Log.w(TAG, "Gespeicherte Einstellungen nicht lesbar, nehme Standardwerte", e)
+            Log.w(TAG, "Stored settings not readable, using defaults", e)
             WearSettingsDto()
         }
     }

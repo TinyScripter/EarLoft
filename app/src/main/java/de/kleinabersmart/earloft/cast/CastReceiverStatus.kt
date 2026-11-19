@@ -39,10 +39,10 @@ internal object CastReceiverStatus {
         try {
             query(device)
         } catch (e: IOException) {
-            Log.w(TAG, "Status von ${device.friendlyName} nicht lesbar", e)
+            Log.w(TAG, "Status of ${device.friendlyName} not readable", e)
             null
         } catch (e: GeneralSecurityException) {
-            Log.w(TAG, "Status von ${device.friendlyName} nicht lesbar", e)
+            Log.w(TAG, "Status of ${device.friendlyName} not readable", e)
             null
         }
     }
@@ -61,7 +61,7 @@ internal object CastReceiverStatus {
             // Other messages (such as PING) can arrive in between.
             repeat(MAX_MESSAGES) {
                 val length = input.readInt()
-                if (length !in 0..MAX_MESSAGE_BYTES) throw IOException("Nachricht mit $length Byte")
+                if (length !in 0..MAX_MESSAGE_BYTES) throw IOException("Message with $length bytes")
                 val message = decodeCastMessage(ByteArray(length).also(input::readFully))
                 if (message.namespace != NAMESPACE_RECEIVER) return@repeat
                 receiverSessionIds(message.payload)?.let { ids ->
@@ -70,7 +70,7 @@ internal object CastReceiverStatus {
                     return ids
                 }
             }
-            throw IOException("Kein Status erhalten")
+            throw IOException("No status received")
         }
     }
 
@@ -95,7 +95,7 @@ internal object CastReceiverStatus {
 private class DeviceCertificate(private val deviceId: String) : X509TrustManager {
 
     override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {
-        val certificate = chain?.singleOrNull() ?: throw CertificateException("Erwartet genau ein Zertifikat")
+        val certificate = chain?.singleOrNull() ?: throw CertificateException("Expected exactly one certificate")
         certificate.checkValidity()
         certificate.verify(certificate.publicKey)
         val commonName = certificate.subjectX500Principal.name.split(',')
@@ -103,12 +103,12 @@ private class DeviceCertificate(private val deviceId: String) : X509TrustManager
             .firstOrNull { it.startsWith("CN=") }
             ?.removePrefix("CN=")
         if (commonName?.replace("-", "")?.equals(deviceId, ignoreCase = true) != true) {
-            throw CertificateException("Zertifikat für $commonName, erwartet $deviceId")
+            throw CertificateException("Certificate for $commonName, expected $deviceId")
         }
     }
 
     override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) =
-        throw CertificateException("Nur für Verbindungen zum Empfänger")
+        throw CertificateException("Only for connections to the receiver")
 
     override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
 }
@@ -150,7 +150,7 @@ internal fun decodeCastMessage(bytes: ByteArray): CastMessage {
         var result = 0L
         var shift = 0
         while (true) {
-            if (position >= bytes.size || shift > 63) throw IOException("Ungültige Nachricht")
+            if (position >= bytes.size || shift > 63) throw IOException("Invalid message")
             val byte = bytes[position++].toInt()
             result = result or ((byte and 0x7F).toLong() shl shift)
             if (byte and 0x80 == 0) return result
@@ -158,7 +158,7 @@ internal fun decodeCastMessage(bytes: ByteArray): CastMessage {
         }
     }
     fun skip(count: Long) {
-        if (count < 0 || position + count > bytes.size) throw IOException("Ungültige Nachricht")
+        if (count < 0 || position + count > bytes.size) throw IOException("Invalid message")
         position += count.toInt()
     }
     var namespace: String? = null
@@ -178,7 +178,7 @@ internal fun decodeCastMessage(bytes: ByteArray): CastMessage {
                 }
             }
             5 -> skip(4)
-            else -> throw IOException("Ungültige Nachricht")
+            else -> throw IOException("Invalid message")
         }
     }
     return CastMessage(namespace, payload)

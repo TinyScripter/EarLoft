@@ -142,7 +142,7 @@
     <!-- Chromecast -->
     <string name="cast_playing_on">Playing on %1$s</string>
     <string name="cast_volume">Volume</string>
-    <string name="cast_volume_percent">%1$d %%</string>
+    <string name="cast_volume_percent">%1$d%%</string>
     <string name="cast_load_failed">The Cast device could not load the tracks. Playback is back on this phone.</string>
     <plurals name="cast_nothing_castable">
         <item quantity="one">This track cannot be cast (format not supported, or the phone is not on Wi‑Fi).</item>
@@ -268,7 +268,7 @@
     <string name="about_issues_url" translatable="false">https://github.com/TinyScripter/EarLoft/issues</string>
     <string name="licenses_title">Licenses</string>
     <string name="privacy_title">Privacy policy</string>
-    <!-- Asset der Datenschutzerklärung je Sprache, aus PRIVACY*.md im Projektroot. -->
+    <!-- Privacy policy asset per language, from PRIVACY*.md in the project root. -->
     <string name="privacy_asset">PRIVACY.md</string>
     <string name="server_never_synced">Not synced yet</string>
     <string name="server_last_sync">Synced %1$s</string>
@@ -322,6 +322,8 @@
     <string name="edit_server_login_required">Not signed in. Please enter the password to sign in again.</string>
     <string name="add_server_unreachable">Server unreachable (%1$s).</string>
     <string name="add_server_server_error">The server reports error %1$d: %2$s</string>
+    <string name="sync_failed_library_changed">The library “%1$s” changed on the server during the sync. Nothing was removed; the next sync tries again.</string>
+    <string name="sync_failed_permission">Music on this device may not be read. Allow access in the app settings under “Permissions”.</string>
     <string name="edit_server_title">Edit server</string>
     <string name="edit_server_password_keep">Leave empty to keep the saved password.</string>
     <string name="edit_server_password_required">The saved password cannot be read. Please enter it again.</string>
@@ -525,7 +527,7 @@
         <item quantity="other">%1$s · %2$d tracks</item>
     </plurals>
 
-    <!-- Gesprochenes: Bücher & Podcasts (Konzept 12) -->
+    <!-- Spoken: books & podcasts (concept 12) -->
     <string name="spoken_mode_music">Music</string>
     <string name="spoken_mode_podcasts">Podcasts</string>
     <string name="spoken_mode_books">Books</string>
@@ -590,7 +592,7 @@
     <string name="spoken_bookmark_undo">Undo</string>
     <string name="spoken_share_from">Share from %1$s</string>
     <string name="spoken_share_position">from %1$s</string>
-    <string name="spoken_percent_listened">%1$d %% listened</string>
+    <string name="spoken_percent_listened">%1$d%% listened</string>
     <string name="spoken_finished">Finished</string>
     <string name="spoken_previous_chapter">Previous chapter</string>
     <string name="spoken_next_chapter">Next chapter</string>
@@ -730,7 +732,7 @@
     <string name="podcast_directory_failed">No answer from %1$s.</string>
     <string name="podcast_directory_subscribed">Subscribed</string>
     <string name="podcast_source_title">Subscribe via</string>
-    <!-- Fehlerstatus eines Abos (Konzept 12.10): seit wann der Abgleich scheitert, und warum -->
+    <!-- Error state of a subscription (concept 12.10): since when refreshing fails, and why -->
     <string name="podcast_refresh_failing">Updating has failed since %1$s: %2$s</string>
     <string name="feed_error_gone">the feed is gone (404)</string>
     <string name="feed_error_denied">access denied</string>
@@ -789,7 +791,7 @@
     <string name="book_download_retry">Retry</string>
     <string name="book_download_delete">Delete</string>
     <string name="book_download_waiting">Waiting…</string>
-    <string name="episode_download_progress">%1$d %% downloaded</string>
+    <string name="episode_download_progress">%1$d%% downloaded</string>
     <string name="book_download_progress">%1$s of %2$s downloaded</string>
     <string name="book_download_progress_unknown">%1$s downloaded</string>
     <string name="book_download_delete_title">Delete download?</string>
@@ -1040,7 +1042,7 @@
     <string name="settings_chapter_restart_summary">If you stopped within 30 seconds of a chapter\'s start, it begins again from its start.</string>
     <string name="settings_sleep_shake">Shake to extend sleep timer</string>
     <string name="settings_sleep_shake_summary">In the last minute and up to two minutes after it paused. Applies to books and podcasts.</string>
-    <!-- Benachrichtigungen über Neues: Titel bei mehreren Alben, Podcasts bzw. Büchern, zugleich Namen der Kanäle -->
+    <!-- New-content notifications: titles for several albums, podcasts or books, also the channel names -->
     <string name="new_content_music_title">New music</string>
     <string name="new_content_episodes_title">New episodes</string>
     <string name="new_content_books_title">New books</string>
@@ -1060,13 +1062,13 @@
         <item quantity="one">%1$d new book</item>
         <item quantity="other">%1$d new books</item>
     </plurals>
-    <!-- Feed-Umzug (Konzept 12.10): Abos, die an eine neue Adresse umgezogen sind -->
+    <!-- Feed move (concept 12.10): subscriptions that moved to a new address -->
     <plurals name="new_content_feeds_moved_title">
         <item quantity="one">Podcast moved to a new address</item>
         <item quantity="other">%1$d podcasts moved to new addresses</item>
     </plurals>
     <string name="new_content_feeds_moved">New address taken over: %1$s</string>
-    <!-- Aktionen der Benachrichtigung bei genau einer neuen Folge -->
+    <!-- Notification actions for exactly one new episode -->
     <string name="new_content_play">Play</string>
     <string name="new_content_play_next">Play next</string>
     <string name="new_content_download">Download</string>
@@ -1146,7 +1148,7 @@
         <item quantity="one">%1$d new song</item>
         <item quantity="other">%1$d new songs</item>
     </plurals>
-    <!-- Bereiche Musik / Podcasts / Bücher ein- und ausschalten (Allgemein → Bereiche) -->
+    <!-- Switching the areas music / podcasts / books on and off (General → Areas) -->
     <string name="settings_section_areas">Sections</string>
     <string name="settings_areas_hint">Turned-off sections disappear from Start, Library, search, settings and the watch. Nothing is deleted. One section always stays on.</string>
     <string name="area_hide_music">Hide music</string>
@@ -1157,7 +1159,7 @@
     <string name="settings_area_podcasts_summary">RSS feeds, podcasts on this device</string>
     <string name="settings_area_books_summary">Audiobookshelf, books on this device</string>
 
-    <!-- Einrichtungsassistent (Konzept 15) -->
+    <!-- Setup wizard (concept 15) -->
     <string name="setup_step">Step %1$d of %2$d</string>
     <string name="setup_skip">Skip</string>
     <string name="setup_next">Next</string>
@@ -1211,7 +1213,7 @@
         <item quantity="other">%d playlists</item>
     </plurals>
     <string name="setup_backup_summary">Already have an EarLoft backup? Servers, subscriptions, progress and settings are back right away; you enter passwords again afterwards.</string>
-    <!-- Hörbücher und Hörspiele aus ARD Sounds (books_improvements M9) -->
+    <!-- Audiobooks and radio plays from ARD Sounds (books_improvements M9) -->
     <string name="settings_ard_sounds_books_summary">Audiobooks and radio plays of the German public broadcasters: browse, play, download. Uses an unofficial interface that may stop working; search terms and the books in your library are sent to the ARD.</string>
     <string name="ard_books_open">Audiobooks from ARD Sounds</string>
     <string name="ard_books_search_label">Search titles in ARD Sounds</string>
@@ -1250,7 +1252,7 @@
         <item quantity="one">%d title</item>
         <item quantity="other">%d titles</item>
     </plurals>
-    <!-- Hochladen eines Buchs aus ARD Sounds zu Audiobookshelf (books_improvements M9) -->
+    <!-- Uploading a book from ARD Sounds to Audiobookshelf (books_improvements M9) -->
     <string name="ard_upload_open">Upload to Audiobookshelf</string>
     <string name="ard_upload_title">Upload to Audiobookshelf</string>
     <string name="ard_upload_message">“%1$s” will be uploaded with cover, description and narrator. It then replaces this book from ARD Sounds: progress, bookmarks and speed move with it, the downloaded files here are deleted.</string>

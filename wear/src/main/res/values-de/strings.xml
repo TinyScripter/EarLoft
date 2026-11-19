@@ -18,7 +18,7 @@
     <string name="start_section_phone">Smartphone</string>
     <string name="start_current_playback">Aktuelle Wiedergabe</string>
 
-    <!-- Listen -->
+    <!-- Lists -->
     <string name="list_music">Musik</string>
     <string name="list_podcasts">Podcasts</string>
     <string name="list_books">Bücher</string>
@@ -36,7 +36,7 @@
     <string name="list_books_empty_watch">Keine Bücher auf der Uhr</string>
     <string name="list_load_failed">Konnte nicht geladen werden</string>
 
-    <!-- Fernsteuerung des Telefons -->
+    <!-- Phone remote control -->
     <string name="remote_unreachable">Telefon nicht erreichbar</string>
     <string name="remote_missing">Nicht mehr auf dem Telefon</string>
     <string name="remote_no_library">Öffne EarLoft einmal am Telefon</string>
@@ -51,7 +51,7 @@
     <string name="list_started">Angefangen</string>
     <string name="list_started_by">Angefangen · %1$s</string>
 
-    <!-- Wiedergabe -->
+    <!-- Playback -->
     <string name="player_nothing">Keine Wiedergabe</string>
     <string name="player_no_output">Kopfhörer verbinden</string>
     <string name="player_previous">Zurück</string>
@@ -79,7 +79,7 @@
     <string name="player_chapters">Kapitel</string>
     <string name="player_chapter_gone">Nicht mehr abrufbar</string>
 
-    <!-- Einschlaf-Timer -->
+    <!-- Sleep timer -->
     <string name="sleep_timer_title">Einschlaf-Timer</string>
     <string name="sleep_timer_badge">%d Min.</string>
     <plurals name="sleep_timer_minutes">
@@ -104,12 +104,12 @@
     <string name="download_error_phone_no_copy">Telefon hat keine Kopie</string>
     <string name="download_error_phone_unreachable">Telefon nicht erreichbar</string>
 
-    <!-- Speicher & Downloads -->
+    <!-- Storage & downloads -->
     <string name="storage_title">Speicher &amp; Downloads</string>
     <string name="storage_used">Belegt: %s</string>
     <string name="storage_free">Frei: %s</string>
     <string name="storage_limit">Grenze: %s</string>
-    <string name="storage_loading">Lädt …</string>
+    <string name="storage_loading_percent">Lädt … %1$d %%</string>
     <string name="storage_idle">Alles geladen</string>
     <string name="storage_waiting_charger">Wartet auf das Ladegerät</string>
     <string name="storage_waiting_wifi">Wartet auf WLAN – bitte WLAN der Uhr einschalten</string>
@@ -143,7 +143,7 @@
     <string name="storage_removing">Wird entfernt …</string>
     <string name="storage_entry_loading">%1$s, lädt noch</string>
 
-    <!-- Einrichtung -->
+    <!-- Setup -->
     <string name="setup_no_phone_title">Telefon nicht verbunden</string>
     <string name="setup_no_phone_text">Zum Einrichten braucht die Uhr das gekoppelte Telefon in der Nähe.</string>
     <string name="setup_app_missing_title">App fehlt auf dem Telefon</string>

@@ -43,7 +43,7 @@ class PodcastMirrorTest {
     private lateinit var bookStorage: BookStorage
 
     private val feed = WearPodcastFeedDto("f1", "https://example.org/feed", "Podcast", newestFirst = true, continuous = false)
-    private val local = WearPodcastFeedDto("local:1", "local:1", "Vom Handy")
+    private val local = WearPodcastFeedDto("local:1", "local:1", "From the phone")
 
     @Before
     fun setUp() {
@@ -60,12 +60,12 @@ class PodcastMirrorTest {
     fun tearDown() = db.close()
 
     private fun episode(guid: String, feedId: String = "f1", progress: WearEpisodeProgressDto? = null, audioUrl: String? = "https://example.org/$guid.mp3") =
-        WearEpisodeDto(feedId = feedId, guid = guid, title = "Folge $guid", durationMs = 3_600_000, audioUrl = audioUrl, progress = progress)
+        WearEpisodeDto(feedId = feedId, guid = guid, title = "Episode $guid", durationMs = 3_600_000, audioUrl = audioUrl, progress = progress)
 
     private suspend fun bookId(guid: String, feedId: String = "f1") = db.bookDao().bookByRemote(feedId, guid)?.bookId
 
     @Test
-    fun `Abos und Folgen werden mit den Schluesseln des Handys angelegt`() = runTest {
+    fun `subscriptions and episodes are created with the keys of the phone`() = runTest {
         val ids = mirror.apply(WearPodcastManifest(listOf(feed, local), listOf(episode("b"), episode("a"), episode("x", "local:1", audioUrl = null))))
 
         assertEquals(listOf(bookId("b"), bookId("a"), bookId("x", "local:1")), ids)
@@ -82,7 +82,7 @@ class PodcastMirrorTest {
     }
 
     @Test
-    fun `nicht mehr gelieferte Folgen und Abos verschwinden, gebliebene behalten ihren Download`() = runTest {
+    fun `episodes and subscriptions no longer delivered disappear, remaining ones keep their download`() = runTest {
         mirror.apply(WearPodcastManifest(listOf(feed, local), listOf(episode("a"), episode("b"), episode("x", "local:1", audioUrl = null))))
         val a = bookId("a")!!
         val b = bookId("b")!!
@@ -112,37 +112,37 @@ class PodcastMirrorTest {
         WearBookDto(
             serverId = serverId,
             remoteId = remoteId,
-            title = "Buch $remoteId",
-            author = "Autorin",
+            title = "Book $remoteId",
+            author = "Author",
             durationMs = files.size * 3_600_000L,
             tracks = files.mapIndexed { index, fileId -> WearBookTrackDto(index, fileId, index * 3_600_000L, 3_600_000) },
             progress = progress,
         )
 
     @Test
-    fun `Buecher werden mit Dateiliste und Fortschritt angelegt, nach den Folgen in der Reihenfolge`() = runTest {
+    fun `books are created with file list and progress, after the episodes in order`() = runTest {
         val ids = mirror.apply(
             WearPodcastManifest(
                 listOf(feed),
                 listOf(episode("a")),
-                listOf(book("b1", files = listOf("f0", "f1"), progress = WearEpisodeProgressDto(4_000_000, 7_200_000, updatedAt = 7)), book("eigen", "local", listOf(null))),
+                listOf(book("b1", files = listOf("f0", "f1"), progress = WearEpisodeProgressDto(4_000_000, 7_200_000, updatedAt = 7)), book("own", "local", listOf(null))),
             ),
         )
 
         val b1 = db.bookDao().bookByRemote("abs", "b1")!!
-        val eigen = db.bookDao().bookByRemote("local", "eigen")!!
-        assertEquals(listOf(bookId("a"), b1.bookId, eigen.bookId), ids)
+        val own = db.bookDao().bookByRemote("local", "own")!!
+        assertEquals(listOf(bookId("a"), b1.bookId, own.bookId), ids)
         assertEquals(BookKind.BOOK, b1.kind)
         assertTrue(b1.detailsLoaded)
         assertEquals(listOf("f0", "f1"), db.bookDao().tracks(b1.bookId).map { it.remoteFileId })
         assertEquals(4_000_000, db.bookDao().progress(b1.bookId)!!.positionMs)
         assertEquals(7, reported.progressAt("abs", "b1"))
         // Books from the phone's device are only available via the file channel.
-        assertEquals(WearBookFile.uid("local", "eigen", 0), db.bookDao().tracks(eigen.bookId).single().remoteFileId)
+        assertEquals(WearBookFile.uid("local", "own", 0), db.bookDao().tracks(own.bookId).single().remoteFileId)
     }
 
     @Test
-    fun `nicht mehr gelieferte Buecher verschwinden samt Dateien, gleiche Dateiliste behaelt den Download`() = runTest {
+    fun `books no longer delivered disappear with their files, same file list keeps the download`() = runTest {
         mirror.apply(WearPodcastManifest(books = listOf(book("b1"), book("b2"))))
         val b1 = db.bookDao().bookByRemote("abs", "b1")!!.bookId
         val b2 = db.bookDao().bookByRemote("abs", "b2")!!.bookId
@@ -167,18 +167,18 @@ class PodcastMirrorTest {
     }
 
     @Test
-    fun `Kapitel eines Buchs folgen dem Manifest`() = runTest {
-        val chapters = listOf(WearChapterDto("Eins", 0, 1_800_000), WearChapterDto("Zwei", 1_800_000, 3_600_000))
+    fun `chapters of a book follow the manifest`() = runTest {
+        val chapters = listOf(WearChapterDto("One", 0, 1_800_000), WearChapterDto("Two", 1_800_000, 3_600_000))
         mirror.apply(WearPodcastManifest(books = listOf(book("b1").copy(chapters = chapters))))
         val b1 = db.bookDao().bookByRemote("abs", "b1")!!.bookId
-        assertEquals(listOf("Eins" to 0L, "Zwei" to 1_800_000L), db.bookDao().chapters(b1).map { it.title to it.startMs })
+        assertEquals(listOf("One" to 0L, "Two" to 1_800_000L), db.bookDao().chapters(b1).map { it.title to it.startMs })
 
         mirror.apply(WearPodcastManifest(books = listOf(book("b1").copy(chapters = chapters.take(1)))))
-        assertEquals(listOf("Eins"), db.bookDao().chapters(b1).map { it.title })
+        assertEquals(listOf("One"), db.bookDao().chapters(b1).map { it.title })
     }
 
     @Test
-    fun `Kapitel einer Folge kommen mit, ohne Kapitel vom Handy bleiben die eigenen`() = runTest {
+    fun `chapters of an episode come along, without chapters from the phone the own ones stay`() = runTest {
         mirror.apply(
             WearPodcastManifest(
                 listOf(feed),
@@ -195,7 +195,7 @@ class PodcastMirrorTest {
     }
 
     @Test
-    fun `Fortschritt des Handys gilt nur, wenn er neuer ist, und wird nicht zurueckgemeldet`() = runTest {
+    fun `progress from the phone only applies if it is newer and is not reported back`() = runTest {
         mirror.apply(WearPodcastManifest(listOf(feed), listOf(episode("a"))))
         val a = bookId("a")!!
         db.bookDao().upsertProgress(BookProgressEntity(a, positionMs = 120_000, durationMs = 3_600_000, updatedAt = 5_000))

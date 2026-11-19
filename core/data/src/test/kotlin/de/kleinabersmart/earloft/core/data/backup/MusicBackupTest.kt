@@ -62,14 +62,14 @@ class MusicBackupTest {
         podcastDao = db.podcastDao(),
         statsDao = db.statsDao(),
         music = MusicBackup(db.backupDao(), db.playlistDao(), db.syncDao()),
-        restoreNotice = RestoreNotice(context, { error("nicht gebraucht") }, { error("nicht gebraucht") }),
-        registry = Lazy<DataSourceRegistry> { error("nicht gebraucht") },
-        ardBooks = { error("nicht gebraucht") },
+        restoreNotice = RestoreNotice(context, { error("not needed") }, { error("not needed") }),
+        registry = Lazy<DataSourceRegistry> { error("not needed") },
+        ardBooks = { error("not needed") },
         scope = TestScope(),
     )
 
     private suspend fun sources(db: EarLoftDatabase) {
-        db.sourceDao().upsert(SourceEntity(sourceId = "local", type = SourceType.LOCAL, name = "Gerät"))
+        db.sourceDao().upsert(SourceEntity(sourceId = "local", type = SourceType.LOCAL, name = "Device"))
         db.sourceDao().upsert(SourceEntity(sourceId = "nav", type = SourceType.SUBSONIC, name = "Navidrome"))
     }
 
@@ -95,9 +95,9 @@ class MusicBackupTest {
         val a = song(main, album, 1, "damals hinterm mond", favorite = true)
         val b = song(main, album, 2, "kaffee und karin")
         val c = song(main, album, 3, "nimm mich mit", sourceId = "nav", favorite = true)
-        val playlistId = main.playlistDao().insertPlaylist(PlaylistEntity(name = "Abends", updatedAt = 100))
+        val playlistId = main.playlistDao().insertPlaylist(PlaylistEntity(name = "Evenings", updatedAt = 100))
         main.playlistDao().insertEntries(listOf(b, a, b).mapIndexed { i, id -> PlaylistEntryEntity(playlistId = playlistId, songId = id, position = i) })
-        main.playlistDao().insertPlaylist(PlaylistEntity(name = "Vom Server", boundSourceId = "nav", remotePlaylistId = "p1", updatedAt = 100))
+        main.playlistDao().insertPlaylist(PlaylistEntity(name = "From server", boundSourceId = "nav", remotePlaylistId = "p1", updatedAt = 100))
         main.backupDao().insertPlayEvents(listOf(PlayEventEntity(songId = a, playedAt = 1_000, listenedMs = 200_000), PlayEventEntity(songId = c, playedAt = 2_000, listenedMs = 1)))
         main.wearDao().upsert(WearSelectionEntity(WearSelectionKind.ALBUM.key(album), WearSelectionKind.ALBUM, album, addedAt = 7))
         main.wearDao().upsert(WearSelectionEntity(WearSelectionKind.PLAYLIST.key(playlistId), WearSelectionKind.PLAYLIST, playlistId, addedAt = 8))
@@ -110,7 +110,7 @@ class MusicBackupTest {
 
         val dao = user.userDataDao()
         val playlist = dao.playlists().single()
-        assertEquals("Abends", playlist.name)
+        assertEquals("Evenings", playlist.name)
         assertEquals(
             listOf("kaffee und karin", "damals hinterm mond", "kaffee und karin"),
             dao.playlistEntries().sortedBy { it.position }.map { it.song.title },
@@ -149,14 +149,14 @@ class MusicBackupTest {
 
             // The scan creates the songs in a different order, i.e. with different ids.
             sources(newDevice)
-            album(newDevice, "andere", "platte")
+            album(newDevice, "other", "record")
             val album = album(newDevice, "element of crime", "damals hinterm mond")
             val b = song(newDevice, album, 2, "kaffee und karin")
             val a = song(newDevice, album, 1, "damals hinterm mond")
             val rest = backup.applySaved(saved, waiting)
 
             val playlist = newDevice.backupDao().localPlaylists().single()
-            assertEquals("Abends", playlist.name)
+            assertEquals("Evenings", playlist.name)
             assertEquals(listOf(b, a, b), newDevice.playlistDao().getSongIds(playlist.playlistId))
             assertTrue(newDevice.backupDao().favoriteStates(listOf(a)).single().isFavorite)
             assertEquals(listOf(1_000L), newDevice.backupDao().playedAt(a))

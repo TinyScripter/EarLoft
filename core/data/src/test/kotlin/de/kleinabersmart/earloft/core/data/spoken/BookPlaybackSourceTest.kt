@@ -79,7 +79,7 @@ class BookPlaybackSourceTest {
             servers,
             api,
             progressSync,
-            PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())),
+            PodcastRepository(db, db.podcastDao(), dao, PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("no source switch in tests") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())),
             EpisodeQueue(context, dao),
             settings,
             policy,
@@ -89,15 +89,15 @@ class BookPlaybackSourceTest {
             BookEntity(
                 serverId = LOCAL_BOOK_SERVER_ID,
                 kind = BookKind.BOOK,
-                remoteId = "buch",
-                title = "Buch",
-                normTitle = "buch",
-                author = "Autor",
+                remoteId = "book",
+                title = "Book",
+                normTitle = "book",
+                author = "Author",
                 durationMs = 3_600_000,
                 detailsLoaded = true,
             ),
         )
-        dao.insertTracks(listOf(BookTrackEntity(bookId, trackIndex = 0, remoteFileId = "/sdcard/Audiobooks/buch.m4b", startMs = 0, durationMs = 3_600_000)))
+        dao.insertTracks(listOf(BookTrackEntity(bookId, trackIndex = 0, remoteFileId = "/sdcard/Audiobooks/book.m4b", startMs = 0, durationMs = 3_600_000)))
         dao.upsertProgress(BookProgressEntity(bookId, positionMs = 600_000, durationMs = 3_600_000, updatedAt = pausedSince))
     }
 
@@ -105,7 +105,7 @@ class BookPlaybackSourceTest {
     fun tearDown() = db.close()
 
     @Test
-    fun `wiederherstellen spult nicht zurueck und schreibt nichts`() = runTest {
+    fun `restoring does not rewind and writes nothing`() = runTest {
         val restored = source.restore(bookId)!!
 
         assertEquals(600_000L, restored.startPositionMs)
@@ -116,7 +116,7 @@ class BookPlaybackSourceTest {
     }
 
     @Test
-    fun `wiederholtes Wiederherstellen laesst die Position stehen`() = runTest {
+    fun `repeated restoring leaves the position alone`() = runTest {
         repeat(3) { source.restore(bookId) }
 
         assertEquals(600_000L, source.restore(bookId)!!.startPositionMs)
@@ -124,7 +124,7 @@ class BookPlaybackSourceTest {
     }
 
     @Test
-    fun `abspielen wendet die Regel an und haelt den Start fest`() = runTest {
+    fun `playing applies the rule and records the start`() = runTest {
         val prepared = source.prepare(bookId)!!
 
         // Default: after more than 5 min pause, 10 s back.
@@ -136,7 +136,7 @@ class BookPlaybackSourceTest {
     }
 
     @Test
-    fun `ein beendetes Buch beginnt beim Wiederherstellen von vorn`() = runTest {
+    fun `a finished book starts from the beginning when restored`() = runTest {
         db.bookDao().upsertProgress(BookProgressEntity(bookId, positionMs = 3_600_000, durationMs = 3_600_000, finished = true, updatedAt = pausedSince))
 
         val restored = source.restore(bookId)!!
@@ -146,11 +146,11 @@ class BookPlaybackSourceTest {
     }
 
     @Test
-    fun `ohne Streams nur mit Datei auf dem Geraet`() = runTest {
+    fun `without streaming only with a file on the device`() = runTest {
         policy.allowStreaming = false
         assertNull(source.prepare(bookId))
 
-        val file = File.createTempFile("buch", ".m4b").apply { deleteOnExit() }
+        val file = File.createTempFile("book", ".m4b").apply { deleteOnExit() }
         db.bookDao().queueBookDownload(bookId)
         db.bookDao().markBookTrackRunning(bookId, 0)
         db.bookDao().markBookTrackDone(bookId, 0, file.absolutePath, file.length())
@@ -159,14 +159,14 @@ class BookPlaybackSourceTest {
     }
 
     @Test
-    fun `ohne Streams zaehlt eine nicht mehr abrufbare Datei nicht`() = runTest {
+    fun `without streaming a file that is no longer available does not count`() = runTest {
         policy.allowStreaming = false
         val dao = db.bookDao()
-        val file = File.createTempFile("buch", ".m4b").apply { deleteOnExit() }
+        val file = File.createTempFile("book", ".m4b").apply { deleteOnExit() }
         dao.queueBookDownload(bookId)
         dao.markBookTrackRunning(bookId, 0)
         dao.markBookTrackDone(bookId, 0, file.absolutePath, file.length())
-        dao.insertTracks(listOf(BookTrackEntity(bookId, trackIndex = 1, remoteFileId = "https://weg.example/2.mp3", startMs = 3_600_000, durationMs = 60_000)))
+        dao.insertTracks(listOf(BookTrackEntity(bookId, trackIndex = 1, remoteFileId = "https://gone.example/2.mp3", startMs = 3_600_000, durationMs = 60_000)))
         assertNull(source.prepare(bookId))
 
         dao.setTrackUnavailable(bookId, 1, since = 5)
@@ -175,12 +175,12 @@ class BookPlaybackSourceTest {
     }
 
     @Test
-    fun `eine Folge ueberspringt das Intro ihres Abos nur beim Start bei 0`() = runTest {
+    fun `an episode skips the intro of its subscription only when starting at 0`() = runTest {
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "feed", url = "https://example.org/feed", title = "Podcast", skipIntroS = 45))
         val episode = db.bookDao().upsertBook(
-            BookEntity(serverId = "feed", kind = BookKind.EPISODE, remoteId = "guid", title = "Folge", normTitle = "folge", author = "", durationMs = HOUR_MS),
+            BookEntity(serverId = "feed", kind = BookKind.EPISODE, remoteId = "guid", title = "Episode", normTitle = "episode", author = "", durationMs = HOUR_MS),
         )
-        db.podcastDao().setTrack(BookTrackEntity(episode, trackIndex = 0, remoteFileId = "https://example.org/folge.mp3", startMs = 0, durationMs = HOUR_MS))
+        db.podcastDao().setTrack(BookTrackEntity(episode, trackIndex = 0, remoteFileId = "https://example.org/episode.mp3", startMs = 0, durationMs = HOUR_MS))
 
         assertEquals(45_000L, source.prepare(episode)!!.startPositionMs)
 
@@ -189,12 +189,12 @@ class BookPlaybackSourceTest {
     }
 
     @Test
-    fun `eine Folge ohne Dauer im Feed ueberspringt trotzdem das Intro`() = runTest {
+    fun `an episode without a duration in the feed still skips the intro`() = runTest {
         db.podcastDao().upsertFeed(PodcastFeedEntity(feedId = "feed", url = "https://example.org/feed", title = "Podcast", skipIntroS = 45, skipOutroS = 20))
         val episode = db.bookDao().upsertBook(
-            BookEntity(serverId = "feed", kind = BookKind.EPISODE, remoteId = "guid", title = "Folge", normTitle = "folge", author = "", durationMs = 0),
+            BookEntity(serverId = "feed", kind = BookKind.EPISODE, remoteId = "guid", title = "Episode", normTitle = "episode", author = "", durationMs = 0),
         )
-        db.podcastDao().setTrack(BookTrackEntity(episode, trackIndex = 0, remoteFileId = "https://example.org/folge.mp3", startMs = 0, durationMs = 0))
+        db.podcastDao().setTrack(BookTrackEntity(episode, trackIndex = 0, remoteFileId = "https://example.org/episode.mp3", startMs = 0, durationMs = 0))
 
         assertEquals(45_000L, source.prepare(episode)!!.startPositionMs)
     }

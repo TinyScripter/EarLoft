@@ -15,9 +15,9 @@ class SeriesSearchTest {
     @Test
     fun `series are found by name and counted, the lowest volume gives the cover`() {
         val books = listOf(
-            book(1, "Zweiter Teil", "Carl Mørck #2"),
-            book(2, "Erster Teil", "Carl Mørck #1"),
-            book(3, "Einzelband", ""),
+            book(1, "Second part", "Carl Mørck #2"),
+            book(2, "First part", "Carl Mørck #1"),
+            book(3, "Standalone", ""),
         )
 
         assertEquals(listOf(SeriesHit("Carl Mørck", firstBookId = 2, bookCount = 2)), seriesHits(books, "carl", limit = 10))
@@ -25,7 +25,7 @@ class SeriesSearchTest {
 
     @Test
     fun `the volume number is not part of the name and other series of a book are ignored`() {
-        val books = listOf(book(1, "Buch", "Alpha #1, Beta #4"))
+        val books = listOf(book(1, "Book", "Alpha #1, Beta #4"))
 
         assertEquals(emptyList<SeriesHit>(), seriesHits(books, "#1", limit = 10))
         assertEquals(listOf(SeriesHit("Beta", 1, 1)), seriesHits(books, "beta", limit = 10))
@@ -34,8 +34,8 @@ class SeriesSearchTest {
     @Test
     fun `a book in several matching series counts for each, results are sorted by name and limited`() {
         val books = listOf(
-            book(1, "Buch", "Zeta Saga #1, Alpha Saga #3"),
-            book(2, "Anderes", "Alpha Saga #1"),
+            book(1, "Book", "Zeta Saga #1, Alpha Saga #3"),
+            book(2, "Other", "Alpha Saga #1"),
         )
 
         assertEquals(listOf("Alpha Saga", "Zeta Saga"), seriesHits(books, "saga", limit = 10).map { it.name })
@@ -46,6 +46,6 @@ class SeriesSearchTest {
 
     @Test
     fun `an empty search term finds nothing`() {
-        assertEquals(emptyList<SeriesHit>(), seriesHits(listOf(book(1, "Buch", "Alpha #1")), "", limit = 10))
+        assertEquals(emptyList<SeriesHit>(), seriesHits(listOf(book(1, "Book", "Alpha #1")), "", limit = 10))
     }
 }

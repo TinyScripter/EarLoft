@@ -37,7 +37,7 @@ suspend fun WorkManager.ensurePeriodicWork(
         .apply(configure)
         .build()
     enqueueUniquePeriodicWork(name, ExistingPeriodicWorkPolicy.UPDATE, request)
-    Log.d(TAG, "$name eingeplant: alle $repeatInterval $unit, $constraints")
+    Log.d(TAG, "$name scheduled: every $repeatInterval $unit, $constraints")
     return true
 }
 

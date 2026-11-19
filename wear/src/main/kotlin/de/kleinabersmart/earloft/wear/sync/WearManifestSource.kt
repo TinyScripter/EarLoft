@@ -33,7 +33,7 @@ class WearManifestSource(
 
     /** Playback goes through the sources of the `DataSourceRegistry` or downloads, never through this source. */
     override suspend fun resolvePlayback(remoteId: String): PlaybackLocation =
-        throw UnsupportedOperationException("Manifest-Quelle $sourceId spielt nichts ab")
+        throw UnsupportedOperationException("Manifest source $sourceId does not play anything")
 
     override suspend fun loadArtwork(remoteId: String, sizePx: Int): Bitmap? = null
 

@@ -40,27 +40,27 @@ class BookListsTest {
     @Test
     fun `the author page groups by series, in volume order, then the books without series`() {
         val books = listOf(
-            book(1, "Allein", "A"),
-            book(2, "Zweiter", "A", series = "Saga #2"),
-            book(3, "Erster", "A", series = "Saga #1, Welt #7"),
-            book(4, "Anfang", "A", series = "Bergreihe #1"),
-            book(5, "Mitte", "A"),
+            book(1, "Alone", "A"),
+            book(2, "Second", "A", series = "Saga #2"),
+            book(3, "First", "A", series = "Saga #1, World #7"),
+            book(4, "Beginning", "A", series = "Mountain series #1"),
+            book(5, "Middle", "A"),
         )
 
         val sections = books.seriesSections()
 
-        assertEquals(listOf("Bergreihe", "Saga", null), sections.map { it.series })
+        assertEquals(listOf("Mountain series", "Saga", null), sections.map { it.series })
         assertEquals(listOf(listOf(4L), listOf(3L, 2L), listOf(1L, 5L)), sections.map { s -> s.books.map { it.book.id } })
-        assertEquals(listOf(null), listOf(book(1, "Allein", "A")).seriesSections().map { it.series })
+        assertEquals(listOf(null), listOf(book(1, "Alone", "A")).seriesSections().map { it.series })
         assertEquals(emptyList<SeriesSection>(), emptyList<BookWithProgress>().seriesSections())
     }
 
     // By title, as the database returns them.
     private val books = listOf(
-        book(1, "Altes Buch", "Zora Zeh", addedAt = 10, durationMs = 5_000, year = "1999"),
-        book(2, "Band zwei", "Anna Alt", series = "Saga #2", addedAt = 30, year = "2021", progress = progress(300, updatedAt = 50)),
-        book(3, "Band eins", "Anna Alt", series = "Saga #1", addedAt = 20, durationMs = 9_000, progress = progress(1_000, finished = true, updatedAt = 70)),
-        book(4, "Vom Gerät", "Bert Bau", server = LOCAL_BOOK_SERVER_ID, addedAt = 40, year = "2005-03-01"),
+        book(1, "An old book", "Zora Zeh", addedAt = 10, durationMs = 5_000, year = "1999"),
+        book(2, "Book two", "Anna Alt", series = "Saga #2", addedAt = 30, year = "2021", progress = progress(300, updatedAt = 50)),
+        book(3, "Book one", "Anna Alt", series = "Saga #1", addedAt = 20, durationMs = 9_000, progress = progress(1_000, finished = true, updatedAt = 70)),
+        book(4, "On the device", "Bert Bau", server = LOCAL_BOOK_SERVER_ID, addedAt = 40, year = "2005-03-01"),
     )
 
     private fun ids(sort: BookSort, filter: BookFilter = BookFilter.ALL, downloaded: Set<Long> = emptySet()) =
@@ -108,51 +108,51 @@ class BookListsTest {
     @Test
     fun `a genre narrows every filter and has its own group`() {
         val withGenres = listOf(
-            book(1, "Krimi eins", "A", genres = listOf("Krimi", "Thriller")),
-            book(2, "Krimi zwei", "A", genres = listOf("Krimi"), progress = progress(10)),
+            book(1, "Crime one", "A", genres = listOf("Crime", "Thriller")),
+            book(2, "Crime two", "A", genres = listOf("Crime"), progress = progress(10)),
             book(3, "Fantasy", "B", genres = listOf("Fantasy")),
-            book(4, "Ohne", "B"),
+            book(4, "Without", "B"),
         )
         fun ids(filter: BookFilter, genre: String?) = withGenres.sortedAndFiltered(BookSort.TITLE, filter, emptySet(), genre).map { it.book.id }
-        assertEquals(listOf(1L, 2L), ids(BookFilter.ALL, "Krimi"))
-        assertEquals(listOf(2L), ids(BookFilter.STARTED, "Krimi"))
+        assertEquals(listOf(1L, 2L), ids(BookFilter.ALL, "Crime"))
+        assertEquals(listOf(2L), ids(BookFilter.STARTED, "Crime"))
         assertEquals(listOf(1L, 2L, 3L, 4L), ids(BookFilter.ALL, null))
-        assertEquals(listOf("Fantasy", "Krimi", "Thriller"), withGenres.genreGroups().map { it.name })
-        assertEquals(listOf(1L, 2L), withGenres.genreGroups().first { it.name == "Krimi" }.books.map { it.book.id })
+        assertEquals(listOf("Crime", "Fantasy", "Thriller"), withGenres.genreGroups().map { it.name })
+        assertEquals(listOf(1L, 2L), withGenres.genreGroups().first { it.name == "Crime" }.books.map { it.book.id })
     }
 
     @Test
     fun `genres in different spellings are one group and one filter`() {
         val spelled = listOf(
-            book(1, "Eins", "A", genres = listOf("Krimi")),
-            book(2, "Zwei", "A", genres = listOf("krimi", "Sci-Fi")),
-            book(3, "Drei", "B", genres = listOf("Krimi", "KRIMI")),
-            book(4, "Vier", "B", genres = listOf("Sci Fi")),
+            book(1, "Echo", "A", genres = listOf("Crime")),
+            book(2, "Zulu", "A", genres = listOf("crime", "Sci-Fi")),
+            book(3, "Delta", "B", genres = listOf("Crime", "CRIME")),
+            book(4, "Victor", "B", genres = listOf("Sci Fi")),
         )
         val groups = spelled.genreGroups()
         // The most frequent spelling gives the name; a book appears in it only once.
-        assertEquals(listOf("Krimi", "Sci Fi"), groups.map { it.name })
+        assertEquals(listOf("Crime", "Sci Fi"), groups.map { it.name })
         assertEquals(listOf(3L, 1L, 2L), groups.first().books.map { it.book.id })
         assertEquals(listOf(4L, 2L), groups.last().books.map { it.book.id })
-        val ids = spelled.sortedAndFiltered(BookSort.TITLE, BookFilter.ALL, emptySet(), "krimi").map { it.book.id }
+        val ids = spelled.sortedAndFiltered(BookSort.TITLE, BookFilter.ALL, emptySet(), "crime").map { it.book.id }
         assertEquals(listOf(1L, 2L, 3L), ids)
     }
 
     @Test
     fun `series by recently played and authors by number of books`() {
         val more = books + listOf(
-            book(5, "Kurz", "Zora Zeh", series = "Anthologie #1", progress = progress(10, updatedAt = 90)),
-            book(6, "Ohne", "Bert Bau", series = "Bunte Reihe #1"),
+            book(5, "Short", "Zora Zeh", series = "Anthology #1", progress = progress(10, updatedAt = 90)),
+            book(6, "Without", "Bert Bau", series = "Colorful series #1"),
         )
         val series = more.seriesGroups()
-        assertEquals(listOf("Anthologie", "Bunte Reihe", "Saga"), series.sortedSeries(SeriesSort.NAME).map { it.name })
+        assertEquals(listOf("Anthology", "Colorful series", "Saga"), series.sortedSeries(SeriesSort.NAME).map { it.name })
         // Saga last at 70 (volume one finished), anthology at 90; the never-played series stays last.
-        assertEquals(listOf("Anthologie", "Saga", "Bunte Reihe"), series.sortedSeries(SeriesSort.RECENTLY_PLAYED).map { it.name })
+        assertEquals(listOf("Anthology", "Saga", "Colorful series"), series.sortedSeries(SeriesSort.RECENTLY_PLAYED).map { it.name })
         val authors = more.authorGroups()
         assertEquals(listOf("Anna Alt", "Bert Bau", "Zora Zeh"), authors.sortedAuthors(AuthorSort.NAME).map { it.name })
         // Equal counts stay sorted by name.
         assertEquals(listOf("Anna Alt", "Bert Bau", "Zora Zeh"), authors.sortedAuthors(AuthorSort.BOOK_COUNT).map { it.name })
-        val oneMore = (more + book(7, "Noch eins", "Zora Zeh")).authorGroups()
+        val oneMore = (more + book(7, "One more", "Zora Zeh")).authorGroups()
         assertEquals(listOf("Zora Zeh", "Anna Alt", "Bert Bau"), oneMore.sortedAuthors(AuthorSort.BOOK_COUNT).map { it.name })
     }
 }

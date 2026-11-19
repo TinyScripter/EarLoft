@@ -53,8 +53,8 @@ class AudiobookshelfMirrorTest {
 
     @Test
     fun `the phone stamps the key of enabled servers`() = runTest {
-        db.bookDao().upsertServer(SpokenServerEntity("abs", "Hörbücher", "https://abs.example.org/"))
-        db.bookDao().upsertServer(SpokenServerEntity("off", "Aus", "https://off.example.org/", enabled = false))
+        db.bookDao().upsertServer(SpokenServerEntity("abs", "Audiobooks", "https://abs.example.org/"))
+        db.bookDao().upsertServer(SpokenServerEntity("off", "Off", "https://off.example.org/", enabled = false))
         assertNull(servers.mirrored.first().single().credentialsStamp)
 
         secrets.values["abs:abs:token"] = "key1"
@@ -90,7 +90,7 @@ class AudiobookshelfMirrorTest {
         servers.mirror(listOf(server("s1")))
         servers.storeKey("abs", "key1")
 
-        assertEquals(setOf("abs"), servers.mirror(listOf(server("s1", baseUrl = "https://andere.example.org/"))))
+        assertEquals(setOf("abs"), servers.mirror(listOf(server("s1", baseUrl = "https://other.example.org/"))))
         assertNull(secrets.values["abs:abs:token"])
 
         servers.mirror(emptyList())
@@ -98,5 +98,5 @@ class AudiobookshelfMirrorTest {
     }
 
     private fun server(stamp: String?, baseUrl: String = "https://abs.example.org/") =
-        MirroredAbsServer("abs", "Hörbücher", baseUrl, stamp)
+        MirroredAbsServer("abs", "Audiobooks", baseUrl, stamp)
 }

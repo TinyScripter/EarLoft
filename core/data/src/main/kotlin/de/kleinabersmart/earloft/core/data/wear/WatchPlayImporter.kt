@@ -40,7 +40,7 @@ class WatchPlayImporter @Inject constructor(
         for (play in plays) {
             val songId = songIds[play.songUid]
             if (songId == null) {
-                Log.d(TAG, "Wiedergabe von ${play.songUid} übersprungen: Song unbekannt")
+                Log.d(TAG, "Play of ${play.songUid} skipped: song unknown")
                 continue
             }
             // Not live: otherwise every report would wait up to 10 s for the network, and the packet would only count as adopted afterwards.

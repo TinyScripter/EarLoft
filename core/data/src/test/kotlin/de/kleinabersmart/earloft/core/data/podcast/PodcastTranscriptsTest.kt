@@ -53,7 +53,7 @@ class PodcastTranscriptsTest {
         episode = kotlinx.coroutines.runBlocking {
             db.bookDao().upsertBook(
                 BookEntity(
-                    serverId = "feed", kind = BookKind.EPISODE, remoteId = "guid", title = "Folge", normTitle = "folge",
+                    serverId = "feed", kind = BookKind.EPISODE, remoteId = "guid", title = "Episode", normTitle = "episode",
                     author = "Podcast", durationMs = 600_000, transcriptUrl = "https://example.com/1.json",
                     transcriptType = "application/json",
                 ),
@@ -99,7 +99,7 @@ class PodcastTranscriptsTest {
 
     private companion object {
         const val GOOD = """{"version":"1.0.0","segments":[
-            {"speaker":"Anna","startTime":0.5,"endTime":0.9,"body":"Hallo"},
-            {"speaker":"Anna","startTime":0.9,"endTime":1.6,"body":"Welt."}]}"""
+            {"speaker":"Anna","startTime":0.5,"endTime":0.9,"body":"Hello"},
+            {"speaker":"Anna","startTime":0.9,"endTime":1.6,"body":"world."}]}"""
     }
 }

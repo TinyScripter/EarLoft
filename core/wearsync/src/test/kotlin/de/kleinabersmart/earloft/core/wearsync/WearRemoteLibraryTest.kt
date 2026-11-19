@@ -7,10 +7,10 @@ import org.junit.Test
 class WearRemoteLibraryTest {
 
     @Test
-    fun `Kennungen der Vorschaubilder ueberstehen beliebige Zeichen`() {
+    fun `thumbnail ids survive arbitrary characters`() {
         val refs = listOf(
             WearThumbnailFile.Ref.Album(42),
-            WearThumbnailFile.Ref.Feed("local:Mein Podcast"),
+            WearThumbnailFile.Ref.Feed("local:My Podcast"),
             WearThumbnailFile.Ref.Book("https://feed.example/x", "guid:12/a b?ä"),
         )
         for (ref in refs) {
@@ -24,12 +24,12 @@ class WearRemoteLibraryTest {
     }
 
     @Test
-    fun `Bibliotheksindex mit Kuenstlern uebersteht gzip, alter Index ohne Kuenstler bleibt lesbar`() {
+    fun `library index with artists survives gzip, old index without artists stays readable`() {
         val library = WearRemoteLibraryDto(
-            albums = listOf(WearRemoteAlbumDto(1, "Mondlicht", "Nachtfalter", 4)),
-            artists = listOf(WearRemoteArtistDto(7, "Nachtfalter", listOf(1))),
+            albums = listOf(WearRemoteAlbumDto(1, "Moonlight", "Night Moth", 4)),
+            artists = listOf(WearRemoteArtistDto(7, "Night Moth", listOf(1))),
             podcasts = listOf(WearRemotePodcastDto("f1", "Podcast")),
-            books = listOf(WearRemoteBookDto(3, "Buch", "Autor", "abs", "item", started = true)),
+            books = listOf(WearRemoteBookDto(3, "Book", "Author", "abs", "item", started = true)),
             favoriteAlbumIds = listOf(1),
             favoriteArtistIds = listOf(7),
         )

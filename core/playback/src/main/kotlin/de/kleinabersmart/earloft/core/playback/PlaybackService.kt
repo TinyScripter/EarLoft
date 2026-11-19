@@ -599,7 +599,7 @@ class PlaybackService : MediaLibraryService() {
             val isSourceError = error.errorCode in IO_ERROR_CODES
             if (!isSourceError || retriedItem == player.currentMediaItemIndex) return
             retriedItem = player.currentMediaItemIndex
-            Log.w(TAG, "Quelle ausgefallen, neuer Versuch", error)
+            Log.w(TAG, "Source failed, retrying", error)
             player.prepare()
         }
 

@@ -687,7 +687,7 @@ private fun NowPlayingPreview() {
         AlbumColorTheme(seedColor = 0xFFE53935.toInt()) {
             NowPlayingContent(
                 state = PlayerState(
-                    current = QueueEntry(1, "Mondlicht", "Nachtfalter", 1),
+                    current = QueueEntry(1, "Moonlight", "Night Moth", 1),
                     isPlaying = true,
                     durationMs = 200_000,
                     repeatMode = Player.REPEAT_MODE_OFF,
@@ -724,7 +724,7 @@ private fun NowPlayingBookPreview() {
         AlbumColorTheme(seedColor = 0xFF3949AB.toInt()) {
             NowPlayingContent(
                 state = PlayerState(
-                    spoken = SpokenEntry(1, 0, "Testbuch", "Testautor"),
+                    spoken = SpokenEntry(1, 0, "Test book", "Test author"),
                     isPlaying = false,
                     durationMs = 3_600_000,
                 ),
@@ -735,7 +735,7 @@ private fun NowPlayingBookPreview() {
                 sleepTimerAvailable = true,
                 sleepTimerRemainingMs = 754_000,
                 onSleepTimer = {},
-                chapterTitle = "Kapitel 3: Der Sturm",
+                chapterTitle = "Chapter 3: The Storm",
                 chaptersAvailable = true,
                 onChapters = {},
                 onPrevious = {},

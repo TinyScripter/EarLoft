@@ -35,27 +35,27 @@ internal suspend fun SyncDao.isCollectionFavorite(kind: FavoriteKind, id: Long):
 private suspend fun SyncDao.collectionServerSources(kind: FavoriteKind, id: Long): List<CollectionStarState> = when (kind) {
     FavoriteKind.ALBUM -> getAlbumServerSources(id)
     FavoriteKind.ARTIST -> getArtistServerSources(id)
-    FavoriteKind.SONG -> error("Songs über pushFavoriteToServers")
+    FavoriteKind.SONG -> error("Songs via pushFavoriteToServers")
 }
 
 internal suspend fun SyncDao.collectionStarState(kind: FavoriteKind, sourceId: String, remoteId: String): CollectionStarState? =
     when (kind) {
         FavoriteKind.ALBUM -> getAlbumStarState(sourceId, remoteId)
         FavoriteKind.ARTIST -> getArtistStarState(sourceId, remoteId)
-        FavoriteKind.SONG -> error("Songs über getSongSource")
+        FavoriteKind.SONG -> error("Songs via getSongSource")
     }
 
 private suspend fun SyncDao.collectionStarStates(kind: FavoriteKind, sourceId: String): List<CollectionStarState> = when (kind) {
     FavoriteKind.ALBUM -> getAlbumStarStates(sourceId)
     FavoriteKind.ARTIST -> getArtistStarStates(sourceId)
-    FavoriteKind.SONG -> error("Songs über getStarStates")
+    FavoriteKind.SONG -> error("Songs via getStarStates")
 }
 
 internal suspend fun SyncDao.setCollectionStarredAt(kind: FavoriteKind, sourceId: String, remoteId: String, starredAt: Long?) =
     when (kind) {
         FavoriteKind.ALBUM -> setAlbumStarredAt(sourceId, remoteId, starredAt)
         FavoriteKind.ARTIST -> setArtistStarredAt(sourceId, remoteId, starredAt)
-        FavoriteKind.SONG -> error("Songs über setStarredAt")
+        FavoriteKind.SONG -> error("Songs via setStarredAt")
     }
 
 private suspend fun SyncDao.hasPendingCollectionFavorite(kind: FavoriteKind, id: Long): Boolean = when (kind) {

@@ -16,8 +16,8 @@ class WearCodecTest {
         title = "東京事変",
         artists = listOf("Björk"),
         artistDisplay = "Björk",
-        album = "Mondlicht",
-        albumArtist = "Nachtfalter",
+        album = "Moonlight",
+        albumArtist = "Night Moth",
         durationMs = 180_000,
         replayGain = ReplayGainDto(trackGainDb = -4.5f, albumPeak = 0.98f),
         serverSources = listOf(WearServerSourceDto(uid = "nd:1", sourceId = "nd", remoteId = "1", sizeBytes = 30_000_000)),
@@ -26,8 +26,8 @@ class WearCodecTest {
 
     private val manifest = WearManifest(
         selections = listOf(
-            WearSelectionDto("playlist:3", WearSelectionKind.PLAYLIST, "Laufen", songKeys = listOf("nd:1", "nd:1")),
-            WearSelectionDto("favorites", WearSelectionKind.FAVORITES, "Favoriten", songKeys = listOf("nd:1")),
+            WearSelectionDto("playlist:3", WearSelectionKind.PLAYLIST, "Running", songKeys = listOf("nd:1", "nd:1")),
+            WearSelectionDto("favorites", WearSelectionKind.FAVORITES, "Favorites", songKeys = listOf("nd:1")),
         ),
         songs = listOf(song),
     )
@@ -48,7 +48,7 @@ class WearCodecTest {
         val raw = WearCodec.encode(big).size
         val compressed = WearCodec.encodeManifest(big).size
 
-        assertTrue("gzip $compressed von $raw Bytes", compressed * 5 < raw)
+        assertTrue("gzip $compressed of $raw bytes", compressed * 5 < raw)
     }
 
     @Test
@@ -62,9 +62,9 @@ class WearCodecTest {
 
     @Test
     fun `unknown fields from a newer app version are ignored`() {
-        val json = """{"sourceId":"nd","password":"geheim","expiresAt":123}"""
+        val json = """{"sourceId":"nd","password":"secret","expiresAt":123}"""
 
-        assertEquals(WearCredentialsDto("nd", "geheim"), WearCodec.decode<WearCredentialsDto>(json.encodeToByteArray()))
+        assertEquals(WearCredentialsDto("nd", "secret"), WearCodec.decode<WearCredentialsDto>(json.encodeToByteArray()))
     }
 
     @Test

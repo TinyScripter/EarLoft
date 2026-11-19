@@ -117,7 +117,7 @@ class DataSourceRegistry @Inject constructor(
         val baseUrl = entity.baseUrl?.toHttpUrlOrNull()
         val secret = secretStore.get(passwordKey(entity.sourceId))?.let(JellyfinSecret::decode)
         if (baseUrl == null || secret == null) {
-            Log.w(TAG, "Server ${entity.name} ist unvollständig eingerichtet und wird übersprungen")
+            Log.w(TAG, "Server ${entity.name} is incompletely set up and is skipped")
             return null
         }
         return JellyfinServer(entity.sourceId, baseUrl, secret.userId, secret.token, flavor, jellyfinDeviceId(entity.sourceId))
@@ -132,7 +132,7 @@ class DataSourceRegistry @Inject constructor(
         val username = entity.username
         val password = secretStore.get(passwordKey(entity.sourceId))
         if (baseUrl == null || username == null || password == null) {
-            Log.w(TAG, "Server ${entity.name} ist unvollständig eingerichtet und wird übersprungen")
+            Log.w(TAG, "Server ${entity.name} is incompletely set up and is skipped")
             return null
         }
         return SubsonicServer(

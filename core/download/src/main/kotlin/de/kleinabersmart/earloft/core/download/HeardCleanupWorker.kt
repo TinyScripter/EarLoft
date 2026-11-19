@@ -26,11 +26,11 @@ class HeardCleanupWorker(
     override suspend fun doWork(): Result {
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, CleanupEntryPoint::class.java)
         val removed = entryPoint.episodeDownloads().removeExpiredHeard()
-        if (removed > 0) Log.i(TAG, "$removed gehörte Folgen gelöscht")
+        if (removed > 0) Log.i(TAG, "Deleted $removed heard episodes")
         val finishedBooks = entryPoint.bookDownloads().removeExpiredFinished()
-        if (finishedBooks > 0) Log.i(TAG, "$finishedBooks beendete Bücher gelöscht")
+        if (finishedBooks > 0) Log.i(TAG, "Deleted $finishedBooks finished books")
         val orphans = entryPoint.episodeDownloads().deleteOrphans() + entryPoint.bookDownloads().deleteOrphans()
-        if (orphans > 0) Log.i(TAG, "$orphans verwaiste Dateien von Folgen und Büchern gelöscht")
+        if (orphans > 0) Log.i(TAG, "Deleted $orphans orphaned files of episodes and books")
         return Result.success()
     }
 

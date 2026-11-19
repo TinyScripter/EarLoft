@@ -51,8 +51,8 @@ class BookLibrariesSyncTest {
     /** Entries per library (id, title, genres); changeable between two syncs. */
     private val items = ConcurrentHashMap(
         mapOf(
-            "lib-a" to listOf(Triple("li_1", "Krimi", listOf("Polizei, Thriller")), Triple("li_2", "Roman", emptyList())),
-            "lib-b" to listOf(Triple("li_3", "Hörspiel", listOf("Kinder"))),
+            "lib-a" to listOf(Triple("li_1", "Crime", listOf("Police, Thriller")), Triple("li_2", "Novel", emptyList())),
+            "lib-b" to listOf(Triple("li_3", "Drama", listOf("Kids"))),
         ),
     )
 
@@ -111,15 +111,15 @@ class BookLibrariesSyncTest {
     fun `all book libraries of a server are synced, each book knows its library and genres`() = runTest {
         val id = connect()
         val connected = servers.servers.first().single()
-        assertEquals(listOf("Audiobücher" to true, "Hörspiele" to true), connected.libraries.map { it.name to it.shown })
+        assertEquals(listOf("Audiobooks" to true, "Radio plays" to true), connected.libraries.map { it.name to it.shown })
 
         assertTrue(sync(id).ok)
 
         val all = books.books().first().associateBy { it.book.title }
-        assertEquals(listOf("Hörspiel", "Krimi", "Roman"), all.keys.sorted())
-        assertEquals("lib-a", all.getValue("Krimi").book.libraryId)
-        assertEquals("lib-b", all.getValue("Hörspiel").book.libraryId)
-        assertEquals(listOf("Polizei", "Thriller"), all.getValue("Krimi").book.genres)
+        assertEquals(listOf("Crime", "Drama", "Novel"), all.keys.sorted())
+        assertEquals("lib-a", all.getValue("Crime").book.libraryId)
+        assertEquals("lib-b", all.getValue("Drama").book.libraryId)
+        assertEquals(listOf("Police", "Thriller"), all.getValue("Crime").book.genres)
     }
 
     @Test
@@ -142,9 +142,9 @@ class BookLibrariesSyncTest {
         sync(id)
 
         assertTrue(servers.setLibraryShown(id, "lib-b", shown = false))
-        assertEquals(listOf("Krimi", "Roman"), titles())
+        assertEquals(listOf("Crime", "Novel"), titles())
         sync(id)
-        assertEquals(listOf("Krimi", "Roman"), titles())
+        assertEquals(listOf("Crime", "Novel"), titles())
         // Hidden, not deleted: downloads, progress and bookmarks stay.
         assertEquals(3, dao.booksOf(id).size)
         // The next sync doesn't query the deselected library at all.
@@ -160,18 +160,18 @@ class BookLibrariesSyncTest {
         sync(id)
 
         servers.setLibraryShown(id, "lib-b", shown = true)
-        items["lib-a"] = items.getValue("lib-a") + Triple("li_4", "Neu", emptyList())
+        items["lib-a"] = items.getValue("lib-a") + Triple("li_4", "New", emptyList())
         val result = sync(id)
 
-        assertEquals(listOf("Hörspiel", "Krimi", "Neu", "Roman"), titles())
-        assertEquals(listOf("Neu"), result.newBooks.map { it.title })
+        assertEquals(listOf("Crime", "Drama", "New", "Novel"), titles())
+        assertEquals(listOf("New"), result.newBooks.map { it.title })
     }
 
     @Test
     fun `a library chosen again brings back the same books with their progress`() = runTest {
         val id = connect()
         sync(id)
-        val before = dao.booksOf(id).single { it.title == "Hörspiel" }
+        val before = dao.booksOf(id).single { it.title == "Drama" }
         dao.upsertProgress(BookProgressEntity(before.bookId, positionMs = 30_000, durationMs = 60_000, updatedAt = 1))
         servers.setLibraryShown(id, "lib-b", shown = false)
         sync(id)
@@ -180,7 +180,7 @@ class BookLibrariesSyncTest {
         servers.setLibraryShown(id, "lib-b", shown = true)
         sync(id)
 
-        val after = dao.booksOf(id).single { it.title == "Hörspiel" }
+        val after = dao.booksOf(id).single { it.title == "Drama" }
         assertEquals(before.bookId, after.bookId)
         assertEquals(30_000L, dao.progress(after.bookId)?.positionMs)
     }
@@ -195,7 +195,7 @@ class BookLibrariesSyncTest {
 
         sync(id)
 
-        assertEquals(listOf("Krimi", "Roman"), dao.booksOf(id).map { it.title }.sorted())
+        assertEquals(listOf("Crime", "Novel"), dao.booksOf(id).map { it.title }.sorted())
     }
 
     @Test
@@ -206,8 +206,8 @@ class BookLibrariesSyncTest {
 
         sync(id)
 
-        assertEquals(listOf("Krimi", "Roman"), titles())
-        assertEquals(listOf("Audiobücher"), servers.servers.first().single().libraries.map { it.name })
+        assertEquals(listOf("Crime", "Novel"), titles())
+        assertEquals(listOf("Audiobooks"), servers.servers.first().single().libraries.map { it.name })
     }
 
     @Test
@@ -215,16 +215,16 @@ class BookLibrariesSyncTest {
         val id = connect()
         assertTrue(sync(id).ok)
 
-        assertEquals("Schreibt Krimis.", books.authorDescription("anna autor").first())
-        assertEquals("Schreibt Hörspiele.", books.authorDescription("Bert Autor").first())
-        assertEquals(null, books.authorDescription("Ohne Text").first())
+        assertEquals("Writes crime novels.", books.authorDescription("anna author").first())
+        assertEquals("Writes radio plays.", books.authorDescription("Bert Author").first())
+        assertEquals(null, books.authorDescription("No Text").first())
 
         authorsFail = true
         assertTrue(sync(id).ok)
-        assertEquals("Schreibt Krimis.", books.authorDescription("Anna Autor").first())
+        assertEquals("Writes crime novels.", books.authorDescription("Anna Author").first())
 
         servers.setEnabled(id, false)
-        assertEquals(null, books.authorDescription("Anna Autor").first())
+        assertEquals(null, books.authorDescription("Anna Author").first())
     }
 
     @Volatile
@@ -234,7 +234,7 @@ class BookLibrariesSyncTest {
     @Volatile
     private var afterItems: (library: String, limit: Int, page: Int) -> Unit = { _, _, _ -> }
 
-    private fun manyBooks(count: Int) = (1..count).map { Triple("many_$it", "Buch $it", emptyList<String>()) }
+    private fun manyBooks(count: Int) = (1..count).map { Triple("many_$it", "Book $it", emptyList<String>()) }
 
     @Test
     fun `a book removed on the server between two pages does not make the sync drop the next one`() = runTest {
@@ -288,7 +288,7 @@ class BookLibrariesSyncTest {
                 path == "/ping" -> json("""{"success":true}""")
                 path == "/api/me" -> json("""{"id":"user-1","mediaProgress":[],"bookmarks":[]}""")
                 path == "/api/libraries" -> {
-                    val names = mapOf("lib-a" to "Audiobücher", "lib-b" to "Hörspiele")
+                    val names = mapOf("lib-a" to "Audiobooks", "lib-b" to "Radio plays")
                     val libraries = items.keys.sorted().joinToString(",") { """{"id":"$it","name":"${names[it]}","mediaType":"book"}""" }
                     json("""{"libraries":[$libraries,{"id":"pod","name":"Podcasts","mediaType":"podcast"}]}""")
                 }
@@ -307,10 +307,10 @@ class BookLibrariesSyncTest {
                     if (authorsFail) return MockResponse.Builder().code(500).build()
                     when (path.removePrefix("/api/libraries/").removeSuffix("/authors")) {
                         "lib-a" -> json(
-                            """{"authors":[{"id":"au1","name":"Anna Autor","description":"Schreibt Krimis."},""" +
-                                """{"id":"au3","name":"Ohne Text","description":null}]}""",
+                            """{"authors":[{"id":"au1","name":"Anna Author","description":"Writes crime novels."},""" +
+                                """{"id":"au3","name":"No Text","description":null}]}""",
                         )
-                        else -> json("""{"authors":[{"id":"au2","name":"Bert Autor","description":"Schreibt Hörspiele."}]}""")
+                        else -> json("""{"authors":[{"id":"au2","name":"Bert Author","description":"Writes radio plays."}]}""")
                     }
                 }
                 path.startsWith("/api/items/") -> {

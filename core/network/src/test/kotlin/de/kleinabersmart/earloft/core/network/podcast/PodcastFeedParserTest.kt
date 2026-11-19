@@ -21,28 +21,28 @@ class PodcastFeedParserTest {
                  xmlns:content="http://purl.org/rss/1.0/modules/content/"
                  xmlns:pc="https://podcastindex.org/namespace/1.0">
               <channel>
-                <title>Der Podcast</title>
-                <description>Kurz</description>
+                <title>The Podcast</title>
+                <description>Short</description>
                 <itunes:author>Radio Eins</itunes:author>
                 <itunes:image href="https://example.com/cover.jpg"/>
                 <image><url>https://example.com/alt.jpg</url></image>
                 <item>
-                  <title>Folge 2</title>
+                  <title>Episode 2</title>
                   <guid isPermaLink="false">abc-2</guid>
                   <pubDate>Thu, 30 Oct 2025 06:00:00 +0100</pubDate>
-                  <description>Kurztext</description>
-                  <content:encoded><![CDATA[<p>Langtext</p>]]></content:encoded>
+                  <description>Short text</description>
+                  <content:encoded><![CDATA[<p>Long text</p>]]></content:encoded>
                   <enclosure url="https://example.com/2.mp3" length="123" type="audio/mpeg"/>
                   <itunes:duration>1:02:03</itunes:duration>
                   <itunes:image href="https://example.com/2.jpg"/>
                   <pc:chapters url="https://example.com/2.json" type="application/json+chapters"/>
                 </item>
                 <item>
-                  <title>Ohne Audio</title>
+                  <title>Without audio</title>
                   <guid>no-audio</guid>
                 </item>
                 <item>
-                  <title>Folge 1</title>
+                  <title>Episode 1</title>
                   <enclosure url="https://example.com/1.mp3" type="audio/mpeg"/>
                   <itunes:duration>754</itunes:duration>
                 </item>
@@ -51,16 +51,16 @@ class PodcastFeedParserTest {
             """,
         )
 
-        assertEquals("Der Podcast", feed.title)
+        assertEquals("The Podcast", feed.title)
         assertEquals("Radio Eins", feed.author)
-        assertEquals("Kurz", feed.description)
+        assertEquals("Short", feed.description)
         assertEquals("https://example.com/cover.jpg", feed.imageUrl)
         assertEquals(2, feed.episodes.size)
 
         val first = feed.episodes[0]
         assertEquals("abc-2", first.guid)
-        assertEquals("Folge 2", first.title)
-        assertEquals("<p>Langtext</p>", first.description)
+        assertEquals("Episode 2", first.title)
+        assertEquals("<p>Long text</p>", first.description)
         assertEquals("https://example.com/2.mp3", first.audioUrl)
         assertEquals("audio/mpeg", first.mimeType)
         assertEquals((3600 + 120 + 3) * 1000L, first.durationMs)
@@ -85,9 +85,9 @@ class PodcastFeedParserTest {
                 <title>Banse &amp;amp; Buermeyer</title>
                 <itunes:author><![CDATA[Philip &amp; Ulf]]></itunes:author>
                 <item>
-                  <title><![CDATA[BlackRock &amp; Co &#8211; &quot;Teil&quot; &#x2764; &amp;lt;b&amp;gt; &unbekannt; & mehr]]></title>
+                  <title><![CDATA[BlackRock &amp; Co &#8211; &quot;Part&quot; &#x2764; &amp;lt;b&amp;gt; &unknown; & more]]></title>
                   <enclosure url="https://example.com/1.mp3" type="audio/mpeg"/>
-                  <psc:chapters><psc:chapter start="0" title="Fragen &amp;amp; Antworten"/></psc:chapters>
+                  <psc:chapters><psc:chapter start="0" title="Questions &amp;amp; Answers"/></psc:chapters>
                 </item>
               </channel>
             </rss>
@@ -97,8 +97,8 @@ class PodcastFeedParserTest {
         assertEquals("Banse & Buermeyer", feed.title)
         assertEquals("Philip & Ulf", feed.author)
         // Only once: whatever is still encoded afterwards was meant that way in the title.
-        assertEquals("BlackRock & Co – \"Teil\" ❤ &lt;b&gt; &unbekannt; & mehr", feed.episodes.single().title)
-        assertEquals("Fragen & Antworten", feed.episodes.single().chapters.single().title)
+        assertEquals("BlackRock & Co – \"Part\" ❤ &lt;b&gt; &unknown; & more", feed.episodes.single().title)
+        assertEquals("Questions & Answers", feed.episodes.single().chapters.single().title)
     }
 
     @Test
@@ -115,12 +115,12 @@ class PodcastFeedParserTest {
                     <psc:chapter start="00:12:03.500" title=" Ukraine " image="https://example.com/ukraine.jpg"/>
                     <psc:chapter start="00:00:00.000" title="Intro" href="https://example.com"/>
                     <psc:chapter start="npt:1:02:03" title="Feedback"/>
-                    <psc:chapter start="bald" title="Kaputt"/>
+                    <psc:chapter start="soon" title="Broken"/>
                     <psc:chapter start="75"/>
                   </psc:chapters>
                 </item>
                 <item>
-                  <title>Ohne</title>
+                  <title>Without</title>
                   <enclosure url="https://example.com/2.m4a"/>
                 </item>
               </channel>
@@ -149,7 +149,7 @@ class PodcastFeedParserTest {
         """
         try {
             parse(laughs)
-            org.junit.Assert.fail("PodcastFeedException erwartet")
+            org.junit.Assert.fail("PodcastFeedException expected")
         } catch (_: PodcastFeedException) {
         }
 
@@ -157,10 +157,10 @@ class PodcastFeedParserTest {
             """
             <?xml version="1.0"?>
             <!DOCTYPE rss PUBLIC "-//Netscape Communications//DTD RSS 0.91//EN" "http://my.netscape.com/publish/formats/rss-0.91.dtd">
-            <rss version="0.91"><channel><title>Alt</title></channel></rss>
+            <rss version="0.91"><channel><title>Old</title></channel></rss>
             """,
         )
-        assertEquals("Alt", old.title)
+        assertEquals("Old", old.title)
     }
 
     @Test
@@ -174,9 +174,9 @@ class PodcastFeedParserTest {
         assertNull(padded.byteInputStream().rejectingEntityDeclarations())
 
         // A feed with a comment and a plain DOCTYPE, also in UTF-16, stays readable.
-        val fine = """<?xml version="1.0" encoding="UTF-16"?><!-- Feed --><!DOCTYPE rss><rss version="2.0"><channel><title>Gut</title></channel></rss>"""
-        assertEquals("Gut", PodcastFeedParser.parse("﻿$fine".toByteArray(Charsets.UTF_16BE).inputStream()).title)
-        assertEquals("Lang", parse("<rss><channel><title>Lang</title><description>${"x".repeat(70_000)}</description></channel></rss>").title)
+        val fine = """<?xml version="1.0" encoding="UTF-16"?><!-- Feed --><!DOCTYPE rss><rss version="2.0"><channel><title>Fine</title></channel></rss>"""
+        assertEquals("Fine", PodcastFeedParser.parse("﻿$fine".toByteArray(Charsets.UTF_16BE).inputStream()).title)
+        assertEquals("Long", parse("<rss><channel><title>Long</title><description>${"x".repeat(70_000)}</description></channel></rss>").title)
     }
 
     @Test
@@ -201,13 +201,13 @@ class PodcastFeedParserTest {
             <rss version="2.0" xmlns:foo="http://www.itunes.com/dtds/podcast-1.0.dtd">
               <channel>
                 <title>T</title>
-                <foo:author>Autor</foo:author>
+                <foo:author>Author</foo:author>
                 <item><enclosure url="https://example.com/a.mp3"/><foo:duration>10:00</foo:duration></item>
               </channel>
             </rss>
             """,
         )
-        assertEquals("Autor", feed.author)
+        assertEquals("Author", feed.author)
         assertEquals(600_000L, feed.episodes.single().durationMs)
     }
 
@@ -241,14 +241,14 @@ class PodcastFeedParserTest {
             """
             <?xml version="1.0" encoding="utf-8"?>
             <feed xmlns="http://www.w3.org/2005/Atom" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
-              <title>Atom-Podcast</title>
-              <subtitle>Untertitel</subtitle>
+              <title>Atom Podcast</title>
+              <subtitle>Subtitle</subtitle>
               <author><name>Erika</name></author>
               <logo>https://example.com/logo.png</logo>
               <entry>
                 <id>tag:example.com,2025:1</id>
-                <title>Eins</title>
-                <summary>Zusammenfassung</summary>
+                <title>One</title>
+                <summary>Summary</summary>
                 <published>2025-10-01T10:00:00+02:00</published>
                 <link rel="alternate" href="https://example.com/1"/>
                 <link rel="enclosure" type="audio/ogg" href="https://example.com/1.ogg" length="5"/>
@@ -256,21 +256,21 @@ class PodcastFeedParserTest {
               </entry>
               <entry>
                 <id>tag:example.com,2025:2</id>
-                <title>Nur Text</title>
+                <title>Text only</title>
                 <link rel="alternate" href="https://example.com/2"/>
               </entry>
             </feed>
             """,
         )
 
-        assertEquals("Atom-Podcast", feed.title)
+        assertEquals("Atom Podcast", feed.title)
         assertEquals("Erika", feed.author)
-        assertEquals("Untertitel", feed.description)
+        assertEquals("Subtitle", feed.description)
         assertEquals("https://example.com/logo.png", feed.imageUrl)
         val episode = feed.episodes.single()
         assertEquals("tag:example.com,2025:1", episode.guid)
-        assertEquals("Eins", episode.title)
-        assertEquals("Zusammenfassung", episode.description)
+        assertEquals("One", episode.title)
+        assertEquals("Summary", episode.description)
         assertEquals("https://example.com/1.ogg", episode.audioUrl)
         assertEquals("audio/ogg", episode.mimeType)
         assertEquals(30_000L, episode.durationMs)
@@ -287,23 +287,23 @@ class PodcastFeedParserTest {
                 <atom:link href="https://example.com/feed.xml" rel="self" type="application/rss+xml"/>
                 <link>https://example.com/</link>
                 <item>
-                  <title>Mit Link</title>
+                  <title>With link</title>
                   <link> https://example.com/1 </link>
                   <guid isPermaLink="true">https://example.com/guid-1</guid>
                   <enclosure url="https://cdn.example.com/1.mp3" type="audio/mpeg"/>
                 </item>
                 <item>
-                  <title>Nur guid</title>
+                  <title>Only guid</title>
                   <guid>https://example.com/2</guid>
                   <enclosure url="https://cdn.example.com/2.mp3" type="audio/mpeg"/>
                 </item>
                 <item>
-                  <title>guid ohne Permalink</title>
+                  <title>guid without permalink</title>
                   <guid isPermaLink="false">https://example.com/3</guid>
                   <enclosure url="https://cdn.example.com/3.mp3" type="audio/mpeg"/>
                 </item>
                 <item>
-                  <title>guid ohne Adresse</title>
+                  <title>guid without address</title>
                   <guid>abc-4</guid>
                   <enclosure url="https://cdn.example.com/4.mp3" type="audio/mpeg"/>
                 </item>
@@ -325,7 +325,7 @@ class PodcastFeedParserTest {
               <link href="https://example.com/"/>
               <entry>
                 <id>e1</id>
-                <title>Folge</title>
+                <title>Episode</title>
                 <link rel="enclosure" href="https://cdn.example.com/1.mp3" type="audio/mpeg"/>
                 <link rel="alternate" type="text/html" href="https://example.com/1"/>
               </entry>
@@ -347,7 +347,7 @@ class PodcastFeedParserTest {
 
     @Test
     fun `unreadable input is rejected`() {
-        assertThrowsFeed("<html><body>Hallo</body></html>")
+        assertThrowsFeed("<html><body>Hello</body></html>")
         assertThrowsFeed("<rss version=\"2.0\"></rss>")
         assertThrowsFeed("<rss><channel>")
         assertThrowsFeed("")
@@ -362,10 +362,10 @@ class PodcastFeedParserTest {
                 <title>P</title>
                 <podcast:guid> 917393E3-1B1E-5CEF-ACE4-EDAA54E1F810 </podcast:guid>
                 <podcast:funding url="mailto:x@example.com">Mail</podcast:funding>
-                <podcast:funding url="https://example.com/support">Unterstützt uns &amp;amp; den Podcast</podcast:funding>
+                <podcast:funding url="https://example.com/support">Support us &amp;amp; the podcast</podcast:funding>
                 <podcast:person role="host" img="https://example.com/anna.jpg">Anna</podcast:person>
                 <item>
-                  <title>Staffel 2, Folge 12</title>
+                  <title>Season 2, Episode 12</title>
                   <enclosure url="https://example.com/12.mp3"/>
                   <itunes:season>2</itunes:season>
                   <itunes:episode>12</itunes:episode>
@@ -390,7 +390,7 @@ class PodcastFeedParserTest {
         )
         assertEquals("917393e3-1b1e-5cef-ace4-edaa54e1f810", feed.podcastGuid)
         assertEquals("https://example.com/support", feed.fundingUrl)
-        assertEquals("Unterstützt uns & den Podcast", feed.fundingLabel)
+        assertEquals("Support us & the podcast", feed.fundingLabel)
 
         val bonus = feed.episodes[0]
         assertEquals(2, bonus.season)
@@ -424,14 +424,14 @@ class PodcastFeedParserTest {
 
     @Test
     fun `an empty feed has no episodes`() {
-        val feed = parse("<rss><channel><title>Leer</title></channel></rss>")
+        val feed = parse("<rss><channel><title>Empty</title></channel></rss>")
         assertTrue(feed.episodes.isEmpty())
     }
 
     private fun assertThrowsFeed(xml: String) {
         try {
             parse(xml)
-            throw AssertionError("Feed hätte abgelehnt werden müssen: $xml")
+            throw AssertionError("Feed should have been rejected: $xml")
         } catch (_: PodcastFeedException) {
         }
     }

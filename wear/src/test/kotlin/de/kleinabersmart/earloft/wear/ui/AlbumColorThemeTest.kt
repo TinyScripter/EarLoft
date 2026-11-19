@@ -13,7 +13,7 @@ class AlbumColorThemeTest {
     private val blue = 0xFF1E88E5.toInt()
 
     @Test
-    fun `die Akzentfarbe folgt der Grundfarbe des Albums`() {
+    fun `the accent color follows the base color of the album`() {
         val redScheme = albumColorScheme(base, red)
         val blueScheme = albumColorScheme(base, blue)
 
@@ -23,7 +23,7 @@ class AlbumColorThemeTest {
     }
 
     @Test
-    fun `Fehler- und Textfarben bleiben unverändert`() {
+    fun `error and text colors stay unchanged`() {
         val scheme = albumColorScheme(base, red)
 
         assertEquals(base.error, scheme.error)
@@ -32,10 +32,10 @@ class AlbumColorThemeTest {
     }
 
     @Test
-    fun `Schrift auf der Akzentfarbe bleibt lesbar`() {
+    fun `text on the accent color stays readable`() {
         val scheme = albumColorScheme(base, red)
 
-        // Dunkles Schema: heller Akzent, dunkle Schrift darauf.
+        // Dark scheme: light accent, dark text on it.
         assertTrue(scheme.onPrimary.luminance() < scheme.primary.luminance())
     }
 

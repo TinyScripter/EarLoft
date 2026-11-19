@@ -41,7 +41,7 @@ class EpisodeOrderTest {
         assertEquals(null, nextEpisode(emptyList(), emptySet()))
     }
 
-    /** Folgen wie aus `episodes(feedId)`: die neueste zuerst. */
+    /** Episodes as from `episodes(feedId)`: newest first. */
     private val newestFirst = listOf(episode(3, finished = false), episode(2, finished = true), episode(1, finished = false))
 
     @Test
@@ -63,7 +63,7 @@ class EpisodeOrderTest {
     }
 
     private fun episode(id: Long, finished: Boolean, positionMs: Long = if (finished) 600_000 else 0) = BookWithProgress(
-        Book(id = id, serverId = "feed", kind = BookKind.EPISODE, title = "Folge $id", author = "Podcast", durationMs = 600_000, remoteId = "guid-$id"),
+        Book(id = id, serverId = "feed", kind = BookKind.EPISODE, title = "Episode $id", author = "Podcast", durationMs = 600_000, remoteId = "guid-$id"),
         BookProgress(positionMs = positionMs, durationMs = 600_000, finished = finished, speed = 1f, updatedAt = 0),
     )
 }

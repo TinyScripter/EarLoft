@@ -68,9 +68,9 @@ class PhoneFileLocatorTest {
             .allowMainThreadQueries()
             .build()
         syncer = db.librarySyncer()
-        localFile = folder.newFile("lokal.mp3").apply { writeBytes(ByteArray(300_000) { (it % 251).toByte() }) }
-        // "A" also exists locally (merged with the server song), "Sommerlied" only locally.
-        val local = FileLocalSource(listOf(track("1", "A", 1), track("2", "Sommerlied", 1, album = "Lokal")), localFile)
+        localFile = folder.newFile("local.mp3").apply { writeBytes(ByteArray(300_000) { (it % 251).toByte() }) }
+        // "A" also exists locally (merged with the server song), "Summer song" only locally.
+        val local = FileLocalSource(listOf(track("1", "A", 1), track("2", "Summer song", 1, album = "Local")), localFile)
         val context = ApplicationProvider.getApplicationContext<Context>()
         val client = OkHttpClient()
         val api = AbsApi(client)
@@ -121,11 +121,11 @@ class PhoneFileLocatorTest {
     fun `missing download file and unknown sources give nothing`() = runTest {
         val songId = db.downloadDao().getSongSource("nd:b")!!.songId
         db.downloadDao().insertIfAbsent(
-            listOf(DownloadEntity("nd:b", songId, DownloadState.DONE, filePath = File(folder.root, "weg.flac").absolutePath)),
+            listOf(DownloadEntity("nd:b", songId, DownloadState.DONE, filePath = File(folder.root, "gone.flac").absolutePath)),
         )
 
         assertNull(locator.open("nd:b"))
-        assertNull(locator.open("nd:gibtsnicht"))
+        assertNull(locator.open("nd:missing"))
     }
 
     @Test
@@ -143,7 +143,7 @@ class PhoneFileLocatorTest {
 
         assertArrayEquals(file.readBytes(), locator.openEpisode("f1", "g1")!!.input.use { it.readBytes() })
         assertNull(locator.openEpisode("f1", "g2"))
-        assertNull(locator.openEpisode("f1", "gibtsnicht"))
+        assertNull(locator.openEpisode("f1", "missing"))
     }
 
     @Test
@@ -155,7 +155,7 @@ class PhoneFileLocatorTest {
 
         assertEquals(3, file.length)
         assertArrayEquals(byteArrayOf(1, 2, 3), file.input.use { it.readBytes() })
-        assertNull(locator.openCover("f1", "gibtsnicht"))
+        assertNull(locator.openCover("f1", "missing"))
     }
 
     private suspend fun episode(guid: String): Long = db.bookDao().insertBook(

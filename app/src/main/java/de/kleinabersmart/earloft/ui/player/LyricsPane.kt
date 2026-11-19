@@ -134,7 +134,7 @@ private fun SyncedLyrics(lines: List<LyricLine>, fromLrclib: Boolean, positionMs
 private fun SyncedLyricsPreview() {
     EarLoftTheme {
         LyricsPane(
-            lyrics = Lyrics.Synced(listOf(LyricLine(0, "Mondlicht fällt aufs Dach"), LyricLine(5_000, "Nachtfalter tanzen leis"), LyricLine(10_000, "Die Stadt hält still"))),
+            lyrics = Lyrics.Synced(listOf(LyricLine(0, "Moonlight falls on the roof"), LyricLine(5_000, "Moths are dancing softly"), LyricLine(10_000, "The city holds its breath"))),
             fromLrclib = true,
             positionMs = { 6_000 },
             onSeek = {},

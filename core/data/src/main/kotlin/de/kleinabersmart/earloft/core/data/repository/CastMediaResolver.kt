@@ -89,7 +89,7 @@ class CastMediaResolver @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Quelle ${row.uid} nicht nutzbar", e)
+                Log.w(TAG, "Source ${row.uid} not usable", e)
                 null
             }
             if (location is PlaybackLocation.LocalFile) return location.uri to mimeType

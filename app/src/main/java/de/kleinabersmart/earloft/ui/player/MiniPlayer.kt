@@ -192,7 +192,7 @@ private fun MiniPlayerPreview() {
     EarLoftTheme {
         MiniPlayer(
             state = PlayerState(
-                current = QueueEntry(songId = 1, title = "Ein Lied", artist = "Eine Band", albumId = null),
+                current = QueueEntry(songId = 1, title = "A Song", artist = "A Band", albumId = null),
                 isPlaying = true,
                 durationMs = 200_000,
             ),

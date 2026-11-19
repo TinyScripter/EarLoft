@@ -10,7 +10,7 @@ class ProgressThrottleTest {
     private val throttle = ProgressThrottle(intervalMs = 1_000, clock = { now })
 
     @Test
-    fun `erste Meldung sofort, danach höchstens einmal je Intervall`() {
+    fun `first report immediately, then at most once per interval`() {
         assertEquals(0, throttle.next(0, 1_000))
         now += 100
         assertNull(throttle.next(50, 1_000))
@@ -21,7 +21,7 @@ class ProgressThrottleTest {
     }
 
     @Test
-    fun `gleiches Prozent wird nicht wiederholt`() {
+    fun `the same percentage is not repeated`() {
         assertEquals(1, throttle.next(10, 1_000))
         now += 5_000
         assertNull(throttle.next(19, 1_000))
@@ -29,7 +29,7 @@ class ProgressThrottleTest {
     }
 
     @Test
-    fun `ohne bekannte Größe nichts Neues, der Start zeigt schon unbestimmten Fortschritt`() {
+    fun `without a known size nothing new, the start already shows indeterminate progress`() {
         assertNull(throttle.next(100, null))
         now += 5_000
         assertNull(throttle.next(300, 0))

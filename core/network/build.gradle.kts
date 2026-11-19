@@ -33,8 +33,8 @@ if (listOf("podcastindex.key", "podcastindex.secret").any { localProperties.getP
     tasks.matching { it.name == "preReleaseBuild" }.configureEach {
         doFirst {
             logger.warn(
-                "w: Release ohne Podcast Index: podcastindex.key bzw. podcastindex.secret fehlen in local.properties. " +
-                    "Die App bietet das Verzeichnis dann nicht an.",
+                "w: Release without Podcast Index: podcastindex.key or podcastindex.secret is missing in local.properties. " +
+                    "The app then does not offer the directory.",
             )
         }
     }

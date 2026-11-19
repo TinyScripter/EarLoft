@@ -53,7 +53,7 @@ internal class SpokenAudioEffects(private val player: ExoPlayer) {
             current.enabled = true
         } catch (e: RuntimeException) {
             // Some devices don't offer the effect; then it stays quiet instead of failing.
-            Log.w(TAG, "LoudnessEnhancer nicht verfügbar", e)
+            Log.w(TAG, "LoudnessEnhancer unavailable", e)
             // A half-configured effect (e.g. at setTargetGain) would otherwise hold on to its native resource.
             runCatching { enhancer?.release() }
             enhancer = null

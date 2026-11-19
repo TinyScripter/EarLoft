@@ -58,7 +58,7 @@ class MixViewModelTest {
 
         viewModel.start(MixSeed.Album(albumId = 999), afterCurrent = false)
 
-        // The test scheduler skips the wait for Room, so the "Mix wird zusammengestellt" hint comes first.
+        // The test scheduler skips the wait for Room, so the "Building a mix…" hint (`mix_building`) comes first.
         awaitReal { while (context.getString(R.string.mix_empty) !in shown) delay(10) }
         assertEquals(context.getString(R.string.mix_empty), shown.last())
         assertTrue(playback.commands.value.isEmpty())

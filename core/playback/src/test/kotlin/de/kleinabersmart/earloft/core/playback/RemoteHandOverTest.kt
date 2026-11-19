@@ -6,7 +6,7 @@ import org.junit.Test
 
 class RemoteHandOverTest {
 
-    private val episode = PlayerState(spoken = SpokenEntry(bookId = 7, trackIndex = 0, title = "Folge", author = "Feed"), isPlaying = true)
+    private val episode = PlayerState(spoken = SpokenEntry(bookId = 7, trackIndex = 0, title = "Episode", author = "Feed"), isPlaying = true)
     private val emptyRemote = PlayerState(isRemote = true)
 
     @Test

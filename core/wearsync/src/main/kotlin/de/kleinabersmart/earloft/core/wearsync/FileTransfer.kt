@@ -76,11 +76,11 @@ suspend fun ChannelClient.receiveFileResumable(
     onProgress: suspend (bytesDone: Long, bytesTotal: Long) -> Unit = { _, _ -> },
 ): FileReceive {
     val from = withContext(Dispatchers.IO) { resumeOffset(part, lengthFile) }
-    if (from > 0) Log.i(TAG, "$sourceUid: setze bei $from Bytes fort")
+    if (from > 0) Log.i(TAG, "$sourceUid: resuming at $from bytes")
     return try {
         receiveInto(nodeId, sourceUid, part, lengthFile, from, onProgress)
     } catch (_: LengthChanged) {
-        Log.i(TAG, "$sourceUid hat sich auf dem Handy geändert, beginne von vorn")
+        Log.i(TAG, "$sourceUid changed on the phone, starting over")
         receiveInto(nodeId, sourceUid, part, lengthFile, from = 0, onProgress)
     }
 }
@@ -151,7 +151,7 @@ private suspend fun ChannelClient.receive(
     val channel = try {
         openChannel(nodeId, WearPaths.fileChannel(sourceUid, from)).await()
     } catch (e: ApiException) {
-        throw IOException("Kanal zum Handy nicht geöffnet (${e.statusCode})", e)
+        throw IOException("Channel to the phone not opened (${e.statusCode})", e)
     }
     return coroutineScope {
         val headerRead = AtomicBoolean(false)
@@ -196,9 +196,9 @@ private suspend fun ChannelClient.receive(
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
-            throw IOException("Kanal zum Handy nicht lesbar (${e.statusCode})", e)
+            throw IOException("Channel to the phone not readable (${e.statusCode})", e)
         } catch (e: IOException) {
-            throw if (timedOut.get()) IOException("Handy antwortet nicht", e) else e
+            throw if (timedOut.get()) IOException("Phone not responding", e) else e
         } finally {
             guard.cancel()
         }
@@ -216,7 +216,7 @@ private suspend fun copyExactly(
     while (done < length) {
         currentCoroutineContext().ensureActive()
         val read = input.read(buffer, 0, minOf(buffer.size.toLong(), length - done).toInt())
-        if (read < 0) throw EOFException("Unvollständig: $done von $length Bytes")
+        if (read < 0) throw EOFException("Incomplete: $done of $length bytes")
         output.write(buffer, 0, read)
         done += read
         onProgress(done, length)
@@ -239,14 +239,14 @@ suspend fun ChannelClient.sendFile(channel: ChannelClient.Channel, length: Long,
                         skipFully(it, from)
                         copyAll(it, output)
                     }
-                    if (written != length - from) Log.w(TAG, "Länge angekündigt $length ab $from, gesendet $written")
+                    if (written != length - from) Log.w(TAG, "Announced length $length from $from, sent $written")
                 }
             }
         }
     } catch (e: ApiException) {
-        Log.w(TAG, "Kanal zur Uhr nicht beschreibbar (${e.statusCode})", e)
+        Log.w(TAG, "Channel to the watch not writable (${e.statusCode})", e)
     } catch (e: IOException) {
-        Log.w(TAG, "Übertragung zur Uhr abgebrochen", e)
+        Log.w(TAG, "Transfer to the watch aborted", e)
     } finally {
         source?.close()
         try {
@@ -254,7 +254,7 @@ suspend fun ChannelClient.sendFile(channel: ChannelClient.Channel, length: Long,
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.d(TAG, "Kanal schon geschlossen", e)
+            Log.d(TAG, "Channel already closed", e)
         }
     }
 }
@@ -267,7 +267,7 @@ private fun skipFully(input: InputStream, count: Long) {
         if (skipped > 0) {
             left -= skipped
         } else {
-            if (input.read() < 0) throw EOFException("Datei endet vor Byte $count")
+            if (input.read() < 0) throw EOFException("File ends before byte $count")
             left--
         }
     }

@@ -37,7 +37,7 @@ class LegacyBrowserConnectTest {
             ).apply { connect() }
         }
         try {
-            assertTrue("Keine Verbindung innerhalb von 10 s", connected.await(10, TimeUnit.SECONDS))
+            assertTrue("No connection within 10 s", connected.await(10, TimeUnit.SECONDS))
             assertEquals("root", browser!!.root)
         } finally {
             // Not runOnMainSync: if the main thread hangs, the test itself would otherwise get stuck.

@@ -157,7 +157,7 @@ class AudiobookshelfServers @Inject constructor(
         return try {
             authApi.loginOptions(baseUrl)
         } catch (e: IOException) {
-            Log.d(TAG, "Anmeldearten von $baseUrl nicht lesbar", e)
+            Log.d(TAG, "Login methods of $baseUrl not readable", e)
             null
         }
     }
@@ -168,10 +168,10 @@ class AudiobookshelfServers @Inject constructor(
         return try {
             BeginOpenIdResult.Started(authApi.beginOpenId(baseUrl, redirectUri))
         } catch (e: AbsException) {
-            Log.w(TAG, "OpenID bei $baseUrl nicht möglich", e)
+            Log.w(TAG, "OpenID at $baseUrl not possible", e)
             if (e.code == 400) BeginOpenIdResult.RedirectNotAllowed(redirectUri) else BeginOpenIdResult.Unreachable
         } catch (e: IOException) {
-            Log.w(TAG, "Server $baseUrl nicht erreichbar", e)
+            Log.w(TAG, "Server $baseUrl unreachable", e)
             BeginOpenIdResult.Unreachable
         }
     }
@@ -185,10 +185,10 @@ class AudiobookshelfServers @Inject constructor(
         val tokens = try {
             authApi.finishOpenId(login, redirectUrl)
         } catch (e: AbsException) {
-            Log.w(TAG, "OpenID bei ${login.baseUrl} abgelehnt", e)
+            Log.w(TAG, "OpenID at ${login.baseUrl} rejected", e)
             return AddServerResult.OpenIdFailed
         } catch (e: IOException) {
-            Log.w(TAG, "Server ${login.baseUrl} nicht erreichbar", e)
+            Log.w(TAG, "Server ${login.baseUrl} unreachable", e)
             return AddServerResult.Unreachable
         }
         return connect(serverId, name, login.baseUrl.toString(), Credentials.OpenId(tokens.accessToken, tokens.refreshToken))
@@ -243,10 +243,10 @@ class AudiobookshelfServers @Inject constructor(
             api.me(candidate)
             api.libraries(candidate).filter { it.mediaType == "book" }
         } catch (e: AbsException) {
-            Log.w(TAG, "Server $baseUrl abgelehnt", e)
+            Log.w(TAG, "Server $baseUrl rejected", e)
             return if (e.isAuthError) AddServerResult.AuthFailed else AddServerResult.Unreachable
         } catch (e: IOException) {
-            Log.w(TAG, "Server $baseUrl nicht erreichbar", e)
+            Log.w(TAG, "Server $baseUrl unreachable", e)
             return AddServerResult.Unreachable
         }
         val library = libraries.firstOrNull { it.id !in existing?.hiddenLibraryIds.orEmpty() } ?: libraries.firstOrNull()
@@ -309,7 +309,7 @@ class AudiobookshelfServers @Inject constructor(
         try {
             registry[serverId]?.let { api.me(it) }
         } catch (e: IOException) {
-            Log.w(TAG, "Token für die Uhr nicht geprüft", e)
+            Log.w(TAG, "Token for the watch not checked", e)
         }
         return registry[serverId]?.token ?: token
     }
@@ -384,7 +384,7 @@ class AudiobookshelfServers @Inject constructor(
                 val key = secretStore.get(tokenKey(entity.serverId))
                 val baseUrl = AbsServer.normalizeBaseUrl(entity.baseUrl)
                 if (key == null || baseUrl == null) {
-                    Log.w(TAG, "Server ${entity.name} ist unvollständig eingerichtet und wird übersprungen")
+                    Log.w(TAG, "Server ${entity.name} is incompletely set up and is skipped")
                     null
                 } else {
                     AbsServer(entity.serverId, baseUrl, key)

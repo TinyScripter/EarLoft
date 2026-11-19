@@ -42,7 +42,7 @@ class ServerStatsRepository @Inject constructor(
                 try {
                     toStats(serverId, AbsStats.parse(it.json), it.fetchedAt, today(), year)
                 } catch (e: IOException) {
-                    Log.w(TAG, "Zwischengespeicherte Statistik von $serverId unlesbar", e)
+                    Log.w(TAG, "Cached statistics of $serverId unreadable", e)
                     null
                 }
             }
@@ -57,7 +57,7 @@ class ServerStatsRepository @Inject constructor(
             statsDao.putServerStats(ServerStatsCacheEntity(serverId, KIND, api.listeningStats(server), now))
             true
         } catch (e: IOException) {
-            Log.w(TAG, "Statistik von ${server.baseUrl} nicht abrufbar", e)
+            Log.w(TAG, "Statistics of ${server.baseUrl} not available", e)
             false
         }
     }

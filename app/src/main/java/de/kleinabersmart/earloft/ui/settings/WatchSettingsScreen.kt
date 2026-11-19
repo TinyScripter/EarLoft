@@ -324,9 +324,9 @@ private fun WatchSettingsContentPreview() {
             state = WatchSettingsUiState(
                 selections = listOf(
                     WatchSelectionItem(WearSelectionKind.FAVORITES, null, "", 42),
-                    WatchSelectionItem(WearSelectionKind.ALBUM, 1, "Mondlicht", 4),
+                    WatchSelectionItem(WearSelectionKind.ALBUM, 1, "Moonlight", 4),
                 ),
-                episodes = listOf(WatchEpisodeItem(7, "Folge 42: Uhren", "Kleiner Podcast")),
+                episodes = listOf(WatchEpisodeItem(7, "Episode 42: Watches", "Small Podcast")),
             ),
             onBack = {},
             onQualityChange = {},

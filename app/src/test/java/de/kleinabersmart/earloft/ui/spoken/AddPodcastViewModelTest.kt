@@ -53,7 +53,7 @@ class AddPodcastViewModelTest {
 
     @Test
     fun `an invalid address fails without touching the network`() = runTest {
-        viewModel.subscribe("kein feed")
+        viewModel.subscribe("no feed")
 
         assertEquals(
             AddPodcastState.Failed(R.string.podcast_error_invalid),

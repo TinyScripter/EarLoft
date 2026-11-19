@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Heimserver laufen oft per HTTP oder mit selbst signiertem Zertifikat (Konzept 10, Sicherheit):
-    HTTP ist erlaubt, wird im Server-Dialog aber erst nach ausdrücklicher Bestätigung gespeichert;
-    eigene Zertifikate funktionieren über vom Nutzer installierte CAs.
+    Home servers often run over HTTP or with a self-signed certificate (concept 10, security):
+    HTTP is allowed, but the server dialog only saves it after explicit confirmation;
+    custom certificates work through CAs installed by the user.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true">

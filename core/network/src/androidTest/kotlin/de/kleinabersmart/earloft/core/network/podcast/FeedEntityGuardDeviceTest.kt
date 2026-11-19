@@ -26,7 +26,7 @@ class FeedEntityGuardDeviceTest {
         parser.setInput(laughs.byteInputStream(), null)
         try {
             while (!(parser.next() == XmlPullParser.START_TAG && parser.name == "title")) Unit
-            fail("${parser.javaClass.name} expandiert eigene Entities: ${parser.nextText()}")
+            fail("${parser.javaClass.name} expands custom entities: ${parser.nextText()}")
         } catch (_: XmlPullParserException) {
         }
     }
@@ -36,14 +36,14 @@ class FeedEntityGuardDeviceTest {
         val utf16 = laughs.replace("<?xml version=\"1.0\"?>", "<?xml version=\"1.0\" encoding=\"UTF-16\"?>")
         val feeds = mapOf(
             "UTF-8" to laughs.toByteArray(),
-            "UTF-16 BE mit BOM" to "﻿$utf16".toByteArray(Charsets.UTF_16BE),
-            "UTF-16 LE ohne BOM" to utf16.toByteArray(Charsets.UTF_16LE),
-            "langer Prolog" to laughs.replace("?>", "?><!--${"x".repeat(70_000)}-->").toByteArray(),
+            "UTF-16 BE with BOM" to "﻿$utf16".toByteArray(Charsets.UTF_16BE),
+            "UTF-16 LE without BOM" to utf16.toByteArray(Charsets.UTF_16LE),
+            "long prolog" to laughs.replace("?>", "?><!--${"x".repeat(70_000)}-->").toByteArray(),
         )
         for ((label, bytes) in feeds) {
             try {
                 PodcastFeedParser.parse(bytes.inputStream())
-                fail("$label: PodcastFeedException erwartet")
+                fail("$label: PodcastFeedException expected")
             } catch (_: PodcastFeedException) {
             }
         }
@@ -51,7 +51,7 @@ class FeedEntityGuardDeviceTest {
 
     @Test
     fun plainUtf16FeedStaysReadable() {
-        val fine = """<?xml version="1.0" encoding="UTF-16"?><!-- Feed --><!DOCTYPE rss><rss version="2.0"><channel><title>Gut</title></channel></rss>"""
-        assertEquals("Gut", PodcastFeedParser.parse("﻿$fine".toByteArray(Charsets.UTF_16BE).inputStream()).title)
+        val fine = """<?xml version="1.0" encoding="UTF-16"?><!-- Feed --><!DOCTYPE rss><rss version="2.0"><channel><title>Fine</title></channel></rss>"""
+        assertEquals("Fine", PodcastFeedParser.parse("﻿$fine".toByteArray(Charsets.UTF_16BE).inputStream()).title)
     }
 }

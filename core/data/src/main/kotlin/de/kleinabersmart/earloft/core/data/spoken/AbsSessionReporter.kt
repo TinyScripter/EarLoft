@@ -114,7 +114,7 @@ class AbsSessionReporter @Inject constructor(
             dao.markClean(session.sessionId, session.updatedAt)
             true
         } catch (e: IOException) {
-            Log.w(TAG, "Hörsitzung von ${book.title} nicht gemeldet", e)
+            Log.w(TAG, "Listening session of ${book.title} not reported", e)
             AbsSessionWorker.schedule(context)
             false
         }

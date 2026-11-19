@@ -52,10 +52,10 @@ class KeystoreSecretStore @Inject constructor(
         return try {
             decrypt(stored)
         } catch (e: GeneralSecurityException) {
-            Log.w(TAG, "Geheimnis $key lässt sich nicht entschlüsseln", e)
+            Log.w(TAG, "Secret $key cannot be decrypted", e)
             null
         } catch (e: IllegalArgumentException) {
-            Log.w(TAG, "Geheimnis $key ist beschädigt", e)
+            Log.w(TAG, "Secret $key is corrupted", e)
             null
         }
     }

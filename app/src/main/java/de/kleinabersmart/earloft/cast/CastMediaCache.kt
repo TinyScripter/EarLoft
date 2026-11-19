@@ -70,7 +70,7 @@ class CastMediaCache @Inject constructor(
     /** Synchronous for Media3; anything not prepared is loaded blocking (should be rare). */
     fun prepareBlocking(songIds: Collection<Long>) {
         if (songIds.all(entries::containsKey)) return
-        Log.w(TAG, "Cast-Adressen nicht vorbereitet, lade ${songIds.size} Songs blockierend")
+        Log.w(TAG, "Cast addresses not prepared, loading ${songIds.size} songs blocking")
         runBlocking(Dispatchers.IO) { prepare(songIds) }
     }
 
@@ -113,7 +113,7 @@ class CastMediaCache @Inject constructor(
      * (review D10). A token that is barely valid is replaced as soon as [prepareServerKeys] has finished.
      */
     private fun serverKeys(): Map<String, String> = serverKeys ?: run {
-        Log.w(TAG, "Server-Schlüssel nicht vorbereitet, nehme die gespeicherten")
+        Log.w(TAG, "Server keys not prepared, using the stored ones")
         val stored = runBlocking(Dispatchers.IO) { audiobookshelf.allIncludingDisabled().associate { it.serverId to it.token } }
         // Only if [prepareServerKeys] hasn't finished in the meantime.
         serverKeys ?: stored.also { serverKeys = it }

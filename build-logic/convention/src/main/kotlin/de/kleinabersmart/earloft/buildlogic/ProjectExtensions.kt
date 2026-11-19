@@ -24,4 +24,4 @@ val Project.libs: VersionCatalog
     get() = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
 fun VersionCatalog.library(alias: String): Provider<MinimalExternalModuleDependency> =
-    findLibrary(alias).orElseThrow { IllegalArgumentException("Bibliothek '$alias' fehlt im Version Catalog") }
+    findLibrary(alias).orElseThrow { IllegalArgumentException("Library '$alias' is missing in the version catalog") }

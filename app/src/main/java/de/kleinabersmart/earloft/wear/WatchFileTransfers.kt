@@ -89,7 +89,7 @@ class WatchTransferWorker(context: Context, params: WorkerParameters) : Coroutin
             }
         }
         transfers.workerRunning.set(false)
-        if (finished == null) Log.w(TAG, "Übertragung zur Uhr läuft länger als ${MAX_RUN_MS / 60_000} min, Auftrag endet")
+        if (finished == null) Log.w(TAG, "Transfer to the watch runs longer than ${MAX_RUN_MS / 60_000} min, ending the job")
         return Result.success()
     }
 

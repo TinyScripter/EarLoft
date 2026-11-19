@@ -102,7 +102,7 @@ class ArtworkRepository @Inject constructor(
         val bitmap = coverCache.read(albumId)?.takeIf { it.longestSide >= sizePx } ?: try {
             registry[source.sourceId]?.loadArtwork(source.coverRemoteId ?: source.remoteId, sizePx)
         } catch (e: IOException) {
-            Log.w(TAG, "Cover von ${source.sourceId} nicht ladbar: $e")
+            Log.w(TAG, "Cover from ${source.sourceId} not loadable: $e")
             return false
         } ?: return true
         coverFiles.write(albumId, bitmap)
@@ -118,7 +118,7 @@ class ArtworkRepository @Inject constructor(
             registry[source.sourceId]?.loadArtwork(source.coverRemoteId ?: source.remoteId, sizePx)
         } catch (e: IOException) {
             // Server unreachable: a missing cover must never crash the app (callers run on the main thread, among others).
-            Log.w(TAG, "Cover von ${source.sourceId} nicht ladbar: $e")
+            Log.w(TAG, "Cover from ${source.sourceId} not loadable: $e")
             null
         }
     }

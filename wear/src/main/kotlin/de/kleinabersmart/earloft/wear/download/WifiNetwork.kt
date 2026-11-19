@@ -47,7 +47,7 @@ class WifiNetwork @Inject constructor(@ApplicationContext private val context: C
         val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
         val enabled = context.getSharedPreferences("watch_state", Context.MODE_PRIVATE).getBoolean(DEBUG_ANY_NETWORK, false)
         if (!debuggable || !enabled) return null
-        Log.w(TAG, "Debug: nehme das aktive Netz statt WLAN")
+        Log.w(TAG, "Debug: using the active network instead of Wi-Fi")
         return connectivity.activeNetwork?.let { WifiLease(it) {} }
     }
 
@@ -58,12 +58,12 @@ class WifiNetwork @Inject constructor(@ApplicationContext private val context: C
             .build()
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                Log.d(TAG, "WLAN verfügbar: $network")
+                Log.d(TAG, "Wi-Fi available: $network")
                 if (continuation.isActive) continuation.resume(WifiLease(network) { release(this) })
             }
 
             override fun onUnavailable() {
-                Log.i(TAG, "Kein WLAN innerhalb von $timeoutMs ms")
+                Log.i(TAG, "No Wi-Fi within $timeoutMs ms")
                 release(this)
                 if (continuation.isActive) continuation.resume(null)
             }
@@ -72,7 +72,7 @@ class WifiNetwork @Inject constructor(@ApplicationContext private val context: C
         try {
             connectivity.requestNetwork(request, callback, timeoutMs)
         } catch (e: SecurityException) {
-            Log.w(TAG, "WLAN anfordern nicht erlaubt", e)
+            Log.w(TAG, "Requesting Wi-Fi not allowed", e)
             if (continuation.isActive) continuation.resume(null)
         }
     }

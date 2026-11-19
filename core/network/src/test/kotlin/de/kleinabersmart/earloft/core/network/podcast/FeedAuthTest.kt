@@ -34,7 +34,7 @@ class FeedAuthTest {
         otherServer.close()
     }
 
-    private val basic = Credentials.basic("anna", "geheim:ö", Charsets.UTF_8)
+    private val basic = Credentials.basic("anna", "secret:ö", Charsets.UTF_8)
 
     private fun feed() = MockResponse.Builder()
         .addHeader("Content-Type", "application/rss+xml")
@@ -45,7 +45,7 @@ class FeedAuthTest {
     fun `the feed request carries the given credentials`() = runTest {
         feedServer.enqueue(feed())
 
-        api.fetch(feedServer.url("/feed.xml"), auth = FeedAuth(feedServer.url("/feed.xml"), "anna", "geheim:ö"))
+        api.fetch(feedServer.url("/feed.xml"), auth = FeedAuth(feedServer.url("/feed.xml"), "anna", "secret:ö"))
 
         assertEquals(basic, feedServer.takeRequest().headers["Authorization"])
     }
@@ -55,7 +55,7 @@ class FeedAuthTest {
         feedServer.enqueue(MockResponse.Builder().code(302).addHeader("Location", otherServer.url("/feed.xml").toString()).build())
         otherServer.enqueue(feed())
 
-        api.fetch(feedServer.url("/feed.xml"), auth = FeedAuth(feedServer.url("/feed.xml"), "anna", "geheim:ö"))
+        api.fetch(feedServer.url("/feed.xml"), auth = FeedAuth(feedServer.url("/feed.xml"), "anna", "secret:ö"))
 
         assertEquals(basic, feedServer.takeRequest().headers["Authorization"])
         assertNull(otherServer.takeRequest().headers["Authorization"])
@@ -63,7 +63,7 @@ class FeedAuthTest {
 
     @Test
     fun `stored credentials sign audio on the feed host only`() {
-        registry.replaceAll(mapOf("feed-1" to FeedAuth(feedServer.url("/feed.xml"), "anna", "geheim:ö")))
+        registry.replaceAll(mapOf("feed-1" to FeedAuth(feedServer.url("/feed.xml"), "anna", "secret:ö")))
         feedServer.enqueue(MockResponse.Builder().body("audio").build())
         otherServer.enqueue(MockResponse.Builder().body("audio").build())
 
@@ -91,7 +91,7 @@ class FeedAuthTest {
 
     @Test
     fun `an existing authorization stays`() {
-        registry.replaceAll(mapOf("feed-1" to FeedAuth(feedServer.url("/"), "anna", "geheim:ö")))
+        registry.replaceAll(mapOf("feed-1" to FeedAuth(feedServer.url("/"), "anna", "secret:ö")))
         feedServer.enqueue(MockResponse.Builder().body("ok").build())
 
         client.newCall(Request.Builder().url(feedServer.url("/api/x")).header("Authorization", "Bearer abc").build()).execute().close()
@@ -101,10 +101,10 @@ class FeedAuthTest {
 
     @Test
     fun `credentials in the address are split off`() {
-        val (url, auth) = "https://anna:geheim%3A%C3%B6@feeds.example.org/p.xml".toHttpUrl().splitCredentials()
+        val (url, auth) = "https://anna:secret%3A%C3%B6@feeds.example.org/p.xml".toHttpUrl().splitCredentials()
 
         assertEquals("https://feeds.example.org/p.xml", url.toString())
-        assertEquals(FeedAuth(url, "anna", "geheim:ö"), auth)
+        assertEquals(FeedAuth(url, "anna", "secret:ö"), auth)
         assertNull("https://feeds.example.org/p.xml".toHttpUrl().splitCredentials().second)
     }
 

@@ -132,7 +132,7 @@ class OfflineImages @Inject constructor(
             if (!unreachable.none()) complete = false
         }
         val removed = bookCovers.retainKnown() + artwork.retainAlbumCoverFiles()
-        if (removed > 0) Log.i(TAG, "$removed Bilder ohne Eintrag entfernt")
+        if (removed > 0) Log.i(TAG, "Removed $removed images without an entry")
         return complete
     }
 

@@ -9,9 +9,9 @@ import org.junit.Test
 class BookTimelineTest {
 
     private val chapters = listOf(
-        BookChapter(0, "Eins", 0, 10_000),
-        BookChapter(1, "Zwei", 10_000, 40_000),
-        BookChapter(2, "Drei", 40_000, 100_000),
+        BookChapter(0, "One", 0, 10_000),
+        BookChapter(1, "Two", 10_000, 40_000),
+        BookChapter(2, "Three", 40_000, 100_000),
     )
 
     private val singleFile = BookTimeline(100_000, listOf(BookTrack(0, "f", 0, 100_000)), chapters)
@@ -37,10 +37,10 @@ class BookTimelineTest {
 
     @Test
     fun `chapter is found by position`() {
-        assertEquals("Zwei", singleFile.chapterAt(10_000)?.title)
-        assertEquals("Eins", singleFile.chapterAt(9_999)?.title)
-        assertEquals("Drei", singleFile.chapterAt(99_000)?.title)
-        assertEquals("Drei", singleFile.nextChapter(10_000)?.title)
+        assertEquals("Two", singleFile.chapterAt(10_000)?.title)
+        assertEquals("One", singleFile.chapterAt(9_999)?.title)
+        assertEquals("Three", singleFile.chapterAt(99_000)?.title)
+        assertEquals("Three", singleFile.nextChapter(10_000)?.title)
         assertNull(singleFile.nextChapter(50_000))
     }
 

@@ -98,10 +98,10 @@ class PhoneFileLocator @Inject constructor(
             PhoneFile(length, descriptor.createInputStream())
         }
     } catch (e: FileNotFoundException) {
-        Log.w(TAG, "Lokale Datei $label nicht lesbar", e)
+        Log.w(TAG, "Local file $label not readable", e)
         null
     } catch (e: SecurityException) {
-        Log.w(TAG, "Kein Zugriff auf $label", e)
+        Log.w(TAG, "No access to $label", e)
         null
     }
 

@@ -50,7 +50,7 @@ class LocalDataSource @Inject constructor(
     override fun fullScan(isUnchanged: suspend (String, Long) -> Boolean): Flow<SourceBatch> = flow {
         // Without permission MediaStore returns an empty list instead of an error – the
         // sync would then delete the whole library.
-        if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} fehlt")
+        if (!AudioPermission.isGranted(context)) throw SecurityException("${AudioPermission.name} missing")
         val rows = queryRows()
         MediaStoreTrackMapper.map(rows, FallbackNames.from(context))
             .chunked(BATCH_SIZE)
@@ -137,7 +137,7 @@ class LocalDataSource @Inject constructor(
             "${MediaStore.Audio.Media.IS_MUSIC} != 0",
             null,
             null,
-        ) ?: throw IOException("MediaStore-Abfrage lieferte keinen Cursor")
+        ) ?: throw IOException("MediaStore query returned no cursor")
 
         return cursor.use { c ->
             buildList(c.count) {

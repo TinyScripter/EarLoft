@@ -55,7 +55,7 @@ class PhoneFileFetcher @Inject constructor(
         val uid = download.sourceUid
         if (downloadDao.markRunning(uid) == 0) return DownloadOutcome.Cancelled
         val songSource = downloadDao.getSongSource(uid) ?: return DownloadOutcome.Cancelled
-        val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Handy nicht verbunden"))
+        val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Phone not connected"))
         // The phone knows the source by its own `sourceUid`; the watch's pseudo source carries it as `remoteId`.
         val requestUid = if (songSource.sourceId == WearManifestSource.PHONE_SOURCE_ID) songSource.remoteId else uid
 
@@ -89,7 +89,7 @@ class PhoneFileFetcher @Inject constructor(
             withContext(NonCancellable) { downloadDao.requeue(uid) }
             throw e
         } catch (e: IOException) {
-            Log.w(TAG, "Übertragung von $requestUid abgebrochen (${part.length()} Bytes bleiben für den nächsten Versuch)", e)
+            Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
             DownloadOutcome.Retry(e)
         }
     }
@@ -108,7 +108,7 @@ class PhoneFileFetcher @Inject constructor(
         podcastDao.queueDownload(bookId)
         if (podcastDao.markDownloadRunning(bookId) == 0) return DownloadOutcome.Cancelled
         val book = bookDao.book(bookId) ?: return DownloadOutcome.Cancelled
-        val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Handy nicht verbunden"))
+        val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Phone not connected"))
         val requestUid = WearEpisodeFile.uid(book.serverId, book.remoteId)
         val part = episodeStorage.phonePartFileFor(bookId)
         episodeStorage.ensureDirectory()
@@ -128,12 +128,12 @@ class PhoneFileFetcher @Inject constructor(
                 }
                 is FileReceive.Received -> {
                     val target = episodeStorage.fileFor(bookId, track.mimeType)
-                    if (!part.renameTo(target)) throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
+                    if (!part.renameTo(target)) throw IOException("Renaming to ${target.name} failed")
                     if (podcastDao.markDownloadDone(bookId, target.absolutePath, target.length()) == 0) {
                         target.delete()
                         DownloadOutcome.Cancelled
                     } else {
-                        Log.d(TAG, "Folge vom Handy geladen: $requestUid (${received.bytes} Bytes)")
+                        Log.d(TAG, "Episode loaded from the phone: $requestUid (${received.bytes} bytes)")
                         DownloadOutcome.Done
                     }
                 }
@@ -142,7 +142,7 @@ class PhoneFileFetcher @Inject constructor(
             withContext(NonCancellable) { podcastDao.requeueDownload(bookId) }
             throw e
         } catch (e: IOException) {
-            Log.w(TAG, "Übertragung von $requestUid abgebrochen (${part.length()} Bytes bleiben für den nächsten Versuch)", e)
+            Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
             DownloadOutcome.Retry(e)
         }
     }
@@ -163,7 +163,7 @@ class PhoneFileFetcher @Inject constructor(
         bookDao.queueBookDownload(bookId)
         if (bookDao.markBookTrackRunning(bookId, index) == 0) return DownloadOutcome.Cancelled
         val book = bookDao.book(bookId) ?: return DownloadOutcome.Cancelled
-        val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Handy nicht verbunden"))
+        val nodeId = phone.connectedPhoneNodeId() ?: return DownloadOutcome.Retry(IOException("Phone not connected"))
         val requestUid = WearBookFile.uid(book.serverId, book.remoteId, index)
         // A started server transfer does not match the file from the phone; the one from the phone has its own partial file.
         bookStorage.deletePart(bookId, index)
@@ -185,12 +185,12 @@ class PhoneFileFetcher @Inject constructor(
                 }
                 is FileReceive.Received -> {
                     val target = bookStorage.freeFileFor(bookId, index, track.mimeType, bookDao.otherTrackFiles(bookId, index))
-                    if (!part.renameTo(target)) throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
+                    if (!part.renameTo(target)) throw IOException("Renaming to ${target.name} failed")
                     if (bookDao.markBookTrackDone(bookId, index, target.absolutePath, target.length()) == 0) {
                         target.delete()
                         DownloadOutcome.Cancelled
                     } else {
-                        Log.d(TAG, "Buchdatei vom Handy geladen: $requestUid (${received.bytes} Bytes)")
+                        Log.d(TAG, "Book file loaded from the phone: $requestUid (${received.bytes} bytes)")
                         DownloadOutcome.Done
                     }
                 }
@@ -199,7 +199,7 @@ class PhoneFileFetcher @Inject constructor(
             withContext(NonCancellable) { bookDao.requeueBookTrack(bookId, index) }
             throw e
         } catch (e: IOException) {
-            Log.w(TAG, "Übertragung von $requestUid abgebrochen (${part.length()} Bytes bleiben für den nächsten Versuch)", e)
+            Log.w(TAG, "Transfer of $requestUid aborted (${part.length()} bytes kept for the next attempt)", e)
             DownloadOutcome.Retry(e)
         }
     }
@@ -226,7 +226,7 @@ class PhoneFileFetcher @Inject constructor(
                 is FileReceive.Received -> output.toByteArray()
             }
         } catch (e: IOException) {
-            Log.w(TAG, "Bild $requestUid nicht vom Handy geholt", e)
+            Log.w(TAG, "Image $requestUid not fetched from the phone", e)
             null
         }
     }
@@ -234,12 +234,12 @@ class PhoneFileFetcher @Inject constructor(
     private suspend fun finish(uid: String, mimeType: String?, bytes: Long): DownloadOutcome {
         val part = storage.phonePartFileFor(uid)
         val target = storage.fileFor(uid, mimeType)
-        if (!part.renameTo(target)) throw IOException("Umbenennen nach ${target.name} fehlgeschlagen")
+        if (!part.renameTo(target)) throw IOException("Renaming to ${target.name} failed")
         if (downloadDao.markDone(uid, target.absolutePath, target.length()) == 0) {
             target.delete()
             return DownloadOutcome.Cancelled
         }
-        Log.d(TAG, "Vom Handy geladen: $uid ($bytes Bytes)")
+        Log.d(TAG, "Loaded from the phone: $uid ($bytes bytes)")
         return DownloadOutcome.Done
     }
 
@@ -250,7 +250,7 @@ class PhoneFileFetcher @Inject constructor(
         private const val TAG = "PhoneFileFetcher"
         private const val PROGRESS_INTERVAL_NANOS = 500_000_000L
 
-        /** Error text when the phone has no file (appears in the status report). */
-        const val MISSING_ON_PHONE = "Handy hat keine Kopie"
+        /** Failure reason when the phone has no file (only logged). */
+        const val MISSING_ON_PHONE = "Phone has no copy"
     }
 }

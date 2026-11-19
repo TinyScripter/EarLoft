@@ -107,11 +107,11 @@ internal class StreamPreloader(
         val canceller = launch { try { awaitCancellation() } finally { writer.cancel() } }
         try {
             writer.cache()
-            Log.d(TAG, "Song $songId vorgeladen, $cachedBytes Bytes im Cache")
+            Log.d(TAG, "Song $songId preloaded, $cachedBytes bytes in cache")
             true
         } catch (e: IOException) {
             ensureActive()
-            Log.d(TAG, "Song $songId nicht vorgeladen: $e")
+            Log.d(TAG, "Song $songId not preloaded: $e")
             false
         } finally {
             canceller.cancel()

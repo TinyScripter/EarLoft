@@ -10,18 +10,18 @@ class Mp4ChaptersTest {
 
     @Test
     fun `reads Nero chapter list`() {
-        val chpl = fullBox("chpl", 1, payload = u32(0) + byteArrayOf(2) + chplEntry(0, "Vorspann") + chplEntry(15_788, "Kapitel 1"))
+        val chpl = fullBox("chpl", 1, payload = u32(0) + byteArrayOf(2) + chplEntry(0, "Intro") + chplEntry(15_788, "Chapter 1"))
         val file = ftyp() + box("moov", box("udta", chpl))
 
         assertEquals(
-            listOf(Mp4ChapterMark(0, "Vorspann"), Mp4ChapterMark(15_788, "Kapitel 1")),
+            listOf(Mp4ChapterMark(0, "Intro"), Mp4ChapterMark(15_788, "Chapter 1")),
             Mp4Chapters.read(bytes(file)),
         )
     }
 
     @Test
     fun `reads QuickTime chapter text track behind mdat`() {
-        val samples = listOf("Vorspann", "Wurststullen auf Bali", "Abspann").map { sample(it) }
+        val samples = listOf("Intro", "Sandwiches in Bali", "Outro").map { sample(it) }
         val mdat = box("mdat", samples.fold(ByteArray(0)) { acc, s -> acc + s })
         val prefix = ftyp()
         // Samples are located after the mdat header; one chunk with three samples.
@@ -42,7 +42,7 @@ class Mp4ChaptersTest {
 
         val marks = Mp4Chapters.read(bytes(prefix + mdat + box("moov", audioTrack + textTrack)))
 
-        assertEquals(listOf("Vorspann", "Wurststullen auf Bali", "Abspann"), marks.map { it.title })
+        assertEquals(listOf("Intro", "Sandwiches in Bali", "Outro"), marks.map { it.title })
         assertEquals(listOf(0L, 15_788L, 31_576L), marks.map { it.startMs })
     }
 

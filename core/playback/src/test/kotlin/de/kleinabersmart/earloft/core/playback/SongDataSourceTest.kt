@@ -155,7 +155,7 @@ class SongDataSourceTest {
         override fun open(dataSpec: DataSpec): Long {
             val name = dataSpec.uri.host?.takeIf { it.isNotEmpty() } ?: dataSpec.uri.lastPathSegment.orEmpty()
             opened += name
-            if (name in unreachable) throw IOException("$name nicht erreichbar")
+            if (name in unreachable) throw IOException("$name unreachable")
             return 100
         }
 

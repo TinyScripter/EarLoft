@@ -48,7 +48,7 @@ class FeedCredentialsTest {
     private val registry = FeedAuthRegistry()
 
     /** What the feed accepts as credentials. */
-    private var accepted = Credentials.basic("anna", "geheim")
+    private var accepted = Credentials.basic("anna", "secretpw")
 
     @Before
     fun setUp() {
@@ -71,7 +71,7 @@ class FeedCredentialsTest {
             db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client),
             PodcastSettings(ApplicationProvider.getApplicationContext()),
             AudioFileChapters(ApplicationProvider.getApplicationContext()),
-            { error("kein Quellenwechsel im Test") },
+            { error("no source switch in tests") },
             testFeedCredentials(db, secrets, registry),
             EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao()),
         )
@@ -89,9 +89,9 @@ class FeedCredentialsTest {
     @Test
     fun `a protected feed asks for credentials and keeps them`() = runTest {
         assertEquals(SubscribeResult.CredentialsNeeded(rejected = false), repository.subscribe(feedUrl))
-        assertEquals(SubscribeResult.CredentialsNeeded(rejected = true), repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "falsch")))
+        assertEquals(SubscribeResult.CredentialsNeeded(rejected = true), repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "wrong")))
 
-        val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "geheim")) as SubscribeResult.Added
+        val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "secretpw")) as SubscribeResult.Added
 
         assertEquals(1, db.bookDao().booksOf(added.feedId).size)
         assertEquals("anna", repository.credentials(added.feedId).first()?.username)
@@ -102,39 +102,39 @@ class FeedCredentialsTest {
 
     @Test
     fun `credentials in the address are not stored with it`() = runTest {
-        val withUser = server.url("/feed.xml").newBuilder().username("anna").password("geheim").build().toString()
+        val withUser = server.url("/feed.xml").newBuilder().username("anna").password("secretpw").build().toString()
 
         val added = repository.subscribe(withUser) as SubscribeResult.Added
 
         assertEquals(feedUrl, db.podcastDao().feed(added.feedId)?.url)
-        assertEquals("geheim", repository.credentials(added.feedId).first()?.password)
+        assertEquals("secretpw", repository.credentials(added.feedId).first()?.password)
     }
 
     @Test
     fun `credentials in an imported address are stored apart and the import refreshes with them`() = runTest {
-        val withUser = server.url("/feed.xml").newBuilder().username("anna").password("geheim").build().toString()
+        val withUser = server.url("/feed.xml").newBuilder().username("anna").password("secretpw").build().toString()
 
-        val result = repository.importOpml(listOf(OpmlFeed("Geschützt", withUser), OpmlFeed("Doppelt", feedUrl)), replace = false)
+        val result = repository.importOpml(listOf(OpmlFeed("Protected", withUser), OpmlFeed("Duplicate", feedUrl)), replace = false)
 
         assertEquals(1, result.added)
         val feed = db.podcastDao().feeds().single()
         assertEquals(feedUrl, feed.url)
-        assertEquals("geheim", repository.credentials(feed.feedId).first()?.password)
+        assertEquals("secretpw", repository.credentials(feed.feedId).first()?.password)
         assertNotNull(repository.refresh(feed.feedId))
-        assertFalse(repository.exportOpml("EarLoft", "2026-11-15", rssBridge = null).contains("geheim"))
+        assertFalse(repository.exportOpml("EarLoft", "2026-11-15", rssBridge = null).contains("secretpw"))
     }
 
     @Test
     fun `changed credentials count as a denied refresh until they are fixed`() = runTest {
-        val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "geheim")) as SubscribeResult.Added
-        accepted = Credentials.basic("anna", "neu")
+        val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "secretpw")) as SubscribeResult.Added
+        accepted = Credentials.basic("anna", "newpw")
 
         assertNull(repository.refresh(added.feedId))
         assertEquals(FeedError.DENIED, db.podcastDao().feed(added.feedId)?.lastError)
 
-        assertNotNull(repository.setCredentials(added.feedId, PodcastRepository.Credentials("anna", "neu")))
+        assertNotNull(repository.setCredentials(added.feedId, PodcastRepository.Credentials("anna", "newpw")))
         assertNull(db.podcastDao().feed(added.feedId)?.lastError)
-        assertEquals("neu", repository.credentials(added.feedId).first()?.password)
+        assertEquals("newpw", repository.credentials(added.feedId).first()?.password)
     }
 
     @Test
@@ -161,20 +161,20 @@ class FeedCredentialsTest {
         val backup = UserDataBackup(
             context = context, database = db, userDao = user.userDataDao(), sourceDao = db.sourceDao(), bookDao = db.bookDao(),
             podcastDao = db.podcastDao(), statsDao = db.statsDao(), music = MusicBackup(db.backupDao(), db.playlistDao(), db.syncDao()),
-            restoreNotice = RestoreNotice(context, { error("nicht gebraucht") }, { error("nicht gebraucht") }),
-            registry = { error("nicht gebraucht") }, ardBooks = { error("nicht gebraucht") }, scope = TestScope(),
+            restoreNotice = RestoreNotice(context, { error("not needed") }, { error("not needed") }),
+            registry = { error("not needed") }, ardBooks = { error("not needed") }, scope = TestScope(),
         )
         switch = PodcastSourceSwitch(db, repository, db.podcastDao(), db.bookDao(), db.statsDao(), backup, emptySet())
-        val feedId = (repository.subscribe(old, PodcastRepository.Credentials("anna", "geheim")) as SubscribeResult.Added).feedId
+        val feedId = (repository.subscribe(old, PodcastRepository.Credentials("anna", "secretpw")) as SubscribeResult.Added).feedId
 
         // The feed moves permanently to a different host and wants different credentials there.
         moved = true
-        accepted = Credentials.basic("anna", "neu")
+        accepted = Credentials.basic("anna", "newpw")
         assertNull(repository.refresh(feedId))
         assertEquals(FeedError.DENIED, db.podcastDao().feed(feedId)?.lastError)
         assertEquals(new, repository.credentialsAddress(feedId).first())
 
-        assertNotNull(repository.setCredentials(feedId, PodcastRepository.Credentials("anna", "neu")))
+        assertNotNull(repository.setCredentials(feedId, PodcastRepository.Credentials("anna", "newpw")))
 
         assertEquals("localhost", repository.credentials(feedId).first()?.scope?.host)
         assertEquals(new, db.podcastDao().feed(feedId)?.url)
@@ -184,7 +184,7 @@ class FeedCredentialsTest {
 
     @Test
     fun `removed credentials are gone from the store`() = runTest {
-        val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "geheim")) as SubscribeResult.Added
+        val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "secretpw")) as SubscribeResult.Added
 
         repository.setCredentials(added.feedId, null)
 
@@ -199,7 +199,7 @@ class FeedCredentialsTest {
         val observed = FeedAuthRegistry()
         val credentials = testFeedCredentials(db, secrets, observed, observer)
         credentials.start()
-        val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "geheim")) as SubscribeResult.Added
+        val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "secretpw")) as SubscribeResult.Added
         // Only after the observer has seen the subscription is it one that can disappear.
         eventually { observed.forUrl(server.url("/1.mp3")) != null }
 
@@ -213,15 +213,15 @@ class FeedCredentialsTest {
 
     @Test
     fun `stored credentials only go along to a new source on the same host`() = runTest {
-        val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "geheim")) as SubscribeResult.Added
+        val added = repository.subscribe(feedUrl, PodcastRepository.Credentials("anna", "secretpw")) as SubscribeResult.Added
         val stored = repository.storedCredentials(added.feedId)
 
-        val sameHost = repository.fetchSource(server.url("/neu.xml").toString(), stored)
+        val sameHost = repository.fetchSource(server.url("/moved.xml").toString(), stored)
         assertEquals("anna", (sameHost as PodcastRepository.SourceFetch.Loaded).auth?.username)
 
         // The same server under a different name counts as a foreign host (e.g. a move via `itunes:new-feed-url`).
         val otherHost = if (server.hostName == "localhost") "127.0.0.1" else "localhost"
-        val foreign = server.url("/neu.xml").newBuilder().host(otherHost).build()
+        val foreign = server.url("/moved.xml").newBuilder().host(otherHost).build()
         assertEquals(
             PodcastRepository.SourceFetch.Failed(SubscribeResult.CredentialsNeeded(rejected = false)),
             repository.fetchSource(foreign.toString(), stored),
@@ -233,12 +233,12 @@ class FeedCredentialsTest {
             if (condition()) return
             Thread.sleep(10)
         }
-        error("Bedingung nicht eingetreten")
+        error("Condition not met")
     }
 
     private companion object {
-        const val FEED = """<rss version="2.0"><channel><title>Geschützt</title>
-            <item><title>Folge 1</title><guid>1</guid><pubDate>Thu, 30 Oct 2025 06:00:00 GMT</pubDate>
+        const val FEED = """<rss version="2.0"><channel><title>Protected</title>
+            <item><title>Episode 1</title><guid>1</guid><pubDate>Thu, 30 Oct 2025 06:00:00 GMT</pubDate>
             <enclosure url="https://example.org/1.mp3" type="audio/mpeg" length="1"/></item>
             </channel></rss>"""
     }

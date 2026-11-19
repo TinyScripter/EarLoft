@@ -33,7 +33,7 @@ internal class LocalTagReader(private val context: Context) {
         // The timeout (TimeoutCancellationException) is also a CancellationException.
         if (e is kotlinx.coroutines.TimeoutCancellationException) null else throw e
     } catch (e: Exception) {
-        Log.w(TAG, "Tags von $uri nicht lesbar", e)
+        Log.w(TAG, "Tags of $uri unreadable", e)
         null
     }
 

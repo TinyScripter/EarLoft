@@ -58,7 +58,7 @@ class StatsRepositoryTest {
                     .build()
             }
             .build()
-        feedId = (PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("kein Quellenwechsel im Test") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())).subscribe(FEED_URL) as SubscribeResult.Added).feedId
+        feedId = (PodcastRepository(db, db.podcastDao(), db.bookDao(), PodcastFeedApi(client), ArdSoundsApi(client), PodcastSettings(ApplicationProvider.getApplicationContext()), AudioFileChapters(ApplicationProvider.getApplicationContext()), { error("no source switch in tests") }, testFeedCredentials(db), EpisodeQueue(ApplicationProvider.getApplicationContext(), db.bookDao())).subscribe(FEED_URL) as SubscribeResult.Added).feedId
         stats = StatsRepository(db.statsDao(), db.bookDao(), db.podcastDao())
     }
 
@@ -109,7 +109,7 @@ class StatsRepositoryTest {
         db.statsDao().upsertAll(
             listOf(
                 ListeningStatEntity(source = ListeningStatEntity.SOURCE_IMPORTED, kind = BookKind.EPISODE, groupKey = FEED_URL, groupTitle = "Test", itemKey = "guid-A", itemTitle = "A", listenedMs = 3_600_000, lastListenedAt = 1),
-                ListeningStatEntity(source = ListeningStatEntity.SOURCE_IMPORTED, kind = BookKind.EPISODE, groupKey = OLD_URL, groupTitle = "Altes Abo", itemKey = "x", itemTitle = "X", listenedMs = 10_800_000, lastListenedAt = 1),
+                ListeningStatEntity(source = ListeningStatEntity.SOURCE_IMPORTED, kind = BookKind.EPISODE, groupKey = OLD_URL, groupTitle = "Old subscription", itemKey = "x", itemTitle = "X", listenedMs = 10_800_000, lastListenedAt = 1),
             ),
         )
         db.bookDao().upsertProgress(BookProgressEntity(bookId("guid-B"), 600_000, 600_000, finished = true, updatedAt = 1))
@@ -119,7 +119,7 @@ class StatsRepositoryTest {
         assertEquals(5L * 3_600_000, result.totalMs)
         assertEquals(1, result.finishedEpisodes)
         assertEquals(1, result.subscriptions)
-        assertEquals(listOf("Altes Abo", "Test-Podcast"), result.podcasts.map { it.title })
+        assertEquals(listOf("Old subscription", "Test-Podcast"), result.podcasts.map { it.title })
         assertNull(result.podcasts[0].feedId)
         assertEquals(feedId, result.podcasts[1].feedId)
         // "guid-A" counts once, even if both a counted and an imported row exist.

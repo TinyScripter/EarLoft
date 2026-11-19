@@ -5,7 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Mehrfachauswahl in Folgenlisten (Konzept 12.5). */
+/** Multi-selection in episode lists (concept 12.5). */
 class EpisodeSelectionTest {
 
     @Test

@@ -43,8 +43,8 @@ class PeopleTest {
     @Test
     fun `genres stored together by the server are split`() {
         assertEquals(
-            listOf("Polizei", "Thriller", "Politik & Regierungen", "Comedy & Humor"),
-            parseGenres(listOf("Polizei, Thriller", "Politik & Regierungen, Comedy & Humor", "Thriller")),
+            listOf("Police", "Thriller", "Politics & Government", "Comedy & Humor"),
+            parseGenres(listOf("Police, Thriller", "Politics & Government, Comedy & Humor", "Thriller")),
         )
         assertEquals(emptyList<String>(), parseGenres(listOf(" ")))
     }
