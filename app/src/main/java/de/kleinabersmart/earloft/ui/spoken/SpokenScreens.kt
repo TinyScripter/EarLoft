@@ -61,6 +61,8 @@ import de.kleinabersmart.earloft.core.data.spoken.sortedAuthors
 import de.kleinabersmart.earloft.core.data.spoken.sortedSeries
 import de.kleinabersmart.earloft.navigation.BookGroupKind
 import de.kleinabersmart.earloft.ui.components.LazyGridFastScroller
+import de.kleinabersmart.earloft.ui.components.PinnableHeaderBox
+import de.kleinabersmart.earloft.ui.components.gridContentPadding
 import de.kleinabersmart.earloft.ui.library.BackButton
 import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
 import de.kleinabersmart.earloft.ui.components.foldedLetterOf
@@ -307,6 +309,7 @@ fun SpokenLibraryScreen(
                                 playingId,
                                 viewModel::playOrPause,
                                 scrollLabel = bookSort.scrollLabel(),
+                                pinHeader = true,
                                 // Die Chips bleiben stehen, auch wenn der Filter nichts übrig lässt, damit man ihn lösen kann.
                                 header = {
                                     Column {
@@ -366,6 +369,8 @@ private fun BookGrid(
      */
     sections: List<SeriesSection>? = null,
     onSectionClick: (String) -> Unit = {},
+    /** [header] (Chip-Leiste von „Alle“) steht beim Scrollen fest darüber, siehe [PinnableHeaderBox]. */
+    pinHeader: Boolean = false,
 ) {
     val state = rememberLazyGridState()
     var shownKey by rememberSaveable { mutableStateOf(resetKey?.toString()) }
@@ -375,16 +380,16 @@ private fun BookGrid(
             state.scrollToItem(0)
         }
     }
-    Box(Modifier.fillMaxSize()) {
+    PinnableHeaderBox(header, pinHeader, Modifier.fillMaxSize()) { inlineHeader ->
         LazyVerticalGrid(
             columns = GridCells.Adaptive(150.dp),
             state = state,
-            contentPadding = PaddingValues(12.dp),
+            contentPadding = gridContentPadding(pinnedHeader = header != null && inlineHeader == null),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            if (header != null) item(key = "header", span = { GridItemSpan(maxLineSpan) }) { header() }
+            if (inlineHeader != null) item(key = "header", span = { GridItemSpan(maxLineSpan) }) { inlineHeader() }
             val card: @Composable LazyGridItemScope.(BookWithProgress, String?, Boolean) -> Unit = { item, volume, finished ->
                 BookCard(
                     item,
@@ -415,7 +420,7 @@ private fun BookGrid(
                 }
             }
         }
-        val offset = if (header != null) 1 else 0
+        val offset = if (inlineHeader != null) 1 else 0
         LazyGridFastScroller(state, labelAt = scrollLabel?.let { label -> { index -> books.getOrNull((index - offset).coerceAtLeast(0))?.let(label).orEmpty() } })
     }
 }

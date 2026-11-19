@@ -78,6 +78,8 @@ import de.kleinabersmart.earloft.ui.components.ArtistAvatar
 import de.kleinabersmart.earloft.ui.components.LoadableList
 import de.kleinabersmart.earloft.ui.components.EmptyAreaHint
 import de.kleinabersmart.earloft.ui.components.LazyGridFastScroller
+import de.kleinabersmart.earloft.ui.components.PinnableHeaderBox
+import de.kleinabersmart.earloft.ui.components.gridContentPadding
 import de.kleinabersmart.earloft.core.model.SpokenMode
 import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
 import de.kleinabersmart.earloft.ui.components.letterOf
@@ -181,6 +183,7 @@ fun LibraryScreen(
                         albums = shown,
                         onAlbumClick = onAlbumClick,
                         scrollLabel = albumSort.scrollLabel(),
+                        pinHeader = true,
                         header = {
                             if (decades.isNotEmpty() || favorites != null) {
                                 FilterHeader(
@@ -208,6 +211,7 @@ fun LibraryScreen(
                         artists = shown,
                         onArtistClick = onArtistClick,
                         byName = artistSort == ArtistSort.NAME,
+                        pinHeader = true,
                         header = {
                             favorites?.let {
                                 FilterHeader(
@@ -247,6 +251,7 @@ fun LibraryScreen(
                             albums = shown,
                             onAlbumClick = onAlbumClick,
                             scrollLabel = albumSort.scrollLabel(),
+                            pinHeader = true,
                             header = {
                                 FilterHeader(
                                     chips = {
@@ -458,23 +463,25 @@ fun AlbumGrid(
     scrollLabel: ((Album) -> String)? = null,
     /** Eine Zeile über den Alben (z. B. Knöpfe oder die Sortierung), über die ganze Breite. */
     header: (@Composable () -> Unit)? = null,
+    /** [header] (Chip-Leiste der Bibliothek) steht beim Scrollen fest darüber, siehe [PinnableHeaderBox]. */
+    pinHeader: Boolean = false,
 ) {
     val state = rememberLazyGridState()
     val playControl: PlayControlViewModel = hiltViewModel()
     val playingAlbumId by playControl.playingAlbumId.collectAsStateWithLifecycle()
-    Box(modifier.fillMaxSize()) {
+    PinnableHeaderBox(header, pinHeader, modifier.fillMaxSize()) { inlineHeader ->
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 150.dp),
             state = state,
-            contentPadding = PaddingValues(12.dp),
+            contentPadding = gridContentPadding(pinnedHeader = header != null && inlineHeader == null),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            if (header != null) fullWidthItem("header", header)
+            if (inlineHeader != null) fullWidthItem("header", inlineHeader)
             albumTiles(albums, onAlbumClick, playingAlbumId, playControl::playOrPauseAlbum)
         }
-        val offset = if (header != null) 1 else 0
+        val offset = if (inlineHeader != null) 1 else 0
         LazyGridFastScroller(state, labelAt = scrollLabel?.let { label -> { index -> albums.getOrNull((index - offset).coerceAtLeast(0))?.let(label).orEmpty() } })
     }
 }
@@ -551,18 +558,20 @@ internal fun ArtistGrid(
     byName: Boolean,
     /** Eine Zeile über den Künstlern (z. B. Chips), über die ganze Breite. */
     header: (@Composable () -> Unit)? = null,
+    /** [header] steht beim Scrollen fest darüber, siehe [PinnableHeaderBox]. */
+    pinHeader: Boolean = false,
 ) {
     val state = rememberLazyGridState()
-    Box(Modifier.fillMaxSize()) {
+    PinnableHeaderBox(header, pinHeader, Modifier.fillMaxSize()) { inlineHeader ->
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             state = state,
-            contentPadding = PaddingValues(12.dp),
+            contentPadding = gridContentPadding(pinnedHeader = header != null && inlineHeader == null),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            if (header != null) fullWidthItem("header", header)
+            if (inlineHeader != null) fullWidthItem("header", inlineHeader)
             items(artists, key = { it.id }) { artist ->
                 var menu by remember { mutableStateOf(false) }
                 Column(
@@ -593,7 +602,7 @@ internal fun ArtistGrid(
                 }
             }
         }
-        val offset = if (header != null) 1 else 0
+        val offset = if (inlineHeader != null) 1 else 0
         LazyGridFastScroller(state, labelAt = if (byName) { index ->
             letterOf(artists.getOrNull((index - offset).coerceAtLeast(0))?.name.orEmpty().sortKey())
         } else null)
