@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.LazyColumn
-
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -56,6 +56,7 @@ import de.kleinabersmart.earloft.core.model.WearSelectionKind
 import de.kleinabersmart.earloft.ui.LoadState
 import de.kleinabersmart.earloft.ui.components.EmptyHint
 import de.kleinabersmart.earloft.ui.components.GroupMargin
+import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
 import de.kleinabersmart.earloft.ui.components.groupedItemsIndexed
 import de.kleinabersmart.earloft.ui.components.LoadFailedHint
 import de.kleinabersmart.earloft.ui.components.LoadingIndicator
@@ -199,62 +200,67 @@ private fun PlaylistEntries(
     actions: SongActions,
 ) {
     val playlist = details.playlist
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        item(key = "header") {
-            Column(Modifier.fillMaxWidth().padding(horizontal = GroupMargin + 16.dp)) {
-                val meta = listOf(
-                    pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount),
-                    formatDuration(playlist.durationMs),
-                    playlistLocation(playlist.serverName),
-                ).joinToString(" · ")
-                Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(12.dp))
-                if (details.entries.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Button(onClick = { onPlay(0) }) {
-                            Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.action_play))
+    val listState = rememberLazyListState()
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
+            item(key = "header") {
+                Column(Modifier.fillMaxWidth().padding(horizontal = GroupMargin + 16.dp)) {
+                    val meta = listOf(
+                        pluralStringResource(R.plurals.song_count, playlist.songCount, playlist.songCount),
+                        formatDuration(playlist.durationMs),
+                        playlistLocation(playlist.serverName),
+                    ).joinToString(" · ")
+                    Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    if (details.entries.isNotEmpty()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Button(onClick = { onPlay(0) }) {
+                                Icon(painterResource(DesignR.drawable.ic_play), contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.action_play))
+                            }
+                            FilledTonalButton(onClick = onShuffle) {
+                                Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.action_shuffle))
+                            }
+                            // Rein lokale Playlists brauchen keinen Download.
+                            if (offline.downloadableCount > 0) {
+                                DownloadButton(
+                                    removeTitle = stringResource(R.string.download_album_remove_title),
+                                    removeText = stringResource(R.string.download_playlist_remove_text, playlist.name),
+                                    offline = offline,
+                                    onDownload = onDownload,
+                                    onRemoveDownload = onRemoveDownload,
+                                )
+                            }
                         }
-                        FilledTonalButton(onClick = onShuffle) {
-                            Icon(painterResource(DesignR.drawable.ic_shuffle), contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.action_shuffle))
-                        }
-                        // Rein lokale Playlists brauchen keinen Download.
-                        if (offline.downloadableCount > 0) {
-                            DownloadButton(
-                                removeTitle = stringResource(R.string.download_album_remove_title),
-                                removeText = stringResource(R.string.download_playlist_remove_text, playlist.name),
-                                offline = offline,
-                                onDownload = onDownload,
-                                onRemoveDownload = onRemoveDownload,
-                            )
-                        }
+                        DownloadStatusLine(offline)
+                        Spacer(Modifier.height(8.dp))
                     }
-                    DownloadStatusLine(offline)
-                    Spacer(Modifier.height(8.dp))
                 }
             }
+            if (details.entries.isEmpty()) {
+                item(key = "empty") { EmptyHint(stringResource(R.string.playlist_empty)) }
+            }
+            // Ein Song kann mehrfach vorkommen – Schlüssel ist daher der Eintrag, nicht der Song.
+            val serverName = playlist.serverName
+            groupedItemsIndexed(details.entries, key = { _, entry -> entry.entryId }) { index, entry ->
+                SongListItem(
+                    song = entry.song,
+                    onClick = { onPlay(index) },
+                    actions = actions,
+                    onRemoveFromPlaylist = { onRemoveEntry(entry.entryId) },
+                    warning = if (entry.missingOnServer && serverName != null) {
+                        stringResource(R.string.playlist_missing_on_server, serverName)
+                    } else {
+                        null
+                    },
+                )
+            }
         }
-        if (details.entries.isEmpty()) {
-            item(key = "empty") { EmptyHint(stringResource(R.string.playlist_empty)) }
-        }
-        // Ein Song kann mehrfach vorkommen – Schlüssel ist daher der Eintrag, nicht der Song.
-        val serverName = playlist.serverName
-        groupedItemsIndexed(details.entries, key = { _, entry -> entry.entryId }) { index, entry ->
-            SongListItem(
-                song = entry.song,
-                onClick = { onPlay(index) },
-                actions = actions,
-                onRemoveFromPlaylist = { onRemoveEntry(entry.entryId) },
-                warning = if (entry.missingOnServer && serverName != null) {
-                    stringResource(R.string.playlist_missing_on_server, serverName)
-                } else {
-                    null
-                },
-            )
-        }
+        // Ohne Marke: Playlists haben ihre eigene Reihenfolge.
+        LazyListFastScroller(listState)
     }
 }
 

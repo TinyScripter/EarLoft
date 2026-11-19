@@ -48,6 +48,9 @@ import de.kleinabersmart.earloft.core.model.EpisodeFilter
 import de.kleinabersmart.earloft.core.model.FeedQueueMode
 import de.kleinabersmart.earloft.core.model.FeedSort
 import de.kleinabersmart.earloft.ui.components.HeaderAction
+import de.kleinabersmart.earloft.ui.components.LazyGridFastScroller
+import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
+import de.kleinabersmart.earloft.ui.components.letterOf
 import de.kleinabersmart.earloft.ui.components.SortButton
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -351,7 +354,15 @@ fun PodcastLibraryScreen(
             when (PodcastTab.entries[page]) {
                 // Ohne Abos zeigen Neu und Abos dasselbe wie der Start: Hinzufügen und Ausblenden.
                 PodcastTab.NEW -> if (feeds.valueOrNull?.isEmpty() == true) empty() else NewEpisodes(onEpisodeClick, selection, newViewModel)
-                PodcastTab.FEEDS -> FeedGrid(feeds, newEpisodeCounts, onFeedClick, onFeedSettings, onAdd = onAddPodcast, empty = empty)
+                PodcastTab.FEEDS -> FeedGrid(
+                    feeds,
+                    newEpisodeCounts,
+                    onFeedClick,
+                    onFeedSettings,
+                    onAdd = onAddPodcast,
+                    empty = empty,
+                    byName = feedSort == FeedSort.NAME,
+                )
                 PodcastTab.STARRED -> if (feeds.valueOrNull?.isEmpty() == true) empty() else StarredEpisodes(onEpisodeClick, selection, starredViewModel)
                 PodcastTab.STATS -> PodcastStatsScreen(onFeedClick, onEpisodeClick, onOpenHistory)
             }
@@ -359,7 +370,10 @@ fun PodcastLibraryScreen(
     }
 }
 
-/** Alle Abos als Bilder, drei nebeneinander; das „+“ schwebt unten rechts und bleibt beim Scrollen stehen. */
+/**
+ * Alle Abos als Bilder, drei nebeneinander; das „+“ schwebt unten rechts und bleibt beim Scrollen stehen. Der Schnellscroller
+ * zeigt nach Name ([byName]) den Anfangsbuchstaben, sonst nur den Griff.
+ */
 @Composable
 private fun FeedGrid(
     state: LoadState<List<PodcastFeed>>,
@@ -368,6 +382,7 @@ private fun FeedGrid(
     onFeedSettings: (String) -> Unit,
     onAdd: () -> Unit,
     empty: @Composable () -> Unit,
+    byName: Boolean,
 ) {
     Box(Modifier.fillMaxSize()) {
         LoadableList(state, empty) { feeds ->
@@ -393,6 +408,12 @@ private fun FeedGrid(
                     )
                 }
             }
+            // Endet über dem „+“, damit der Griff nicht darunter verschwindet.
+            LazyGridFastScroller(
+                gridState,
+                Modifier.padding(bottom = 88.dp),
+                labelAt = if (byName) { index -> letterOf(feeds.getOrNull(index)?.title.orEmpty()) } else null,
+            )
         }
         FloatingActionButton(onClick = onAdd, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
             Icon(painterResource(DesignR.drawable.ic_add), contentDescription = stringResource(R.string.podcast_add))
@@ -549,7 +570,12 @@ fun PodcastScreen(
             Column(Modifier.fillMaxSize()) {
                 if (pinned) headerContent()
                 PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = if (pinned) 4.dp else 0.dp, bottom = 24.dp)) {
+                    val listState = rememberLazyListState()
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        state = listState,
+                        contentPadding = PaddingValues(top = if (pinned) 4.dp else 0.dp, bottom = 24.dp),
+                    ) {
                         if (!pinned) item(key = "header") { headerContent() }
                         if (shownEpisodes is LoadState.Ready && list.isEmpty() && episodes.valueOrNull.orEmpty().isNotEmpty()) {
                             item(key = "filter-empty") { EmptyHint(stringResource(R.string.library_filter_empty)) }
@@ -587,6 +613,8 @@ fun PodcastScreen(
                             }
                         }
                     }
+                    // Ohne Marke: Kopf, Staffeln und Filter machen aus dem Index keine Folge.
+                    LazyListFastScroller(listState)
                 }
             }
         }

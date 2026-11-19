@@ -44,6 +44,7 @@ import de.kleinabersmart.earloft.core.playback.PlayerState
 import de.kleinabersmart.earloft.core.playback.QueueEntry
 import de.kleinabersmart.earloft.ui.components.AlbumArt
 import de.kleinabersmart.earloft.ui.components.EmptyHint
+import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
 import de.kleinabersmart.earloft.ui.components.QueueMoreMenu
 import de.kleinabersmart.earloft.ui.components.QueueTitle
 import de.kleinabersmart.earloft.ui.components.rememberReorderState
@@ -212,6 +213,8 @@ fun QueueList(
                 )
             }
         }
+        // Ohne Marke: Die Reihenfolge ist die der Wiedergabe. Die Ziehgriffe zum Umsortieren liegen links.
+        LazyListFastScroller(listState)
     }
 }
 

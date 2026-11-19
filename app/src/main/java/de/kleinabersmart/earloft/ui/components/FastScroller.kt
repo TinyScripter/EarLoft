@@ -63,9 +63,12 @@ fun letterOf(sortText: String): String {
 fun foldedLetterOf(sortText: String): String =
     sortText.normalizeForMerge().firstOrNull()?.takeIf { it.isLetter() }?.uppercaseChar()?.toString() ?: "#"
 
-/** Schnellscroller für eine [androidx.compose.foundation.lazy.LazyColumn]; [labelAt] liefert zum Listenindex den Buchstaben. */
+/**
+ * Schnellscroller für eine [androidx.compose.foundation.lazy.LazyColumn]; [labelAt] liefert zum Listenindex die Marke (z. B. den
+ * Buchstaben). Ohne [labelAt] (Listen nach Datum oder in eigener Reihenfolge) gibt es nur den Griff, keine Blase.
+ */
 @Composable
-fun LazyListFastScroller(state: LazyListState, labelAt: (Int) -> String, modifier: Modifier = Modifier) {
+fun LazyListFastScroller(state: LazyListState, modifier: Modifier = Modifier, labelAt: ((Int) -> String)? = null) {
     // layoutInfo ändert sich bei jedem Scroll-Frame; nur die Anzahl ist hier von Belang.
     val itemCount by remember(state) { derivedStateOf { state.layoutInfo.totalItemsCount } }
     FastScroller(
@@ -80,7 +83,7 @@ fun LazyListFastScroller(state: LazyListState, labelAt: (Int) -> String, modifie
 
 /** Wie [LazyListFastScroller] für ein [androidx.compose.foundation.lazy.grid.LazyVerticalGrid]. */
 @Composable
-fun LazyGridFastScroller(state: LazyGridState, labelAt: (Int) -> String, modifier: Modifier = Modifier) {
+fun LazyGridFastScroller(state: LazyGridState, modifier: Modifier = Modifier, labelAt: ((Int) -> String)? = null) {
     val itemCount by remember(state) { derivedStateOf { state.layoutInfo.totalItemsCount } }
     FastScroller(
         itemCount = itemCount,
@@ -94,7 +97,7 @@ fun LazyGridFastScroller(state: LazyGridState, labelAt: (Int) -> String, modifie
 
 /**
  * Griff am rechten Rand, mit dem sich lange Listen schnell durchfahren lassen. Er erscheint beim Scrollen
- * und blendet sich danach aus; beim Ziehen zeigt eine Blase den Buchstaben der ersten sichtbaren Zeile.
+ * und blendet sich danach aus; beim Ziehen zeigt eine Blase die Marke ([labelAt]) der ersten sichtbaren Zeile, ohne Marke keine.
  * Gedacht als Überlagerung über der Liste (gleiche Größe), fängt aber nur am rechten Rand Berührungen ab.
  */
 @Composable
@@ -103,7 +106,7 @@ private fun FastScroller(
     firstVisibleIndex: () -> Int,
     isScrolling: Boolean,
     scrollToItem: suspend (Int) -> Unit,
-    labelAt: (Int) -> String,
+    labelAt: ((Int) -> String)?,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -172,7 +175,7 @@ private fun FastScroller(
             }
         }
 
-        AnimatedVisibility(
+        if (labelAt != null) AnimatedVisibility(
             visible = dragging,
             enter = fadeIn(),
             exit = fadeOut(),

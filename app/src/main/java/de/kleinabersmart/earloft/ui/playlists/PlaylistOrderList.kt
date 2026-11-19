@@ -1,5 +1,6 @@
 package de.kleinabersmart.earloft.ui.playlists
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import de.kleinabersmart.earloft.R
 import de.kleinabersmart.earloft.core.model.PlaylistEntry
 import de.kleinabersmart.earloft.ui.components.AlbumArt
+import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
 import de.kleinabersmart.earloft.ui.components.rememberReorderState
 import de.kleinabersmart.earloft.ui.components.reorderActions
 import de.kleinabersmart.earloft.ui.components.reorderHandle
@@ -39,38 +41,42 @@ fun PlaylistOrderList(entries: SnapshotStateList<PlaylistEntry>, modifier: Modif
     val reorder = rememberReorderState(listState)
     val move = { from: Int, to: Int -> entries.add(to, entries.removeAt(from)) }
 
-    LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
-        items(entries, key = { it.entryId }) { entry ->
-            val index = entries.indexOf(entry)
-            ListItem(
-                headlineContent = { Text(entry.song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                supportingContent = { Text(entry.song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                leadingContent = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            painterResource(DesignR.drawable.ic_drag_handle),
-                            contentDescription = stringResource(R.string.action_reorder_queue_item),
-                            modifier = Modifier
-                                .size(40.dp)
-                                .padding(8.dp)
-                                .reorderHandle(
-                                    reorder,
-                                    entry.entryId,
-                                    index = { entries.indexOfFirst { it.entryId == entry.entryId } },
-                                    onMove = move,
-                                ),
-                        )
-                        AlbumArt(
-                            albumId = entry.song.albumId,
-                            modifier = Modifier.padding(start = 4.dp).size(48.dp),
-                            shape = MaterialTheme.shapes.small,
-                        )
-                    }
-                },
-                modifier = Modifier
-                    .reorderableItem(this, reorder, entry.entryId)
-                    .reorderActions(index, entries.size, move),
-            )
+    Box(modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
+            items(entries, key = { it.entryId }) { entry ->
+                val index = entries.indexOf(entry)
+                ListItem(
+                    headlineContent = { Text(entry.song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    supportingContent = { Text(entry.song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    leadingContent = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                painterResource(DesignR.drawable.ic_drag_handle),
+                                contentDescription = stringResource(R.string.action_reorder_queue_item),
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .padding(8.dp)
+                                    .reorderHandle(
+                                        reorder,
+                                        entry.entryId,
+                                        index = { entries.indexOfFirst { it.entryId == entry.entryId } },
+                                        onMove = move,
+                                    ),
+                            )
+                            AlbumArt(
+                                albumId = entry.song.albumId,
+                                modifier = Modifier.padding(start = 4.dp).size(48.dp),
+                                shape = MaterialTheme.shapes.small,
+                            )
+                        }
+                    },
+                    modifier = Modifier
+                        .reorderableItem(this, reorder, entry.entryId)
+                        .reorderActions(index, entries.size, move),
+                )
+            }
         }
+        // Ohne Marke (eigene Reihenfolge); die Ziehgriffe zum Umsortieren liegen links.
+        LazyListFastScroller(listState)
     }
 }

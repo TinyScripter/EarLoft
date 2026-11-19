@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kleinabersmart.earloft.ui.components.GroupMargin
+import de.kleinabersmart.earloft.ui.components.LazyListFastScroller
 import de.kleinabersmart.earloft.ui.components.group
 import de.kleinabersmart.earloft.ui.components.groupedItems
 import de.kleinabersmart.earloft.ui.components.readableWidth
@@ -152,57 +154,62 @@ private fun DownloadsContent(
             state.isLoading -> LoadingIndicator()
             state.isFailed -> LoadFailedHint()
             isEmpty -> EmptyHint(stringResource(R.string.downloads_empty))
-            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                item(key = "storage") { StorageLine(overview) }
-                group("status") {
-                    if (overview.pendingSongs > 0) row("pending") { PendingRow(overview) }
-                    if (overview.failedSongs > 0) row("failed") { FailedRow(overview.failedSongs, onRetryFailed) }
-                }
-                if (state.albums.isNotEmpty()) {
-                    item(key = "albums-header") {
-                        CategoryHeader(stringResource(R.string.downloads_section_music)) { categoryToRemove = DownloadCategory.MUSIC }
+            else -> Box(Modifier.fillMaxSize()) {
+                val listState = rememberLazyListState()
+                LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
+                    item(key = "storage") { StorageLine(overview) }
+                    group("status") {
+                        if (overview.pendingSongs > 0) row("pending") { PendingRow(overview) }
+                        if (overview.failedSongs > 0) row("failed") { FailedRow(overview.failedSongs, onRetryFailed) }
+                    }
+                    if (state.albums.isNotEmpty()) {
+                        item(key = "albums-header") {
+                            CategoryHeader(stringResource(R.string.downloads_section_music)) { categoryToRemove = DownloadCategory.MUSIC }
+                        }
+                    }
+                    groupedItems(state.albums, key = { "album-${it.album.id}" }) { album ->
+                        DownloadedAlbumRow(
+                            album = album,
+                            onClick = { onAlbumClick(album.album.id) },
+                            onRemove = { albumToRemove = album.album.id },
+                        )
+                    }
+                    if (state.books.isNotEmpty()) {
+                        item(key = "books-header") {
+                            CategoryHeader(stringResource(R.string.downloads_section_books)) { categoryToRemove = DownloadCategory.BOOKS }
+                        }
+                    }
+                    groupedItems(state.books, key = { "book-${it.book.id}" }) { item ->
+                        DownloadedBookRow(
+                            item = item,
+                            transfer = transfers[item.book.id],
+                            onClick = { onBookClick(item.book.id) },
+                            // Ein wartender oder ladender Download wird ohne Rückfrage abgebrochen; ein ganz oder teilweise
+                            // geladener gelöscht, nach Rückfrage.
+                            onRemove = {
+                                if (item.download.state == TrackDownload.DONE || item.download.partial) {
+                                    bookToRemove = item.book.id
+                                } else {
+                                    onRemoveBook(item.book.id)
+                                }
+                            },
+                        )
+                    }
+                    if (state.podcasts.isNotEmpty()) {
+                        item(key = "podcasts-header") {
+                            CategoryHeader(stringResource(R.string.downloads_section_podcasts)) { categoryToRemove = DownloadCategory.PODCASTS }
+                        }
+                    }
+                    groupedItems(state.podcasts, key = { "podcast-${it.feed.id}" }) { item ->
+                        DownloadedFeedRow(
+                            item = item,
+                            onClick = { onPodcastClick(item.feed.id) },
+                            onRemove = { feedToRemove = item.feed.id },
+                        )
                     }
                 }
-                groupedItems(state.albums, key = { "album-${it.album.id}" }) { album ->
-                    DownloadedAlbumRow(
-                        album = album,
-                        onClick = { onAlbumClick(album.album.id) },
-                        onRemove = { albumToRemove = album.album.id },
-                    )
-                }
-                if (state.books.isNotEmpty()) {
-                    item(key = "books-header") {
-                        CategoryHeader(stringResource(R.string.downloads_section_books)) { categoryToRemove = DownloadCategory.BOOKS }
-                    }
-                }
-                groupedItems(state.books, key = { "book-${it.book.id}" }) { item ->
-                    DownloadedBookRow(
-                        item = item,
-                        transfer = transfers[item.book.id],
-                        onClick = { onBookClick(item.book.id) },
-                        // Ein wartender oder ladender Download wird ohne Rückfrage abgebrochen; ein ganz oder teilweise
-                        // geladener gelöscht, nach Rückfrage.
-                        onRemove = {
-                            if (item.download.state == TrackDownload.DONE || item.download.partial) {
-                                bookToRemove = item.book.id
-                            } else {
-                                onRemoveBook(item.book.id)
-                            }
-                        },
-                    )
-                }
-                if (state.podcasts.isNotEmpty()) {
-                    item(key = "podcasts-header") {
-                        CategoryHeader(stringResource(R.string.downloads_section_podcasts)) { categoryToRemove = DownloadCategory.PODCASTS }
-                    }
-                }
-                groupedItems(state.podcasts, key = { "podcast-${it.feed.id}" }) { item ->
-                    DownloadedFeedRow(
-                        item = item,
-                        onClick = { onPodcastClick(item.feed.id) },
-                        onRemove = { feedToRemove = item.feed.id },
-                    )
-                }
+                // Ohne Marke: drei Abschnitte mit eigener Reihenfolge.
+                LazyListFastScroller(listState)
             }
         }
     }

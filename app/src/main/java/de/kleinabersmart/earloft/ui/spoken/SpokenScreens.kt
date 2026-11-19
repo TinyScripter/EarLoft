@@ -345,7 +345,7 @@ fun SpokenLibraryScreen(
 }
 
 /**
- * Bücher als Raster; mit [scrollLabel] samt Schnellscroller (z. B. Anfangsbuchstabe), mit [header] einer Zeile darüber über die
+ * Bücher als Raster mit Schnellscroller, mit [scrollLabel] samt Marke (z. B. Anfangsbuchstabe), mit [header] einer Zeile darüber über die
  * ganze Breite, mit [volumes] dem Band je Buch oben links (Serienseite). Ändert sich [resetKey], beginnt das Raster oben.
  */
 @Composable
@@ -415,10 +415,8 @@ private fun BookGrid(
                 }
             }
         }
-        if (scrollLabel != null) {
-            val offset = if (header != null) 1 else 0
-            LazyGridFastScroller(state, labelAt = { index -> books.getOrNull((index - offset).coerceAtLeast(0))?.let(scrollLabel).orEmpty() })
-        }
+        val offset = if (header != null) 1 else 0
+        LazyGridFastScroller(state, labelAt = scrollLabel?.let { label -> { index -> books.getOrNull((index - offset).coerceAtLeast(0))?.let(label).orEmpty() } })
     }
 }
 
@@ -565,7 +563,7 @@ private val BookFilter.label: Int
 
 /**
  * Autoren als Raster, zwei pro Reihe: Autorenbild (von Audiobookshelf, sonst aus dem Internet, wenn die Option an ist), darunter
- * Name und Anzahl der Bücher. Ohne Bild bleibt das Cover des ersten Buchs. Den Schnellscroller gibt es nur nach Name ([byName]).
+ * Name und Anzahl der Bücher. Ohne Bild bleibt das Cover des ersten Buchs. Der Schnellscroller zeigt nur nach Name ([byName]) den Buchstaben.
  */
 @Composable
 private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?, onClick: (String) -> Unit) {
@@ -618,13 +616,13 @@ private fun AuthorGrid(authors: List<BookGroup>, byName: Boolean, resetKey: Any?
                 }
             }
         }
-        if (byName) LazyGridFastScroller(state, labelAt = { index -> foldedLetterOf(authors.getOrNull(index)?.name.orEmpty().sortKey()) })
+        LazyGridFastScroller(state, labelAt = if (byName) { index -> foldedLetterOf(authors.getOrNull(index)?.name.orEmpty().sortKey()) } else null)
     }
 }
 
 /**
  * Serien mit dem Cover des Bands, mit dem es weitergeht (sonst des ersten), und ihrem Stand: „3 von 7 gehört“, solange noch
- * keiner beendet ist die Anzahl. Schnellscroller nur nach Name ([byName]).
+ * keiner beendet ist die Anzahl. Der Schnellscroller zeigt nur nach Name ([byName]) den Buchstaben.
  */
 @Composable
 private fun SeriesList(groups: List<SeriesProgress>, byName: Boolean, resetKey: Any?, onClick: (String) -> Unit) {
@@ -647,7 +645,7 @@ private fun SeriesList(groups: List<SeriesProgress>, byName: Boolean, resetKey: 
                 )
             }
         }
-        if (byName) LazyListFastScroller(state, labelAt = { index -> foldedLetterOf(groups.getOrNull(index)?.name.orEmpty().sortKey()) })
+        LazyListFastScroller(state, labelAt = if (byName) { index -> foldedLetterOf(groups.getOrNull(index)?.name.orEmpty().sortKey()) } else null)
     }
 }
 
